@@ -31,20 +31,25 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id');
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
-		say "<h1>batch insert profiles</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid scheme passed.</p></div>";
+		say q(<h1>Batch insert profiles</h1>);
+		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
 		return;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say
-"<div class=\"box\" id=\"statusbad\"><p>You can only add profiles to a sequence/profile database - this is an isolate "
-		  . "database.</p></div>";
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say q(<h1>Batch insert profiles</h1>);
+		say q(<div class="box" id="statusbad"><p>You can only add profiles to a sequence/profile database - )
+		  . q(this is an isolate database.</p></div>);
 		return;
-	} elsif ( !$self->can_modify_table('profiles') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add new profiles.</p></div>";
+	}
+	if ( !$self->can_modify_table('profiles') ) {
+		say q(<h1>Batch insert profiles</h1>);
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add new profiles.</p></div>);
 		return;
-	} elsif ($set_id) {
+	}
+	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>";
+			say q(<h1>Batch insert profiles</h1>);
+			say q(<div class="box" id="statusbad"><p>The selected scheme is inaccessible.</p></div>);
 			return;
 		}
 	}
@@ -54,14 +59,12 @@ sub print_content {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say
-qq(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles can not be entered )
-		  . qq(until this has been done.</p></div>);
+		say q(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  )
+		  . q(Profiles cannot be entered until this has been done.</p></div>);
 		return;
 	} elsif ( !@$loci ) {
-		say
-qq(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles can not be entered )
-		  . qq(until there is at least one locus defined.</p></div>);
+		say q(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  )
+		  . q(Profiles cannot be entered until there is at least one locus defined.</p></div>);
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -93,32 +96,21 @@ sub get_title {
 
 sub _is_pk_used {
 	my ( $self, $scheme_id, $profile_id ) = @_;
-	if ( !$self->{'sql'}->{'pk_used'} ) {
-		my $qry = "SELECT count(*) FROM profiles WHERE scheme_id=? AND profile_id=?";
-		$self->{'sql'}->{'pk_used'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'pk_used'}->execute( $scheme_id, $profile_id ) };
-	$logger->error($@) if $@;
-	my ($used) = $self->{'sql'}->{'pk_used'}->fetchrow_array;
-	return $used;
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id ],
+		{ cache => 'CurateProfileBatchAddPage::is_pk_used' }
+	);
 }
 
+#remove trailing spaces
 sub _process_fields {
 	my ( $self, $data ) = @_;
-	my @return_data;
-	foreach (@$data) {
-
-		#remove trailing spaces
-		$_ =~ s/^\s+//;
-		$_ =~ s/\s+$//;
-		$_ =~ s/'/\'\'/g;
-		if ( $_ eq '' ) {
-			push @return_data, 'null';
-		} else {
-			push @return_data, $_;
-		}
+	foreach my $value (@$data) {
+		$value =~ s/^\s+//x;
+		$value =~ s/\s+$//x;
 	}
-	return @return_data;
+	return;
 }
 
 sub _check {
@@ -160,25 +152,25 @@ sub _check {
 	my $sender = $q->param('sender');
 	my %problems;
 	if ( !$sender ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please enter a sender for this submission.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Please enter a sender for this submission.</p></div>);
 		$self->_print_interface($scheme_id);
 		return;
 	} elsif ( $sender == -1 ) {
-		$sender_message = "<p>Using sender field in pasted data.</p>\n";
+		$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 	} else {
 		my $sender_ref = $self->{'datastore'}->get_user_info($sender);
 		if ( !$sender_ref ) {
-			say qq(<div class="box" id="statusbad"><p>Sender is unrecognized.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Sender is unrecognized.</p></div>);
 			$self->_print_interface($scheme_id);
 			return;
 		}
-		$sender_message = "<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n";
+		$sender_message = qq(<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n);
 	}
-	my @records   = split /\n/, $q->param('data');
+	my @records   = split /\n/x, $q->param('data');
 	my $td        = 1;
 	my $headerRow = shift @records;
-	$headerRow =~ s/\r//g;
-	my @fileheaderFields = split /\t/, $headerRow;
+	$headerRow =~ s/\r//gx;
+	my @fileheaderFields = split /\t/x, $headerRow;
 	my %fileheaderPos;
 	my $i = 0;
 	my $pk_included;
@@ -192,8 +184,6 @@ sub _check {
 	my $pk;
 	my $integer_pk = $self->_is_integer_primary_key($scheme_id);
 	$pk = $self->next_id( 'profiles', $scheme_id ) if $integer_pk;
-	my $qry                   = "SELECT profile_id FROM profiles WHERE scheme_id=? AND profile_id=?";
-	my $primary_key_check_sql = $self->{'db'}->prepare($qry);
 	my %locus_format;
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -203,14 +193,16 @@ sub _check {
 	my $first_record = 1;
 	my $header_row;
 	my $record_count;
-  RECORD: foreach my $record (@records) {
+  RECORD: foreach my $row (@records) {
 		my $row_buffer;
-		$record =~ s/\r//g;
-		next if $record =~ /^\s*$/;
+		$row =~ s/\r//gx;
+		next if $row =~ /^\s*$/x;
 		my @profile;
 		my %newdata;
 		my $checked_record;
-		my @data = split /\t/, $record;
+		my @data = split /\t/x, $row;
+		$self->_process_fields( \@data );
+
 		if ( $integer_pk && !$first_record && !$pk_included ) {
 			do {
 				$pk++;
@@ -219,7 +211,7 @@ sub _check {
 			$pk = $data[ $fileheaderPos{$primary_key} ];
 		}
 		$record_count++;
-		$row_buffer .= "<tr class=\"td$td\">";
+		$row_buffer .= qq(<tr class="td$td">);
 		$i = 0;
 		foreach my $field (@fieldorder) {
 			my $value;
@@ -230,25 +222,28 @@ sub _check {
 			}
 			my $problem;
 			if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-				$value = $self->get_datestamp();
+				$value = $self->get_datestamp;
 			} elsif ( $field eq 'sender' ) {
 				if ( defined $fileheaderPos{$field} ) {
 					$value = $data[ $fileheaderPos{$field} ];
 					$header_row .= "$field\t" if $first_record;
 					if ( !BIGSdb::Utils::is_int($value) ) {
-						$problems{$pk} .= "Sender must be an integer.<br />";
+						$problems{$pk} .= 'Sender must be an integer.<br />';
 						$problem = 1;
 					} else {
 						my $sender_exists =
-						  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $value );
+						  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=? AND id>0)',
+							$value, { cache => 'CurateProfileBatchAddPage::check:sender_exists' } );
 						if ( !$sender_exists ) {
 							$problems{$pk} .= "Sender '$value' does not exist.<br />";
 							$problem = 1;
 						}
 					}
+				} elsif ( BIGSdb::Utils::is_int( $q->param('sender') ) && $q->param('sender') != -1 ) {
+					$value = $q->param('sender');
 				} else {
-					$value = $q->param('sender')
-					  if $q->param('sender') != -1;
+					$problems{$pk} .= 'Sender not set.<br />';
+					$problem = 1;
 				}
 			} elsif ( $field eq 'curator' ) {
 				$value = $self->get_curator_id;
@@ -259,8 +254,6 @@ sub _check {
 				}
 			}
 			$value = defined $value ? $value : '';
-			$value =~ s/^\s*//;
-			$value =~ s/\s*$//;
 			if ( $is_locus{$field} ) {
 				push @profile, $value;
 				$newdata{"locus:$field"} = $value;
@@ -293,18 +286,20 @@ sub _check {
 		}
 
 		#check if profile exists
-		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		$problems{$pk} .= "$msg<br />" if $exists;
+		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
+		$problems{$pk} .= "$msg<br />" if $profile_exists;
 
 		#check if primary key already exists
-		eval { $primary_key_check_sql->execute( $scheme_id, $pk ) };
-		$logger->error($@) if $@;
-		($exists) = $primary_key_check_sql->fetchrow_array;
-		if ($exists) {
+		my $pk_exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
+			[ $scheme_id, $pk ],
+			{ cache => 'CurateProfileBatchAddPage::check::pk_check' }
+		);
+		if ($pk_exists) {
 			$problems{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
 		}
-		if ( $pks_so_far{ $pk // '' } ) {
-			$problems{$pk} .= "This primary key has been included more than once in this submission.<br />";
+		if ( $pks_so_far{ $pk // q() } ) {
+			$problems{$pk} .= 'This primary key has been included more than once in this submission.<br />';
 		}
 		{
 			no warnings 'uninitialized';
@@ -317,7 +312,7 @@ sub _check {
 				#Need to check if profile matches another in this submission using arbitrary matches against allele 'N'.
 				foreach my $profile_string ( keys %profiles_so_far ) {
 					my $it_matches = 1;
-					my @existing_profile = split /,/, $profile_string;
+					my @existing_profile = split /,/x, $profile_string;
 					foreach my $i ( 0 .. @profile - 1 ) {
 						if (   $profile[$i] ne $existing_profile[$i]
 							&& $profile[$i] ne 'N'
@@ -329,8 +324,8 @@ sub _check {
 					}
 					if ($it_matches) {
 						$problems{$pk} .=
-						    "The profile '@profile' matches another profile in this submission when considering that "
-						  . "arbitrary allele 'N' can match any other allele.";
+						    qq(The profile '@profile' matches another profile in this submission when considering that )
+						  . q(arbitrary allele 'N' can match any other allele.);
 						last;
 					}
 				}
@@ -342,46 +337,46 @@ sub _check {
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @checked_buffer, $header_row if $first_record;
-		$checked_record =~ s/\t$//;
+		$checked_record =~ s/\t$//x;
 		push @checked_buffer, $checked_record;
 		$first_record = 0;
 	}
 	$table_buffer .= "</table>\n";
 	if ( !$record_count ) {
-		say
-"<div class=\"box\" id=\"statusbad\"><p>No valid data entered. Make sure you've included the header line.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No valid data entered. Make sure )
+		  . q(you've included the header line.</p></div>);
 		return;
 	}
 	if (%problems) {
-		say qq(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say qq(<div class="scrollable">);
-		say qq(<table class="resultstable">);
-		say "<tr><th>$primary_key</th><th>Problem(s)</th></tr>";
+		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say q(<div class="scrollable">);
+		say q(<table class="resultstable">);
+		say qq(<tr><th>$primary_key</th><th>Problem(s)</th></tr>);
 		$td = 1;
 		{
 			no warnings 'numeric';
 			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {
 				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems{$id}</td></tr>);
-				$td = $td == 1 ? 2 : 1;    #row stripes
+				$td = $td == 1 ? 2 : 1;
 			}
 		}
-		say "</table></div></div>";
+		say q(</table></div></div>);
 	} else {
-		say
-qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious problems identified so far.</p>);
+		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious )
+		  . q(problems identified so far.</p>);
 		my $filename = $self->make_temp_file(@checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (data page table db sender scheme_id submission_id);
 		say $q->hidden( 'checked_buffer', $filename );
 		say $q->submit( -name => 'Import data', -class => 'submit' );
 		say $q->endform;
-		say "</div>";
+		say q(</div>);
 	}
-	say qq(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	say "<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>";
-	say qq(<div class="scrollable">);
+	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	say q(<p>The following table shows your data.  Any field coloured red has a problem and needs to be checked.</p>);
+	say q(<div class="scrollable">);
 	say $table_buffer;
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
@@ -399,118 +394,87 @@ sub _upload {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
 	}
-	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/ ) {
+	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");
 		unlink $1;
 	} else {
 		$logger->error("Can't delete temp file $tmp_file");
 	}
 	my $headerline = shift @records || '';
-	$headerline =~ s/[\r\n]//g;
-	my @fieldorder = split /\t/, $headerline;
+	$headerline =~ s/[\r\n]//gx;
+	my @fieldorder = split /\t/x, $headerline;
 	my %fieldorder;
-	for ( my $i = 0 ; $i < scalar @fieldorder ; $i++ ) {
+	for my $i ( 0 .. @fieldorder - 1 ) {
 		$fieldorder{ $fieldorder[$i] } = $i;
 	}
-	my @fields_to_include = qw(sender curator date_entered datestamp);
-	my $primary_key       = $scheme_info->{'primary_key'};
+	my $primary_key = $scheme_info->{'primary_key'};
 	my @profile_ids;
-	foreach my $record (@records) {
-		$record =~ s/\r//g;
-		if ($record) {
-			my @data = split /\t/, $record;
-			@data = $self->_process_fields( \@data );
-			my @value_list;
-			my ( $pk, $sender );
-			foreach (@fields_to_include) {
-				$pk = $data[ $fieldorder{$_} ] if $_ eq $primary_key;
-				if ( $_ eq 'date_entered' || $_ eq 'datestamp' ) {
-					push @value_list, "'today'";
-				} elsif ( $_ eq 'curator' ) {
-					push @value_list, $self->get_curator_id;
-				} elsif ( defined $fieldorder{$_}
-					&& $data[ $fieldorder{$_} ] ne 'null' )
-				{
-					push @value_list, "'$data[$fieldorder{$_}]'";
-					if ( $_ eq 'sender' ) {
-						$sender = $data[ $fieldorder{$_} ];
-					}
-				} elsif ( $_ eq 'sender' ) {
-					if ( $q->param('sender') ) {
-						$sender = $q->param('sender');
-						push @value_list, $sender;
-					} else {
-						push @value_list, 'null';
-						$logger->error("No sender!");
-					}
-				} else {
-					push @value_list, 'null';
-				}
+	foreach my $row (@records) {
+		$row =~ s/\r//gx;
+		next if !$row;
+		my @data = split /\t/x, $row;
+		$self->_process_fields( \@data );
+		my $profile_id = $data[ $fieldorder{$primary_key} ];
+		my $sender;
+		if ( $fieldorder{'sender'} && $data[ $fieldorder{'sender'} ] ) {
+			$sender = $data[ $fieldorder{'sender'} ];
+		} elsif ( $q->param('sender') ) {
+			$sender = $q->param('sender');
+		}
+		my $curator = $self->get_curator_id;
+		my @inserts;
+		push @inserts,
+		  {
+			statement => 'INSERT INTO profiles (scheme_id,profile_id,sender,curator,'
+			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?)',
+			arguments => [ $scheme_id, $profile_id, $sender, $curator, 'now', 'now' ]
+		  };
+		push @profile_ids, $profile_id;
+		foreach my $locus (@$loci) {
+			my $mapped_locus = $self->map_locus_name($locus);
+			push @inserts,
+			  {
+				statement => 'INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,'
+				  . 'datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $scheme_id, $mapped_locus, $profile_id, $data[ $fieldorder{$locus} ], $curator, 'now' ]
+			  };
+		}
+		foreach my $field (@$scheme_fields) {
+			next
+			  if !defined $fieldorder{$field}
+			  || !defined $data[ $fieldorder{$field} ]
+			  || $data[ $fieldorder{$field} ] eq q();
+			push @inserts,
+			  {
+				statement => 'INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,'
+				  . 'datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $scheme_id, $field, $profile_id, $data[ $fieldorder{$field} ], $curator, 'now' ]
+			  };
+		}
+		eval {
+			foreach my $insert (@inserts)
+			{
+				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 			}
-			my @inserts;
-			my $qry;
-			local $" = ',';
-			$qry =
-"INSERT INTO profiles (scheme_id,profile_id,@fields_to_include) VALUES ($scheme_id,'$data[$fieldorder{$primary_key}]',"
-			  . "@value_list)";
-			push @inserts,     $qry;
-			push @profile_ids, $data[ $fieldorder{$primary_key} ];
-			my $curator = $self->get_curator_id;
-
-			foreach my $locus (@$loci) {
-				my $mapped = $self->map_locus_name($locus);
-				$mapped                      =~ s/'/\\'/g;
-				$data[ $fieldorder{$locus} ] =~ s/^\s*//g;
-				$data[ $fieldorder{$locus} ] =~ s/\s*$//g;
-				if (   defined $fieldorder{$locus}
-					&& $data[ $fieldorder{$locus} ] ne 'null'
-					&& $data[ $fieldorder{$locus} ] ne '' )
-				{
-					$qry =
-					    "INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,datestamp) VALUES "
-					  . "($scheme_id,E'$mapped','$data[$fieldorder{$primary_key}]','$data[$fieldorder{$locus}]','$curator','today')";
-					push @inserts, $qry;
-					$logger->debug("INSERT: $qry");
-				}
+		};
+		if ($@) {
+			say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled - )
+			  . q(no records have been touched.</p>);
+			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
+				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
+				  . q(unique field with duplicate values.</p>);
+			} else {
+				say qq(<p>Error message: $@</p>);
 			}
-			foreach (@$scheme_fields) {
-				my $value = defined $fieldorder{$_} ? $data[ $fieldorder{$_} ] : '';
-				$value = defined $value ? $value : '';
-				$value =~ s/^\s*//g;
-				$value =~ s/\s*$//g;
-				if (   defined $fieldorder{$_}
-					&& $value ne 'null'
-					&& $value ne '' )
-				{
-					$qry =
-					    "INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) VALUES "
-					  . "($scheme_id,E'$_','$data[$fieldorder{$primary_key}]','$value','$curator','today')";
-					push @inserts, $qry;
-				}
-			}
-			local $" = ';';
-			eval { $self->{'db'}->do("@inserts"); };
-			if ($@) {
-				say
-"<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have "
-				  . "been touched.</p>";
-				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					say
-"<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
-					  . "duplicate values.</p>";
-				} else {
-					say "<p>Error message: $@</p>";
-				}
-				say "</div>";
-				$self->{'db'}->rollback;
-				$logger->error("Can't insert: $@");
-				return;
-			}
+			say q(</div>);
+			$self->{'db'}->rollback;
+			$logger->error("Can't insert: $@");
+			return;
 		}
 	}
 	$self->refresh_material_view($scheme_id);
 	$self->{'db'}->commit
-	  && say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p><p>";
+	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
 	if ( $q->param('submission_id') ) {
 		my $submission = $self->{'datastore'}->get_submission( $q->param('submission_id') );
 		if ($submission) {
@@ -519,9 +483,9 @@ sub _upload {
 			  . q(submission</a> | );
 		}
 	}
-	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 	foreach my $profile_id (@profile_ids) {
-		$self->update_profile_history( $scheme_id, $profile_id, "Profile added" );
+		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}
 	return;
 }
@@ -540,7 +504,7 @@ copied from a spreadsheet.</p>
 can be in any order. Optional fields can be omitted if you wish.</li>
 HTML
 	if ( $self->_is_integer_primary_key($scheme_id) ) {
-		my $article = $primary_key =~ /^[AaEeIiOoUu]/ ? 'an' : 'a';
+		my $article = $primary_key =~ /^[AaEeIiOoUu]/x ? 'an' : 'a';
 		print << "HTML";
 <li>You can choose whether or not to include $article $primary_key 
 field - if it is omitted, the next available $primary_key will be used automatically.  If however, you include
@@ -558,7 +522,7 @@ Download submission template (xlsx format)</a></li>
 HTML
 	say $q->start_form;
 	my $user_data =
-	  $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname",
+	  $self->{'datastore'}->run_query( 'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @users;
 	my %usernames;
@@ -568,13 +532,13 @@ HTML
 		$usernames{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 	}
 	$usernames{-1} = 'Override with sender field';
-	say
-qq(<fieldset style="float:left"><legend>Please paste in tab-delimited text (<strong>include a field header line</strong>)</legend>);
+	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
+	  . q[(<strong>include a field header line</strong>)</legend>];
 	say $q->hidden($_) foreach qw (page db scheme_id submission_id);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
-	say "</fieldset>";
-	say qq(<fieldset style="float:left"><legend>Parameters</legend>);
-	say qq(<label for="sender" class="form" style="width:5em">Sender:</label>);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Parameters</legend>);
+	say q(<label for="sender" class="form" style="width:5em">Sender:</label>);
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
@@ -582,13 +546,13 @@ qq(<fieldset style="float:left"><legend>Please paste in tab-delimited text (<str
 		-labels   => \%usernames,
 		-required => 'required'
 	);
-	say qq(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
+	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
 	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Ignore duplicate profiles' );
-	say "</fieldset>";
+	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -596,7 +560,7 @@ sub _is_integer_primary_key {
 	my ( $self, $scheme_id ) = @_;
 	my $integer_pk =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT EXISTS(SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key AND type=?)",
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,type)=(?,?) AND primary_key)',
 		[ $scheme_id, 'integer' ] );
 	return $integer_pk;
 }
