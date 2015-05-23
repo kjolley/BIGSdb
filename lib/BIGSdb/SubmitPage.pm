@@ -26,6 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use BIGSdb::Page 'SEQ_METHODS';
+use List::Util qw(max);
 use List::MoreUtils qw(none);
 use File::Path qw(make_path remove_tree);
 use POSIX;
@@ -805,6 +806,7 @@ sub _check_new_profiles {
 	my %field_by_pos  = reverse %$positions;
 	my %err_message =
 	  ( missing => 'The header is missing a column for', duplicates => 'The header has duplicate columns for' );
+	my $max_col_index = max keys %field_by_pos;
 
 	foreach my $status (qw(missing duplicates)) {
 		if ( $header_status->{$status} ) {
@@ -831,8 +833,7 @@ sub _check_new_profiles {
 			my $value_count  = @values;
 			my $plural       = $value_count == 1 ? '' : 's';
 			my $designations = {};
-
-			for my $i ( 0 .. @values - 1 ) {
+			for my $i ( 0 .. $max_col_index ) {
 				$values[$i] //= '';
 				$values[$i] =~ s/^\s*//x;
 				$values[$i] =~ s/\s*$//x;
