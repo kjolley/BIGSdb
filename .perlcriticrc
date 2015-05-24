@@ -15,7 +15,7 @@ only_in_void_context = 1
 severity = stern
 
 [Subroutines::ProhibitExcessComplexity]
-max_mccabe = 25
+max_mccabe = 30
 
 [Subroutines::ProhibitManyArgs]
 severity = stern
