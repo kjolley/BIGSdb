@@ -105,9 +105,8 @@ sub new {
 			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
 				my $logger = get_logger('BIGSdb.Application_Authentication');
-				$logger->logdie(
-"No authentication attribute set - set to either 'apache' or 'builtin' in the system tag of the XML "
-					  . "database description." );
+				$logger->logdie( q(No authentication attribute set - set to either 'apache' or 'builtin' )
+					  . q(in the system tag of the XML database description.) );
 			}
 			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
@@ -125,12 +124,12 @@ sub new {
 sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
 	my $q = $self->{'cgi'};
-	Log::Log4perl::MDC->put( "ip", $q->remote_host );
+	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
 	$self->read_config_file($config_dir);
 	$self->read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $db = $self->{'cgi'}->param('db') || '';
-	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/ ? $1 : '';
+	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 
 	if ( !-e $full_path ) {
@@ -155,11 +154,11 @@ sub _initiate {
 	}
 	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
 	if ( $self->{'curate'} && $self->{'system'}->{'curate_path_includes'} ) {
-		if ( $self->{'script_name'} !~ /$self->{'system'}->{'curate_path_includes'}/ ) {
+		if ( $self->{'script_name'} !~ /$self->{'system'}->{'curate_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
 		}
 	} elsif ( !$self->{'curate'} && $self->{'system'}->{'script_path_includes'} ) {
-		if ( $self->{'script_name'} !~ /$self->{'system'}->{'script_path_includes'}/ ) {
+		if ( $self->{'script_name'} !~ /$self->{'system'}->{'script_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
 		}
 	}
@@ -171,36 +170,33 @@ sub _initiate {
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( 'page', 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
-	$self->{'system'}->{'read_access'} ||= 'public';      #everyone can view by default
-	$self->{'system'}->{'host'}        ||= 'localhost';
-	$self->{'system'}->{'port'}        ||= 5432;
-	$self->{'system'}->{'user'}        ||= 'apache';
-	$self->{'system'}->{'password'}    ||= 'remote';
-	$self->{'system'}->{'privacy'}     ||= 'yes';
+	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
+	$self->{'system'}->{'host'}        //= 'localhost';
+	$self->{'system'}->{'port'}        //= 5432;
+	$self->{'system'}->{'user'}        //= 'apache';
+	$self->{'system'}->{'password'}    //= 'remote';
+	$self->{'system'}->{'privacy'}     //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
-		$self->{'system'}->{'view'}       ||= 'isolates';
-		$self->{'system'}->{'labelfield'} ||= 'isolate';
+		$self->{'system'}->{'view'}       //= 'isolates';
+		$self->{'system'}->{'labelfield'} //= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
 			$logger->error(
-				    "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
-				  . "Please set the labelfield attribute in the system tag of the database XML file." );
+				    qq(The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database. )
+				  . q(Please set the labelfield attribute in the system tag of the database XML file.) );
 		}
 	}
 
-	#Allow individual database configs to override system auth and pref databases and tmp directories
-	$self->{'config'}->{'prefs_db'} = $self->{'system'}->{'prefs_db'} if defined $self->{'system'}->{'prefs_db'};
-	$self->{'config'}->{'auth_db'}  = $self->{'system'}->{'auth_db'}  if defined $self->{'system'}->{'auth_db'};
-	$self->{'config'}->{'tmp_dir'}  = $self->{'system'}->{'tmp_dir'}  if defined $self->{'system'}->{'tmp_dir'};
-	$self->{'config'}->{'secure_tmp_dir'} = $self->{'system'}->{'secure_tmp_dir'}
-	  if defined $self->{'system'}->{'secure_tmp_dir'};
-
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
-	$self->{'config'}->{'ref_db'} = $self->{'system'}->{'ref_db'} if defined $self->{'system'}->{'ref_db'};
+
+	#Allow individual database configs to override system auth and pref databases and tmp directories
+	foreach (qw (prefs_db auth_db tmp_dir secure_tmp_dir ref_db)) {
+		$self->{'config'}->{$_} = $self->{'system'}->{$_} if defined $self->{'system'}->{$_};
+	}
 
 	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
 	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
@@ -214,10 +210,10 @@ sub set_system_overrides {
 		open( my $fh, '<', $override_file )
 		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $override_file for reading");
 		while ( my $line = <$fh> ) {
-			next if $line =~ /^#/;
-			$line =~ s/^\s+//;
-			$line =~ s/\s+$//;
-			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/ ) {
+			next if $line =~ /^\#/x;
+			$line =~ s/^\s+//x;
+			$line =~ s/\s+$//x;
+			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
 				$self->{'system'}->{$1} = $2;
 			}
 		}
@@ -288,10 +284,11 @@ sub read_config_file {
 	my $config = Config::Tiny->new();
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	foreach (
-		qw ( prefs_db auth_db jobs_db rest_db max_load emboss_path tmp_dir secure_tmp_dir submission_dir blast+_path blast_threads
-		muscle_path	max_muscle_mb mafft_path mafft_threads mogrify_path ipcress_path splitstree_path reference refdb ref_db chartdirector
-		disable_updates disable_update_message intranet debug results_deleted_days cache_days doclink rest_behind_proxy
-		bcrypt_cost curate_script query_script submissions_deleted_days)
+		qw ( prefs_db auth_db jobs_db rest_db max_load emboss_path tmp_dir secure_tmp_dir submission_dir
+		blast+_path blast_threads muscle_path max_muscle_mb mafft_path mafft_threads mogrify_path ipcress_path
+		splitstree_path reference refdb ref_db chartdirector disable_updates disable_update_message intranet
+		debug results_deleted_days cache_days doclink rest_behind_proxy bcrypt_cost curate_script query_script
+		submissions_deleted_days)
 	  )
 	{
 		$self->{'config'}->{$_} = $config->{_}->{$_};
@@ -299,14 +296,14 @@ sub read_config_file {
 	$self->{'config'}->{'intranet'} ||= 'no';
 	$self->{'config'}->{'cache_days'} //= 7;
 	if ( $self->{'config'}->{'chartdirector'} ) {
-		eval "use perlchartdir;";    ## no critic (ProhibitStringyEval)
+		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)
 		if ($@) {
-			$logger->error("Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf");
+			$logger->error(q(Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf));
 			$self->{'config'}->{'chartdirector'} = 0;
 		} else {
-			eval "use BIGSdb::Charts;";    ## no critic (ProhibitStringyEval)
+			eval 'use BIGSdb::Charts';    ## no critic (ProhibitStringyEval)
 			if ($@) {
-				$logger->error("Charts.pm not installed!");
+				$logger->error('Charts.pm not installed!');
 			}
 		}
 	}
@@ -322,8 +319,8 @@ sub read_host_mapping_file {
 		open( my $fh, '<', $mapping_file )
 		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $mapping_file for reading");
 		while (<$fh>) {
-			next if /^\s+$/ || /^#/;
-			my ( $host, $mapped ) = split /\s+/, $_;
+			next if /^\s+$/x || /^\#/x;
+			my ( $host, $mapped ) = split /\s+/x, $_;
 			next if !$host || !$mapped;
 			$self->{'config'}->{'host_map'}->{$host} = $mapped;
 		}
@@ -458,6 +455,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -543,7 +541,7 @@ sub authenticate {
 				$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
 			}
 			catch BIGSdb::AuthenticationException with {
-				$logger->debug("No cookie set - asking for log in");
+				$logger->debug('No cookie set - asking for log in');
 				try {
 					( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
 				}
@@ -604,9 +602,9 @@ sub _is_name_in_file {
 	my $logger = get_logger('BIGSdb.Application_Authentication');
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
-		next if $line =~ /^#/;
-		$line =~ s/^\s+//;
-		$line =~ s/\s+$//;
+		next if $line =~ /^\#/x;
+		$line =~ s/^\s+//x;
+		$line =~ s/\s+$//x;
 		if ( $line eq $name ) {
 			close $fh;
 			return 1;
