@@ -1433,7 +1433,7 @@ sub get_sequence {
 sub is_allowed_to_modify_locus_sequences {
 	my ( $self, $locus, $curator_id ) = @_;
 	return $self->run_query(
-		'SELECT EXISTS(SELECT * FROM locus_curators WHERE (locus,curator)=(?,?))',
+		'SELECT EXISTS(SELECT * FROM locus_curators WHERE (locus,curator_id)=(?,?))',
 		[ $locus, $curator_id ],
 		{ fetch => 'row_array', cache => 'is_allowed_to_modify_locus_sequences' }
 	);
@@ -2198,7 +2198,7 @@ sub get_set_metadata {
 
 sub get_metadata_value {
 	my ( $self, $isolate_id, $metaset, $metafield ) = @_;
-	my $data = $self->run_query( 'SELECT * FROM meta_$metaset WHERE isolate_id=?',
+	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
 		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
 	return $data->{ lc($metafield) } // '';
 }
