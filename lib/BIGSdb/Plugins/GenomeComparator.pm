@@ -894,7 +894,18 @@ sub _extract_cds_details {
 	$locus_name = $locus;
 	$locus_name .= " | @aliases" if @aliases;
 	return if $locus_name =~ /^Bio::PrimarySeq=HASH/;    #Invalid entry in reference file.
-	my $seq = $cds->seq->seq;
+	my $seq;
+	try  {
+		$seq = $cds->seq->seq;
+	} catch Bio::Root::Exception with {
+		my $err = shift;
+		if ($err =~ /MSG:([^\.]*\.)/x){
+			throw BIGSdb::PluginException("Invalid data in annotation: $1");
+		} else {
+			$logger->error($err);
+			throw BIGSdb::PluginException('Invalid data in annotation.');
+		}
+	};
 	return if !$seq;
 	$$seqs_total_ref++;
 	my @tags;
