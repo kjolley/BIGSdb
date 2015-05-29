@@ -376,7 +376,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20150512';
+	my $version   = '20150529';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -2136,6 +2136,7 @@ sub _initiate_isolatedb_prefs {
 sub initiate_view {
 	my ( $self, $username ) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	return if !$username;
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {

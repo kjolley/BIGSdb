@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,74 +28,72 @@ sub print_content {
 	my ($self) = @_;
 	my $logger = get_logger('BIGSdb.Page');
 	my $desc   = $self->get_title;
-	my $show_oops = ( any { $self->{'error'} eq $_ } qw (userNotAuthenticated accessDisabled configAccessDenied) ) ? 0 : 1;
-	say "<h1>$desc</h1>";
-	say "<p style=\"font-size:5em; color:#A0A0A0; padding-top:1em\">Oops ...</p>" if $show_oops;
-	say "<div class=\"box\" id=\"statusbad\">";
+	say qq(<h1>$desc</h1>);
+	say q(<div class="box" id="statusbad">);
+	my %error = (
+		invalidXML    => q(Invalid (or no) database description file specified!),
+		invalidDbType => q(Invalid database type specified! Please set dbtype to either 'isolates' )
+		  . q(or 'sequences' in the system attributes of the XML description file for this database.),
+		invalidScriptPath        => q(You are attempting to access this database from an invalid script path.),
+		invalidCurator           => q(You are not a curator for this database.),
+		noConnect                => q(Can not connect to database!),
+		noAuth                   => q(Can not connect to the authentication database!),
+		noAuthenticationSet      => q(No authentication mechanism has been set in the database configuration!),
+		invalidAuthenticationSet => q(An invalid authentication method has been set in the database configuration!),
+		disableUpdates           => q(Database updates are currently disabled.),
+		userNotAuthenticated     => q(You have been denied access by the server configuration.  Either your login )
+		  . q(details are invalid or you are trying to connect from an unauthorized IP address.),
+		accessDisabled => q(Your user account has been disabled.  If you believe this to be an error, )
+		  . q(please contact the system administrator.),
+		configAccessDenied => q(Your user account can not access this database configuration.  If you believe )
+		  . q(this to be an error, please contact the system administrator.)
+	);
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
-		say "<p>Unknown function '$function' requested - either an incorrect link brought you here or this functionality has not been "
-		  . "implemented yet!</p>";
-		$logger->info("Unknown function '$function' specified in URL");
-	} elsif ( $self->{'error'} eq 'invalidXML' ) {
-		say "<p>Invalid (or no) database description file specified!</p>";
-	} elsif ( $self->{'error'} eq 'invalidDbType' ) {
-		say "<p>Invalid database type specified! Please set dbtype to either 'isolates' or 'sequences' in the system attributes of the "
-		  . "XML description file for this database.</p>";
-	} elsif ( $self->{'error'} eq 'invalidScriptPath' ) {
-		say "<p>You are attempting to access this database from an invalid script path.</p>";
-	} elsif ( $self->{'error'} eq 'invalidCurator' ) {
-		say "<p>You are not a curator for this database.</p>";
-	} elsif ( $self->{'error'} eq 'noConnect' ) {
-		say "<p>Can not connect to database!</p>";
-	} elsif ( $self->{'error'} eq 'noAuth' ) {
-		say "<p>Can not connect to the authentication database!</p>";
+		say qq(<p>Unknown function '$function' requested - either an incorrect link brought you )
+		  . q(here or this functionality has not been implemented yet!</p>);
+		$logger->info(qq(Unknown function '$function' specified in URL));
+	} elsif ( $error{ $self->{'error'} } ) {
+		my %show_warning = map { $_ => 1 } qw(userNotAuthenticated accessDisabled configAccessDenied);
+		my $warning =
+		  $show_warning{ $self->{'error'} }
+		  ? q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>)
+		  : q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>);
+		say qq($warning<p>$error{$self->{'error'}}</p><div style="clear:both"></div>);
 	} elsif ( $self->{'error'} eq 'noPrefs' ) {
 		if ( $self->{'fatal'} ) {
-			say "<p>The preference database can be reached but it appears to be misconfigured!</p>";
+			say q(<p>The preference database can be reached but it appears to be misconfigured!</p>);
 		} else {
-			say "<p>Can not connect to the preference database!</p>";
+			say q(<p>Can not connect to the preference database!</p>);
 		}
-	} elsif ( $self->{'error'} eq 'userAuthenticationFiles' ) {
-		say "<p>Can not open the user authentication database!</p>";
-	} elsif ( $self->{'error'} eq 'noAuthenticationSet' ) {
-		say "<p>No authentication mechanism has been set in the database configuration!</p>";
-	} elsif ( $self->{'error'} eq 'disableUpdates' ) {
-		say "<p>Database updates are currently disabled.</p>";
-		say "<p>$self->{'message'}</p>" if $self->{'message'};
-	} elsif ( $self->{'error'} eq 'userNotAuthenticated' ) {
-		say "<p>You have been denied access by the server configuration.  Either your login details are invalid or you are trying to "
-		  . "connect from an unauthorized IP address.</p>";
-		$self->print_warning_sign;
-	} elsif ( $self->{'error'} eq 'accessDisabled' ) {
-		say "<p>Your user account has been disabled.  If you believe this to be an error, please contact the system administrator.</p>";
-		$self->print_warning_sign;
-	} elsif ( $self->{'error'} eq 'configAccessDenied' ) {
-		say "<p>Your user account can not access this database configuration.  If you believe this to be an error, please contact "
-		  . "the system administrator.</p>";
-		$self->print_warning_sign;
 	} else {
-		say "<p>An unforeseen error has occurred - please contact the system administrator.</p>";
-		$logger->error("Unforeseen error page displayed to user");
+		say q(<p>An unforeseen error has occurred - please contact the system administrator.</p>);
+		$logger->error(q(Unforeseen error page displayed to user));
 	}
-	say "</div>";
+	if ( $self->{'message'} ) {
+		say qq(<p>$self->{'message'}</p>);
+	}
+	say q(</div>);
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Unknown function - $desc" if ( $self->{'error'} eq 'unknown' );
-	return "Invalid XML - $desc"                     if $self->{'error'} eq 'invalidXML';
-	return "Invalid database type - $desc"           if $self->{'error'} eq 'invalidDbType';
-	return "Invalid script path - $desc"             if $self->{'error'} eq 'invalidScriptPath';
-	return "Invalid curator - $desc"                 if $self->{'error'} eq 'invalidCurator';
-	return "Can not connect to database - $desc"     if $self->{'error'} eq 'noConnect';
-	return "Access denied - $desc"                   if $self->{'error'} eq 'userNotAuthenticated';
-	return "Preference database error - $desc"       if $self->{'error'} eq 'noPrefs';
-	return "No authentication mechanism set - $desc" if $self->{'error'} eq 'noAuthenticationSet';
-	return "Access disabled - $desc"                 if $self->{'error'} eq 'accessDisabled';
-	return "Access denied - $desc"                   if $self->{'error'} eq 'configAccessDenied';
+	my %error = (
+		unknown              => "Unknown function - $desc",
+		invalidXML           => "Invalid XML - $desc",
+		invalidDbType        => "Invalid database type - $desc",
+		invalidScriptPath    => "Invalid script path - $desc",
+		invalidCurator       => "Invalid curator - $desc",
+		noConnect            => "Can not connect to database - $desc",
+		userNotAuthenticated => "Access denied - $desc",
+		noPrefs              => "Preference database error - $desc",
+		noAuthenticationSet  => "No authentication mechanism set - $desc",
+		accessDisabled       => "Access disabled - $desc",
+		configAccessDenied   => "Access denied - $desc"
+	);
+	return $error{ $self->{'error'} } if $error{ $self->{'error'} };
 	return $desc;
 }
 1;

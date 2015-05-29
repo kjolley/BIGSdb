@@ -163,6 +163,8 @@ sub _initiate {
 		}
 	}
 	$self->{'error'} = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
+	$self->{'error'} = 'invalidAuthenticationSet'
+	  if $self->{'system'}->{'authentication'} ne 'apache' && $self->{'system'}->{'authentication'} ne 'builtin';
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
 	$self->{'system'}->{'query_script'}  //= $self->{'config'}->{'query_script'}  // 'bigsdb.pl';
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
@@ -544,11 +546,6 @@ sub authenticate {
 				$logger->debug('No cookie set - asking for log in');
 				try {
 					( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
-				}
-				catch BIGSdb::CannotOpenFileException with {
-					$page_attributes->{'error'} = 'userAuthenticationFiles';
-					$page = BIGSdb::ErrorPage->new(%$page_attributes);
-					$page->print_page_content;
 				}
 				catch BIGSdb::AuthenticationException with {
 
