@@ -63,59 +63,59 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_page {
 	my ($self) = @_;
 	my %classes = (
-		authorizeClient    => 'AuthorizeClientPage',
-		index              => 'CurateIndexPage',
 		add                => 'CurateAddPage',
-		delete             => 'CurateDeletePage',
-		deleteAll          => 'CurateDeleteAllPage',
-		update             => 'CurateUpdatePage',
-		isolateAdd         => 'CurateIsolateAddPage',
-		query              => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
-		browse             => 'BrowsePage',
-		listQuery          => 'ListQueryPage',
-		isolateDelete      => 'CurateIsolateDeletePage',
-		isolateUpdate      => 'CurateIsolateUpdatePage',
+		alleleInfo         => 'AlleleInfoPage',
+		alleleQuery        => 'AlleleQueryPage',
+		alleleSequence     => 'AlleleSequencePage',
+		alleleUpdate       => 'CurateAlleleUpdatePage',
+		authorizeClient    => 'AuthorizeClientPage',
+		batchAdd           => 'CurateBatchAddPage',
 		batchAddFasta      => 'CurateBatchAddFASTAPage',
 		batchIsolateUpdate => 'CurateBatchIsolateUpdatePage',
 		batchProfileUpdate => 'CurateBatchProfileUpdatePage',
-		batchAdd           => 'CurateBatchAddPage',
 		batchAddSeqbin     => 'CurateBatchAddSeqbinPage',
-		tableHeader        => 'CurateTableHeaderPage',
+		browse             => 'BrowsePage',
+		changePassword     => 'ChangePasswordPage',
 		compositeQuery     => 'CurateCompositeQueryPage',
 		compositeUpdate    => 'CurateCompositeUpdatePage',
-		alleleUpdate       => 'CurateAlleleUpdatePage',
-		info               => 'IsolateInfoPage',
-		pubquery           => 'PubQueryPage',
-		profileAdd         => 'CurateProfileAddPage',
-		profileUpdate      => 'CurateProfileUpdatePage',
-		profileBatchAdd    => 'CurateProfileBatchAddPage',
-		tagScan            => 'CurateTagScanPage',
-		tagUpdate          => 'CurateTagUpdatePage',
-		databankScan       => 'CurateDatabankScanPage',
-		renumber           => 'CurateRenumber',
-		seqbin             => 'SeqbinPage',
-		embl               => 'SeqbinToEMBL',
 		configCheck        => 'ConfigCheckPage',
 		configRepair       => 'ConfigRepairPage',
-		changePassword     => 'ChangePasswordPage',
-		setPassword        => 'ChangePasswordPage',
-		profileInfo        => 'ProfileInfoPage',
-		alleleInfo         => 'AlleleInfoPage',
-		alleleQuery        => 'AlleleQueryPage',
-		fieldValues        => 'FieldHelpPage',
-		tableQuery         => 'TableQueryPage',
-		extractedSequence  => 'ExtractedSequencePage',
-		downloadSeqbin     => 'DownloadSeqbinPage',
-		linkToExperiment   => 'CurateLinkToExperimentPage',
-		alleleSequence     => 'AlleleSequencePage',
-		options            => 'OptionsPage',
-		exportConfig       => 'CurateExportConfig',
-		setAlleleFlags     => 'CurateBatchSetAlleleFlagsPage',
-		memberUpdate       => 'CurateMembersPage',
-		excelTemplate      => 'CurateSubmissionExcelPage',
-		newVersion         => 'CurateNewVersionPage',
 		curatorPermissions => 'CuratePermissionsPage',
-		submit => 'SubmitPage'
+		databankScan       => 'CurateDatabankScanPage',
+		delete             => 'CurateDeletePage',
+		deleteAll          => 'CurateDeleteAllPage',
+		downloadSeqbin     => 'DownloadSeqbinPage',
+		embl               => 'SeqbinToEMBL',
+		excelTemplate      => 'CurateSubmissionExcelPage',
+		exportConfig       => 'CurateExportConfig',
+		extractedSequence  => 'ExtractedSequencePage',
+		fieldValues        => 'FieldHelpPage',
+		index              => 'CurateIndexPage',
+		info               => 'IsolateInfoPage',
+		isolateAdd         => 'CurateIsolateAddPage',
+		isolateDelete      => 'CurateIsolateDeletePage',
+		isolateUpdate      => 'CurateIsolateUpdatePage',
+		linkToExperiment   => 'CurateLinkToExperimentPage',
+		listQuery          => 'ListQueryPage',
+		memberUpdate       => 'CurateMembersPage',
+		newVersion         => 'CurateNewVersionPage',
+		options            => 'OptionsPage',
+		profileAdd         => 'CurateProfileAddPage',
+		profileBatchAdd    => 'CurateProfileBatchAddPage',
+		profileInfo        => 'ProfileInfoPage',
+		profileUpdate      => 'CurateProfileUpdatePage',
+		pubquery           => 'PubQueryPage',
+		query    => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		renumber => 'CurateRenumber',
+		seqbin   => 'SeqbinPage',
+		setAlleleFlags => 'CurateBatchSetAlleleFlagsPage',
+		setPassword    => 'ChangePasswordPage',
+		submit         => 'SubmitPage',
+		tableHeader    => 'CurateTableHeaderPage',
+		tableQuery     => 'TableQueryPage',
+		tagScan        => 'CurateTagScanPage',
+		tagUpdate      => 'CurateTagUpdatePage',
+		update         => 'CurateUpdatePage'
 	);
 	my %page_attributes = (
 		system           => $self->{'system'},
@@ -146,13 +146,15 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
-	my $user_status = $self->{'datastore'}->run_query( "SELECT status FROM users WHERE user_name=?", $page_attributes{'username'} );
+	my $user_status =
+	  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $page_attributes{'username'} );
 	if ( !defined $user_status || ( $user_status eq 'user' ) ) {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		return;
-	} elsif ( !$self->{'db'} ) {
+	} 
+	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( !$self->{'prefstore'} ) {
@@ -163,9 +165,10 @@ sub print_page {
 		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
-		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'} || $self->{'system'}->{'disable_update_message'};
-		$page_attributes{'fatal'}   = $self->{'fatal'};
-		$page                       = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'}
+		  || $self->{'system'}->{'disable_update_message'};
+		$page_attributes{'fatal'} = $self->{'fatal'};
+		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
