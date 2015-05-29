@@ -19,7 +19,7 @@
 package BIGSdb::Dataconnector;
 use strict;
 use warnings;
-use feature "state";
+use feature 'state';
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Dataconnector');
 
@@ -61,9 +61,10 @@ sub drop_connection {
 	my ( $self, $attributes ) = @_;
 	my $host = $attributes->{'host'} || $self->{'system'}->{'host'};
 	return if !$attributes->{'dbase_name'};
-	if ($self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}){
-		$self->_finish_active_statement_handles( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}, 1 );
-		$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect
+	if ( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"} ) {
+		$self->_finish_active_statement_handles( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"},
+			1 );
+		$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect;
 	}
 	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
 	return;
@@ -73,7 +74,10 @@ sub drop_all_connections {
 	my ($self) = @_;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
 		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
-		eval { $self->{'db'}->{$db}->disconnect and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}") };
+		eval {
+			$self->{'db'}->{$db}->disconnect
+			  and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}");
+		};
 		delete $self->{'db'}->{$db};
 	}
 	return;
@@ -86,7 +90,7 @@ sub get_connection {
 	my $user     = $attributes->{'user'}     || $self->{'system'}->{'user'};
 	my $password = $attributes->{'password'} || $self->{'system'}->{'password'};
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
-	throw BIGSdb::DatabaseConnectionException("No database name passed") if !$attributes->{'dbase_name'};
+	throw BIGSdb::DatabaseConnectionException('No database name passed') if !$attributes->{'dbase_name'};
 	state $pid = $$;
 
 	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
@@ -98,10 +102,12 @@ sub get_connection {
 		};
 		if ($@) {
 			$logger->error("Can not connect to database '$attributes->{'dbase_name'}' ($host). $@");
-			throw BIGSdb::DatabaseConnectionException("Can not connect to database '$attributes->{'dbase_name'}' ($host)");
+			throw BIGSdb::DatabaseConnectionException(
+				"Can not connect to database '$attributes->{'dbase_name'}' ($host)");
 		} else {
 			$logger->info("Connected to database $attributes->{'dbase_name'} ($host)");
-			$logger->debug("dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
+			$logger->debug(
+				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}
 	}
 
