@@ -511,18 +511,8 @@ sub _print_interface {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
 	say $q->start_form;
-	my $user_data =
-	  $self->{'datastore'}->run_query( 'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my @users;
-	my %usernames;
-	$usernames{''} = 'Select sender ...';
-
-	foreach my $user (@$user_data) {
-		push @users, $user->{'id'};
-		$usernames{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
-	}
-	$usernames{-1} = 'Override with sender field';
+	my ( $users, $user_names ) = $self->get_user_list_and_labels({blank_message=>'Select sender ...'});
+	$user_names->{-1} = 'Override with sender field';
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
 	  . q[(<strong>include a field header line</strong>)</legend>];
 	say $q->hidden($_) foreach qw (page db scheme_id submission_id);
@@ -533,8 +523,8 @@ sub _print_interface {
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
-		-values   => [ '', -1, @users ],
-		-labels   => \%usernames,
+		-values   => [ '', -1, @$users ],
+		-labels   => $user_names,
 		-required => 'required'
 	);
 	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);

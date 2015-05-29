@@ -365,23 +365,12 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	say qq[<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>];
 	say q[<fieldset class="form" style="float:left"><legend>Record</legend>];
-	my $user_data =
-	  $self->{'datastore'}->run_query( 'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my @users;
-	my %usernames;
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $longest_name = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$fields ] );
 	my $width        = int( 0.5 * $longest_name ) + 2;
 	$width = 15 if $width > 15;
 	$width = 6  if $width < 6;
-
-	foreach my $user (@$user_data) {
-		push @users, $user->{'id'};
-		$usernames{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
-	}
-	$usernames{''} = ' ';    #Required for HTML5 validation.
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
@@ -420,11 +409,12 @@ sub _print_interface {
 		say q(</li>);
 	}
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
+	my ( $users, $user_names ) = $self->get_user_list_and_labels;
 	say $self->popup_menu(
 		-name    => 'field:sender',
 		-id      => 'field:sender',
-		-values  => [ '', @users ],
-		-labels  => \%usernames,
+		-values  => [ '', @$users ],
+		-labels  => $user_names,
 		-default => $newdata->{'field:sender'},
 		-required => 'required'
 	);
