@@ -174,10 +174,8 @@ sub print_content {
 			my $upload_file = $self->_upload_fasta_file;
 			my $full_path   = "$self->{'config'}->{'secure_tmp_dir'}/$upload_file";
 			if ( -e $full_path ) {
-				open( my $fh, '<', $full_path ) or $logger->error("Can't open sequence file $full_path");
-				$sequence = do { local $/; <$fh> };    #slurp
+				$self->_run_query( BIGSdb::Utils::slurp($full_path) );
 				unlink $full_path;
-				$self->_run_query( \$sequence );
 			}
 		} elsif ( $q->param('accession') ) {
 			try {

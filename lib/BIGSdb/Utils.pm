@@ -36,7 +36,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub reverse_complement {
 	my ($seq) = @_;
 	my $reversed = reverse $seq;
-	$reversed =~ tr/GATCgatc/CTAGctag/;    
+	$reversed =~ tr/GATCgatc/CTAGctag/;
 	return $reversed;
 }
 
@@ -531,5 +531,13 @@ sub get_nice_size {
 	}
 	if   ( $units[$u] ) { return ( int( $size * $decimal_places ) / $decimal_places ) . ' ' . $units[$u]; }
 	else                { return int($size); }
+}
+
+sub slurp {
+	my ($file_path) = @_;
+	open( my $fh, '<', $file_path )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
+	my $contents = do { local $/ = undef; <$fh> };
+	return \$contents;
 }
 1;
