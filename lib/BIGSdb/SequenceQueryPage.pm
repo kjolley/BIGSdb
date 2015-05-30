@@ -189,10 +189,11 @@ sub print_content {
 			catch BIGSdb::DataException with {
 				my $err = shift;
 				$logger->debug($err);
-				if ( $err eq 'INVALID_ACCESSION' ) {
-					say qq(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
-				} elsif ( $err eq 'NO_DATA' ) {
-					say qq(<div class="box" id="statusbad"><p>The accession is valid but it contains no sequence data.</p></div>);
+				if ( $err =~ /INVALID_ACCESSION/x ) {
+					say q(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+				} elsif ( $err =~ /NO_DATA/x ) {
+					say q(<div class="box" id="statusbad"><p>The accession is valid but it )
+					  . q(contains no sequence data.</p></div>);
 				}
 			};
 		}
