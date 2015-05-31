@@ -1005,7 +1005,7 @@ sub _print_abort_form {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div style="float:left">);
-	$self->print_warning_sign( { no_div => 1 } );
+	say q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>);
 	say q(</div>);
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );

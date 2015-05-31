@@ -1792,23 +1792,6 @@ sub can_modify_table {
 	return;
 }
 
-sub print_warning_sign {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $image     = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/images/warning_sign.gif";
-	my $image_src = "$self->{'system'}->{'webroot'}/images/warning_sign.gif";
-	if ( !-e $image ) {
-		$image     = "$ENV{'DOCUMENT_ROOT'}/images/warning_sign.gif";
-		$image_src = '/images/warning_sign.gif';
-	}
-	if ( -e $image ) {
-		say q(<div style="text-align:center">) if !$options->{'no_div'};
-		say qq(<img src="$image_src" alt="Warning!" />);
-		say q(</div>) if !$options->{'no_div'};
-	}
-	return;
-}
-
 sub get_curator_id {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'curator_id'} ) {
