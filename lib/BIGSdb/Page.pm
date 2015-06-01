@@ -1211,18 +1211,16 @@ sub clean_locus {
 	$options = {} if ref $options ne 'HASH';
 	my $set_id = $self->get_set_id;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
-	if ($set_id) {
-		if ( $locus_info->{'set_name'} ) {
-			$locus = $locus_info->{'set_name'};
-			$locus = $locus_info->{'formatted_set_name'}
-			  if !$options->{'text_output'} && $locus_info->{'formatted_set_name'};
-			if ( !$options->{'no_common_name'} ) {
-				my $common_name = '';
-				$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
-				$common_name = " ($locus_info->{'formatted_set_common_name'})"
-				  if !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'};
-				$locus .= $common_name;
-			}
+	if ( $set_id && $locus_info->{'set_name'} ) {
+		$locus = $locus_info->{'set_name'};
+		$locus = $locus_info->{'formatted_set_name'}
+		  if !$options->{'text_output'} && $locus_info->{'formatted_set_name'};
+		if ( !$options->{'no_common_name'} ) {
+			my $common_name = '';
+			$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
+			$common_name = " ($locus_info->{'formatted_set_common_name'})"
+			  if !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'};
+			$locus .= $common_name;
 		}
 	} else {
 		$locus = $locus_info->{'formatted_name'} if !$options->{'text_output'} && $locus_info->{'formatted_name'};
