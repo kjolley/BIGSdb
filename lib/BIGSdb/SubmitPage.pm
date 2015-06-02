@@ -27,7 +27,7 @@ use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use BIGSdb::Page 'SEQ_METHODS';
 use List::Util qw(max);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(none uniq);
 use File::Path qw(make_path remove_tree);
 use POSIX;
 use constant COVERAGE                 => qw(<20x 20-49x 50-99x >100x);
@@ -108,7 +108,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
-	foreach my $type (qw (alleles profiles)) {
+	foreach my $type (qw (alleles profiles isolates)) {
 		if ( $q->param($type) ) {
 			my $method = "_handle_$type";
 			$self->$method;
@@ -156,14 +156,26 @@ sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
+sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		say q(<div class="box" id="statusbad"><p>You cannot submit new isolates to a )
+		  . q(sequence definition database.<p></div>);
+		return;
+	}
+	$self->_submit_isolates;
+	return;
+}
+
 sub _print_new_submission_links {
 	my ($self) = @_;
 	say q(<h2>Submit new data</h2>);
 	say q(<p>Data submitted here will go in to a queue for handling by a curator or by an automated script. You )
 	  . q(will be able to track the status of any submission.</p>);
 	say q(<h3>Submission type:</h3>);
+	say q(<ul>);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		say q(<ul>);
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">alleles</a></li>);
 
@@ -177,8 +189,11 @@ sub _print_new_submission_links {
 				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
 			}
 		}
-		say q(</ul>);
+	} else {    #Isolate database
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . q(isolates=1">isolates</a></li>);
 	}
+	say q(</ul>);
 	return;
 }
 
@@ -553,7 +568,7 @@ sub _submit_alleles {
 		}
 		$self->_presubmit_alleles( $submission_id, undef );
 		return;
-	} elsif ( $q->param('submit') || $q->param('continue') || $q->param('abort') ) {
+	} elsif ( $q->param('submit') ) {
 		$ret = $self->_check_new_alleles;
 		if ( $ret->{'err'} ) {
 			my @err = @{ $ret->{'err'} };
@@ -627,7 +642,7 @@ sub _submit_profiles {
 	if ($submission_id) {
 		$self->_presubmit_profiles( $submission_id, undef );
 		return;
-	} elsif ( ( $q->param('submit') && $q->param('data') ) || $q->param('continue') || $q->param('abort') ) {
+	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $scheme_id = $q->param('scheme_id');
 		$ret = $self->_check_new_profiles( $scheme_id, \$q->param('data') );
 		if ( $ret->{'err'} ) {
@@ -662,6 +677,56 @@ sub _submit_profiles {
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page profiles scheme_id);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->end_form;
+	say q(</div></div>);
+	return;
+}
+
+sub _submit_isolates {
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $submission_id = $self->_get_started_submission_id;
+	$q->param( submission_id => $submission_id );
+	my $ret;
+	if ($submission_id) {
+
+		#		$self->_presubmit_isolates( $submission_id, undef );
+		return;
+	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
+		$ret = $self->_check_new_isolates( \$q->param('data') );
+		if ( $ret->{'err'} ) {
+			my $err = $ret->{'err'};
+			local $" = '<br />';
+			my $plural = @$err == 1 ? '' : 's';
+			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
+		} else {
+
+			#			$self->_presubmit_isolates( undef, $ret->{'isolates'} );
+			return;
+		}
+	}
+	my $set_id = $self->get_set_id;
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<h2>Submit new isolates</h2>);
+	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
+	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
+	say q(<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids.</li>);
+	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
+	  . q(new column with the locus name.</li></ul>);
+	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
+	  . q(table=isolates">Download tab-delimited )
+	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
+	  . q(to paste the data.</li>);
+	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
+	  . q[table=isolates">Download submission template ]
+	  . q[(xlsx format)</a></li></ul>];
+	say $q->start_form;
+	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
+	  . q(</legend>);
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
+	say q(</fieldset>);
+	say $q->hidden($_) foreach qw(db page isolates);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say q(</div></div>);
@@ -805,7 +870,7 @@ sub _check_new_profiles {
 	my $positions     = $header_status->{'positions'};
 	my %field_by_pos  = reverse %$positions;
 	my %err_message =
-	  ( missing => 'The header is missing a column for', duplicates => 'The header has duplicate columns for' );
+	  ( missing => 'The header is missing a column for', duplicates => 'The header has a duplicate column for' );
 	my $max_col_index = max keys %field_by_pos;
 
 	foreach my $status (qw(missing duplicates)) {
@@ -833,6 +898,7 @@ sub _check_new_profiles {
 			my $value_count  = @values;
 			my $plural       = $value_count == 1 ? '' : 's';
 			my $designations = {};
+
 			for my $i ( 0 .. $max_col_index ) {
 				$values[$i] //= '';
 				$values[$i] =~ s/^\s*//x;
@@ -859,6 +925,34 @@ sub _check_new_profiles {
 	return $ret;
 }
 
+sub _check_new_isolates {
+	my ( $self, $data_ref ) = @_;
+	my @err;
+	my @isolates;
+	my @rows          = split /\n/x, $$data_ref;
+	my $header_row    = shift @rows;
+	my $header_status = $self->_get_isolate_header_positions($header_row);
+	my $positions     = $header_status->{'positions'};
+	my %field_by_pos  = reverse %$positions;
+	my %err_message   = (
+		unrecognized => 'The header contains an unrecognized column for',
+		missing      => 'The header is missing a column for',
+		duplicates   => 'The header has duplicate columns for'
+	);
+	my $max_col_index = max keys %field_by_pos;
+
+	foreach my $status (qw(unrecognized missing duplicates)) {
+		if ( $header_status->{$status} ) {
+			my $list = $header_status->{$status};
+			local $" = q(, );
+			push @err, "$err_message{$status}: @$list.";
+		}
+	}
+	my $ret = { isolates => \@isolates };
+	$ret->{'err'} = \@err if @err;
+	return $ret;
+}
+
 sub _get_profile_header_positions {
 	my ( $self, $header_row, $scheme_id ) = @_;
 	$header_row =~ s/\s*$//x;
@@ -877,7 +971,7 @@ sub _get_profile_header_positions {
 		}
 	}
 	for my $i ( 0 .. @header - 1 ) {
-		$positions{'id'} = $i if ( $header[$i] eq 'id' );
+		$positions{'id'} = $i if $header[$i] eq 'id';
 	}
 	foreach my $locus (@$loci) {
 		push @missing, $locus if !defined $positions{$locus};
@@ -885,6 +979,39 @@ sub _get_profile_header_positions {
 	my $ret = { positions => \%positions };
 	$ret->{'missing'}    = \@missing    if @missing;
 	$ret->{'duplicates'} = \@duplicates if @duplicates;
+	return $ret;
+}
+
+sub _get_isolate_header_positions {
+	my ( $self, $header_row, $scheme_id ) = @_;
+	$header_row =~ s/\s*$//x;
+	my ( @unrecognized, @missing, @duplicates, %positions );
+	my @header = split /\t/x, $header_row;
+	my %not_accounted_for = map { $_ => 1 } @header;
+	for my $i ( 0 .. @header - 1 ) {
+		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
+		$positions{ $header[$i] } = $i;
+	}
+	my $ret            = { positions => \%positions };
+	my $set_id         = $self->get_set_id;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
+	foreach my $field (@$fields) {
+		next if $do_not_include{$field};
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		push @missing, $field if !( ( $att->{'required'} // '' ) eq 'no' ) && !defined $positions{$field};
+		delete $not_accounted_for{$field};
+	}
+	foreach my $heading (@header) {
+		next if $self->{'datastore'}->is_locus($heading);
+		next if $heading eq 'references';
+		next if $heading eq 'aliases';
+		push @unrecognized, $heading if $not_accounted_for{$heading};
+	}
+	$ret->{'missing'}      = \@missing            if @missing;
+	$ret->{'duplicates'}   = [ uniq @duplicates ] if @duplicates;
+	$ret->{'unrecognized'} = \@unrecognized       if @unrecognized;
 	return $ret;
 }
 
