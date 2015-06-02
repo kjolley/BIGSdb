@@ -510,7 +510,7 @@ sub random_string {
 	my ( $length, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @chars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9 );
-	push @chars, qw(! @ $ % ^ & * \( \)_+ ~) if $options->{'extended_chars'};
+	push @chars, qw(! @ $ % ^ & * \( \) _ + ~) if $options->{'extended_chars'};
 	my $string;
 	for ( 1 .. $length ) {
 		$string .= $chars[ int( rand($#chars) ) ];
