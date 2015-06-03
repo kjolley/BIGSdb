@@ -1009,6 +1009,15 @@ sub _check_isolate_record {
 			push @error, "locus $heading: doesn't match the required format";
 		}
 	}
+	if ( defined $positions->{'references'} && $values->[ $positions->{'references'} ] ) {
+		my @pmids = split /;/x, $values->[ $positions->{'references'} ];
+		foreach my $pmid (@pmids) {
+			if ( !BIGSdb::Utils::is_int($pmid) ) {
+				push @error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
+				last;
+			}
+		}
+	}
 	my $ret = {};
 	$ret->{'missing'} = \@missing if @missing;
 	$ret->{'error'}   = \@error   if @error;
