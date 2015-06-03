@@ -981,7 +981,7 @@ sub _is_field_bad_isolates {
 	if ( $thisfield->{'regex'} ) {
 		if ( $value !~ /^$thisfield->{'regex'}$/x ) {
 			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
-				return 'does not conform to the required formatting';
+				return 'does not conform to the required formatting.';
 			}
 		}
 	}

@@ -963,6 +963,12 @@ sub _check_new_isolates {
 				my @missing = @{ $status->{'missing'} };
 				push @err, "$row_id is missing required fields: @missing";
 			}
+			if ( $status->{'error'} ) {
+				my @error = @{ $status->{'error'} };
+				local $" = '; ';
+				( my $msg = "$row_id has problems - @error" ) =~ s/\.;/;/gx;
+				push @err, $msg;
+			}
 			$row_number++;
 		}
 	}
@@ -979,19 +985,25 @@ sub _check_isolate_record {
 	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
-	my @missing;
+	my ( @missing, @error );
 
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
+		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		if (  !( ( $att->{'required'} // '' ) eq 'no' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{
 			push @missing, $field;
+		} else {
+			my $value = $values->[ $positions->{$field} ] // '';
+			my $status = $self->is_field_bad( 'isolates', $field, $value );
+			push @error, "$field: $status" if $status;
 		}
 	}
 	my $ret = {};
 	$ret->{'missing'} = \@missing if @missing;
+	$ret->{'error'}   = \@error   if @error;
 	return $ret;
 }
 
@@ -1034,9 +1046,9 @@ sub _get_isolate_header_positions {
 		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
 		$positions{ $header[$i] } = $i;
 	}
-	my $ret           = { positions => \%positions };
-	my $set_id        = $self->get_set_id;
-	my $fields        = $self->{'xmlHandler'}->get_field_list;
+	my $ret    = { positions => \%positions };
+	my $set_id = $self->get_set_id;
+	my $fields = $self->{'xmlHandler'}->get_field_list;
 	if ($set_id) {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
