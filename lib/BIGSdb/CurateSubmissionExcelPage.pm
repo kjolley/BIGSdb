@@ -97,7 +97,8 @@ sub print_content {
 			$worksheet->write_comment( 0, $col,
 				"Aliases:\nEnter semi-colon (;) separated list of alternative names for this item." );
 		} elsif ( $field eq 'references' ) {
-			$worksheet->write_comment( 0, $col,
+			$worksheet->write_comment(
+				0, $col,
 				"References:\nEnter semi-colon (;) separated list of PubMed ids of papers to associate with this item."
 			);
 		}

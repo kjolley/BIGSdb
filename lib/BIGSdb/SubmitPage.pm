@@ -707,6 +707,7 @@ sub _submit_isolates {
 		}
 	}
 	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<h2>Submit new isolates</h2>);
 	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
@@ -715,11 +716,11 @@ sub _submit_isolates {
 	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
 	  . q(new column with the locus name.</li></ul>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . q(table=isolates">Download tab-delimited )
+	  . qq(table=isolates$set_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . q[table=isolates">Download submission template ]
+	  . qq[table=isolates$set_clause">Download submission template ]
 	  . q[(xlsx format)</a></li></ul>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
@@ -933,13 +934,11 @@ sub _check_new_isolates {
 	my $header_row    = shift @rows;
 	my $header_status = $self->_get_isolate_header_positions($header_row);
 	my $positions     = $header_status->{'positions'};
-	my %field_by_pos  = reverse %$positions;
 	my %err_message   = (
 		unrecognized => 'The header contains an unrecognized column for',
 		missing      => 'The header is missing a column for',
 		duplicates   => 'The header has duplicate columns for'
 	);
-	my $max_col_index = max keys %field_by_pos;
 
 	foreach my $status (qw(unrecognized missing duplicates)) {
 		if ( $header_status->{$status} ) {
@@ -948,8 +947,51 @@ sub _check_new_isolates {
 			push @err, "$err_message{$status}: @$list.";
 		}
 	}
+	if ( !@err ) {
+		my $row_number = 1;
+		foreach my $row (@rows) {
+			$row =~ s/\s*$//x;
+			next if !$row;
+			my @values = split /\t/x, $row;
+			my $row_id =
+			  defined $positions->{ $self->{'system'}->{'labelfield'} }
+			  ? ( $values[ $positions->{ $self->{'system'}->{'labelfield'} } ] || "Row $row_number" )
+			  : "Row $row_number";
+			my $status = $self->_check_isolate_record( $positions, \@values );
+			local $" = q(, );
+			if ( $status->{'missing'} ) {
+				my @missing = @{ $status->{'missing'} };
+				push @err, "$row_id is missing required fields: @missing";
+			}
+			$row_number++;
+		}
+	}
 	my $ret = { isolates => \@isolates };
 	$ret->{'err'} = \@err if @err;
+	return $ret;
+}
+
+sub _check_isolate_record {
+	my ( $self, $positions, $values ) = @_;
+	my %field_by_pos   = reverse %$positions;
+	my $max_col_index  = max keys %field_by_pos;
+	my $set_id         = $self->get_set_id;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
+	my @missing;
+
+	foreach my $field (@$fields) {
+		next if $do_not_include{$field};
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if (  !( ( $att->{'required'} // '' ) eq 'no' )
+			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
+		{
+			push @missing, $field;
+		}
+	}
+	my $ret = {};
+	$ret->{'missing'} = \@missing if @missing;
 	return $ret;
 }
 
@@ -992,10 +1034,14 @@ sub _get_isolate_header_positions {
 		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
 		$positions{ $header[$i] } = $i;
 	}
-	my $ret            = { positions => \%positions };
-	my $set_id         = $self->get_set_id;
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $ret           = { positions => \%positions };
+	my $set_id        = $self->get_set_id;
+	my $fields        = $self->{'xmlHandler'}->get_field_list;
+	if ($set_id) {
+		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
+		push @$fields, @$meta_fields;
+	}
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
