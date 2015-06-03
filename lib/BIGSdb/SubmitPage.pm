@@ -979,14 +979,11 @@ sub _check_new_isolates {
 
 sub _check_isolate_record {
 	my ( $self, $positions, $values ) = @_;
-	my %field_by_pos   = reverse %$positions;
-	my $max_col_index  = max keys %field_by_pos;
 	my $set_id         = $self->get_set_id;
 	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
-
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
@@ -999,6 +996,17 @@ sub _check_isolate_record {
 			my $value = $values->[ $positions->{$field} ] // '';
 			my $status = $self->is_field_bad( 'isolates', $field, $value );
 			push @error, "$field: $status" if $status;
+		}
+	}
+	foreach my $heading ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
+		next if !$self->{'datastore'}->is_locus($heading);
+		my $value = $values->[ $positions->{$heading} ];
+		next if !defined $value;
+		my $locus_info = $self->{'datastore'}->get_locus_info($heading);
+		if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+			push @error, "locus $heading: must be an integer";
+		} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/x ) {
+			push @error, "locus $heading: doesn't match the required format";
 		}
 	}
 	my $ret = {};
