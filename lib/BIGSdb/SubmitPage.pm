@@ -701,8 +701,7 @@ sub _submit_isolates {
 			my $plural = @$err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
 		} else {
-
-			#			$self->_presubmit_isolates( undef, $ret->{'isolates'} );
+			$self->_presubmit_isolates( undef, $ret->{'isolates'}, $ret->{'positions'} );
 			return;
 		}
 	}
@@ -928,8 +927,8 @@ sub _check_new_profiles {
 
 sub _check_new_isolates {
 	my ( $self, $data_ref ) = @_;
-	my @err;
 	my @isolates;
+	my @err;
 	my @rows          = split /\n/x, $$data_ref;
 	my $header_row    = shift @rows;
 	my $header_status = $self->_get_isolate_header_positions($header_row);
@@ -947,11 +946,12 @@ sub _check_new_isolates {
 			push @err, "$err_message{$status}: @$list.";
 		}
 	}
+	my $row_number = 0;
 	if ( !@err ) {
-		my $row_number = 1;
 		foreach my $row (@rows) {
 			$row =~ s/\s*$//x;
 			next if !$row;
+			$row_number++;
 			my @values = split /\t/x, $row;
 			my $row_id =
 			  defined $positions->{ $self->{'system'}->{'labelfield'} }
@@ -969,10 +969,10 @@ sub _check_new_isolates {
 				( my $msg = "$row_id has problems - @error" ) =~ s/\.;/;/gx;
 				push @err, $msg;
 			}
-			$row_number++;
+			push @isolates, $status->{'isolate'};
 		}
 	}
-	my $ret = { isolates => \@isolates };
+	my $ret = { isolates => \@isolates, positions => $positions };
 	$ret->{'err'} = \@err if @err;
 	return $ret;
 }
@@ -984,6 +984,7 @@ sub _check_isolate_record {
 	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
+	my $isolate = {};
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
@@ -999,9 +1000,10 @@ sub _check_isolate_record {
 		}
 	}
 	foreach my $heading ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
-		next if !$self->{'datastore'}->is_locus($heading);
 		my $value = $values->[ $positions->{$heading} ];
 		next if !defined $value;
+		$isolate->{$heading} = $value;
+		next if !$self->{'datastore'}->is_locus($heading);
 		my $locus_info = $self->{'datastore'}->get_locus_info($heading);
 		if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 			push @error, "locus $heading: must be an integer";
@@ -1018,7 +1020,7 @@ sub _check_isolate_record {
 			}
 		}
 	}
-	my $ret = {};
+	my $ret = { isolate => $isolate };
 	$ret->{'missing'} = \@missing if @missing;
 	$ret->{'error'}   = \@error   if @error;
 	return $ret;
@@ -1092,7 +1094,7 @@ sub _get_isolate_header_positions {
 
 sub _start_submission {
 	my ( $self, $type ) = @_;
-	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles);
+	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates);
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
@@ -1163,7 +1165,6 @@ sub _start_allele_submission {
 
 sub _start_profile_submission {
 	my ( $self, $submission_id, $scheme_id, $profiles ) = @_;
-	my $q = $self->{'cgi'};
 	eval {
 		$self->{'db'}->do( 'INSERT INTO profile_submissions (submission_id,scheme_id) VALUES (?,?)',
 			undef, $submission_id, $scheme_id, );
@@ -1200,6 +1201,32 @@ sub _start_profile_submission {
 		$self->_write_profile_csv($submission_id);
 	}
 	$self->{'db'}->commit;
+	return;
+}
+
+sub _start_isolate_submission {
+	my ( $self, $submission_id, $isolates, $positions ) = @_;
+	my $i = 1;
+	foreach my $isolate (@$isolates) {
+		eval {
+			$self->{'db'}
+			  ->do( 'INSERT INTO isolate_submissions (submission_id,index) VALUES (?,?)', undef, $submission_id, $i );
+			foreach my $field ( keys %$isolate ) {
+				next if !defined $isolate->{$field} || $isolate->{$field} eq '';
+				$self->{'db'}
+				  ->do( 'INSERT INTO isolate_submission_isolates (submission_id,index,field,value) VALUES (?,?,?,?)',
+					undef, $submission_id, $i, $field, $isolate->{$field} );
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+			return;
+		}
+		$i++;
+	}
+	$self->{'db'}->commit;
+	$self->_write_isolate_csv( $submission_id, $isolates, $positions );
 	return;
 }
 
@@ -1319,6 +1346,44 @@ sub _presubmit_profiles {
 	}
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
+	say $q->start_form;
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+	$q->param( finalize      => 1 );
+	$q->param( submission_id => $submission_id );
+	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
+	say $q->end_form;
+	$self->_print_file_upload_fieldset($submission_id);
+	$self->_print_message_fieldset($submission_id);
+	say q(</div></div>);
+	return;
+}
+
+sub _presubmit_isolates {
+	my ( $self, $submission_id, $isolates, $positions ) = @_;
+	$isolates //= [];
+	return if !$submission_id && !@$isolates;
+	my $q = $self->{'cgi'};
+	if ($submission_id) {
+
+		#		my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+		#		$profiles = $profile_submission->{'profiles'} // [];
+	} else {
+		$submission_id = $self->_start_submission('isolates');
+		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
+	}
+	if ( $q->param('file_upload') ) {
+		$self->_upload_files($submission_id);
+	}
+	if ( $q->param('delete') ) {
+		$self->_delete_selected_submission_files($submission_id);
+	}
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	if ( $q->param('abort') ) {
+		$self->_print_abort_form($submission_id);
+	}
+	say qq(<h2>Submission: $submission_id</h2>);
+
+	#	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
@@ -2044,6 +2109,39 @@ sub _write_profile_csv {
 			print $fh qq(\t$profile->{'designations'}->{$locus});
 		}
 		print $fh qq(\n);
+	}
+	close $fh;
+	return $filename;
+}
+
+sub _write_isolate_csv {
+	my ( $self, $submission_id, $isolates, $positions ) = @_;
+	my @fields;
+
+	#Determine populated fields only
+	foreach my $field ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
+		my $populated = 0;
+		foreach my $isolate (@$isolates) {
+			if ( defined $isolate->{$field} && $isolate->{$field} ne q() ) {
+				$populated = 1;
+				last;
+			}
+		}
+		push @fields, $field if $populated;
+	}
+	my $dir = $self->_get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	make_path $dir;
+	my $filename = 'isolates.txt';
+	local $" = qq(\t);
+	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+	say $fh "@fields";
+	foreach my $isolate (@$isolates){
+		my @values;
+		foreach my $field (@fields){
+			push @values, $isolate->{$field} // '';
+		}
+		say $fh "@values";
 	}
 	close $fh;
 	return $filename;
