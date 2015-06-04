@@ -2253,4 +2253,31 @@ sub get_profile_submission {
 	}
 	return $submission;
 }
+
+sub get_isolate_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $positions = $self->run_query( 'SELECT field,index FROM isolate_submission_field_order WHERE submission_id=?',
+		$submission_id, { fetch => 'all_arrayref', cache => 'get_isolate_submission::positions' } );
+	return if !$positions;
+	my $order = {};
+	$order->{ $_->[0] } = $_->[1] foreach @$positions;
+	my $indexes =
+	  $self->run_query( 'SELECT DISTINCT(index) FROM isolate_submission_isolates WHERE submission_id=? ORDER BY index',
+		$submission_id, { fetch => 'col_arrayref', cache => 'get_isolate_submission:index' } );
+	my @isolates;
+
+	foreach my $index (@$indexes) {
+		my $values = $self->run_query(
+			'SELECT field,value FROM isolate_submission_isolates WHERE (submission_id,index)=(?,?)',
+			[ $submission_id, $index ],
+			{ fetch => 'all_arrayref', cache => 'get_isolate_submission::isolates' }
+		);
+		my $isolate_values = {};
+		$isolate_values->{ $_->[0] } = $_->[1] foreach @$values;
+		push @isolates,  $isolate_values;
+	}
+	my $submission = { order => $order, isolates => \@isolates };
+	return $submission;
+}
 1;

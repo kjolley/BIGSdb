@@ -33,24 +33,13 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON messages TO apache;
 
-CREATE TABLE isolate_submissions (
-submission_id text NOT NULL,
-index int NOT NULL,
-PRIMARY KEY(submission_id,index),
-CONSTRAINT is_submission_id FOREIGN KEY (submission_id) REFERENCES submissions
-ON DELETE CASCADE
-ON UPDATE CASCADE
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON isolate_submissions TO apache;
-
 CREATE TABLE isolate_submission_isolates (
 submission_id text NOT NULL,
 index int NOT NULL,
 field text NOT NULL,
 value text,
 PRIMARY KEY(submission_id,index,field),
-CONSTRAINT isi_submission_id_index FOREIGN KEY (submission_id,index) REFERENCES isolate_submissions(submission_id,index)
+CONSTRAINT isi_submission_id FOREIGN KEY (submission_id) REFERENCES submissions
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
