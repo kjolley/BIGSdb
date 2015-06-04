@@ -160,7 +160,7 @@ sub get_query {
 	} else {
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
 			my $fh;
-			if ( open( $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) ) {
+			if ( open( $fh, '<:encoding(utf8)', "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) ) {
 				$qry = <$fh>;
 				close $fh;
 			} else {
