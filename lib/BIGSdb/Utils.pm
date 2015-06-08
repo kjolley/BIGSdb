@@ -535,7 +535,7 @@ sub get_nice_size {
 
 sub slurp {
 	my ($file_path) = @_;
-	open( my $fh, '<', $file_path )
+	open( my $fh, '<:encoding(utf8)', $file_path )
 	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
 	my $contents = do { local $/ = undef; <$fh> };
 	return \$contents;

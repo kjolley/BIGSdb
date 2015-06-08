@@ -38,9 +38,9 @@ sub print_content {
 		say "Table $table does not exist!";
 		return;
 	}
-	my $q                = $self->{'cgi'};
-	my $no_fields        = $q->param('no_fields') ? 1 : 0;           #For profile submissions
-	my $id_field = $q->param('id_field') ? 1 : 0;    #Ditto
+	my $q         = $self->{'cgi'};
+	my $no_fields = $q->param('no_fields') ? 1 : 0;    #For profile submissions
+	my $id_field  = $q->param('id_field') ? 1 : 0;     #Ditto
 	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
 	local $" = "\t";
 	say "@$headers";
@@ -52,9 +52,10 @@ sub get_headers {
 	$options = {} if ref $options ne 'HASH';
 	my @headers;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		my $set_id = $self->get_set_id;
+		my $metadata_list =
+		  $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
+		my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
 			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
@@ -99,7 +100,7 @@ sub get_headers {
 			if ( $self->{'cgi'}->param('locus') ) {
 				shift @headers;    #don't include 'locus'
 				my $extended_attributes = $self->{'datastore'}->run_query(
-					"SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+					'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
 					$self->{'cgi'}->param('locus'),
 					{ fetch => 'col_arrayref' }
 				);
@@ -143,7 +144,7 @@ sub get_isolate_loci {
 	} else {    #Just list MLST loci
 		my $scheme_ids =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order",
+		  ->run_query( q(SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order),
 			undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$scheme_ids) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
