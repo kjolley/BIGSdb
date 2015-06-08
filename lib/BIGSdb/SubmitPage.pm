@@ -306,17 +306,12 @@ sub _get_own_submissions {
 			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
 			  . qq(<td>$submission->{'type'}</td>);
 			my $details = '';
-			my ( $all_assigned, $all_rejected ) = ( 1, 1 );
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
 				my $clean_locus       = $self->clean_locus( $allele_submission->{'locus'} );
 				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
-				foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
-					$all_assigned = 0 if $seq->{'status'} ne 'assigned';
-					$all_rejected = 0 if $seq->{'status'} ne 'rejected';
-				}
 			} elsif ( $submission->{'type'} eq 'profiles' ) {
 				my $profile_submission = $self->{'datastore'}->get_profile_submission( $submission->{'id'} );
 				my $profile_count      = @{ $profile_submission->{'profiles'} };
@@ -325,10 +320,6 @@ sub _get_own_submissions {
 				  $self->{'datastore'}
 				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
 				$details = "$profile_count $scheme_info->{'description'} profile$plural";
-				foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
-					$all_assigned = 0 if $profile->{'status'} ne 'assigned';
-					$all_rejected = 0 if $profile->{'status'} ne 'rejected';
-				}
 			} elsif ( $submission->{'type'} eq 'isolates' ) {
 				my $isolate_submission = $self->{'datastore'}->get_isolate_submission( $submission->{'id'} );
 				my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -337,13 +328,12 @@ sub _get_own_submissions {
 			}
 			$buffer .= qq(<td>$details</td>);
 			if ( $options->{'show_outcome'} ) {
-				if ($all_assigned) {
-					$buffer .= q(<td><span class="fa fa-lg fa-smile-o" style="color:green"></span></td>);
-				} elsif ($all_rejected) {
-					$buffer .= q(<td><span class="fa fa-lg fa-frown-o" style="color:red"></span></td>);
-				} else {
-					$buffer .= q(<td><span class="fa fa-lg fa-meh-o" style="color:blue"></span></td>);
-				}
+				my %style = (
+					good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
+					mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
+					bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
+				);
+				$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
 			}
 			if ( $options->{'allow_remove'} ) {
 				$buffer .=
@@ -883,7 +873,8 @@ sub _print_isolate_table_fieldset {
 	my $order    = $isolate_submission->{'order'};
 
 	if ( $q->param('curate') && $q->param('update') ) {
-		$self->_update_isolate_submission_isolate_status( $submission_id);
+		$self->_update_isolate_submission_isolate_status($submission_id);
+		$submission = $self->{'datastore'}->get_submission($submission_id);
 	}
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
@@ -892,16 +883,13 @@ sub _print_isolate_table_fieldset {
 	  . qq(<a href="/submissions/$submission_id/isolates.txt">Download$csv_icon</a></p>)
 	  if ( $options->{'download_link'} );
 	say $q->start_form;
-	my $status = $self->_print_isolate_table( $submission_id, $options );
-	#TODO Decide where to store record_status
-	#It may be better to have a submission_outcome field in main submission table and use this for alleles and profiles too.
-	#This would save having to check through each profile or allele to determine outcome.
-	$self->_print_update_button({record_status=>1}) if $options->{'curate'} && !$status->{'all_assigned'};
+	$self->_print_isolate_table( $submission_id, $options );
+	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
 	local $" = ',';
 
-	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
+	if ( $options->{'curate'} && !$submission->{'outcome'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit(
 			-name  => 'Batch curate',
@@ -918,6 +906,7 @@ sub _print_isolate_table_fieldset {
 		$q->param( page => $page );
 	}
 	say q(</fieldset>);
+	$self->{'all_assigned_or_rejected'} = $submission->{'outcome'} ? 1 : 0;
 	return;
 }
 
@@ -936,6 +925,8 @@ sub _check_new_alleles {
 	}
 	if ( $q->param('fasta') ) {
 		my $fasta_string = $q->param('fasta');
+		$fasta_string =~ s/^\s*//x;
+		$fasta_string =~ s/\n\s*/\n/xg;
 		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
 		return $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
 	}
@@ -1296,7 +1287,6 @@ sub _start_isolate_submission {
 		}
 		my $i = 1;
 		foreach my $isolate (@$isolates) {
-			
 			foreach my $field ( keys %$isolate ) {
 				next if !defined $isolate->{$field} || $isolate->{$field} eq '';
 				$self->{'db'}
@@ -1510,6 +1500,16 @@ sub _update_profile_submission_profile_status {
 	return;
 }
 
+sub _update_isolate_submission_isolate_status {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	return if !$submission;
+	my $q = $self->{'cgi'};
+	my %outcome = ( accepted => 'good', rejected => 'bad' );
+	$self->_update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
+	return;
+}
+
 sub _print_sequence_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1522,10 +1522,9 @@ sub _print_sequence_table {
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	say q(<table class="resultstable">);
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
-	my $all_assigned_or_rejected = 1;
-	my $all_assigned             = 1;
-	my $td                       = 1;
-	my $pending_seqs             = [];
+	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
+	my $td           = 1;
+	my $pending_seqs = [];
 
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
@@ -1553,6 +1552,8 @@ sub _print_sequence_table {
 				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending' );
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
+		} else {
+			$all_rejected = 0;
 		}
 		$assigned //= '';
 		if ( $options->{'curate'} && !$assigned ) {
@@ -1563,7 +1564,10 @@ sub _print_sequence_table {
 				-default => $seq->{'status'}
 			);
 			say q(</td>);
-			$all_assigned_or_rejected = 0 if $seq->{'status'} ne 'rejected';
+			if ( $seq->{'status'} ne 'rejected' ) {
+				$all_rejected             = 0;
+				$all_assigned_or_rejected = 0;
+			}
 			$all_assigned = 0;
 		} else {
 			say qq(<td>$seq->{'status'}</td>);
@@ -1579,6 +1583,21 @@ sub _print_sequence_table {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table>);
+	if ( $options->{'curate'} ) {
+		my $outcome;
+		if ( !@$pending_seqs ) {
+			if ($all_assigned) {
+				$outcome = 'good';
+			} elsif ($all_rejected) {
+				$outcome = 'bad';
+			} else {
+				$outcome = 'mixed';
+			}
+		} else {
+			undef $outcome;
+		}
+		$self->_update_submission_outcome( $submission_id, $outcome );
+	}
 	return {
 		all_assigned_or_rejected => $all_assigned_or_rejected,
 		all_assigned             => $all_assigned,
@@ -1589,16 +1608,15 @@ sub _print_sequence_table {
 sub _print_profile_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q                        = $self->{'cgi'};
-	my $submission               = $self->{'datastore'}->get_submission($submission_id);
-	my $profile_submission       = $self->{'datastore'}->get_profile_submission($submission_id);
-	my $profiles                 = $profile_submission->{'profiles'};
-	my $scheme_id                = $profile_submission->{'scheme_id'};
-	my $scheme_info              = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $all_assigned_or_rejected = 1;
-	my $all_assigned             = 1;
-	my $pending_profiles         = [];
-	my $loci                     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $q                  = $self->{'cgi'};
+	my $submission         = $self->{'datastore'}->get_submission($submission_id);
+	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+	my $profiles           = $profile_submission->{'profiles'};
+	my $scheme_id          = $profile_submission->{'scheme_id'};
+	my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
+	my $pending_profiles = [];
+	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	say q(<table class="resultstable">);
 	say q(<tr><th>Identifier</th>);
 
@@ -1634,6 +1652,7 @@ sub _print_profile_table {
 				$profile->{'status'}      = 'assigned';
 				$profile->{'assigned_id'} = $assigned;
 			}
+			$all_rejected = 0;
 		}
 		$assigned //= '';
 		if ( $options->{'curate'} && !$assigned ) {
@@ -1644,7 +1663,10 @@ sub _print_profile_table {
 				-default => $profile->{'status'}
 			);
 			say q(</td>);
-			$all_assigned_or_rejected = 0 if $profile->{'status'} ne 'rejected';
+			if ( $profile->{'status'} ne 'rejected' ) {
+				$all_assigned_or_rejected = 0;
+				$all_assigned_or_rejected = 0;
+			}
 			$all_assigned = 0;
 		} else {
 			say qq(<td>$profile->{'status'}</td>);
@@ -1659,6 +1681,21 @@ sub _print_profile_table {
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 		$index++;
+	}
+	if ( $options->{'curate'} ) {
+		my $outcome;
+		if ( !@$pending_profiles ) {
+			if ($all_assigned) {
+				$outcome = 'good';
+			} elsif ($all_rejected) {
+				$outcome = 'bad';
+			} else {
+				$outcome = 'mixed';
+			}
+		} else {
+			undef $outcome;
+		}
+		$self->_update_submission_outcome( $submission_id, $outcome );
 	}
 	say q(</table>);
 	return {
@@ -1746,13 +1783,14 @@ sub _print_sequence_table_fieldset {
 }
 
 sub _print_update_button {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say q(<div style="float:right">);
-	if ($options->{'record_status'}){
+	if ( $options->{'record_status'} ) {
 		say q(<label for="record_status">Record status:</label>);
-		say $q->popup_menu(-name=>'record_status', id=>'record_status',values => [qw(pending accepted rejected)]);
+		say $q->popup_menu( -name => 'record_status', id => 'record_status',
+			values => [qw(pending accepted rejected)] );
 	}
 	say $q->submit(
 		-name  => 'update',
@@ -1832,7 +1870,19 @@ sub _set_profile_status {
 
 sub _update_submission_datestamp {
 	my ( $self, $submission_id ) = @_;
-	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=?', undef, 'now' ) };
+	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub _update_submission_outcome {
+	my ( $self, $submission_id, $outcome ) = @_;
+	eval { $self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, $outcome, $submission_id ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -2115,16 +2165,22 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Ca
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Curate submission</h1>);
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1 } );
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $curate     = 1;
+	if ( $submission->{'status'} eq 'closed' ) {
+		say q(<div class="box" id="statusbad"><p>This submission is closed and cannot now be modified.</p></div>);
+		$curate = 0;
+	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
-	$self->_print_sequence_table_fieldset( $submission_id, { curate => 1 } );
-	$self->_print_profile_table_fieldset( $submission_id, { curate => 1 } );
-	$self->_print_isolate_table_fieldset( $submission_id, { curate => 1 } );
+	$self->_print_sequence_table_fieldset( $submission_id, { curate => $curate } );
+	$self->_print_profile_table_fieldset( $submission_id, { curate => $curate } );
+	$self->_print_isolate_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
-	$self->_print_close_submission_fieldset($submission_id);
+	$self->_print_close_submission_fieldset($submission_id) if $curate;
 	say q(</div></div>);
 	return;
 }

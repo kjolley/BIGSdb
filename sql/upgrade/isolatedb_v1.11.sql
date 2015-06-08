@@ -6,6 +6,7 @@ date_submitted date NOT NULL,
 datestamp date NOT NULL,
 status text NOT NULL,
 curator int,
+outcome text,
 PRIMARY KEY(id),
 CONSTRAINT s_submitter FOREIGN KEY (submitter) REFERENCES users
 ON DELETE CASCADE
