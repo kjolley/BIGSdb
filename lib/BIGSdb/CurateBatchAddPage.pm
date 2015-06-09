@@ -377,7 +377,7 @@ sub _check_data {
 				s/\s*$//x;
 			}
 			my $first = 1;
-			if ( $arg_ref->{'uses_integer_id'} && !$first_record ) {
+			if ( !defined $file_header_pos{'id'} && $arg_ref->{'uses_integer_id'} && !$first_record ) {
 				do { $id++ } while ( $self->_is_id_used( $table, $id ) );
 			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
@@ -621,8 +621,8 @@ sub _report_check {
 		say $q->start_form;
 		say $q->hidden($_)
 		  foreach qw (page table db sender locus ignore_existing ignore_non_DNA complete_CDS ignore_similarity);
-		say $q->hidden( 'checked_buffer', $filename );
-		say $q->submit( -name => 'Import data', -class => 'submit' );
+		say $q->hidden( checked_buffer => $filename );
+		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->endform;
 		say q(</div>);
 	}
@@ -871,7 +871,7 @@ sub _check_data_primary_key {
 	my @primary_keys   = @{ $arg_ref->{'primary_keys'} };
 	if ( !$self->{'sql'}->{'primary_key_check'} ) {
 		local $" = '=? AND ';
-		my $qry = "SELECT COUNT(*) FROM $arg_ref->{'table'} WHERE @primary_keys=?";
+		my $qry = "SELECT EXISTS(SELECT * FROM $arg_ref->{'table'} WHERE @primary_keys=?)";
 		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
 	}
 	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/x ) {
@@ -1441,7 +1441,6 @@ sub _upload_data {
 					if ( defined $_ && $_ ne $id ) {
 						$qry = 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)';
 						push @inserts, { statement => $qry, arguments => [ $id, $_, 'TRUE', $curator, 'now' ] };
-						$logger->error($qry);
 					}
 				}
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -1577,7 +1576,6 @@ sub _prepare_metaset_insert {
 		foreach my $field (@$meta_fields) {
 			push @values, $data->[ $fieldorder->{$field} ];
 		}
-
 		$qry =~ s/meta_$metaset://gx;    #field names include metaset which isn't used in database table.
 		push @inserts, { statement => $qry, arguments => \@values };
 	}
@@ -1665,14 +1663,8 @@ sub _get_field_table_header {
 
 sub _is_id_used {
 	my ( $self, $table, $id ) = @_;
-	my $qry = "SELECT count(id) FROM $table WHERE id=?";
-	if ( !$self->{'sql'}->{'id_used'} ) {
-		$self->{'sql'}->{'id_used'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'id_used'}->execute($id) };
-	$logger->error($@) if $@;
-	my ($used) = $self->{'sql'}->{'id_used'}->fetchrow_array;
-	return $used;
+	my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
+	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
 
 sub _process_fields {

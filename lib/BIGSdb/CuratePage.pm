@@ -1012,17 +1012,12 @@ sub _is_field_bad_isolates {
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return 'must be a valid date in yyyy-mm-dd format';
 	}
-	if (   $flag
-		&& $flag eq 'insert'
-		&& ( $fieldname eq 'id' ) )
-	{
-		#Make sure id number has not been used previously
-		my $qry;
-		$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE id=?";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute($value) };
-		$logger->error($@) if $@;
-		my ($exists) = $sql->fetchrow_array;
+
+	#Make sure id number has not been used previously
+	if ( $flag && $flag eq 'insert' && ( $fieldname eq 'id' ) ) {
+		my $exists =
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+			$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
 		if ($exists) {
 			return "$value is already in database";
 		}
