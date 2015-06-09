@@ -741,16 +741,14 @@ sub _check_data_isolate_record_locus_fields {
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my @data            = @{ $arg_ref->{'data'} };
 	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my %is_locus;
 	my $set_id = $self->get_set_id;
-	$is_locus{$_} = 1 foreach @{ $self->{'datastore'}->get_loci( { set_id => $set_id } ) };
 	my $locusbuffer;
 
 	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
 		if ( !$self->{'field_name_cache'}->{$field} ) {
 			$self->{'field_name_cache'}->{$field} = $self->map_locus_name($field) // $field;
 		}
-		if ( $is_locus{ $self->{'field_name_cache'}->{$field} } ) {
+		if ($self->{'datastore'}->is_locus($self->{'field_name_cache'}->{$field}, {set_id => $set_id})){
 			${ $arg_ref->{'header_row'} } .= "$self->{'field_name_cache'}->{$field}\t" if $first_record;
 			my $value = defined $file_header_pos{$field} ? $data[ $file_header_pos{$field} ] : undef;
 			if ( !$arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } ) {

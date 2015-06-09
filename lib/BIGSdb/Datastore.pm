@@ -1228,13 +1228,15 @@ sub finish_with_locus {
 }
 
 sub is_locus {
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
 	return if !defined $id;
-	if ( !$self->{'cache'}->{'locus_hash'} ) {
-		my $loci = $self->get_loci( { do_not_order => 1 } );
-		$self->{'cache'}->{'locus_hash'} = { map { $_ => 1 } @$loci };
+	$options = {} if ref $options ne 'HASH';
+	my $key = $options->{'set_id'} // 'All';
+	if ( !$self->{'cache'}->{'locus_hash'}->{$key} ) {
+		my $loci = $self->get_loci( { do_not_order => 1, set_id => $options->{'set_id'} } );
+		$self->{'cache'}->{'locus_hash'}->{$key} = { map { $_ => 1 } @$loci };
 	}
-	return 1 if $self->{'cache'}->{'locus_hash'}->{$id};
+	return 1 if $self->{'cache'}->{'locus_hash'}->{$key}->{$id};
 	return;
 }
 ##############ALLELES##################################################################
