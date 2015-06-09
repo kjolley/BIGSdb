@@ -927,6 +927,16 @@ sub is_field_bad {
 	}
 }
 
+sub _user_exists {
+	my ( $self, $user_id ) = @_;
+	if ( !$self->{'cache'}->{'users'} ) {
+		my $users = $self->{'datastore'}->run_query( 'SELECT id FROM users', undef, { fetch => 'col_arrayref' } );
+		%{ $self->{'cache'}->{'users'} } = map { $_ => 1 } @$users;
+	}
+	return 1 if $self->{'cache'}->{'users'}->{$user_id};
+	return;
+}
+
 sub _is_field_bad_isolates {
 	my ( $self, $fieldname, $value, $flag ) = @_;
 	my $q = $self->{'cgi'};
@@ -964,17 +974,10 @@ sub _is_field_bad_isolates {
 
 	#Make sure sender is in database
 	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
-		my $qry = 'SELECT DISTINCT id FROM users';
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my ($senderid) = $sql->fetchrow_array ) {
-			if ( $value == $senderid ) {
-				return 0;
-			}
-		}
+		my $sender_exists = $self->_user_exists($value);
 		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>);
+		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>)
+		  if !$sender_exists;
 	}
 
 	#If a regex pattern exists, make sure data conforms to it
