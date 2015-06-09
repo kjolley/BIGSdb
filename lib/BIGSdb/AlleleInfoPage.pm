@@ -35,74 +35,66 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
-	$locus =~ s/%27/'/g;    #Web-escaped locus
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $allele_id = $q->param('allele_id');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<h1>Allele information</h1>";
-		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		say q(<h1>Allele information</h1>);
+		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
-	say "<h1>Allele information" . ( defined $allele_id ? " - $cleaned_locus: $allele_id\n" : '' ) . "</h1>";
+	say q(<h1>Allele information) . ( defined $allele_id ? qq( - $cleaned_locus: $allele_id) : '' ) . q(</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say qq(<div class="box" id="statusbad"><p>This function is not available from an isolate database.</p></div>);
+		say q(<div class="box" id="statusbad"><p>This function is not available from an isolate database.</p></div>);
 		return;
 	}
 	if ( !defined $allele_id ) {
-		say qq(<div class="box" id="statusbad"><p>No allele id selected.</p></div>);
+		say q(<div class="box" id="statusbad"><p>No allele id selected.</p></div>);
 		return;
 	}
-	my $seq_ref =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", [ $locus, $allele_id ], { fetch => 'row_hashref' } );
+	my $seq_ref = $self->{'datastore'}->run_query(
+		'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
+		[ $locus, $allele_id ],
+		{ fetch => 'row_hashref' }
+	);
 	if ( !$seq_ref ) {
-		say qq(<div class="box" id="statusbad"><p>This sequence does not exist.</p></div>);
+		say q(<div class="box" id="statusbad"><p>This sequence does not exist.</p></div>);
 		return;
 	}
-	my $length      = length( $seq_ref->{'sequence'} );
-	my $seq         = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
-	my $sender_info = $self->{'datastore'}->get_user_info( $seq_ref->{'sender'} );
-	$sender_info->{'affiliation'} =~ s/\&/\&amp;/g;
-	my $sender_email =
-	  ( !$self->{'system'}->{'privacy'} && $seq_ref->{'sender'} > 0 )
-	  ? "(E-mail: <a href=\"mailto:$sender_info->{'email'}\">$sender_info->{'email'}</a>)"
-	  : '';
-	my $curator_info = $self->{'datastore'}->get_user_info( $seq_ref->{'curator'} );
-	my $desc_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus );
+	my $length = length( $seq_ref->{'sequence'} );
+	my $seq    = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
+	my $desc_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
 	my $desc_link =
 	  $desc_exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
-	  . qq(class="info_tooltip">i</a>)
-	  : '';
-	say qq(<div class="box" id="resultspanel">);
-	say qq(<div class="scrollable">);
-	say "<h2>Provenance/meta data</h2>";
-	say qq(<dl class="data">);
-	say "<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>";
-	say "<dt>allele</dt><dd>$allele_id</dd>";
+	  . q(class="tooltip"><span class="fa fa-info-circle"></span></a>)
+	  : q();
+	say q(<div class="box" id="resultspanel">);
+	say q(<div class="scrollable">);
+	say q(<h2>Provenance/meta data</h2>);
+	say q(<dl class="data">);
+	say qq(<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>);
+	say qq(<dt>allele</dt><dd>$allele_id</dd>);
 
 	if ( $allele_id eq '0' ) {
-		say "<dt>description</dt><dd>This is a null allele. When included in a profile it means that this locus is missing.</dd>";
+		say q(<dt>description</dt><dd>This is a null allele. When included in a )
+		  . q(profile it means that this locus is missing.</dd>);
 	} elsif ( $allele_id eq 'N' ) {
-		say "<dt>description</dt><dd>This is an arbitrary allele.  When included in a profile it means that this locus is ignored.</dd>";
+		say q(<dt>description</dt><dd>This is an arbitrary allele.  When included )
+		  . q(in a profile it means that this locus is ignored.</dd>);
 	} else {
 		say qq(<dt>sequences</dt><dd style="text-align:left" class="seq">$seq</dd>)
 		  . qq(<dt>length</dt><dd>$length</dd>)
 		  . qq(<dt>status</dt><dd>$seq_ref->{'status'}</dd>)
 		  . qq(<dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>)
 		  . qq(<dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>);
-		if ( $sender_info->{'first_name'} || $sender_info->{'surname'} ) {
-			print "<dt>sender</dt><dd>$sender_info->{'first_name'} $sender_info->{'surname'}";
-			print ", $sender_info->{'affiliation'}$sender_email" if $seq_ref->{'sender'} != $seq_ref->{'curator'};
-			say "</dd>";
-		}
-		if ( $curator_info->{'first_name'} || $curator_info->{'surname'} ) {
-			print "<dt>curator</dt><dd>$curator_info->{'first_name'} $curator_info->{'surname'}";
-			say ", $curator_info->{'affiliation'} " if $curator_info->{'affiliation'} && $curator_info->{'affiliation'} ne ' ';
-			say "(E-mail: <a href=\"mailto:$curator_info->{'email'}\">$curator_info->{'email'}</a>)"
-			  if $curator_info->{'email'} && $seq_ref->{'curator'} > 0;
-			say "</dd>";
-		}
+		my $sender =
+		  $self->{'datastore'}->get_user_string( $seq_ref->{'sender'},
+			{ affiliation => 1, email => ( $self->{'system'}->{'privacy'} ? 0 : 1 ) } );
+		say qq(<dt>sender</dt><dd>$sender</dd>);
+		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
+		say qq(<dt>curator</dt><dd>$curator</dd>);
 	}
 	say "<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>" if $seq_ref->{'comments'};
 	$self->_process_flags( $locus, $allele_id );
@@ -110,32 +102,34 @@ sub print_content {
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;
-		if ( $cleaned_field =~ /sequence$/ ) {
+		if ( $cleaned_field =~ /sequence$/x ) {
 			my $ext_seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			say "<dt>$cleaned_field</dt><dd class=\"seq\">$ext_seq</dd>";
+			say qq(<dt>$cleaned_field</dt><dd class="seq">$ext_seq</dd>);
 		} else {
-			say "<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>";
+			say qq(<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>);
 		}
 	}
-	say "</dl>";
+	say q(</dl>);
 	$self->_print_accessions( $locus, $allele_id );
 	$self->_print_ref_links( $locus, $allele_id );
-	my $qry         = "SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?";
+	my $qry         = 'SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?';
 	my $scheme_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	my $set_id      = $self->get_set_id;
 	if (@$scheme_list) {
 		my $profile_buffer;
 		foreach my $scheme (@$scheme_list) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
+			my $scheme_info =
+			  $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 			next if !$scheme_info->{'primary_key'};
 			my $profiles =
-			  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM profile_members WHERE scheme_id=? AND locus=? AND allele_id=?",
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT COUNT(*) FROM profile_members WHERE (scheme_id,locus,allele_id)=(?,?,?)',
 				[ $scheme->{'id'}, $locus, $allele_id ] );
 			next if !$profiles;
 			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";
 			my $plural  = $profiles == 1 ? ''         : 's';
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
-			$profile_buffer .= "<dd>";
+			$profile_buffer .= q(<dd>);
 			$profile_buffer .= $q->start_form;
 			$q->param( page      => 'query' );
 			$q->param( scheme_id => $scheme->{'id'} );
@@ -147,7 +141,7 @@ sub print_content {
 			$profile_buffer .= $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
 			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'smallbutton' );
 			$profile_buffer .= $q->end_form;
-			$profile_buffer .= "</dd>";
+			$profile_buffer .= q(</dd>);
 		}
 		if ($profile_buffer) {
 			say qq(<h2>Profiles containing this allele</h2>\n<dl class="data">\n$profile_buffer</dl>);
@@ -155,16 +149,16 @@ sub print_content {
 	}
 	$self->_print_client_database_data( $locus, $allele_id );
 	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
-	say "<h2>Linked data</h2>\n$client_buffer" if $client_buffer;
-	say "</div></div>";
+	say qq(<h2>Linked data</h2>\n$client_buffer) if $client_buffer;
+	say q(</div></div>);
 	return;
 }
 
 sub _print_client_database_data {
 	my ( $self, $locus, $allele_id ) = @_;
 	my $q   = $self->{'cgi'};
-	my $qry = "SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON "
-	  . "client_dbases.id=client_dbase_id WHERE locus=?";
+	my $qry = 'SELECT client_dbases.*,locus_alias FROM client_dbases LEFT JOIN client_dbase_loci ON '
+	  . 'client_dbases.id=client_dbase_id WHERE locus=?';
 	my $client_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	if (@$client_list) {
 		my $buffer;
@@ -195,18 +189,23 @@ sub _print_client_database_data {
 					push @action_params, "$_=$params{$_}";
 				}
 				local $" = '&';
-				$buffer .= $q->start_form( -action => "$client->{'url'}?@action_params", -method => 'post', -style => 'display:inline' );
+				$buffer .= $q->start_form(
+					-action => "$client->{'url'}?@action_params",
+					-method => 'post',
+					-style  => 'display:inline'
+				);
 				local $" = ' ';
-				$buffer .= $q->hidden($_) foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
+				$buffer .= $q->hidden($_)
+				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
 				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}
-			$buffer .= "</dd>";
+			$buffer .= q(</dd>);
 		}
 		if ($buffer) {
 			say qq(<h2>Isolate databases</h2>\n<dl class="data">);
 			say $buffer;
-			say "</dl>";
+			say q(</dl>);
 		}
 	}
 	return;
@@ -217,7 +216,7 @@ sub _process_flags {
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		if (@$flags) {
-			local $" = qq(</span> <span class="seqflag">);
+			local $" = q(</span> <span class="seqflag">);
 			say qq(<dt>flags</dt><dd><span class="seqflag">@$flags</span></dd>);
 		}
 	}
@@ -227,11 +226,11 @@ sub _process_flags {
 sub get_title {
 	my ($self) = @_;
 	my $locus = $self->{'cgi'}->param('locus');
-	$locus =~ s/%27/'/g;    #Web-escaped locus
+	$locus =~ s/%27/'/gx;                                    #Web-escaped locus
 	my $allele_id = $self->{'cgi'}->param('allele_id');
-	return "Invalid locus" if !$self->{'datastore'}->is_locus($locus);
+	return 'Invalid locus' if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
-	return "Allele information" . ( defined $allele_id ? " - $locus: $allele_id" : '' );
+	return 'Allele information' . ( defined $allele_id ? " - $locus: $allele_id" : '' );
 }
 
 sub initiate {
@@ -242,14 +241,15 @@ sub initiate {
 
 sub _print_accessions {
 	my ( $self, $locus, $allele_id ) = @_;
-	my $qry            = "SELECT databank, databank_id FROM accession WHERE locus=? and allele_id=? ORDER BY databank,databank_id";
-	my $accession_list = $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
-	my $buffer         = '';
+	my $qry = 'SELECT databank,databank_id FROM accession WHERE (locus,allele_id)=(?,?) ORDER BY databank,databank_id';
+	my $accession_list =
+	  $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
+	my $buffer = q();
 	if (@$accession_list) {
-		say "<h2>Accession" . ( @$accession_list > 1 ? 's' : '' ) . " (" . @$accession_list . ")";
+		say '<h2>Accession' . ( @$accession_list > 1 ? 's' : '' ) . ' (' . @$accession_list . ')';
 		my $display = @$accession_list > 4 ? 'none' : 'block';
-		say qq(<span style="margin-left:1em"><a id="show_accessions" class="smallbutton" style="cursor:pointer">&nbsp;)
-		  . qq(show/hide&nbsp;</a></span>)
+		say q(<span style="margin-left:1em"><a id="show_accessions" class="smallbutton" style="cursor:pointer">&nbsp;)
+		  . q(show/hide&nbsp;</a></span>)
 		  if $display eq 'none';
 		say "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
@@ -267,7 +267,7 @@ sub _print_accessions {
 				say "<dd>$accession->{'databank_id'}</dd>";
 			}
 		}
-		say "</dl></div>";
+		say q(</dl></div>);
 	}
 	return $buffer;
 }
@@ -275,25 +275,26 @@ sub _print_accessions {
 sub _print_ref_links {
 	my ( $self, $locus, $allele_id ) = @_;
 	my $pmids = $self->{'datastore'}->run_query(
-		"SELECT pubmed_id FROM sequence_refs WHERE locus=? and allele_id=? ORDER BY pubmed_id",
+		'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?) ORDER BY pubmed_id',
 		[ $locus, $allele_id ],
 		{ fetch => 'col_arrayref' }
 	);
 	if (@$pmids) {
-		say "<h2>Publication" . ( @$pmids > 1 ? 's' : '' ) . " (" . @$pmids . ")";
+		say '<h2>Publication' . ( @$pmids > 1 ? 's' : '' ) . ' (' . @$pmids . ')';
 		my $display = @$pmids > 4 ? 'none' : 'block';
-		say qq(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">&nbsp;show/hide&nbsp;</a></span>)
+		say q(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
+		  . q(&nbsp;show/hide&nbsp;</a></span>)
 		  if $display eq 'none';
 		say "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
 		say "<ul id=\"$id\">\n";
 		my $citations =
-		  $self->{'datastore'}
-		  ->get_citation_hash( $pmids, { formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
+		  $self->{'datastore'}->get_citation_hash( $pmids,
+			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
 			say qq(<li style="padding-bottom:1em">$citations->{$pmid}</li>);
 		}
-		say "</ul>";
+		say q(</ul>);
 	}
 	return;
 }
