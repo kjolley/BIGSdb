@@ -2091,6 +2091,12 @@ sub _print_summary {
 	say qq(<dt>submitter</dt><dd>$user_string</dd>);
 	say qq(<dt>datestamp</dt><dd>$submission->{'datestamp'}</dd>);
 	say qq(<dt>status</dt><dd>$submission->{'status'}</dd>);
+	my %outcome = (
+		good  => 'accepted - data uploaded',
+		bad   => 'rejected - data not uploaded',
+		mixed => 'mixed - submission partially accepted'
+	);
+	say qq(<dt>outcome</dt><dd>$outcome{$submission->{'outcome'}}</dd>) if $submission->{'outcome'};
 
 	if ( defined $submission->{'curator'} ) {
 		my $curator_string =
