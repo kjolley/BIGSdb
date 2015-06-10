@@ -571,6 +571,10 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #
 	} else {
 		$self->{'db'}->commit;
 	}
+	my $guid = $self->get_guid;
+	return if !$guid;
+	$self->{'prefstore'}
+	  ->set_general( $guid, $self->{'system'}->{'db'}, 'submit_email', $q->param('email') ? 'on' : 'off' );
 	return;
 }
 
@@ -1381,6 +1385,7 @@ sub _presubmit_alleles {
 	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
+	$self->_print_email_fieldset($submission_id);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
@@ -1416,6 +1421,7 @@ sub _presubmit_profiles {
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
+	$self->_print_email_fieldset($submission_id);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
@@ -1449,6 +1455,7 @@ sub _presubmit_isolates {
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_isolate_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
+	$self->_print_email_fieldset($submission_id);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
@@ -1457,6 +1464,23 @@ sub _presubmit_isolates {
 	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
+	return;
+}
+
+sub _print_email_fieldset {
+	my ( $self, $submission_id ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	return if !$submission;
+	my $sender_info = $self->{'datastore'}->get_user_info( $submission->{'submitter'} );
+	return if $sender_info->{'email'} !~ /@/x;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left"><legend>E-mail</legend>);
+	say qq(<p>Updates will be sent to $sender_info->{'email'}.</p>);
+	my %checked;
+	$checked{'checked'} = 'checked' if $self->{'prefs'}->{'submit_email'};
+	say $q->checkbox( -name => 'email', label => 'E-mail submission updates', %checked );
+	say q(</fieldset>);
 	return;
 }
 
@@ -2209,6 +2233,16 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
+sub _translate_outcome {
+	my ( $self, $outcome_value ) = @_;
+	my %outcome = (
+		good  => 'accepted - data uploaded',
+		bad   => 'rejected - data not uploaded',
+		mixed => 'mixed - submission partially accepted'
+	);
+	return $outcome{$outcome_value} // $outcome_value;
+}
+
 sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
@@ -2223,7 +2257,42 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Cal
 	} else {
 		$self->{'db'}->commit;
 	}
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	if ( $submission->{'email'} ) {
+		return if !$self->{'config'}->{'smtp_server'};
+		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+		$self->_email(
+			$submission_id,
+			{
+				recipient => $submission->{'submitter'},
+				sender    => $curator_id,
+				subject   => "$desc submission closed - $submission_id",
+				message   => $self->_get_text_summary($submission_id)
+			}
+		);
+	}
 	return;
+}
+
+sub _get_text_summary {
+	my ( $self, $submission_id ) = @_;
+	my $submission     = $self->{'datastore'}->get_submission($submission_id);
+	my $curator_id     = $self->get_curator_id;
+	my $curator_string = $self->{'datastore'}->get_user_string( $curator_id, { affiliation => 1 } );
+	my $outcome        = $self->_translate_outcome( $submission->{'outcome'} );
+	my %fields         = (
+		type           => 'Data type',
+		date_submitted => 'Date submitted',
+		datestamp      => 'Last updated',
+		status         => 'Status',
+	);
+	my $msg = "Submission: $submission_id\n\n";
+	foreach my $field (qw (type date_submitted datestamp status)) {
+		$msg .= "$fields{$field}: $submission->{$field}\n";
+	}
+	$msg .= "Curator: $curator_string\n";
+	$msg .= "Outcome: $outcome\n";
+	return $msg;
 }
 
 sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
@@ -2392,5 +2461,37 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return " Manage submissions - $desc ";
+}
+
+sub _email {
+	my ( $self, $submission_id, $params ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		$logger->error('Mail::Sender is not installed.');
+		return;
+	}
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $subject = $params->{'subject'} // "Submission#$submission_id";
+	foreach (qw(sender recipient message)) {
+		$logger->logdie("No $_") if !$params->{$_};
+	}
+	my $sender    = $self->{'datastore'}->get_user_info( $params->{'sender'} );
+	my $recipient = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
+	foreach my $user ( $sender, $recipient ) {
+		if ( $user->{'email'} !~ /@/x ) {
+			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
+			return;
+		}
+	}
+	eval {
+		my $mail_sender = Mail::Sender->new(
+			{ smtp => $self->{'config'}->{'smtp_server'}, to => $sender->{'email'}, from => $recipient->{'email'} } );
+		$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );
+		no warnings 'once';
+		$logger->error($Mail::Sender::Error) if $sender->{'error'};
+	};
+	$logger->error($@) if $@;
+	return;
 }
 1;

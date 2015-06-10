@@ -1868,7 +1868,7 @@ sub initiate_prefs {
 			}
 
 			#default on
-			foreach (qw (tooltips)) {
+			foreach (qw (tooltips submit_email)) {
 				$general_prefs->{$_} ||= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}

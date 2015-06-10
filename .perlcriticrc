@@ -4,6 +4,7 @@ severity = stern
 [-InputOutput::RequireBriefOpen]
 [-TestingAndDebugging::ProhibitNoWarnings]
 [-ValuesAndExpressions::ProhibitConstantPragma]
+[-Variables::ProhibitPackageVars]
 
 [InputOutput::RequireCheckedOpen]
 severity = stern
