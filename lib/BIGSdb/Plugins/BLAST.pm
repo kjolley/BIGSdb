@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -88,7 +88,8 @@ use BIGSdb::Page qw(SEQ_METHODS FLANKING);
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -104,7 +105,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.1.4',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -133,12 +134,12 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
-	say "<h1>BLAST</h1>";
+	say q(<h1>BLAST</h1>);
 	$self->_print_interface;
 	return if !( $q->param('submit') && $q->param('sequence') );
 	my @ids = $q->param('isolate_id');
 	if ( !@ids ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more isolates.</p></div>";
+		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		return;
 	}
 	my @includes = $q->param('includes');
@@ -148,14 +149,14 @@ sub run {
 		$meta_labels{$field} = $metafield;
 	}
 	my $seq = $q->param('sequence');
-	print "<div class=\"box\" id=\"resultstable\">\n";
-	my $header_buffer = "<table class=\"resultstable\">\n";
+	say q(<div class="box" id="resultstable">);
+	my $header_buffer = qq(<table class="resultstable">\n);
 	my $labelfield    = $self->{'system'}->{'labelfield'};
 	( my $display_label = ucfirst($labelfield) ) =~ tr/_/ /;
-	$header_buffer .= "<tr><th>Isolate id</th><th>$display_label</th>";
-	$header_buffer .= "<th>" . ( $meta_labels{$_} // $_ ) . '</th>' foreach @includes;
-	$header_buffer .= "<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th><th>Start</th>"
-	  . "<th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n";
+	$header_buffer .= qq(<tr><th>Isolate id</th><th>$display_label</th>);
+	$header_buffer .= q(<th>) . ( $meta_labels{$_} // $_ ) . q(</th>) foreach @includes;
+	$header_buffer .= q(<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th>)
+	  . qq(<th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n);
 	my $first                    = 1;
 	my $some_results             = 0;
 	my $td                       = 1;
@@ -168,7 +169,8 @@ sub run {
 	  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
 	print $fh_output_table "Isolate id\t$display_label\t";
 	print $fh_output_table ( $meta_labels{$_} // $_ ) . "\t" foreach @includes;
-	say $fh_output_table "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
+	say $fh_output_table
+	  "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
 	close $fh_output_table;
 
 	foreach my $id (@ids) {
@@ -177,9 +179,8 @@ sub run {
 		print $header_buffer if $first;
 		my @include_values;
 		if (@includes) {
-			my $include_data =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT * FROM $view WHERE id=?", $id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
+			my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $view WHERE id=?",
+				$id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
 			foreach my $field (@includes) {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				my $value;
@@ -192,67 +193,78 @@ sub run {
 			}
 		}
 		$some_results = 1;
-		my $label = $self->{'datastore'}->run_query( "SELECT $labelfield FROM $view WHERE id=?", $id, { cache => 'BLAST::run_label' } );
-		my $rows = @$matches;
+		my $label =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $labelfield FROM $view WHERE id=?", $id, { cache => 'BLAST::run_label' } );
+		my $rows        = @$matches;
 		my $first_match = 1;
-		my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
+		my $flanking    = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 		foreach my $match (@$matches) {
 			my $file_buffer;
 			if ($first_match) {
-				print "<tr class=\"td$td\"><td rowspan=\"$rows\" style=\"vertical-align:top\">"
-				  . "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">$id</a>"
-				  . "</td><td rowspan=\"$rows\" style=\" vertical-align:top\">$label</td>";
+				print qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id">)
+				  . qq($id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
 			} else {
-				print "<tr class=\"td$td\">";
+				print qq(<tr class="td$td">);
 			}
-			print "<td>$_</td>" foreach @include_values;
-			$file_buffer .= "$id\t$label";
-			$file_buffer .= "\t$_" foreach @include_values;
+			print qq(<td>$_</td>) foreach @include_values;
+			$file_buffer .= qq($id\t$label);
+			$file_buffer .= qq(\t$_) foreach @include_values;
 			foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
-				print "<td>$match->{$attribute}";
+				print qq(<td>$match->{$attribute});
 				if ( $attribute eq 'end' ) {
 					$match->{'reverse'} ||= 0;
-					print " <a target=\"_blank\" class=\"extract_tooltip\" href=\"$self->{'system'}->{'script_name'}?"
-					  . "db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;"
-					  . "seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;"
-					  . "reverse=$match->{'reverse'}&amp;flanking=$flanking\">extract&nbsp;&rarr;</a>";
+					print qq( <a target="_blank" class="extract_tooltip" href="$self->{'system'}->{'script_name'}?)
+					  . qq(db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;)
+					  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;)
+					  . qq(reverse=$match->{'reverse'}&amp;flanking=$flanking">extract&nbsp;&rarr;</a>);
 				}
-				print "</td>";
-				$file_buffer .= "\t$match->{$attribute}";
+				print q(</td>);
+				$file_buffer .= qq(\t$match->{$attribute});
 			}
-			print "<td style=\"font-size:2em\">" . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
-			$file_buffer .= $match->{'reverse'} ? "\tReverse" : "\tForward";
+			print q(<td style="font-size:2em">) . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . q(</td>);
+			$file_buffer .= $match->{'reverse'} ? qq(\tReverse) : qq(\tForward);
 			foreach (qw(e_value bit_score)) {
-				print "<td>$match->{$_}</td>";
-				$file_buffer .= "\t$match->{$_}";
+				print qq(<td>$match->{$_}</td>);
+				$file_buffer .= qq(\t$match->{$_});
 			}
-			say "</tr>";
+			say q(</tr>);
 			$first_match = 0;
 			my $start  = $match->{'start'};
 			my $end    = $match->{'end'};
 			my $length = abs( $end - $start + 1 );
-			my $qry    = "SELECT substring(sequence from $start for $length) AS seq,substring(sequence from ($start-$flanking) "
-			  . "for $flanking) AS upstream,substring(sequence from ($end+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
+			my $qry =
+			    qq[SELECT substring(sequence FROM $start for $length) AS seq,substring(sequence ]
+			  . qq[FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM ($end+1) ]
+			  . qq[FOR $flanking) AS downstream FROM sequence_bin WHERE id=?];
 			my $seq_ref = $self->{'datastore'}->run_query( $qry, $match->{'seqbin_id'}, { fetch => 'row_hashref' } );
-			$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
-			$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
-			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
-			my $fasta_id = ">$id|$label|$match->{'seqbin_id'}|$start\n";
+			$seq_ref->{'seq'}      = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )      if $match->{'reverse'};
+			$seq_ref->{'upstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} ) if $match->{'reverse'};
+			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} )
+			  if $match->{'reverse'};
+			my $fasta_id = ">$id|$label";
+			$fasta_id .= "|$match->{'seqbin_id'}|$start" if $q->param('include_seqbin');
+			$fasta_id .= "|$_" foreach @include_values;
 			my $seq_with_flanking;
 
 			if ( $match->{'reverse'} ) {
-				$seq_with_flanking = BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'}, 60 );
+				$seq_with_flanking =
+				  BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'},
+					60 );
 			} else {
-				$seq_with_flanking = BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'}, 60 );
+				$seq_with_flanking =
+				  BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'},
+					60 );
 			}
 			open( my $fh_output, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
 			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
 			open( my $fh_output_flanking, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
 			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
-			print $fh_output $fasta_id;
-			print $fh_output_flanking $fasta_id;
-			print $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 ) . "\n";
-			print $fh_output_flanking $seq_with_flanking . "\n";
+			say $fh_output $fasta_id;
+			say $fh_output_flanking $fasta_id;
+			say $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 );
+			say $fh_output_flanking $seq_with_flanking;
 			close $fh_output;
 			close $fh_output_flanking;
 			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
@@ -261,11 +273,15 @@ sub run {
 			close $fh_output_table;
 		}
 		if ( !@$matches ) {
-			say "<tr class=\"td$td\"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id\">"
-			  . "$id</a></td><td>$label</td><td>0</td><td colspan=\"9\" /></tr>";
+			say qq(<tr class="td$td"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=info&amp;id=$id\">$id</a></td><td>$label</td>);
+			say qq(<td>$_</td>) foreach @include_values;
+			say q(<td>0</td><td colspan="9" /></tr>);
 			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
 			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
-			say $fh_output_table "$id\t$label\t0";
+			print $fh_output_table qq($id\t$label);
+			print $fh_output_table qq(\t$_) foreach @include_values;
+			say $fh_output_table qq(\t0);
 			close $fh_output_table;
 		}
 		$td = $td == 1 ? 2 : 1;
@@ -276,21 +292,23 @@ sub run {
 		}
 	}
 	if ($some_results) {
-		say "</table>";
-		say "<p style=\"margin-top:1em\">Download <a href=\"/tmp/$out_file\">FASTA</a> | "
-		  . "<a href=\"/tmp/$out_file_flanking\">FASTA with flanking</a>";
-		say qq( <a class="tooltip" title="Flanking sequence - You can change the amount of flanking sequence exported by selecting )
-		  . qq(the appropriate length in the options page."><span class="fa fa-info-circle"></span></a> | );
-		say qq(<a href="/tmp/$out_file_table">Table (tab-delimited text)</a>);
+		say q(</table>);
+		say q(<p style="margin-top:1em">Download );
+		say qq(<a href="/tmp/$out_file" target="_blank">FASTA</a> | ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file";
+		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a> | )
+		  . q( <a class="tooltip" title="Flanking sequence - You can change the amount of flanking )
+		  . q(sequence exported by selecting the appropriate length in the options page.">)
+		  . q(<span class="fa fa-info-circle"></span></a> ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking";;
+		say qq(<a href="/tmp/$out_file_table" target="_blank">Table (tab-delimited text)</a>);
 		my $excel =
 		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
 			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-		say qq(| <a href=/tmp/$prefix\_table.xlsx>Excel format</a></li>) if -e $excel;
-		say "</p>";
+		say qq(| <a href="/tmp/$prefix\_table.xlsx">Excel format</a>) if -e $excel;
+		say q(</p>);
 	} else {
-		say "<p>No matches found.</p>";
+		say q(<p>No matches found.</p>);
 	}
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -308,16 +326,16 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<p>Please select the required isolate ids to BLAST against (use ctrl or shift to make multiple selections) and paste in your "
-	  . "query sequence.  Nucleotide or peptide sequences can be queried.</p>";
+	say q(<div class="box" id="queryform">);
+	say q(<p>Please select the required isolate ids to BLAST against (use CTRL or SHIFT to make multiple selections) )
+	  . q(and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>);
 	say $q->start_form;
-	say "<div class=\"scrollable\">";
+	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
-	say "<fieldset style=\"float:left\"><legend>Paste sequence</legend>";
+	say q(<fieldset style="float:left"><legend>Paste sequence</legend>);
 	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\">\n<legend>Include in results table</legend>";
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Include in results table</legend>);
 	my @fields;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
@@ -339,61 +357,83 @@ sub _print_interface {
 		-size     => 10,
 		-multiple => 'true'
 	);
-	say qq(</fieldset>);
-	say qq(<fieldset style="float:left"><legend>Parameters</legend>);
-	say qq(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Parameters</legend>);
+	say q(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
-	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an )
-	  . qq(extension. Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle"></span></a></li>);
-	say qq(<li><label for="scores" class="parameter">BLASTN scoring:</label>);
+	say q( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an )
+	  . q(extension. Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle">)
+	  . q(</span></a></li>);
+	say q(<li><label for="scores" class="parameter">BLASTN scoring:</label>);
 	my %labels;
 
 	foreach (BLASTN_SCORES) {
-		my @values = split /,/, $_;
+		my @values = split /,/x, $_;
 		$labels{$_} = "reward:$values[0]; penalty:$values[1]; gap open:$values[2]; gap extend:$values[3]";
 	}
-	say $q->popup_menu( -name => 'scores', -id => 'scores', -values => [BLASTN_SCORES], -labels => \%labels, -default => '2,-3,5,2' );
-	say qq( <a class="tooltip" title="BLASTN scoring - This is a combination of rewards for identically matched nucleotides, )
-	  . qq(penalties for mismatching nucleotides, gap opening costs and gap extension costs. Only the listed combinations are )
-	  . qq(supported by the BLASTN algorithm."><span class="fa fa-info-circle"></span></a>);
-	say qq(</li><li><label for="hits" class="parameter">Hits per isolate:</label>);
-	say $q->popup_menu( -name => 'hits', -id => 'hits', -values => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)], -default => 1 );
-	say qq(</li><li><label for="flanking" class="parameter">Flanking length (bp):</label>);
-	say $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
-	say qq( <a class="tooltip" title="Flanking length - This is the length of flanking sequence (if present) that will be output in the )
-	  . qq(secondary FASTA file.  The default value can be changed in the options page."><span class="fa fa-info-circle"></span></a></li>);
-	say qq(<li>);
+	say $q->popup_menu(
+		-name    => 'scores',
+		-id      => 'scores',
+		-values  => [BLASTN_SCORES],
+		-labels  => \%labels,
+		-default => '2,-3,5,2'
+	);
+	say q( <a class="tooltip" title="BLASTN scoring - This is a combination of rewards for identically )
+	  . q(matched nucleotides, penalties for mismatching nucleotides, gap opening costs and gap extension )
+	  . q(costs. Only the listed combinations are supported by the BLASTN algorithm.">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
+	say q(</li><li><label for="hits" class="parameter">Hits per isolate:</label>);
+	say $q->popup_menu(
+		-name    => 'hits',
+		-id      => 'hits',
+		-values  => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)],
+		-default => 1
+	);
+	say q(</li><li><label for="flanking" class="parameter">Flanking length (bp):</label>);
+	say $q->popup_menu(
+		-name    => 'flanking',
+		-id      => 'flanking',
+		-values  => [FLANKING],
+		-default => $self->{'prefs'}->{'flanking'}
+	);
+	say q( <a class="tooltip" title="Flanking length - This is the length of flanking sequence (if present) )
+	  . q(that will be output in the secondary FASTA file.  The default value can be changed in the options page.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li>);
+	say q(<li>);
 	say $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
-	say qq( <a class="tooltip" title="TBLASTX - Compares the six-frame translation of your nucleotide query against the )
-	  . qq(six-frame translation of the sequences in the sequence bin."><span class="fa fa-info-circle"></span></a></li>);
-	say qq(</ul></fieldset>);
-	say qq(<fieldset style="float:left"><legend>Options</legend>);
-	say qq(<ul><li>);
-	say $q->checkbox( -name => 'show_no_match', label => 'Show 0% matches in table' );
-	say qq(</li></ul></fieldset>);
-	say qq(<fieldset style="float:left"><legend>Restrict included sequences by</legend>);
-	say qq(<ul>);
+	say q( <a class="tooltip" title="TBLASTX - Compares the six-frame translation of your nucleotide query )
+	  . q(against the six-frame translation of the sequences in the sequence bin.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li>);
+	say q(</ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'show_no_match', label => 'Show isolates with no matches' );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'include_seqbin', label => 'Include seqbin id and start position in FASTA' );
+	say q(</li></ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Restrict included sequences by</legend>);
+	say q(<ul>);
 	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
-	say qq(</ul></fieldset>);
+	say q(</ul></fieldset>);
 	$self->print_action_fieldset( { name => 'BLAST' } );
 	say $q->hidden($_) foreach qw (db page name);
-	say qq(</div>);
+	say q(</div>);
 	say $q->end_form;
-	say qq(</div>);
+	say q(</div>);
 	return;
 }
 
 sub _blast {
 	my ( $self, $isolate_id, $seq_ref ) = @_;
 	my $q = $self->{'cgi'};
-	$$seq_ref =~ s/>.+\n//g;    #Remove BLAST identifier lines if present
+	$$seq_ref =~ s/>.+\n//gx;    #Remove BLAST identifier lines if present
 	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
-	$$seq_ref =~ s/\s//g;
+	$$seq_ref =~ s/\s//gx;
 	my $program;
 	if ( $seq_type eq 'DNA' ) {
 		$program = $q->param('tblastx') ? 'tblastx' : 'blastn';
@@ -407,13 +447,16 @@ sub _blast {
 	my $outfile_url    = "$file_prefix\_outfile.txt";
 
 	#create query FASTA file
-	open( my $queryfile_fh, '>', $temp_queryfile ) or $logger->error("Can't open temp file $temp_queryfile for writing");
+	open( my $queryfile_fh, '>', $temp_queryfile )
+	  or $logger->error("Can't open temp file $temp_queryfile for writing");
 	print $queryfile_fh ">query\n$$seq_ref\n";
 	close $queryfile_fh;
 
 	#create isolate FASTA database
-	my $qry = "SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id "
-	  . "LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id WHERE sequence_bin.isolate_id=?";
+	my $qry =
+	    'SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON '
+	  . 'sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id '
+	  . 'WHERE sequence_bin.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $q->param('seq_method_list');
 	if ($method) {
@@ -421,7 +464,7 @@ sub _blast {
 			$logger->error("Invalid method $method");
 			return;
 		}
-		$qry .= " AND method=?";
+		$qry .= ' AND method=?';
 		push @criteria, $method;
 	}
 	my $project = $q->param('project_list');
@@ -430,7 +473,7 @@ sub _blast {
 			$logger->error("Invalid project $project");
 			return;
 		}
-		$qry .= " AND project_id=?";
+		$qry .= ' AND project_id=?';
 		push @criteria, $project;
 	}
 	my $experiment = $q->param('experiment_list');
@@ -439,21 +482,24 @@ sub _blast {
 			$logger->error("Invalid experiment $experiment");
 			return;
 		}
-		$qry .= " AND experiment_id=?";
+		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
 	}
-	my $data = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
-	open( my $fastafile_fh, '>', $temp_fastafile ) or $logger->error("Can't open temp file $temp_fastafile for writing");
+	my $data =
+	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
+	open( my $fastafile_fh, '>', $temp_fastafile )
+	  or $logger->error("Can't open temp file $temp_fastafile for writing");
 	foreach (@$data) {
 		my ( $id, $seq ) = @$_;
 		say $fastafile_fh ">$id\n$seq";
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
-	my $blastn_word_size = $q->param('word_size') =~ /(\d+)/ ? $1 : 11;
-	my $hits             = $q->param('hits')      =~ /(\d+)/ ? $1 : 1;
+	my $blastn_word_size = $q->param('word_size') =~ /(\d+)/x ? $1 : 11;
+	my $hits             = $q->param('hits')      =~ /(\d+)/x ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+		( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	my %params = (
@@ -468,8 +514,8 @@ sub _blast {
 	);
 
 	if ( $program eq 'blastn' && $q->param('scores') ) {
-		if ( ( any { $q->param('scores') eq $_ } BLASTN_SCORES ) && $q->param('scores') =~ /^(\d,-\d,\d+,\d)$/ ) {
-			( $params{'-reward'}, $params{'-penalty'}, $params{'-gapopen'}, $params{'-gapextend'} ) = split /,/, $1;
+		if ( ( any { $q->param('scores') eq $_ } BLASTN_SCORES ) && $q->param('scores') =~ /^(\d,-\d,\d+,\d)$/x ) {
+			( $params{'-reward'}, $params{'-penalty'}, $params{'-gapopen'}, $params{'-gapextend'} ) = split /,/x, $1;
 		}
 	}
 	system( "$self->{'config'}->{'blast+_path'}/$program", %params );
@@ -477,7 +523,7 @@ sub _blast {
 
 	#clean up
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
-	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
 	return $matches;
 }
 
@@ -486,9 +532,10 @@ sub _parse_blast {
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my @matches;
 	my $rows;
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
+	open( my $blast_fh, '<', $full_path )
+	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^#/;
+		next if !$line || $line =~ /^\#/x;
 		my $match = $self->_extract_match_from_blast_result_line($line);
 		push @matches, $match;
 		$rows++;
@@ -500,8 +547,8 @@ sub _parse_blast {
 
 sub _extract_match_from_blast_result_line {
 	my ( $self, $line ) = @_;
-	return if !$line || $line =~ /^#/;
-	my @record = split /\s+/, $line;
+	return if !$line || $line =~ /^\#/x;
+	my @record = split /\s+/x, $line;
 	my $match;
 	$match->{'seqbin_id'}  = $record[1];
 	$match->{'identity'}   = $record[2];
@@ -509,7 +556,8 @@ sub _extract_match_from_blast_result_line {
 	$match->{'mismatches'} = $record[4];
 	$match->{'gaps'}       = $record[5];
 	$match->{'reverse'}    = 1
-	  if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) );
+	  if ( ( $record[8] > $record[9] && $record[7] > $record[6] )
+		|| ( $record[8] < $record[9] && $record[7] < $record[6] ) );
 
 	if ( $record[8] < $record[9] ) {
 		$match->{'start'} = $record[8];
