@@ -1399,10 +1399,11 @@ sub _upload_data {
 				foreach (@locus_list) {
 					next if !$fieldorder{$_};
 					my $value = $data[ $fieldorder{$_} ];
-					$value = defined $value ? $value : '';
+					$value //= q();
 					$value =~ s/^\s*//gx;
 					$value =~ s/\s*$//gx;
-					if ( defined $fieldorder{$_} && defined $value ) {
+					next if $value eq q();
+					if ( defined $fieldorder{$_} ) {
 						$qry =
 						    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
 						  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
