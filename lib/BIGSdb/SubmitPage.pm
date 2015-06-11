@@ -2267,31 +2267,55 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Cal
 				recipient => $submission->{'submitter'},
 				sender    => $curator_id,
 				subject   => "$desc submission closed - $submission_id",
-				message   => $self->_get_text_summary($submission_id)
+				message   => $self->_get_text_summary( $submission_id, { messages => 1 } )
 			}
 		);
 	}
 	return;
 }
 
+sub _get_text_heading {
+	my ( $self, $heading, $options ) = @_;
+	my $msg;
+	$msg .= "\n" if $options->{'blank_line_before'};
+	$msg .= "$heading\n";
+	$msg .= ( '=' x length $heading ) . "\n";
+	return $msg;
+}
+
 sub _get_text_summary {
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
 	my $submission     = $self->{'datastore'}->get_submission($submission_id);
 	my $curator_id     = $self->get_curator_id;
 	my $curator_string = $self->{'datastore'}->get_user_string( $curator_id, { affiliation => 1 } );
 	my $outcome        = $self->_translate_outcome( $submission->{'outcome'} );
 	my %fields         = (
+		id             => 'ID',
 		type           => 'Data type',
 		date_submitted => 'Date submitted',
 		datestamp      => 'Last updated',
 		status         => 'Status',
 	);
-	my $msg = "Submission: $submission_id\n\n";
-	foreach my $field (qw (type date_submitted datestamp status)) {
+	my $msg = $self->_get_text_heading('Submission status');
+	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
 	}
 	$msg .= "Curator: $curator_string\n";
 	$msg .= "Outcome: $outcome\n";
+	if ( $options->{'messages'} ) {
+		my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
+		  . q(WHERE submission_id=? ORDER BY timestamp asc);
+		my $messages =
+		  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+		if (@$messages) {
+			$msg .= $self->_get_text_heading( 'Correspondence', { blank_line_before => 1 } );
+			foreach my $message (@$messages) {
+				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
+				$msg .= "$user_string ($message->{'timestamp'}):\n";
+				$msg .= "$message->{'message'}\n\n";
+			}
+		}
+	}
 	return $msg;
 }
 
@@ -2484,14 +2508,11 @@ sub _email {
 			return;
 		}
 	}
-	eval {
-		my $mail_sender = Mail::Sender->new(
-			{ smtp => $self->{'config'}->{'smtp_server'}, to => $sender->{'email'}, from => $recipient->{'email'} } );
-		$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );
-		no warnings 'once';
-		$logger->error($Mail::Sender::Error) if $sender->{'error'};
-	};
-	$logger->error($@) if $@;
+	my $mail_sender = Mail::Sender->new(
+		{ smtp => $self->{'config'}->{'smtp_server'}, to => $sender->{'email'}, from => $recipient->{'email'} } );
+	$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );
+	no warnings 'once';
+	$logger->error($Mail::Sender::Error) if $sender->{'error'};
 	return;
 }
 1;
