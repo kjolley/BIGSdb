@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2011-2013, University of Oxford
+#(c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,7 +104,15 @@ sub add_job {
 	} else {
 		$priority = 5;
 	}
-	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );    #Plugin level priority
+
+	#Adjust for plugin level priority.
+	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );
+
+	#If IP address already has jobs queued, i.e. not started, then lower the priority on any new
+	#jobs from them.  This will prevent a single user from flooding the queue and preventing other
+	#user jobs from running.
+	my $queued_user_jobs = $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
+	$priority+=2 if $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
 	my $id         = BIGSdb::Utils::get_random();
 	my $cgi_params = $params->{'parameters'};
 	$logger->logdie("CGI parameters not passed as a ref") if ref $cgi_params ne 'HASH';
@@ -121,7 +129,8 @@ sub add_job {
 	} elsif ($quota_exceeded) {
 		if ( $quota_exceeded == DBASE_QUOTA_EXCEEDED ) {
 			my $plural = $self->{'system'}->{'job_quota'} == 1 ? '' : 's';
-			$status = "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'job_quota'} "
+			$status =
+			    "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'job_quota'} "
 			  . "concurrent job$plural.  Please try again later.";
 		}
 	} else {
@@ -154,14 +163,15 @@ sub add_job {
 		}
 		if ( defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY' ) {
 
-			#Benchmarked quicker to use single insert rather than multiple inserts, ids are integers so no problem with escaping values.
+#Benchmarked quicker to use single insert rather than multiple inserts, ids are integers so no problem with escaping values.
 			my @checked_list;
 			foreach my $id ( @{ $params->{'isolates'} } ) {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
 			}
 			local $" = "),('$id',";
 			if (@checked_list) {
-				my $sql = $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
+				my $sql =
+				  $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
 				$sql->execute;
 			}
 		}
@@ -193,11 +203,23 @@ sub _make_job_fingerprint {
 		$buffer .= "$key:$cgi_params->{$key};" if ( $cgi_params->{$key} // '' ) ne '';
 	}
 	local $" = ',';
-	$buffer .= "isolates:@{ $params->{'isolates'} };" if defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY';
-	$buffer .= "profiles:@{ $params->{'profiles'} };" if defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY';
-	$buffer .= "loci:@{ $params->{'loci'} };"         if defined $params->{'loci'}     && ref $params->{'loci'}     eq 'ARRAY';
+	$buffer .= "isolates:@{ $params->{'isolates'} };"
+	  if defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY';
+	$buffer .= "profiles:@{ $params->{'profiles'} };"
+	  if defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY';
+	$buffer .= "loci:@{ $params->{'loci'} };" if defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY';
 	my $fingerprint = Digest::MD5::md5_hex($buffer);
 	return $fingerprint;
+}
+
+sub _has_ip_address_got_queued_jobs {
+	my ( $self, $ip_address ) = @_;
+	my $qry = 'SELECT EXISTS(SELECT * FROM jobs WHERE (ip_address,status)=(?,?))';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute( $ip_address, 'submitted' ) };
+	$logger->error($@) if $@;
+	my $job_count = $sql->fetchrow_array;
+	return $job_count;
 }
 
 sub _is_quota_exceeded {
@@ -382,7 +404,8 @@ sub get_job_isolates {
 
 sub get_job_profiles {
 	my ( $self, $job_id, $scheme_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id");
+	my $sql =
+	  $self->{'db'}->prepare("SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id");
 	eval { $sql->execute( $job_id, $scheme_id ) };
 	$logger->error($@) if $@;
 	my @profile_ids;
@@ -407,9 +430,11 @@ sub get_job_loci {
 sub get_user_jobs {
 	my ( $self, $instance, $username, $days ) = @_;
 	my $sql =
-	  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
+	  $self->{'db'}
+	  ->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
 		  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
-		  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time" );
+		  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time"
+	  );
 	eval { $sql->execute( $instance, $username ) };
 	if ($@) {
 		$logger->error($@);
@@ -425,8 +450,10 @@ sub get_user_jobs {
 sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
 	my $sql =
-	  $self->{'db'}->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
-		  . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'" );
+	  $self->{'db'}
+	  ->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
+		  . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'"
+	  );
 	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
@@ -438,7 +465,9 @@ sub get_jobs_ahead_in_queue {
 
 sub get_next_job_id {
 	my ($self) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
+	my $sql =
+	  $self->{'db'}
+	  ->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
 	eval { $sql->execute };
 	if ($@) {
 		$logger->error($@);
