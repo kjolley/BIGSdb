@@ -56,7 +56,7 @@ sub _db_connect {
 	$options = {} if ref $options ne 'HASH';
 	my $initiate_logger = get_logger('BIGSdb.Application_Initiate');
 	if ( !$self->{'config'}->{'jobs_db'} ) {
-		$initiate_logger->fatal("jobs_db not set in config file.");
+		$initiate_logger->fatal('jobs_db not set in config file.');
 		return;
 	}
 	my %att = (
@@ -98,12 +98,8 @@ sub add_job {
 			throw BIGSdb::DataException("Parameter $_ not passed");
 		}
 	}
-	my $priority;
-	if ( $self->{'system'}->{'job_priority'} && BIGSdb::Utils::is_int( $self->{'system'}->{'job_priority'} ) ) {
-		$priority = $self->{'system'}->{'job_priority'};    #Database level priority
-	} else {
-		$priority = 5;
-	}
+	my $priority =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'job_priority'} ) ? $self->{'system'}->{'job_priority'} : 5;
 
 	#Adjust for plugin level priority.
 	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );
@@ -111,11 +107,10 @@ sub add_job {
 	#If IP address already has jobs queued, i.e. not started, then lower the priority on any new
 	#jobs from them.  This will prevent a single user from flooding the queue and preventing other
 	#user jobs from running.
-	my $queued_user_jobs = $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
-	$priority+=2 if $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
+	$priority += 2 if $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
 	my $id         = BIGSdb::Utils::get_random();
 	my $cgi_params = $params->{'parameters'};
-	$logger->logdie("CGI parameters not passed as a ref") if ref $cgi_params ne 'HASH';
+	$logger->logdie('CGI parameters not passed as a ref') if ref $cgi_params ne 'HASH';
 	foreach my $key ( keys %$cgi_params ) {
 		delete $cgi_params->{$key} if BIGSdb::Utils::is_int($key);    #Treeview implementation has integer node ids.
 	}
@@ -138,8 +133,8 @@ sub add_job {
 	}
 	eval {
 		$self->{'db'}->do(
-			"INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,"
-			  . "priority,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+			'INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,'
+			  . 'priority,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
 			undef,
 			$id,
 			$params->{'dbase_config'},
@@ -153,7 +148,7 @@ sub add_job {
 			$priority,
 			$fingerprint
 		);
-		my $param_sql = $self->{'db'}->prepare("INSERT INTO params (job_id,key,value) VALUES (?,?,?)");
+		my $param_sql = $self->{'db'}->prepare('INSERT INTO params (job_id,key,value) VALUES (?,?,?)');
 		local $" = '||';
 		foreach ( keys %$cgi_params ) {
 			if ( defined $cgi_params->{$_} && $cgi_params->{$_} ne '' ) {
@@ -163,7 +158,8 @@ sub add_job {
 		}
 		if ( defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY' ) {
 
-#Benchmarked quicker to use single insert rather than multiple inserts, ids are integers so no problem with escaping values.
+			#Benchmarked quicker to use single insert rather than multiple inserts,
+			#ids are integers so no problem with escaping values.
 			my @checked_list;
 			foreach my $id ( @{ $params->{'isolates'} } ) {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
@@ -179,11 +175,11 @@ sub add_job {
 
 			#Safer to use placeholders and multiple inserts for profiles and loci though.
 			my @list = @{ $params->{'profiles'} };
-			my $sql  = $self->{'db'}->prepare("INSERT INTO profiles (job_id,scheme_id,profile_id) VALUES (?,?,?)");
+			my $sql  = $self->{'db'}->prepare('INSERT INTO profiles (job_id,scheme_id,profile_id) VALUES (?,?,?)');
 			$sql->execute( $id, $cgi_params->{'scheme_id'}, $_ ) foreach @{ $params->{'profiles'} };
 		}
 		if ( defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY' ) {
-			my $sql = $self->{'db'}->prepare("INSERT INTO loci (job_id,locus) VALUES (?,?)");
+			my $sql = $self->{'db'}->prepare('INSERT INTO loci (job_id,locus) VALUES (?,?)');
 			$sql->execute( $id, $_ ) foreach @{ $params->{'loci'} };
 		}
 	};
@@ -225,7 +221,7 @@ sub _has_ip_address_got_queued_jobs {
 sub _is_quota_exceeded {
 	my ( $self, $params ) = @_;
 	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'job_quota'} ) ) {
-		my $qry = "SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started')";
+		my $qry = q(SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started'));
 		my $sql = $self->{'db'}->prepare($qry);
 		eval { $sql->execute( $params->{'dbase_config'} ) };
 		$logger->error($@) if $@;
@@ -237,10 +233,12 @@ sub _is_quota_exceeded {
 
 sub _get_duplicate_job {
 	my ( $self, $fingerprint, $username, $ip_address ) = @_;
-	my $qry = "SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND ";
+	my $qry = q(SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND );
 	$qry .= $self->{'system'}->{'read_access'} eq 'public' ? 'ip_address=?' : 'username=?';
 	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) ) };
+	eval {
+		$sql->execute( $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) );
+	};
 	$logger->error($@) if $@;
 	my ($job_id) = $sql->fetchrow_array;
 	return $job_id;
@@ -248,7 +246,7 @@ sub _get_duplicate_job {
 
 sub cancel_job {
 	my ( $self, $id ) = @_;
-	eval { $self->{'db'}->do( "UPDATE jobs SET status='cancelled',cancel=true WHERE id=?", undef, $id ) };
+	eval { $self->{'db'}->do( q(UPDATE jobs SET status='cancelled',cancel=true WHERE id=?), undef, $id ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -261,8 +259,8 @@ sub cancel_job {
 sub update_job_output {
 	my ( $self, $job_id, $output_hash ) = @_;
 	if ( ref $output_hash ne 'HASH' ) {
-		$logger->error("status hash not passed as a ref");
-		throw BIGSdb::DataException("status hash not passed as a ref");
+		$logger->error('status hash not passed as a ref');
+		throw BIGSdb::DataException('status hash not passed as a ref');
 	}
 	if ( $output_hash->{'compress'} ) {
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$output_hash->{'filename'}";
@@ -282,12 +280,11 @@ sub update_job_output {
 	}
 	eval {
 		$self->{'db'}->do(
-			"INSERT INTO output (job_id,filename,description) VALUES (?,?,?)",
+			'INSERT INTO output (job_id,filename,description) VALUES (?,?,?)',
 			undef, $job_id,
 			$output_hash->{'filename'},
 			$output_hash->{'description'}
 		);
-		$logger->debug( $output_hash->{'filename'} . '; ' . $output_hash->{'description'} . "; $job_id" );
 	};
 	if ($@) {
 		$logger->logcarp($@);
@@ -301,8 +298,8 @@ sub update_job_output {
 sub update_job_status {
 	my ( $self, $job_id, $status_hash ) = @_;
 	if ( ref $status_hash ne 'HASH' ) {
-		$logger->error("status hash not passed as a ref");
-		throw BIGSdb::DataException("status hash not passed as a ref");
+		$logger->error('status hash not passed as a ref');
+		throw BIGSdb::DataException('status hash not passed as a ref');
 	}
 
 	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
@@ -338,7 +335,7 @@ sub update_job_status {
 sub get_job_status {
 	my ( $self, $job_id ) = @_;
 	if ( !$self->{'sql'}->{'get_job_status'} ) {
-		$self->{'sql'}->{'get_job_status'} = $self->{'db'}->prepare("SELECT status,cancel,pid FROM jobs WHERE id=?");
+		$self->{'sql'}->{'get_job_status'} = $self->{'db'}->prepare('SELECT status,cancel,pid FROM jobs WHERE id=?');
 	}
 	eval { $self->{'sql'}->{'get_job_status'}->execute($job_id) };
 	$logger->error($@) if $@;
@@ -349,8 +346,8 @@ sub get_job {
 	my ( $self, $job_id ) = @_;
 	if ( !$self->{'sql'}->{'get_job'} ) {
 		$self->{'sql'}->{'get_job'} =
-		  $self->{'db'}->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM "
-			  . "stop_time - start_time) AS total_time, localtimestamp AS query_time FROM jobs WHERE id=?" );
+		  $self->{'db'}->prepare( 'SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM '
+			  . 'stop_time - start_time) AS total_time, localtimestamp AS query_time FROM jobs WHERE id=?' );
 	}
 	eval { $self->{'sql'}->{'get_job'}->execute($job_id) };
 	if ($@) {
@@ -362,7 +359,7 @@ sub get_job {
 
 sub get_job_params {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT key,value FROM params WHERE job_id=?");
+	my $sql = $self->{'db'}->prepare('SELECT key,value FROM params WHERE job_id=?');
 	my $params;
 	eval { $sql->execute($job_id) };
 	if ($@) {
@@ -377,7 +374,7 @@ sub get_job_params {
 
 sub get_job_output {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT filename,description FROM output WHERE job_id=?");
+	my $sql = $self->{'db'}->prepare('SELECT filename,description FROM output WHERE job_id=?');
 	eval { $sql->execute($job_id) };
 	if ($@) {
 		$logger->error($@);
@@ -392,7 +389,7 @@ sub get_job_output {
 
 sub get_job_isolates {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT isolate_id FROM isolates WHERE job_id=? ORDER BY isolate_id");
+	my $sql = $self->{'db'}->prepare('SELECT isolate_id FROM isolates WHERE job_id=? ORDER BY isolate_id');
 	eval { $sql->execute($job_id) };
 	$logger->error($@) if $@;
 	my @isolate_ids;
@@ -405,7 +402,7 @@ sub get_job_isolates {
 sub get_job_profiles {
 	my ( $self, $job_id, $scheme_id ) = @_;
 	my $sql =
-	  $self->{'db'}->prepare("SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id");
+	  $self->{'db'}->prepare('SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id');
 	eval { $sql->execute( $job_id, $scheme_id ) };
 	$logger->error($@) if $@;
 	my @profile_ids;
@@ -417,7 +414,7 @@ sub get_job_profiles {
 
 sub get_job_loci {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare("SELECT locus FROM loci WHERE job_id=? ORDER BY locus");
+	my $sql = $self->{'db'}->prepare('SELECT locus FROM loci WHERE job_id=? ORDER BY locus');
 	eval { $sql->execute($job_id) };
 	$logger->error($@) if $@;
 	my @loci;
@@ -429,12 +426,12 @@ sub get_job_loci {
 
 sub get_user_jobs {
 	my ( $self, $instance, $username, $days ) = @_;
-	my $sql =
-	  $self->{'db'}
-	  ->prepare( "SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - "
-		  . "start_time) AS total_time FROM jobs WHERE dbase_config=? AND username=? AND (submit_time > now()-interval '$days days' "
-		  . "OR stop_time > now()-interval '$days days' OR status='started' OR status='submitted') ORDER BY submit_time"
-	  );
+	my $sql = $self->{'db'}->prepare(
+		    q[SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - ]
+		  . q[start_time) AS total_time FROM jobs WHERE (dbase_config,username)=(?,?) AND (submit_time > ]
+		  . qq[now()-interval '$days days' OR stop_time > now()-interval '$days days' OR status='started' OR ]
+		  . q[status='submitted') ORDER BY submit_time]
+	);
 	eval { $sql->execute( $instance, $username ) };
 	if ($@) {
 		$logger->error($@);
@@ -450,9 +447,10 @@ sub get_user_jobs {
 sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
 	my $sql =
-	  $self->{'db'}
-	  ->prepare( "SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND "
-		  . "j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND j1.status='submitted'"
+	  $self->{'db'}->prepare(
+		    q[SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND ]
+		  . q[j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND ]
+		  . q[j1.status='submitted']
 	  );
 	eval { $sql->execute($job_id) };
 	if ($@) {
@@ -467,7 +465,7 @@ sub get_next_job_id {
 	my ($self) = @_;
 	my $sql =
 	  $self->{'db'}
-	  ->prepare("SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1");
+	  ->prepare(q(SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1));
 	eval { $sql->execute };
 	if ($@) {
 		$logger->error($@);
