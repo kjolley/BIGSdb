@@ -2277,9 +2277,11 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Cal
 sub _get_text_heading {
 	my ( $self, $heading, $options ) = @_;
 	my $msg;
-	$msg .= "\n" if $options->{'blank_line_before'};
-	$msg .= "$heading\n";
-	$msg .= ( '=' x length $heading ) . "\n";
+
+	#The tab before newline prevents Outlook removing 'extra line breaks'.
+	$msg .= "\t\n" if $options->{'blank_line_before'};
+	$msg .= "$heading\t\n";
+	$msg .= ( '=' x length $heading ) . "\t\n";
 	return $msg;
 }
 
