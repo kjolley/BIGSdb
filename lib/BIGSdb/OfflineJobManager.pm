@@ -116,7 +116,7 @@ sub add_job {
 	}
 	delete $cgi_params->{$_} foreach qw(submit page update_options format dbase_config_dir instance);
 	my $fingerprint = $self->_make_job_fingerprint( $cgi_params, $params );
-	my $duplicate_job = $self->_get_duplicate_job( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
+	my $duplicate_job = $self->_get_duplicate_job_id( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
 	my $quota_exceeded = $self->_is_quota_exceeded($params);
 	my $status;
 	if ($duplicate_job) {
@@ -210,38 +210,27 @@ sub _make_job_fingerprint {
 
 sub _has_ip_address_got_queued_jobs {
 	my ( $self, $ip_address ) = @_;
-	my $qry = 'SELECT EXISTS(SELECT * FROM jobs WHERE (ip_address,status)=(?,?))';
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute( $ip_address, 'submitted' ) };
-	$logger->error($@) if $@;
-	my $job_count = $sql->fetchrow_array;
-	return $job_count;
+	return $self->_run_query( 'SELECT EXISTS(SELECT * FROM jobs WHERE (ip_address,status)=(?,?))',
+		[ $ip_address, 'submitted' ] );
 }
 
 sub _is_quota_exceeded {
 	my ( $self, $params ) = @_;
 	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'job_quota'} ) ) {
-		my $qry = q(SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started'));
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute( $params->{'dbase_config'} ) };
-		$logger->error($@) if $@;
-		my ($job_count) = $sql->fetchrow_array;
+		my $job_count =
+		  $self->_run_query( q[SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started')],
+			$params->{'dbase_config'} );
 		return DBASE_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'job_quota'};
 	}
-	return 0;
+	return;
 }
 
-sub _get_duplicate_job {
+sub _get_duplicate_job_id {
 	my ( $self, $fingerprint, $username, $ip_address ) = @_;
 	my $qry = q(SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND );
 	$qry .= $self->{'system'}->{'read_access'} eq 'public' ? 'ip_address=?' : 'username=?';
-	my $sql = $self->{'db'}->prepare($qry);
-	eval {
-		$sql->execute( $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) );
-	};
-	$logger->error($@) if $@;
-	my ($job_id) = $sql->fetchrow_array;
-	return $job_id;
+	return $self->_run_query( $qry,
+		[ $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) ] );
 }
 
 sub cancel_job {
@@ -334,144 +323,109 @@ sub update_job_status {
 
 sub get_job_status {
 	my ( $self, $job_id ) = @_;
-	if ( !$self->{'sql'}->{'get_job_status'} ) {
-		$self->{'sql'}->{'get_job_status'} = $self->{'db'}->prepare('SELECT status,cancel,pid FROM jobs WHERE id=?');
-	}
-	eval { $self->{'sql'}->{'get_job_status'}->execute($job_id) };
-	$logger->error($@) if $@;
-	return $self->{'sql'}->{'get_job_status'}->fetchrow_hashref;
+	return $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
 }
 
 sub get_job {
 	my ( $self, $job_id ) = @_;
-	if ( !$self->{'sql'}->{'get_job'} ) {
-		$self->{'sql'}->{'get_job'} =
-		  $self->{'db'}->prepare( 'SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM '
-			  . 'stop_time - start_time) AS total_time, localtimestamp AS query_time FROM jobs WHERE id=?' );
-	}
-	eval { $self->{'sql'}->{'get_job'}->execute($job_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	return $self->{'sql'}->{'get_job'}->fetchrow_hashref;
+	my $qry = 'SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM '
+	  . 'stop_time - start_time) AS total_time, localtimestamp AS query_time FROM jobs WHERE id=?';
+	return $self->_run_query( $qry, $job_id, { fetch => 'row_hashref' } );
 }
 
 sub get_job_params {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT key,value FROM params WHERE job_id=?');
+	my $key_values =
+	  $self->_run_query( 'SELECT key,value FROM params WHERE job_id=?', $job_id, { fetch => 'all_arrayref' } );
 	my $params;
-	eval { $sql->execute($job_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	while ( my ( $key, $value ) = $sql->fetchrow_array ) {
-		$params->{$key} = $value;
-	}
+	$params->{ $_->[0] } = $_->[1] foreach @$key_values;
 	return $params;
 }
 
 sub get_job_output {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT filename,description FROM output WHERE job_id=?');
-	eval { $sql->execute($job_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
+	my $key_values = $self->_run_query( 'SELECT description,filename FROM output WHERE job_id=?',
+		$job_id, { fetch => 'all_arrayref' } );
 	my $output;
-	while ( my ( $filename, $desc ) = $sql->fetchrow_array ) {
-		$output->{$desc} = $filename;
-	}
+	$output->{ $_->[0] } = $_->[1] foreach @$key_values;
 	return $output;
 }
 
 sub get_job_isolates {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT isolate_id FROM isolates WHERE job_id=? ORDER BY isolate_id');
-	eval { $sql->execute($job_id) };
-	$logger->error($@) if $@;
-	my @isolate_ids;
-	while ( my ($isolate_id) = $sql->fetchrow_array ) {
-		push @isolate_ids, $isolate_id;
-	}
-	return \@isolate_ids;
+	return $self->_run_query( 'SELECT isolate_id FROM isolates WHERE job_id=? ORDER BY isolate_id',
+		$job_id, { fetch => 'col_arrayref' } );
 }
 
 sub get_job_profiles {
 	my ( $self, $job_id, $scheme_id ) = @_;
-	my $sql =
-	  $self->{'db'}->prepare('SELECT profile_id FROM profiles WHERE job_id=? AND scheme_id=? ORDER BY profile_id');
-	eval { $sql->execute( $job_id, $scheme_id ) };
-	$logger->error($@) if $@;
-	my @profile_ids;
-	while ( my ($profile_id) = $sql->fetchrow_array ) {
-		push @profile_ids, $profile_id;
-	}
-	return \@profile_ids;
+	return $self->_run_query(
+		'SELECT profile_id FROM profiles WHERE (job_id,scheme_id)=(?,?) ORDER BY profile_id',
+		[ $job_id, $scheme_id ],
+		{ fetch => 'col_arrayref' }
+	);
 }
 
 sub get_job_loci {
 	my ( $self, $job_id ) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT locus FROM loci WHERE job_id=? ORDER BY locus');
-	eval { $sql->execute($job_id) };
-	$logger->error($@) if $@;
-	my @loci;
-	while ( my ($locus) = $sql->fetchrow_array ) {
-		push @loci, $locus;
-	}
-	return \@loci;
+	return $self->_run_query( 'SELECT locus FROM loci WHERE job_id=? ORDER BY locus', $job_id,
+		{ fetch => 'col_arrayref' } );
 }
 
 sub get_user_jobs {
 	my ( $self, $instance, $username, $days ) = @_;
-	my $sql = $self->{'db'}->prepare(
-		    q[SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - ]
-		  . q[start_time) AS total_time FROM jobs WHERE (dbase_config,username)=(?,?) AND (submit_time > ]
-		  . qq[now()-interval '$days days' OR stop_time > now()-interval '$days days' OR status='started' OR ]
-		  . q[status='submitted') ORDER BY submit_time]
-	);
-	eval { $sql->execute( $instance, $username ) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	my @jobs;
-	while ( my $job = $sql->fetchrow_hashref ) {
-		push @jobs, $job;
-	}
-	return \@jobs;
+	my $qry =
+	    q[SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - ]
+	  . q[start_time) AS total_time FROM jobs WHERE (dbase_config,username)=(?,?) AND (submit_time > ]
+	  . qq[now()-interval '$days days' OR stop_time > now()-interval '$days days' OR status='started' OR ]
+	  . q[status='submitted') ORDER BY submit_time];
+	my $jobs = $self->_run_query( $qry, [ $instance, $username ], { fetch => 'all_arrayref', slice => {} } );
+	return $jobs;
 }
 
 sub get_jobs_ahead_in_queue {
 	my ( $self, $job_id ) = @_;
-	my $sql =
-	  $self->{'db'}->prepare(
-		    q[SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND ]
-		  . q[j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND ]
-		  . q[j1.status='submitted']
-	  );
-	eval { $sql->execute($job_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	my ($jobs) = $sql->fetchrow_array;
-	return $jobs;
+	my $qry =
+	    q[SELECT COUNT(j1.id) FROM jobs AS j1 INNER JOIN jobs AS j2 ON (j1.submit_time < j2.submit_time AND ]
+	  . q[j2.priority <= j1.priority) OR j2.priority > j1.priority WHERE j2.id = ? AND j2.id != j1.id AND ]
+	  . q[j1.status='submitted'];
+	return $self->_run_query( $qry, $job_id );
 }
 
 sub get_next_job_id {
 	my ($self) = @_;
-	my $sql =
-	  $self->{'db'}
-	  ->prepare(q(SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1));
-	eval { $sql->execute };
-	if ($@) {
-		$logger->error($@);
-		return;
+	return $self->_run_query(
+		q(SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1));
+}
+
+#Cutdown version of Datastore::run_query as Datastore not initialized.
+sub _run_query {
+	my ( $self, $qry, $values, $options ) = @_;
+	if ( defined $values ) {
+		$values = [$values] if ref $values ne 'ARRAY';
+	} else {
+		$values = [];
 	}
-	my ($job) = $sql->fetchrow_array;
-	return $job;
+	my $sql = $self->{'db'}->prepare($qry);
+	$options->{'fetch'} //= 'row_array';
+	if ( $options->{'fetch'} eq 'col_arrayref' ) {
+		my $data;
+		eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
+		$logger->logcarp($@) if $@;
+		return $data;
+	}
+	eval { $sql->execute(@$values) };
+	$logger->logcarp($@) if $@;
+	if ( $options->{'fetch'} eq 'row_array' ) {    #returns () when no rows, (undef-scalar context)
+		return $sql->fetchrow_array;
+	}
+	if ( $options->{'fetch'} eq 'row_hashref' ) {    #returns undef when no rows
+		return $sql->fetchrow_hashref;
+	}
+	if ( $options->{'fetch'} eq 'all_arrayref' ) {    #returns [] when no rows
+		return $sql->fetchall_arrayref( $options->{'slice'} );
+	}
+	$logger->logcarp('Query failed - invalid fetch method specified.');
+	return;
 }
 1;
