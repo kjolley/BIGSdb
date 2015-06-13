@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -156,10 +156,10 @@ sub add_job {
 				$param_sql->execute( $id, $_, "@values" );
 			}
 		}
-		if ( defined $params->{'isolates'} && ref $params->{'isolates'} eq 'ARRAY' ) {
 
-			#Benchmarked quicker to use single insert rather than multiple inserts,
-			#ids are integers so no problem with escaping values.
+		#Benchmarked quicker to use single insert rather than multiple inserts,
+		#ids are integers so no problem with escaping values.
+		if ( ref $params->{'isolates'} eq 'ARRAY' ) {
 			my @checked_list;
 			foreach my $id ( @{ $params->{'isolates'} } ) {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
@@ -171,14 +171,14 @@ sub add_job {
 				$sql->execute;
 			}
 		}
-		if ( defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY' && $cgi_params->{'scheme_id'} ) {
 
-			#Safer to use placeholders and multiple inserts for profiles and loci though.
+		#Safer to use placeholders and multiple inserts for profiles and loci though.
+		if ( ref $params->{'profiles'} eq 'ARRAY' && $cgi_params->{'scheme_id'} ) {
 			my @list = @{ $params->{'profiles'} };
 			my $sql  = $self->{'db'}->prepare('INSERT INTO profiles (job_id,scheme_id,profile_id) VALUES (?,?,?)');
 			$sql->execute( $id, $cgi_params->{'scheme_id'}, $_ ) foreach @{ $params->{'profiles'} };
 		}
-		if ( defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY' ) {
+		if ( ref $params->{'loci'} eq 'ARRAY' ) {
 			my $sql = $self->{'db'}->prepare('INSERT INTO loci (job_id,locus) VALUES (?,?)');
 			$sql->execute( $id, $_ ) foreach @{ $params->{'loci'} };
 		}
