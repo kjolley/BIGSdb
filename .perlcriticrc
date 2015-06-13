@@ -1,8 +1,14 @@
 severity = stern
 
 [-ErrorHandling::RequireCheckingReturnValueOfEval]
+
 [-InputOutput::RequireBriefOpen]
+
+#Dancer2 routes are outside subroutines so trigger warning
+[-Modules::ProhibitExcessMainComplexity]
+
 [-TestingAndDebugging::ProhibitNoWarnings]
+
 [-ValuesAndExpressions::ProhibitConstantPragma]
 
 [InputOutput::RequireCheckedOpen]
