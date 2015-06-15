@@ -35,66 +35,74 @@ sub print_content {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
 	my $token_id = $q->param('oauth_token');
-	say "<h1>Authorize client software to access your account</h1>";
+	say q(<h1>Authorize client software to access your account</h1>);
 	if ( $self->{'system'}->{'authentication'} ne 'builtin' ) {
-		say qq(<div class="box" id="statusbad"><p>This database does not use built-in authentication.  You cannot )
-		  . qq(currently authorize third-party applications.</p></div>);
+		say q(<div class="box" id="statusbad"><p>This database does not use built-in authentication.  You cannot )
+		  . q(currently authorize third-party applications.</p></div>);
 		return;
 	} elsif ( $q->param('modify') ) {
 		$self->_modify_authorization;
 		return;
 	} elsif ( !$token_id ) {
-		say qq(<div class="box" id="statusbad"><p>No request token specified.</p></div>);
+		say q(<div class="box" id="statusbad"><p>No request token specified.</p></div>);
 		return;
 	}
-	my $token =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM request_tokens WHERE token=?", $token_id, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
+	my $token = $self->{'datastore'}->run_query( 'SELECT * FROM request_tokens WHERE token=?',
+		$token_id, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
 	if ( !$token ) {
-		say qq(<div class="box" id="statusbad"><p>Invalid token submitted.  It is possible that the token has expired.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Invalid token submitted.  )
+		  . q(It is possible that the token has expired.</p></div>);
 		return;
 	} elsif ( time - $token->{'start_time'} > REQUEST_TOKEN_EXPIRES ) {
-		say qq(<div class="box" id="statusbad"><p>The request token has expired.</p></div>);
+		say q(<div class="box" id="statusbad"><p>The request token has expired.</p></div>);
 		return;
 	} elsif ( $token->{'verifier'} ) {
-		say qq(<div class="box" id="statusbad"><p>The request token has already been redeemed.</p></div>);
+		say q(<div class="box" id="statusbad"><p>The request token has already been redeemed.</p></div>);
 		return;
 	}
-	my $client =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM clients WHERE client_id=?", $token->{'client_id'}, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
+	my $client = $self->{'datastore'}->run_query( 'SELECT * FROM clients WHERE client_id=?',
+		$token->{'client_id'}, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
 	if ( !$client ) {
-		say qq(<div class="box" id="statusbad"><p>The client is not recognized.</p></div>);
-		$logger->error("Client $token->{'client_id'} does not exist.  This should not be possible.");    #Token is linked to client
+		say q(<div class="box" id="statusbad"><p>The client is not recognized.</p></div>);
+		$logger->error("Client $token->{'client_id'} does not exist.  This should not be possible.")
+		  ;    #Token is linked to client
 		return;
-	} elsif ( !$self->_can_client_access_database( $token->{'client_id'}, $client->{'default_permission'}, $self->{'system'}->{'db'} ) ) {
-		say qq(<div class="box" id="statusbad"><p>The client does not have permission to access this resource.</p></div>);
+	} elsif (
+		!$self->_can_client_access_database(
+			$token->{'client_id'},
+			$client->{'default_permission'},
+			$self->{'system'}->{'db'}
+		)
+	  )
+	{
+		say q(<div class="box" id="statusbad"><p>The client does not have permission to )
+		  . q(access this resource.</p></div>);
 		return;
 	}
 	if ( $q->param('authorize') ) {
 		$self->_authorize_token($client);
 		return;
 	}
-	say qq(<div class="box" id="queryform"><div class="scrollable"><p>Do you wish for the following application to access data on your )
-	  . qq(behalf?</p>);
-	say qq(<fieldset style="float:left"><legend>Application</legend>);
+	say q(<div class="box" id="queryform"><div class="scrollable"><p>Do you wish for the following )
+	  . q(application to access data on your behalf?</p>);
+	say q(<fieldset style="float:left"><legend>Application</legend>);
 	say qq(<p><b>$client->{'application'} );
 	say qq(version $client->{'version'}) if $client->{'version'};
-	say qq(</b></p></fieldset>);
+	say q(</b></p></fieldset>);
 	my $desc = $self->{'system'}->{'description'};
 	if ($desc) {
-		say qq(<fieldset style="float:left"><legend>Resource</legend>);
+		say q(<fieldset style="float:left"><legend>Resource</legend>);
 		say qq(<b>$desc</b>);
-		say qq(</fieldset>);
+		say q(</fieldset>);
 	}
 	say $q->start_form;
 	$q->param( authorize => 1 );
 	$self->print_action_fieldset( { submit_label => 'Authorize', reset_label => 'Cancel', page => 'index' } );
 	say $q->hidden($_) foreach qw(db page oauth_token authorize);
 	say $q->end_form;
-	say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;)
-	  . qq(modify=1">revoke access for this application</a> at any time.</p>);
-	say qq(</div></div>);
+	say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=authorizeClient&amp;modify=1">revoke access for this application</a> at any time.</p>);
+	say q(</div></div>);
 	return;
 }
 
@@ -104,26 +112,27 @@ sub _authorize_token {
 	my $verifier = BIGSdb::Utils::random_string(8);
 	eval {
 		$self->{'auth_db'}->do(
-			"UPDATE request_tokens SET (username,dbase,verifier,start_time)=(?,?,?,?) WHERE token=?",
+			'UPDATE request_tokens SET (username,dbase,verifier,start_time)=(?,?,?,?) WHERE token=?',
 			undef, $self->{'username'}, $self->{'system'}->{'db'},
 			$verifier, time, $q->param('oauth_token')
 		);
 	};
 	if ($@) {
-		say qq(<div class="box" id="statusbad"><p>Token could not be authorized.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Token could not be authorized.</p></div>);
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
-		say qq(<div class="box" id="resultspanel">);
+		say q(<div class="box" id="resultspanel">);
 		my $version = $client->{'version'} ? " version $client->{'version'} " : '';
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> on your behalf.</p>);
+		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> )
+		  . q(on your behalf.</p>);
 		say qq(<p>Enter the following verification code when asked by $client->{'application'}.</p>);
 		say qq(<p><b>Verification code: $verifier</b></p>);
-		say qq(<p>This code is valid for ) . ( REQUEST_TOKEN_EXPIRES / 60 ) . qq( minutes.</p>);
-		say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=authorizeClient&amp;)
-		  . qq(modify=1">revoke access for this application</a> at any time.</p>);
-		say qq(</div>);
+		say q(<p>This code is valid for ) . ( REQUEST_TOKEN_EXPIRES / 60 ) . q( minutes.</p>);
+		say qq(<p>You will be able to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=authorizeClient&amp;modify=1">revoke access for this application</a> at any time.</p>);
+		say q(</div>);
 		$self->{'auth_db'}->commit;
 	}
 	return;
@@ -132,7 +141,7 @@ sub _authorize_token {
 sub _can_client_access_database {
 	my ( $self, $client_id, $default_permission, $dbase ) = @_;
 	my $authorize = $self->{'datastore'}->run_query(
-		"SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)",
+		'SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)',
 		[ $client_id, $dbase ],
 		{ db => $self->{'auth_db'} }
 	);
@@ -147,14 +156,14 @@ sub _modify_authorization {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my $known_clients = $self->{'datastore'}->run_query( "SELECT * FROM clients ORDER BY application,version",
+		my $known_clients = $self->{'datastore'}->run_query( 'SELECT * FROM clients ORDER BY application,version',
 			undef, { db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} } );
 		my @revoked;
 		foreach my $client (@$known_clients) {
 			next if !$q->param( $client->{'client_id'} );
 			eval {
-				$self->{'auth_db'}
-				  ->do( "DELETE FROM access_tokens WHERE username=? AND client_id=?", undef, $self->{'username'}, $client->{'client_id'} );
+				$self->{'auth_db'}->do( 'DELETE FROM access_tokens WHERE (username,client_id)=(?,?)',
+					undef, $self->{'username'}, $client->{'client_id'} );
 			};
 			if ($@) {
 				$logger->error($@);
@@ -168,37 +177,39 @@ sub _modify_authorization {
 		if (@revoked) {
 			my $plural = @revoked == 1 ? '' : 's';
 			local $" = '</li><li>';
-			say
-qq(<div class="box" id="resultsheader"><p>You have revoked access to the following application$plural:</p><ul><li>@revoked</li></ul></div>);
+			say q(<div class="box" id="resultsheader"><p>You have revoked access to the following )
+			  . qq(application$plural:</p><ul><li>@revoked</li></ul></div>);
 		}
 	}
 	my $clients = $self->{'datastore'}->run_query(
-		"SELECT * FROM clients WHERE client_id IN (SELECT client_id FROM access_tokens WHERE username=? AND dbase=?) ORDER BY application",
+		'SELECT * FROM clients WHERE client_id IN (SELECT client_id FROM access_tokens '
+		  . 'WHERE (username,dbase)=(?,?)) ORDER BY application',
 		[ $self->{'username'}, $self->{'system'}->{'db'} ],
 		{ db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} }
 	);
 	if ( !@$clients ) {
-		say qq(<div class="box" id="resultspanel"><p>You have not authorized any application to access your resources.</p></div> );
+		say q(<div class="box" id="resultspanel"><p>You have not authorized any application )
+		  . q(to access your resources.</p></div> );
 		return;
 	}
-	say qq(<div class="box" id="resultstable"><div class="scrollable">);
-	say "<p>You have authorized the following applications to access resources on your behalf.  Select any whose permissions "
-	  . "you would like to revoke.</p>";
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<p>You have authorized the following applications to access resources on your behalf.  )
+	  . q(Select any whose permissions you would like to revoke.</p>);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Applications</legend>);
-	say qq(<table class="resultstable"><tr><th>Application</th><th>Version</th><th>Revoke</th></tr>);
+	say q(<fieldset style="float:left"><legend>Applications</legend>);
+	say q(<table class="resultstable"><tr><th>Application</th><th>Version</th><th>Revoke</th></tr>);
 	my $td = 1;
 	foreach my $client (@$clients) {
 		$client->{'version'} //= '-';
 		say qq(<tr class="td$td"><td>$client->{'application'}</td><td>$client->{'version'}</td><td>);
 		say $q->checkbox( -name => $client->{'client_id'}, -label => '' );
-		say '</td></tr>';
+		say q(</td></tr>);
 	}
-	say '</table></fieldset>';
+	say q(</table></fieldset>);
 	$self->print_action_fieldset( { modify => 1, submit_label => 'Revoke' } );
 	say $q->hidden($_) foreach qw(db page modify);
 	say $q->end_form;
-	say '</div></div>';
+	say q(</div></div>);
 	return;
 }
 
