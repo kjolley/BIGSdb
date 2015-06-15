@@ -2546,8 +2546,10 @@ sub _email {
 			return;
 		}
 	}
-	my $mail_sender = Mail::Sender->new(
-		{ smtp => $self->{'config'}->{'smtp_server'}, to => $sender->{'email'}, from => $recipient->{'email'} } );
+	my $args =
+	  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
+	$args->{'cc'} = $sender->{'email'} if $sender->{'email'} ne $recipient->{'email'};
+	my $mail_sender = Mail::Sender->new($args);
 	$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );
 	no warnings 'once';
 	$logger->error($Mail::Sender::Error) if $sender->{'error'};
