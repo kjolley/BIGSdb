@@ -441,7 +441,7 @@ sub _get_boolean_field {
 	return $buffer;
 }
 
-sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
@@ -630,7 +630,7 @@ sub _create_extra_fields_for_locus_descriptions {
 	return $buffer;
 }
 
-sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
@@ -687,7 +687,7 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 	return $buffer;
 }
 
-sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';

@@ -1199,7 +1199,7 @@ sub get_truncated_label {
 	return ( $label, $title );
 }
 
-sub _normalize_clean_locus {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by memoize
+sub _normalize_clean_locus {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by memoize
 	my ( $self, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	return join( ',', $locus, ( map { $_ => $options->{$_} } sort keys %$options ) );

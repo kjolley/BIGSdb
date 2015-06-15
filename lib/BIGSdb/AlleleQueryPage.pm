@@ -450,7 +450,7 @@ sub _get_field_attributes {
 	return;
 }
 
-sub _ext_not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_not {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -465,7 +465,7 @@ sub _ext_not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by di
 	return;
 }
 
-sub _ext_contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_contains {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -476,7 +476,7 @@ sub _ext_contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called 
 	return;
 }
 
-sub _ext_starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -487,7 +487,7 @@ sub _ext_starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
-sub _ext_ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -498,7 +498,7 @@ sub _ext_ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
-sub _ext_not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -509,7 +509,7 @@ sub _ext_not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
-sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $modifier, $field, $locus ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text modifier field locus)};
@@ -542,7 +542,7 @@ sub _ext_other {
 	return;
 }
 
-sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	if ( $text eq 'null' ) {
@@ -556,7 +556,7 @@ sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispat
 	return;
 }
 
-sub _contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _contains {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	$$qry_ref .=
@@ -566,7 +566,7 @@ sub _contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by d
 	return;
 }
 
-sub _starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	$$qry_ref .=
@@ -576,7 +576,7 @@ sub _starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called b
 	return;
 }
 
-sub _ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	$$qry_ref .=
@@ -586,7 +586,7 @@ sub _ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Called b
 	return;
 }
 
-sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	$$qry_ref .=
@@ -596,7 +596,7 @@ sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called b
 	return;
 }
 
-sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	if ( $text eq 'null' ) {
