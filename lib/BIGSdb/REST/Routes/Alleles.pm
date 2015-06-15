@@ -39,13 +39,13 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus_name );
+	my $allele_count = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM sequences WHERE locus=?', $locus_name );
 	my $pages        = ceil( $allele_count / $self->{'page_size'} );
 	my $offset       = ( $page - 1 ) * $self->{'page_size'};
 	my $qry =
-	    "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY "
+	    q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' )
-	  . " LIMIT $self->{'page_size'} OFFSET $offset";
+	  . qq( LIMIT $self->{'page_size'} OFFSET $offset);
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	if ( !@$allele_ids ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
@@ -74,9 +74,11 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $allele =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM sequences WHERE locus=? AND allele_id=?", [ $locus_name, $allele_id ], { fetch => 'row_hashref' } );
+	my $allele = $self->{'datastore'}->run_query(
+		'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
+		[ $locus_name, $allele_id ],
+		{ fetch => 'row_hashref' }
+	);
 	if ( !$allele ) {
 		send_error( "Allele $locus-$allele_id does not exist.", 404 );
 	}
@@ -87,17 +89,19 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub {
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")->as_string if $allele->{$attribute};
+			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")->as_string
+			  if $allele->{$attribute};
 		} else {
-			$values->{$attribute} = $allele->{$attribute} if defined $allele->{$attribute} && $allele->{$attribute} ne '';
+			$values->{$attribute} = $allele->{$attribute}
+			  if defined $allele->{$attribute} && $allele->{$attribute} ne '';
 		}
 	}
 	my $extended_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=?", $locus_name, { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
+		$locus_name, { fetch => 'col_arrayref' } );
 	foreach my $attribute (@$extended_attributes) {
 		my $extended_value = $self->{'datastore'}->run_query(
-			"SELECT value FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?",
+			'SELECT value FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?)',
 			[ $locus_name, $attribute, $allele_id ],
 			{ cache => 'Alleles:extended_attributes' }
 		);
@@ -124,13 +128,13 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles_fasta' => sub {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $qry =
-	  "SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY "
+	  q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$alleles ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
-	content_type "text/plain";
+	content_type 'text/plain';
 	my $buffer = '';
 	foreach my $allele (@$alleles) {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
