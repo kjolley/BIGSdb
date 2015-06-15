@@ -129,7 +129,7 @@ sub print_content {
 	return;
 }
 
-sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
@@ -144,7 +144,7 @@ sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Calle
 	return;
 }
 
-sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
@@ -156,7 +156,7 @@ sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Call
 	return;
 }
 
-sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
@@ -501,7 +501,7 @@ sub _print_allele_warnings {
 	return;
 }
 
-sub _abort_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _abort_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'cgi'}->param('confirm');
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -540,7 +540,7 @@ sub _delete_selected_submission_files {
 	return;
 }
 
-sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'datastore'}->get_submission($submission_id);
@@ -2191,7 +2191,7 @@ sub _is_submission_valid {
 	return 1;
 }
 
-sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Curate submission</h1>);
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1 } );
@@ -2215,7 +2215,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Ca
 	return;
 }
 
-sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
@@ -2243,7 +2243,7 @@ sub _translate_outcome {
 	return $outcome{$outcome_value} // $outcome_value;
 }
 
-sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
 	my $curator_id = $self->get_curator_id;
@@ -2304,6 +2304,15 @@ sub _get_text_summary {
 	}
 	$msg .= "Curator: $curator_string\n";
 	$msg .= "Outcome: $outcome\n";
+	my %methods = ( alleles => '_get_allele_submission_summary', profiles => '_get_profile_submission_summary' );
+	if ( $methods{ $submission->{'type'} } ) {
+		my $method      = $methods{ $submission->{'type'} };
+		my $assignments = $self->$method($submission_id);
+		if ($assignments) {
+			$msg .= $self->_get_text_heading( 'Assignments', { blank_line_before => 1 } );
+			$msg .= $assignments;
+		}
+	}
 	if ( $options->{'messages'} ) {
 		my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
 		  . q(WHERE submission_id=? ORDER BY timestamp asc);
@@ -2321,7 +2330,34 @@ sub _get_text_summary {
 	return $msg;
 }
 
-sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
+	return if !$allele_submission;
+	my $buffer = q();
+	foreach my $seqs ( @{ $allele_submission->{'seqs'} } ) {
+		$buffer .= "$seqs->{'seq_id'}: $seqs->{'status'}";
+		$buffer .= " - $allele_submission->{'locus'}-$seqs->{'assigned_id'}" if $seqs->{'assigned_id'};
+		$buffer .= "\n";
+	}
+	return $buffer;
+}
+
+sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+	return if !$profile_submission;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1 } );
+	my $buffer = q();
+	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
+		$buffer .= "$profile->{'profile_id'}: $profile->{'status'}";
+		$buffer .= " - $scheme_info->{'primary_key'}-$profile->{'assigned_id'}" if $profile->{'assigned_id'};
+		$buffer .= "\n";
+	}
+	return $buffer;
+}
+
+sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
 	$self->_delete_submission($submission_id);
@@ -2422,7 +2458,7 @@ sub _write_isolate_csv {
 	return $filename;
 }
 
-sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !defined $submission_id || $submission_id !~ /BIGSdb_\d+/x;
 	my $submission = $self->{'datastore'}->get_submission($submission_id);
