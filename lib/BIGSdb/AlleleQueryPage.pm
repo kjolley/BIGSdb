@@ -95,40 +95,37 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $locus = $q->param('locus') || '';
-	$locus =~ s/^cn_//;
+	$locus =~ s/^cn_//x;
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content($locus);
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $desc          = $self->get_db_description;
-	print "<h1>Query $cleaned_locus sequences - $desc database</h1>\n";
+	say "<h1>Query $cleaned_locus sequences - $desc database</h1>";
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
 		if ( !$q->param('no_js') ) {
-			my $locus_clause = $locus ? "&amp;locus=$locus" : '';
-			say qq(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires that you enable )
-			  . qq(Javascript in your browser. Alternatively, you can use a <a href="$self->{'system'}->{'script_name'}?db=)
-			  . qq($self->{'instance'}&amp;page=alleleQuery$locus_clause&amp;no_js=1">non-Javascript version</a> that has 4 combinations )
-			  . qq(of fields.</p></div></noscript>);
+			my $locus_clause = $locus ? "&amp;locus=$locus" : q();
+			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
+			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleQuery$locus_clause&amp;no_js=1">non-Javascript version</a> that has 4 combinations )
+			  . q(of fields.</p></div></noscript>);
 		}
 		$self->_print_interface;
 	}
-	if (   defined $q->param('query_file')
-		|| defined $q->param('t1') )
-	{
-		if ( $q->param('locus') eq '' ) {
-			say qq(<div class="box" id="statusbad"><p>Please select locus or use the general )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences">)
-			  . qq(sequence attribute query</a> page.</p></div>);
+	if ( defined $q->param('query_file') || defined $q->param('t1') ) {
+		if ( $q->param('locus') eq q() ) {
+			say q(<div class="box" id="statusbad"><p>Please select locus or use the general )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+			  . q(table=sequences">sequence attribute query</a> page.</p></div>);
 		} else {
 			$self->_run_query;
 		}
-	} else {
-		print "\n";
 	}
 	return;
 }
@@ -140,10 +137,13 @@ sub _get_select_items {
 	foreach my $att (@$attributes) {
 		next if $att->{'name'} eq 'locus';
 		if ( $att->{'name'} eq 'sender' || $att->{'name'} eq 'curator' || $att->{'name'} eq 'user_id' ) {
-			push @select_items, "$att->{'name'} (id)";
-			push @select_items, "$att->{'name'} (surname)";
-			push @select_items, "$att->{'name'} (first_name)";
-			push @select_items, "$att->{'name'} (affiliation)";
+			push @select_items,
+			  (
+				"$att->{'name'} (id)",
+				"$att->{'name'} (surname)",
+				"$att->{'name'} (first_name)",
+				"$att->{'name'} (affiliation)"
+			  );
 		} else {
 			push @select_items, $att->{'name'};
 		}
@@ -158,12 +158,14 @@ sub _get_select_items {
 		( $labels{$item} = $item ) =~ tr/_/ /;
 	}
 	if ($locus) {
-		my $ext_atts = $self->{'datastore'}->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order",
+		my $ext_atts =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
 			$locus, { fetch => 'col_arrayref' } );
 		foreach my $field (@$ext_atts) {
 			my $item = "extatt_$field";
 			push @select_items, $item;
-			( $labels{$item} = $item ) =~ s/^extatt_//;
+			( $labels{$item} = $item ) =~ s/^extatt_//x;
 			$labels{$item} =~ tr/_/ /;
 		}
 	}
@@ -175,7 +177,7 @@ sub _print_table_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<span style="white-space:nowrap">);
+	say q(<span style="white-space:nowrap">);
 	say $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
@@ -183,11 +185,13 @@ sub _print_table_fields {
 		$locus //= '';
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
-		say qq( <a class="tooltip" title="Search values - Empty field values can be searched using the term 'null'. )
-		  . qq(<h3>Number of fields</h3>Add more fields by clicking the '+' button."><span class="fa fa-info-circle"></span></a>);
+		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="button">+</a>);
+		say q( <a class="tooltip" title="Search values - Empty field values can be searched using the term 'null'. )
+		  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button."><span class="fa fa-info-circle">)
+		  . q(</span></a>);
 	}
-	say "</span>";
+	say q(</span>);
 	return;
 }
 
@@ -196,267 +200,80 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
-	say qq(<div class="box" id="queryform"><div class=\"scrollable\">);
+	say q(<div class="box" id="queryform"><div class="scrollable">);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, '';
 	print $q->startform;
 	$cleaned->{''} = 'Please select ...';
-	say "<p><b>Locus: </b>";
+	say q(<p><b>Locus: </b>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	say qq( <span class="comment">Page will reload when changed</span></p>);
+	say q( <span class="comment">Page will reload when changed</span></p>);
 	say $q->hidden($_) foreach qw (db page no_js);
 
 	if ( $q->param('locus') ) {
-		my $desc_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus );
+		my $desc_exists =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
 		if ($desc_exists) {
-			say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">)
-			  . qq(Further information</a> is available for this locus.</li></ul>);
+			say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
+			  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
 		}
 	}
-	say "<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>";
+	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	say qq(<fieldset style="float:left">\n<legend>Locus fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="table_field_heading" style="display:$table_field_heading"><label for="c0">Combine searches with: </label>);
-	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [ "AND", "OR" ] );
+	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
+	  . q(<label for="c0">Combine searches with: </label>);
+	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw(AND OR)] );
 	say qq(</span>\n<ul id="table_fields">);
 
 	foreach my $i ( 1 .. $table_fields ) {
-		say "<li>";
+		say q(<li>);
 		$self->_print_table_fields( $locus, $i, $table_fields, $select_items, $labels );
-		say "</li>";
+		say q(</li>);
 	}
-	say "</ul>";
-	say "</fieldset>";
-	say qq(<fieldset style="float:left"><legend>Display</legend>);
-	say qq(<ul>\n<li><span style="white-space:nowrap">\n<label for="order" class="display">Order by: </label>);
+	say q(</ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Display</legend>);
+	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
-	say "</span></li>\n<li>";
+	say q(</span></li><li>);
 	say $self->get_number_records_control;
-	say "</li></ul></fieldset>";
-	say qq(<fieldset style="float:left"><legend>Filter query by</legend>);
-	say "<ul>\n<li>";
+	say q(</li></ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Filter query by</legend>);
+	say q(<ul><li>);
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
-	say "</li><li>";
+	say q(</li><li>);
 
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
 		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
 	}
-	say "</li></ul>\n</fieldset>";
+	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { locus => $locus } );
 	say $q->endform;
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
 sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $qry, $qry2 );
-	my @errors;
+	my $qry;
+	my $errors = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
-	$locus = $1 if $locus =~ /^cn_(.+)$/;
+	$locus =~ s/^cn_//x;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$logger->error("Invalid locus $locus");
-		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !defined $q->param('query_file') ) {
-		my $andor       = $q->param('c0');
-		my $first_value = 1;
-		foreach my $i ( 1 .. MAX_ROWS ) {
-			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
-				my $field    = $q->param("s$i");
-				my $operator = $q->param("y$i") // '=';
-				my $text     = $q->param("t$i");
-				$self->process_value( \$text );
-				if ( $field =~ /^extatt_(.*)$/ ) {
-
-					#search by extended attribute
-					$field = $1;
-					my $thisfield = $self->{'datastore'}->run_query(
-						"SELECT * FROM locus_extended_attributes WHERE locus=? AND field=?",
-						[ $locus, $field ],
-						{ fetch => 'row_hashref', cache => 'AlleleQueryPage::run_query::extended_attributes' }
-					);
-					next
-					  if $self->check_format(
-						{ field => $field, text => $text, type => $thisfield->{'value_format'}, operator => $operator }, \@errors );
-					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
-					$first_value = 0;
-					( my $cleaned = $locus ) =~ s/'/\\'/g;
-					my $std_clause = "$modifier (allele_id IN (SELECT allele_id FROM sequence_extended_attributes "
-					  . "WHERE locus=E'$cleaned' AND field='$field' ";
-
-					if ( $operator eq 'NOT' ) {
-						$qry .= $std_clause;
-						if ( $text eq 'null' ) {
-							$qry .= "))";
-						} else {
-							$qry .=
-							  $thisfield->{'value_format'} eq 'integer'
-							  ? "AND NOT CAST(value AS text) = E'$text'))"
-							  : "AND NOT upper(value) = upper(E'$text')))";
-						}
-					} elsif ( $operator eq "contains" ) {
-						$qry .= $std_clause;
-						$qry .=
-						  $thisfield->{'value_format'} eq 'integer'
-						  ? "AND CAST(value AS text) LIKE E'\%$text\%'))"
-						  : "AND upper(value) LIKE upper(E'\%$text\%')))";
-					} elsif ( $operator eq "starts with" ) {
-						$qry .= $std_clause;
-						$qry .=
-						  $thisfield->{'value_format'} eq 'integer'
-						  ? "AND CAST(value AS text) LIKE E'$text\%'))"
-						  : "AND upper(value) LIKE upper(E'$text\%')))";
-					} elsif ( $operator eq "ends with" ) {
-						$qry .= $std_clause;
-						$qry .=
-						  $thisfield->{'value_format'} eq 'integer'
-						  ? "AND CAST(value AS text) LIKE E'\%$text'))"
-						  : "AND upper(value) LIKE upper(E'\%$text')))";
-					} elsif ( $operator eq "NOT contain" ) {
-						$qry .= $std_clause;
-						$qry .=
-						  $thisfield->{'value_format'} eq 'integer'
-						  ? "AND NOT CAST(value AS text) LIKE E'\%$text\%'))"
-						  : "AND NOT upper(value) LIKE upper(E'\%$text\%')))";
-					} elsif ( $operator eq '=' ) {
-						if ( $text eq 'null' ) {
-							$qry .= "$modifier (allele_id NOT IN (select allele_id FROM sequence_extended_attributes "
-							  . "WHERE locus=E'$locus' AND field='$field'))";
-						} else {
-							$qry .= $std_clause;
-							$qry .= $thisfield->{'value_format'} eq 'text' ? "AND upper(value)=upper(E'$text')))" : "AND value=E'$text'))";
-						}
-					} else {
-						if ( $text eq 'null' ) {
-							push @errors, "$operator is not a valid operator for comparing null values.";
-							next;
-						}
-						$qry .= $std_clause;
-						$qry .=
-						  $thisfield->{'value_format'} eq 'integer'
-						  ? "AND CAST(value AS int) $operator E'$text'))"
-						  : "AND value $operator E'$text'))";
-					}
-				} else {
-					my $thisfield;
-					foreach (@$attributes) {
-						if ( $_->{'name'} eq $field ) {
-							$thisfield = $_;
-							last;
-						}
-					}
-					$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
-					$thisfield->{'type'} ||= 'text';    # sender/curator surname, firstname, affiliation
-					$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text' if ( $thisfield->{'name'} // '' ) eq 'allele_id';
-					if ( none { $field =~ /\($_\)$/ } qw (surname first_name affiliation) ) {
-						next
-						  if $self->check_format( { field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator },
-							\@errors );
-					}
-					my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
-					$first_value = 0;
-					if ( $field =~ /(.*) \(id\)$/
-						&& !BIGSdb::Utils::is_int($text) )
-					{
-						push @errors, "$field is an integer field.";
-						next;
-					}
-					$qry .= $modifier;
-					if ( any { $field =~ /.* \($_\)/ } qw (id surname first_name affiliation) ) {
-						$qry .= $self->search_users( $field, $operator, $text, 'sequences' );
-					} else {
-						if ( $operator eq 'NOT' ) {
-							if ( $text eq 'null' ) {
-								$qry .= "$field is not null";
-							} else {
-								$qry .=
-								  $thisfield->{'type'} eq 'text'
-								  ? "NOT upper($field) = upper(E'$text')"
-								  : "NOT $field = E'$text'";
-							}
-						} elsif ( $operator eq "contains" ) {
-							$qry .=
-							  $thisfield->{'type'} eq 'text'
-							  ? "$field ILIKE E'\%$text\%'"
-							  : "CAST($field AS text) ILIKE E'\%$text\%'";
-						} elsif ( $operator eq "starts with" ) {
-							$qry .=
-							  $thisfield->{'type'} eq 'text'
-							  ? "$field ILIKE E'$text\%'"
-							  : "CAST($field AS text) ILIKE E'$text\%'";
-						} elsif ( $operator eq "ends with" ) {
-							$qry .=
-							  $thisfield->{'type'} eq 'text'
-							  ? "$field ILIKE E'\%$text'"
-							  : "CAST($field AS text) ILIKE E'\%$text'";
-						} elsif ( $operator eq "NOT contain" ) {
-							$qry .=
-							  $thisfield->{'type'} eq 'text'
-							  ? "NOT $field ILIKE E'\%$text\%'"
-							  : "NOT CAST($field AS text) LIKE E'\%$text\%'";
-						} elsif ( $operator eq '=' ) {
-							if ( $text eq 'null' ) {
-								$qry .= "$field is null";
-							} else {
-								$qry .= $thisfield->{'type'} eq 'text' ? "upper($field) = upper(E'$text')" : "$field = E'$text'";
-							}
-						} else {
-							if ( $text eq 'null' ) {
-								push @errors, "$operator is not a valid operator for comparing null values.";
-								next;
-							}
-							if ( $field eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
-								$qry .= "CAST($field AS integer) $operator E'$text'";
-							} else {
-								$qry .= "$field $operator E'$text'";
-							}
-						}
-						if ( $field eq 'allele_id' ) {
-							$qry .= " AND $field NOT IN ('0', 'N')";    #Alleles can be set to 0 or N for arbitrary profile definitions
-						}
-					}
-				}
-			}
-		}
-		$locus =~ s/'/\\'/g;
-		$qry ||= '';
-		$qry =~ s/sequence_length/length(sequence)/g;
-		$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
-		foreach (@$attributes) {
-			my $param = $_->{'name'} . '_list';
-			if ( defined $q->param($param) && $q->param($param) ne '' ) {
-				my $value = $q->param($param);
-				$self->process_value( \$value );
-				if ( $qry2 !~ /WHERE \(\)\s*$/ ) {
-					$qry2 .= " AND ";
-				} else {
-					$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
-				}
-				$qry2 .= $value eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
-			}
-		}
-		$qry2 .= $self->_process_flags;
-		$qry2 .= " AND sequences.allele_id NOT IN ('0', 'N')";
-		$qry2 .= " ORDER BY ";
-		if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$qry2 .= "CAST (allele_id AS integer)";
-		} else {
-			$qry2 .= $q->param('order');
-		}
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
-		$qry2 .= " $dir;";
-		$qry2 =~ s/sequence_length/length(sequence)/g;
+		( $qry, $errors ) = $self->_generate_query($locus);
 	} else {
-		$qry2 = $self->get_query_from_temp_file( $q->param('query_file') );
+		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
@@ -467,15 +284,345 @@ sub _run_query {
 		push @hidden_attributes, $_->{'name'} . '_list';
 	}
 	push @hidden_attributes, qw(locus no_js);
-	if (@errors) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
-		print "<p>@errors</p></div>\n";
+	if (@$errors) {
+		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
+		say qq(<p>@$errors</p></div>);
+		return;
+	}
+	$qry =~ s/AND\ \(\)//x;
+	my $args = { table => 'sequences', query => $qry, hidden_attributes => \@hidden_attributes };
+	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+	$self->paged_display($args);
+	return;
+}
+
+sub _generate_query {
+	my ( $self, $locus ) = @_;
+	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
+	my $q           = $self->{'cgi'};
+	my $andor       = $q->param('c0');
+	my $first_value = 1;
+	my ( $qry, $qry2 );
+	my $errors = [];
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
+		my $field    = $q->param("s$i");
+		my $operator = $q->param("y$i") // '=';
+		my $text     = $q->param("t$i");
+		$self->process_value( \$text );
+		if ( $field =~ /^extatt_(.*)$/x ) {    #search by extended attribute
+			$field = $1;
+			my $this_field = $self->{'datastore'}->run_query(
+				'SELECT * FROM locus_extended_attributes WHERE (locus,field)=(?,?)',
+				[ $locus, $field ],
+				{ fetch => 'row_hashref', cache => 'AlleleQueryPage::run_query::extended_attributes' }
+			);
+			next
+			  if $self->check_format(
+				{ field => $field, text => $text, type => $this_field->{'value_format'}, operator => $operator },
+				$errors );
+			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
+			$first_value = 0;
+			( my $cleaned = $locus ) =~ s/'/\\'/gx;
+			my $std_clause = "$modifier (allele_id IN (SELECT allele_id FROM sequence_extended_attributes "
+			  . "WHERE locus=E'$cleaned' AND field='$field' ";
+			my %methods = (
+				'NOT'         => '_ext_not',
+				'contains'    => '_ext_contains',
+				'starts with' => '_ext_starts_with',
+				'ends with'   => '_ext_ends_with',
+				'NOT contain' => '_ext_not_contain',
+				'='           => '_ext_equals'
+			);
+			my $args = {
+				qry_ref        => \$qry,
+				std_clause_ref => \$std_clause,
+				this_field     => $this_field,
+				text           => $text,
+				modifier       => $modifier,
+				field          => $field,
+				locus          => $locus,
+				operator       => $operator,
+				errors         => $errors
+			};
+
+			if ( $methods{$operator} ) {
+				my $method = $methods{$operator};
+				$self->$method($args);
+			} else {
+				$self->_ext_other($args);
+			}
+		} else {
+			my $thisfield = $self->_get_field_attributes($field);
+			$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
+			$thisfield->{'type'} //= 'text';    # sender/curator surname, firstname, affiliation
+			$thisfield->{'type'} = $locus_info->{'allele_id_format'} // 'text'
+			  if ( $thisfield->{'name'} // '' ) eq 'allele_id';
+			if ( none { $field =~ /\($_\)$/x } qw (surname first_name affiliation) ) {
+				next
+				  if $self->check_format(
+					{ field => $field, text => $text, type => $thisfield->{'type'}, operator => $operator }, $errors );
+			}
+			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
+			$first_value = 0;
+			if ( $field =~ /(.*)\ \(id\)$/x
+				&& !BIGSdb::Utils::is_int($text) )
+			{
+				push @$errors, "$field is an integer field.";
+				next;
+			}
+			$qry .= $modifier;
+			if ( any { $field =~ /.*\ \($_\)/x } qw (id surname first_name affiliation) ) {
+				$qry .= $self->search_users( $field, $operator, $text, 'sequences' );
+			} else {
+				my %methods = (
+					'NOT'         => '_not',
+					'contains'    => '_contains',
+					'starts with' => '_starts_with',
+					'ends with'   => '_ends_with',
+					'NOT contain' => '_not_contain',
+					'='           => '_equals'
+				);
+				my $args = {
+					qry_ref    => \$qry,
+					this_field => $thisfield,
+					field      => $field,
+					text       => $text,
+					locus      => $locus,
+					operator   => $operator,
+					errors     => $errors
+				};
+				if ( $methods{$operator} ) {
+					my $method = $methods{$operator};
+					$self->$method($args);
+				} else {
+					$self->_other($args);
+				}
+			}
+		}
+	}
+	$locus =~ s/'/\\'/gx;
+	$qry //= q();
+	$qry =~ s/sequence_length/length(sequence)/g;
+	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
+	$self->_modify_by_filter( \$qry2, $locus );
+	$qry2 .= $self->_process_flags;
+	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
+	$qry2 .= q( ORDER BY );
+
+	if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
+		$qry2 .= q(CAST (allele_id AS integer));
 	} else {
-		$qry2 =~ s/AND \(\)//;
-		my $args = { table => 'sequences', query => $qry2, hidden_attributes => \@hidden_attributes };
-		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
-		$self->paged_display($args);
-		print "\n";
+		$qry2 .= $q->param('order');
+	}
+	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+	$qry2 .= " $dir;";
+	$qry2 =~ s/sequence_length/length(sequence)/g;
+	return ( $qry2, $errors );
+}
+
+sub _modify_by_filter {
+	my ( $self, $qry_ref, $locus ) = @_;
+	my $q          = $self->{'cgi'};
+	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
+	foreach (@$attributes) {
+		my $param = $_->{'name'} . '_list';
+		if ( defined $q->param($param) && $q->param($param) ne '' ) {
+			my $value = $q->param($param);
+			$self->process_value( \$value );
+			if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+				$$qry_ref .= ' AND ';
+			} else {
+				$$qry_ref = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
+			}
+			$$qry_ref .= $value eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
+		}
+	}
+	return;
+}
+
+sub _get_field_attributes {
+	my ( $self, $field ) = @_;
+	my $all_attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
+	foreach my $attributes (@$all_attributes) {
+		return $attributes if $attributes->{'name'} eq $field;
+	}
+	return;
+}
+
+sub _ext_not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
+	$$qry_ref .= $$std_clause_ref;
+	if ( $text eq 'null' ) {
+		$$qry_ref .= '))';
+	} else {
+		$$qry_ref .=
+		  $this_field->{'value_format'} eq 'integer'
+		  ? "AND NOT CAST(value AS text) = E'$text'))"
+		  : "AND NOT upper(value) = upper(E'$text')))";
+	}
+	return;
+}
+
+sub _ext_contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
+	$$qry_ref .= $$std_clause_ref;
+	$$qry_ref .=
+	  $this_field->{'value_format'} eq 'integer'
+	  ? "AND CAST(value AS text) LIKE E'\%$text\%'))"
+	  : "AND upper(value) LIKE upper(E'\%$text\%')))";
+	return;
+}
+
+sub _ext_starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
+	$$qry_ref .= $$std_clause_ref;
+	$$qry_ref .=
+	  $this_field->{'value_format'} eq 'integer'
+	  ? "AND CAST(value AS text) LIKE E'$text\%'))"
+	  : "AND upper(value) LIKE upper(E'$text\%')))";
+	return;
+}
+
+sub _ext_ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
+	$$qry_ref .= $$std_clause_ref;
+	$$qry_ref .=
+	  $this_field->{'value_format'} eq 'integer'
+	  ? "AND CAST(value AS text) LIKE E'\%$text'))"
+	  : "AND upper(value) LIKE upper(E'\%$text')))";
+	return;
+}
+
+sub _ext_not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
+	$$qry_ref .= $$std_clause_ref;
+	$$qry_ref .=
+	  $this_field->{'value_format'} eq 'integer'
+	  ? "AND NOT CAST(value AS text) LIKE E'\%$text\%'))"
+	  : "AND NOT upper(value) LIKE upper(E'\%$text\%')))";
+	return;
+}
+
+sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text, $modifier, $field, $locus ) =
+	  @{$args}{qw(qry_ref std_clause_ref this_field text modifier field locus)};
+	if ( $text eq 'null' ) {
+		$$qry_ref .= "$modifier (allele_id NOT IN (select allele_id FROM sequence_extended_attributes "
+		  . "WHERE locus=E'$locus' AND field='$field'))";
+	} else {
+		$$qry_ref .= $$std_clause_ref;
+		$$qry_ref .=
+		  $this_field->{'value_format'} eq 'text'
+		  ? "AND upper(value)=upper(E'$text')))"
+		  : "AND value=E'$text'))";
+	}
+	return;
+}
+
+sub _ext_other {
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $std_clause_ref, $this_field, $text, $operator, $errors ) =
+	  @{$args}{qw(qry_ref std_clause_ref this_field text operator errors)};
+	if ( $text eq 'null' ) {
+		push @$errors, "$operator is not a valid operator for comparing null values.";
+		next;
+	}
+	$$qry_ref .= $$std_clause_ref;
+	$$qry_ref .=
+	  $this_field->{'value_format'} eq 'integer'
+	  ? "AND CAST(value AS int) $operator E'$text'))"
+	  : "AND value $operator E'$text'))";
+	return;
+}
+
+sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	if ( $text eq 'null' ) {
+		$$qry_ref .= "$field IS NOT null";
+	} else {
+		$$qry_ref .=
+		  $this_field->{'type'} eq 'text'
+		  ? "NOT UPPER($field) = UPPER(E'$text')"
+		  : "NOT $field = E'$text'";
+	}
+	return;
+}
+
+sub _contains {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	$$qry_ref .=
+	  $this_field->{'type'} eq 'text'
+	  ? "$field ILIKE E'\%$text\%'"
+	  : "CAST($field AS text) ILIKE E'\%$text\%'";
+	return;
+}
+
+sub _starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	$$qry_ref .=
+	  $this_field->{'type'} eq 'text'
+	  ? "$field ILIKE E'$text\%'"
+	  : "CAST($field AS text) ILIKE E'$text\%'";
+	return;
+}
+
+sub _ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	$$qry_ref .=
+	  $this_field->{'type'} eq 'text'
+	  ? "$field ILIKE E'\%$text'"
+	  : "CAST($field AS text) ILIKE E'\%$text'";
+	return;
+}
+
+sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	$$qry_ref .=
+	  $this_field->{'type'} eq 'text'
+	  ? "NOT $field ILIKE E'\%$text\%'"
+	  : "NOT CAST($field AS text) LIKE E'\%$text\%'";
+	return;
+}
+
+sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines ) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
+	if ( $text eq 'null' ) {
+		$$qry_ref .= "$field is null";
+	} else {
+		$$qry_ref .=
+		  $this_field->{'type'} eq 'text'
+		  ? "UPPER($field) = UPPER(E'$text')"
+		  : "$field = E'$text'";
+	}
+	return;
+}
+
+sub _other {
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $this_field, $field, $text, $locus, $operator, $errors ) =
+	  @{$args}{qw(qry_ref this_field field text locus operator errors)};
+	if ( $text eq 'null' ) {
+		push @$errors, "$operator is not a valid operator for comparing null values.";
+		next;
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( $field eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
+		$$qry_ref .= "CAST($field AS integer) $operator E'$text'";
+	} else {
+		$$qry_ref .= "$field $operator E'$text'";
 	}
 	return;
 }
@@ -486,13 +633,13 @@ sub _process_flags {
 	my $buffer = '';
 	if ( ( $q->param('allele_flag_list') // '' ) ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		if ( $q->param('allele_flag_list') eq 'no flag' ) {
-			$buffer .= " AND NOT EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
-			  . "sequences.allele_id=allele_flags.allele_id)";
+			$buffer .= ' AND NOT EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND '
+			  . 'sequences.allele_id=allele_flags.allele_id)';
 		} else {
-			$buffer .= " AND EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND "
-			  . "sequences.allele_id=allele_flags.allele_id";
+			$buffer .= ' AND EXISTS (SELECT 1 FROM allele_flags WHERE sequences.locus=allele_flags.locus AND '
+			  . 'sequences.allele_id=allele_flags.allele_id';
 			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
-				$buffer .= " AND flag = '" . $q->param('allele_flag_list') . "'";
+				$buffer .= q( AND flag = ') . $q->param('allele_flag_list') . q(');
 			}
 			$buffer .= ')';
 		}
