@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -74,7 +74,7 @@ END
 sub print_extra_fields {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left"><legend>References</legend><ul><li>);
+	say q(<fieldset style="float:left"><legend>References</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'm_references',
 		-id       => 'm_references',
@@ -82,54 +82,68 @@ sub print_extra_fields {
 		-label    => 'references',
 		-onChange => 'enable_controls()'
 	);
-	say "</li><li>";
-	say $q->radio_group( -name => 'ref_type', -values => [ 'PubMed id', 'Full citation' ], -default => 'PubMed id', -linebreak => 'true' );
-	say "</li></ul></fieldset>";
+	say q(</li><li>);
+	say $q->radio_group(
+		-name      => 'ref_type',
+		-values    => [ 'PubMed id', 'Full citation' ],
+		-default   => 'PubMed id',
+		-linebreak => 'true'
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
 sub print_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left"><legend>Options</legend><ul></li>);
+	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
 	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox( -name => 'alleles', -id => 'alleles', -label => 'Export allele numbers', -checked => 'checked' );
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox( -name => 'oneline', -id => 'oneline', -label => 'Use one row per field' );
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox(
 		-name  => 'labelfield',
 		-id    => 'labelfield',
 		-label => "Include $self->{'system'}->{'labelfield'} field in row (used only with 'one row' option)"
 	);
-	say "</li><li>";
-	say $q->checkbox( -name => 'info', -id => 'info', -label => "Export full allele designation record (used only with 'one row' option)" );
-	say "</li></ul></fieldset>";
+	say q(</li><li>);
+	say $q->checkbox(
+		-name  => 'info',
+		-id    => 'info',
+		-label => q(Export full allele designation record (used only with 'one row' option))
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
 sub print_extra_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
+	say q(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
 	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
-	say "</li><li>";
-	say $q->checkbox( -name => 'met', -id => 'met', -label => 'GTG/TTG at start codes for methionine', -checked => 'checked' );
-	say "</li></ul></fieldset>";
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'met',
+		-id      => 'met',
+		-label   => 'GTG/TTG at start codes for methionine',
+		-checked => 'checked'
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Export dataset</h1>";
+	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
-		push @$selected_fields, "m_references" if $q->param('m_references');
+		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No fields have been selected!</p></div>";
+			say q(<div class="box" id="statusbad"><p>No fields have been selected!</p></div>);
 		} else {
 			my $prefix     = BIGSdb::Utils::get_random();
 			my $filename   = "$prefix.txt";
@@ -137,23 +151,25 @@ sub run {
 			my $qry_ref    = $self->get_query($query_file);
 			return if ref $qry_ref ne 'SCALAR';
 			my $view = $self->{'system'}->{'view'};
-			say "<div class=\"box\" id=\"resultstable\">";
-			say "<p>Please wait for processing to finish (do not refresh page).</p>";
-			print "<p>Output files being generated ...";
+			say q(<div class="box" id="resultstable">);
+			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
+			print q(<p>Output files being generated ...);
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			return if !$self->create_temp_tables($qry_ref);
 			my $fields = $self->{'xmlHandler'}->get_field_list;
 			local $" = ",$view.";
 			my $field_string = "$view.@$fields";
-			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
+			$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
 			$self->rewrite_query_ref_order_by($qry_ref);
 			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
-			say " done</p>";
-			say "<p>Download: <a href=\"/tmp/$filename\">Text file</a>";
-			my $excel = BIGSdb::Utils::text2excel( $full_path, { worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+			say q( done</p>);
+			say qq(<p>Download: <a href="/tmp/$filename">Text file</a>);
+			my $excel =
+			  BIGSdb::Utils::text2excel( $full_path,
+				{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 			say qq( | <a href="/tmp/$prefix.xlsx">Excel file</a>) if -e $excel;
-			say " (right-click to save)</p>";
-			say "</div>";
+			say q( (right-click to save)</p>);
+			say q(</div>);
 			return;
 		}
 	}
@@ -166,8 +182,8 @@ HTML
 	foreach (qw (shtml html)) {
 		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
 		if ( -e $policy ) {
-			say "<p>Use of exported data is subject to the terms of the <a href='$self->{'system'}->{'webroot'}/policy.$_'>"
-			  . "policy document</a>!</p>";
+			say q(<p>Use of exported data is subject to the terms of the )
+			  . qq(<a href='$self->{'system'}->{'webroot'}/policy.$_'>policy document</a>!</p>);
 			last;
 		}
 	}
@@ -192,18 +208,20 @@ sub _write_tab_text {
 		my %schemes;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/ ) {
+			if ( $field =~ /^s_(\d+)_f/x ) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
 				$field .= " ($scheme_info->{'description'})"
 				  if $scheme_info->{'description'};
 				$schemes{$1} = 1;
 			}
-			my $is_locus = $field =~ /^(s_\d+_l_|l_)/ ? 1 : 0;
-			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//g;    #strip off prefix for header row
+			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
+			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//x;    #strip off prefix for header row
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$field =~ s/^.*___//;
+			$field =~ s/^.*___//x;
 			if ($is_locus) {
-				$field = $self->clean_locus( $field, { text_output => 1, ( no_common_name => $q->param('common_names') ? 0 : 1 ) } );
+				$field =
+				  $self->clean_locus( $field,
+					{ text_output => 1, ( no_common_name => $q->param('common_names') ? 0 : 1 ) } );
 				if ( $q->param('alleles') ) {
 					print $fh "\t" if !$first;
 					print $fh $field;
@@ -230,7 +248,7 @@ sub _write_tab_text {
 			}
 		}
 		if ($first) {
-			say $fh "Make sure you select an option for locus export (see options in the top-right corner).";
+			say $fh 'Make sure you select an option for locus export (see options in the top-right corner).';
 			return;
 		}
 	}
@@ -247,26 +265,30 @@ sub _write_tab_text {
 	my %id_used;
 
 	while ( $sql->fetchrow_arrayref ) {
-		next if $id_used{ $data{'id'} }; #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		next
+		  if $id_used{ $data{ 'id'
+		  } };    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
-		print "." if !$i;
-		print " " if !$j;
+		print q(.) if !$i;
+		print q( ) if !$j;
 		if ( !$i && $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
-		my $first      = 1;
-		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
+		my $first          = 1;
+		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach (@$fields) {
-			if ( $_ =~ /^f_(.*)/ ) {
+			if ( $_ =~ /^f_(.*)/x ) {
 				$self->_write_field( $fh, $1, \%data, $first );
-			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/ ) {
-				$self->_write_allele( { fh => $fh, locus => $2, data => \%data, allele_ids => $allele_ids, first => $first } );
-			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/ ) {
-				$self->_write_scheme_field( { fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first } );
-			} elsif ( $_ =~ /^c_(.*)/ ) {
+			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/x ) {
+				$self->_write_allele(
+					{ fh => $fh, locus => $2, data => \%data, all_allele_ids => $all_allele_ids, first => $first } );
+			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/x ) {
+				$self->_write_scheme_field(
+					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first } );
+			} elsif ( $_ =~ /^c_(.*)/x ) {
 				$self->_write_composite( $fh, $1, \%data, $first );
-			} elsif ( $_ =~ /^m_references/ ) {
+			} elsif ( $_ =~ /^m_references/x ) {
 				$self->_write_ref( $fh, \%data, $first );
 			}
 			$first = 0;
@@ -307,30 +329,22 @@ sub _write_field {
 			print $fh $value;
 		}
 	} elsif ( $field eq 'aliases' ) {
-		#TODO Use Datastore::get_isolate_aliases instead
-		if ( !$self->{'sql'}->{'alias'} ) {
-			$self->{'sql'}->{'alias'} = $self->{'db'}->prepare("SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias");
-		}
-		eval { $self->{'sql'}->{'alias'}->execute( $data->{'id'} ) };
-		$logger->error($@) if $@;
-		my @aliases;
-		while ( my ($alias) = $self->{'sql'}->{'alias'}->fetchrow_array ) {
-			push @aliases, $alias;
-		}
+		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 		local $" = '; ';
 		if ( $q->param('oneline') ) {
 			print $fh $self->_get_id_one_line($data);
-			print $fh "aliases\t@aliases\n";
+			print $fh "aliases\t@$aliases\n";
 		} else {
 			print $fh "\t" if !$first;
-			print $fh "@aliases";
+			print $fh "@$aliases";
 		}
-	} elsif ( $field =~ /(.*)___(.*)/ ) {
+	} elsif ( $field =~ /(.*)___(.*)/x ) {
 		my ( $isolate_field, $attribute ) = ( $1, $2 );
 		if ( !$self->{'sql'}->{'attribute'} ) {
-			$self->{'sql'}->{'attribute'} =
-			  $self->{'db'}
-			  ->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
+			$self->{'sql'}->{'attribute'} = $self->{'db'}->prepare(
+				    'SELECT value FROM isolate_value_extended_attributes WHERE '
+				  . '(isolate_field,attribute,field_value)=(?,?,?)'
+			);
 		}
 		eval { $self->{'sql'}->{'attribute'}->execute( $isolate_field, $attribute, $data->{$isolate_field} ) };
 		$logger->error($@) if $@;
@@ -358,28 +372,35 @@ sub _write_field {
 	return;
 }
 
+sub _sort_alleles {
+	my ( $self, $locus, $allele_ids ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return $allele_ids if !$locus_info;
+	my @list = $locus_info->{'allele_id_format'} eq 'integer' ? sort { $a <=> $b } @$allele_ids : sort @$allele_ids;
+	return \@list;
+}
+
 sub _write_allele {
 	my ( $self, $args ) = @_;
-	my ( $fh, $locus, $data, $allele_ids, $first_col ) = @{$args}{qw(fh locus data allele_ids first )};
-	my @allele_ids = defined $allele_ids->{$locus} ? @{ $allele_ids->{$locus} } : ('');
+	my ( $fh, $locus, $data, $all_allele_ids, $first_col ) = @{$args}{qw(fh locus data all_allele_ids first )};
+	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ('');
+	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	my $q = $self->{'cgi'};
 	if ( $q->param('alleles') ) {
 		my $first_allele = 1;
-		foreach my $allele_id (@allele_ids) {
+		foreach my $allele_id (@$allele_ids) {
 			if ( $q->param('oneline') ) {
 				print $fh $self->_get_id_one_line($data);
 				print $fh "$locus\t";
 				print $fh $allele_id;
 				if ( $q->param('info') ) {
-					if ( !$self->{'sql'}->{'allele'} ) {
-						$self->{'sql'}->{'allele'} =
-						  $self->{'db'}->prepare( "SELECT allele_designations.datestamp AS des_datestamp,first_name,surname,comments FROM "
-							  . "allele_designations LEFT JOIN users ON allele_designations.curator = users.id WHERE isolate_id=? AND locus=?"
-						  );
-					}
-					eval { $self->{'sql'}->{'allele'}->execute( $data->{'id'}, $locus ) };
-					$logger->error($@) if $@;
-					my $allele_info = $self->{'sql'}->{'allele'}->fetchrow_hashref;
+					my $allele_info = $self->{'datastore'}->run_query(
+						'SELECT allele_designations.datestamp AS des_datestamp,first_name,'
+						  . 'surname,comments FROM allele_designations LEFT JOIN users ON '
+						  . 'allele_designations.curator = users.id WHERE (isolate_id,locus,allele_id)=(?,?,?)',
+						[ $data->{'id'}, $locus, $allele_id ],
+						{ fetch => 'row_hashref', cache => 'Export::write_allele::info' }
+					);
 					if ( defined $allele_info ) {
 						print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
 						print $fh "$allele_info->{'des_datestamp'}\t";
@@ -400,7 +421,7 @@ sub _write_allele {
 	}
 	if ( $q->param('molwt') ) {
 		my $first_allele = 1;
-		foreach my $allele_id (@allele_ids) {
+		foreach my $allele_id (@$allele_ids) {
 			if ( $q->param('oneline') ) {
 				print $fh $self->_get_id_one_line($data);
 				print $fh "$locus MolWt\t";
@@ -426,7 +447,8 @@ sub _write_scheme_field {
 	my $q            = $self->{'cgi'};
 	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $scheme_field = lc($field);
-	my $values       = $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
+	my $values =
+	  $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
 	@$values = ('') if !@$values;
 	my $first_allele = 1;
 
@@ -468,7 +490,7 @@ sub _write_composite {
 sub _write_ref {
 	my ( $self, $fh, $data, $first ) = @_;
 	my $q      = $self->{'cgi'};
-	my $values = $self->_get_refs( $data->{'id'} );
+	my $values = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
 	if ( ( $q->param('ref_type') // '' ) eq 'Full citation' ) {
 		my $citation_hash = $self->{'datastore'}->get_citation_hash($values);
 		my @citations;
@@ -490,21 +512,6 @@ sub _write_ref {
 	return;
 }
 
-sub _get_refs {
-	my ( $self, $isolate_id ) = @_;
-	#TODO Use Datastore::get_isolate_refs instead
-	if ( !$self->{'sql'}->{'get_refs'} ) {
-		$self->{'sql'}->{'get_refs'} = $self->{'db'}->prepare("SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id");
-	}
-	eval { $self->{'sql'}->{'get_refs'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my @refs;
-	while ( my ($ref) = $self->{'sql'}->{'get_refs'}->fetchrow_array ) {
-		push @refs, $ref;
-	}
-	return \@refs;
-}
-
 sub _get_molwt {
 	my ( $self, $locus_name, $allele, $met ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -521,7 +528,7 @@ sub _get_molwt {
 		};
 		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
 		if ($met) {
-			$seq =~ s/^(TTG|GTG)/ATG/;
+			$seq =~ s/^(TTG|GTG)/ATG/x;
 		}
 		$peptide = Bio::Perl::translate_as_string($seq) if $seq;
 	} else {
