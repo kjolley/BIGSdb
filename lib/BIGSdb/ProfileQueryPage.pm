@@ -301,6 +301,9 @@ sub _run_query {
 					elsif ( $operator eq 'NOT contain' ) { $qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)" }
 					elsif ( $operator eq '=' )           { $qry .= "($equals)" }
 					else {
+						if ($text eq 'null'){
+							push @errors, "$operator is not a valid operator for comparing null values.";
+						}
 						$qry .= ( $type eq 'integer' ? "(to_number(textcat('0', $cleaned), text(99999999))" : "($cleaned" )
 						  . " $operator '$text')";
 					}
