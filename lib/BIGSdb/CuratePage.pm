@@ -457,7 +457,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-default  => $list
 		);
 		$buffer .= q( <span class="comment no_touch">Use Ctrl click to select/deselect multiple choices</span>);
-		$buffer .= "</li>\n";
+		$buffer .= qq(</li>\n);
 	}
 	my @databanks = DATABANKS;
 	my @default_pubmed;
@@ -488,7 +488,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		-style   => 'width:10em',
 		-default => "@default_pubmed"
 	);
-	$buffer .= "</li>\n";
+	$buffer .= qq(</li>\n);
 	foreach my $databank (@databanks) {
 		$buffer .= qq(<li><label for="databank_$databank" class="form" style="width:${width}em">$databank ids:</label>);
 		my @default;
@@ -503,7 +503,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-style   => 'width:10em',
 			-default => "@default"
 		);
-		$buffer .= "</li>\n";
+		$buffer .= qq(</li>\n);
 	}
 	if ( $q->param('locus') ) {
 		my $locus   = $q->param('locus');
@@ -518,7 +518,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			$buffer .=
 			    qq(<li><label for="$field" class="form" style="width:${width}em">$field:)
 			  . ( $required ? '!' : '' )
-			  . "</label>\n";
+			  . qq(</label>\n);
 			$length = 12 if !$length;
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $required;
@@ -571,18 +571,21 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 					%html5_args
 				);
 			}
-			$buffer .= "<span class=\"comment\"> $desc</span>\n" if $desc;
-			$buffer .= "</li>\n";
+			$buffer .= qq(<span class="comment"> $desc</span>\n) if $desc;
+			$buffer .= qq(</li>\n);
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
 		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
 			&& $q->param('page') ne 'update' )
 		{
-			$buffer .= '<li>';
+			$buffer .= q(<li>);
 			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-			$buffer .= '</li>';
+			$buffer .= qq(</li>\n);
 		}
 	}
+	$buffer .= q(<li>);
+	$buffer .= $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
+	$buffer .= qq(</li>\n);
 	return $buffer;
 }
 

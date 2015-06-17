@@ -928,8 +928,9 @@ sub print_file {
 				if ( @$loci < 30 ) {
 					s/\$lociAdd/$lociAdd/x;
 				} else {
-					s/\$lociAdd/<a\ href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;
-					page=add&amp;table=sequences">Add<\/a>/x;
+					my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+					 . 'page=add&amp;table=sequences';
+					s/\$lociAdd/<a href="$link">Add<\/a>/x;
 				}
 			}
 			if ( !$self->{'curate'} && $set_id ) {
