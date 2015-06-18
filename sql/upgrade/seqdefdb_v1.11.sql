@@ -1,6 +1,8 @@
 UPDATE sequences SET status='WGS: manual extract (BIGSdb)' WHERE status='WGS: manual extract';
 UPDATE sequences SET status='WGS: automated extract (BIGSdb)' WHERE status='WGS: automated extract';
 
+ALTER TABLE users ADD submission_emails boolean;
+
 CREATE TABLE submissions (
 id text NOT NULL,
 type text NOT NULL,

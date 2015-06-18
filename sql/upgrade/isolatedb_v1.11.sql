@@ -1,3 +1,5 @@
+ALTER TABLE users ADD submission_emails boolean;
+
 CREATE TABLE submissions (
 id text NOT NULL,
 type text NOT NULL,
