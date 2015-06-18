@@ -88,6 +88,11 @@ sub initiate {
 
 sub print_content {
 	my ($self) = @_;
+	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
+		say q(<h1>Manage submissions</h1>);
+		say q(<div class="box" id="statusbad"><p>The submission system is not enabled.</p></div>);
+		return;
+	}
 	my $q = $self->{'cgi'};
 	$self->choose_set;
 	my $submission_id = $q->param('submission_id');
@@ -363,6 +368,8 @@ sub _print_pending_submissions {
 sub print_submissions_for_curation {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	return if ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
+	return if !$self->{'config'}->{'submission_dir'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' );
 	my $buffer;
@@ -2546,8 +2553,7 @@ sub _email {
 			return;
 		}
 	}
-	my $args =
-	  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
+	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
 	$args->{'cc'} = $sender->{'email'} if $sender->{'email'} ne $recipient->{'email'};
 	my $mail_sender = Mail::Sender->new($args);
 	$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );

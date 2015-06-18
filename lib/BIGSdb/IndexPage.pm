@@ -235,6 +235,7 @@ sub _print_options_section {
 sub _print_submissions_section {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
+	return if !$self->{'config'}->{'submission_dir'};
 	say q(<div style="float:left; margin-right:1em">);
 	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say q(<h2>Submissions</h2><ul class="toplevel">);
