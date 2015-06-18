@@ -2324,13 +2324,17 @@ sub _notify_curators {
 	}
 	foreach my $curator_id (@filtered_curators) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
+		  . qq(required to curate this submission.\n\n);
+		$message .= qq(Please log in to the curator's interface to handle this submission.\n\n);
+		$message .= $self->_get_text_summary( $submission_id, { messages => 1 } );
 		$self->_email(
 			$submission_id,
 			{
 				recipient => $curator_id,
 				sender    => $submission->{'submitter'},
 				subject   => "New $desc $submission->{'type'} submission - $submission_id",
-				message   => $self->_get_text_summary( $submission_id, { messages => 1 } )
+				message   => $message
 			}
 		);
 	}
@@ -2350,11 +2354,9 @@ sub _get_text_heading {
 
 sub _get_text_summary {
 	my ( $self, $submission_id, $options ) = @_;
-	my $submission     = $self->{'datastore'}->get_submission($submission_id);
-	my $curator_id     = $self->get_curator_id;
-	my $curator_string = $self->{'datastore'}->get_user_string( $curator_id, { affiliation => 1 } );
-	my $outcome        = $self->_translate_outcome( $submission->{'outcome'} );
-	my %fields         = (
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $outcome    = $self->_translate_outcome( $submission->{'outcome'} );
+	my %fields     = (
 		id             => 'ID',
 		type           => 'Data type',
 		date_submitted => 'Date submitted',
@@ -2365,7 +2367,12 @@ sub _get_text_summary {
 	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
 	}
-	$msg .= "Curator: $curator_string\n";
+	my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { affiliation => 1 } );
+	$msg .= "Submitter: $submitter_string\n";
+	if ( $submission->{'curator'} ) {
+		my $curator_string = $self->{'datastore'}->get_user_string( $submission->{'curator'}, { affiliation => 1 } );
+		$msg .= "Curator: $curator_string\n";
+	}
 	$msg .= "Outcome: $outcome\n" if $outcome;
 	my %methods = ( alleles => '_get_allele_submission_summary', profiles => '_get_profile_submission_summary' );
 	if ( $methods{ $submission->{'type'} } ) {
