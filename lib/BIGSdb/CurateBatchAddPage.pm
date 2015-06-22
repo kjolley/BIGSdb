@@ -137,7 +137,8 @@ sub _print_interface {
 		say q[<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non-integer ]
 		  . q[ids will be ignored).</li>];
 		say q[<li>You can also upload allele fields along with the other isolate data - simply create a new column ]
-		  . q[with the locus name. These will be added with a confirmed status and method set as 'manual'.</li>];
+		  . q[with the locus name (see the 'allowed_loci' tab in the Excel template for locus names). These will be ]
+		  . q[added with a confirmed status and method set as 'manual'.</li>];
 	}
 	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<li>Enter aliases (alternative names) for your locus as a semi-colon (;) separated list.</li>);

@@ -80,6 +80,7 @@ sub print_content {
 	my $allowed_values_worksheet;
 	if ( $table eq 'isolates' ) {
 		$allowed_values_worksheet = $workbook->add_worksheet('allowed_values');
+		$self->_print_isolate_allowed_loci( $workbook->add_worksheet('allowed_loci') );
 	}
 	foreach my $field (@$headers) {
 		push @{ $self->{'values'}->{$field} }, $field;
@@ -97,8 +98,7 @@ sub print_content {
 			$worksheet->write_comment( 0, $col,
 				"Aliases:\nEnter semi-colon (;) separated list of alternative names for this item." );
 		} elsif ( $field eq 'references' ) {
-			$worksheet->write_comment(
-				0, $col,
+			$worksheet->write_comment( 0, $col,
 				"References:\nEnter semi-colon (;) separated list of PubMed ids of papers to associate with this item."
 			);
 		}
@@ -156,6 +156,36 @@ sub _print_isolate_allowed_values {
 		$self->{'allowed'}->{$field}->{'col'} = $col;
 		$worksheet->set_column( $col, $col, $col_width );
 		$col++;
+	}
+	return;
+}
+
+sub _print_isolate_allowed_loci {
+	my ( $self, $worksheet, $field ) = @_;
+	my $set_id = $self->get_set_id;
+	my @col_max_length = ( 13, 13, 7 );
+	$worksheet->write( 0, 0, 'primary name', $self->{'header_format'} );
+	$worksheet->write( 0, 1, 'common name',  $self->{'header_format'} );
+	$worksheet->write( 0, 2, 'aliases',      $self->{'header_format'} );
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $row = 1;
+	foreach my $locus ( sort { lc($a) cmp lc($b) } @$loci ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
+		my $aliases    = $self->{'datastore'}->get_locus_aliases($locus);
+		my $primary    = $locus_info->{'set_name'} // $locus;
+		$col_max_length[0] = length $primary if length $primary > $col_max_length[0];
+		$worksheet->write( $row, 0, $primary );
+		my $common = $locus_info->{'set_common_name'} // $locus_info->{'common_name'} // '';
+		$worksheet->write( $row, 1, $common );
+		$col_max_length[1] = length $common if length $common > $col_max_length[1];
+		local $" = q(; );
+		$worksheet->write( $row, 2, "@$aliases" );
+		$col_max_length[2] = length("@$aliases") if length("@$aliases") > $col_max_length[2];
+		$row++;
+	}
+	foreach my $col ( 0 .. 2 ) {
+		my $length = int( 0.9 * ( $col_max_length[$col] ) + 2 );
+		$worksheet->set_column( $col, $col, $length );
 	}
 	return;
 }
