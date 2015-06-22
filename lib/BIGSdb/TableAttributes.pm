@@ -272,8 +272,7 @@ sub get_loci_table_attributes {
 			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=alleleInfo&locus=PUT_LOCUS_NAME_HERE&allele_id=[?]';
 		}
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name        => 'reference_sequence',
 				type        => 'text',
@@ -436,8 +435,16 @@ sub get_loci_table_attributes {
 				default  => 'true',
 				tooltip  => 'analysis - Sets whether to include this locus in analysis functions '
 				  . '(can be overridden by user preference).'
+			},
+			{
+				name     => 'submission_template',
+				type     => 'bool',
+				default  => 'false',
+				comments => 'Include column in isolate submission template for this locus',
+				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
+				  . 'template will become unwieldy.'
 			}
-		  );
+		);
 	} else {    #Seqdef database
 		push @$attributes,
 		  {

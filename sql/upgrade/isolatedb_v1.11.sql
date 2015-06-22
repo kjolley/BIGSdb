@@ -1,4 +1,5 @@
 ALTER TABLE users ADD submission_emails boolean;
+ALTER TABLE loci ADD submission_template boolean;
 
 CREATE TABLE submissions (
 id text NOT NULL,
