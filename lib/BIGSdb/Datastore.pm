@@ -1086,7 +1086,7 @@ sub get_loci {
 		$qry = "SELECT id FROM loci $defined_clause $set_clause";
 	} else {
 		$qry = 'SELECT id,scheme_id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus '
-		  . "$defined_clause $set_clause ORDER BY scheme_members.scheme_id,id";
+		  . "$defined_clause $set_clause ORDER BY scheme_members.scheme_id,scheme_members.field_order,id";
 	}
 	my @query_loci;
 	my $data = $self->run_query( $qry, undef, { fetch => 'all_arrayref' } );

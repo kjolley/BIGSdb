@@ -119,51 +119,14 @@ sub get_isolate_loci {
 	my $set_id = $self->get_set_id;
 	my @headers;
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $include_loci_set =
-	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM loci WHERE submission_template)');
-	if ( @$loci < 20 ) {
-		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		my %locus_used;
-		foreach my $scheme (@$schemes) {
-			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
-			foreach my $locus (@$scheme_loci) {
-				if ( !$locus_used{$locus} ) {
-					my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
-					push @headers, $cleaned_name;
-					$locus_used{$locus} = 1;
-				}
-			}
-		}
-		my $loci_in_no_scheme = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-		foreach my $locus (@$loci_in_no_scheme) {
-			if ( !$locus_used{$locus} ) {
-				my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
-				push @headers, $cleaned_name;
-				$locus_used{$locus} = 1;
-			}
-		}
-	} elsif ($include_loci_set) {
-		my $loci_with_flag =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );
-		my %include = map { $_ => 1 } @$loci_with_flag;
-		foreach my $locus (@$loci) {
-			next if !$include{$locus};
-			my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
-			push @headers, $cleaned_name;
-		}
-	} else {                                               #Just list MLST loci
-		my $scheme_ids =
-		  $self->{'datastore'}
-		  ->run_query( q(SELECT id FROM schemes WHERE description LIKE 'MLST%' ORDER BY display_order),
-			undef, { fetch => 'col_arrayref' } );
-		foreach my $scheme_id (@$scheme_ids) {
-			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			foreach my $locus (@$scheme_loci) {
-				my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
-				push @headers, $cleaned_name;
-			}
-		}
+	my $loci_with_flag =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );
+	my %include = map { $_ => 1 } @$loci_with_flag;
+	foreach my $locus (@$loci) {
+		next if !$include{$locus};
+		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
+		push @headers, $cleaned_name;
 	}
 	return \@headers;
 }
