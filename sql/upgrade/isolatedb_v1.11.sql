@@ -1,6 +1,12 @@
 ALTER TABLE users ADD submission_emails boolean;
 ALTER TABLE loci ADD submission_template boolean;
 
+--Add columns for MLST loci in submission template
+UPDATE loci SET submission_template=TRUE WHERE id IN 
+  (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT id FROM schemes WHERE description='MLST'));
+--Add columns for all loci to submission template if total < 20
+UPDATE loci SET submission_template = TRUE WHERE (SELECT COUNT(*) FROM loci) <= 20;  
+
 CREATE TABLE submissions (
 id text NOT NULL,
 type text NOT NULL,
