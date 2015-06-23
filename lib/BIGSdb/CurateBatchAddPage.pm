@@ -180,7 +180,7 @@ sub _print_interface {
 	  . q((<strong>include a field header line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
-	say $q->hidden($_) foreach qw (page db table locus);
+	say $q->hidden($_) foreach qw (page db table locus submission_id);
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
@@ -620,8 +620,8 @@ sub _report_check {
 		}
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
-		say $q->hidden($_)
-		  foreach qw (page table db sender locus ignore_existing ignore_non_DNA complete_CDS ignore_similarity);
+		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
+		  complete_CDS ignore_similarity submission_id);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->endform;
@@ -1541,7 +1541,13 @@ sub _upload_data {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
 		$self->update_history( $isolate_id, $action );
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>);
+	say q(<p>);
+	my $submission_id = $q->param('submission_id');
+	if ($submission_id) {
+		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+		  . q(curate=1">Return to submission</a> | );
+	}
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>);
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
