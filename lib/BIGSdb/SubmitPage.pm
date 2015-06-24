@@ -570,7 +570,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 			);
 		}
 		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp,email)=(?,?,?) WHERE (id,submitter)=(?,?)',
-			undef, 'pending', 'now', $q->param('email'), $submission_id, $user_info->{'id'} );
+			undef, 'pending', 'now', $q->param('email') // undef, $submission_id, $user_info->{'id'} );
 	};
 	if ($@) {
 		$logger->error($@);

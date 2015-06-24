@@ -128,7 +128,7 @@ sub _initiate {
 	$self->read_config_file($config_dir);
 	$self->read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
-	my $db = $self->{'cgi'}->param('db') || '';
+	my $db = $q->param('db') // '';
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 
