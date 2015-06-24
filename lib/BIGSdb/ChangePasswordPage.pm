@@ -49,6 +49,14 @@ sub print_content {
 		say qq(<div class="box" id="statusbad"><p>Please select a user.</p></div>);
 		$continue = 0;
 	}
+	if (!$self->is_admin && $q->param('user')){
+		my $subject_status = $self->{'datastore'}->get_user_info_from_username($q->param('user'))->{'status'};
+		if ($subject_status && $subject_status eq 'admin'){
+			say q(<div class="box" id="statusbad"><p>You cannot change the password of an admin )
+			  . q(user unless you are an admin yourself.</p></div>);
+			$continue = 0;
+		}
+	}
 	if ( $continue && $q->param('sent') && $q->param('existing_password') ) {
 		my $further_checks = 1;
 		if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
