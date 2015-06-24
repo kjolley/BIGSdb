@@ -444,6 +444,8 @@ sub print_provenance_form_elements {
 	say qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
 	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
+	say q(<a class="tooltip" title="List of alternative names for this isolate. Put each alias on a separate line.">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
 	say "</li>";
 	my $pubmed;
 	if ( $options->{'update'} ) {
@@ -453,6 +455,8 @@ sub print_provenance_form_elements {
 	}
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
+	say q(<a class="tooltip" title="List of PubMed ids of publications associated with this isolate. )
+	  . q(Put each identifier on a separate line."><span class="fa fa-info-circle"></span></a>);
 	say "</li>";
 	say "</ul>";
 	if ( $options->{'update'} ) {
