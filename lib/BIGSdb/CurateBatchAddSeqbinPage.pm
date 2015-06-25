@@ -31,12 +31,13 @@ use BIGSdb::Page 'SEQ_METHODS';
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Batch insert sequences</h1>";
+	say q(<h1>Batch insert sequences</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This function can only be called for an isolate database.</p></div>";
+		say q(<div class="box" id="statusbad"><p>This function can only be called for an isolate database.</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to upload sequences to the database.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
+		  . q(upload sequences to the database.</p></div>);
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -50,10 +51,9 @@ sub print_content {
 		my $upload_file = $self->_upload_fasta_file;
 		my $full_path   = "$self->{'config'}->{'secure_tmp_dir'}/$upload_file";
 		if ( -e $full_path ) {
-			open( my $fh, '<', $full_path ) or $logger->error("Can't open sequence file $full_path");
-			my $sequence = do { local $/; <$fh> };    #slurp
+			my $seq_ref = BIGSdb::Utils::slurp($full_path);
 			unlink $full_path;
-			$self->_check_data( \$sequence );
+			$self->_check_data($seq_ref);
 		}
 	} elsif ( $q->param('accession') ) {
 		try {
@@ -66,9 +66,10 @@ sub print_content {
 			my $err = shift;
 			$logger->debug($err);
 			if ( $err eq 'INVALID_ACCESSION' ) {
-				say qq(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+				say q(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
 			} elsif ( $err eq 'NO_DATA' ) {
-				say qq(<div class="box" id="statusbad"><p>The accession is valid but it contains no sequence data.</p></div>);
+				say q(<div class="box" id="statusbad"><p>The accession is valid but it )
+				  . q(contains no sequence data.</p></div>);
 			}
 			$self->_print_interface;
 		};
@@ -82,11 +83,12 @@ sub _print_seqbin_warnings {
 	my ( $self, $isolate_id ) = @_;
 	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
 		my $seqbin =
-		  $self->{'datastore'}->run_query( "SELECT * FROM seqbin_stats WHERE isolate_id=?", $isolate_id, { fetch => 'row_hashref' } );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $isolate_id, { fetch => 'row_hashref' } );
 		if ($seqbin) {
-			say qq(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
+			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
 			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
-			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.</p></div>);
+			  . q(<p>Please make sure that you intend to add new sequences for this isolate.</p></div>);
 		}
 	}
 	return;
@@ -95,49 +97,32 @@ sub _print_seqbin_warnings {
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print <<"HTML";
-<div class="box" id="queryform"><div class="scrollable">
-<p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>
-<p>If an isolate id is chosen, then all sequences will be associated with that isolate. Alternatively, the isolate id, or any other 
-isolate table field that uniquely defines the isolate, can be named in the identifier rows of the FASTA file.  This allows data 
-for multiple isolates to be uploaded.</p>
-<p><em>Please note that you can reach this page for a specific isolate by 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">querying isolates</a> 
-and then clicking 'Upload' within the isolate table.</em></p>
-HTML
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>)
+	  . q(<p>If an isolate id is chosen, then all sequences will be associated with that isolate. Alternatively, )
+	  . q(the isolate id, or any other isolate table field that uniquely defines the isolate, can be named in the )
+	  . q(identifier rows of the FASTA file.  This allows data for multiple isolates to be uploaded.</p>);
+	say q(<p><em>Please note that you can reach this page for a specific isolate by )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">querying isolates</a> )
+	  . q(and then clicking 'Upload' within the isolate table.</em></p>);
 	say $q->start_form( -onMouseMove => 'enable_identifier_field()' );
-	my $qry = "select id,user_name,first_name,surname from users WHERE id>0 order by surname";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @users;
-	my %usernames;
-	$usernames{''} = ' ';
-
-	while ( my ( $userid, $username, $firstname, $surname ) = $sql->fetchrow_array ) {
-		push @users, $userid;
-		$usernames{$userid} = "$surname, $firstname ($username)";
-	}
-	$qry = "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id";
-	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my $id_arrayref = $sql->fetchall_arrayref;
-	say "<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>";
-	say qq(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
+	my ( $users, $user_names ) = $self->get_user_list_and_labels( { blank_message => 'Select sender ...' } );
+	say q(<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>);
+	say q(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
 	say $q->hidden($_) foreach qw (page db);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
-	say "</fieldset>";
-	say qq(<fieldset style="float:left"><legend>Attributes</legend>\n<ul>);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
 
 	if ( $q->param('isolate_id') ) {
-		say qq(<li><label class="parameter">isolate id: !</label>);
+		say q(<li><label class="parameter">isolate id: !</label>);
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
 		if ( BIGSdb::Utils::is_int($isolate_id) ) {
 			$isolate_name =
 			  $self->{'datastore'}
-			  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
+			  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+				$isolate_id );
 			$isolate_name //= 'Invalid isolate';
 		} else {
 			$isolate_name = 'Invalid isolate';
@@ -145,7 +130,11 @@ HTML
 		say qq{<span id="isolate_id">$isolate_id) $isolate_name</span>};
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} else {
-		say qq(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
+		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
+		my $id_arrayref =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id",
+			undef, { fetch => 'all_arrayref' } );
 		my @ids = (0);
 		my %labels;
 		$labels{'0'} = 'Read identifier from FASTA';
@@ -154,22 +143,28 @@ HTML
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 		}
 		say $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
-		say qq(</li><li><label for="identifier_field" class="parameter">identifier field: </label>);
+		say q(</li><li><label for="identifier_field" class="parameter">identifier field: </label>);
 		my $fields = $self->{'xmlHandler'}->get_field_list;
 		say $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	}
-	say qq(</li><li><label for="sender" class="parameter">sender: !</label>);
-	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames, -required => 'required' );
-	say qq(</li><li><label for="method" class="parameter">method: </label>);
+	say q(</li><li><label for="sender" class="parameter">sender: !</label>);
+	say $q->popup_menu(
+		-name     => 'sender',
+		-id       => 'sender',
+		-values   => [ '', @$users ],
+		-labels   => $user_names,
+		-required => 'required'
+	);
+	say q(</li><li><label for="method" class="parameter">method: </label>);
 	my $method_labels = { '' => ' ' };
 	say $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ], -labels => $method_labels );
-	say qq(</li><li><label for="run_id" class="parameter">run id: </label>);
+	say q(</li><li><label for="run_id" class="parameter">run id: </label>);
 	say $q->textfield( -name => 'run_id', -id => 'run_id', -size => 32 );
-	say qq(</li><li><label for="assembly_id" class="parameter">assembly id: </label>);
+	say q(</li><li><label for="assembly_id" class="parameter">assembly id: </label>);
 	say $q->textfield( -name => 'assembly_id', -id => 'assembly_id', -size => 32 );
 	my $seq_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT key,type,description FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
@@ -178,46 +173,50 @@ HTML
 			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
 			if ( $attribute->{'description'} ) {
 				say qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">)
-				  . qq(<span class="fa fa-info-circle"></span></a>);
+				  . q(<span class="fa fa-info-circle"></span></a>);
 			}
 		}
 	}
-	say qq(</li>\n</ul>\n</fieldset>\n<fieldset style="float:left">\n<legend>Options</legend>);
-	say "<ul><li>";
-	say $q->checkbox( -name => 'size_filter', -label => "Don't insert sequences shorter than " );
+	say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'size_filter', -label => q(Don't insert sequences shorter than ) );
 	say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 200 300 400 500 1000)], -default => 250 );
-	say " bps.</li>";
+	say q( bps.</li>);
 	my @experiments = ('');
-	$qry = "SELECT id,description FROM experiments ORDER BY description";
-	$sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $exp_data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,description FROM experiments ORDER BY description', undef, { fetch => 'all_arrayref' } );
 	my $exp_labels = { '' => ' ' };
 
-	while ( my @data = $sql->fetchrow_array ) {
-		push @experiments, $data[0];
-		$exp_labels->{ $data[0] } = $data[1];
+	foreach my $data (@$exp_data) {
+		push @experiments, $data->[0];
+		$exp_labels->{ $data->[0] } = $data->[1];
 	}
 	if ( @experiments > 1 ) {
-		say qq(<li><label for="experiment" class="parameter">Link to experiment: </label>);
-		say $q->popup_menu( -name => 'experiment', -id => 'experiment', -values => \@experiments, -labels => $exp_labels );
-		say "</li>";
+		say q(<li><label for="experiment" class="parameter">Link to experiment: </label>);
+		say $q->popup_menu(
+			-name   => 'experiment',
+			-id     => 'experiment',
+			-values => \@experiments,
+			-labels => $exp_labels
+		);
+		say q(</li>);
 	}
-	say "</ul>\n</fieldset>";
+	say q(</ul></fieldset>);
 	say qq(<fieldset style="float:left">\n<legend>Alternatively upload FASTA file</legend>);
-	say "Select FASTA file:<br />";
+	say q(Select FASTA file:<br />);
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
-	say "</fieldset>";
+	say q(</fieldset>);
 	if ( ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
-		say qq(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
+		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
 		say $q->textfield( -name => 'accession' );
-		say '</fieldset>';
+		say q(</fieldset>);
 	}
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
@@ -227,23 +226,27 @@ sub _check_data {
 	my $continue = 1;
 	if (
 		$q->param('isolate_id')
-		&& (   !BIGSdb::Utils::is_int( $q->param('isolate_id') )
-			|| !$self->{'datastore'}
-			->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $q->param('isolate_id') ) )
+		&& (
+			!BIGSdb::Utils::is_int( $q->param('isolate_id') )
+			|| !$self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+				$q->param('isolate_id')
+			)
+		)
 	  )
 	{
-		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer and exist in the isolate table.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer and )
+		  . q(exist in the isolate table.</p></div>);
 		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( $q->param('sender') )
-		|| !$self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM users WHERE id=?)", $q->param('sender') ) )
+		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $q->param('sender') ) )
 	{
-		say qq(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
 		$continue = 0;
 	}
-	my $seq_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
+	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @att_problems;
 	foreach my $attribute (@$seq_attributes) {
 		my $value = $q->param( $attribute->{'key'} );
@@ -268,15 +271,16 @@ sub _check_data {
 		}
 		catch BIGSdb::DataException with {
 			my $ex = shift;
-			if ( $ex =~ /DNA/ ) {
+			if ( $ex =~ /DNA/x ) {
 				my $header;
-				if ( $ex =~ /DNA - (.*)$/ ) {
+				if ( $ex =~ /DNA\ -\ (.*)$/x ) {
 					$header = $1;
 				}
-				say "<div class=\"box\" id=\"statusbad\"><p>FASTA data '$header' contains non-valid nucleotide characters.</p></div>";
+				say q(<div class="box" id="statusbad"><p>)
+				  . qq(FASTA data '$header' contains non-valid nucleotide characters.</p></div>);
 				$continue = 0;
 			} else {
-				say "<div class=\"box\" id=\"statusbad\"><p>Sequence data is not in valid FASTA format.</p></div>";
+				say q(<div class="box" id="statusbad"><p>Sequence data is not in valid FASTA format.</p></div>);
 				$continue = 0;
 			}
 		};
@@ -299,24 +303,24 @@ sub _check_data {
 			push @checked_buffer, ">$_";
 			push @checked_buffer, $seq_ref->{$_};
 			my ( $designation, $comments );
-			if ( $_ =~ /(\S*)\s+(.*)/ ) {
+			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
 			} else {
 				$designation = $_;
 			}
-			$buffer .= "<tr class=\"td$td\"><td>$designation</td>";
-			$buffer .= "<td>$length</td>";
-			$buffer .= defined $comments ? "<td>$comments</td>" : '<td></td>';
-			$buffer .= "</tr>\n";
+			$buffer .= qq(<tr class="td$td"><td>$designation</td>);
+			$buffer .= qq(<td>$length</td>);
+			$buffer .= defined $comments ? qq(<td>$comments</td>) : q(<td></td>);
+			$buffer .= qq(</tr>\n);
 			$td = $td == 1 ? 2 : 1;
 		}
 		if ($buffer) {
-			say "<div class=\"box\" id=\"resultstable\"><p>The following sequences will be entered.</p>";
-			say "<table><tr><td style=\"vertical-align:top\">";
-			say "<table class=\"resultstable\"><tr><th>Original designation</th><th>Sequence length</th><th>Comments</th></tr>";
+			say q(<div class="box" id="resultstable">);
+			say q(<fieldset style="float:left"><legend>The following sequences will be entered.</legend>);
+			say q(<table class="resultstable"><tr><th>Original designation</th>)
+			  . q(<th>Sequence length</th><th>Comments</th></tr>);
 			say $buffer if $buffer;
-			say "</table>";
-			say "</td><td style=\"padding-left:2em; vertical-align:top\">";
+			say q(</table></fieldset>);
 			my $num;
 			my $min = 0;
 			my $max = 0;
@@ -335,39 +339,39 @@ sub _check_data {
 			@lengths = sort { $b <=> $a } @lengths;
 			$mean = int $total / $num if $num;
 			my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
-			print << "STATS";
-<ul><li>Number of contigs: $num</li>
-<li>Minimum length: $min</li>
-<li>Maximum length: $max</li>
-<li>Total length: $total</li>
-<li>Mean length: $mean</li>
-<li>N50 contig number: $n_stats->{'N50'}</li>
-<li>N50 contig length (L50): $n_stats->{'L50'}</li>
-<li>N90 contig number: $n_stats->{'N90'}</li>
-<li>N90 contig length (L50): $n_stats->{'L90'}</li>
-<li>N95 contig number: $n_stats->{'N95'}</li>
-<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>
-STATS
+			say q(<fieldset style="float:left"><legend>Summary</legend>);
+			say qq(<ul><li>Number of contigs: $num</li>);
+			say qq(<li>Minimum length: $min</li>);
+			say qq(<li>Maximum length: $max</li>);
+			say qq(<li>Total length: $total</li>);
+			say qq(<li>Mean length: $mean</li>);
+			say qq(<li>N50 contig number: $n_stats->{'N50'}</li>);
+			say qq(<li>N50 contig length (L50): $n_stats->{'L50'}</li>);
+			say qq(<li>N90 contig number: $n_stats->{'N90'}</li>);
+			say qq(<li>N90 contig length (L50): $n_stats->{'L90'}</li>);
+			say qq(<li>N95 contig number: $n_stats->{'N95'}</li>);
+			say qq(<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>);
+			say q(</fieldset>);
 			say $q->start_form;
-			say $q->submit( -name => 'Upload', -class => 'submit' );
+			$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 			my $filename = $self->make_temp_file(@checked_buffer);
 			$q->param( 'checked_buffer', $filename );
-			say $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
+			say $q->hidden($_)
+			  foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
 			say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
 			say $q->end_form;
-			say "</td></tr></table>";
 		} else {
-			say "<div class=\"box\" id=\"statusbad\"><p>No valid sequences to upload.</p></div>";
+			say q(<div class="box" id="statusbad"><p>No valid sequences to upload.</p></div>);
 		}
-		say "</div>";
+		say q(</div>);
 	} else {
-		say "<div class=\"box\" id=\"resultstable\">";
-		say "<p>The following sequences will be entered.  Any problems are highlighted.</p>";
-		say "<table><tr><td>";
-		say "<table class=\"resultstable\"><tr><th>BIGSdb id</th>";
+		say q(<div class="box" id="resultstable">);
+		say q(<p>The following sequences will be entered.  Any problems are highlighted.</p>);
+		say q(<fieldset style="float:left"><legend>Contigs</legend>);
+		say q(<table class="resultstable"><tr><th>BIGSdb id</th>);
 		my $id_field = $q->param('identifier_field');
-		say "<th>Identifier field ($id_field)</th>" if $id_field ne 'id';
-		say "<th>Sequence length</th><th>Comments</th><th>Status</th></tr>";
+		say qq(<th>Identifier field ($id_field)</th>) if $id_field ne 'id';
+		say q(<th>Sequence length</th><th>Comments</th><th>Status</th></tr>);
 		my $td       = 1;
 		my $min_size = 0;
 
@@ -376,11 +380,10 @@ STATS
 		}
 		my $attributes   = $self->{'xmlHandler'}->get_field_attributes($id_field);
 		my $allow_upload = 0;
-		my $sql          = $self->{'db'}->prepare("SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field = ?");
 		foreach ( sort { $a cmp $b } keys %$seq_ref ) {
 			my $length = length( $seq_ref->{$_} );
 			my ( $designation, $comments, $status );
-			if ( $_ =~ /(\S*)\s+(.*)/ ) {
+			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
 			} else {
 				$designation = $_;
@@ -390,58 +393,57 @@ STATS
 			my $id_error;
 			if ( $id_field ne 'id' ) {
 				$identifier_field_html = "<td>$_</td>";
-				eval { $sql->execute($_) };
-				$logger->error($@) if $@;
-				my @ids;
-				while ( my ($id) = $sql->fetchrow_array ) {
-					push @ids, $id;
-				}
-				if ( !@ids ) {
-					$id_error    = "No matching record";
+				my $ids =
+				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?",
+					$_, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbinPage::check_data::read_id' } );
+				if ( !@$ids ) {
+					$id_error    = 'No matching record';
 					$designation = '-';
-				} elsif ( @ids > 1 ) {
-					$id_error    = scalar @ids . " matching records - can't uniquely identify isolate";
+				} elsif ( @$ids > 1 ) {
+					$id_error    = scalar @$ids . q( matching records - can't uniquely identify isolate);
 					$designation = '-';
 				} else {
-					($designation) = @ids;
+					($designation) = @$ids;
 				}
 			}
 			if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($_) ) {
 				$status = 'BIGSdb id must be an integer';
-				say "<tr class=\"td$td\"><td class=\"statusbad\">$designation</td>";
+				say qq(<tr class="td$td"><td class="statusbad">$designation</td>);
 				say $identifier_field_html if $identifier_field_html;
-				say "<td>$length</td><td>$comments</td><td class=\"statusbad\">$status</td></tr>";
+				say qq(<td>$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
 			} elsif ( $length < $min_size ) {
 				$status = 'Sequence too short - will be ignored';
-				say "<tr class=\"td$td\"><td>$designation</td>$identifier_field_html<td class=\"statusbad\">$length</td><td>$comments</td>"
-				  . "<td class=\"statusbad\">$status</td></tr>";
+				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html)
+				  . qq(<td class="statusbad">$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
 			} elsif ($id_error) {
-				say "<tr class=\"td$td\"><td>$designation</td>$identifier_field_html<td>$length</td><td>$comments</td><td "
-				  . "class=\"statusbad\">$id_error</td></tr>";
+				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html<td>$length</td>)
+				  . qq(<td>$comments</td><td class="statusbad">$id_error</td></tr>);
 			} else {
 				push @checked_buffer, ">$designation";
 				push @checked_buffer, $seq_ref->{$_};
 				$status = 'Will upload';
-				say "<tr class=\"td$td\"><td>$designation</td>";
+				say qq(<tr class="td$td"><td>$designation</td>);
 				say $identifier_field_html if $identifier_field_html;
-				say "<td>$length</td><td>$comments</td><td class=\"statusgood\">$status</td></tr>";
+				say qq(<td>$length</td><td>$comments</td><td class="statusgood">$status</td></tr>);
 				$allow_upload = 1;
 			}
 			$td = $td == 1 ? 2 : 1;
 		}
-		say "</table>";
-		say "</td><td style=\"padding-left:2em; vertical-align:top\">";
+		say q(</table>);
+		say q(</fieldset>);
 		if ($allow_upload) {
 			say $q->start_form;
-			say $q->submit( -name => 'Upload', -class => 'submit' );
+			$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 			my $filename = $self->make_temp_file(@checked_buffer);
-			$q->param( 'checked_buffer', $filename );
-			say $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field sender method run_id assembly_id comments);
+			$q->param( checked_buffer => $filename );
+			say $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field
+			  sender method run_id assembly_id comments);
 			say $q->end_form;
 		} else {
-			say "<p>Nothing to upload.</p>";
+			say q(<fieldset style="float:left"><legend>Status</legend><p>Nothing to upload.</p></fieldset>);
+			say q(<div style="clear:both"></div>);
 		}
-		say "</td></tr></table>\n</div>";
+		say q(</div>);
 	}
 	return;
 }
@@ -451,50 +453,47 @@ sub _upload {
 	my $q        = $self->{'cgi'};
 	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
 	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
-	my $fasta;
+	my $fasta_ref;
 	if ( -e $tmp_file ) {
-		open( my $file_fh, '<', $tmp_file ) or $logger->error("Can't open $tmp_file");
-		$fasta = do { local $/; <$file_fh> };    #slurp
-		close $file_fh;
+		$fasta_ref = BIGSdb::Utils::slurp($tmp_file);
 	}
 	my $seq_ref;
 	my $continue = 1;
 	try {
-		$seq_ref = BIGSdb::Utils::read_fasta( \$fasta );
+		$seq_ref = BIGSdb::Utils::read_fasta($fasta_ref);
 	}
 	catch BIGSdb::DataException with {
-		$logger->error("Invalid FASTA file");
+		$logger->error('Invalid FASTA file');
 		$continue = 0;
 	};
-	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/ ) {
+	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");
 		unlink $1;
 	} else {
 		$logger->error("Can't delete temp file $tmp_file");
 	}
 	if ( !$continue ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Unable to upload sequences.  Please try again.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Unable to upload sequences.  Please try again.</p></div>);
 		return;
 	}
-	my $qry = "INSERT INTO sequence_bin (id,isolate_id,sequence,method,run_id,assembly_id,original_designation,comments,sender,curator,"
-	  . "date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+	my $qry = 'INSERT INTO sequence_bin (id,isolate_id,sequence,method,run_id,assembly_id,original_designation,'
+	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)';
 	my $sql = $self->{'db'}->prepare($qry);
-	$qry = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)";
+	$qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
 	my $sql_experiment = $self->{'db'}->prepare($qry);
 	my $experiment     = BIGSdb::Utils::is_int( $q->param('experiment') ) ? $q->param('experiment') : undef;
 	my $curator        = $self->get_curator_id;
 	my $sender         = $q->param('sender');
-	my $seq_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
+	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @attribute_sql;
 
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
 			if ( $q->param( $attribute->{'key'} ) ) {
-				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/g;
-				$qry = "INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES "
-				  . "(?,'$attribute->{'key'}',E'$value',$curator,'now')";
+				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/gx;
+				$qry = q(INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES )
+				  . qq((?,'$attribute->{'key'}',E'$value',$curator,'now'));
 				push @attribute_sql, $self->{'db'}->prepare($qry);
 			}
 		}
@@ -504,40 +503,41 @@ sub _upload {
 		foreach ( keys %$seq_ref ) {
 			$id = $self->next_id( 'sequence_bin', 0, $id );
 			my ( $designation, $comments );
-			if ( $_ =~ /(\S*)\s+(.*)/ ) {
+			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
 			} else {
 				$designation = $_;
 			}
 			my $isolate_id = $q->param('isolate_id') ? $q->param('isolate_id') : $designation;
+			$designation = q() if !$q->param('isolate_id');
 			my @values = (
 				$id, $isolate_id, $seq_ref->{$_}, $q->param('method'), $q->param('run_id'), $q->param('assembly_id'),
 				$designation, $comments, $sender, $curator, 'today', 'today'
 			);
 			$sql->execute(@values);
 			$sql_experiment->execute( $experiment, $id, $curator, 'today' ) if $experiment;
-			foreach (@attribute_sql) {
-				$_->execute($id);
-			}
+			$_->execute($id) foreach @attribute_sql;
 		}
 	};
 	if ($@) {
 		local $" = ', ';
-		say "<div class=\"box\" id=\"statusbad\"><p>Database update failed - transaction cancelled - no records have been touched.</p>";
-		if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-			say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with duplicate "
-			  . "values.</p>";
+		say q(<div class="box" id="statusbad"><p>Database update failed - )
+		  . q(transaction cancelled - no records have been touched.</p>);
+		if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+			say q(<p>Data entry would have resulted in records with either duplicate ids or )
+			  . q(another unique field with duplicate values.</p>);
 		} else {
-			say "<p>Error message: $@</p>";
+			say qq(<p>Error message: $@</p>);
 		}
-		say "</div>";
+		say q(</div>);
 		$self->{'db'}->rollback;
 		return;
 	} else {
 		$self->{'db'}->commit;
-		say "<div class=\"box\" id=\"resultsheader\"><p>Database updated ok</p>";
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;sender=$sender\">"
-		  . "Add more</a> | <a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+		say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
+		  . qq(sender=$sender">Add more</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+		  . q(Back to main page</a></p></div>);
 	}
 	return;
 }
