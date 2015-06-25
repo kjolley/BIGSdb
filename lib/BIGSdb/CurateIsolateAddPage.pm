@@ -33,9 +33,10 @@ sub get_help_url {
 
 sub print_content {
 	my ($self) = @_;
-	say "<h1>Add new isolate</h1>";
+	say q(<h1>Add new isolate</h1>);
 	if ( !$self->can_modify_table('isolates') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add records to the isolates table.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
+		  . q(to the isolates table.</p></div>);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -76,7 +77,8 @@ sub _check {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
+			$required_field = 0
+			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
@@ -89,13 +91,13 @@ sub _check {
 				}
 				my $bad_field = $self->is_field_bad( 'isolates', $field, $newdata->{$field} );
 				if ($bad_field) {
-					push @bad_field_buffer, "Field '" . ( $metafield // $field ) . "': $bad_field";
+					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field);
 				}
 			}
 		}
 	}
 	if ( $self->alias_duplicates_name ) {
-		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
+		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
@@ -106,28 +108,31 @@ sub _check {
 				&& !BIGSdb::Utils::is_int( $newdata->{"locus:$locus"} ) )
 			{
 				push @bad_field_buffer, "Locus '$locus': allele value must be an integer.";
-			} elsif ( $locus_info->{'allele_id_regex'} && $newdata->{"locus:$locus"} !~ /$locus_info->{'allele_id_regex'}/ ) {
-				push @bad_field_buffer,
-				  "Locus '$locus' allele value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/";
+			} elsif ( $locus_info->{'allele_id_regex'}
+				&& $newdata->{"locus:$locus"} !~ /$locus_info->{'allele_id_regex'}/x )
+			{
+				push @bad_field_buffer, qq(Locus '$locus' allele value is invalid - )
+				  . qq(it must match the regular expression /$locus_info->{'allele_id_regex'}/);
 			}
 		}
 	}
 	if (@bad_field_buffer) {
-		say qq(<div class="box" id="statusbad"><p>There are problems with your record submission.  Please address the following:</p>);
+		say q(<div class="box" id="statusbad"><p>There are problems with your record submission. )
+		  . q(Please address the following:</p>);
 		local $" = '<br />';
-		say "<p>@bad_field_buffer</p></div>";
+		say qq(<p>@bad_field_buffer</p></div>);
 		$insert = 0;
 	}
 	foreach ( keys %$newdata ) {    #Strip any trailing spaces
 		if ( defined $newdata->{$_} ) {
-			$newdata->{$_} =~ s/^\s*//g;
-			$newdata->{$_} =~ s/\s*$//g;
+			$newdata->{$_} =~ s/^\s*//gx;
+			$newdata->{$_} =~ s/\s*$//gx;
 		}
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {
 			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has already been defined - )
-			  . qq(please choose a different id number.</p></div>);
+			  . q(please choose a different id number.</p></div>);
 			$insert = 0;
 		}
 		return $self->_insert($newdata) if $insert;
@@ -139,11 +144,11 @@ sub alias_duplicates_name {
 	my ($self)       = @_;
 	my $q            = $self->{'cgi'};
 	my $isolate_name = $q->param( $self->{'system'}->{'labelfield'} );
-	my @aliases = split /\r?\n/, $q->param('aliases');
+	my @aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $alias (@aliases) {
-		$alias =~ s/\s+$//;
-		$alias =~ s/^\s+//;
-		next if $alias eq '';
+		$alias =~ s/\s+$//x;
+		$alias =~ s/^\s+//x;
+		next if $alias eq q();
 		return 1 if $alias eq $isolate_name;
 	}
 	return;
@@ -206,21 +211,22 @@ sub _insert {
 		if ( $q->param("locus:$locus") ) {
 			push @inserts,
 			  {
-				statement =>
-				  'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) '
-				  . 'VALUES (?,?,?,?,?,?,?,?,?)',
+				statement => 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,'
+				  . 'curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
 				arguments => [
-					$newdata->{'id'}, $locus,   $newdata->{"locus:$locus"}, $newdata->{'sender'},
-					'confirmed',      'manual', $newdata->{'curator'},      'now',
+					$newdata->{'id'},           $locus,
+					$newdata->{"locus:$locus"}, $newdata->{'sender'},
+					'confirmed',                'manual',
+					$newdata->{'curator'},      'now',
 					'now'
 				]
 			  };
 		}
 	}
-	my @new_aliases = split /\r?\n/, $q->param('aliases');
+	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
-		$new =~ s/\s+$//;
-		$new =~ s/^\s+//;
+		$new =~ s/\s+$//x;
+		$new =~ s/^\s+//x;
 		next if $new eq '';
 		push @inserts,
 		  {
@@ -228,12 +234,12 @@ sub _insert {
 			arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
 		  };
 	}
-	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
-			say qq(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
+			say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
 			$insert = 0;
 		}
 		push @inserts,
@@ -248,24 +254,25 @@ sub _insert {
 			$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 		}
 		if ($@) {
-			say qq(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - no records have been touched.</p>);
-			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-				say "<p>Data entry would have resulted in records with either duplicate ids or another unique field with "
-				  . "duplicate values.</p>";
+			say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
+			  . q(no records have been touched.</p>);
+			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
+				  . q(unique field with duplicate values.</p>);
 			} else {
-				say "<p>Error message: $@</p>";
+				say qq(<p>Error message: $@</p>);
 				$logger->error("Insert failed: $qry  $@");
 			}
-			say "</div>";
+			say q(</div>);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit
 			  && say qq(<div class="box" id="resultsheader"><p>id-$newdata->{'id'} added!</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd">Add another</a> | )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
-			  . qq(isolate_id=$newdata->{'id'}">Upload sequences</a> | )
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd">)
+			  . qq(Add another</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'}">Upload sequences</a> | )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
-			$self->update_history( $newdata->{'id'}, "Isolate record added" );
+			$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 			return SUCCESS;
 		}
 	}
@@ -275,9 +282,9 @@ sub _insert {
 sub _print_interface {
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<div class="box" id="queryform"><p>Please fill in the fields below - required fields are marked with an exclamation )
-	  . qq(mark (!).</p>);
-	say qq(<div class="scrollable">);
+	say q(<div class="box" id="queryform"><p>Please fill in the fields below - )
+	  . q(required fields are marked with an exclamation mark (!).</p>);
+	say q(<div class="scrollable">);
 	say $q->start_form;
 	$q->param( 'sent', 1 );
 	say $q->hidden($_) foreach qw(page db sent);
@@ -285,7 +292,7 @@ sub _print_interface {
 	$self->_print_allele_designation_form_elements($newdata);
 	$self->print_action_fieldset;
 	say $q->end_form;
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
@@ -298,16 +305,18 @@ sub print_provenance_form_elements {
 	my $user_data;
 	if ( $user_info->{'status'} eq 'submitter' ) {
 		$user_data = $self->{'datastore'}->run_query(
-			"SELECT id,user_name,first_name,surname FROM users WHERE id=? OR id IN (SELECT user_id FROM user_group_members WHERE "
-			  . "user_group IN (SELECT user_group FROM user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name",
+			'SELECT id,user_name,first_name,surname FROM users WHERE id=? '
+			  . 'OR id IN (SELECT user_id FROM user_group_members WHERE user_group IN (SELECT user_group FROM '
+			  . 'user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name',
 			[ $user_info->{'id'}, $user_info->{'id'} ],
 			{ fetch => 'all_arrayref', slice => {} }
 		);
 	} else {
-		$user_data =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname, first_name, user_name",
-			undef, { fetch => 'all_arrayref', slice => {} } );
+		$user_data = $self->{'datastore'}->run_query(
+			'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ' . 'ORDER BY surname, first_name, user_name',
+			undef,
+			{ fetch => 'all_arrayref', slice => {} }
+		);
 	}
 	foreach (@$user_data) {
 		push @users, $_->{'id'};
@@ -317,16 +326,16 @@ sub print_provenance_form_elements {
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	say qq(<fieldset style="float:left"><legend>Isolate fields</legend>);
-	say qq(<div style="white-space:nowrap">);
-	say qq(<p><span class="metaset">Metadata</span><span class="comment">: These fields are available in the specified dataset )
-	  . qq(only.</span></p>)
+	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
+	say q(<div style="white-space:nowrap">);
+	say q(<p><span class="metaset">Metadata</span><span class="comment">: These fields are )
+	  . q(available in the specified dataset only.</span></p>)
 	  if !$set_id && @$metadata_list;
 	my $longest_name = BIGSdb::Utils::get_largest_string_length($field_list);
 	my $width        = int( 0.5 * $longest_name ) + 2;
 	$width = 15 if $width > 15;
 	$width = 6  if $width < 6;
-	say "<ul>";
+	say q(<ul>);
 
 	#Display required fields first
 	foreach my $required ( 1, 0 ) {
@@ -334,7 +343,8 @@ sub print_provenance_form_elements {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
+			$required_field = 0
+			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				my %html5_args;
 				$html5_args{'required'} = 'required' if $required_field;
@@ -344,8 +354,10 @@ sub print_provenance_form_elements {
 					$html5_args{'min'}  = '1';
 					$html5_args{'step'} = '1';
 				}
-				$html5_args{'min'} = $thisfield->{'min'} if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
-				$html5_args{'max'} = $thisfield->{'max'} if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+				$html5_args{'min'} = $thisfield->{'min'}
+				  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+				$html5_args{'max'} = $thisfield->{'max'}
+				  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
 				$html5_args{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
@@ -355,14 +367,14 @@ sub print_provenance_form_elements {
 				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
 				  ? " for=\"$field\""
 				  : '';
-				print "<li><label$for class=\"form\" style=\"width:${width}em\"$title_attribute>";
+				print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
 				print $label;
 				print ':';
 				print '!' if $required;
-				say "</label>";
+				say q(</label>);
 
 				if ( $field eq 'id' && $q->param('page') eq 'isolateUpdate' ) {
-					say "<b>$newdata->{'id'}</b>";
+					say qq(<b>$newdata->{'id'}</b>);
 					say $q->hidden('id');
 				} elsif ( $thisfield->{'optlist'} ) {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -382,19 +394,22 @@ sub print_provenance_form_elements {
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
 				} elsif ( lc($field) eq 'datestamp' ) {
-					say "<b>" . $self->get_datestamp . "</b>";
+					say '<b>' . $self->get_datestamp . '</b>';
 				} elsif ( lc($field) eq 'date_entered' ) {
 					if ( $options->{'update'} ) {
 						say "<b>$newdata->{'date_entered'}</b>";
 						say $q->hidden( 'date_entered', $newdata->{'date_entered'} );
 					} else {
-						say "<b>" . $self->get_datestamp . "</b>";
+						say '<b>' . $self->get_datestamp . '</b>';
 					}
 				} elsif ( lc($field) eq 'curator' ) {
-					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
+					say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ')</b>';
 				} elsif ( lc($field) eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'} ) {
-					say "<b>" . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>";
-				} elsif ( lc($field) eq 'sender' || lc($field) eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
+					say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ')</b>';
+				} elsif ( lc($field) eq 'sender'
+					|| lc($field) eq 'sequenced_by'
+					|| ( $thisfield->{'userfield'} // '' ) eq 'yes' )
+				{
 					say $q->popup_menu(
 						-name    => $field,
 						-id      => $field,
@@ -426,12 +441,14 @@ sub print_provenance_form_elements {
 				}
 				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 				if ( $thisfield->{'comments'} ) {
-					say qq(<a class="tooltip" title="$thisfield->{'comments'}"><span class="fa fa-info-circle"></span></a>);
+					say qq(<a class="tooltip" title="$thisfield->{'comments'}">)
+					  . q(<span class="fa fa-info-circle"></span></a>);
 				}
-				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' ) {
-					say " format: yyyy-mm-dd";
+				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' )
+				{
+					say q( format: yyyy-mm-dd);
 				}
-				say "</li>";
+				say q(</li>);
 			}
 		}
 	}
@@ -443,10 +460,17 @@ sub print_provenance_form_elements {
 	}
 	say qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
-	say $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$aliases" );
+	say $q->textarea(
+		-name    => 'aliases',
+		-id      => 'aliases',
+		-rows    => 2,
+		-cols    => 12,
+		-style   => 'width:10em',
+		-default => "@$aliases"
+	);
 	say q(<a class="tooltip" title="List of alternative names for this isolate. Put each alias on a separate line.">)
 	  . q(<span class="fa fa-info-circle"></span></a>);
-	say "</li>";
+	say q(</li>);
 	my $pubmed;
 	if ( $options->{'update'} ) {
 		$pubmed = $self->{'datastore'}->get_isolate_refs( $q->param('id') );
@@ -454,15 +478,22 @@ sub print_provenance_form_elements {
 		$pubmed = [];
 	}
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
-	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em', -default => "@$pubmed" );
+	say $q->textarea(
+		-name    => 'pubmed',
+		-id      => 'pubmed',
+		-rows    => 2,
+		-cols    => 12,
+		-style   => 'width:10em',
+		-default => "@$pubmed"
+	);
 	say q(<a class="tooltip" title="List of PubMed ids of publications associated with this isolate. )
 	  . q(Put each identifier on a separate line."><span class="fa fa-info-circle"></span></a>);
-	say "</li>";
-	say "</ul>";
+	say q(</li>);
+	say q(</ul>);
 	if ( $options->{'update'} ) {
 		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
 	}
-	say "</div></fieldset>";
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -487,12 +518,13 @@ sub _print_allele_designation_form_elements {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
 		}
 	} else {
-		$locus_buffer .= "<p>Too many to display. You can batch add allele designations after entering isolate provenace data.</p>\n";
+		$locus_buffer .= '<p>Too many to display. You can batch add allele designations '
+		  . "after entering isolate provenace data.</p>\n";
 	}
 	if (@$loci) {
-		say qq(<div id="scheme_loci_add" style="overflow:auto">);
+		say q(<div id="scheme_loci_add" style="overflow:auto">);
 		say qq(<fieldset style="float:left"><legend>Allele&nbsp;designations</legend>\n$locus_buffer</fieldset>);
-		say "</div>";
+		say q(</div>);
 	}
 	return;
 }
@@ -513,10 +545,11 @@ sub _print_scheme_form_elements {
 	}
 	foreach my $locus (@$loci) {
 		my $cleaned_name = $self->clean_locus($locus);
-		$buffer .= qq(<dl class="profile">);
-		$buffer .= "<dt>$cleaned_name</dt><dd>";
-		$buffer .= $q->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
-		$buffer .= "</dd></dl>";
+		$buffer .= q(<dl class="profile">);
+		$buffer .= qq(<dt>$cleaned_name</dt><dd>);
+		$buffer .=
+		  $q->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
+		$buffer .= q(</dd></dl>);
 	}
 	return $buffer;
 }
