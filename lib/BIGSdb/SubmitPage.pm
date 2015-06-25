@@ -2321,7 +2321,7 @@ sub _notify_curators {
 			  if ( $is_scheme_curator{ $curator->{'id'} } || $curator->{'status'} eq 'admin' );
 		}
 	} else {
-		@filtered_curators = @$curators;
+		push @filtered_curators, $_->{'id'} foreach @$curators;
 	}
 	foreach my $curator_id (@filtered_curators) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
