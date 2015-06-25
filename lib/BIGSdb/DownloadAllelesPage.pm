@@ -371,7 +371,7 @@ sub _print_locus_row {
 	$count //= 0;
 	print qq(<tr class="td$options->{'td'}"><td>$display_name );
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
-	  . qq(class="info_tooltip">&nbsp;i&nbsp;</a>);
+	  . qq(class="tooltip"><span class="fa fa-info-circle"></span></a>);
 	print "</td><td>";
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;locus=$locus" )
 	  . qq(class="downloadbutton">&darr;</a>)

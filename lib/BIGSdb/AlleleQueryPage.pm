@@ -118,7 +118,7 @@ sub print_content {
 		}
 		$self->_print_interface;
 	}
-	if ( defined $q->param('query_file') || defined $q->param('t1') ) {
+	if ( defined $q->param('submit') || defined $q->param('t1') ) {
 		if ( $q->param('locus') eq q() ) {
 			say q(<div class="box" id="statusbad"><p>Please select locus or use the general )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
@@ -409,13 +409,13 @@ sub _generate_query {
 	$qry2 .= $self->_process_flags;
 	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
 	$qry2 .= q( ORDER BY );
-
+	$q->param(order => 'allele_id') if !defined $q->param('order');
 	if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
 		$qry2 .= q(CAST (allele_id AS integer));
 	} else {
 		$qry2 .= $q->param('order');
 	}
-	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+	my $dir = ($q->param('direction') // '') eq 'descending' ? 'desc' : 'asc';
 	$qry2 .= " $dir;";
 	$qry2 =~ s/sequence_length/length(sequence)/g;
 	return ( $qry2, $errors );

@@ -87,8 +87,8 @@ sub print_content {
 	if ($allele_count) {
 		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'variant';
 		my $plural = $allele_count > 1 ? 's' : '';
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;)
-		  . qq(locus_list=$locus&amp;submit=1">$allele_count $seq_type$plural</a></li>);
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery&amp;)
+		  . qq(locus=$locus&amp;submit=1">$allele_count $seq_type$plural</a></li>);
 	}
 	say "</ul>";
 	if ( $desc->{'description'} ) {
