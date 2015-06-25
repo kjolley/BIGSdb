@@ -398,11 +398,12 @@ sub _get_allele_submissions_for_curation {
 			|| $self->{'datastore'}
 			->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
+		my $locus = $self->clean_locus($allele_submission->{'locus'}) // $allele_submission->{'locus'};
 		$buffer .=
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
-		  . qq(<td>$allele_submission->{'locus'}</td>);
+		  . qq(<td>$locus</td>);
 		my $seq_count = @{ $allele_submission->{'seqs'} };
 		$buffer .= qq(<td>$seq_count</td></tr>\n);
 		$td = $td == 1 ? 2 : 1;
