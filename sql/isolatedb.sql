@@ -16,8 +16,8 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-INSERT INTO users VALUES (0,'setup','','','','','user','now','now',0);
-INSERT INTO users VALUES (-1,'autotagger','Tagger','Auto','','','curator','now','now',0);
+INSERT INTO users VALUES (0,'setup','','','','','user',FALSE,'now','now',0);
+INSERT INTO users VALUES (-1,'autotagger','Tagger','Auto','','','curator',FALSE,'now','now',0);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON users TO apache;
 
@@ -179,7 +179,7 @@ ON UPDATE CASCADE
 GRANT SELECT,UPDATE,INSERT,DELETE ON project_members TO apache;
 
 CREATE TABLE sequence_bin (
-id integer NOT NULL UNIQUE,
+id bigserial NOT NULL UNIQUE,
 isolate_id integer NOT NULL,
 sequence text NOT NULL,
 method text,

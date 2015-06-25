@@ -68,3 +68,25 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolate_submission_field_order TO apache;
+
+CREATE sequence sequence_bin_id_seq;
+GRANT USAGE, SELECT ON SEQUENCE sequence_bin_id_seq TO apache;
+ALTER TABLE sequence_bin ADD new_id bigint UNIQUE;
+ALTER TABLE sequence_bin ALTER COLUMN new_id SET DEFAULT NEXTVAL('sequence_bin_id_seq');
+
+UPDATE sequence_bin SET new_id=id;
+SELECT setval('sequence_bin_id_seq', (SELECT max(id)+1 FROM sequence_bin));
+
+ALTER TABLE accession DROP CONSTRAINT a_seqbin_id;
+ALTER TABLE accession ADD CONSTRAINT a_seqbin_id FOREIGN KEY(seqbin_id) REFERENCES sequence_bin(new_id) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE allele_sequences DROP CONSTRAINT as_seqbin;
+ALTER TABLE allele_sequences ADD CONSTRAINT as_seqbin FOREIGN KEY(seqbin_id) REFERENCES sequence_bin(new_id) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE experiment_sequences DROP CONSTRAINT es_seqbin;
+ALTER TABLE experiment_sequences ADD CONSTRAINT es_seqbin FOREIGN KEY(seqbin_id) REFERENCES sequence_bin(new_id) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE sequence_attribute_values DROP CONSTRAINT sav_seqbin;
+ALTER TABLE sequence_attribute_values ADD CONSTRAINT sav_seqbin FOREIGN KEY(seqbin_id) REFERENCES sequence_bin(new_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+ALTER TABLE sequence_bin DROP CONSTRAINT sequence_bin_pkey;
+ALTER TABLE sequence_bin ADD PRIMARY KEY(new_id);
+ALTER TABLE sequence_bin DROP COLUMN id;
+ALTER TABLE sequence_bin RENAME new_id TO id;

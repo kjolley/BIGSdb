@@ -88,6 +88,9 @@ sub print_content {
 	} elsif ( $table eq 'allele_sequences' ) {
 		say q(<div class="box" id="statusbad"><p>Tag allele sequences using the scan interface.</p></div>);
 		return;
+	} elsif ($table eq 'sequence_bin'){
+		say q(<div class="box" id="statusbad"><p>Add contigs using the batch add page.</p></div>);
+		return;
 	}
 	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
 		&& $self->{'system'}->{'dbtype'} eq 'sequences'

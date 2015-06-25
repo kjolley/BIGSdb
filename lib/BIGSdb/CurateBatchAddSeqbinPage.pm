@@ -476,8 +476,8 @@ sub _upload {
 		say q(<div class="box" id="statusbad"><p>Unable to upload sequences.  Please try again.</p></div>);
 		return;
 	}
-	my $qry = 'INSERT INTO sequence_bin (id,isolate_id,sequence,method,run_id,assembly_id,original_designation,'
-	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)';
+	my $qry = 'INSERT INTO sequence_bin (isolate_id,sequence,method,run_id,assembly_id,original_designation,'
+	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?)';
 	my $sql = $self->{'db'}->prepare($qry);
 	$qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
 	my $sql_experiment = $self->{'db'}->prepare($qry);
@@ -499,9 +499,7 @@ sub _upload {
 		}
 	}
 	eval {
-		my $id;
 		foreach ( keys %$seq_ref ) {
-			$id = $self->next_id( 'sequence_bin', 0, $id );
 			my ( $designation, $comments );
 			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
@@ -511,11 +509,12 @@ sub _upload {
 			my $isolate_id = $q->param('isolate_id') ? $q->param('isolate_id') : $designation;
 			$designation = q() if !$q->param('isolate_id');
 			my @values = (
-				$id, $isolate_id, $seq_ref->{$_}, $q->param('method'), $q->param('run_id'), $q->param('assembly_id'),
-				$designation, $comments, $sender, $curator, 'today', 'today'
+				$isolate_id, $seq_ref->{$_}, $q->param('method'), $q->param('run_id'), $q->param('assembly_id'),
+				$designation, $comments, $sender, $curator, 'now', 'now'
 			);
 			$sql->execute(@values);
-			$sql_experiment->execute( $experiment, $id, $curator, 'today' ) if $experiment;
+			my $id = $self->{'db'}->last_insert_id(undef,undef,'sequence_bin','id');
+			$sql_experiment->execute( $experiment, $id, $curator, 'now' ) if $experiment;
 			$_->execute($id) foreach @attribute_sql;
 		}
 	};

@@ -347,7 +347,7 @@ sub _print_sequence_bin {
 	  : '';
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequence_bin$set_string">+</a></td>
+<td></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
 <td>$query_cell</td>
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
