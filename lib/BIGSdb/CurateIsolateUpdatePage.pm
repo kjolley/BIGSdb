@@ -57,20 +57,21 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Update isolate</h1>";
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id = ?";
+	say q(<h1>Update isolate</h1>);
+	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql = $self->{'db'}->prepare($qry);
 	if ( !$q->param('id') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No id passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int( $q->param('id') ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid id passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Invalid id passed.</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
 		&& !$self->can_modify_table('allele_designations')
 		&& !$self->can_modify_table('samples') )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate records.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account is not )
+		  . q(allowed to update isolate records.</p></div>);
 		return;
 	}
 	eval { $sql->execute( $q->param('id') ) };
@@ -79,11 +80,13 @@ sub print_content {
 	$self->add_existing_metadata_to_hashref($data);
 	if ( !$data->{'id'} ) {
 		my $exists_in_isolates_table =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM isolates WHERE id=?)", $q->param('id') );
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $q->param('id') );
 		if ($exists_in_isolates_table) {
-			say qq(<div class="box" id="statusbad"><p>Isolate id-) . $q->param('id') . qq( is not accessible from your account.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Isolate id-)
+			  . $q->param('id')
+			  . q( is not accessible from your account.</p></div>);
 		} else {
-			say qq(<div class="box" id="statusbad"><p>No record with id-) . $q->param('id') . qq( exists.</p></div>);
+			say q(<div class="box" id="statusbad"><p>No record with id-) . $q->param('id') . q( exists.</p></div>);
 		}
 		return;
 	}
@@ -98,7 +101,8 @@ sub _check {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->can_modify_table('isolates') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update isolate fields.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account is not )
+		  . q(allowed to update isolate fields.</p></div>);
 		return;
 	}
 	my %newdata;
@@ -111,7 +115,8 @@ sub _check {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0 if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
+			$required_field = 0
+			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata{$field} = $self->get_curator_id;
@@ -122,19 +127,19 @@ sub _check {
 				}
 				my $bad_field = $self->is_field_bad( 'isolates', $field, $newdata{$field} );
 				if ($bad_field) {
-					push @bad_field_buffer, "Field '" . ( $metafield // $field ) . "': $bad_field.";
+					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field.);
 				}
 			}
 		}
 	}
 	if ( $self->alias_duplicates_name ) {
-		push @bad_field_buffer, "Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.";
+		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
 	if (@bad_field_buffer) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are problems with your record submission.  "
-		  . "Please address the following:</p>";
+		say q(<div class="box" id="statusbad"><p>There are problems with your record submission. )
+		  . q(Please address the following:</p>);
 		local $" = '<br />';
-		say "<p>@bad_field_buffer</p></div>";
+		say qq(<p>@bad_field_buffer</p></div>);
 	} else {
 		return $self->_update( $data, \%newdata );
 	}
@@ -179,7 +184,7 @@ sub _update {
 			}
 		}
 	}
-	$qry =~ s/,$//;
+	$qry =~ s/,$//x;
 	if ($qry) {
 		$qry = "UPDATE isolates SET $qry WHERE id=?";
 		push @values, $data->{'id'};
@@ -187,14 +192,14 @@ sub _update {
 	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
 	my @alias_update;
 	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
-	my @new_aliases = split /\r?\n/, $q->param('aliases');
+	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			push @alias_update,
 			  {
-				statement => "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)",
+				statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
 				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
 			  };
 			push @updated_field, "new alias: '$new'";
@@ -203,24 +208,27 @@ sub _update {
 	foreach my $existing (@$existing_aliases) {
 		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
 			push @alias_update,
-			  { statement => "DELETE FROM isolate_aliases WHERE (isolate_id,alias)=(?,?)", arguments => [ $data->{'id'}, $existing ] };
+			  {
+				statement => 'DELETE FROM isolate_aliases WHERE (isolate_id,alias)=(?,?)',
+				arguments => [ $data->{'id'}, $existing ]
+			  };
 			push @updated_field, "deleted alias: '$existing'";
 		}
 	}
 	my @pubmed_update;
 	my $existing_pubmeds = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
-	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say qq(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
 				$update = 0;
 			}
 			push @pubmed_update,
 			  {
-				statement => "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)",
+				statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
 				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
 			  };
 			push @updated_field, "new reference: 'Pubmed#$new'";
@@ -229,7 +237,10 @@ sub _update {
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
 			push @pubmed_update,
-			  { statement => "DELETE FROM refs WHERE (isolate_id,pubmed_id)=(?,?)", arguments => [ $data->{'id'}, $existing ] };
+			  {
+				statement => 'DELETE FROM refs WHERE (isolate_id,pubmed_id)=(?,?)',
+				arguments => [ $data->{'id'}, $existing ]
+			  };
 			push @updated_field, "deleted reference: 'Pubmed#$existing'";
 		}
 	}
@@ -242,28 +253,31 @@ sub _update {
 				}
 			};
 			if ($@) {
-				say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - no records have been touched.</p>);
-				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					say "<p>Data update would have resulted in records with either duplicate ids or "
-					  . "another unique field with duplicate values.</p>";
+				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
+				  . q(no records have been touched.</p>);
+				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+					say q(<p>Data update would have resulted in records with either duplicate ids or )
+					  . q(another unique field with duplicate values.</p>);
 				} elsif ( $@ =~ /datestyle/ ) {
-					say "<p>Date fields must be entered in yyyy-mm-dd format.</p>";
+					say q(<p>Date fields must be entered in yyyy-mm-dd format.</p>);
 				} else {
 					$logger->error($@);
 				}
-				say "</div>";
+				say q(</div>);
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit
-				  && say qq(<div class="box" id="resultsheader"><p>Updated!</p>);
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+				  && say q(<div class="box" id="resultsheader"><p>Updated!</p>);
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
 				local $" = '<br />';
 				$self->update_history( $data->{'id'}, "@updated_field" );
 				return SUCCESS;
 			}
 		} else {
-			say qq(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+			say q(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 		}
 	}
 	return;
@@ -275,7 +289,8 @@ sub _prepare_metaset_updates {
 	my @updates;
 	foreach my $metaset (@metasets) {
 		my $metadata_record_exists =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id=?)", $newdata->{'id'} );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id=?)", $newdata->{'id'} );
 		my $fields = $meta_fields->{$metaset};
 		local $" = ',';
 		my $qry;
@@ -293,10 +308,13 @@ sub _prepare_metaset_updates {
 			$cleaned = undef if $cleaned eq '';
 			push @values, $cleaned;
 			push @$updated_field,
-			  "$field: '" . $existing_data->{ lc("meta_$metaset:$field") } . "' -> '" . $newdata->{"meta_$metaset:$field"} . "'";
+			    "$field: '"
+			  . $existing_data->{ lc("meta_$metaset:$field") }
+			  . q(' -> ')
+			  . $newdata->{"meta_$metaset:$field"} . q(');
 		}
 		if ($metadata_record_exists) {
-			$qry .= " WHERE isolate_id=?";
+			$qry .= ' WHERE isolate_id=?';
 			push @values, $newdata->{'id'};
 		}
 		push @updates, { statement => $qry, arguments => \@values };
@@ -307,20 +325,20 @@ sub _prepare_metaset_updates {
 sub _print_interface {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	say "<div>";
+	say q(<div>);
 	if ( $self->can_modify_table('isolates') ) {
-		say qq(<div class="box queryform" id="isolate_update" style="float:left;margin-right:0.5em">);
-		say qq(<div class="scrollable">);
+		say q(<div class="box queryform" id="isolate_update" style="float:left;margin-right:0.5em">);
+		say q(<div class="scrollable">);
 		say $q->start_form;
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
 		$self->print_provenance_form_elements( $data, { update => 1 } );
 		say $q->end_form;
-		say "</div></div>";
+		say q(</div></div>);
 	}
 	$self->_print_samples($data)             if $self->can_modify_table('samples');
 	$self->_print_allele_designations($data) if $self->can_modify_table('allele_designations');
-	say "</div><div style=\"clear:both\"></div>";
+	say q(</div><div style="clear:both"></div>);
 	return;
 }
 
@@ -356,7 +374,7 @@ sub _print_allele_designations {
 	$q->param( isolate_id => $q->param('id') );
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
-	say "</fieldset></div>";
+	say q(</fieldset></div>);
 	return;
 }
 
@@ -364,8 +382,8 @@ sub _print_samples {
 	my ( $self, $data ) = @_;
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	if (@$sample_fields) {
-		say "<div class=\"box\" id=\"samples\" style=\"overflow:auto\">";
-		say "<fieldset style=\"float:left\"><legend>Samples</legend>";
+		say q(<div class="box" id="samples" style="overflow:auto">);
+		say q(<fieldset style="float:left"><legend>Samples</legend>);
 		my $isolate_record = BIGSdb::IsolateInfoPage->new(
 			(
 				system        => $self->{'system'},
@@ -382,9 +400,9 @@ sub _print_samples {
 			)
 		);
 		say $isolate_record->get_sample_summary( $data->{'id'} );
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;"
-		  . "table=samples&amp;isolate_id=$data->{'id'}\" class=\"button\">&nbsp;Add new sample&nbsp;</a></p>";
-		say "</fieldset></div>";
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+		  . qq(table=samples&amp;isolate_id=$data->{'id'}" class="button">&nbsp;Add new sample&nbsp;</a></p>);
+		say q(</fieldset></div>);
 	}
 	return;
 }
