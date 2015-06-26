@@ -31,6 +31,19 @@ sub get_help_url {
 	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-isolate-records";
 }
 
+sub get_javascript {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer = << "END";
+\$(function () {
+  if (!Modernizr.inputtypes.date){
+ 	\$(".no_date_picker").css("display","inline");
+ }
+});
+END
+	return $buffer;
+}
+
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Add new isolate</h1>);
@@ -446,7 +459,7 @@ sub print_provenance_form_elements {
 				}
 				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' )
 				{
-					say q( format: yyyy-mm-dd);
+					say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
 				}
 				say q(</li>);
 			}

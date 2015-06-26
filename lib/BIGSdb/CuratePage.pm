@@ -28,7 +28,7 @@ use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache );
 	return;
 }
 sub get_title     { return q(Curator's interface - BIGSdb) }
