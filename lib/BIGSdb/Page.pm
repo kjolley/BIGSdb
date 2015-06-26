@@ -985,7 +985,7 @@ sub get_filter {
 sub get_user_filter {
 	my ( $self, $field ) = @_;
 	my $qry = 'SELECT id,first_name,surname FROM users ';
-	$qry .= $field eq 'curator' ? q[WHERE (status='curator' OR status='admin' OR status='submitter') AND ] : 'WHERE ';
+	$qry .= $field=~/^curator/x ? q[WHERE (status='curator' OR status='admin' OR status='submitter') AND ] : 'WHERE ';
 	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
