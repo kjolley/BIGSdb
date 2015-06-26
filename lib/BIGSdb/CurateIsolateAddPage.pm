@@ -38,7 +38,7 @@ sub get_javascript {
 \$(function () {
   if (!Modernizr.inputtypes.date){
  	\$(".no_date_picker").css("display","inline");
- }
+  }
 });
 END
 	return $buffer;

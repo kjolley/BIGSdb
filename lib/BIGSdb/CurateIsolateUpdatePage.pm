@@ -33,6 +33,9 @@ sub get_javascript {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
 	});
+	if (!Modernizr.inputtypes.date){
+ 	   \$(".no_date_picker").css("display","inline");
+    }
 	\$("#sample").columnize({width:300});
 });
 END
@@ -47,7 +50,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer jQuery.multiselect);
 	return;
 }
 
