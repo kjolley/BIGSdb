@@ -1193,8 +1193,9 @@ sub _check_data_sequences {
 				$buffer .=
 				    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
 				  . q[alignment of less than 90% its length). Similarity is determined by the output of the ]
-				  . q[best match from the BLAST algorithm - this may be conservative.  If you're sure that ]
-				  . q[this sequence should be entered, please select the 'Override sequence similarity check' ]
+				  . q[best match from the BLAST algorithm - this may be conservative.  The check will also fail ]
+				  . q[if the best match is in the reverse orientation. If you're sure that this sequence should ]
+				  . q[be entered, please select the 'Override sequence similarity check' ]
 				  . q[box.<br />];
 			}
 		}

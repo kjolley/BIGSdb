@@ -1637,7 +1637,9 @@ sub check_new_alleles_fasta {
 			}
 		}
 		if ( !$self->is_sequence_similar_to_others( $locus, \$sequence ) ) {
-			push @info, "Sequence '$seq_id' is dissimilar to other $locus sequences.";
+			push @info,
+			  "Sequence '$seq_id' is dissimilar (or in reverse orientation compared) to other $locus sequences."
+			  ;
 		}
 	}
 	close $stringfh_in;
@@ -1870,17 +1872,23 @@ sub is_sequence_similar_to_others {
 	return if !-s $full_path;
 	open( my $blast_fh, '<', $full_path )
 	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
-	my ( $identity, $alignment );
+	my ( $identity, $reversed, $alignment );
 
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^\#/x;
 		my @record = split /\s+/x, $line;
 		$identity  = $record[2];
 		$alignment = $record[3];
+		if (   ( $record[8] > $record[9] && $record[7] > $record[6] )
+			|| ( $record[8] < $record[9] && $record[7] < $record[6] ) )
+		{
+			$reversed = 1;
+		}
 		last;
 	}
 	close $blast_fh;
 	unlink $full_path;
+	return if $reversed;
 	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
 		return 1;
 	}
@@ -2277,7 +2285,7 @@ sub get_isolate_submission {
 		);
 		my $isolate_values = {};
 		$isolate_values->{ $_->[0] } = $_->[1] foreach @$values;
-		push @isolates,  $isolate_values;
+		push @isolates, $isolate_values;
 	}
 	my $submission = { order => $order, isolates => \@isolates };
 	return $submission;

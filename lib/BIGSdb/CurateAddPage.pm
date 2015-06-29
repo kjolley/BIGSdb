@@ -408,8 +408,9 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 		push @$problems,
 		    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
 		  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
-		  . q[match from the BLAST algorithm - this may be conservative.  If you're sure you want to add ]
-		  . q[this sequence then make sure that the 'Override sequence similarity check' box is ticked.<br />];
+		  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
+		  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
+		  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
 	}
 	if (   defined $newdata->{'allele_id'}
 		&& $newdata->{'allele_id'} ne ''

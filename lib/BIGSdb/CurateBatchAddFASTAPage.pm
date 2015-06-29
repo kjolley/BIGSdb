@@ -289,10 +289,11 @@ sub _check_sequence {
 		&& !$self->{'datastore'}->is_sequence_similar_to_others( $locus, \$data->{'seq'} ) )
 	{
 		return ( FAILURE, $allele_id,
-			    "Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of "
-			  . "less than 90% its length). Similarity is determined by the output of the best match from the BLAST "
-			  . "algorithm - this may be conservative.  If you're sure that this sequence should be entered, please "
-			  . "select the 'Override sequence similarity check' box." );
+			    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of ]
+			  . q[less than 90% its length). Similarity is determined by the output of the best match from the BLAST ]
+			  . q[algorithm - this may be conservative.  The check will also fail if the best match is in the reverse ]
+			  . q[orientation. If you're sure that this sequence should be entered, please select the 'Override ]
+			  . q[sequence similarity check' box.] );
 	}
 
 	#Check if allele is complete coding sequence
