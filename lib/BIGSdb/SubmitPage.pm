@@ -398,7 +398,7 @@ sub _get_allele_submissions_for_curation {
 			|| $self->{'datastore'}
 			->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
-		my $locus = $self->clean_locus($allele_submission->{'locus'}) // $allele_submission->{'locus'};
+		my $locus = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
 		$buffer .=
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
@@ -570,8 +570,11 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 				$user_info->{'id'}
 			);
 		}
-		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp,email)=(?,?,?) WHERE (id,submitter)=(?,?)',
-			undef, 'pending', 'now', $q->param('email') // undef, $submission_id, $user_info->{'id'} );
+		$self->{'db'}->do(
+			'UPDATE submissions SET (status,datestamp,email)=(?,?,?) WHERE (id,submitter)=(?,?)',
+			undef, 'pending', 'now', $q->param('email') // undef,
+			$submission_id, $user_info->{'id'}
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -2256,6 +2259,8 @@ sub _translate_outcome {
 sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	return if !$submission || $submission->{'status'} eq 'closed';    #Prevent refresh from re-sending E-mail
 	my $curator_id = $self->get_curator_id;
 	eval {
 		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp,curator)=(?,?,?) WHERE id=?',
@@ -2267,7 +2272,7 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	} else {
 		$self->{'db'}->commit;
 	}
-	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	$submission = $self->{'datastore'}->get_submission($submission_id);
 	if ( $submission->{'email'} ) {
 		return if !$self->{'config'}->{'smtp_server'};
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
