@@ -1025,6 +1025,55 @@ sub create_temp_scheme_table {
 	return $table;
 }
 
+#Create table containing isolate_id and count of distinct loci
+#This can be used to rapidly search by profile completion
+#This table can instead be created as a persistent indexed table using the update_scheme_cache.pl script.
+#This should be done once the scheme size/number of isolates results in a slowdown of queries.
+sub create_temp_scheme_status_table {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $view  = $self->{'system'}->{'view'};
+	my $table = "temp_$view\_scheme_completion_$scheme_id";
+	if ( !$options->{'cache'} ) {
+		return $table
+		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+
+		#Check if cache of whole isolate table exists
+		if ( $view ne 'isolates' ) {
+			my $full_table = "temp_isolates\_scheme_completion_$scheme_id";
+			return $full_table
+			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+				$full_table );
+		}
+	}
+	my $table_type = 'TEMP TABLE';
+	my $rename_table;
+	if ( $options->{'cache'} ) {
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		$table        = $table . '_' . int( rand(99999) );
+	}
+	my $create_table =
+	    qq(CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));)
+	  . qq[INSERT INTO $table SELECT $view.id, COUNT(DISTINCT locus) FROM ]
+	  . qq[$view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
+	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id=]
+	  . qq[$scheme_id) GROUP BY $view.id;]
+	  . qq[CREATE INDEX ON $table (locus_count);];
+	eval { $self->{'db'}->do($create_table) };
+	$logger->error($@) if $@;
+
+	#If run from cache script, create new temp table, then drop old and rename the new - 
+	#this should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		$logger->error($@) if $@;
+		$self->{'db'}->commit;
+		$table = $rename_table;
+	}
+	return $table;
+}
+
 sub create_temp_list_table {
 	my ( $self, $datatype, $list_file ) = @_;
 	$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
@@ -1638,8 +1687,7 @@ sub check_new_alleles_fasta {
 		}
 		if ( !$self->is_sequence_similar_to_others( $locus, \$sequence ) ) {
 			push @info,
-			  "Sequence '$seq_id' is dissimilar (or in reverse orientation compared) to other $locus sequences."
-			  ;
+			  "Sequence '$seq_id' is dissimilar (or in reverse orientation compared) to other $locus sequences.";
 		}
 	}
 	close $stringfh_in;
