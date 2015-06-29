@@ -85,6 +85,7 @@ sub run_script {
 			next if @$existing_allele_ids;
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
 			next if @$allele_seq && !$self->{'options'}->{'T'};
+			next if !@$allele_seq && !@$existing_allele_ids && $self->{'options'}->{'only_already_tagged'};
 			my ( $exact_matches, $partial_matches ) = $self->blast( $params, $locus, $isolate_id, $isolate_prefix, $locus_prefix );
 			my $blast_status_bad = $?;
 			if ( ref $exact_matches && @$exact_matches ) {

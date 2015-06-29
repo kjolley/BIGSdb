@@ -60,6 +60,7 @@ GetOptions(
 	'n|new_only'           => \$opts{'n'},
 	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
 	'o|order'              => \$opts{'o'},
+	'only_already_tagged'  => \$opts{'only_already_tagged'},
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
 	'T|already_tagged'     => \$opts{'T'},
@@ -200,6 +201,13 @@ ${bold}--new_max_alleles$norm ${under}ALLELES$norm
 ${bold}-o, --order$norm
     Order so that isolates last tagged the longest time ago get scanned first
     (ignored if -r used).
+    
+${bold}--only_already_tagged$norm
+    Only check loci that already have a tag present (but no allele designation).
+    This must be combined with the --already_tagged option or no loci will
+    match. This option is used to perform a catch-up scan where a curator has
+    previously tagged sequence regions prior to alleles being defined, without
+    the need to scan all missing loci.
            
 ${bold}-p, --projects$norm ${under}LIST$norm
     Comma-separated list of project isolates to scan.

@@ -354,7 +354,7 @@ sub get_scheme_field_values_by_designations {
 				$field_data = $scheme->get_field_values_by_designations($designations);
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->warn("Scheme database $scheme_id is not configured correctly");
+				$logger->warn("Scheme $scheme_id database is not configured correctly");
 			};
 		}
 	}
