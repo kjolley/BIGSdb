@@ -69,10 +69,10 @@ sub paged_display {
 	$message = $q->param('message') if !$message;
 
 	#sort allele_id integers numerically
-	$qry =~
-s/ORDER BY (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,\(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$2/;
-	$qry =~
-s/ORDER BY \S+\.allele_id(.*)/ORDER BY \(case when $table.allele_id ~ '^[0-9]+\$' THEN lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)$1/;
+	my $sub = qq{(case when $table.allele_id ~ '^[0-9]+\$' THEN }
+	  . qq{lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)};
+	$qry =~ s/ORDER\ BY\ (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,$sub$2/x;
+	$qry =~ s/ORDER\ BY\ \S+\.allele_id(.*)/ORDER BY $sub$1/x;
 	my $totalpages = 1;
 	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
