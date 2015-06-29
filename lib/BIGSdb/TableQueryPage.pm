@@ -552,7 +552,7 @@ sub _run_query {
 							$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 						}
 					} else {
-						if ( $table eq 'sequences' && $field eq 'allele_id' ) {
+						if ( ($table eq 'sequences' || $table eq 'allele_designations') && $field eq 'allele_id' ) {
 							if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
 								$qry .= "CAST($table.$field AS integer)";
 							} else {
