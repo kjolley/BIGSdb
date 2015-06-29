@@ -21,6 +21,9 @@ only_in_void_context = 1
 [Miscellanea::ProhibitUselessNoCritic]
 severity = stern
 
+[NamingConventions::ProhibitAmbiguousNames]
+forbid = abstract bases close contract last left no right second set
+
 [Subroutines::ProhibitExcessComplexity]
 max_mccabe = 30
 
