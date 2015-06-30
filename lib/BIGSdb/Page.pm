@@ -928,8 +928,8 @@ sub print_file {
 				if ( @$loci < 30 ) {
 					s/\$lociAdd/$lociAdd/x;
 				} else {
-					my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-					 . 'page=add&amp;table=sequences';
+					my $link =
+					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;" . 'page=add&amp;table=sequences';
 					s/\$lociAdd/<a href="$link">Add<\/a>/x;
 				}
 			}
@@ -985,7 +985,7 @@ sub get_filter {
 sub get_user_filter {
 	my ( $self, $field ) = @_;
 	my $qry = 'SELECT id,first_name,surname FROM users ';
-	$qry .= $field=~/^curator/x ? q[WHERE (status='curator' OR status='admin' OR status='submitter') AND ] : 'WHERE ';
+	$qry .= $field =~ /^curator/x ? q[WHERE (status='curator' OR status='admin' OR status='submitter') AND ] : 'WHERE ';
 	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
@@ -2125,7 +2125,7 @@ sub initiate_view {
 			$self->{'system'}->{'view'} = $set_view if $set_view;
 		}
 	}
-	if ( $self->{'curate'} ) {
+	if ( $self->{'curate'} && $username ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 		return if !$user_info;
 		if ( $user_info->{'status'} eq 'submitter' ) {

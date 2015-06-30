@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,41 +25,51 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant ERROR => 1;
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery noCache);
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Create new isolate record version</h1>";
+	say q(<h1>Create new isolate record version</h1>);
 	my $existing_id = $q->param('id');
-	if ($self->{'system'}->{'view'} ne 'isolates'){
+	if ( $self->{'system'}->{'view'} ne 'isolates' ) {
 		say q(<div class="box" id="statusbad"><p>New record versions cannot be created when a filtered )
 		  . q(isolate view is used.  Any new version could be potentially inaccessible.</p></div>);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($existing_id) ) {
-		say qq(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
 		return;
-	} elsif ( !$self->can_modify_table('isolates') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to create isolate records.</p></div>);
+	}
+	if ( !$self->can_modify_table('isolates') ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
+		  . q(create isolate records.</p></div>);
 		return;
-	} elsif ( !$self->isolate_exists($existing_id) ) {
+	}
+	if ( !$self->isolate_exists($existing_id) ) {
 		say qq(<div class="box" id="statusbad"><p>Isolate $existing_id does not exist.</p></div>);
 		return;
-	} elsif ( !$self->is_allowed_to_view_isolate($existing_id) ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to access this isolate record.</p></div>);
+	}
+	if ( !$self->is_allowed_to_view_isolate($existing_id) ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to access )
+		  . q(this isolate record.</p></div>);
 		return;
-	} else {
-		my $new_version = $self->{'datastore'}->run_query( "SELECT new_version FROM isolates WHERE id=?", $existing_id );
-		if ($new_version) {
-			if ( $self->isolate_exists($new_version) ) {
-				say qq(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. See )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$new_version">)
-				  . qq(isolate id-$new_version</a>.</p></div>);
-			} else {
-				say qq(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. It is not, however, )
-				  . qq(accessible from the current database view.</p></div>);
-			}
-			return;
+	}
+	my $new_version = $self->{'datastore'}->run_query( 'SELECT new_version FROM isolates WHERE id=?', $existing_id );
+	if ($new_version) {
+		if ( $self->isolate_exists($new_version) ) {
+			say q(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. See )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
+			  . qq(id=$new_version">isolate id-$new_version</a>.</p></div>);
+		} else {
+			say q(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. )
+			  . q(It is not, however, accessible from the current database view.</p></div>);
 		}
+		return;
 	}
 	$self->{'isolate_record'} = BIGSdb::IsolateInfoPage->new(
 		(
@@ -83,14 +93,14 @@ sub print_content {
 			$self->_print_interface;
 			return;
 		}
-		say qq(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
-		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;isolate_id=$new_id">)
-		  . qq(Upload contigs</a></li>);
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;id=$new_id">)
-		  . qq(Update record</a></li></ul></div>);
-		say qq(<div class="box" id="resultspanel"><div class="scrollable">);
+		say q(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=batchAddSeqbin&amp;isolate_id=$new_id">Upload contigs</a></li>);
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=isolateUpdate&amp;id=$new_id">Update record</a></li></ul></div>);
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		say $self->{'isolate_record'}->get_isolate_record($new_id);
-		say '</div></div>';
+		say q(</div></div>);
 		return;
 	}
 	$self->_print_interface;
@@ -101,27 +111,28 @@ sub _print_interface {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
 	my $existing_id = $q->param('id');
-	say qq(<div class="box" id="queryform"><div class="scrollable">);
-	say "<p>This page allows you to create a new version of the isolate record shown below.  Provenance and publication information "
-	  . "will be copied to the new record but the sequence bin and allele designations will not.  This facilitates storage of different "
-	  . "versions of genome assemblies.  The old record will be hidden by default, but can still be accessed when needed, with links "
-	  . "from the new record.  The update history will be reset for the new record.</p>";
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<p>This page allows you to create a new version of the isolate record shown below.  )
+	  . q(Provenance and publication information will be copied to the new record but the sequence )
+	  . q(bin and allele designations will not.  This facilitates storage of different versions of )
+	  . q(genome assemblies.  The old record will be hidden by default, but can still be accessed )
+	  . q(when needed, with links from the new record.  The update history will be reset for the new record.</p>);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Enter new record id</legend>);
+	say q(<fieldset style="float:left"><legend>Enter new record id</legend>);
 	my $next_id = $q->param('new_id') // $self->next_id('isolates');
-	say qq(<label for="new_id">id:</label>);
+	say q(<label for="new_id">id:</label>);
 	say $self->textfield( name => 'new_id', id => 'new_id', value => $next_id, type => 'number', min => 1, step => 1 );
-	say '</fieldset>';
-	say qq(<fieldset style="float:left"><legend>Options</legend);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend);
 	say $q->checkbox( -name => 'copy_projects', -label => 'Add new version to projects', -checked => 'checked' );
-	say '</fieldset>';
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Create' } );
 	say $q->hidden($_) foreach qw(db page id);
 	say $q->end_form;
-	say '</div></div>';
-	say qq(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(</div></div>);
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	say $self->{'isolate_record'}->get_isolate_record($existing_id);
-	say '</div></div>';
+	say q(</div></div>);
 	return;
 }
 
@@ -137,12 +148,12 @@ sub _create_new_version {
 	my $existing_id = $q->param('id');
 	my $new_id      = $q->param('new_id');
 	if ( !BIGSdb::Utils::is_int($new_id) ) {
-		say qq(<div class="box" id="statusbad"><p>Invalid new record id.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Invalid new record id.</p></div>);
 		return ERROR;
 	}
 
 	#Don't use Page::isolate_exists as that only checks current view, but we need to check whole isolates table.
-	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM isolates WHERE id=?)", $new_id );
+	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $new_id );
 	if ($exists) {
 		say qq(<div class="box" id="statusbad"><p>An isolate record already exists with id-$new_id.</p></div>);
 		return ERROR;
@@ -159,29 +170,29 @@ sub _create_new_version {
 	}
 	my @placeholders = ('?') x @values;
 	local $" = ',';
-	my $insert  = "INSERT INTO isolates (@$fields) VALUES (@placeholders)";
-	my $aliases = $self->{'datastore'}->get_isolate_aliases($existing_id);
-	my $refs    = $self->{'datastore'}->get_isolate_refs($existing_id);
-	my $projects =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT project_id FROM project_members WHERE isolate_id=?", $existing_id, { fetch => 'col_arrayref' } );
+	my $insert   = "INSERT INTO isolates (@$fields) VALUES (@placeholders)";
+	my $aliases  = $self->{'datastore'}->get_isolate_aliases($existing_id);
+	my $refs     = $self->{'datastore'}->get_isolate_refs($existing_id);
+	my $projects = $self->{'datastore'}->run_query( 'SELECT project_id FROM project_members WHERE isolate_id=?',
+		$existing_id, { fetch => 'col_arrayref' } );
 	eval {
 		$self->{'db'}->do( $insert, undef, @values );
-		$self->{'db'}->do( "INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)",
+		$self->{'db'}->do( 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
 			undef, $new_id, $_, $curator_id, 'now' )
 		  foreach @$aliases;
 		if ( $q->param('copy_projects') ) {
-			$self->{'db'}->do( "INSERT INTO project_members (project_id,isolate_id,curator,datestamp) VALUES (?,?,?,?)",
+			$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) VALUES (?,?,?,?)',
 				undef, $_, $new_id, $curator_id, 'now' )
 			  foreach @$projects;
 		}
-		$self->{'db'}
-		  ->do( "INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)", undef, $new_id, $_, $curator_id, 'now' )
+		$self->{'db'}->do( 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+			undef, $new_id, $_, $curator_id, 'now' )
 		  foreach @$refs;
-		$self->{'db'}->do( "UPDATE isolates SET new_version=? WHERE id=?", undef, $new_id, $existing_id );
+		$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_id, $existing_id );
 	};
 	if ($@) {
-		say qq(<div class="box" id="statusbad"><p>New record creation failed.  More details will be in the error log.</p></div>);
+		say q(<div class="box" id="statusbad"><p>New record creation failed.  )
+		  . q(More details will be in the error log.</p></div>);
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		return ERROR;
