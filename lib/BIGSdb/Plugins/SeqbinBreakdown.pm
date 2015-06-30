@@ -44,12 +44,12 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.2.1',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		order       => 80,
-		requires    => 'offline_jobs',
+		requires    => 'offline_jobs,js_tree',
 		system_flag => 'SeqbinBreakdown'
 	);
 	return \%att;
@@ -58,7 +58,7 @@ sub get_attributes {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
-	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -82,6 +82,16 @@ sub run {
 			local $" = ', ';
 			$error .= qq(<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>);
 		}
+		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
+		$q->delete('locus');
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
+		if (@$invalid_loci) {
+			local $" = ', ';
+			$error .= "<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n";
+		}
+		$self->add_scheme_loci($loci_selected);
 		if ($error) {
 			say qq(<div class="box statusbad">$error</div>);
 			$self->_print_interface;
@@ -105,6 +115,7 @@ sub run {
 						username     => $self->{'username'},
 						email        => $user_info->{'email'},
 						isolates     => $filtered_ids,
+						loci         => $loci_selected
 					}
 				);
 				print <<"HTML";
@@ -119,7 +130,7 @@ HTML
 				return;
 			} else {
 				$self->_print_interface;
-				$self->_print_table( \@$filtered_ids, $params );
+				$self->_print_table( $filtered_ids, $loci_selected, $params );
 			}
 		}
 	} else {
@@ -137,6 +148,7 @@ sub run_job {
 	$self->_initiate_statement_handles( { method => $method, experiment => $experiment } );
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
 	my ( $html_buffer, $text_buffer );
 	my $td            = 1;
 	my $data          = {};
@@ -148,8 +160,9 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ message_html => 'HTML output disabled as more than ' . MAX_HTML_OUTPUT . ' records selected.' } );
 	}
+	my $locus_count = @$loci;
 	foreach my $id (@$isolate_ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, { gc => $params->{'gc'} } );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, { gc => $params->{'gc'} } );
 		$row++;
 		next if !$contig_info->{'contigs'};
 		$row_with_data++;
@@ -158,7 +171,8 @@ sub run_job {
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		my $html_message =
-		    q(<div class="scrollable">)
+		    qq(<p>Loci selected: $locus_count</p>)
+		  . q(<div class="scrollable">)
 		  . $self->_get_html_table_header( { gc => $params->{'gc'} } )
 		  . $html_buffer
 		  . q(</tbody></table></div>);
@@ -259,11 +273,13 @@ sub _print_interface {
 		return;
 	}
 	say q(<div class="box" id="queryform">);
-	say q(<p>Please select the required isolate ids for comparison - )
-	  . q(use Ctrl or Shift to make multiple selections.</p>);
+	say q(<p>Please select the required isolate ids for comparison - use Ctrl or Shift to make multiple )
+	  . q(selections.  Select loci/schemes to use for calculating percentage of alleles designated or tagged.</p>);
 	say q(<div class="scrollable">);
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_scheme_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
@@ -283,7 +299,7 @@ sub _print_options_fieldset {
 }
 
 sub _print_table {
-	my ( $self, $ids, $params ) = @_;
+	my ( $self, $ids, $loci, $params ) = @_;
 	my $method     = $params->{'seq_method_list'};
 	my $experiment = $params->{'experiment_list'};
 	$self->_initiate_statement_handles( { method => $method, experiment => $experiment } );
@@ -292,12 +308,14 @@ sub _print_table {
 	local $| = 1;
 	my $data             = {};
 	my $header_displayed = 0;
+	my $locus_count      = @$loci;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say qq(<p>Loci selected: $locus_count</p>);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
 	foreach my $id (@$ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, { gc => $params->{'gc'} } );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, { gc => $params->{'gc'} } );
 		next if !$contig_info->{'contigs'};
 		if ( !$header_displayed ) {
 			say $fh $self->_get_text_table_header( { gc => $params->{'gc'} } );
@@ -414,28 +432,30 @@ sub _get_text_table_row {
 }
 
 sub _get_isolate_contig_data {
-	my ( $self, $isolate_id, $options ) = @_;
+	my ( $self, $isolate_id, $loci, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	eval { $self->{'sql'}->{'contig_info'}->execute( $isolate_id, @{ $self->{'criteria'} } ) };
 	$logger->error($@) if $@;
-	my $set_id = $self->get_set_id;
-	my $data   = $self->{'sql'}->{'contig_info'}->fetchrow_hashref;
-	if ( !$self->{'cache'}->{'loci'} ) {
-		$self->{'cache'}->{'loci'} = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	}
+	my $set_id        = $self->get_set_id;
+	my $data          = $self->{'sql'}->{'contig_info'}->fetchrow_hashref;
+	my %selected_loci = map { $_ => 1 } @$loci;
 	if ( $data->{'contigs'} ) {
 		$data->{'lengths'}      = $self->_get_contig_lengths($isolate_id);
 		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
-		$data->{'allele_designations'} = scalar keys %$allele_designations;
+		$data->{'allele_designations'} = 0;
+		foreach my $locus ( keys %$allele_designations ) {
+			$data->{'allele_designations'}++ if $selected_loci{$locus};
+		}
 		$data->{'percent_alleles'} =
-		  BIGSdb::Utils::decimal_place( 100 * ( scalar keys %$allele_designations ) / @{ $self->{'cache'}->{'loci'} },
-			1 );
-		my $tagged = $self->_get_tagged($isolate_id);
-		$data->{'tagged'} = $tagged;
-		$data->{'percent_tagged'} =
-		  BIGSdb::Utils::decimal_place( 100 * ( $tagged / @{ $self->{'cache'}->{'loci'} } ), 1 );
+		  @$loci ? BIGSdb::Utils::decimal_place( 100 * $data->{'allele_designations'} / @$loci, 1 ) : '-';
+		my $allele_sequences = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
+		$data->{'tagged'} = 0;
+		foreach my $locus ( keys %$allele_sequences ) {
+			$data->{'tagged'}++ if $selected_loci{$locus};
+		}
+		$data->{'percent_tagged'} = @$loci ? BIGSdb::Utils::decimal_place( 100 * $data->{'tagged'} / @$loci, 1 ) : '-';
 		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
 	}
 	if ( $options->{'gc'} ) {
@@ -456,14 +476,6 @@ sub _get_contig_lengths {
 		push @lengths, $length;
 	}
 	return \@lengths;
-}
-
-sub _get_tagged {
-	my ( $self, $isolate_id ) = @_;
-	eval { $self->{'sql'}->{'tagged'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my ($tagged) = $self->{'sql'}->{'tagged'}->fetchrow_array;
-	return $tagged;
 }
 
 sub _initiate_statement_handles {
@@ -504,8 +516,6 @@ sub _initiate_statement_handles {
 	  ? q[AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes ]
 	  . qq[WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))]
 	  : q();
-	$self->{'sql'}->{'tagged'} =
-	  $self->{'db'}->prepare("SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause");
 	return;
 }
 
