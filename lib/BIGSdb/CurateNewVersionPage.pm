@@ -30,6 +30,11 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say "<h1>Create new isolate record version</h1>";
 	my $existing_id = $q->param('id');
+	if ($self->{'system'}->{'view'} ne 'isolates'){
+		say q(<div class="box" id="statusbad"><p>New record versions cannot be created when a filtered )
+		  . q(isolate view is used.  Any new version could be potentially inaccessible.</p></div>);
+		return;
+	}
 	if ( !BIGSdb::Utils::is_int($existing_id) ) {
 		say qq(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
 		return;

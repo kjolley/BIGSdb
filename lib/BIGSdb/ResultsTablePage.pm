@@ -444,11 +444,13 @@ sub _print_isolate_table {
 							say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
 							  . qq(isolate_id=$id" class="action">upload</a></td>);
 						}
-						print $data{'new_version'}
-						  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-						  . qq(&amp;page=info&amp;id=$data{'new_version'}">$data{'new_version'}</a></td>)
-						  : qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-						  . qq(&amp;page=newVersion&amp;id=$id" class="action">create</a></td>);
+						if ($self->{'system'}->{'view'} eq 'isolates'){
+							print $data{'new_version'}
+							  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+							  . qq(&amp;page=info&amp;id=$data{'new_version'}">$data{'new_version'}</a></td>)
+							  : qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+							  . qq(&amp;page=newVersion&amp;id=$id" class="action">create</a></td>);
+						}
 					}
 					say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;id=$id">)
 					  . qq($data{$thisfieldname}</a></td>);
@@ -601,7 +603,7 @@ sub _print_isolate_table_header {
 		if ( $self->can_modify_table('sequence_bin') ) {
 			$fieldtype_header .= qq(<th rowspan="2">Sequence bin</th>);
 		}
-		$fieldtype_header .= qq(<th rowspan="2">New version</th>);
+		$fieldtype_header .= qq(<th rowspan="2">New version</th>) if $self->{'system'}->{'view'} eq 'isolates';
 	}
 	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
 	$fieldtype_header .= qq( <a class="tooltip" title="Isolate fields - You can select the isolate fields that are displayed here )
