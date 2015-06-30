@@ -28,9 +28,11 @@ use parent qw(BIGSdb::Offline::Script);
 sub run_script {
 	my ($self) = @_;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
-	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	die "This script can only be run against an isolate database.\n"
+	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $schemes =
-	  $self->{'datastore'}->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id",
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
 		undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -40,6 +42,7 @@ sub run_script {
 		}
 		say "Updating scheme $scheme_id cache ($scheme_info->{'description'})" if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1 } );
+		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
 	}
 	return;
 }

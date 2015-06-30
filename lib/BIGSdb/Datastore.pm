@@ -1066,6 +1066,7 @@ sub create_temp_scheme_status_table {
 	#If run from cache script, create new temp table, then drop old and rename the new - 
 	#this should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
+		
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
 		$logger->error($@) if $@;
 		$self->{'db'}->commit;
