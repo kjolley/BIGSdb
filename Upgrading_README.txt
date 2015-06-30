@@ -13,9 +13,10 @@ Version 1.7:  Change of isolate, seqdef, and job database structures.
 Version 1.8:  Change of isolate database structures.
 Version 1.9:  Change of isolate database structures.
 Version 1.10: Change of isolate and seqdef database structures.
-Version 1.11: Change of authentication database structure.  New md5.js
-              Javascript file required.  New Perl modules: Net::Oauth and
-              Crypt::Eksblowfish::Bcrypt required.
+Version 1.11: Change of authentication database structure.  
+              New md5.js Javascript file required.  
+              New Perl modules: Net::Oauth and Crypt::Eksblowfish::Bcrypt 
+              required.
 
 Details can be found below.
 
@@ -227,3 +228,36 @@ allowing new permissions to be introduced without changes to the database
 structure.
 
 There are also changes to the projects table in the isolates database.
+
+Version 1.11
+------------
+There are three new Perl modules that should be installed:
+ * Net::Oauth
+ * Crypt::Eksblowfish::Bcrypt
+ * Mail::Sender  
+These should be available as system packages on most Linux distributions.
+
+The contents of the Javascript directory should be updated to include the
+new md5.js file and updated modernizr.js files.
+
+The css files should now be placed in a directory 'css' in the root of the web
+site, although they will still be found if all placed directly in the root
+directory.  There have been changes to bigsdb.css so make sure this is updated.
+
+The fonts directory should be copied to the root directory of the web site.
+
+There are changes to the isolate and sequence definition database structures.
+Please run the isolatedb_v1.11.sql and seqdefdb_v1.11.sql scripts, found in
+the sql/upgrade directory, against your databases.
+
+The authentication database has also been modified in order to support bcrypt
+hashing.  Please run auth_v1.11.sql against your authentication database
+(bigsdb_auth by default).  You should then run the upgrade_auth_hashes.pl
+script.  Make sure you also update the add_user.pl script as the old version
+is not compatible with the bcrypt hashing now used.
+
+There is a new script, upload_contigs.pl, to upload contigs directly to the 
+sequence bin via the command line.  This can be found in the 
+scripts/maintenance directory.
+
+
