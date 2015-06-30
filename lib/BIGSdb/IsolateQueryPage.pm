@@ -88,16 +88,15 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? "<h1>Isolate query/update</h1>" : "<h1>Search $desc database</h1>";
+	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search $desc database</h1>);
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		if ( !$q->param('no_js') ) {
-			say
-"<noscript><div class=\"box statusbad\"><p>The dynamic customisation of this interface requires that you enable "
-			  . "Javascript in your browser. Alternatively, you can use a <a href=\"$self->{'system'}->{'script_name'}?db="
-			  . "$self->{'instance'}&amp;page=query&amp;no_js=1\">non-Javascript version</a> that has 4 combinations "
-			  . "of fields.</p></div></noscript>";
+			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
+			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;no_js=1">)
+			  . q(non-Javascript version</a> that has 4 combinations of fields.</p></div></noscript>);
 		}
 		$self->_print_interface;
 	}
@@ -110,44 +109,44 @@ sub _print_interface {
 	my $system = $self->{'system'};
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
-	say "<div class=\"box\" id=\"queryform\"><div class=\"scrollable\">";
+	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->startform;
 	$q->param( table => $self->{'system'}->{'view'} );
 	say $q->hidden($_) foreach qw (db page table no_js);
-	say "<div style=\"white-space:nowrap\">";
+	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_display_fieldset;
-	say "<div style=\"clear:both\"></div>";
+	say q(<div style="clear:both"></div>);
 	$self->_print_designations_fieldset;
 	$self->_print_allele_status_fieldset;
 	$self->_print_tag_fieldset;
 	$self->_print_filter_fieldset;
 	$self->print_action_fieldset;
 	$self->_print_modify_search_fieldset;
-	say "</div>";
+	say q(</div>);
 	say $q->end_form;
-	say "</div>\n</div>";
+	say q(</div></div>);
 	return;
 }
 
 sub _print_provenance_fields_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<fieldset style=\"float:left\">\n<legend>Isolate provenance/phenotype fields</legend>";
+	say q(<fieldset style="float:left"><legend>Isolate provenance/phenotype fields</legend>);
 	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
-	say
-"<span id=\"prov_field_heading\" style=\"display:$display_field_heading\"><label for=\"prov_andor\">Combine with: </label>";
+	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
+	  . q(<label for="prov_andor">Combine with: </label>);
 	say $q->popup_menu( -name => 'prov_andor', -id => 'prov_andor', -values => [qw (AND OR)] );
 	say "</span>\n<ul id=\"provenance\">";
 	my ( $select_items, $labels ) = $self->_get_select_items;
 
 	for ( 1 .. $prov_fields ) {
-		say "<li>";
+		say q(<li>);
 		$self->_print_provenance_fields( $_, $prov_fields, $select_items, $labels );
-		say "</li>";
+		say q(</li>);
 	}
-	say "</ul>\n</fieldset>";
+	say q(</ul></fieldset>);
 	return;
 }
 
@@ -155,15 +154,15 @@ sub _print_display_fieldset {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say "<fieldset id=\"display_fieldset\" style=\"float:left\"><legend>Display/sort options</legend>";
+	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) =
 	  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
-	say "<ul>\n<li><span style=\"white-space:nowrap\">\n<label for=\"order\" class=\"display\">Order by: </label>";
+	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $self->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
-	say "</span></li>\n<li>";
+	say q(</span></li><li>);
 	say $self->get_number_records_control;
-	say "</li>\n</ul>\n</fieldset>";
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -174,21 +173,21 @@ sub _print_designations_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		print "<fieldset id=\"locus_fieldset\" style=\"float:left;display:$display\" >\n";
-		print "<legend>Allele designations/scheme fields</legend><div>\n";
+		say qq(<fieldset id="locus_fieldset" style="float:left;display:$display" >);
+		say q(<legend>Allele designations/scheme fields</legend><div>);
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
-		print
-"<span id=\"loci_field_heading\" style=\"display:$loci_field_heading\"><label for=\"c1\">Combine with: </label>\n";
-		print $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
-		print "</span>\n<ul id=\"loci\">\n";
+		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
+		  . q(<label for="c1">Combine with: </label>);
+		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
+		say q(</span><ul id="loci">);
 
 		for ( 1 .. $locus_fields ) {
-			say "<li>";
+			say q(<li>);
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
-			say "</li>";
+			say q(</li>);
 		}
-		say "</ul>\n</div></fieldset>";
+		say q(</ul></div></fieldset>);
 	}
 	return;
 }
@@ -200,21 +199,21 @@ sub _print_allele_status_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say "<fieldset id=\"allele_status_fieldset\" style=\"float:left;display:$display\">";
-		say "<legend>Allele designation status</legend><div>";
+		say qq(<fieldset id="allele_status_fieldset" style="float:left;display:$display">);
+		say q(<legend>Allele designation status</legend><div>);
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_status') || 1 );
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-		say
-"<span id=\"allele_status_field_heading\" style=\"display:$heading_display\"><label for=\"designation_andor\">Combine with: </label>";
+		say qq(<span id="allele_status_field_heading" style="display:$heading_display">)
+		  . q(<label for="designation_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'status_andor', -id => 'status_andor', -values => [qw (AND OR)] );
-		say "</span>\n<ul id=\"allele_status\">";
+		say q(</span><ul id="allele_status">);
 
 		for ( 1 .. $locus_fields ) {
-			say "<li>";
+			say q(<li>);
 			$self->_print_allele_status_fields( $_, $locus_fields, $locus_list, $locus_labels );
-			say "</li>";
+			say q(</li>);
 		}
-		say "</ul>\n</div></fieldset>";
+		say q(</ul></div></fieldset>);
 	}
 	return;
 }
@@ -222,26 +221,26 @@ sub _print_allele_status_fieldset {
 sub _print_tag_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM allele_sequences)");
+	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
 		say qq(<fieldset id="tag_fieldset" style="float:left;display:$display">);
-		say "<legend>Tagged sequence status</legend><div>";
+		say q(<legend>Tagged sequence status</legend><div>);
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
-		say
-qq(<span id="locus_tags_heading" style="display:$locus_tags_heading"><label for="designation_andor">Combine with: </label>);
+		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading">)
+		  . q(<label for="designation_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
-		say qq(</span>\n<ul id="tags">);
+		say q(</span><ul id="tags">);
 
 		for ( 1 .. $locus_tag_fields ) {
-			say "<li>";
+			say q(<li>);
 			$self->_print_locus_tag_fields( $_, $locus_tag_fields, $locus_list, $locus_labels );
-			say "</li>";
+			say q(</li>);
 		}
-		say "</ul></div>\n</fieldset>";
+		say q(</ul></div></fieldset>);
 		$self->{'tag_fieldset_exists'} = 1;
 	}
 	return;
@@ -287,13 +286,14 @@ sub _print_filter_fieldset {
 					push @$dropdownlist, @$list;
 				} else {
 					my $list = $self->{'datastore'}->run_query(
-"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field",
+						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
+						  . "WHERE $field IS NOT NULL ORDER BY $field",
 						undef,
 						{ fetch => 'col_arrayref' }
 					);
 					push @$dropdownlist, @$list;
 				}
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 				my $display_field = $metafield // $field;
 				push @filters,
 				  $self->get_filter(
@@ -315,11 +315,12 @@ sub _print_filter_fieldset {
 			foreach my $extended_attribute (@$extatt) {
 				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
 					my $values = $self->{'datastore'}->run_query(
-"SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? ORDER BY value",
+						'SELECT DISTINCT value FROM isolate_value_extended_attributes '
+						  . 'WHERE isolate_field=? AND attribute=? ORDER BY value',
 						[ $field, $extended_attribute ],
 						{ fetch => 'col_arrayref' }
 					);
-					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 					push @filters,
 					  $self->get_filter(
 						"$field\..$extended_attribute",
@@ -343,11 +344,11 @@ sub _print_filter_fieldset {
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
-	my $linked_seqs = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ($linked_seqs) {
 		my @values = ( 'Any sequence data', 'No sequence data' );
 		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
-			foreach my $value ( split /,/, $self->{'system'}->{'seqbin_size_threshold'} ) {
+			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
 				push @values, "Sequence bin size >= $value Mbp";
 			}
 		}
@@ -364,9 +365,9 @@ sub _print_filter_fieldset {
 	push @filters, $self->get_old_version_filter;
 	my $display = $q->param('no_js') ? 'block' : 'none';
 	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
-	say "<div><ul>";
+	say q(<div><ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
-	say "</ul></div></fieldset>";
+	say q(</ul></div></fieldset>);
 	$self->{'filter_fieldset_exists'} = 1;
 	return;
 }
@@ -374,38 +375,36 @@ sub _print_filter_fieldset {
 sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<div class="panel">);
-	say qq(<a class="trigger" id="close_trigger" href="#">[X]</a>);
-	say "<h2>Modify form parameters</h2>";
-	say "<p>Click to add or remove additional query terms:</p>";
-	say "<ul>";
+	say q(<div class="panel">);
+	say q(<a class="trigger" id="close_trigger" href="#">[X]</a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p>Click to add or remove additional query terms:</p><ul>);
 	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_designations">$locus_fieldset_display</a>);
-	say "Allele designations/scheme field values</li>";
+	say q(Allele designations/scheme field values</li>);
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
-	say "Allele designation status</li>";
+	say q(Allele designation status</li>);
 
 	if ( $self->{'tag_fieldset_exists'} ) {
 		my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'}
 		  || $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
 		say qq(<li><a href="" class="button" id="show_tags">$tag_fieldset_display</a>);
-		say "Tagged sequence status</li>";
+		say q(Tagged sequence status</li>);
 	}
 	if ( $self->{'filter_fieldset_exists'} ) {
 		my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
 		  || $self->filters_selected ? 'Hide' : 'Show';
 		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
-		say "Filters</li>";
+		say q(Filters</li>);
 	}
-	say "</ul>";
-	say
-qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-	  . qq(save_options=1" style="display:none">Save options</a><br />);
-	say "</div>";
-	say qq(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
+	say q(</ul>);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=query&amp;save_options=1" style="display:none">Save options</a><br />);
+	say q(</div>);
+	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
 	return;
 }
 
@@ -425,20 +424,20 @@ sub _get_profile_filters {
 					text => "$scheme->{'description'} profiles",
 					tooltip =>
 					  "$scheme->{'description'} profile completion filter - Select whether the isolates should "
-					  . "have complete, partial, or unstarted profiles.",
+					  . 'have complete, partial, or unstarted profiles.',
 					capitalize_first => 1
 				}
 			  );
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		foreach my $field (@$scheme_fields) {
-			if ( $self->{'prefs'}->{"dropdown\_scheme_fields"}->{ $scheme->{'id'} }->{$field} ) {
+			if ( $self->{'prefs'}->{'dropdown_scheme_fields'}->{ $scheme->{'id'} }->{$field} ) {
 				my $values = $self->{'datastore'}->get_scheme( $scheme->{'id'} )->get_distinct_fields($field);
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					@$values = sort { $a <=> $b } @$values;
 				}
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/ ? 'an' : 'a';
+				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 				push @filters,
 				  $self->get_filter(
 					"scheme\_$scheme->{'id'}\_$field",
@@ -460,7 +459,7 @@ sub _get_profile_filters {
 sub _print_provenance_fields {
 	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say "<span style=\"white-space:nowrap\">";
+	say q(<span style="white-space:nowrap">);
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
@@ -481,10 +480,10 @@ sub _print_provenance_fields {
 			say
 			  qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 			  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . qq(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+			  . q(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
-	say "</span>\n";
+	say q(</span>);
 	return;
 }
 
@@ -494,7 +493,7 @@ sub _print_allele_status_fields {
 	unshift @$locus_list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say "<span style=\"white-space:nowrap\">";
+	say q(<span style="white-space:nowrap">);
 	say $self->popup_menu(
 		-name   => "allele_sequence_field$row",
 		-id     => "allele_sequence_field$row",
@@ -515,13 +514,13 @@ sub _print_allele_status_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say
-qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-			  . qq(fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . qq( <a class="tooltip" id="allele_status_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+			say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+			  . q(class="button">+</a> <a class="tooltip" id="allele_status_tooltip" title="">)
+			  . q(<span class="fa fa-info-circle"></span></a>);
 		}
 	}
-	say "</span>";
+	say q(</span>);
 	return;
 }
 
@@ -530,7 +529,7 @@ sub _print_loci_fields {
 	unshift @$locus_list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say "<span style=\"white-space:nowrap\">";
+	say q(<span style="white-space:nowrap">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
@@ -550,12 +549,12 @@ sub _print_loci_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-			  . qq(fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . qq( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+			say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . q( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
-	say "</span>";
+	say q(</span>);
 	return;
 }
 
@@ -582,12 +581,12 @@ sub _print_locus_tag_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-			  . qq(fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . qq( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+			say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+			  . q( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 		}
 	}
-	say "</span>";
+	say q(</span>);
 	return;
 }
 
@@ -604,9 +603,9 @@ sub _run_query {
 		$qry = $self->_modify_query_for_designations( $qry, \@errors );
 		$qry = $self->_modify_query_for_tags( $qry, \@errors );
 		$qry = $self->_modify_query_for_designation_status( $qry, \@errors );
-		$qry .= " ORDER BY ";
+		$qry .= ' ORDER BY ';
 		if ( defined $q->param('order')
-			&& ( $q->param('order') =~ /^la_(.+)\|\|/ || $q->param('order') =~ /^cn_(.+)/ ) )
+			&& ( $q->param('order') =~ /^la_(.+)\|\|/x || $q->param('order') =~ /^cn_(.+)/x ) )
 		{
 			$qry .= "l_$1";
 		} else {
@@ -619,9 +618,9 @@ sub _run_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		print "<div class=\"box\" id=\"statusbad\"><p>Problem with search criteria:</p>\n";
-		print "<p>@errors</p></div>\n";
-	} elsif ( $qry !~ /\(\)/ ) {
+		say q("<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
+		say qq(<p>@errors</p></div>);
+	} elsif ( $qry !~ /\(\)/x ) {
 		my @hidden_attributes;
 		push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
 		for ( 1 .. MAX_ROWS ) {
@@ -639,30 +638,30 @@ sub _run_query {
 			}
 		}
 		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list include_old);
-		my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			push @hidden_attributes, "scheme_$scheme_id\_$_\_list" foreach (@$scheme_fields);
 		}
 		my $view = $self->{'system'}->{'view'};
-		$qry =~
-		  s/ datestamp/ $view\.datestamp/g;    #datestamp exists in other tables and can be ambiguous on complex queries
-		$qry =~ s/\(datestamp/\($view\.datestamp/g;
+
+		#datestamp exists in other tables and can be ambiguous on complex queries
+		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
+		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
 		my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {
-		say
-"<div class=\"box\" id=\"statusbad\">Invalid search performed.  Try to <a href=\"$self->{'system'}->{'script_name'}?db="
-		  . "$self->{'instance'}&amp;page=browse\">browse all records</a>.</div>";
+		say q(<div class="box" id="statusbad">Invalid search performed.  Try to )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db="$self->{'instance'}&amp;page=browse">)
+		  . q(browse all records</a>.</div>);
 	}
 	my $elapsed = time - $start_time;
 	if ( $elapsed > WARN_IF_TAKES_LONGER_THAN_X_SECONDS && $self->{'datastore'}->{'scheme_not_cached'} ) {
-		$logger->warn(
-			"$self->{'instance'}: Query took $elapsed seconds.  Schemes are not cached for this database.  You should "
-			  . "consider running the update_scheme_caches.pl script regularly against this database to create these caches."
-		);
+		$logger->warn( "$self->{'instance'}: Query took $elapsed seconds.  Schemes are not cached for this "
+			  . 'database.  You should consider running the update_scheme_caches.pl script regularly against '
+			  . 'this database to create these caches.' );
 	}
 	return;
 }
@@ -677,16 +676,16 @@ sub _generate_query_for_provenance_fields {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("prov_value$i") && $q->param("prov_value$i") ne '' ) {
 			my $field = $q->param("prov_field$i");
-			$field =~ s/^f_//;
+			$field =~ s/^f_//x;
 			my @groupedfields = $self->get_grouped_fields($field);
 			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $extended_isolate_field;
 			my $parent_field_type;
-			if ( $field =~ /^e_(.*)\|\|(.*)/ ) {
+			if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
 				$extended_isolate_field = $1;
 				$field                  = $2;
 				my $att_info = $self->{'datastore'}->run_query(
-					"SELECT * FROM isolate_field_extended_attributes WHERE isolate_field=? AND attribute=?",
+					'SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
 					[ $extended_isolate_field, $field ],
 					{ fetch => 'row_hashref' }
 				);
@@ -704,13 +703,13 @@ sub _generate_query_for_provenance_fields {
 				$errors_ref );
 			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 			$first_value = 0;
-			if ( $field =~ /(.*) \(id\)$/
+			if ( $field =~ /(.*)\ \(id\)$/x
 				&& !BIGSdb::Utils::is_int($text) )
 			{
 				push @$errors_ref, "$field is an integer field.";
 				next;
 			}
-			if ( any { $field =~ /(.*) \($_\)$/ } qw (id surname first_name affiliation) ) {
+			if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
 				$qry .= $modifier . $self->search_users( $field, $operator, $text, $view );
 			} else {
 				if (@groupedfields) {
@@ -738,7 +737,7 @@ sub _generate_query_for_provenance_fields {
 				if ( $operator eq 'NOT' ) {
 					$args->{'not'} = 1;
 					$qry .= $self->_provenance_equals_type_operator($args);
-				} elsif ( $operator eq "contains" ) {
+				} elsif ( $operator eq 'contains' ) {
 					$args->{'behaviour'} = '%text%';
 					$qry .= $self->_provenance_like_type_operator($args);
 				} elsif ( $operator eq 'starts with' ) {
@@ -747,7 +746,7 @@ sub _generate_query_for_provenance_fields {
 				} elsif ( $operator eq 'ends with' ) {
 					$args->{'behaviour'} = '%text';
 					$qry .= $self->_provenance_like_type_operator($args);
-				} elsif ( $operator eq "NOT contain" ) {
+				} elsif ( $operator eq 'NOT contain' ) {
 					$args->{'behaviour'} = '%text%';
 					$args->{'not'}       = 1;
 					$qry .= $self->_provenance_like_type_operator($args);
@@ -761,12 +760,11 @@ sub _generate_query_for_provenance_fields {
 						  $parent_field_type eq 'int'
 						  ? "CAST($view.$extended_isolate_field AS text) "
 						  : "$view.$extended_isolate_field ";
-						$qry .= "IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-						  . "isolate_field='$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+						$qry .= 'IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='
+						  . "'$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
 					} elsif ( $field eq $labelfield ) {
-						$qry .=
-"($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases WHERE alias "
-						  . "$operator E'$text'))";
+						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
+						  . "WHERE alias $operator E'$text'))";
 					} else {
 						if ( $text eq 'null' ) {
 							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
@@ -807,7 +805,7 @@ sub _grouped_field_query {
 				}
 			}
 		}
-	} elsif ( $operator eq "contains" ) {
+	} elsif ( $operator eq 'contains' ) {
 		foreach (@$groupedfields) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
@@ -817,7 +815,7 @@ sub _grouped_field_query {
 				$buffer .= "upper($view.$_) LIKE upper(E'\%$text\%')";
 			}
 		}
-	} elsif ( $operator eq "starts with" ) {
+	} elsif ( $operator eq 'starts with' ) {
 		foreach (@$groupedfields) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
@@ -827,7 +825,7 @@ sub _grouped_field_query {
 				$buffer .= "upper($view.$_) LIKE upper(E'$text\%')";
 			}
 		}
-	} elsif ( $operator eq "ends with" ) {
+	} elsif ( $operator eq 'ends with' ) {
 		foreach (@$groupedfields) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
@@ -837,7 +835,7 @@ sub _grouped_field_query {
 				$buffer .= "upper($view.$_) LIKE upper(E'\%$text')";
 			}
 		}
-	} elsif ( $operator eq "NOT contain" ) {
+	} elsif ( $operator eq 'NOT contain' ) {
 		foreach (@$groupedfields) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
 			$buffer .= ' AND ' if $_ ne $groupedfields->[0];
@@ -907,12 +905,13 @@ sub _provenance_equals_type_operator {
 			my $andor = $not ? 'AND' : 'OR';
 			if ( $values->{'text'} eq 'null' ) {
 				$buffer .=
-				  "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id $inv_not "
-				  . "IN (SELECT isolate_id FROM meta_$metaset)";
+				    "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id "
+				  . "$inv_not IN (SELECT isolate_id FROM meta_$metaset)";
 			} else {
 				$buffer .=
 				  lc( $values->{'type'} ) eq 'text'
-				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = upper(E'$values->{'text'}') )"
+				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = "
+				  . "upper(E'$values->{'text'}') )"
 				  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$values->{'text'}' )";
 			}
 		} else {
@@ -947,13 +946,14 @@ sub _provenance_like_type_operator {
 		  $values->{'parent_field_type'} eq 'int'
 		  ? "CAST($view.$values->{'extended_isolate_field'} AS text) "
 		  : "$view.$values->{'extended_isolate_field'} ";
-		$buffer .= "$not IN (SELECT field_value FROM isolate_value_extended_attributes "
-		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND value ILIKE E'$text')";
+		$buffer .=
+		    "$not IN (SELECT field_value FROM isolate_value_extended_attributes "
+		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' "
+		  . "AND value ILIKE E'$text')";
 	} elsif ( $values->{'field'} eq $labelfield ) {
 		my $andor = $values->{'not'} ? 'AND' : 'OR';
-		$buffer .=
-"($not $values->{'field'} ILIKE E'$text' $andor $view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
-		  . "alias ILIKE E'$text'))";
+		$buffer .= "($not $values->{'field'} ILIKE E'$text' $andor $view.id $not IN "
+		  . "(SELECT isolate_id FROM isolate_aliases WHERE alias ILIKE E'$text'))";
 	} else {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
 		if ( defined $metaset ) {
@@ -985,8 +985,8 @@ sub _modify_query_for_filters {
 	foreach my $field (@$field_list) {
 		if ( defined $q->param("$field\_list") && $q->param("$field\_list") ne '' ) {
 			my $value = $q->param("$field\_list");
-			if ( $qry !~ /WHERE \(\)\s*$/ ) {
-				$qry .= " AND ";
+			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+				$qry .= ' AND ';
 			} else {
 				$qry = "SELECT * FROM $view WHERE ";
 			}
@@ -994,8 +994,8 @@ sub _modify_query_for_filters {
 			if ( defined $metaset ) {
 				$qry .= (
 					( $value eq '<blank>' || $value eq 'null' )
-					? "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR $view.id NOT IN (SELECT isolate_id "
-					  . "FROM meta_$metaset))"
+					? "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR $view.id "
+					  . "NOT IN (SELECT isolate_id FROM meta_$metaset))"
 					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
@@ -1010,15 +1010,15 @@ sub _modify_query_for_filters {
 					&& $q->param("$field\..$extended_attribute\_list") ne '' )
 				{
 					my $value = $q->param("$field\..$extended_attribute\_list");
-					$value =~ s/'/\\'/g;
-					if ( $qry !~ /WHERE \(\)\s*$/ ) {
-						$qry .=
-" AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='$field' "
-						  . "AND attribute='$extended_attribute' AND value='$value'))";
+					$value =~ s/'/\\'/gx;
+					if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+						$qry .= " AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
+						  . "isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
 					} else {
 						$qry =
-"SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-						  . "isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
+						    "SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM "
+						  . "isolate_value_extended_attributes WHERE isolate_field='$field' AND "
+						  . "attribute='$extended_attribute' AND value='$value'))";
 					}
 				}
 			}
@@ -1033,22 +1033,21 @@ sub _modify_query_for_filters {
 		my $size_clause = '';
 		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
 			$not = ' NOT ';
-		} elsif ( $q->param('linked_sequences_list') =~ />= ([\d\.]+) Mbp/ ) {
+		} elsif ( $q->param('linked_sequences_list') =~ />=\ ([\d\.]+)\ Mbp/x ) {
 			my $size = $1 * 1000000;    #Mbp
 			$size_clause = " AND seqbin_stats.total_length >= $size";
 		}
-		if ( $qry !~ /WHERE \(\)\s*$/ ) {
-			$qry .=
-			  " AND (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE seqbin_stats.isolate_id = $view.id$size_clause))";
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE "
+			  . "seqbin_stats.isolate_id = $view.id$size_clause))";
 		} else {
-			$qry =
-			    "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE seqbin_stats.isolate_id = "
-			  . "$view.id$size_clause))";
+			$qry = "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE "
+			  . "seqbin_stats.isolate_id=$view.id$size_clause))";
 		}
 	}
 	$self->_modify_query_by_profile_status( \$qry );
 	if ( !$q->param('include_old') ) {
-		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND ($view.new_version IS NULL)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE ($view.new_version IS NULL)";
@@ -1068,7 +1067,7 @@ sub _modify_query_by_profile_status {
 		{
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			if (@$scheme_loci) {
-				my $table = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+				my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				my $param       = $q->param("scheme_$scheme_id\_profile_status_list");
 				my $locus_count = @$scheme_loci;
 				my %modify      = (
@@ -1142,7 +1141,7 @@ sub _modify_query_by_membership {
 		$subqry .= "$view.id IN (SELECT isolate_id FROM $table WHERE $query_field IN (@int_list))";
 	}
 	if ($subqry) {
-		if ( $$qry_ref !~ /WHERE \(\)\s*$/ ) {
+		if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
 			$$qry_ref .= " AND ($subqry)";
 		} else {
 			$$qry_ref = "SELECT * FROM $view WHERE ($subqry)";
@@ -1158,15 +1157,15 @@ sub _modify_query_for_designations {
 	my ( %lqry, @lqry_blank, %combo );
 	my $pattern     = LOCUS_PATTERN;
 	my $andor       = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
-	my $qry_started = $qry =~ /\(\)$/ ? 0 : 1;
+	my $qry_started = $qry =~ /\(\)$/x ? 0 : 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
-			if ( $q->param("designation_field$i") =~ /$pattern/ ) {
+			if ( $q->param("designation_field$i") =~ /$pattern/x ) {
 				my $locus            = $1;
 				my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
 				my $unmodified_locus = $locus;
-				$locus =~ s/'/\\'/g;
+				$locus =~ s/'/\\'/gx;
 				my $operator = $q->param("designation_operator$i") // '=';
 				my $text = $q->param("designation_value$i");
 				next if $combo{"$locus\_$operator\_$text"};    #prevent duplicates
@@ -1188,33 +1187,36 @@ sub _modify_query_for_designations {
 					$lqry{$locus} .= (
 						( $text eq 'null' )
 						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
-						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) = upper(E'$text'))"
+						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id)="
+						  . "upper(E'$text'))"
 					);
-				} elsif ( $operator eq "contains" ) {
+				} elsif ( $operator eq 'contains' ) {
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+					  . "LIKE upper(E'\%$text\%'))";
+				} elsif ( $operator eq 'starts with' ) {
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+					  . "LIKE upper(E'$text\%'))";
+				} elsif ( $operator eq 'ends with' ) {
+					$lqry{$locus} .= $andor if $lqry{$locus};
+					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+					  . "LIKE upper(E'\%$text'))";
+				} elsif ( $operator eq 'NOT contain' ) {
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					$lqry{$locus} .=
-"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
-				} elsif ( $operator eq "starts with" ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .=
-"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'$text\%'))";
-				} elsif ( $operator eq "ends with" ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .=
-"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) LIKE upper(E'\%$text'))";
-				} elsif ( $operator eq "NOT contain" ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .=
-"(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) LIKE upper(E'\%$text\%'))";
+					    "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) "
+					  . "LIKE upper(E'\%$text\%'))";
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq 'null' ) {
 						push @lqry_blank,
-						  "($view.id NOT IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'))";
+						  "($view.id NOT IN (SELECT isolate_id FROM allele_designations " . "WHERE locus=E'$locus'))";
 					} else {
 						$lqry{$locus} .= $andor if $lqry{$locus};
 						$lqry{$locus} .=
 						  $locus_info->{'allele_id_format'} eq 'text'
-						  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) = upper(E'$text'))"
+						  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id)="
+						  . "upper(E'$text'))"
 						  : "(allele_designations.locus=E'$locus' AND allele_designations.allele_id = E'$text')";
 					}
 				} else {
@@ -1224,11 +1226,11 @@ sub _modify_query_for_designations {
 					}
 					$lqry{$locus} .= $andor if $lqry{$locus};
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						$lqry{$locus} .=
-"(allele_designations.locus=E'$locus' AND CAST(allele_designations.allele_id AS int) $operator E'$text')";
+						$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND "
+						  . "CAST(allele_designations.allele_id AS int) $operator E'$text')";
 					} else {
-						$lqry{$locus} .=
-						  "(allele_designations.locus=E'$locus' AND allele_designations.allele_id $operator E'$text')";
+						$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND "
+						  . "allele_designations.allele_id $operator E'$text')";
 					}
 				}
 			}
@@ -1237,7 +1239,7 @@ sub _modify_query_for_designations {
 	my @sqry;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
-			if ( $q->param("designation_field$i") =~ /^s_(\d+)_(.*)/ ) {
+			if ( $q->param("designation_field$i") =~ /^s_(\d+)_(.*)/x ) {
 				my ( $scheme_id, $field ) = ( $1, $2 );
 				my $operator          = $q->param("designation_operator$i") // '=';
 				my $text              = $q->param("designation_value$i");
@@ -1259,32 +1261,34 @@ sub _modify_query_for_designations {
 				$field = "$isolate_scheme_field_view.$field";
 				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $temp_qry    = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
-				$text =~ s/'/\\'/g;
+				$text =~ s/'/\\'/gx;
 				if ( $operator eq 'NOT' ) {
 					if ( $text eq 'null' ) {
 						push @sqry, "($view.id NOT IN ($temp_qry WHERE $field IS NULL) AND $view.id IN ($temp_qry))";
 					} else {
 						push @sqry,
 						  $scheme_field_info->{'type'} eq 'integer'
-						  ? "($view.id NOT IN ($temp_qry WHERE CAST($field AS text)= E'$text' AND $view.id IN ($temp_qry)))"
-						  : "($view.id NOT IN ($temp_qry WHERE upper($field)=upper(E'$text') AND $view.id IN ($temp_qry)))";
+						  ? "($view.id NOT IN ($temp_qry WHERE CAST($field AS text)= E'$text' AND "
+						  . "$view.id IN ($temp_qry)))"
+						  : "($view.id NOT IN ($temp_qry WHERE upper($field)=upper(E'$text') AND "
+						  . "$view.id IN ($temp_qry)))";
 					}
-				} elsif ( $operator eq "contains" ) {
+				} elsif ( $operator eq 'contains' ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) ~* E'$text'))"
 					  : "($view.id IN ($temp_qry WHERE $field ~* E'$text'))";
-				} elsif ( $operator eq "starts with" ) {
+				} elsif ( $operator eq 'starts with' ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'$text\%'))"
 					  : "($view.id IN ($temp_qry WHERE $field ILIKE E'$text\%'))";
-				} elsif ( $operator eq "ends with" ) {
+				} elsif ( $operator eq 'ends with' ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'\%$text'))"
 					  : "($view.id IN ($temp_qry WHERE $field ILIKE E'\%$text'))";
-				} elsif ( $operator eq "NOT contain" ) {
+				} elsif ( $operator eq 'NOT contain' ) {
 					push @sqry,
 					  $scheme_field_info->{'type'} eq 'integer'
 					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) !~* E'$text'))"
@@ -1292,7 +1296,7 @@ sub _modify_query_for_designations {
 				} elsif ( $operator eq '=' ) {
 					if ( $text eq 'null' ) {
 						push @lqry_blank,
-						  "($view.id IN ($temp_qry WHERE $field IS NULL) OR $view.id NOT IN ($temp_qry))";
+						  "($view.id IN ($temp_qry WHERE $field IS NULL) OR " . "$view.id NOT IN ($temp_qry))";
 					} else {
 						push @sqry,
 						  $scheme_field_info->{'type'} eq 'text'
@@ -1323,7 +1327,7 @@ sub _modify_query_for_designations {
 		my @lqry = values %lqry;
 		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="
 		  . "allele_designations.isolate_id WHERE @lqry $modify)";
-		if ( $qry =~ /\(\)$/ ) {
+		if ( $qry =~ /\(\)$/x ) {
 			$qry = "SELECT * FROM $view WHERE $brace$lqry";
 		} else {
 			$qry .= " AND $brace($lqry)";
@@ -1332,7 +1336,7 @@ sub _modify_query_for_designations {
 	if (@lqry_blank) {
 		local $" = ' ' . $q->param('designation_andor') . ' ';
 		my $modify = scalar keys %lqry ? $q->param('designation_andor') : 'AND';
-		if ( $qry =~ /\(\)$/ ) {
+		if ( $qry =~ /\(\)$/x ) {
 			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
 		} else {
 			$qry .= keys %lqry ? " $modify" : ' AND';
@@ -1342,7 +1346,7 @@ sub _modify_query_for_designations {
 	if (@sqry) {
 		local $" = " $andor ";
 		my $sqry = "@sqry";
-		if ( $qry =~ /\(\)$/ ) {
+		if ( $qry =~ /\(\)$/x ) {
 			$qry = "SELECT * FROM $view WHERE $sqry";
 		} else {
 			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
@@ -1363,26 +1367,26 @@ sub _modify_query_for_tags {
 	my $set_id  = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-	  : '';
+	  : q();
 	foreach my $i ( 1 .. MAX_ROWS ) {
 
 		if ( ( $q->param("tag_field$i") // '' ) ne '' && ( $q->param("tag_value$i") // '' ) ne '' ) {
 			my $action = $q->param("tag_value$i");
 			my $locus;
 			if ( $q->param("tag_field$i") ne 'any locus' ) {
-				if ( $q->param("tag_field$i") =~ /$pattern/ ) {
+				if ( $q->param("tag_field$i") =~ /$pattern/x ) {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {
-					push @$errors_ref, "Invalid locus selected.";
+					push @$errors_ref, 'Invalid locus selected.';
 					next;
 				}
 			} else {
 				$locus = 'any locus';
 			}
-			$locus =~ s/'/\\'/g;
+			$locus =~ s/'/\\'/gx;
 			my $temp_qry;
 			my $locus_clause =
 			  $locus eq 'any locus' ? "(locus IS NOT NULL $set_clause)" : "(locus=E'$locus' $set_clause)";
@@ -1395,25 +1399,24 @@ sub _modify_query_for_tags {
 			} elsif ( $action eq 'incomplete' ) {
 				$temp_qry =
 				  "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND NOT complete)";
-			} elsif ( $action =~ /^flagged: ([\w\s:]+)$/ ) {
+			} elsif ( $action =~ /^flagged:\ ([\w\s:]+)$/x ) {
 				my $flag = $1;
 				my $flag_joined_table =
-				  "sequence_flags LEFT JOIN allele_sequences ON sequence_flags.id = allele_sequences.id";
+				  'sequence_flags LEFT JOIN allele_sequences ON ' . 'sequence_flags.id = allele_sequences.id';
 				if ( $flag eq 'any' ) {
-					$temp_qry =
-					  "$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+					$temp_qry = "$view.id IN (SELECT allele_sequences.isolate_id FROM "
+					  . "$flag_joined_table WHERE $locus_clause)";
 				} elsif ( $flag eq 'none' ) {
 					if ( $locus eq 'any locus' ) {
 						push @$errors_ref,
-						  "Searching for any locus not flagged is not supported.  Choose a specific locus.";
+						  'Searching for any locus not flagged is not supported.  ' . 'Choose a specific locus.';
 					} else {
-						$temp_qry =
-						    "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause) AND id NOT IN "
-						  . "(SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+						$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause) "
+						  . "AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
 					}
 				} else {
-					$temp_qry =
-"$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table WHERE $locus_clause AND flag='$flag')";
+					$temp_qry = "$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table "
+					  . "WHERE $locus_clause AND flag='$flag')";
 				}
 			}
 			push @tag_queries, $temp_qry if $temp_qry;
@@ -1422,7 +1425,7 @@ sub _modify_query_for_tags {
 	if (@tag_queries) {
 		my $andor = ( any { $q->param('tag_andor') eq $_ } qw (AND OR) ) ? $q->param('tag_andor') : '';
 		local $" = " $andor ";
-		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND (@tag_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@tag_queries)";
@@ -1440,7 +1443,7 @@ sub _modify_query_for_designation_status {
 	my $set_id  = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	foreach my $i ( 1 .. MAX_ROWS ) {
@@ -1453,11 +1456,11 @@ sub _modify_query_for_designation_status {
 			my $action = $q->param("allele_sequence_field$i");
 			my $locus;
 			if ( $q->param("allele_sequence_field$i") ne 'any locus' ) {
-				if ( $q->param("allele_sequence_field$i") =~ /$pattern/ ) {
+				if ( $q->param("allele_sequence_field$i") =~ /$pattern/x ) {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {
-					push @$errors_ref, "Invalid locus selected.";
+					push @$errors_ref, 'Invalid locus selected.';
 					next;
 				}
 			} else {
@@ -1465,21 +1468,20 @@ sub _modify_query_for_designation_status {
 			}
 			my $status = $q->param("allele_sequence_value$i");
 			if ( none { $status eq $_ } qw (provisional confirmed) ) {
-				push @$errors_ref, "Invalid status selected.";
+				push @$errors_ref, 'Invalid status selected.';
 				next;
 			}
-			$locus =~ s/'/\\'/g;
+			$locus =~ s/'/\\'/gx;
 			my $temp_qry;
 			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
-			push @status_queries,
-			  "$view.id IN (SELECT isolate_id FROM allele_designations WHERE (allele_designations.$locus_clause "
-			  . "AND status='$status' $set_clause))";
+			push @status_queries, "$view.id IN (SELECT isolate_id FROM allele_designations WHERE "
+			  . "(allele_designations.$locus_clause AND status='$status' $set_clause))";
 		}
 	}
 	if (@status_queries) {
 		my $andor = ( any { $q->param('status_andor') eq $_ } qw (AND OR) ) ? $q->param('status_andor') : '';
 		local $" = " $andor ";
-		if ( $qry !~ /WHERE \(\)\s*$/ ) {
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND (@status_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@status_queries)";
@@ -1603,12 +1605,12 @@ END
 				$autocomplete_js .= ",\n" if !$first;
 				$autocomplete_js .= "       f_$field: [\n";
 				foreach my $value (@$options) {
-					$value =~ s/"/\\"/g;
-					$autocomplete_js .= qq(		  "$value");
+					$value =~ s/"/\\"/gx;
+					$autocomplete_js .= qq(       "$value");
 					$autocomplete_js .= ',' if $value ne $options->[-1];
 					$autocomplete_js .= "\n";
 				}
-				$autocomplete_js .= "       ]";
+				$autocomplete_js .= '       ]';
 				$first = 0;
 			}
 		}
@@ -1618,17 +1620,18 @@ END
 				$autocomplete_js .= ",\n" if !$first;
 				$autocomplete_js .= qq(       "e_$field||$attribute": [\n);
 				my $values = $self->{'datastore'}->run_query(
-"SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? ORDER BY value",
+					'SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE '
+					  . '(isolate_field,attribute)=(?,?) ORDER BY value',
 					[ $field, $attribute ],
 					{ fetch => 'col_arrayref', cache => 'IsolateQuery::extended_attribute_values' }
 				);
 				foreach my $value (@$values) {
-					$value =~ s/"/\\"/g;
-					$autocomplete_js .= qq(		  "$value");
+					$value =~ s/"/\\"/gx;
+					$autocomplete_js .= qq(       "$value");
 					$autocomplete_js .= ',' if $value ne $values->[-1];
 					$autocomplete_js .= "\n";
 				}
-				$autocomplete_js .= "       ]";
+				$autocomplete_js .= '       ]';
 				$first = 0;
 			}
 		}

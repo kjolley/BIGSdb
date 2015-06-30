@@ -1054,7 +1054,7 @@ sub create_temp_scheme_status_table {
 		$table        = $table . '_' . int( rand(99999) );
 	}
 	my $create_table =
-	    qq(CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));)
+	    qq[CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));]
 	  . qq[INSERT INTO $table SELECT $view.id, COUNT(DISTINCT locus) FROM ]
 	  . qq[$view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
 	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id=]
