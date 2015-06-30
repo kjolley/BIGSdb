@@ -26,12 +26,13 @@ use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
-	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my $table       = $q->param('table');
-	my $query_file  = $q->param('query_file');
-	my $query       = $self->get_query_from_temp_file($query_file);
-	my $record_name = $self->get_record_name($table);
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $table      = $q->param('table');
+	my $query_file = $q->param('query_file');
+	my $query      = $self->get_query_from_temp_file($query_file);
+	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
+	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";
 	if ( !$self->can_delete_all ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete all records.</p></div>);
@@ -162,7 +163,7 @@ sub _delete {
 			push @history,             "$isolate_id|$locus: designation '$allele_id' deleted";
 			push @allele_designations, "$isolate_id|$locus";
 		}
-	} elsif ( $table eq 'isolates' ) {
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
 	}
@@ -172,21 +173,29 @@ sub _delete {
 		return;
 	}
 	eval {
-		foreach my $isolate_id (@$ids_affected)
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
 		{
-			my $old_version =
-			  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
-				$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
-			my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
-			my $new_version  = $field_values->{'new_version'};
-			if ( $new_version && $old_version )
-			{    #Deleting intermediate version - update old version to point to newer version
-				$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
-			} elsif ($old_version) {    #Deleting latest version - remove link to this version in old version
-				$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
+			foreach my $isolate_id (@$ids_affected) {
+				my $old_version =
+				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+					$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
+				my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+				my $new_version  = $field_values->{'new_version'};
+
+				#Deleting intermediate version - update old version to point to newer version
+				if ( $new_version && $old_version ) {
+					$self->{'db'}
+					  ->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
+
+					#Deleting latest version - remove link to this version in old version
+				} elsif ($old_version) {
+					$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
+				}
+				$self->{'db'}->do( 'DELETE FROM isolates WHERE id=?', undef, $isolate_id );
 			}
+		} else {
+			$self->{'db'}->do($delete_qry);
 		}
-		$self->{'db'}->do($delete_qry);
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
 			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
 		{
@@ -281,7 +290,8 @@ sub _print_interface {
 	say q(<div class="box" id="statusbad">);
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
 	say q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>);
-	my $record_name = $self->get_record_name($table);
+	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
+	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say qq(<p>If you proceed, you will delete $count $record_name record$plural.  )
 	  . q(Please confirm that this is your intention.</p>);
 	say q(</fieldset>);
@@ -296,9 +306,10 @@ sub _print_interface {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
+	$table = 'isolates' if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'};
+	my $type = $self->get_record_name($table);
 	return "Delete multiple $type records - $desc";
 }
 1;
