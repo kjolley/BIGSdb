@@ -2118,7 +2118,6 @@ sub _initiate_isolatedb_prefs {
 sub initiate_view {
 	my ( $self, $username ) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	return if !$username;
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
