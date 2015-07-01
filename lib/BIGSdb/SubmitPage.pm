@@ -1576,7 +1576,7 @@ sub _print_sequence_table {
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
 		my $assigned = $self->{'datastore'}->run_query(
-			'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
+			'SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))',
 			[ $allele_submission->{'locus'}, $seq->{'sequence'} ],
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
@@ -1585,10 +1585,14 @@ sub _print_sequence_table {
 				$self->_clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
 			}
 			if ( $seq->{'status'} eq 'assigned' ) {
-				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending' );
+				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
 		} else {
+			if ( $seq->{'status'} eq 'pending' ) {
+				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
+				$seq->{'status'} = 'assigned';
+			}
 			$all_rejected = 0;
 		}
 		$assigned //= '';
@@ -1871,10 +1875,11 @@ sub _clear_assigned_profile_id {
 }
 
 sub _set_allele_status {
-	my ( $self, $submission_id, $seq_id, $status ) = @_;
+	my ( $self, $submission_id, $seq_id, $status, $assigned_id ) = @_;
 	eval {
-		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,seq_id)=(?,?)',
-			undef, $status, $submission_id, $seq_id );
+		$self->{'db'}
+		  ->do( 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)',
+			undef, $status, $assigned_id, $submission_id, $seq_id );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -2282,7 +2287,8 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 				recipient => $submission->{'submitter'},
 				sender    => $curator_id,
 				subject   => "$desc submission closed - $submission_id",
-				message   => $self->_get_text_summary( $submission_id, { messages => 1 } )
+				message   => $self->_get_text_summary( $submission_id, { messages => 1 } ),
+				cc_sender => 1
 			}
 		);
 	}
@@ -2640,7 +2646,7 @@ sub _email {
 		}
 	}
 	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
-	$args->{'cc'} = $sender->{'email'} if $sender->{'email'} ne $recipient->{'email'};
+	$args->{'cc'} = $sender->{'email'} if $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'};
 	my $mail_sender = Mail::Sender->new($args);
 	$mail_sender->MailMsg( { subject => $subject, msg => $params->{'message'} } );
 	no warnings 'once';
