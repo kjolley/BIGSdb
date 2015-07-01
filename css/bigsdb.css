@@ -76,17 +76,6 @@ sub, sup {
 sup {top: -0.5em}
 sub {bottom: -0.25em}
 
-a.downloadbutton {
-	font-size: 0.9em;
-	background: #00ff00;
-	border: 1px solid black;
-	padding: 0 0.5em;
-}
-
-a.downloadbutton:hover {	
-	background:#fa3030
-}
-
 #tooltip,a.update_tooltip {
 	background:#fafad2;
 	color:black;

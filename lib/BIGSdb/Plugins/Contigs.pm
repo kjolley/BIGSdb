@@ -165,13 +165,14 @@ TEXTFILE
 		local $" = '&amp;';
 		say $results->{'pc_untagged'}
 		  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-		  . "name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=1&amp;@attributes\""
-		  . " class=\"downloadbutton\">&darr;</a></td>"
+		  . "name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=1&amp;@attributes\">"
+		  . '<span class="file_icon fa fa-download"></span></a></td>'
 		  : "<td></td>";
 		my $non_match = $results->{'total'} - $results->{'pc_untagged'};
 		say $non_match
 		  ? "<td>$non_match</td><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=Contigs&amp;"
-		  . "format=text&amp;isolate_id=$isolate_id&amp;match=0&amp;@attributes\" class=\"downloadbutton\">&darr;</a></td>"
+		  . "format=text&amp;isolate_id=$isolate_id&amp;match=0&amp;@attributes\">"
+		  . '<span class="file_icon fa fa-download"></span></a></td>'
 		  : "<td>$non_match</td><td></td>";
 		say "</tr>";
 		$filebuffer .= "$isolate_id\t$isolate_name\t$results->{'total'}\t$results->{'pc_untagged'}\t$non_match\n";
