@@ -59,7 +59,8 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 
-#Display links for updating database records. Most curators will have access to most of these (but not curator permissions).
+	#Display links for updating database records. Most curators will have
+	#access to most of these (but not curator permissions).
 	foreach (qw (users user_groups user_group_members curator_permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
@@ -95,7 +96,8 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences accession sequence_refs profiles profile_refs)
+			qw (locus_descriptions scheme_curators locus_curators sequences accession
+			sequence_refs profiles profile_refs)
 		  )
 		{
 			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
@@ -114,10 +116,11 @@ sub print_content {
 		}
 	}
 	if ($buffer) {
-		say qq(<div class="box" id="index">);
-		say qq(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say q(<div class="box" id="index">);
+		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
 		say qq(<h2>Add, update or delete records</h2>\n)
-		  . qq(<table style="text-align:center"><tr><th>Record type</th><th>Add</th><th>Batch Add</th><th>Update or delete</th>)
+		  . q(<table style="text-align:center"><tr><th>Record type</th><th>Add</th>)
+		  . q(<th>Batch Add</th><th>Update or delete</th>)
 		  . qq(<th>Comments</th></tr>\n$buffer</table></div>);
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
@@ -142,8 +145,8 @@ sub print_content {
 		}
 		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 			push @tables, 'sets';
-			my $set_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM sets");
-			if ($set_count) {
+			my $sets_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM sets)');
+			if ($sets_exist) {
 				push @tables, qw( set_loci set_schemes);
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 					my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
@@ -152,8 +155,8 @@ sub print_content {
 				}
 			}
 		}
-		push @tables,
-		  qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members);
+		push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
+		  scheme_group_group_members);
 		foreach my $table (@tables) {
 			if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 				my $function = "_print_$table";
@@ -179,9 +182,9 @@ sub print_content {
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
-qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">Configuration )
-		  . qq(check</a> - Checks database connectivity for loci and schemes and that required helper applications are properly installed.)
-		  . qq(</li>\n);
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=configCheck">Configuration check</a> - Checks database connectivity for loci and schemes )
+		  . qq(and that required helper applications are properly installed.</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$list_buffer .=
 			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair">)
@@ -190,35 +193,30 @@ qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;pa
 		$can_do_something = 1;
 	}
 	if ( $buffer || $list_buffer ) {
-		say qq(<div class="box" id="restricted">);
-		say qq(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
-		say qq(<h2>Database configuration</h2>);
+		say q(<div class="box" id="restricted">);
+		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say q(<h2>Database configuration</h2>);
 	}
 	if ($buffer) {
-		say
-qq(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th><th>Update or delete</th><th>Comments</th>)
-		  . qq(</tr>$buffer</table>);
+		say q(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
+		  . qq(<th>Update or delete</th><th>Comments</th></tr>$buffer</table>);
 	}
-	if ($list_buffer) {
-		say "<ul>\n$list_buffer</ul>";
-	}
-	if ( $buffer || $list_buffer ) {
-		say '</div>';
-	}
+	say qq(<ul>$list_buffer</ul>) if $list_buffer;
+	say q(</div>) if $buffer || $list_buffer;
 	if ( !$can_do_something ) {
-		say
-qq(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, you haven't been granted specific )
-		  . qq(permission to do anything.  Please contact the database administrator to set your appropriate permissions.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, )
+		  . q(you haven't been granted specific permission to do anything.  Please contact the )
+		  . q(database administrator to set your appropriate permissions.</p></div>);
 	}
 	return;
 }
 
-sub _print_users {
+sub _print_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'users', $td, { set_string => $set_string } );
 }
 
-sub _print_user_group_members {
+sub _print_user_group_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'user_group_members',
@@ -231,15 +229,16 @@ sub _print_user_group_members {
 	);
 }
 
-sub _print_curator_permissions {
+sub _print_curator_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return
-qq(<tr class="td$td"><td>curator permissions<td></td><td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-	  . qq(&amp;page=curatorPermissions$set_string">?</a></td><td class="comment" style="text-align:left">Set curator permissions for )
-	  . qq(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
+	    qq(<tr class="td$td"><td>curator permissions<td></td><td><td>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions$set_string">)
+	  . q(?</a></td><td class="comment" style="text-align:left">Set curator permissions for )
+	  . q(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
 }
 
-sub _print_user_groups {
+sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'user_groups',
@@ -251,15 +250,18 @@ sub _print_user_groups {
 	);
 }
 
-sub _print_isolates {
+sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	my $query_cell = $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse$set_string">browse</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
-	  : '';
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
+	my $query_cell =
+	  $exists
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
+	  . qq(query</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=browse$set_string">browse</a> | <a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> | )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>isolates</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a></td>
@@ -270,7 +272,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_isolate_aliases {
+sub _print_isolate_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'isolate_aliases',
@@ -283,7 +285,7 @@ sub _print_isolate_aliases {
 	);
 }
 
-sub _print_isolate_field_extended_attributes {
+sub _print_isolate_field_extended_attributes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'isolate_field_extended_attributes',
@@ -295,10 +297,10 @@ sub _print_isolate_field_extended_attributes {
 	);
 }
 
-sub _print_isolate_value_extended_attributes {
+sub _print_isolate_value_extended_attributes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $count_att = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM isolate_field_extended_attributes");
-	throw BIGSdb::DataException("No extended attributes") if !$count_att;
+	my $count_att = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes)');
+	throw BIGSdb::DataException('No extended attributes') if !$count_att;
 	return $self->_print_table(
 		'isolate_value_extended_attributes',
 		$td,
@@ -310,22 +312,22 @@ sub _print_isolate_value_extended_attributes {
 	);
 }
 
-sub _print_refs {
+sub _print_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'refs', $td,
 		{ title => 'PubMed links', set_string => $set_string, requires => $self->{'system'}->{'view'} } );
 }
 
-sub _print_allele_designations {
+sub _print_allele_designations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT isolate_id FROM allele_designations)");
+	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT isolate_id FROM allele_designations)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_designations"
-	  . "$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=allele_designations$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>allele designations</td>
 <td></td>
@@ -336,15 +338,16 @@ HTML
 	return $buffer;
 }
 
-sub _print_sequence_bin {
+sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	throw BIGSdb::DataException("No isolates") if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_bin$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=sequence_bin$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences</td>
 <td></td>
@@ -355,14 +358,14 @@ HTML
 	return $buffer;
 }
 
-sub _print_sequence_attributes {
+sub _print_sequence_attributes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT key FROM sequence_attributes)");
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT key FROM sequence_attributes)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequence_attributes"
-	  . "$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=sequence_attributes$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequence attributes</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequence_attributes$set_string">+</a></td>
@@ -374,7 +377,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_accession {
+sub _print_accession {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'accession',
@@ -388,13 +391,13 @@ sub _print_accession {
 	);
 }
 
-sub _print_experiments {
+sub _print_experiments {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'experiments', $td,
 		{ comments => 'Set up experiments to which sequences in the bin can belong.', set_string => $set_string } );
 }
 
-sub _print_experiment_sequences {
+sub _print_experiment_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'experiment_sequences',
@@ -409,7 +412,7 @@ sub _print_experiment_sequences {
 	);
 }
 
-sub _print_samples {
+sub _print_samples {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	return if !@$sample_fields;
@@ -423,16 +426,16 @@ HTML
 	return $buffer;
 }
 
-sub _print_allele_sequences {
+sub _print_allele_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $seqbin_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
-	throw BIGSdb::DataException("No sequences in bin") if !$seqbin_exists;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)");
+	my $seqbin_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	throw BIGSdb::DataException('No sequences in bin') if !$seqbin_exists;
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=allele_sequences"
-	  . "$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=allele_sequences$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequence tags</td>
 <td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan$set_string">scan</a></td>
@@ -442,7 +445,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_sequences {
+sub _print_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences (all loci)</td>
@@ -476,18 +479,18 @@ HTML
 	return ( $buffer, $td );
 }
 
-sub _print_locus_descriptions {
+sub _print_locus_descriptions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
 		my $allowed =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT COUNT(*) FROM locus_curators WHERE curator_id=?", $self->get_curator_id );
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
 		return if !$allowed;
 	}
 	return $self->_print_table( 'locus_descriptions', $td, set_string => $set_string );
 }
 
-sub _print_sets {
+sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'sets', $td,
@@ -499,47 +502,47 @@ sub _print_sets {
 	);
 }
 
-sub _print_set_loci {
+sub _print_set_loci {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_loci', $td, { comments => 'Add loci to sets.', set_string => $set_string } );
 }
 
-sub _print_set_schemes {
+sub _print_set_schemes {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_schemes', $td, { comments => 'Add schemes to sets.', set_string => $set_string } );
 }
 
-sub _print_set_metadata {
+sub _print_set_metadata {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_metadata', $td,
 		{ comments => 'Add metadata collection to sets.', set_string => $set_string } );
 }
 
-sub _print_set_view {
+sub _print_set_view {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_view', $td,
 		{ comments => 'Set database views linked to sets.', set_string => $set_string } );
 }
 
-sub _print_sequence_refs {
+sub _print_sequence_refs {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'sequence_refs', $td,
 		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
 }
 
-sub _print_profiles {
+sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $schemes;
 	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
 		$schemes = $self->{'datastore'}->run_query(
-"SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON "
-			  . "schemes.id=scheme_fields.scheme_id WHERE primary_key",
+			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
+			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
 			undef,
 			{ fetch => 'col_arrayref' }
 		);
 	} else {
-		$schemes = $self->{'datastore'}->run_query( "SELECT scheme_id FROM scheme_curators WHERE curator_id=?",
+		$schemes = $self->{'datastore'}->run_query( 'SELECT scheme_id FROM scheme_curators WHERE curator_id=?',
 			$self->get_curator_id, { fetch => 'col_arrayref' } );
 	}
 	my $buffer;
@@ -551,7 +554,7 @@ sub _print_profiles {
 	}
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
-		$desc{$scheme_id} =~ s/\&/\&amp;/g;
+		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
 		$buffer .= <<"HTML";
 <tr class="td$td"><td>$desc{$scheme_id} profiles</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
@@ -567,7 +570,7 @@ HTML
 	return ( $buffer, $td );
 }
 
-sub _print_scheme_curators {
+sub _print_scheme_curators {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>scheme curator control list</td>
@@ -581,7 +584,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_locus_curators {
+sub _print_locus_curators {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>locus curator control list</td>
@@ -595,22 +598,22 @@ HTML
 	return $buffer;
 }
 
-sub _print_profile_refs {
+sub _print_profile_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
 		my $schemes_in_set =
-		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM set_schemes WHERE set_id=?", $set_id );
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
 		return !$schemes_in_set;
 	} else {
-		my $scheme_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM schemes");
+		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
 		return if !$scheme_count;
 	}
 	return $self->_print_table( 'profile_refs', $td,
 		{ title => 'PubMed links (to profiles)', set_string => $set_string } );
 }
 
-sub _print_projects {
+sub _print_projects {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'projects',
@@ -623,19 +626,20 @@ sub _print_projects {
 	);
 }
 
-sub _print_project_members {
+sub _print_project_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'project_members', $td,
 		{ requires => 'projects', comments => 'Add isolates to projects.', set_string => $set_string } );
 }
 
-sub _print_loci {
+sub _print_loci {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM loci)");
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM loci)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=loci$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td rowspan="2">loci</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=loci$set_string">+</a></td>
@@ -648,7 +652,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_pcr {
+sub _print_pcr {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'pcr', $td,
@@ -661,7 +665,7 @@ sub _print_pcr {
 	);
 }
 
-sub _print_pcr_locus {
+sub _print_pcr_locus {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'pcr_locus',
@@ -675,20 +679,20 @@ sub _print_pcr_locus {
 	);
 }
 
-sub _print_probes {
+sub _print_probes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'probes', $td,
 		{
 			title    => 'nucleotide probes',
-			comments => 'Define nucleotide probes for <i>in silico</i> hybridization reaction to filter genomes for '
-			  . 'tagging to specific repetitive loci.',
+			comments => 'Define nucleotide probes for <i>in silico</i> hybridization reaction to '
+			  . 'filter genomes for tagging to specific repetitive loci.',
 			set_string => $set_string
 		}
 	);
 }
 
-sub _print_probe_locus {
+sub _print_probe_locus {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'probe_locus',
@@ -702,7 +706,7 @@ sub _print_probe_locus {
 	);
 }
 
-sub _print_locus_aliases {
+sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'locus_aliases',
@@ -715,22 +719,22 @@ sub _print_locus_aliases {
 	);
 }
 
-sub _print_client_dbases {
+sub _print_client_dbases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'client_dbases',
 		$td,
 		{
-			title => 'client databases',
-			comments =>
-'Add isolate databases that use locus allele or scheme profile definitions defined in this database - this '
-			  . 'enables backlinks and searches of these databases when you query sequences or profiles in this database.',
+			title    => 'client databases',
+			comments => 'Add isolate databases that use locus allele or scheme profile definitions defined '
+			  . 'in this database - this enables backlinks and searches of these databases when you query '
+			  . 'sequences or profiles in this database.',
 			set_string => $set_string
 		}
 	);
 }
 
-sub _print_client_dbase_loci_fields {
+sub _print_client_dbase_loci_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'client_dbase_loci_fields',
@@ -738,14 +742,14 @@ sub _print_client_dbase_loci_fields {
 		{
 			requires => 'loci,client_dbases',
 			title    => 'client database fields linked to loci',
-			comments =>
-			  'Define fields in client database whose value can be displayed when isolate has matching allele.',
+			comments => 'Define fields in client database whose value can be '
+			  . 'displayed when isolate has matching allele.',
 			set_string => $set_string
 		}
 	);
 }
 
-sub _print_locus_extended_attributes {
+sub _print_locus_extended_attributes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'locus_extended_attributes',
@@ -758,7 +762,7 @@ sub _print_locus_extended_attributes {
 	);
 }
 
-sub _print_client_dbase_loci {
+sub _print_client_dbase_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'client_dbase_loci',
@@ -772,7 +776,7 @@ sub _print_client_dbase_loci {
 	);
 }
 
-sub _print_client_dbase_schemes {
+sub _print_client_dbase_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'client_dbase_schemes',
@@ -780,21 +784,21 @@ sub _print_client_dbase_schemes {
 		{
 			requires => 'schemes,client_dbases',
 			title    => 'client database schemes',
-			comments =>
-			  'Define schemes that are used in client databases. You will need to add the appropriate loci to the '
-			  . 'client database loci table.',
+			comments => 'Define schemes that are used in client databases. You will need to '
+			  . 'add the appropriate loci to the client database loci table.',
 			set_string => $set_string
 		}
 	);
 }
 
-sub _print_composite_fields {
+sub _print_composite_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM composite_fields)");
+	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM composite_fields)');
 	my $query_cell =
 	  $exists
-	  ? "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery$set_string\">?</a>"
-	  : '';
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=compositeQuery$set_string">?</a>)
+	  : q();
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>composite fields</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=composite_fields$set_string">+</a></td>
@@ -805,13 +809,13 @@ HTML
 	return $buffer;
 }
 
-sub _print_schemes {
+sub _print_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'schemes', $td,
 		{ comments => 'Describes schemes consisting of collections of loci, e.g. MLST.', set_string => $set_string } );
 }
 
-sub _print_scheme_groups {
+sub _print_scheme_groups {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'scheme_groups',
@@ -823,7 +827,7 @@ sub _print_scheme_groups {
 	);
 }
 
-sub _print_scheme_group_scheme_members {
+sub _print_scheme_group_scheme_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'scheme_group_scheme_members',
@@ -836,7 +840,7 @@ sub _print_scheme_group_scheme_members {
 	);
 }
 
-sub _print_scheme_group_group_members {
+sub _print_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'scheme_group_group_members',
@@ -849,14 +853,14 @@ sub _print_scheme_group_group_members {
 	);
 }
 
-sub _print_scheme_members {
+sub _print_scheme_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_members', $td,
 		{ requires => 'schemes,loci', comments => 'Defines which loci belong to a scheme.', set_string => $set_string }
 	);
 }
 
-sub _print_scheme_fields {
+sub _print_scheme_fields {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_fields', $td,
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
@@ -867,10 +871,10 @@ sub _print_table {
 	$values = {} if ref $values ne 'HASH';
 	my $set_string = $values->{'set_string'} // '';
 	if ( $values->{'requires'} ) {
-		my @requires = split /,/, $values->{'requires'};
+		my @requires = split /,/x, $values->{'requires'};
 		foreach my $required (@requires) {
 			my $required_value_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $required)");
-			throw BIGSdb::DataException("Required parent record does not exist.") if !$required_value_exists;
+			throw BIGSdb::DataException('Required parent record does not exist.') if !$required_value_exists;
 		}
 	}
 	my $title = $values->{'title'} // $table;
@@ -879,18 +883,19 @@ sub _print_table {
 	my $buffer = "<tr class=\"td$td\"><td>$title</td>";
 	if ( !$values->{'no_add'} ) {
 		$buffer .=
-qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$set_string">
-		+</a></td>
-		<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table$set_string">++</a></td>);
+		    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=add&amp;table=$table$set_string">+</a></td><td><a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table$set_string">++</a></td>);
 	} else {
-		$buffer .= "<td></td>" x 2;
+		$buffer .= q(<td></td>) x 2;
 	}
 	my $records_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)");
 	$buffer .=
 	  $records_exist
-	  ? "<td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table$set_string\">?</a></td>"
-	  : '<td></td>';
-	$buffer .= "<td style=\"text-align:left\" class=\"comment\">$comments</td></tr>";
+	  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=tableQuery&amp;table=$table$set_string">?</a></td>)
+	  : q(<td></td>);
+	$buffer .= qq(<td style="text-align:left" class="comment">$comments</td></tr>);
 	return $buffer;
 }
 
