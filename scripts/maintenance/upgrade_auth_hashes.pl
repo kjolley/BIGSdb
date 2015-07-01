@@ -31,21 +31,24 @@ main();
 exit;
 
 sub main {
-	my $db = DBI->connect( "DBI:Pg:dbname=" . DBASE, 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-	  || croak "couldn't open database";
-	my $sql = $db->prepare("SELECT * FROM users WHERE algorithm IS NULL OR algorithm='md5'");
-	eval { $sql->execute };
-	die $@ if $@;
-	my $sql2   = $db->prepare("UPDATE users SET (algorithm,cost,salt,password)=(?,?,?,?) WHERE (dbase,name)=(?,?)");
+	my $db =
+	     DBI->connect( 'DBI:Pg:dbname=' . DBASE, 'postgres', '', { 
+	     	AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+	  || croak 'could not open database';
+	my $sql = $db->prepare('SELECT * FROM users WHERE algorithm IS NULL OR algorithm=?');
+	eval { $sql->execute ('md5')};
+	croak $@ if $@;
+	my $sql2   = $db->prepare('UPDATE users SET (algorithm,cost,salt,password)=(?,?,?,?) WHERE (dbase,name)=(?,?)');
 	my $header = "dbase\tname\tbcrypt_hash\tsalt";
 	my $first  = 1;
 	while ( my $data = $sql->fetchrow_hashref ) {
 		my $salt = generate_salt();
-		my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => BCRYPT_COST, salt => $salt }, $data->{'password'} ) );
+		my $bcrypt_hash =
+		  en_base64( bcrypt_hash( { key_nul => 1, cost => BCRYPT_COST, salt => $salt }, $data->{'password'} ) );
 		eval { $sql2->execute( 'bcrypt', BCRYPT_COST, $salt, $bcrypt_hash, $data->{'dbase'}, $data->{'name'} ) };
 		if ($@) {
 			$db->rollback;
-			die $@;
+			croak $@;
 		} else {
 			$db->commit;
 		}

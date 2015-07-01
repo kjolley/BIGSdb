@@ -32,21 +32,23 @@ my %opts;
 getopts( 'ad:n:p:', \%opts );
 
 if ( !$opts{'d'} || !$opts{'n'} || !$opts{'n'} ) {
-	say "Usage: add_user.pl [-a] -d <dbase> -n <username> -p <password>";
-	say "Use -a option to add a new user.";
+	say 'Usage: add_user.pl [-a] -d <dbase> -n <username> -p <password>';
+	say 'Use -a option to add a new user.';
 	exit;
 }
 main();
 exit;
 
 sub main {
-	my $db = DBI->connect( "DBI:Pg:dbname=" . DBASE, 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-	  || croak "couldn't open database";
+	my $db =
+	  DBI->connect( 'DBI:Pg:dbname=' . DBASE, 'postgres', '',
+		{ AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+	  || croak 'could not open database';
 	my $qry;
 	if ( $opts{'a'} ) {
-		$qry = "INSERT INTO users (password,algorithm,cost,salt,dbase,name) VALUES (?,?,?,?,?,?)";
+		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name) VALUES (?,?,?,?,?,?)';
 	} else {
-		$qry = "UPDATE users SET (password,algorithm,cost,salt)=(?,?,?,?) WHERE (dbase,name)=(?,?)";
+		$qry = 'UPDATE users SET (password,algorithm,cost,salt)=(?,?,?,?) WHERE (dbase,name)=(?,?)';
 	}
 	my $sql         = $db->prepare($qry);
 	my $password    = Digest::MD5::md5_hex( $opts{'p'} . $opts{'n'} );
@@ -55,7 +57,7 @@ sub main {
 	eval { $db->do( $qry, undef, $bcrypt_hash, 'bcrypt', BCRYPT_COST, $salt, $opts{'d'}, $opts{'n'} ) };
 	if ($@) {
 		if ( $@ =~ /duplicate/ ) {
-			say "Username already exists.  Don't use the -a option to update.";
+			say 'Username already exists.  Do not use the -a option to update.';
 		} else {
 			say $@;
 		}

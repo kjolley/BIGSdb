@@ -244,7 +244,7 @@ The css files should now be placed in a directory 'css' in the root of the web
 site, although they will still be found if all placed directly in the root
 directory.  There have been changes to bigsdb.css so make sure this is updated.
 
-The fonts directory should be copied to the root directory of the web site.
+The new fonts directory should be copied to the root directory of the web site.
 
 There are changes to the isolate and sequence definition database structures.
 Please run the isolatedb_v1.11.sql and seqdefdb_v1.11.sql scripts, found in
