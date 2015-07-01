@@ -118,7 +118,7 @@ sub print_content {
 		}
 		$self->_print_interface;
 	}
-	if ( defined $q->param('submit') || defined $q->param('t1') ) {
+	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		if ( $q->param('locus') eq q() ) {
 			say q(<div class="box" id="statusbad"><p>Please select locus or use the general )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
