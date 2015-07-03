@@ -40,6 +40,7 @@ use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
+use Carp;
 use List::MoreUtils qw(notall none);
 use Log::Log4perl qw(get_logger);
 
@@ -61,6 +62,7 @@ GetOptions(
 	'i|isolate=i'  => \$opts{'i'},
 	'h|help'       => \$opts{'h'},
 	'm|method=s'   => \$opts{'m'},
+	'min_length=i' => \$opts{'min_length'},
 	's|sender=i'   => \$opts{'s'},
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
@@ -128,6 +130,7 @@ sub main {
 sub upload {
 	my ( $isolate_id, $seqs ) = @_;
 	my $total_length = 0;
+	my $contig_count = 0;
 	my $sql =
 	  $script->{'db'}
 	  ->prepare( 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,sender,curator,'
@@ -135,15 +138,16 @@ sub upload {
 	eval {
 		foreach my $key ( keys %$seqs )
 		{
+			next if $opts{'min_length'} && length $seqs->{$key} < $opts{'min_length'};
 			$sql->execute( $isolate_id, $seqs->{$key}, $opts{'m'}, $key, $opts{'s'}, $opts{'c'}, 'now', 'now' );
 			$total_length += length( $seqs->{$key} );
+			$contig_count++;
 		}
 	};
 	if ($@) {
 		$script->{'db'}->rollback;
-		die $@;
+		croak $@;
 	}
-	my $contig_count = keys %$seqs;
 	say "Isolate $isolate_id: $contig_count contigs uploaded ($total_length bp).";
 	$script->{'db'}->commit;
 	return;
@@ -183,7 +187,10 @@ ${bold}-i, --isolate$norm ${under}ID$norm
     Isolate id of record to upload to.  
     
 ${bold}-m, --method$norm ${under}METHOD$norm  
-    Method, e.g. 'Illumina', default 'unknown'.  
+    Method, e.g. 'Illumina', default 'unknown'.
+    
+${bold}--min_length$norm ${under}LENGTH$norm
+    Exclude contigs with length less than value.
     
 ${bold}-s, --sender$norm ${under}ID$norm  
     Sender id number.                
