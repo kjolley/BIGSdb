@@ -26,6 +26,7 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use List::Util qw(shuffle);
+use Carp;
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::BIGSException;
@@ -90,7 +91,7 @@ sub initiate {
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
 			$self->{'logger'}
 			  ->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
-				  . "Please set the labelfield attribute in the system tag of the database XML file." );
+				  . 'Please set the labelfield attribute in the system tag of the database XML file.' );
 		}
 	}
 	$self->set_system_overrides;
@@ -101,7 +102,7 @@ sub initiate {
 		if ( defined $self->{'options'}->{'v'} ) {
 			my $view_exists =
 			  $self->{'datastore'}
-			  ->run_query( "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)",
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 				$self->{'options'}->{'v'} );
 			die "Invalid view selected.\n" if !$view_exists;
 			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
@@ -113,16 +114,18 @@ sub initiate {
 sub get_load_average {
 	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
 		my $loadavg;
-		open( my $fh, '<', '/proc/loadavg' ) or die "Can't open /proc/loadavg";
+		open( my $fh, '<', '/proc/loadavg' ) or croak 'Cannot open /proc/loadavg';
 		while (<$fh>) {
-			($loadavg) = split /\s/, $_;
+			($loadavg) = split /\s/x, $_;
 		}
 		close $fh;
 		return $loadavg;
 	}
 	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
-	return $1 if $uptime =~ /load average:\s+([\d\.]+)/;
-	throw BIGSdb::DataException("Can't determine load average");
+	if ($uptime =~ /load\ average:\s+([\d\.]+)/x){
+		return $1;
+	}
+	throw BIGSdb::DataException('Cannot determine load average');
 }
 
 sub db_disconnect {
@@ -141,7 +144,7 @@ sub _go {
 		$load_average = $self->get_load_average;
 	}
 	catch BIGSdb::DataException with {
-		$self->{'logger'}->fatal("Can't determine load average ... aborting!");
+		$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
 		exit;
 	};
 	if ( $load_average > $max_load ) {
@@ -266,7 +269,7 @@ sub _get_last_tagged_date {
 	my ( $self, $isolates ) = @_;
 	my %tag_date;
 	foreach my $isolate_id (@$isolates) {
-		my $date = $self->{'datastore'}->run_query( "SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?",
+		my $date = $self->{'datastore'}->run_query( 'SELECT MAX(datestamp) FROM allele_designations WHERE isolate_id=?',
 			$isolate_id, { cache => 'Script::get_last_tagged_date' } ) // '0000-00-00';
 		$tag_date{$isolate_id} = $date;
 	}
@@ -276,9 +279,9 @@ sub _get_last_tagged_date {
 sub _is_previously_tagged {
 	my ( $self, $isolate_id, $max_alleles ) = @_;
 	my $designations_set =
-	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_designations WHERE isolate_id=?",
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { cache => 'Script::is_previously_tagged_designations' } );
-	my $tagged = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE isolate_id=?",
+	my $tagged = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM allele_sequences WHERE isolate_id=?',
 		$isolate_id, { cache => 'Script::is_previously_tagged_tags' } );
 	return 1 if $designations_set > $max_alleles || $tagged > $max_alleles;
 	return;
@@ -286,7 +289,7 @@ sub _is_previously_tagged {
 
 sub _get_size_of_seqbin {
 	my ( $self, $isolate_id ) = @_;
-	my $size = $self->{'datastore'}->run_query( "SELECT total_length FROM seqbin_stats WHERE isolate_id=?",
+	my $size = $self->{'datastore'}->run_query( 'SELECT total_length FROM seqbin_stats WHERE isolate_id=?',
 		$isolate_id, { cache => 'Script::get_size_of_seqbin' } );
 	return $size || 0;
 }
@@ -311,21 +314,21 @@ sub get_selected_loci {
 		%ignore = map { $_ => 1 } @ignore;
 	}
 	my $qry;
-	my $loci_qry = "SELECT id FROM loci";
-	$loci_qry .= " WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL" if $options->{'with_ref_db'};
+	my $loci_qry = 'SELECT id FROM loci';
+	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL' if $options->{'with_ref_db'};
 	if ( $self->{'options'}->{'s'} ) {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
-		$qry =
-"SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
+		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND "
+		  . "locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
-			$_ =~ s/'/\\'/g;
+			$_ =~ s/'/\\'/gx;
 		}
-		local $" = "',E'";
-		my $and_or = $loci_qry =~ /WHERE/ ? 'AND' : 'WHERE';
+		local $" = q(',E');
+		my $and_or = $loci_qry =~ /WHERE/x ? 'AND' : 'WHERE';
 		$qry = "$loci_qry $and_or id IN (E'@loci') ORDER BY id";
 	} else {
 		$qry = "$loci_qry ORDER BY id";
@@ -334,7 +337,7 @@ sub get_selected_loci {
 	@$loci = uniq @$loci;
 	my @filtered_list;
 	foreach my $locus (@$loci) {
-		next if $self->{'options'}->{'R'} && $locus !~ /$self->{'options'}->{'R'}/;
+		next if $self->{'options'}->{'R'} && $locus !~ /$self->{'options'}->{'R'}/x;
 		push @filtered_list, $locus if !$ignore{$locus};
 	}
 	return \@filtered_list;
@@ -343,7 +346,7 @@ sub get_selected_loci {
 sub get_project_isolates {
 	my ( $self, $project_id ) = @_;
 	return if !BIGSdb::Utils::is_int($project_id);
-	return $self->{'datastore'}->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?",
+	return $self->{'datastore'}->run_query( 'SELECT isolate_id FROM project_members WHERE project_id=?',
 		$project_id, { fetch => 'col_arrayref' } );
 }
 
@@ -351,7 +354,7 @@ sub delete_temp_files {
 	my ( $self, $wildcard ) = @_;
 	my @file_list = glob($wildcard);
 	foreach my $file (@file_list) {
-		unlink $1 if $file =~ /(.*BIGSdb.*)/;    #untaint
+		unlink $1 if $file =~ /(.*BIGSdb.*)/x;    #untaint
 	}
 	return;
 }

@@ -107,6 +107,7 @@ exit_cleanly("Curator id-$opts{'c'} does not exist (or user is not a curator).")
 $opts{'m'} //= 'unknown';
 exit_cleanly("Method '$opts{'m'}' is invalid.") if none { $opts{'m'} eq $_ } SEQ_METHODS;
 main();
+$script->db_disconnect;
 exit;
 
 sub main {
