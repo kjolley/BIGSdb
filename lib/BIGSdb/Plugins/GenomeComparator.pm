@@ -68,7 +68,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 1 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 1 };
 	return;
 }
 
@@ -134,7 +135,7 @@ sub get_option_list {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	$self->{'params'} = $params;
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -144,8 +145,8 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				message_html => "<p class=\"statusbad\">You must include one or more isolates. Make "
-				  . "sure your selected isolates haven't been filtered to none by selecting a project.</p>"
+				message_html => q(<p class="statusbad">You must include one or more isolates. Make )
+				  . q(sure your selected isolates haven't been filtered to none by selecting a project.</p>)
 			}
 		);
 		return;
@@ -154,29 +155,40 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes, "
-				  . "provide a genome accession number, or upload an annotated genome.</p>"
+				message_html => q(<p class="statusbad">You must either select one or more loci or schemes, )
+				  . q(provide a genome accession number, or upload an annotated genome.</p>)
 			}
 		);
 		return;
 	}
-	open( my $excel_fh, '>', \my $excel ) or $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
+	open( my $excel_fh, '>', \my $excel )
+	  or $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
 	$self->{'excel'}    = \$excel;
 	$self->{'workbook'} = Excel::Writer::XLSX->new($excel_fh);
 	$self->{'workbook'}->set_tempdir( $self->{'config'}->{'secure_tmp_dir'} );
-	$self->{'workbook'}->set_optimization;                                                             #Reduce memory usage
+	$self->{'workbook'}->set_optimization;                         #Reduce memory usage
 	my $worksheet = $self->{'workbook'}->add_worksheet('all');
-	$self->{'excel_format'}->{'header'} =
-	  $self->{'workbook'}
-	  ->add_format( bg_color => 'navy', color => 'white', bold => 1, align => 'center', border => 1, border_color => 'white' );
-	$self->{'excel_format'}->{'locus'} =
-	  $self->{'workbook'}->add_format( bg_color => '#D0D0D0', color => 'black', align => 'center', border => 1, border_color => '#A0A0A0' );
+	$self->{'excel_format'}->{'header'} = $self->{'workbook'}->add_format(
+		bg_color     => 'navy',
+		color        => 'white',
+		bold         => 1,
+		align        => 'center',
+		border       => 1,
+		border_color => 'white'
+	);
+	$self->{'excel_format'}->{'locus'} = $self->{'workbook'}->add_format(
+		bg_color     => '#D0D0D0',
+		color        => 'black',
+		align        => 'center',
+		border       => 1,
+		border_color => '#A0A0A0'
+	);
 	$self->{'excel_format'}->{'normal'} = $self->{'workbook'}->add_format( align => 'center' );
 
 	if ( $accession || $ref_upload ) {
 		my $seq_obj;
 		if ($accession) {
-			$accession =~ s/\s*//g;
+			$accession =~ s/\s*//gx;
 			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'db'}/annotations/$accession*");
 			if (@local_annotations) {
 				try {
@@ -195,31 +207,38 @@ sub run_job {
 				catch Bio::Root::Exception with {
 					my $err = shift;
 					$logger->debug($err);
-					throw BIGSdb::PluginException("No data returned for accession number $accession.\n");
+					throw BIGSdb::PluginException("No data returned for accession number $accession.");
 				};
 			}
 		} else {
-			if ( $ref_upload =~ /fas$/ || $ref_upload =~ /fasta$/ ) {
+			if ( $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
 				try {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
 				}
 				catch Bio::Root::Exception with {
-					throw BIGSdb::PluginException("Invalid data in uploaded reference file.");
+					throw BIGSdb::PluginException('Invalid data in uploaded reference file.');
 				};
-				$ref_upload =~ s/\.(fas|fasta)$/\.gb/;
+				$ref_upload =~ s/\.(fas|fasta)$/\.gb/x;
 			}
 			eval {
 				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
 				$seq_obj = $seqio_object->next_seq;
 			};
 			if ($@) {
-				throw BIGSdb::PluginException("Invalid data in uploaded reference file.");
+				throw BIGSdb::PluginException('Invalid data in uploaded reference file.');
 			}
 			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
 		return if !$seq_obj;
 		$self->_analyse_by_reference(
-			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, worksheet => $worksheet } );
+			{
+				job_id    => $job_id,
+				accession => $accession,
+				seq_obj   => $seq_obj,
+				ids       => $isolate_ids,
+				worksheet => $worksheet
+			}
+		);
 	} else {
 		$self->_analyse_by_loci( { job_id => $job_id, loci => $loci, ids => $isolate_ids, worksheet => $worksheet } );
 	}
@@ -248,8 +267,8 @@ sub run {
 		my $ref_upload = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		if ( !@$filtered_ids ) {
-			$error .= "<p>You must include one or more isolates. Make sure your selected isolates haven't been filtered to none by "
-			  . "selecting a project.</p>\n";
+			$error .= '<p>You must include one or more isolates. Make sure your selected isolates '
+			  . "haven't been filtered to none by selecting a project.</p>\n";
 			$continue = 0;
 		}
 		my $max_genomes =
@@ -257,7 +276,10 @@ sub run {
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
 		if ( @$filtered_ids > $max_genomes ) {
-			$error .= "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have selected " . @$filtered_ids . ".</p>\n";
+			$error .=
+			    "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have selected "
+			  . @$filtered_ids
+			  . ".</p>\n";
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -273,12 +295,12 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
-			$error .= "<p>You must either select one or more loci or schemes, provide "
+			$error .= '<p>You must either select one or more loci or schemes, provide '
 			  . "a genome accession number, or upload an annotated genome.</p>\n";
 			$continue = 0;
 		}
 		if ($error) {
-			say "<div class=\"box statusbad\">$error</div>";
+			say qq(<div class="box statusbad">$error</div>);
 		}
 		$q->param( ref_upload => $ref_upload ) if $ref_upload;
 		if ( $q->param('calc_distances') ) {
@@ -327,7 +349,7 @@ HTML
 sub _upload_ref_file {
 	my ($self) = @_;
 	my $temp = BIGSdb::Utils::get_random();
-	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/ ? "$1" : '';
+	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/x ? $1 : q();
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_ref$format";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
@@ -358,15 +380,16 @@ sub _print_interface {
 	my $qry;
 	my $use_all;
 	try {
-		my $pref = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
+		my $pref =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
 		$use_all = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
 	}
 	catch BIGSdb::DatabaseNoRecordException with {
 		$use_all = 0;
 	};
-	my $seqbin_values = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM sequence_bin)");
+	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>There are no sequences in the sequence bin.</p></div>";
+		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
 		return;
 	}
 	$self->print_set_section if $q->param('select_sets');
@@ -378,12 +401,14 @@ by selecting the appropriate scheme description. Alternatively, you can enter th
 annotated reference genome and compare using the loci defined in that.</p>
 HTML
 	say $q->start_form;
-	say qq(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	say q(<div class="scrollable">);
+	$self->print_seqbin_isolate_fieldset(
+		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-	$self->print_includes_fieldset( { title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
+	$self->print_includes_fieldset(
+		{ title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
 	$self->print_scheme_fieldset;
-	say qq(<div style="clear:both"></div>);
+	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
 	$self->_print_distance_matrix_fieldset;
@@ -392,40 +417,42 @@ HTML
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
-	say "</div>";
+	say q(</div>);
 	say $q->end_form;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
 sub _print_reference_genome_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
-	say "Enter accession number:<br />";
+	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
+	say q(Enter accession number:<br />);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say qq( <a class="tooltip" title="Reference genome - Use of a reference genome will override any locus )
-	  . qq(or scheme settings."><span class="fa fa-info-circle"></span></a><br />);
+	say q( <a class="tooltip" title="Reference genome - Use of a reference genome will override any locus )
+	  . q(or scheme settings."><span class="fa fa-info-circle"></span></a><br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
-	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} ) ? $self->{'system'}->{"set_$set_id\_annotation"} : '';
+	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} )
+	  ? $self->{'system'}->{"set_$set_id\_annotation"}
+	  : '';
 
 	if ( $self->{'system'}->{'annotation'} || $set_annotation ) {
-		my @annotations = $self->{'system'}->{'annotation'} ? split /;/, $self->{'system'}->{'annotation'} : ();
-		my @set_annotations = $set_annotation ? split /;/, $set_annotation : ();
+		my @annotations = $self->{'system'}->{'annotation'} ? split /;/x, $self->{'system'}->{'annotation'} : ();
+		my @set_annotations = $set_annotation ? split /;/x, $set_annotation : ();
 		push @annotations, @set_annotations;
 		my @names = ('');
 		my %labels;
 		$labels{''} = ' ';
 		foreach (@annotations) {
-			my ( $accession, $name ) = split /\|/, $_;
+			my ( $accession, $name ) = split /\|/x, $_;
 			if ( $accession && $name ) {
 				push @names, $accession;
 				$labels{$accession} = $name;
 			}
 		}
 		if (@names) {
-			say "or choose annotated genome:<br />";
+			say q(or choose annotated genome:<br />);
 			say $q->popup_menu(
 				-name     => 'annotation',
 				-id       => 'annotation',
@@ -434,56 +461,66 @@ sub _print_reference_genome_fieldset {
 				-onChange => 'enable_seqs()',
 			);
 		}
-		say "<br />";
+		say q(<br />);
 	}
-	say qq(or upload Genbank/EMBL/FASTA file:<br />);
+	say q(or upload Genbank/EMBL/FASTA file:<br />);
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
-	say qq( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
-	  . qq(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas."><span class="fa fa-info-circle"></span></a>);
-	say "</fieldset>";
+	say q( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
+	  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
+	say q(</fieldset>);
 	return;
 }
 
 sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left;height:12em">\n<legend>Parameters / options</legend>);
-	say qq(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
+	say q(<fieldset style="float:left;height:12em"><legend>Parameters / options</legend>);
+	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
-	say qq( <a class="tooltip" title="Minimum % identity - Match required for partial matching."><span class="fa fa-info-circle">)
-	  . qq(</span></a></li>);
-	say qq(<li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say q( <a class="tooltip" title="Minimum % identity - Match required for partial matching.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li>);
+	say q(<li><label for="alignment" class="parameter">Min % alignment:</label>);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
-	say qq( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be aligned for )
-	  . qq(partial matching."><span class="fa fa-info-circle"></span></a></li>);
-	say qq(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be )
+	  . q(aligned for partial matching."><span class="fa fa-info-circle"></span></a></li>);
+	say q(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
-	say qq( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an extension. )
-	  . qq(Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle"></span></a></li>);
-	say qq(<li><span class="warning">);
+	say q( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to )
+	  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li>);
+	say q(<li><span class="warning">);
 	say $q->checkbox( -name => 'tblastx', -id => 'tblastx', -label => 'Use TBLASTX' );
-	say qq[ <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame translation of your nucleotide ]
-	  . qq[query against the six-frame translation of the sequences in the sequence bin (sequences will be classed as identical if they ]
-	  . qq[result in the same translated sequence even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with ]
-	  . qq[caution."><span class="fa fa-info-circle"></span></a></span></li><li>];
-	say $q->checkbox( -name => 'use_tagged', -id => 'use_tagged', -label => 'Use tagged designations if available', -checked => 1 );
-	say qq( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the definition database based on )
-	  . qq(allele designation rather than by BLAST.  This should be much quicker. Peptide loci, however, are always extracted using )
-	  . qq(BLAST."><span class="fa fa-info-circle"></span></a></li><li>);
+	say q[ <a class="tooltip" title="TBLASTX (analysis by reference genome only) - Compares the six-frame ]
+	  . q[translation of your nucleotide query against the six-frame translation of the sequences in the ]
+	  . q[sequence bin (sequences will be classed as identical if they result in the same translated sequence ]
+	  . q[even if the nucleotide sequence is different).  This is SLOWER than BLASTN. Use with caution.">]
+	  . q[<span class="fa fa-info-circle"></span></a></span></li><li>];
+	say $q->checkbox(
+		-name    => 'use_tagged',
+		-id      => 'use_tagged',
+		-label   => 'Use tagged designations if available',
+		-checked => 1
+	);
+	say q( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the )
+	  . q(definition database based on allele designation rather than by BLAST.  This should be much quicker. )
+	  . q(Peptide loci, however, are always extracted using BLAST.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
-	say qq( <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers of loci which may cause )
-	  . qq(your browser problems in rendering the output table."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
+	say q( <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers )
+	  . q(of loci which may cause your browser problems in rendering the output table.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
 	return;
 }
 
 sub _print_alignment_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left;height:12em"><legend>Alignments</legend><ul><li>);
+	say q(<fieldset style="float:left;height:12em"><legend>Alignments</legend><ul><li>);
 	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => 'enable_seqs()' );
-	say qq( <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the selected aligner for )
-	  . qq(any loci that vary between isolates. This may slow the analysis considerably."><span class="fa fa-info-circle">)
-	  . qq(</span></a></li><li>);
+	say q( <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the )
+	  . q(selected aligner for any loci that vary between isolates. This may slow the analysis considerably.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox(
 		-name     => 'include_ref',
 		-id       => 'include_ref',
@@ -491,53 +528,53 @@ sub _print_alignment_fieldset {
 		-checked  => 1,
 		-onChange => 'enable_seqs()'
 	);
-	say '</li><li>';
+	say q(</li><li>);
 	say $q->checkbox(
 		-name     => 'align_all',
 		-id       => 'align_all',
 		-label    => 'Align all loci (not only variable)',
 		-onChange => 'enable_seqs()'
 	);
-	say '</li><li>';
+	say q(</li><li>);
 	my @aligners;
 
 	foreach my $aligner (qw(mafft muscle)) {
 		push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
 	}
 	if (@aligners) {
-		say 'Aligner: ';
+		say q(Aligner: );
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
-		say "</li><li>";
+		say q(</li><li>);
 	}
-	say '</ul></fieldset>';
+	say q(</ul></fieldset>);
 	return;
 }
 
 sub _print_core_genome_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
-	say qq(<li><label for="core_threshold">Core threshold (%):</label>);
+	say q(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
+	say q(<li><label for="core_threshold">Core threshold (%):</label>);
 	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
-	say qq( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present in to be considered part )
-	  . qq(of the core genome."><span class="fa fa-info-circle"></span></a></li><li>);
+	say q( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present )
+	  . q(in to be considered part of the core genome."><span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox(
 		-name     => 'calc_distances',
 		-id       => 'calc_distances',
 		-label    => 'Calculate mean distances',
 		-onChange => 'enable_seqs()'
 	);
-	say qq( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will take longer to perform.">)
-	  . qq(<span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
+	say q( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will )
+	  . q(take longer to perform."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
 	return;
 }
 
 sub _print_distance_matrix_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
-	say "With incomplete loci:";
-	say '<ul><li>';
+	say q(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
+	say q(With incomplete loci:);
+	say q(<ul><li>);
 	my $labels = {
 		exclude       => 'Completely exclude from analysis',
 		include_as_T  => 'Treat as distinct allele',
@@ -550,14 +587,14 @@ sub _print_distance_matrix_fieldset {
 		-default   => 'pairwise_same',
 		-linebreak => 'true'
 	);
-	say qq(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
+	say q(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
 	say $q->checkbox(
 		-name    => 'exclude_paralogous',
 		-id      => 'exclude_paralogous',
 		-label   => 'Exclude paralogous loci',
 		-checked => 'checked'
 	);
-	say '</li><li>';
+	say q(</li><li>);
 	$labels = { all => 'paralogous in all isolates', any => 'paralogous in any isolate' };
 	say $q->radio_group(
 		-name      => 'paralogous_options',
@@ -566,7 +603,7 @@ sub _print_distance_matrix_fieldset {
 		-labels    => $labels,
 		-linebreak => 'true'
 	);
-	say '</li></ul></fieldset>';
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -577,23 +614,30 @@ sub _analyse_by_loci {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				message_html => "<p class=\"statusbad\">You must select at least two isolates for comparison against defined loci. "
-				  . "Make sure your selected isolates haven't been filtered to fewer than two by selecting a project.</p>"
+				    message_html => q(<p class="statusbad">You must select at least two isolates for comparison )
+				  . q(against defined loci. Make sure your selected isolates haven't been filtered to fewer )
+				  . q(than two by selecting a project.</p>)
 			}
 		);
 		return;
 	}
-	$self->{'html_buffer'} = "<h3>Analysis against defined loci</h3>\n";
-	$self->{'file_buffer'} = "Analysis against defined loci\n";
-	$self->{'file_buffer'} .= "Time: " . ( localtime(time) ) . "\n\n";
+	$self->{'html_buffer'} = qq(<h3>Analysis against defined loci</h3>\n);
+	$self->{'file_buffer'} = qq(Analysis against defined loci\n);
+	$self->{'file_buffer'} .= q(Time: ) . ( localtime(time) ) . qq(\n\n);
 	$self->{'html_buffer'} .=
-	    qq(<p>Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, )
-	  . qq('New#2' etc. Missing alleles are marked as <span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete )
-	  . qq(alleles (located at end of contig) are marked as <span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
-	$self->{'file_buffer'} .= "Allele numbers are used where these have been defined, otherwise sequences will be marked as 'New#1, "
-	  . "'New#2' etc.\nMissing alleles are marked as 'X'. Incomplete alleles (located at end of contig) are marked as 'I'.\n\n";
+	    q(<p>Allele numbers are used where these have been defined, otherwise sequences )
+	  . q(will be marked as 'New#1, 'New#2' etc. Missing alleles are marked as )
+	  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
+	  . q((located at end of contig) are marked as )
+	  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
+	$self->{'file_buffer'} .=
+	    q(Allele numbers are used where these have been defined, otherwise sequences will be )
+	  . qq(marked as 'New#1, 'New#2' etc.\n)
+	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
+	  . qq(are marked as 'I'.\n\n);
 	$self->_print_isolate_header( 0, $ids, $worksheet );
-	$self->_run_comparison( { by_reference => 0, job_id => $job_id, ids => $ids, cds => $loci, worksheet => $worksheet } );
+	$self->_run_comparison(
+		{ by_reference => 0, job_id => $job_id, ids => $ids, cds => $loci, worksheet => $worksheet } );
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -601,38 +645,39 @@ sub _analyse_by_loci {
 sub _generate_splits {
 	my ( $self, $job_id, $values, $ignore_loci_ref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating distance matrix" } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating distance matrix' } );
 	my $dismat = $self->_generate_distance_matrix( $values, $ignore_loci_ref, $options );
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
 	$self->_add_distance_matrix_worksheet($dismat);
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
-			filename => $nexus_file,
-			description =>
-			  '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">SplitsTree</a>. '
-			  . 'Distances between taxa are calculated as the number of loci with different allele sequences'
+			filename    => $nexus_file,
+			description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
+			  . '<a href="http://www.splitstree.org">SplitsTree</a>. Distances between taxa are '
+			  . 'calculated as the number of loci with different allele sequences'
 		}
 	);
 	return if ( keys %$values ) > MAX_SPLITS_TAXA;
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => "Generating NeighborNet" } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating NeighborNet' } );
 	my $splits_img = "$job_id.png";
-	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
 	}
 	$splits_img = "$job_id.svg";
-	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
-				filename => $splits_img,
-				description =>
-				  '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">Inkscape</a> or other '
-				  . 'vector graphics editors'
+				filename    => $splits_img,
+				description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in '
+				  . '<a href="http://inkscape.org">Inkscape</a> or other vector graphics editors'
 			}
 		);
 	}
@@ -644,7 +689,7 @@ sub _get_identifier {
 	$options = {} if ref $options ne 'HASH';
 	my $value = $options->{'no_id'} ? '' : $id;
 	my @includes;
-	@includes = split /\|\|/, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
 	if (@includes) {
 		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 			$id, { fetch => 'row_hashref', cache => 'GenomeComparator::get_identifier' } );
@@ -712,7 +757,7 @@ sub _make_nexus_file {
 	my %labels;
 	foreach my $id (@ids) {
 		if ( $id == 0 ) {
-			$labels{$id} = "ref";
+			$labels{$id} = 'ref';
 		} else {
 			$labels{$id} = $self->_get_identifier($id);
 		}
@@ -720,13 +765,14 @@ sub _make_nexus_file {
 	my $num_taxa         = @ids;
 	my $truncated_labels = {
 		exclude       => 'completely excluded from analysis',
-		include_as_T  => "included as a special allele indistinguishable from other incomplete alleles",
+		include_as_T  => 'included as a special allele indistinguishable from other incomplete alleles',
 		pairwise_same => 'ignored in pairwise comparisons unless locus is missing in one isolate'
 	};
 	my $truncated  = "[Incomplete loci are $truncated_labels->{$options->{'truncated'}}]";
 	my $paralogous = '';
 	if ( $options->{'by_reference'} ) {
-		$paralogous = '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
+		$paralogous =
+		  '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
 	}
 	my $header = <<"NEXUS";
 #NEXUS
@@ -750,7 +796,8 @@ BEGIN distances;
    ;
 MATRIX
 NEXUS
-	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" ) || $logger->error("Can't open $job_id.nex for writing");
+	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" )
+	  || $logger->error("Can't open $job_id.nex for writing");
 	print $nexus_fh $header;
 	foreach my $i ( 0 .. @ids - 1 ) {
 		print $nexus_fh $labels{ $ids[$i] };
@@ -768,7 +815,7 @@ sub _add_distance_matrix_worksheet {
 	my @ids = sort { $a <=> $b } keys %$dismat;
 	foreach my $id (@ids) {
 		if ( $id == 0 ) {
-			$labels{$id} = "ref";
+			$labels{$id} = 'ref';
 		} else {
 			$labels{$id} = $self->_get_identifier($id);
 		}
@@ -820,7 +867,7 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	$self->{'html_buffer'} = "<h3>Analysis by reference genome</h3>";
+	$self->{'html_buffer'} = q(<h3>Analysis by reference genome</h3>);
 	my %att;
 	eval {
 		%att = (
@@ -833,21 +880,21 @@ sub _analyse_by_reference {
 		);
 	};
 	if ($@) {
-		throw BIGSdb::PluginException("Invalid data in reference genome.");
+		throw BIGSdb::PluginException('Invalid data in reference genome.');
 	}
 	my %abb = ( cds => 'coding regions' );
-	$self->{'html_buffer'} .= "<table class=\"resultstable\">";
+	$self->{'html_buffer'} .= q(<table class="resultstable">);
 	my $td = 1;
-	$self->{'file_buffer'} = "Analysis by reference genome\n\nTime: " . ( localtime(time) ) . "\n\n";
+	$self->{'file_buffer'} = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
 	foreach (qw (accession version type length description cds)) {
 		if ( $att{$_} ) {
 			$self->{'html_buffer'} .=
-			  "<tr class=\"td$td\"><th>" . ( $abb{$_} || $_ ) . "</th><td style=\"text-align:left\">$att{$_}</td></tr>";
+			  qq(<tr class="td$td"><th>) . ( $abb{$_} || $_ ) . qq(</th><td style="text-align:left">$att{$_}</td></tr>);
 			$self->{'file_buffer'} .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	$self->{'html_buffer'} .= "</table>";
+	$self->{'html_buffer'} .= q(</table>);
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	my $max_ref_loci =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_max_ref_loci'} )
@@ -855,23 +902,24 @@ sub _analyse_by_reference {
 	  : MAX_REF_LOCI;
 	if ( @cds > $max_ref_loci ) {
 		my $max_upload_size = MAX_UPLOAD_SIZE / ( 1024 * 1024 );
-		throw BIGSdb::PluginException( "Too many loci in reference genome - limit is set at "
-			  . $max_ref_loci
-			  . '.  Your uploaded reference contains '
-			  . ( scalar @cds )
-			  . " loci.  Please note also that the uploaded reference is limited to $max_upload_size MB (larger uploads will be "
-			  . "truncated)." );
+		my $cds_count = @cds;
+		throw BIGSdb::PluginException( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
+			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
+			  . qq(reference is limited to $max_upload_size MB (larger uploads will be truncated).) );
 	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
 	$self->{'html_buffer'} .=
-	    qq(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as <span )
-	  . qq(style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles (located at end of contig) are marked )
-	  . qq(as <span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
-	$self->{'file_buffer'} .= "Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n"
-	  . "Incomplete alleles (located at end of contig) are marked as 'I'.\n\n";
+	    q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
+	  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
+	  . q((located at end of contig) are marked as )
+	  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
+	$self->{'file_buffer'} .=
+	    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
+	  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
 	$self->_print_isolate_header( 1, $ids, $worksheet );
-	$self->_run_comparison( { by_reference => 1, job_id => $job_id, ids => $ids, cds => \@cds, worksheet => $worksheet } );
+	$self->_run_comparison(
+		{ by_reference => 1, job_id => $job_id, ids => $ids, cds => \@cds, worksheet => $worksheet } );
 	return;
 }
 
@@ -893,13 +941,14 @@ sub _extract_cds_details {
 	local $" = ' | ';
 	$locus_name = $locus;
 	$locus_name .= " | @aliases" if @aliases;
-	return if $locus_name =~ /^Bio::PrimarySeq=HASH/;    #Invalid entry in reference file.
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;    #Invalid entry in reference file.
 	my $seq;
-	try  {
+	try {
 		$seq = $cds->seq->seq;
-	} catch Bio::Root::Exception with {
+	}
+	catch Bio::Root::Exception with {
 		my $err = shift;
-		if ($err =~ /MSG:([^\.]*\.)/x){
+		if ( $err =~ /MSG:([^\.]*\.)/x ) {
 			throw BIGSdb::PluginException("Invalid data in annotation: $1");
 		} else {
 			$logger->error($err);
@@ -942,7 +991,7 @@ sub _run_comparison {
 		$word_size = 3;
 	} else {
 		$program = 'blastn';
-		$word_size = $params->{'word_size'} =~ /^(\d+)$/ ? $1 : 15;
+		$word_size = $params->{'word_size'} =~ /^(\d+)$/x ? $1 : 15;
 	}
 	my $loci;
 	my $row          = 0;
@@ -1013,7 +1062,8 @@ sub _run_comparison {
 			$self->{'file_buffer'} .= "\t1";
 
 			if ( !$self->{'excel_format'}->{$colour} ) {
-				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				my $excel_style =
+				  BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
 				$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 			}
 			$worksheet->write( $row, $col, 1, $self->{'excel_format'}->{$colour} );
@@ -1023,7 +1073,7 @@ sub _run_comparison {
 		foreach my $id (@$ids) {
 			next if $self->{'exit'};
 			$col++;
-			$id = $1 if $id =~ /(\d*)/;    #avoid taint check
+			$id = $1 if $id =~ /(\d*)/x;    #avoid taint check
 			if ( !-e "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id.txt" ) {
 				if ($by_reference) {
 					$isolate_FASTA{$id} = $self->_create_isolate_FASTA_db( $id, $prefix );
@@ -1034,8 +1084,16 @@ sub _run_comparison {
 			my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$id\_outfile.txt";
 			my ( $match, $value, $extracted_seq );
 			if ( !$by_reference ) {
-				( $match, $value, $extracted_seq ) = $self->_scan_by_locus( $id, $cds, \%seqs, \%allele_seqs,
-					{ word_size => $word_size, out_file => $out_file, ref_seq_file => $ref_seq_file, isolate_fasta_ref => \%isolate_FASTA }
+				( $match, $value, $extracted_seq ) = $self->_scan_by_locus(
+					$id, $cds,
+					\%seqs,
+					\%allele_seqs,
+					{
+						word_size         => $word_size,
+						out_file          => $out_file,
+						ref_seq_file      => $ref_seq_file,
+						isolate_fasta_ref => \%isolate_FASTA
+					}
 				);
 			} else {
 				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
@@ -1052,7 +1110,8 @@ sub _run_comparison {
 					}
 				}
 				if ( !$match->{'exact'} && $match->{'predicted_start'} && $match->{'predicted_end'} ) {
-					my $seqbin_length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin where id=?",
+					my $seqbin_length =
+					  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin where id=?',
 						$match->{'seqbin_id'}, { cache => 'GenomeComparator::run_comparison_seqbin_length' } );
 					foreach (qw (predicted_start predicted_end)) {
 						if ( $match->{$_} < 1 ) {
@@ -1096,18 +1155,26 @@ sub _run_comparison {
 				$style = 'background:green; color:white';
 				$value_colour{'I'} = 'I';
 				if ( !$self->{'excel_format'}->{'I'} ) {
-					$self->{'excel_format'}->{'I'} =
-					  $self->{'workbook'}
-					  ->add_format( bg_color => 'green', color => 'white', align => 'center', border => 1, border_color => 'white' );
+					$self->{'excel_format'}->{'I'} = $self->{'workbook'}->add_format(
+						bg_color     => 'green',
+						color        => 'white',
+						align        => 'center',
+						border       => 1,
+						border_color => 'white'
+					);
 				}
 				$value_colour{$value} = 'I';
 			} elsif ( $value eq 'X' ) {
 				$style = 'background:black; color:white';
 				$value_colour{'X'} = 'X';
 				if ( !$self->{'excel_format'}->{'X'} ) {
-					$self->{'excel_format'}->{'X'} =
-					  $self->{'workbook'}
-					  ->add_format( bg_color => 'black', color => 'white', align => 'center', border => 1, border_color => 'white' );
+					$self->{'excel_format'}->{'X'} = $self->{'workbook'}->add_format(
+						bg_color     => 'black',
+						color        => 'white',
+						align        => 'center',
+						border       => 1,
+						border_color => 'white'
+					);
 				}
 			} else {
 				if ( !$value_colour{$value} ) {
@@ -1116,7 +1183,8 @@ sub _run_comparison {
 				}
 				$style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $num_isolates );
 				if ( !$self->{'excel_format'}->{$colour} ) {
-					my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $num_isolates, { excel => 1 } );
+					my $excel_style =
+					  BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $num_isolates, { excel => 1 } );
 					$self->{'excel_format'}->{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 				}
 			}
@@ -1149,7 +1217,8 @@ sub _run_comparison {
 		}
 		if ( $params->{'align'} && ( $variable_locus || $params->{'align_all'} ) ) {
 			$seqs{'ref'} = $$seq_ref if $by_reference;
-			my $core_threshold = BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
+			my $core_threshold =
+			  BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
 			my $core_locus = ( $presence->{$locus_name} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
 			$self->_align(
 				{
@@ -1168,15 +1237,18 @@ sub _run_comparison {
 		%seqs = ();
 		$progress++;
 		my $complete = int( 100 * $progress / $total );
-		if ( @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'} ) {
+		my $max_display_taxa = MAX_DISPLAY_TAXA;
+		if ( @$ids > $max_display_taxa || $params->{'disable_html'} ) {
 			my $message =
 			  $params->{'disable_html'}
-			  ? "<p>Dynamically updated output disabled.</p>"
-			  : "<p>Dynamically updated output disabled as >" . MAX_DISPLAY_TAXA . " taxa selected.</p>";
-			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
+			  ? '<p>Dynamically updated output disabled.</p>'
+			  : "<p>Dynamically updated output disabled as >$max_display_taxa taxa selected.</p>";
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
 		} else {
 			my $msg = $self->{'html_buffer'} . $close_table;
-			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete, message_html => $msg } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $msg } );
 			undef $msg;
 		}
 		$self->delete_temp_files("$job_id*fastafile*\.txt*") if !$by_reference;
@@ -1219,28 +1291,30 @@ sub _run_comparison {
 sub _touch_output_files {
 	my ( $self, $wildcard ) = @_;
 	my @files = glob("$self->{'config'}->{'tmp_dir'}/$wildcard");
-	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/ }
+	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/x }
 	return;
 }
 
 sub _touch_temp_files {
 	my ( $self, $wildcard ) = @_;
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
-	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/ }
+	foreach (@files) { utime( time(), time(), $1 ) if /^(.*BIGSdb.*)$/x }
 	return;
 }
 
 sub _print_reports {
 	my ( $self, $ids, $loci, $args ) = @_;
 	my $params = $self->{'params'};
-	my ( $job_id, $values, $locus_class, $job_file, $match_count ) = @{$args}{qw (job_id values locus_class job_file match_count )};
+	my ( $job_id, $values, $locus_class, $job_file, $match_count ) =
+	  @{$args}{qw (job_id values locus_class job_file match_count )};
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id\.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.align_stats";
 	open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
 	print $job_fh $self->{'file_buffer'};
 	close $job_fh;
 	return if $self->{'exit'};
-	my %table_args = ( by_reference => $args->{'by_reference'}, ids => $ids, job_filename => $job_file, values => $values );
+	my %table_args =
+	  ( by_reference => $args->{'by_reference'}, ids => $ids, job_filename => $job_file, values => $values );
 	$self->_print_variable_loci( { loci => $locus_class->{'varying'}, %table_args } );
 	$self->_print_missing_in_all( { loci => $locus_class->{'all_missing'}, %table_args } );
 	$self->_print_exact_matches( { loci => $locus_class->{'all_exact'}, %table_args } );
@@ -1248,7 +1322,8 @@ sub _print_reports {
 	if ( $args->{'by_reference'} ) {
 		$self->_print_exact_except_ref( { loci => $locus_class->{'exact_except_ref'}, %table_args } );
 	}
-	$self->_print_truncated_loci( { loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'}, %table_args } );
+	$self->_print_truncated_loci(
+		{ loci => $locus_class->{'truncated'}, truncated_param => $params->{'truncated'}, %table_args } );
 	if ( !$args->{'seqs_total'} && $args->{'by_reference'} ) {
 		$self->{'html_buffer'} .= "<p class=\"statusbad\">No sequences were extracted from reference file.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
@@ -1264,7 +1339,8 @@ sub _print_reports {
 		$self->{'html_buffer'} = '' if @$ids > MAX_DISPLAY_TAXA || $params->{'disable_html'};
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
 	my @ignore_loci;
 	push @ignore_loci, keys %{ $locus_class->{'truncated'} } if ( $params->{'truncated'} // '' ) eq 'exclude';
 	push @ignore_loci, @paralogous if $params->{'exclude_paralogous'};
@@ -1278,24 +1354,39 @@ sub _print_reports {
 		}
 	);
 	if ( $params->{'align'} && ( @$ids > 1 || ( @$ids == 1 && $args->{'by_reference'} ) ) ) {
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id\.align", description => '30_Alignments', compress => 1 } )
 		  if -e $align_file && !-z $align_file;
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } )
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } )
 		  if -e $align_stats_file && !-z $align_stats_file;
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
-			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "$job_id.xmfa", description => '35_Extracted sequences (XMFA format)', compress => 1, keep_original => 1 } );
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename      => "$job_id.xmfa",
+					description   => '35_Extracted sequences (XMFA format)',
+					compress      => 1,
+					keep_original => 1
+				}
+			);
 			try {
-				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
-				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
+				$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
+				my $fasta_file =
+				  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 				if ( -e $fasta_file ) {
-					$self->{'jobManager'}->update_job_output( $job_id,
-						{ filename => "$job_id.fas", description => '36_Concatenated aligned sequences (FASTA format)', compress => 1 } );
+					$self->{'jobManager'}->update_job_output(
+						$job_id,
+						{
+							filename    => "$job_id.fas",
+							description => '36_Concatenated aligned sequences (FASTA format)',
+							compress    => 1
+						}
+					);
 				}
 			}
 			catch BIGSdb::CannotOpenFileException with {
-				$logger->error("Can't create FASTA file from XMFA.");
+				$logger->error('Cannot create FASTA file from XMFA.');
 			};
 		}
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
@@ -1309,8 +1400,10 @@ sub _print_reports {
 				}
 			);
 			try {
-				$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting core XMFA to FASTA" } );
-				my $fasta_file = BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
+				$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA' } );
+				my $fasta_file =
+				  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa",
+					{ integer_ids => 1 } );
 				if ( -e $fasta_file ) {
 					$self->{'jobManager'}->update_job_output(
 						$job_id,
@@ -1323,7 +1416,7 @@ sub _print_reports {
 				}
 			}
 			catch BIGSdb::CannotOpenFileException with {
-				$logger->error("Can't create core FASTA file from XMFA.");
+				$logger->error('Cannot create core FASTA file from XMFA.');
 			};
 		}
 	}
@@ -1335,7 +1428,8 @@ sub _print_reports {
 	binmode $excel_fh;
 	print $excel_fh ${ $self->{'excel'} };
 	close $excel_fh;
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
 	  if -e $excel_file;
 	return;
 }
@@ -1350,7 +1444,7 @@ sub _report_parameters {
 	$excel_format{'value'}   = $self->{'workbook'}->add_format( align => 'left' );
 	my $job = $self->{'jobManager'}->get_job( $args->{'job_id'} );
 	my $total_time;
-	eval "use Time::Duration;";    ## no critic (ProhibitStringyEval)
+	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
 
 	if ($@) {
 		$total_time = int( $job->{'elapsed'} ) . ' s';
@@ -1358,9 +1452,9 @@ sub _report_parameters {
 		$total_time = duration( $job->{'elapsed'} );
 		$total_time = '<1 second' if $total_time eq 'just now';
 	}
-	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//;
-	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//;
-	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//;
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
+	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//x;
+	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//x;
 
 	#Job attributes
 	my @parameters = (
@@ -1373,12 +1467,18 @@ sub _report_parameters {
 		{ label   => 'Stop time',      value   => $stop_time },
 		{ label   => 'Total time',     value   => $total_time },
 		{ label   => 'Isolates',       value   => scalar @$ids },
-		{ label   => 'Analysis type',  value   => $args->{'by_reference'} ? 'against reference genome' : 'against defined loci' },
+		{
+			label => 'Analysis type',
+			value => $args->{'by_reference'} ? 'against reference genome' : 'against defined loci'
+		},
 	);
 	my $params = $self->{'params'};
 	if ( $args->{'by_reference'} ) {
 		push @parameters,
-		  { label => 'Accession', value => $params->{'annotation'} || $params->{'accession'} || $params->{'upload_filename'} };
+		  {
+			label => 'Accession',
+			value => $params->{'annotation'} || $params->{'accession'} || $params->{'upload_filename'}
+		  };
 	} else {
 		push @parameters, { label => 'Loci', value => scalar keys %$loci };
 	}
@@ -1403,17 +1503,23 @@ sub _report_parameters {
 		pairwise_same => 'Ignore in pairwise comparison'
 	};
 	push @parameters,
-	  ( { section => 'Distance matrix calculation' }, { label => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) } );
+	  (
+		{ section => 'Distance matrix calculation' },
+		{ label   => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) }
+	  );
 	if ( $args->{'by_reference'} ) {
-		push @parameters, { label => 'Exclude paralogous loci', value => $params->{'exclude_paralogous'} ? 'yes' : 'no' };
+		push @parameters,
+		  { label => 'Exclude paralogous loci', value => $params->{'exclude_paralogous'} ? 'yes' : 'no' };
 		if ( $params->{'exclude_paralogous'} ) {
 			$labels = { all => 'paralogous in all isolates', any => 'paralogous in any isolate' };
-			push @parameters, { label => 'Paralogous locus definitions', value => $labels->{ $params->{'paralogous_options'} } };
+			push @parameters,
+			  { label => 'Paralogous locus definitions', value => $labels->{ $params->{'paralogous_options'} } };
 		}
 	}
 
 	#Alignments
-	push @parameters, ( { section => 'Alignments' }, { label => 'Produce alignments', value => $params->{'align'} ? 'yes' : 'no' } );
+	push @parameters,
+	  ( { section => 'Alignments' }, { label => 'Produce alignments', value => $params->{'align'} ? 'yes' : 'no' } );
 	if ( $params->{'align'} ) {
 		push @parameters,
 		  (
@@ -1465,14 +1571,16 @@ sub _core_analysis {
 	my $order         = $args->{'order'};
 	my $out_file      = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.txt";
 	open( my $fh, '>', $out_file ) || $logger->error("Can't open $out_file for writing");
-	say $fh "Core genome analysis";
+	say $fh 'Core genome analysis';
 	say $fh "--------------------\n";
-	say $fh "Parameters:";
+	say $fh 'Parameters:';
 	say $fh "Min % identity: $params->{'identity'}";
 	say $fh "Min % alignment: $params->{'alignment'}";
 	say $fh "BLASTN word size: $params->{'word_size'}";
 	my $threshold =
-	  ( $params->{'core_threshold'} && BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ) ? $params->{'core_threshold'} : 90;
+	  ( $params->{'core_threshold'} && BIGSdb::Utils::is_int( $params->{'core_threshold'} ) )
+	  ? $params->{'core_threshold'}
+	  : 90;
 	say $fh "Core threshold (percentage of isolates that contain locus): $threshold\%\n";
 	print $fh "Locus\tSequence length\tGenome position\tIsolate frequency\tIsolate percentage\tCore";
 	print $fh "\tMean distance" if $params->{'calc_distances'};
@@ -1499,7 +1607,8 @@ sub _core_analysis {
 		}
 		$core_count++ if $percentage >= $threshold;
 		print $fh "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
-		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 ) if $params->{'calc_distances'};
+		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 )
+		  if $params->{'calc_distances'};
 		print $fh "\n";
 		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
 			$range{$upper_range}++ if $percentage >= ( $upper_range - 5 ) && $percentage < $upper_range;
@@ -1537,8 +1646,13 @@ sub _core_analysis {
 			{ no_transparent => 1 }
 		);
 		if ( -e $image_file ) {
-			$self->{'jobManager'}->update_job_output( $args->{'job_id'},
-				{ filename => "$args->{'job_id'}\_core.png", description => '41_Locus presence frequency chart (PNG format)' } );
+			$self->{'jobManager'}->update_job_output(
+				$args->{'job_id'},
+				{
+					filename    => "$args->{'job_id'}\_core.png",
+					description => '41_Locus presence frequency chart (PNG format)'
+				}
+			);
 		}
 	}
 	return;
@@ -1567,7 +1681,7 @@ sub _core_mean_distance {
 		foreach my $locus (@$core_loci) {
 			my $range = 0;
 			if ( $self->{'distances'}->{$locus} ) {
-				my $distance = $self->{'distances'}->{$locus} =~ /^([\d\.]+)$/ ? $1 : 0;    #untaint
+				my $distance = $self->{'distances'}->{$locus} =~ /^([\d\.]+)$/x ? $1 : 0;    #untaint
 				do( $range += $increment ) until $range >= $distance;
 			}
 			$upper_range{$range}++;
@@ -1587,9 +1701,11 @@ sub _core_mean_distance {
 			push @labels, $label;
 			push @values, $value;
 			$file_buffer .=
-			  "$label\t$value\t" . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+			  "$label\t$value\t"
+			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
 		} until ( $range > $largest_distance );
-		$file_buffer .= "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
+		$file_buffer .=
+		  "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
 	}
 	open( my $fh, '>>', $out_file ) || $logger->error("Can't open $out_file for appending");
 	say $fh $file_buffer;
@@ -1605,8 +1721,9 @@ sub _core_mean_distance {
 			$self->{'jobManager'}->update_job_output(
 				$args->{'job_id'},
 				{
-					filename    => "$args->{'job_id'}\_core2.png",
-					description => '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)'
+					filename => "$args->{'job_id'}\_core2.png",
+					description =>
+					  '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)'
 				}
 			);
 		}
@@ -1659,7 +1776,12 @@ sub _scan_by_locus {
 				$args->{'out_file'}, 'blastn', { max_target_seqs => 500 }
 			);
 		} else {
-			$self->_blast( 3, $args->{'ref_seq_file'}, $args->{'isolate_fasta_ref'}->{$isolate_id}, $args->{'out_file'}, 'blastx' );
+			$self->_blast(
+				3,
+				$args->{'ref_seq_file'},
+				$args->{'isolate_fasta_ref'}->{$isolate_id},
+				$args->{'out_file'}, 'blastx'
+			);
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
 		@values = ( $match->{'allele'} ) if $match->{'exact'};
@@ -1710,19 +1832,20 @@ sub _print_paralogous_loci {
 		$self->{'html_buffer'} .= "<h3>Potentially paralogous loci</h3>\n";
 		my $msg =
 		  $params->{'paralogous_options'} eq 'any'
-		  ? 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in at least one '
-		  . 'genome. Depending on your BLAST parameters this is likely to overestimate the number of paralogous loci.'
-		  : 'The table shows the number of matches where there was more than one hit matching the BLAST thresholds in all genomes (except '
-		  . 'where the locus was absent).';
-		$self->{'html_buffer'} .= "<p>$msg</p>\n";
-		$self->{'html_buffer'} .= "<p>Paralogous: " . ( keys %paralogous_loci ) . "</p>\n";
-		$self->{'html_buffer'} .= "<table class=\"resultstable\"><tr><th>Locus</th>";
+		  ? 'The table shows the number of matches where there was more than one hit matching the BLAST '
+		  . 'thresholds in at least one genome. Depending on your BLAST parameters this is likely to '
+		  . 'overestimate the number of paralogous loci.'
+		  : 'The table shows the number of matches where there was more than one hit matching the BLAST '
+		  . 'thresholds in all genomes (except where the locus was absent).';
+		$self->{'html_buffer'} .= qq(<p>$msg</p>\n);
+		$self->{'html_buffer'} .= q(<p>Paralogous: ) . ( keys %paralogous_loci ) . qq(</p>\n);
+		$self->{'html_buffer'} .= q(<table class="resultstable"><tr><th>Locus</th>);
 		my $file_buffer = "\n###\n\n";
 		$file_buffer .= "Potentially paralogous loci\n";
 		$file_buffer .= "---------------------------\n";
 		$file_buffer .= "$msg\n\n";
-		$file_buffer .= "Paralogous: " . ( keys %paralogous_loci ) . "\n\n";
-		$file_buffer .= "Locus";
+		$file_buffer .= 'Paralogous: ' . ( keys %paralogous_loci ) . "\n\n";
+		$file_buffer .= 'Locus';
 		my $worksheet = $self->{'workbook'}->add_worksheet('paralogous loci');
 		$worksheet->write( 0, 0, 'Locus', $self->{'excel_format'}->{'header'} );
 		my $col       = 1;
@@ -1774,16 +1897,16 @@ sub _identify_strains {
 		$strains{$profile_hash}++;
 		push @{ $strain_isolates->{$profile_hash} }, $self->_get_isolate_name($id);
 	}
-	$self->{'html_buffer'} .= "<h3>Unique strains</h3>";
+	$self->{'html_buffer'} .= '<h3>Unique strains</h3>';
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Unique strains\n";
 	$file_buffer .= "--------------\n\n";
 	my $num_strains = keys %strains;
-	$self->{'html_buffer'} .= "<p>Unique strains: $num_strains</p>\n";
-	$file_buffer           .= "Unique strains: $num_strains\n";
-	$self->{'html_buffer'} .= "<div class=\"scrollable\"><table><tr>";
-	$self->{'html_buffer'} .= "<th>Strain $_</th>" foreach ( 1 .. $num_strains );
-	$self->{'html_buffer'} .= "</tr>\n<tr>";
+	$self->{'html_buffer'} .= qq(<p>Unique strains: $num_strains</p>\n);
+	$file_buffer           .= qq(Unique strains: $num_strains\n);
+	$self->{'html_buffer'} .= q(<div class="scrollable"><table><tr>);
+	$self->{'html_buffer'} .= qq(<th>Strain $_</th>) foreach ( 1 .. $num_strains );
+	$self->{'html_buffer'} .= q(</tr><tr>);
 	my $td        = 1;
 	my $strain_id = 1;
 	my $worksheet = $self->{'workbook'}->add_worksheet('unique strains');
@@ -1851,7 +1974,7 @@ sub _get_isolate_name {
 sub _print_isolate_header {
 	my ( $self, $by_reference, $ids, $worksheet ) = @_;
 	my @header = 'Locus';
-	$self->{'html_buffer'} .= "<div class=\"scrollable\"><table class=\"resultstable\"><tr>";
+	$self->{'html_buffer'} .= q(<div class="scrollable"><table class="resultstable"><tr>);
 	if ($by_reference) {
 		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
 	}
@@ -1859,15 +1982,16 @@ sub _print_isolate_header {
 		my $isolate = $self->_get_isolate_name($id);
 		push @header, $isolate;
 	}
-	local $" = '</th><th>';
-	$self->{'html_buffer'} .= "<th>@header</th></tr>";
+	local $" = q(</th><th>);
+	$self->{'html_buffer'} .= qq(<th>@header</th></tr>);
 	local $" = "\t";
-	$self->{'file_buffer'} .= "@header\n";
+	$self->{'file_buffer'} .= qq(@header\n);
 	my $col = 0;
 	return if !defined $worksheet;
 	foreach my $heading (@header) {
 		$worksheet->write( 0, $col, $heading, $self->{'excel_format'}->{'header'} );
-		$self->{'col_max_width'}->{$col} = length $heading if length $heading > ( $self->{'col_max_width'}->{$col} // 0 );
+		$self->{'col_max_width'}->{$col} = length $heading
+		  if length $heading > ( $self->{'col_max_width'}->{$col} // 0 );
 		$col++;
 	}
 	$worksheet->freeze_panes( 1, 1 );
@@ -1878,12 +2002,12 @@ sub _print_variable_loci {
 	my ( $self, $args ) = @_;
 	my ( $by_reference, $ids, $job_filename, $loci, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $loci ne 'HASH';
-	$self->{'html_buffer'} .= "<h3>Loci with sequence differences among isolates:</h3>";
+	$self->{'html_buffer'} .= '<h3>Loci with sequence differences among isolates:</h3>';
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci with sequence differences among isolates\n";
 	$file_buffer .= "---------------------------------------------\n\n";
-	$self->{'html_buffer'} .= "<p>Variable loci: " . ( scalar keys %$loci ) . "</p>";
-	$file_buffer .= "Variable loci: " . ( scalar keys %$loci ) . "\n\n";
+	$self->{'html_buffer'} .= '<p>Variable loci: ' . ( scalar keys %$loci ) . "</p>";
+	$file_buffer .= 'Variable loci: ' . ( scalar keys %$loci ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
 	close $job_fh;
@@ -1900,7 +2024,7 @@ sub _align {
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
 	my $temp = BIGSdb::Utils::get_random();
-	( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/g;
+	( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/gx;
 	$escaped_locus =~ tr/ /_/;
 	my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.fasta";
 	my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_$escaped_locus.aligned";
@@ -1915,8 +2039,8 @@ sub _align {
 		next if $id eq 'ref' && !$self->{'params'}->{'include_ref'};
 		push @ids_to_align, $id;
 		my $name = $id ne 'ref' ? $self->_get_isolate_name( $id, { name_only => 1 } ) : 'ref';
-		$name =~ s/[\(\)]//g;
-		$name =~ s/ /|/;        #replace space separating id and name
+		$name =~ s/[\(\)]//gx;
+		$name =~ s/ /|/;         #replace space separating id and name
 		$name =~ tr/[:, ]/_/;
 		$names{$id} = $name;
 		if ( $seqs->{$id} ) {
@@ -1956,8 +2080,9 @@ sub _run_infoalign {
 	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
 		my $prefix  = BIGSdb::Utils::get_random();
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
-		system( "$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa "
-			  . "-nosimcount -noweight -nodescription 2> /dev/null" );
+		system(
+			"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa "
+			  . '-nosimcount -noweight -nodescription 2> /dev/null' );
 		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
 		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
 		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
@@ -1967,12 +2092,13 @@ sub _run_infoalign {
 
 		if ( -e $outfile ) {
 			BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } );
-			open( my $fh, '<', $outfile ) or $logger->error("Can't open alignment stats file file $outfile for reading");
+			open( my $fh, '<', $outfile )
+			  or $logger->error("Can't open alignment stats file file $outfile for reading");
 			my $row        = 0;
 			my $total_diff = 0;
 			while (<$fh>) {
-				next if /^#/;
-				my @values = split /\s+/;
+				next if /^\#/x;
+				my @values = split /\s+/x;
 				my $diff   = $values[7];    # % difference from consensus
 				$total_diff += $diff;
 				$row++;
@@ -1992,16 +2118,30 @@ sub _run_alignment {
 		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
 		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
 	  )
-	  = @{$args}
-	  {qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )};
+	  = @{$args}{
+		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out 
+		xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
+	  };
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
-		my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
-		system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase --clustalout $fasta_file > $aligned_out");
-	} elsif ( $params->{'aligner'} eq 'MUSCLE' && $self->{'config'}->{'muscle_path'} && -e $fasta_file && -s $fasta_file ) {
+		my $threads =
+		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+		system(
+"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase --clustalout $fasta_file > $aligned_out"
+		);
+	} elsif ( $params->{'aligner'} eq 'MUSCLE'
+		&& $self->{'config'}->{'muscle_path'}
+		&& -e $fasta_file
+		&& -s $fasta_file )
+	{
 		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-		system( $self->{'config'}->{'muscle_path'}, -in => $fasta_file, -out => $aligned_out, -maxmb => $max_mb, '-quiet', '-clwstrict' );
+		system( $self->{'config'}->{'muscle_path'},
+			-in    => $fasta_file,
+			-out   => $aligned_out,
+			-maxmb => $max_mb,
+			'-quiet', '-clwstrict'
+		);
 	} else {
 		$logger->error('No aligner selected');
 	}
@@ -2016,7 +2156,7 @@ sub _run_alignment {
 			$xmfa_buffer .= '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			$xmfa_buffer .= "$sequence\n";
-			my ($id) = split /\|/, $seq->id;
+			my ($id) = split /\|/x, $seq->id;
 			$id_has_seq{$id} = 1;
 			$seq_length = $seq->length if !$seq_length;
 		}
@@ -2030,7 +2170,8 @@ sub _run_alignment {
 		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
 		close $fh_xmfa;
 		if ($core_locus) {
-			open( my $fh_core_xmfa, '>>', $core_xmfa_out ) or $logger->error("Can't open output file $core_xmfa_out for appending");
+			open( my $fh_core_xmfa, '>>', $core_xmfa_out )
+			  or $logger->error("Can't open output file $core_xmfa_out for appending");
 			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
 			close $fh_core_xmfa;
 		}
@@ -2050,21 +2191,22 @@ sub _run_alignment {
 
 sub _print_exact_matches {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $job_filename, $exacts, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $exacts, $values ) =
+	  @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $exacts ne 'HASH';
 	$self->{'html_buffer'} .= "<h3>Exactly matching loci</h3>\n";
 	my $file_buffer = "\n###\n\n";
 	$file_buffer           .= "Exactly matching loci\n";
 	$file_buffer           .= "---------------------\n\n";
-	$self->{'html_buffer'} .= "<p>These loci are identical in all isolates";
-	$file_buffer           .= "These loci are identical in all isolates";
+	$self->{'html_buffer'} .= '<p>These loci are identical in all isolates';
+	$file_buffer           .= 'These loci are identical in all isolates';
 	if ( $self->{'params'}->{'accession'} ) {
-		$self->{'html_buffer'} .= ", including the reference genome";
-		$file_buffer .= ", including the reference genome";
+		$self->{'html_buffer'} .= ', including the reference genome';
+		$file_buffer .= ', including the reference genome';
 	}
-	$self->{'html_buffer'} .= ".</p>";
+	$self->{'html_buffer'} .= '.</p>';
 	$file_buffer           .= ".\n\n";
-	$self->{'html_buffer'} .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
+	$self->{'html_buffer'} .= '<p>Matches: ' . ( scalar keys %$exacts ) . '</p>';
 	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
@@ -2076,15 +2218,16 @@ sub _print_exact_matches {
 
 sub _print_exact_except_ref {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $job_filename, $exacts, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $exacts, $values ) =
+	  @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $exacts ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
-	$self->{'html_buffer'} .= "<h3>Loci exactly the same in all compared genomes except the reference</h3>";
+	$self->{'html_buffer'} .= '<h3>Loci exactly the same in all compared genomes except the reference</h3>';
 	print $job_fh "\n###\n\n";
 	print $job_fh "Loci exactly the same in all compared genomes except the reference\n";
 	print $job_fh "------------------------------------------------------------------\n\n";
-	$self->{'html_buffer'} .= "<p>Matches: " . ( scalar keys %$exacts ) . "</p>";
-	print $job_fh "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	$self->{'html_buffer'} .= '<p>Matches: ' . ( scalar keys %$exacts ) . '</p>';
+	print $job_fh 'Matches: ' . ( scalar keys %$exacts ) . "\n\n";
 	close $job_fh;
 	my $worksheet = $self->{'workbook'}->add_worksheet('same except ref');
 	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
@@ -2093,15 +2236,16 @@ sub _print_exact_except_ref {
 
 sub _print_missing_in_all {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $ids, $job_filename, $missing, $values ) = @{$args}{qw(by_reference ids job_filename loci values)};
+	my ( $by_reference, $ids, $job_filename, $missing, $values ) =
+	  @{$args}{qw(by_reference ids job_filename loci values)};
 	return if ref $missing ne 'HASH';
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
-	$self->{'html_buffer'} .= "<h3>Loci missing in all isolates</h3>";
+	$self->{'html_buffer'} .= '<h3>Loci missing in all isolates</h3>';
 	print $job_fh "\n###\n\n";
 	print $job_fh "Loci missing in all isolates\n";
 	print $job_fh "----------------------------\n\n";
-	$self->{'html_buffer'} .= "<p>Missing loci: " . ( scalar keys %$missing ) . "</p>";
-	print $job_fh "Missing loci: " . ( scalar keys %$missing ) . "\n\n";
+	$self->{'html_buffer'} .= '<p>Missing loci: ' . ( scalar keys %$missing ) . "</p>";
+	print $job_fh 'Missing loci: ' . ( scalar keys %$missing ) . "\n\n";
 	close $job_fh;
 	my $worksheet = $self->{'workbook'}->add_worksheet('missing in all');
 	$self->_print_locus_table( { worksheet => $worksheet, %$args } );
@@ -2113,18 +2257,19 @@ sub _print_truncated_loci {
 	my ( $by_reference, $ids, $job_filename, $truncated, $truncated_param, $values ) =
 	  @{$args}{qw(by_reference ids job_filename loci truncated_param values)};
 	return if ref $truncated ne 'HASH';
-	$self->{'html_buffer'} .= "<h3>Loci that are incomplete in some isolates</h3>";
+	$self->{'html_buffer'} .= '<h3>Loci that are incomplete in some isolates</h3>';
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci that are incomplete in some isolates\n";
 	$file_buffer .= "-----------------------------------------\n\n";
-	$self->{'html_buffer'} .= "<p>Incomplete: " . ( scalar keys %$truncated ) . "</p>";
-	$file_buffer .= "Incomplete: " . ( scalar keys %$truncated ) . "\n\n";
-	$self->{'html_buffer'} .= "<p>These loci are incomplete and located at the ends of contigs in at least one isolate. ";
+	$self->{'html_buffer'} .= '<p>Incomplete: ' . ( scalar keys %$truncated ) . '</p>';
+	$file_buffer .= 'Incomplete: ' . ( scalar keys %$truncated ) . "\n\n";
+	$self->{'html_buffer'} .= '<p>These loci are incomplete and located at the '
+	  . 'ends of contigs in at least one isolate. ';
 
 	if ( $truncated_param eq 'exclude' ) {
-		$self->{'html_buffer'} .= "They have been excluded from the distance matrix calculation.";
+		$self->{'html_buffer'} .= 'They have been excluded from the distance matrix calculation.';
 	}
-	$self->{'html_buffer'} .= "</p>";
+	$self->{'html_buffer'} .= '</p>';
 	$file_buffer .= "These loci are incomplete and located at the ends of contigs in at least one isolate.\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
@@ -2150,7 +2295,7 @@ sub _print_locus_table {
 		my $col = 0;
 		$row++;
 		my $cleaned_locus = $self->clean_locus($locus);
-		$self->{'html_buffer'} .= "<tr class=\"td$td\"><td>$cleaned_locus</td>";
+		$self->{'html_buffer'} .= qq(<tr class="td$td"><td>$cleaned_locus</td>);
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1 } );
 		$text_buffer .= $text_locus;
 		$worksheet->write( $row, $col, $text_locus, $self->{'excel_format'}->{'locus'} );
@@ -2170,10 +2315,11 @@ sub _print_locus_table {
 			$colour++;
 			$value_colour{1} = $colour;
 			my $style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates );
-			$self->{'html_buffer'} .= "<td style=\"$style\">1</td>";
-			$self->{'file_buffer'} .= "\t1";
+			$self->{'html_buffer'} .= qq(<td style="$style">1</td>);
+			$self->{'file_buffer'} .= qq(\t1);
 			if ( !$excel_format{$colour} ) {
-				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
+				my $excel_style =
+				  BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $num_isolates, { excel => 1 } );
 				$excel_format{$colour} = $self->{'workbook'}->add_format(%$excel_style);
 			}
 			$worksheet->write( $row, $col, 1, $excel_format{$colour} );
@@ -2181,8 +2327,8 @@ sub _print_locus_table {
 		foreach my $id (@$ids) {
 			$col++;
 			my $style = $self->{'style'}->{$locus}->{ $values->{$id}->{$locus} };
-			$self->{'html_buffer'} .= "<td style=\"$style\">$values->{$id}->{$locus}</td>";
-			$text_buffer .= "\t$values->{$id}->{$locus}";
+			$self->{'html_buffer'} .= qq(<td style="$style">$values->{$id}->{$locus}</td>);
+			$text_buffer .= qq(\t$values->{$id}->{$locus});
 			if ( !$value_colour{ $values->{$id}->{$locus} } ) {
 				$colour++;
 				$value_colour{ $values->{$id}->{$locus} } = $colour;
@@ -2221,7 +2367,8 @@ sub _extract_sequence {
 	}
 	my $seq =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?", $match->{'seqbin_id'} );
+	  ->run_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?",
+		$match->{'seqbin_id'} );
 	if ( $match->{'reverse'} ) {
 		return BIGSdb::Utils::reverse_complement($seq);
 	}
@@ -2259,16 +2406,17 @@ sub _parse_blast_by_locus {
 	my $full_path = "$blast_file";
 	my $match;
 	my $quality = 0;    #simple metric of alignment length x percentage identity
-	my $ref_seq_sql = $self->{'db'}->prepare("SELECT length(reference_sequence) FROM loci WHERE id=?");
+	my $ref_seq_sql = $self->{'db'}->prepare('SELECT length(reference_sequence) FROM loci WHERE id=?');
 	my %lengths;
 	my @blast;
-	open( my $blast_fh, '<', $full_path ) || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
+	open( my $blast_fh, '<', $full_path )
+	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
 	close $blast_fh;
 
 	foreach my $line (@blast) {
-		next if !$line || $line =~ /^#/;
-		my @record = split /\s+/, $line;
+		next if !$line || $line =~ /^\#/x;
+		my @record = split /\s+/x, $line;
 		if ( !$lengths{ $record[1] } ) {
 			if ( $record[1] eq 'ref' ) {
 				eval {
@@ -2297,7 +2445,9 @@ sub _parse_blast_by_locus {
 			$match->{'start'}     = $record[6];
 			$match->{'end'}       = $record[7];
 
-			if ( ( $record[8] > $record[9] && $record[7] > $record[6] ) || ( $record[8] < $record[9] && $record[7] < $record[6] ) ) {
+			if (   ( $record[8] > $record[9] && $record[7] > $record[6] )
+				|| ( $record[8] < $record[9] && $record[7] < $record[6] ) )
+			{
 				$match->{'reverse'} = 1;
 			} else {
 				$match->{'reverse'} = 0;
@@ -2342,14 +2492,15 @@ sub _parse_blast_ref {
 	my $ref_length = length $$seq_ref;
 	my $required_alignment = $params->{'tblastx'} ? int( $ref_length / 3 ) : $ref_length;
 	my @blast;
-	open( my $blast_fh, '<', $blast_file ) || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
+	open( my $blast_fh, '<', $blast_file )
+	  || ( $logger->error("Can't open BLAST output file $blast_file. $!"), return \$; );
 	push @blast, $_ foreach <$blast_fh>;    #slurp file to prevent file handle remaining open during database queries.
 	close $blast_fh;
 	my $criteria_matches = 0;
 
 	foreach my $line (@blast) {
-		next if !$line || $line =~ /^#/;
-		my @record = split /\s+/, $line;
+		next if !$line || $line =~ /^\#/x;
+		my @record = split /\s+/x, $line;
 		my $this_quality = $record[3] * $record[2];
 		if ( $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
 			my $this_match = $self->_extract_match( \@record, $required_alignment, $ref_length );
@@ -2364,8 +2515,8 @@ sub _parse_blast_ref {
 		my $good_matches = 0;
 		my @existing_match_seqs;
 		foreach my $line (@blast) {
-			next if !$line || $line =~ /^#/;
-			my @record = split /\s+/, $line;
+			next if !$line || $line =~ /^\#/x;
+			my @record = split /\s+/x, $line;
 			if ( $record[3] >= $alignment * 0.01 * $required_alignment && $record[2] >= $identity ) {
 				my $this_match        = $self->_extract_match( \@record, $required_alignment, $ref_length );
 				my $match_seq         = $self->_extract_sequence($this_match);
@@ -2397,7 +2548,8 @@ sub _extract_match {
 	$match->{'alignment'} = $record->[3];
 	$match->{'start'}     = $record->[8];
 	$match->{'end'}       = $record->[9];
-	if ( ( $record->[8] > $record->[9] && $record->[7] > $record->[6] ) || ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
+	if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
+		|| ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
 	{
 		$match->{'reverse'} = 1;
 	} else {
@@ -2426,11 +2578,11 @@ sub _extract_match {
 sub _create_locus_FASTA_db {
 	my ( $self, $locus, $prefix ) = @_;
 	my $clean_locus = $locus;
-	$clean_locus =~ s/\W/_/g;
-	$clean_locus = $1 if $locus =~ /(\w*)/;    #avoid taint check
+	$clean_locus =~ s/\W/_/gx;
+	$clean_locus = $1 if $locus =~ /(\w*)/x;    #avoid taint check
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile_$clean_locus.txt";
-	$temp_fastafile =~ s/\\/\\\\/g;
-	$temp_fastafile =~ s/'/__prime__/g;
+	$temp_fastafile =~ s/\\/\\\\/gx;
+	$temp_fastafile =~ s/'/__prime__/gx;
 	if ( !-e $temp_fastafile ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my $file_buffer;
@@ -2447,7 +2599,8 @@ sub _create_locus_FASTA_db {
 		print $fasta_fh $file_buffer if $file_buffer;
 		close $fasta_fh;
 		my $dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-		system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
 	}
 	return $temp_fastafile;
 }
@@ -2463,8 +2616,8 @@ sub _create_reference_FASTA_file {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry = "SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id WHERE "
-	  . "sequence_bin.isolate_id=?";
+	my $qry = 'SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON '
+	  . 'sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
 	if ($method) {
@@ -2472,7 +2625,7 @@ sub _create_isolate_FASTA {
 			$logger->error("Invalid method $method");
 			return;
 		}
-		$qry .= " AND method=?";
+		$qry .= ' AND method=?';
 		push @criteria, $method;
 	}
 	my $experiment = $self->{'params'}->{'experiment_list'};
@@ -2481,12 +2634,13 @@ sub _create_isolate_FASTA {
 			$logger->error("Invalid experiment $experiment");
 			return;
 		}
-		$qry .= " AND experiment_id=?";
+		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
 	}
 	my $contigs =
-	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
-	$isolate_id = $1 if $isolate_id =~ /(\d*)/;    #avoid taint check
+	  $self->{'datastore'}
+	  ->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
+	$isolate_id = $1 if $isolate_id =~ /(\d*)/x;    #avoid taint check
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
 	foreach (@$contigs) {
@@ -2499,7 +2653,8 @@ sub _create_isolate_FASTA {
 sub _create_isolate_FASTA_db {
 	my ( $self, $isolate_id, $prefix ) = @_;
 	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, $prefix );
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb", ( -in => $temp_infile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+		( -in => $temp_infile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	return $temp_infile;
 }
 1;
