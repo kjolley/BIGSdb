@@ -125,6 +125,13 @@ sub get_load_average {
 	throw BIGSdb::DataException("Can't determine load average");
 }
 
+sub db_disconnect {
+	my ($self) = @_;
+	undef $self->{'datastore'};
+	undef $self->{'dataConnector'};
+	return;
+}
+
 sub _go {
 	my ($self) = @_;
 	my $load_average;

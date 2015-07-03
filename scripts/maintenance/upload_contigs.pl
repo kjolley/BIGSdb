@@ -45,7 +45,8 @@ use List::MoreUtils qw(notall none);
 use Log::Log4perl qw(get_logger);
 
 #Direct all library logging calls to screen
-my $log_conf = qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+my $log_conf =
+    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
   . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
   . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
   . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
@@ -89,22 +90,22 @@ my $script = BIGSdb::Offline::Script->new(
 );
 
 #Check arguments make sense
-die "Contig file '$opts{'f'}' does not exist.\n" if !-e $opts{'f'};
-die "Contig file '$opts{'f'}' is empty.\n"       if !-s $opts{'f'};
+exit_cleanly("Contig file '$opts{'f'}' does not exist.") if !-e $opts{'f'};
+exit_cleanly("Contig file '$opts{'f'}' is empty.")       if !-s $opts{'f'};
 my $isolate_exists =
   $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $opts{'i'} );
-die "Isolate id-$opts{'i'} does not exist.\n" if !$isolate_exists;
+exit_cleanly("Isolate id-$opts{'i'} does not exist.") if !$isolate_exists;
 my $seqbin_exists =
   $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $opts{'i'} );
-die "Isolate id-$opts{'i'} already has contigs uploaded.\n" if $seqbin_exists && !$opts{'a'};
+exit_cleanly("Isolate id-$opts{'i'} already has contigs uploaded.") if $seqbin_exists && !$opts{'a'};
 my $sender_exists = $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $opts{'s'} );
-die "Sender id-$opts{'s'} does not exist.\n" if !$sender_exists;
+exit_cleanly("Sender id-$opts{'s'} does not exist.") if !$sender_exists;
 my $curator_exists =
   $script->{'datastore'}
   ->run_query( q(SELECT EXISTS(SELECT * FROM users WHERE id=? AND status IN ('curator','admin'))), $opts{'c'} );
-die "Curator id-$opts{'c'} does not exist (or user is not a curator).\n" if !$curator_exists;
+exit_cleanly("Curator id-$opts{'c'} does not exist (or user is not a curator).") if !$curator_exists;
 $opts{'m'} //= 'unknown';
-die "Method '$opts{'m'}' is invalid.\n" if none { $opts{'m'} eq $_ } SEQ_METHODS;
+exit_cleanly("Method '$opts{'m'}' is invalid.") if none { $opts{'m'} eq $_ } SEQ_METHODS;
 main();
 exit;
 
@@ -121,10 +122,16 @@ sub main {
 	}
 	catch BIGSdb::DataException with {
 		my $err = shift;
-		die "$err\n";
+		exit_cleanly($err);
 	};
 	upload( $opts{'i'}, $seqs );
 	return;
+}
+
+sub exit_cleanly {
+	my ($msg) = @_;
+	$script->db_disconnect;
+	die "$msg\n";
 }
 
 sub upload {
