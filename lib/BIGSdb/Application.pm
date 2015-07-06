@@ -467,6 +467,7 @@ sub print_page {
 	if (   $self->{'system'}->{'read_access'} ne 'public'
 		|| $self->{'page'} eq 'authorizeClient'
 		|| $self->{'page'} eq 'submit'
+		|| $self->{'page'} eq 'changePassword'
 		|| $self->{'page'} eq 'logout' )
 	{
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
@@ -535,7 +536,8 @@ sub authenticate {
 		if (   $self->{'curate'}
 			|| $self->{'system'}->{'read_access'} ne 'public'
 			|| $self->{'page'} eq 'authorizeClient'
-			|| $self->{'page'} eq 'submit' )
+			|| $self->{'page'} eq 'submit' 
+			|| $self->{'page'} eq 'changePassword' )
 		{
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
