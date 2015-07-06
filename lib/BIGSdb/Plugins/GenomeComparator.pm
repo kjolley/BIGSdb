@@ -264,7 +264,10 @@ sub run {
 			$continue = 0;
 		}
 		$q->param( upload_filename => $q->param('ref_upload') );
-		my $ref_upload = $q->param('ref_upload') ? $self->_upload_ref_file : undef;
+		my $ref_upload;
+		if ( $q->param('ref_upload')){
+			$ref_upload = $self->_upload_ref_file;
+		}
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
 		if ( !@$filtered_ids ) {
 			$error .= '<p>You must include one or more isolates. Make sure your selected isolates '
@@ -1096,7 +1099,15 @@ sub _run_comparison {
 					}
 				);
 			} else {
-				$self->_blast( $word_size, $isolate_FASTA{$id}, $ref_seq_file, $out_file, $program );
+				$self->_blast(
+					{
+						word_size  => $word_size,
+						fasta_file => $isolate_FASTA{$id},
+						in_file    => $ref_seq_file,
+						out_file   => $out_file,
+						program    => $program
+					}
+				);
 				$match = $self->_parse_blast_ref( $seq_ref, $out_file );
 			}
 			$match_count->{$id}->{$locus_name} = $match->{'good_matches'} // 0;
@@ -1236,7 +1247,7 @@ sub _run_comparison {
 		}
 		%seqs = ();
 		$progress++;
-		my $complete = int( 100 * $progress / $total );
+		my $complete         = int( 100 * $progress / $total );
 		my $max_display_taxa = MAX_DISPLAY_TAXA;
 		if ( @$ids > $max_display_taxa || $params->{'disable_html'} ) {
 			my $message =
@@ -1705,7 +1716,7 @@ sub _core_mean_distance {
 			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
 		} until ( $range > $largest_distance );
 		$file_buffer .=
-		  "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
+		  "\n*Mean distance is the overall mean distance " . "calculated from a computed consensus sequence.\n";
 	}
 	open( my $fh, '>>', $out_file ) || $logger->error("Can't open $out_file for appending");
 	say $fh $file_buffer;
@@ -1721,9 +1732,9 @@ sub _core_mean_distance {
 			$self->{'jobManager'}->update_job_output(
 				$args->{'job_id'},
 				{
-					filename => "$args->{'job_id'}\_core2.png",
-					description =>
-					  '42_Overall mean distance (from consensus sequence) of core genome alleles (PNG format)'
+					filename    => "$args->{'job_id'}\_core2.png",
+					description => '42_Overall mean distance (from consensus sequence) '
+					  . 'of core genome alleles (PNG format)'
 				}
 			);
 		}
@@ -1770,17 +1781,24 @@ sub _scan_by_locus {
 	if ( !$match->{'exact'} && !-z $args->{'ref_seq_file'} ) {
 		if ( $locus_info->{'data_type'} eq 'DNA' ) {
 			$self->_blast(
-				$args->{'word_size'},
-				$args->{'ref_seq_file'},
-				$args->{'isolate_fasta_ref'}->{$isolate_id},
-				$args->{'out_file'}, 'blastn', { max_target_seqs => 500 }
+				{
+					word_size  => $args->{'word_size'},
+					fasta_file => $args->{'ref_seq_file'},
+					in_file    => $args->{'isolate_fasta_ref'}->{$isolate_id},
+					out_file   => $args->{'out_file'},
+					program    => 'blastn',
+					options    => { max_target_seqs => 500 }
+				}
 			);
 		} else {
 			$self->_blast(
-				3,
-				$args->{'ref_seq_file'},
-				$args->{'isolate_fasta_ref'}->{$isolate_id},
-				$args->{'out_file'}, 'blastx'
+				{
+					word_size  => 3,
+					fasta_file => $args->{'ref_seq_file'},
+					in_file    => $args->{'isolate_fasta_ref'}->{$isolate_id},
+					out_file   => $args->{'out_file'},
+					program    => 'blastx'
+				}
 			);
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
@@ -2006,7 +2024,7 @@ sub _print_variable_loci {
 	my $file_buffer = "\n###\n\n";
 	$file_buffer .= "Loci with sequence differences among isolates\n";
 	$file_buffer .= "---------------------------------------------\n\n";
-	$self->{'html_buffer'} .= '<p>Variable loci: ' . ( scalar keys %$loci ) . "</p>";
+	$self->{'html_buffer'} .= '<p>Variable loci: ' . ( scalar keys %$loci ) . '</p>';
 	$file_buffer .= 'Variable loci: ' . ( scalar keys %$loci ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
@@ -2099,7 +2117,7 @@ sub _run_infoalign {
 			while (<$fh>) {
 				next if /^\#/x;
 				my @values = split /\s+/x;
-				my $diff   = $values[7];    # % difference from consensus
+				my $diff   = $values[7];     # % difference from consensus
 				$total_diff += $diff;
 				$row++;
 			}
@@ -2119,8 +2137,8 @@ sub _run_alignment {
 		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
 	  )
 	  = @{$args}{
-		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out 
-		xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
+		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out
+		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
 	  };
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
@@ -2207,7 +2225,7 @@ sub _print_exact_matches {
 	$self->{'html_buffer'} .= '.</p>';
 	$file_buffer           .= ".\n\n";
 	$self->{'html_buffer'} .= '<p>Matches: ' . ( scalar keys %$exacts ) . '</p>';
-	$file_buffer .= "Matches: " . ( scalar keys %$exacts ) . "\n\n";
+	$file_buffer .= 'Matches: ' . ( scalar keys %$exacts ) . "\n\n";
 	open( my $job_fh, '>>', $job_filename ) || $logger->error("Can't open $job_filename for appending");
 	print $job_fh $file_buffer;
 	close $job_fh;
@@ -2244,7 +2262,7 @@ sub _print_missing_in_all {
 	print $job_fh "\n###\n\n";
 	print $job_fh "Loci missing in all isolates\n";
 	print $job_fh "----------------------------\n\n";
-	$self->{'html_buffer'} .= '<p>Missing loci: ' . ( scalar keys %$missing ) . "</p>";
+	$self->{'html_buffer'} .= '<p>Missing loci: ' . ( scalar keys %$missing ) . '</p>';
 	print $job_fh 'Missing loci: ' . ( scalar keys %$missing ) . "\n\n";
 	close $job_fh;
 	my $worksheet = $self->{'workbook'}->add_worksheet('missing in all');
@@ -2263,8 +2281,8 @@ sub _print_truncated_loci {
 	$file_buffer .= "-----------------------------------------\n\n";
 	$self->{'html_buffer'} .= '<p>Incomplete: ' . ( scalar keys %$truncated ) . '</p>';
 	$file_buffer .= 'Incomplete: ' . ( scalar keys %$truncated ) . "\n\n";
-	$self->{'html_buffer'} .= '<p>These loci are incomplete and located at the '
-	  . 'ends of contigs in at least one isolate. ';
+	$self->{'html_buffer'} .=
+	  '<p>These loci are incomplete and located at the ' . 'ends of contigs in at least one isolate. ';
 
 	if ( $truncated_param eq 'exclude' ) {
 		$self->{'html_buffer'} .= 'They have been excluded from the distance matrix calculation.';
@@ -2376,7 +2394,9 @@ sub _extract_sequence {
 }
 
 sub _blast {
-	my ( $self, $word_size, $fasta_file, $in_file, $out_file, $program, $options ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $word_size, $fasta_file, $in_file, $out_file, $program, $options ) =
+	  @{$args}{qw(word_size fasta_file in_file out_file program options)};
 	$options = {} if ref $options ne 'HASH';
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -2579,7 +2599,7 @@ sub _create_locus_FASTA_db {
 	my ( $self, $locus, $prefix ) = @_;
 	my $clean_locus = $locus;
 	$clean_locus =~ s/\W/_/gx;
-	$clean_locus = $1 if $locus =~ /(\w*)/x;    #avoid taint check
+	if ( $locus =~ /(\w*)/x ) { $clean_locus = $1 }    #untaint
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_fastafile_$clean_locus.txt";
 	$temp_fastafile =~ s/\\/\\\\/gx;
 	$temp_fastafile =~ s/'/__prime__/gx;
@@ -2640,7 +2660,7 @@ sub _create_isolate_FASTA {
 	my $contigs =
 	  $self->{'datastore'}
 	  ->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
-	$isolate_id = $1 if $isolate_id =~ /(\d*)/x;    #avoid taint check
+	if ( $isolate_id =~ /(\d*)/x ) { $isolate_id = $1 }    #untaint
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
 	foreach (@$contigs) {
