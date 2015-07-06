@@ -956,11 +956,11 @@ sub get_filter {
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my ( $label, $title ) =
 	  $self->get_truncated_label( "$text: ", undef, { capitalize_first => $options->{'capitalize_first'} } );
-	my $title_attribute = $title ? "title=\"$title\"" : '';
+	my $title_attribute = $title ? qq(title="$title") : q();
 	( my $id = "$name\_list" ) =~ tr/:/_/;
-	my $buffer = "<label for=\"$id\" class=\"$class\" $title_attribute>$label</label>\n";
+	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
-	$options->{'labels'}->{''} = ' ';    #Required for HTML5 validation.
+	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args =
 	  ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
 
