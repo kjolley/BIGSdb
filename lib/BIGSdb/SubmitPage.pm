@@ -1628,7 +1628,8 @@ sub _print_sequence_table {
 		if ( $options->{'curate'} && $seq->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
 			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;index=$seq->{'index'}&amp;)
-			  . qq(sender=$submission->{'submitter'}"><span class="fa fa-lg fa-edit"></span>Curate</a></td>);
+			  . qq(sender=$submission->{'submitter'}&amp;status=unchecked">)
+			  . q(<span class="fa fa-lg fa-edit"></span>Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}
@@ -1824,11 +1825,12 @@ sub _print_sequence_table_fieldset {
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
 		$q->param( sender       => $submission->{'submitter'} );
+		$q->param( status       => 'unchecked' );
 		$q->param( sequence     => $self->_get_fasta_string( $status->{'pending_seqs'} ) );
 		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
-		say $q->hidden($_) foreach qw( db page submission_id locus sender sequence complete_CDS );
+		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
-		$q->param( page => $page );    #Restore value
+		$q->param( page => $page );                                                           #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
