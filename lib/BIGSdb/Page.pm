@@ -25,8 +25,6 @@ my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use autouse 'Data::Dumper' => qw(Dumper);
-use Memoize;
-memoize('get_seq_detail_tooltips');
 use parent 'Exporter';
 use constant SEQ_METHODS =>
   ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
@@ -1044,10 +1042,10 @@ sub get_scheme_filter {
 		'scheme_id',
 		$self->{'cache'}->{'schemes'},
 		{
-			text   => 'scheme',
-			labels => $self->{'cache'}->{'scheme_labels'},
-			tooltip =>
-			  'scheme filter - Select a scheme to filter your search to only those belonging to the selected scheme.'
+			text    => 'scheme',
+			labels  => $self->{'cache'}->{'scheme_labels'},
+			tooltip => 'scheme filter - Select a scheme to filter your search to '
+			  . 'only those belonging to the selected scheme.'
 		}
 	);
 	return $buffer;
@@ -1076,7 +1074,8 @@ sub get_isolate_publication_filter {
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid = $self->{'datastore'}->run_query(
-"SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
+			"SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON "
+			  . "refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
 			undef,
 			{ fetch => 'col_arrayref' }
 		);
@@ -1098,8 +1097,8 @@ sub get_isolate_publication_filter {
 					text     => 'Publication',
 					multiple => 1,
 					noblank  => 1,
-					tooltip => q(publication filter - Select publications to filter your search to only those isolates )
-					  . q(referred by them.)
+					tooltip => q(publication filter - Select publications to filter your )
+					  . q(search to only those isolates referred by them.)
 				}
 			);
 		}
@@ -2195,7 +2194,7 @@ sub textfield {
 	my $args_string;
 	foreach ( keys %args ) {
 		$args{$_} //= '';
-		$args_string .= qq/$_="$args{$_}" /;
+		$args_string .= qq($_="$args{$_}" );
 	}
 	my $buffer = "<input $args_string/>";
 	return $buffer;
