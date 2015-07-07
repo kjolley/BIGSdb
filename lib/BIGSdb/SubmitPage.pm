@@ -296,31 +296,25 @@ sub _get_own_submissions {
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 0 } );
 	my $buffer;
 	if (@$submissions) {
-		$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Type</th><th>Details</th>);
-		$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
-		$buffer .= q(<th>Remove</th>)  if $options->{'allow_remove'};
-		$buffer .= q(</tr>);
 		my $td     = 1;
 		my $set_id = $self->get_set_id;
+		my $table_buffer;
 		foreach my $submission (@$submissions) {
-			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-			  . qq(submission_id=$submission->{'id'}&amp;view=1);
-			$buffer .=
-			    qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
-			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
-			  . qq(<td>$submission->{'type'}</td>);
 			my $details = '';
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
-				my $clean_locus       = $self->clean_locus( $allele_submission->{'locus'} );
-				$details = "$allele_count $allele_submission->{'locus'} sequence$plural";
+				next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
+				my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
+				$details = "$allele_count $clean_locus sequence$plural";
 			} elsif ( $submission->{'type'} eq 'profiles' ) {
 				my $profile_submission = $self->{'datastore'}->get_profile_submission( $submission->{'id'} );
 				my $profile_count      = @{ $profile_submission->{'profiles'} };
 				my $plural             = $profile_count == 1 ? '' : 's';
+				next
+				  if $set_id
+				  && !$self->{'datastore'}->is_scheme_in_set( $profile_submission->{'scheme_id'}, $set_id );
 				my $scheme_info =
 				  $self->{'datastore'}
 				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
@@ -331,25 +325,39 @@ sub _get_own_submissions {
 				my $plural             = $isolate_count == 1 ? '' : 's';
 				$details = "$isolate_count isolate$plural";
 			}
-			$buffer .= qq(<td>$details</td>);
+			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			  . qq(submission_id=$submission->{'id'}&amp;view=1);
+			$table_buffer .=
+			    qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
+			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
+			  . qq(<td>$submission->{'type'}</td>);
+			$table_buffer .= qq(<td>$details</td>);
 			if ( $options->{'show_outcome'} ) {
 				my %style = (
 					good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
 					mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
 					bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
 				);
-				$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
+				$table_buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
 			}
 			if ( $options->{'allow_remove'} ) {
-				$buffer .=
+				$table_buffer .=
 				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;remove=1">)
 				  . q(<span class="fa fa-lg fa-remove"></span></a></td>);
 			}
-			$buffer .= q(</tr>);
+			$table_buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		$buffer .= q(</table>);
+		if ($table_buffer) {
+			$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
+			  . q(<th>Type</th><th>Details</th>);
+			$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
+			$buffer .= q(<th>Remove</th>)  if $options->{'allow_remove'};
+			$buffer .= q(</tr>);
+			$buffer .= $table_buffer;
+			$buffer .= q(</table>);
+		}
 	}
 	return $buffer;
 }
@@ -389,7 +397,8 @@ sub _get_allele_submissions_for_curation {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
 	my $buffer;
-	my $td = 1;
+	my $td     = 1;
+	my $set_id = $self->get_set_id;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'alleles';
 		my $allele_submission = $self->{'datastore'}->get_allele_submission( $submission->{'id'} );
@@ -397,6 +406,7 @@ sub _get_allele_submissions_for_curation {
 		  if !($self->is_admin
 			|| $self->{'datastore'}
 			->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
+		next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $locus = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
 		$buffer .=
@@ -433,6 +443,9 @@ sub _get_profile_submissions_for_curation {
 		next
 		  if !($self->is_admin
 			|| $self->{'datastore'}->is_scheme_curator( $profile_submission->{'scheme_id'}, $user_info->{'id'} ) );
+		next
+		  if $set_id
+		  && !$self->{'datastore'}->is_scheme_in_set( $profile_submission->{'scheme_id'}, $set_id );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $scheme_info =
 		  $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { set_id => $set_id } );
@@ -2146,7 +2159,8 @@ sub _print_summary {
 	}
 	if ( $submission->{'type'} eq 'alleles' ) {
 		my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
-		say qq(<dt>locus</dt><dd>$allele_submission->{'locus'}</dd>);
+		my $locus = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
+		say qq(<dt>locus</dt><dd>$locus</dd>);
 		my $allele_count   = @{ $allele_submission->{'seqs'} };
 		my $fasta_icon     = $self->get_file_icon('FAS');
 		my $submission_dir = $self->_get_submission_dir($submission_id);

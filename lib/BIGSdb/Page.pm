@@ -26,7 +26,6 @@ use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use Memoize;
-memoize( 'clean_locus', NORMALIZER => '_normalize_clean_locus' );
 memoize('get_seq_detail_tooltips');
 use parent 'Exporter';
 use constant SEQ_METHODS =>
@@ -1199,12 +1198,6 @@ sub get_truncated_label {
 		$title = ucfirst $title if $title;
 	}
 	return ( $label, $title );
-}
-
-sub _normalize_clean_locus {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by memoize
-	my ( $self, $locus, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	return join( ',', $locus, ( map { $_ => $options->{$_} } sort keys %$options ) );
 }
 
 sub clean_locus {
