@@ -618,7 +618,7 @@ sub _run_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		say q("<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
+		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@errors</p></div>);
 	} elsif ( $qry !~ /\(\)/x ) {
 		my @hidden_attributes;
