@@ -366,8 +366,8 @@ sub _check {
 		  . q(problems identified so far.</p>);
 		my $filename = $self->make_temp_file(@checked_buffer);
 		say $q->start_form;
-		say $q->hidden($_) foreach qw (data page table db sender scheme_id submission_id);
-		say $q->hidden( 'checked_buffer', $filename );
+		say $q->hidden($_) foreach qw (page table db sender scheme_id submission_id);
+		say $q->hidden( checked_buffer => $filename );
 		say $q->submit( -name => 'Import data', -class => 'submit' );
 		say $q->endform;
 		say q(</div>);
@@ -386,11 +386,16 @@ sub _upload {
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $dir           = $self->{'config'}->{'secure_tmp_dir'};
-	my $tmp_file      = $dir . '/' . $q->param('checked_buffer');
+	my $tmp_file      = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
+	if ( !-e $tmp_file ) {
+		say q(<div class="box" id="statusbad"><p>The temp file containing the checked profiles does not exist.</p>)
+		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
+		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
+		$logger->error("Checked buffer file $tmp_file does not exist.");
+		return;
+	}
 	my @records;
-
-	if ( open( my $tmp_fh, '<', $tmp_file ) ) {
+	if ( open( my $tmp_fh, '<', $tmp_file ) || $logger->error("Can't open $tmp_file for reading.") ) {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
 	}
@@ -511,7 +516,7 @@ sub _print_interface {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
 	say $q->start_form;
-	my ( $users, $user_names ) = $self->get_user_list_and_labels({blank_message=>'Select sender ...'});
+	my ( $users, $user_names ) = $self->get_user_list_and_labels( { blank_message => 'Select sender ...' } );
 	$user_names->{-1} = 'Override with sender field';
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
 	  . q[(<strong>include a field header line</strong>)</legend>];
