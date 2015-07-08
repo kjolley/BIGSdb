@@ -36,6 +36,16 @@ use constant ASSEMBLY                 => ( 'de novo', 'mapped' );
 use constant MAX_UPLOAD_SIZE          => 32 * 1024 * 1024;                        #32Mb
 use constant SUBMISSIONS_DELETED_DAYS => 90;
 
+sub get_help_url {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('curate') ) {
+		return "$self->{'config'}->{'doclink'}/curate_submissions.html";
+	} else {
+		return "$self->{'config'}->{'doclink'}/submissions.html";
+	}
+}
+
 sub get_javascript {
 	my ($self) = @_;
 	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } );
@@ -1830,7 +1840,7 @@ sub _print_sequence_table_fieldset {
 		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
-		$q->param( page => $page );                                                           #Restore value
+		$q->param( page => $page );    #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
