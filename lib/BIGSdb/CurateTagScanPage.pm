@@ -486,8 +486,9 @@ sub _scan {
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
-			open STDIN,  '<', '/dev/null' || $logger->error("Can't read /dev/null: $!");
-			open STDOUT, '>', '/dev/null' || $logger->error("Can't write to /dev/null: $!");
+			open STDIN,  '<', '/dev/null' || $logger->error("Can't detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
 			my $options = {
 				labels               => $labels,
 				limit                => $limit,
@@ -771,8 +772,7 @@ sub _show_results {
 		say qq(<p>This page will reload in $refresh_time. You can refresh it any time, or bookmark it, )
 		  . q(close your browser and return to it later if you wish.</p>);
 	}
-	if (  BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) )
-	{
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		say q(<p>Please note that scan results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
 	} else {
@@ -807,8 +807,7 @@ sub _add_scheme_loci {
 	my ( $self, $loci_ref ) = @_;
 	my $q = $self->{'cgi'};
 	my $scheme_ids =
-	  $self->{'datastore'}->run_query( 'SELECT id FROM schemes ORDER BY id', undef, { fetch => 'col_arrayref' } )
-	  ;
+	  $self->{'datastore'}->run_query( 'SELECT id FROM schemes ORDER BY id', undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;    #loci not belonging to a scheme.
 	my %locus_selected = map { $_ => 1 } @$loci_ref;
 	my $set_id = $self->get_set_id;
