@@ -52,6 +52,7 @@ sub _initiate_db {
 		$self->{'logger'}->fatal("Invalid XML description: $@");
 		return;
 	}
+	$self->{'xmlHandler'} = $xmlHandler;
 	$self->{'system'} = $xmlHandler->get_system_hash;
 	$self->{'system'}->{'host'}     ||= 'localhost';
 	$self->{'system'}->{'port'}     ||= 5432;

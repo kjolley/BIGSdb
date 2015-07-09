@@ -191,7 +191,7 @@ sub get_query {
 
 sub create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
-	return if $self->{'temp_tables_created'};
+	return 1 if $self->{'temp_tables_created'};
 	my $qry      = $$qry_ref;
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
@@ -1046,7 +1046,7 @@ sub get_ids_from_query {
 	return if !$self->create_temp_tables($qry_ref);
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
-	$qry .= " ORDER BY id";
+	$qry .= " ORDER BY $view.id";
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;
 }

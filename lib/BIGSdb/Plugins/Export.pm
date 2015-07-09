@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use Bio::Tools::SeqStats;
+use constant MAX_INSTANT_RUN => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -40,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.2.3',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -62,11 +63,10 @@ function enable_controls(){
 	}
 }
 
-\$(document).ready(function() 
-    { 
-		enable_controls();
-    } 
-); 
+\$(document).ready(function(){ 
+	enable_controls();
+	\$(".hide_on_load").css("display", "none");
+}); 
 END
 	return $js;
 }
@@ -150,24 +150,62 @@ sub run {
 			my $query_file = $q->param('query_file');
 			my $qry_ref    = $self->get_query($query_file);
 			return if ref $qry_ref ne 'SCALAR';
-			my $view = $self->{'system'}->{'view'};
-			say q(<div class="box" id="resultstable">);
-			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			print q(<p>Output files being generated ...);
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			return if !$self->create_temp_tables($qry_ref);
 			my $fields = $self->{'xmlHandler'}->get_field_list;
+			my $view   = $self->{'system'}->{'view'};
 			local $" = ",$view.";
 			my $field_string = "$view.@$fields";
 			$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
+			my $set_id = $self->get_set_id;
 			$self->rewrite_query_ref_order_by($qry_ref);
-			$self->_write_tab_text( $qry_ref, $selected_fields, $full_path );
+			my $ids    = $self->get_ids_from_query($qry_ref);
+			my $params = $q->Vars;
+			$params->{'set_id'}      = $set_id if $set_id;
+			$params->{'script_name'} = $self->{'system'}->{'script_name'};
+			$params->{'qry'}         = $$qry_ref;
+			local $" = '||';
+			$params->{'selected_fields'} = "@$selected_fields";
+			$params->{'isolate_count'}   = scalar @$ids;
+
+			if ( @$ids > MAX_INSTANT_RUN || !$self->{'config'}->{'jobs_db'} ) {
+				my $att       = $self->get_attributes;
+				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+				my $job_id    = $self->{'jobManager'}->add_job(
+					{
+						dbase_config => $self->{'instance'},
+						ip_address   => $q->remote_host,
+						module       => $att->{'module'},
+						priority     => $att->{'priority'},
+						parameters   => $params,
+						username     => $self->{'username'},
+						email        => $user_info->{'email'},
+					}
+				);
+				say q(<div class="box" id="resultstable">);
+				say q(<p>This export job has been submitted to the job queue.</p>);
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+				return;
+			}
+			say q(<div class="box" id="resultstable">);
+			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
+			say q(<p><span class="hide_on_load main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+			print q(<p>Output files being generated ...);
+			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+			$self->_write_tab_text(
+				{
+					qry_ref  => $qry_ref,
+					fields   => $selected_fields,
+					filename => $full_path,
+					set_id   => $set_id,
+					params   => $params
+				}
+			);
 			say q( done</p>);
-			say qq(<p>Download: <a href="/tmp/$filename">Text file</a>);
+			say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
 			my $excel =
 			  BIGSdb::Utils::text2excel( $full_path,
 				{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-			say qq( | <a href="/tmp/$prefix.xlsx">Excel file</a>) if -e $excel;
+			say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
 			say q( (right-click to save)</p>);
 			say q(</div>);
 			return;
@@ -188,21 +226,61 @@ HTML
 		}
 	}
 	$self->print_field_export_form( 1, { include_composites => 1, extended_attributes => 1 } );
-	print "</div>\n";
+	say q(</div>);
+	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	$self->{'exit'} = 0;
+
+	#Terminate cleanly on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
+	$self->{'system'}->{'script_name'} = $params->{'script_name'};
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my @fields = split /\|\|/x, $params->{'selected_fields'};
+	$params->{'job_id'} = $job_id;
+	$self->_write_tab_text(
+		{
+			qry_ref  => \$params->{'qry'},
+			fields   => \@fields,
+			filename => $filename,
+			set_id   => $params->{'set_id'},
+			offline  => 1,
+			params   => $params
+		}
+	);
+	return if $self->{'exit'};
+
+	if ( -e $filename ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
+		my $excel_file =
+		  BIGSdb::Utils::text2excel( $filename,
+			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		if ( -e $excel_file ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' }
+			);
+		}
+	}
 	return;
 }
 
 sub _write_tab_text {
-	my ( $self, $qry_ref, $fields, $filename ) = @_;
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
+	my ( $self, $args ) = @_;
+	my ( $qry_ref, $fields, $filename, $set_id, $offline, $params ) =
+	  @{$args}{qw(qry_ref fields filename set_id offline params)};
+	$self->create_temp_tables($qry_ref);
 	open( my $fh, '>:encoding(utf8)', $filename )
-	  or $logger->error("Can't open temp file $filename for writing");
-	if ( $q->param('oneline') ) {
+	  || $logger->error("Can't open temp file $filename for writing");
+	if ( $params->{'oneline'} ) {
 		print $fh "id\t";
-		print $fh $self->{'system'}->{'labelfield'} . "\t" if $q->param('labelfield');
+		print $fh $self->{'system'}->{'labelfield'} . "\t" if $params->{'labelfield'};
 		print $fh "Field\tValue";
-		print $fh "\tCurator\tDatestamp\tComments" if $q->param('info');
+		print $fh "\tCurator\tDatestamp\tComments" if $params->{'info'};
 	} else {
 		my $first = 1;
 		my %schemes;
@@ -221,13 +299,13 @@ sub _write_tab_text {
 			if ($is_locus) {
 				$field =
 				  $self->clean_locus( $field,
-					{ text_output => 1, ( no_common_name => $q->param('common_names') ? 0 : 1 ) } );
-				if ( $q->param('alleles') ) {
+					{ text_output => 1, ( no_common_name => $params->{'common_names'} ? 0 : 1 ) } );
+				if ( $params->{'alleles'} ) {
 					print $fh "\t" if !$first;
 					print $fh $field;
 					$first = 0;
 				}
-				if ( $q->param('molwt') ) {
+				if ( $params->{'molwt'} ) {
 					print $fh "\t" if !$first;
 					print $fh "$field Mwt";
 					$first = 0;
@@ -263,14 +341,18 @@ sub _write_tab_text {
 	my $j = 0;
 	local $| = 1;
 	my %id_used;
+	my $total    = 0;
+	my $progress = 0;
 
 	while ( $sql->fetchrow_arrayref ) {
 		next
 		  if $id_used{ $data{ 'id'
 		  } };    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
-		print q(.) if !$i;
-		print q( ) if !$j;
+		if ( !$offline ) {
+			print q(.) if !$i;
+			print q( ) if !$j;
+		}
 		if ( !$i && $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -279,48 +361,65 @@ sub _write_tab_text {
 		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach (@$fields) {
 			if ( $_ =~ /^f_(.*)/x ) {
-				$self->_write_field( $fh, $1, \%data, $first );
+				$self->_write_field( $fh, $1, \%data, $first, $params );
 			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/x ) {
 				$self->_write_allele(
-					{ fh => $fh, locus => $2, data => \%data, all_allele_ids => $all_allele_ids, first => $first } );
+					{
+						fh             => $fh,
+						locus          => $2,
+						data           => \%data,
+						all_allele_ids => $all_allele_ids,
+						first          => $first,
+						params         => $params
+					}
+				);
 			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/x ) {
 				$self->_write_scheme_field(
-					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first } );
+					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params } );
 			} elsif ( $_ =~ /^c_(.*)/x ) {
-				$self->_write_composite( $fh, $1, \%data, $first );
+				$self->_write_composite( $fh, $1, \%data, $first, $params );
 			} elsif ( $_ =~ /^m_references/x ) {
-				$self->_write_ref( $fh, \%data, $first );
+				$self->_write_ref( $fh, \%data, $first, $params );
 			}
 			$first = 0;
 		}
-		print $fh "\n" if !$q->param('oneline');
+		print $fh "\n" if !$params->{'oneline'};
 		$i++;
 		if ( $i == 50 ) {
 			$i = 0;
 			$j++;
 		}
 		$j = 0 if $j == 10;
+		$total++;
+		if ( $offline && $params->{'job_id'} && $params->{'isolate_count'} ) {
+			my $new_progress = int( $total / $params->{'isolate_count'} * 100 );
+
+			#Only update when progress percentage changes when rounded to nearest 1 percent
+			if ( $new_progress > $progress ) {
+				$progress = $new_progress;
+				$self->{'jobManager'}->update_job_status( $params->{'job_id'}, { percent_complete => $progress } );
+			}
+			last if $self->{'exit'};
+		}
 	}
 	close $fh;
 	return;
 }
 
 sub _get_id_one_line {
-	my ( $self, $data ) = @_;
-	my $q      = $self->{'cgi'};
+	my ( $self, $data, $params ) = @_;
 	my $buffer = "$data->{'id'}\t";
-	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $q->param('labelfield');
+	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $params->{'labelfield'};
 	return $buffer;
 }
 
 sub _write_field {
-	my ( $self, $fh, $field, $data, $first ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $fh, $field, $data, $first, $params ) = @_;
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	if ( defined $metaset ) {
 		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
-		if ( $q->param('oneline') ) {
-			print $fh $self->_get_id_one_line($data);
+		if ( $params->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$metafield\t";
 			print $fh $value;
 			print $fh "\n";
@@ -331,8 +430,8 @@ sub _write_field {
 	} elsif ( $field eq 'aliases' ) {
 		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 		local $" = '; ';
-		if ( $q->param('oneline') ) {
-			print $fh $self->_get_id_one_line($data);
+		if ( $params->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "aliases\t@$aliases\n";
 		} else {
 			print $fh "\t" if !$first;
@@ -341,16 +440,15 @@ sub _write_field {
 	} elsif ( $field =~ /(.*)___(.*)/x ) {
 		my ( $isolate_field, $attribute ) = ( $1, $2 );
 		if ( !$self->{'sql'}->{'attribute'} ) {
-			$self->{'sql'}->{'attribute'} = $self->{'db'}->prepare(
-				    'SELECT value FROM isolate_value_extended_attributes WHERE '
-				  . '(isolate_field,attribute,field_value)=(?,?,?)'
-			);
+			$self->{'sql'}->{'attribute'} =
+			  $self->{'db'}->prepare( 'SELECT value FROM isolate_value_extended_attributes WHERE '
+				  . '(isolate_field,attribute,field_value)=(?,?,?)' );
 		}
 		eval { $self->{'sql'}->{'attribute'}->execute( $isolate_field, $attribute, $data->{$isolate_field} ) };
 		$logger->error($@) if $@;
 		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
-		if ( $q->param('oneline') ) {
-			print $fh $self->_get_id_one_line($data);
+		if ( $params->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$attribute\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
@@ -359,8 +457,8 @@ sub _write_field {
 			print $fh $value if defined $value;
 		}
 	} else {
-		if ( $q->param('oneline') ) {
-			print $fh $self->_get_id_one_line($data);
+		if ( $params->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field\t";
 			print $fh "$data->{$field}" if defined $data->{$field};
 			print $fh "\n";
@@ -382,18 +480,18 @@ sub _sort_alleles {
 
 sub _write_allele {
 	my ( $self, $args ) = @_;
-	my ( $fh, $locus, $data, $all_allele_ids, $first_col ) = @{$args}{qw(fh locus data all_allele_ids first )};
+	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
+	  @{$args}{qw(fh locus data all_allele_ids first params)};
 	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ('');
 	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
-	my $q = $self->{'cgi'};
-	if ( $q->param('alleles') ) {
+	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@$allele_ids) {
-			if ( $q->param('oneline') ) {
-				print $fh $self->_get_id_one_line($data);
+			if ( $params->{'oneline'} ) {
+				print $fh $self->_get_id_one_line( $data, $params );
 				print $fh "$locus\t";
 				print $fh $allele_id;
-				if ( $q->param('info') ) {
+				if ( $params->{'info'} ) {
 					my $allele_info = $self->{'datastore'}->run_query(
 						'SELECT allele_designations.datestamp AS des_datestamp,first_name,'
 						  . 'surname,comments FROM allele_designations LEFT JOIN users ON '
@@ -419,13 +517,13 @@ sub _write_allele {
 			$first_allele = 0;
 		}
 	}
-	if ( $q->param('molwt') ) {
+	if ( $params->{'molwt'} ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@$allele_ids) {
-			if ( $q->param('oneline') ) {
-				print $fh $self->_get_id_one_line($data);
+			if ( $params->{'oneline'} ) {
+				print $fh $self->_get_id_one_line( $data, $params );
 				print $fh "$locus MolWt\t";
-				print $fh $self->_get_molwt( $locus, $allele_id, $q->param('met') );
+				print $fh $self->_get_molwt( $locus, $allele_id, $params->{'met'} );
 				print $fh "\n";
 			} else {
 				if ( !$first_allele ) {
@@ -433,7 +531,7 @@ sub _write_allele {
 				} elsif ( !$first_col ) {
 					print $fh "\t";
 				}
-				print $fh $self->_get_molwt( $locus, $allele_id, $q->param('met') );
+				print $fh $self->_get_molwt( $locus, $allele_id, $params->{'met'} );
 			}
 			$first_allele = 0;
 		}
@@ -443,18 +541,17 @@ sub _write_allele {
 
 sub _write_scheme_field {
 	my ( $self, $args ) = @_;
-	my ( $fh, $scheme_id, $field, $data, $first_col ) = @{$args}{qw(fh scheme_id field data first )};
-	my $q            = $self->{'cgi'};
+	my ( $fh, $scheme_id, $field, $data, $first_col, $params ) = @{$args}{qw(fh scheme_id field data first params )};
 	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $scheme_field = lc($field);
 	my $values =
 	  $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
 	@$values = ('') if !@$values;
 	my $first_allele = 1;
-
 	foreach my $value (@$values) {
-		if ( $q->param('oneline') ) {
-			print $fh $self->_get_id_one_line($data);
+
+		if ( $params->{'oneline'} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field ($scheme_info->{'description'})\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
@@ -472,11 +569,10 @@ sub _write_scheme_field {
 }
 
 sub _write_composite {
-	my ( $self, $fh, $composite_field, $data, $first ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $fh, $composite_field, $data, $first, $params ) = @_;
 	my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $composite_field, $data, { no_format => 1 } );
-	if ( $q->param('oneline') ) {
-		print $fh $self->_get_id_one_line($data);
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
 		print $fh "$composite_field\t";
 		print $fh $value if defined $value;
 		print $fh "\n";
@@ -488,18 +584,17 @@ sub _write_composite {
 }
 
 sub _write_ref {
-	my ( $self, $fh, $data, $first ) = @_;
-	my $q      = $self->{'cgi'};
+	my ( $self, $fh, $data, $first, $params ) = @_;
 	my $values = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
-	if ( ( $q->param('ref_type') // '' ) eq 'Full citation' ) {
+	if ( ( $params->{'ref_type'} // '' ) eq 'Full citation' ) {
 		my $citation_hash = $self->{'datastore'}->get_citation_hash($values);
 		my @citations;
 		push @citations, $citation_hash->{$_} foreach @$values;
 		$values = \@citations;
 	}
-	if ( $q->param('oneline') ) {
+	if ( $params->{'oneline'} ) {
 		foreach my $value (@$values) {
-			print $fh $self->_get_id_one_line($data);
+			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "references\t";
 			print $fh "$value";
 			print $fh "\n";
