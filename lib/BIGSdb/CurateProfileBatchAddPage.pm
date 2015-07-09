@@ -395,9 +395,11 @@ sub _upload {
 		return;
 	}
 	my @records;
-	if ( open( my $tmp_fh, '<', $tmp_file ) || $logger->error("Can't open $tmp_file for reading.") ) {
+	if ( open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) ) {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
+	} else {
+		$logger->error("Can't open $tmp_file for reading.")
 	}
 	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");

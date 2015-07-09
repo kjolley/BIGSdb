@@ -1281,21 +1281,28 @@ sub _upload_data {
 	my $locus    = $arg_ref->{'locus'};
 	my $loci     = $self->{'datastore'}->get_loci;
 	my $q        = $self->{'cgi'};
-	my $dir      = $self->{'config'}->{'secure_tmp_dir'};
-	my $tmp_file = $dir . '/' . $q->param('checked_buffer');
+	my $tmp_file = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
 	my %schemes;
 	my @records;
 
-	if ( -e $tmp_file ) {
-		open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) or $logger->error("Can't open $tmp_file");
+	if ( !-e $tmp_file ) {
+		say q(<div class="box" id="statusbad"><p>The temp file containing the checked data does not exist.</p>)
+		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
+		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
+		$logger->error("Checked buffer file $tmp_file does not exist.");
+		return;
+	}
+	if ( open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) ) {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
+	} else {
+		$logger->error("Can't open $tmp_file for reading.");
 	}
 	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
-		$logger->info("Deleting temp file $tmp_file");
+		$logger->info("Deleting temp file $tmp_file.");
 		unlink $1;
 	} else {
-		$logger->error("Can't delete temp file $tmp_file");
+		$logger->error("Can't delete temp file $tmp_file.");
 	}
 	my $headerline = shift @records;
 	my @fieldorder;
@@ -1545,7 +1552,8 @@ sub _upload_data {
 	say q(<p>);
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+		say
+qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
 		  . q(curate=1">Return to submission</a> | );
 	}
 	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>);
