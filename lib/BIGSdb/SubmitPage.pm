@@ -1960,6 +1960,7 @@ sub _update_submission_outcome {
 
 sub _print_message_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	if ( $q->param('message') ) {
@@ -1981,6 +1982,41 @@ sub _print_message_fieldset {
 			$q->delete('message');
 			$self->_update_submission_datestamp($submission_id);
 		}
+		if ( $q->param('append_and_send') ) {
+			my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
+			my $subject = "$desc submission comment added - $submission_id";
+			my $message = $self->_get_text_summary( $submission_id, { messages => 1 } );
+			if ( $user->{'id'} == $submission->{'submitter'} ) {
+
+				#Message from submitter
+				my $curators = $self->_get_curators($submission_id);
+				foreach my $curator_id (@$curators) {
+						$self->_email(
+						$submission_id,
+						{
+							recipient => $curator_id,
+							sender    => $submission->{'submitter'},
+							subject   => $subject,
+							message   => $message,
+							cc_sender => 1
+						}
+					);
+				}
+			} else {
+
+				#Message to submitter
+				$self->_email(
+					$submission_id,
+					{
+						recipient => $submission->{'submitter'},
+						sender    => $user->{'id'},
+						subject   => $subject,
+						message   => $message,
+						cc_sender => 1
+					}
+				);
+			}
+		}
 	}
 	my $buffer;
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
@@ -1991,7 +2027,7 @@ sub _print_message_fieldset {
 		my $td = 1;
 		foreach my $message (@$messages) {
 			my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
-			(my $message_text = $message->{'message'}) =~ s/\r?\n/<br \/>/gx;
+			( my $message_text = $message->{'message'} ) =~ s/\r?\n/<br \/>/gx;
 			$buffer .= qq(<tr class="td$td"><td>$message->{'timestamp'}</td><td>$user_string</td>)
 			  . qq(<td style="text-align:left">$message_text</td></tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -2002,11 +2038,12 @@ sub _print_message_fieldset {
 		$buffer .= $q->start_form;
 		$buffer .= q(<div>);
 		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
-		$buffer .= q(</div><div style="float:right">);
-		$buffer .= $q->submit(
-			-name  => 'Add message',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
+		$buffer .= q(</div><div style="float:right">Message: );
+		my $button_class = 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
+		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => $button_class );
+		if ( $submission->{'email'} ) {
+			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => $button_class );
+		}
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates locus submit continue view curate abort submission_id no_check );
@@ -2306,7 +2343,6 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	}
 	$submission = $self->{'datastore'}->get_submission($submission_id);
 	if ( $submission->{'email'} ) {
-		return if !$self->{'config'}->{'smtp_server'};
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		$self->_email(
 			$submission_id,
@@ -2322,11 +2358,10 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	return;
 }
 
-sub _notify_curators {
+sub _get_curators {
 	my ( $self, $submission_id ) = @_;
-	return if !$self->{'config'}->{'smtp_server'};
 	my $submission = $self->{'datastore'}->get_submission($submission_id);
-	return if !$submission;
+	return [] if !$submission;
 	my $curators =
 	  $self->{'datastore'}
 	  ->run_query( q[SELECT id,status FROM users WHERE status IN ('curator','admin') AND submission_emails],
@@ -2361,7 +2396,15 @@ sub _notify_curators {
 	} else {
 		push @filtered_curators, $_->{'id'} foreach @$curators;
 	}
-	foreach my $curator_id (@filtered_curators) {
+	return \@filtered_curators;
+}
+
+sub _notify_curators {
+	my ( $self, $submission_id ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $curators   = $self->_get_curators($submission_id);
+	foreach my $curator_id (@$curators) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
