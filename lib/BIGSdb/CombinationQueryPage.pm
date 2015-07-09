@@ -326,8 +326,8 @@ sub _run_query {
 		my $view = $self->{'system'}->{'view'};
 		if (@lqry) {
 			local $" = ' OR ';
-			my $matches = $q->param('matches_list');
-			$matches = @lqry if $matches == @loci;
+			my $required_matches = $q->param('matches_list');
+			$required_matches = scalar @lqry if $required_matches == @loci;
 			my $lqry;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
@@ -339,7 +339,7 @@ sub _run_query {
 				  . "AND profile_members.scheme_id=$scheme_id WHERE "
 				  . "$scheme_view.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
 			}
-			if ( $matches == 0 ) {    #Find out the greatest number of matches
+			if ( $required_matches == 0 ) {    #Find out the greatest number of matches
 				my $match_qry;
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 					$match_qry = "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON "
@@ -360,20 +360,20 @@ sub _run_query {
 				}
 				my $match = $self->{'datastore'}->run_query($match_qry);
 				if ($match) {
+					$required_matches = $match;
 					my $term   = $match > 1  ? 'loci' : 'locus';
 					my $plural = $match == 1 ? ''     : 'es';
 					$msg =
-					  $matches == scalar @lqry
-					  ? "Exact match$plural found ($matches $term)."
+					  $match == scalar @lqry
+					  ? "Exact match$plural found ($match $term)."
 					  : "Nearest match: $match $term.";
 				}
 			}
 			$lqry .=
 			  $self->{'system'}->{'dbtype'} eq 'isolates'
-			  ? " GROUP BY $view.id HAVING count($view.id)>=$matches)"
-			  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$matches)";
-			$qry =
-			  $self->{'system'}->{'dbtype'} eq 'isolates'
+			  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
+			  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$required_matches)";
+			$qry = $self->{'system'}->{'dbtype'} eq 'isolates'
 			  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
 			  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
 		}
