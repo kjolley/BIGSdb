@@ -1991,8 +1991,9 @@ sub _print_message_fieldset {
 		my $td = 1;
 		foreach my $message (@$messages) {
 			my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
+			(my $message_text = $message->{'message'}) =~ s/\r?\n/<br \/>/gx;
 			$buffer .= qq(<tr class="td$td"><td>$message->{'timestamp'}</td><td>$user_string</td>)
-			  . qq(<td style="text-align:left">$message->{'message'}</td></tr>);
+			  . qq(<td style="text-align:left">$message_text</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= q(</table>);
