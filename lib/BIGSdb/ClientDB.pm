@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,9 +48,9 @@ sub count_isolates_with_allele {
 	if ( !$self->{'sql'}->{'isolate_allele_count'} ) {
 		my $view = $self->{'dbase_view'} // 'isolates';
 		$self->{'sql'}->{'isolate_allele_count'} =
-		  $self->{'db'}->prepare( "SELECT COUNT(*) FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
-			  . "WHERE locus=? AND allele_id=? AND status != 'ignore'" );
-		$logger->info("Statement handle 'isolate_allele_count' prepared.");
+		  $self->{'db'}->prepare(
+			    "SELECT COUNT(*) FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
+			  . "WHERE (locus,allele_id)=(?,?) AND status!='ignore' AND $view.new_version IS NULL" );
 	}
 	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
@@ -71,15 +71,15 @@ sub count_matching_profiles {
 			return 0;
 		}
 		$temp .= ' OR ' if !$first;
-		$temp .= "(locus=? AND allele_id=?)";
+		$temp .= '((locus,allele_id)=(?,?))';
 		push @args, $_, $alleles_hashref->{$_};
 		$first = 0;
 	}
 	my $view = $self->{'dbase_view'} // 'isolates';
 	my $qry =
-	    "SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN (SELECT isolate_id FROM allele_designations "
-	  . "RIGHT JOIN $view ON $view.id=allele_designations.isolate_id WHERE $temp GROUP BY isolate_id HAVING COUNT(isolate_id) = "
-	  . "$locus_count)";
+	    'SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN '
+	  . "(SELECT isolate_id FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
+	  . "WHERE ($temp) AND $view.new_version IS NULL GROUP BY isolate_id HAVING COUNT(isolate_id)=$locus_count)";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@args) };
 	if ($@) {
@@ -95,19 +95,18 @@ sub get_fields {
 	my $view = $self->{'dbase_view'} // 'isolates';
 	if ( !$self->{'sql'}->{$field} ) {
 		$self->{'sql'}->{$field} =
-		  $self->{'db'}->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id "
-			  . "= allele_designations.isolate_id WHERE allele_designations.locus=? AND allele_designations.allele_id=? AND "
-			  . "allele_designations.status != 'ignore' AND $field IS NOT NULL GROUP BY $field ORDER BY frequency desc,$field" );
+		  $self->{'db'}
+		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id="
+			  . 'allele_designations.isolate_id WHERE (allele_designations.locus,allele_designations.allele_id)='
+			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL GROUP BY $field "
+			  . "ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
 		throw BIGSdb::DatabaseConfigurationException($@);
 	}
-	my @data;
-	while ( my $hashref = $self->{'sql'}->{$field}->fetchrow_hashref ) {
-		push @data, $hashref;
-	}
-	return \@data;
+	my $data = $self->{'sql'}->{$field}->fetchall_arrayref( {} );
+	return $data;
 }
 
 sub get_db {
