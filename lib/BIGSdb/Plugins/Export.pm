@@ -164,8 +164,12 @@ sub run {
 			$params->{'qry'}         = $$qry_ref;
 			local $" = '||';
 			$params->{'selected_fields'} = "@$selected_fields";
-			$params->{'isolate_count'}   = scalar @$ids;
 
+			#We only need the isolate count to calculate the %progress.  The isolate list is not uploaded
+			#to the job database because we have included the query as a parameter.  The query has ordering
+			#information so the output will be in the same order as requested, which it wouldn't be if we 
+			#used the isolate id list from the job database.
+			$params->{'isolate_count'} = scalar @$ids;
 			if ( @$ids > MAX_INSTANT_RUN || !$self->{'config'}->{'jobs_db'} ) {
 				my $att       = $self->get_attributes;
 				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -260,10 +264,8 @@ sub run_job {
 		  BIGSdb::Utils::text2excel( $filename,
 			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
-			$self->{'jobManager'}->update_job_output(
-				$job_id,
-				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' }
-			);
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
 		}
 	}
 	return;
