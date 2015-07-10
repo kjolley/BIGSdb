@@ -965,8 +965,8 @@ sub _print_plugin_buttons {
 			if (@$plugin_names) {
 				my $plugin_buffer;
 				$q->param( 'calling_page', $q->param('page') );
-				foreach (@$plugin_names) {
-					my $att = $self->{'pluginManager'}->get_plugin_attributes($category);
+				foreach my $plugin_name (@$plugin_names) {
+					my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 					next if $att->{'min'} && $att->{'min'} > $records;
 					next if $att->{'max'} && $att->{'max'} < $records;
 					$plugin_buffer .= '<td>';
@@ -974,7 +974,7 @@ sub _print_plugin_buttons {
 					$q->param( page   => 'plugin' );
 					$q->param( name   => $att->{'module'} );
 					$q->param( set_id => $set_id );
-					$plugin_buffer .= $q->hidden($category)
+					$plugin_buffer .= $q->hidden($_)
 					  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
 					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .=
@@ -984,7 +984,7 @@ sub _print_plugin_buttons {
 				}
 				if ($plugin_buffer) {
 					$category = 'Miscellaneous' if !$category;
-					$cat_buffer .= qq(<tr><td style=\"text-align:right\">$category: </td><td>\n<table><tr>\n);
+					$cat_buffer .= qq(<tr><td style="text-align:right">$category: </td><td><table><tr>);
 					$cat_buffer .= $plugin_buffer;
 					$cat_buffer .= "</tr>\n";
 				}
