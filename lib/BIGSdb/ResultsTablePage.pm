@@ -1081,8 +1081,7 @@ sub _print_record_table {
 			if ( $_->{'primary_key'} && $_->{'primary_key'} eq 'yes' ) {
 				$primary_key{ $_->{'name'} } = 1;
 				my $value = $data{ $_->{'name'} };
-				$value =~ s/ /\%20/g;
-				$value =~ s/\+/%2B/g;
+				$value = CGI::Util::escape($value);
 				push @query_values, "$_->{'name'}=$value";
 			}
 			$hide_field{ $_->{'name'} } = 1 if $_->{'hide_query'} eq 'yes';
