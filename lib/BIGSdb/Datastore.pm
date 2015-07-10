@@ -1946,7 +1946,7 @@ sub is_sequence_similar_to_others {
 ##############REFERENCES###############################################################
 sub get_citation_hash {
 	my ( $self, $pmids, $options ) = @_;
-	my $citation_ref;
+	my $citation_ref = {};
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
 		host       => $self->{'system'}->{'host'},

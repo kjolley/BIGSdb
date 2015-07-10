@@ -89,7 +89,7 @@ sub print_content {
 				$value = "$value: " . $scheme_info->{'description'};
 			}
 		}
-		if ( $att->{'name'} =~ /sequence$/ ) {
+		if ( $att->{'name'} =~ /sequence$/ &&  $att->{'type'} ne 'bool') {
 			$value = BIGSdb::Utils::split_line($value);
 			say defined $value ? "<dd class=\"seq\">$value</dd>" : "<dd>&nbsp;</dd>";
 		} elsif ( $att->{'name'} eq 'curator' or $att->{'name'} eq 'sender' ) {

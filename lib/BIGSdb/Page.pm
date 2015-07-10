@@ -66,10 +66,11 @@ use constant DATABANKS                     => qw(ENA Genbank);
 use constant FLANKING                      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant LOCUS_PATTERN                 => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
 use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
+use constant BUTTON_CLASS                  => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
-  SUBMITTER_ALLOWED_PERMISSIONS);
+  SUBMITTER_ALLOWED_PERMISSIONS BUTTON_CLASS);
 
-sub new {    ## no critic (RequireArgUnpacking)
+sub new {                                         ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -538,7 +539,7 @@ sub print_action_fieldset {
 	$buffer .= $q->submit(
 		-name  => 'submit',
 		-label => $submit_label,
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		-class => BUTTON_CLASS
 	);
 	$buffer .= q(</fieldset><div style="clear:both"></div>);
 	return $buffer if $options->{'get_only'};
@@ -1097,7 +1098,7 @@ sub get_isolate_publication_filter {
 					text     => 'Publication',
 					multiple => 1,
 					noblank  => 1,
-					tooltip => q(publication filter - Select publications to filter your )
+					tooltip  => q(publication filter - Select publications to filter your )
 					  . q(search to only those isolates referred by them.)
 				}
 			);

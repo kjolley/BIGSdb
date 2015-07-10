@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
-use BIGSdb::Page 'SEQ_METHODS';
+use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
 use File::Path qw(make_path remove_tree);
@@ -2039,10 +2039,9 @@ sub _print_message_fieldset {
 		$buffer .= q(<div>);
 		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
 		$buffer .= q(</div><div style="float:right">Message: );
-		my $button_class = 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
-		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => $button_class );
+		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => BUTTON_CLASS );
 		if ( $submission->{'email'} ) {
-			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => $button_class );
+			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
 		}
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)

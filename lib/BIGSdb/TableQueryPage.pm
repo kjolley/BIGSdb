@@ -257,7 +257,7 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Search criteria</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
-	  . q(<label for=\"c0\">Combine searches with: </label>);
+	  . q(<label for="c0">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw(AND OR)] );
 	say q(</span>);
 	say q(<ul id="table_fields">);
