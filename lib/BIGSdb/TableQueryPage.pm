@@ -497,7 +497,8 @@ sub _run_query {
 						any {
 							$table eq $_;
 						}
-						qw (allele_sequences allele_designations experiment_sequences sequence_bin project_members isolate_aliases samples history)
+						qw (allele_sequences allele_designations experiment_sequences sequence_bin 
+						project_members isolate_aliases samples history)
 					)
 					&& $field eq $self->{'system'}->{'labelfield'}
 				  )
@@ -781,11 +782,13 @@ sub _search_by_isolate_id {
 	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
 	  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
 	if    ( $operator eq 'NOT' )         { $qry .= "NOT $self->{'system'}->{'view'}.id = $text" }
-	elsif ( $operator eq "contains" )    { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
-	elsif ( $operator eq "starts with" ) { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'" }
-	elsif ( $operator eq "ends with" )   { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'" }
-	elsif ( $operator eq "NOT contain" ) { $qry .= "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
-	else                                 { $qry .= "$self->{'system'}->{'view'}.id $operator $text" }
+	elsif ( $operator eq 'contains' )    { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
+	elsif ( $operator eq 'starts with' ) { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'" }
+	elsif ( $operator eq 'ends with' )   { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'" }
+	elsif ( $operator eq 'NOT contain' ) {
+		$qry .= "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'";
+	}
+	else { $qry .= "$self->{'system'}->{'view'}.id $operator $text" }
 	$qry .= ')';
 	return $qry;
 }
@@ -794,18 +797,22 @@ sub _modify_search_by_sequence_attributes {
 	my ( $self, $field, $type, $operator, $text ) = @_;
 	$field =~ s/^ext_//x;
 	$text  =~ s/'/\\'/gx;
+	if ( $text eq 'null' ) {
+		my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
+		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values)";
+	}
 	my $not = $operator =~ /NOT/x ? ' NOT' : '';
-	my $qry = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE ";
-	if ( $operator =~ /contain/x ) { $qry .= "key = '$field' AND value ILIKE E'%$text%'" }
-	elsif ( $operator eq 'starts with' ) { $qry .= "key = '$field' AND value ILIKE E'$text%'" }
-	elsif ( $operator eq 'ends with' )   { $qry .= "key = '$field' AND value ILIKE E'%$text'" }
-	elsif ( $operator eq 'NOT' || $operator eq '=' ) { $qry .= "key = '$field' AND UPPER(value) = UPPER(E'$text')" }
+	my $qry = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
+	if ( $operator =~ /contain/x ) { $qry .= "value ILIKE E'%$text%'" }
+	elsif ( $operator eq 'starts with' ) { $qry .= "value ILIKE E'$text%'" }
+	elsif ( $operator eq 'ends with' )   { $qry .= "value ILIKE E'%$text'" }
+	elsif ( $operator eq 'NOT' || $operator eq '=' ) { $qry .= "UPPER(value) = UPPER(E'$text')" }
 	else {
-		if ( $type eq 'integer' ) { $qry .= "key = '$field' AND CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
+		if ( $type eq 'integer' ) { $qry .= "CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
 		elsif ( $type eq 'float' ) {
-			$qry .= "key = '$field' AND CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)";
+			$qry .= "CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)";
 		} else {
-			$qry .= "key = '$field' AND UPPER(value) $operator UPPER(E'$text')";
+			$qry .= "UPPER(value) $operator UPPER(E'$text')";
 		}
 	}
 	$qry .= ')';
