@@ -25,7 +25,7 @@ use List::MoreUtils qw(none any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 20;
-use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS);
+use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS BUTTON_CLASS);
 use BIGSdb::QueryPage qw(OPERATORS);
 
 sub initiate {
@@ -768,9 +768,9 @@ sub print_additional_headerbar_functions {
 	my $record = $self->get_record_name( $q->param('table') );
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
-	say $q->submit( -name => 'customize', -label => "$record options", -class => 'submit' );
-	$q->param( 'page',     'customize' );
-	$q->param( 'filename', $filename );
+	say $q->submit( -name => 'customize', -label => "$record options", -class => BUTTON_CLASS );
+	$q->param( page => 'customize' );
+	$q->param( filename => $filename );
 	say $q->hidden($_) foreach qw (db filename table page);
 	say $q->end_form;
 	say q(</fieldset>);

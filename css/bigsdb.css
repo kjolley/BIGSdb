@@ -326,11 +326,11 @@ input.submit:hover {
 	border-bottom-color:#696
 }
 
-a.resetbutton, input.resetbutton { border:1px solid #bbe; color:#333; background:#eee}
+a.resetbutton, input.resetbutton { border:1px solid #bbe; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
 a.resetbutton:hover, input.resetbutton:hover {border:1px solid #669 }
 a.smallbutton {padding: 0 0.5em}
 
-input.submitbutton {border:1px solid #ada; color:#333; background:#eee}
+input.submitbutton {border:1px solid #ada; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
 input.submitbutton:hover {border:1px solid #696}
 input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
 input.updatebutton:hover {border:1px solid #669}
@@ -758,7 +758,6 @@ fieldset {
 }
 
 div#accordion ul {
-	margin:0; 
 	padding:0 0 0 0.5em;  
 	list-style:none; 
 }

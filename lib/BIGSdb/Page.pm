@@ -531,8 +531,9 @@ sub print_action_fieldset {
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
-		$buffer .= qq(<a href="$url" class="resetbutton ui-button ui-widget ui-state-default ui-corner-all )
-		  . qq(ui-button-text-only"><span class="ui-button-text">$reset_label</span>);
+		my $class = RESET_BUTTON_CLASS;
+		$buffer .= qq(<a href="$url" class="$class ui-button-text-only">)
+		  . qq(<span class="ui-button-text">$reset_label</span>);
 		$buffer .= "</a>\n";
 	}
 	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );

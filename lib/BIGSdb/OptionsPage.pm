@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(FLANKING);
+use BIGSdb::Page qw(FLANKING BUTTON_CLASS RESET_BUTTON_CLASS);
 
 sub initiate {
 	my ($self) = @_;
@@ -57,27 +57,23 @@ sub print_content {
 	}
 	my $desc = $self->{'system'}->{'description'};
 	$self->{'extended'} = $self->get_extended_attributes if $self->{'system'}->{'dbtype'} eq 'isolates';
-	say "<h1>Set database options</h1>";
+	say q(<h1>Set database options</h1>);
 	if ( !$q->cookie('guid') ) {
-		print <<"HTML";
-<div class="box" id="statusbad">
-<p>In order to store options, a cookie needs to be saved on your computer. Cookies appear to be disabled, 
-however.  Please enable them in your browser settings to proceed.</p>
-</div>
-HTML
+		say q(<div class="box" id="statusbad">);
+		say q(<p>In order to store options, a cookie needs to be saved on your computer. )
+		  . q(Cookies appear to be disabled, however.  Please enable them in your browser )
+		  . q(settings to proceed.</p></div>);
 		return;
 	}
-	print <<"HTML";
-<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  Options are remembered between sessions and 
-affect the current database ($desc) only. If some of the options don't appear to set when you next go to a query page, try refreshing the 
-page (Shift + Refresh) as some pages are cached by your browser.</p>
-</div>
-HTML
+	say q(<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  )
+	  . qq(Options are remembered between sessions and affect the current database ($desc) only. If some )
+	  . q(of the options don't appear to set when you next go to a query page, try refreshing the )
+	  . q(page (Shift + Refresh) as some pages are cached by your browser.</p></div>);
 	say $q->start_form;
-	$q->param( 'page', 'options' );
+	$q->param( page => 'options' );
 	say $q->hidden($_) foreach qw(page db);
-	say "<div class=\"box queryform\">";
-	say "<div id=\"accordion\">";
+	say q(<div class="box queryform">);
+	say q(<div id="accordion">);
 	$self->_print_general_options;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -86,12 +82,13 @@ HTML
 		$self->_print_isolate_table_fields_options;
 		$self->_print_isolate_query_fields_options;
 	}
-	say "</div></div>";
-	say "<div class=\"box reset\">";
-	say "<h2>Reset</h2>";
-	say "<p>Click the reset button to remove all user settings for this database - this includes locus and scheme field preferences.</p>";
-	say $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => 'button' );
-	say "</div>";
+	say q(</div></div>);
+	say q(<div class="box reset">);
+	say q(<h2>Reset</h2>);
+	say q(<p>Click the reset button to remove all user settings for this database - )
+	  . q(this includes locus and scheme field preferences.</p>);
+	say $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => RESET_BUTTON_CLASS );
+	say q(</div>);
 	say $q->end_form;
 	return;
 }
@@ -112,7 +109,8 @@ sub set_options {
 		return if !$guid;
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (qw (displayrecs alignwidth flanking )) {
-			$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ) if BIGSdb::Utils::is_int( $prefs->{$_} ) && $prefs->{$_} >= 0;
+			$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} )
+			  if BIGSdb::Utils::is_int( $prefs->{$_} ) && $prefs->{$_} >= 0;
 		}
 		$prefstore->set_general( $guid, $dbname, 'pagebar', $prefs->{'pagebar'} );
 		foreach (qw (hyperlink_loci tooltips)) {
@@ -120,8 +118,9 @@ sub set_options {
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			foreach (
-				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main display_contig_count locus_alias
-				update_details sequence_details allele_flags sample_details display_publications)
+				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
+				display_contig_count locus_alias update_details sequence_details allele_flags
+				sample_details display_publications)
 			  )
 			{
 				$prefstore->set_general( $guid, $dbname, $_, $prefs->{$_} ? 'on' : 'off' );
@@ -131,8 +130,10 @@ sub set_options {
 			my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 			my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 			foreach (@$field_list) {
-				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay', $prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
-				$prefstore->set_field( $guid, $dbname, $_, 'dropdown',    $prefs->{'dropdownfields'}->{$_}    ? 'true' : 'false' );
+				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay',
+					$prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
+				$prefstore->set_field( $guid, $dbname, $_, 'dropdown',
+					$prefs->{'dropdownfields'}->{$_} ? 'true' : 'false' );
 				my $extatt = $extended->{$_};
 				if ( ref $extatt eq 'ARRAY' ) {
 					foreach my $extended_attribute (@$extatt) {
@@ -145,14 +146,18 @@ sub set_options {
 			}
 			$prefstore->set_field( $guid, $dbname, 'aliases', 'maindisplay',
 				$prefs->{'maindisplayfields'}->{'aliases'} ? 'true' : 'false' );
-			my $composites = $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
+			my $composites =
+			  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
 			foreach (@$composites) {
-				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay', $prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
+				$prefstore->set_field( $guid, $dbname, $_, 'maindisplay',
+					$prefs->{'maindisplayfields'}->{$_} ? 'true' : 'false' );
 			}
-			my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+			my $schemes =
+			  $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 			foreach (@$schemes) {
 				my $field = "scheme_$_\_profile_status";
-				$prefstore->set_field( $guid, $dbname, $field, 'dropdown', $prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
+				$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
+					$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 			}
 			$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown',
 				$prefs->{'dropdownfields'}->{'Publications'} ? 'true' : 'false' );
@@ -173,7 +178,7 @@ sub get_javascript {
 	\$("#provenance_field_display").columnize({width:300,buildOnce:true});
 	\$("#dropdown_query_filters").columnize({width:400,buildOnce:true});
 	\$( "#accordion").accordion({heightStyle:"content"});
-	\$(".smallbutton").css('display','inline');
+	\$(".batch").css('display','inline');
 });
 END
 	return $buffer;
@@ -183,47 +188,60 @@ sub _print_general_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say "<h2>General options</h2><div class=\"options\">";
-	say "<ul id=\"general\">";
-	say "<li><span style=\"white-space:nowrap\"><label for=\"displayrecs\">Display </label>";
+	say q(<h2>General options</h2><div class="options">);
+	say q(<ul id="general">);
+	say q(<li><span style="white-space:nowrap"><label for="displayrecs">Display </label>);
 	say $q->popup_menu(
 		-name    => 'displayrecs',
 		-id      => 'displayrecs',
 		-values  => [qw (10 25 50 100 200 500 all)],
 		-default => $prefs->{'displayrecs'}
 	);
-	say " records per page.</span></li>";
-	say "<li>";
-	say "<span style=\"white-space:nowrap\"><label for=\"pagebar\">Page bar position: </label>";
+	say q( records per page.</span></li>);
+	say q(<li>);
+	say q(<span style="white-space:nowrap"><label for="pagebar">Page bar position: </label>);
 	say $q->popup_menu(
 		-name    => 'pagebar',
 		-id      => 'pagebar',
 		-values  => [ 'top and bottom', 'top only', 'bottom only' ],
 		-default => $prefs->{'pagebar'}
 	);
-	say "</span></li>";
-	say "<li><span style=\"white-space:nowrap\"><label for=\"alignwidth\">Display </label>";
+	say q(</span></li>);
+	say q(<li><span style="white-space:nowrap"><label for="alignwidth">Display </label>);
 	say $q->popup_menu(
 		-name    => 'alignwidth',
 		-id      => 'alignwidth',
 		-values  => [qw (50 60 70 80 90 100 110 120 130 140 150)],
 		-default => $prefs->{'alignwidth'}
 	);
-	say " nucleotides per line in sequence alignments.</span></li>";
+	say q( nucleotides per line in sequence alignments.</span></li>);
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say "<li><span style=\"white-space:nowrap\"><label for=\"flanking\">Display </label>";
-		say $q->popup_menu( -name => 'flanking', -id => 'flanking', -values => [FLANKING], -default => $prefs->{'flanking'} );
-		say " nucleotides of flanking sequence (where available).</span></li>";
-		say "<li>";
-		say $q->checkbox( -name => 'locus_alias', -checked => $prefs->{'locus_alias'}, -label => 'Display locus aliases if set.' );
-		say "</li>";
+		say q(<li><span style="white-space:nowrap"><label for="flanking">Display </label>);
+		say $q->popup_menu(
+			-name    => 'flanking',
+			-id      => 'flanking',
+			-values  => [FLANKING],
+			-default => $prefs->{'flanking'}
+		);
+		say q( nucleotides of flanking sequence (where available).</span></li>);
+		say q(<li>);
+		say $q->checkbox(
+			-name    => 'locus_alias',
+			-checked => $prefs->{'locus_alias'},
+			-label   => 'Display locus aliases if set.'
+		);
+		say q(</li>);
 	}
-	say "<li>";
-	say $q->checkbox( -name => 'tooltips', -checked => $prefs->{'tooltips'}, -label => 'Enable tooltips (beginner\'s mode).' );
-	say "</li></ul>";
-	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	say "</div>";
+	say q(<li>);
+	say $q->checkbox(
+		-name    => 'tooltips',
+		-checked => $prefs->{'tooltips'},
+		-label   => 'Enable tooltips (beginner\'s mode).'
+	);
+	say q(</li></ul>);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say q(</div>);
 	return;
 }
 
@@ -231,10 +249,14 @@ sub _print_main_results_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say "<h2>Main results table</h2>";
-	say "<div class=\"options\">";
+	say q(<h2>Main results table</h2>);
+	say q(<div class="options">);
 	my $options = [
-		{ -name => 'hyperlink_loci', -checked => $prefs->{'hyperlink_loci'}, -label => 'Hyperlink allele designations where possible.' },
+		{
+			-name    => 'hyperlink_loci',
+			-checked => $prefs->{'hyperlink_loci'},
+			-label   => 'Hyperlink allele designations where possible.'
+		},
 		{
 			-name    => 'mark_provisional_main',
 			-checked => $prefs->{'mark_provisional_main'},
@@ -245,19 +267,31 @@ sub _print_main_results_options {
 			-checked => $prefs->{'sequence_details_main'},
 			-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
 		},
-		{ -name => 'display_seqbin_main',  -checked => $prefs->{'display_seqbin_main'},  -label => 'Display sequence bin size.' },
-		{ -name => 'display_contig_count', -checked => $prefs->{'display_contig_count'}, -label => 'Display contig count.' },
-		{ -name => 'display_publications', -checked => $prefs->{'display_publications'}, -label => 'Display publications.' }
+		{
+			-name    => 'display_seqbin_main',
+			-checked => $prefs->{'display_seqbin_main'},
+			-label   => 'Display sequence bin size.'
+		},
+		{
+			-name    => 'display_contig_count',
+			-checked => $prefs->{'display_contig_count'},
+			-label   => 'Display contig count.'
+		},
+		{
+			-name    => 'display_publications',
+			-checked => $prefs->{'display_publications'},
+			-label   => 'Display publications.'
+		}
 	];
-	say "<ul id=\"main_results\">";
+	say q(<ul id="main_results">);
 	foreach my $option (@$options) {
-		say "<li>";
+		say q(<li>);
 		say $q->checkbox(%$option);
-		say "</li>";
+		say q(</li>);
 	}
-	say "</ul>";
-	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	say "</div>";
+	say q(</ul>);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say q(</div>);
 	return;
 }
 
@@ -265,43 +299,43 @@ sub _print_isolate_record_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say "<h2>Isolate record display</h2>";
-	say "<div class=\"options\">";
-	say "<ul id=\"isolate_record\">";
-	say "<li>";
+	say q(<h2>Isolate record display</h2>);
+	say q(<div class="options">);
+	say q(<ul id="isolate_record">);
+	say q(<li>);
 	say $q->checkbox(
 		-name    => 'mark_provisional',
 		-checked => $prefs->{'mark_provisional'},
 		-label   => 'Differentiate provisional allele designations.'
 	);
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'update_details',
 		-checked => $prefs->{'update_details'},
 		-label   => 'Display sender, curator and last updated details for allele designations (tooltip).'
 	);
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'sequence_details',
 		-checked => $prefs->{'sequence_details'},
 		-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
 	);
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'allele_flags',
 		-checked => $prefs->{'allele_flags'},
-		-label   => 'Display information about whether alleles have flags defined in sequence definition database (shown in sequence '
-		  . 'detail tooltip).'
+		-label   => 'Display information about whether alleles have flags defined in sequence '
+		  . 'definition database (shown in sequence detail tooltip).'
 	);
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'sample_details',
 		-checked => $prefs->{'sample_details'},
 		-label   => 'Display full information about sample records (tooltip).'
 	);
-	say "</li></ul>";
-	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	say "</div>";
+	say q(</li></ul>);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say q(</div>);
 	return;
 }
 
@@ -309,40 +343,34 @@ sub _print_isolate_table_fields_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	print << "HTML";
-<h2>Provenance field display</h2>
-<div>
-<p>Select the isolate provenance fields that you wish to be displayed in the main results table following a query. Settings for displaying 
-locus and scheme data can be made by performing a 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci">locus</a>, 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes">scheme</a> or 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=scheme_fields\">scheme field</a> query 
-and then selecting the 'Customize' option.</p>
-<div class="scrollable">
-HTML
+	say q(<h2>Provenance field display</h2>);
+	say q(<div><p>Select the isolate provenance fields that you wish to be displayed in the main results )
+	  . q(table following a query. Settings for displaying locus and scheme data can be made by performing a )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci">)
+	  . q(locus</a>, )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=schemes">)
+	  . q(scheme</a> or )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=)
+	  . q(scheme_fields">scheme field</a> query and then selecting the 'Customize' option.</p>);
+	say q(<div class="scrollable">);
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my ( @js, @js2, @js3, %composites, %composite_display_pos, %composite_main_display );
-	my $qry = "SELECT id,position_after,main_display FROM composite_fields";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
+	my $comp_data = $self->{'datastore'}->run_query( 'SELECT id,position_after,main_display FROM composite_fields',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 
-	if ($@) {
-		$logger->error($@);
-	} else {
-		while ( my @data = $sql->fetchrow_array ) {
-			$composite_display_pos{ $data[0] }  = $data[1];
-			$composite_main_display{ $data[0] } = $data[2];
-			$composites{ $data[1] }             = 1;
-		}
+	foreach my $comp (@$comp_data) {
+		$composite_display_pos{ $comp->{'id'} }  = $comp->{'position_after'};
+		$composite_main_display{ $comp->{'id'} } = $comp->{'main_display'};
+		$composites{ $comp->{'position_after'} } = 1;
 	}
-	say "<div id=\"provenance_field_display\">";
-	say "<ul>";
+	say q(<div id="provenance_field_display">);
+	say q(<ul>);
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( $field ne 'id' ) {
-			say "<li>";
+			say q(<li>);
 			( my $id = "field_$field" ) =~ tr/:/_/;
 			say $q->checkbox(
 				-name    => "field_$field",
@@ -351,7 +379,7 @@ HTML
 				-value   => 'checked',
 				-label   => $metafield // $field
 			);
-			say "</li>";
+			say q(</li>);
 			push @js,  "\$(\"#$id\").prop(\"checked\",true)";
 			push @js2, "\$(\"#$id\").prop(\"checked\",false)";
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -361,7 +389,7 @@ HTML
 
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					say "<li>";
+					say q(<li>);
 					say $q->checkbox(
 						-name    => "extended_$field..$extended_attribute",
 						-id      => "extended_$field\___$extended_attribute",
@@ -369,33 +397,33 @@ HTML
 						-value   => 'checked',
 						-label   => $extended_attribute
 					);
-					say "</li>";
+					say q(</li>);
 					push @js,  "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",true)";
 					push @js2, "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",false)";
 					push @js3, "\$(\"#extended_$field\___$extended_attribute\").prop(\"checked\",false)";
 				}
 			}
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
-				say "<li>";
+				say q(<li>);
 				say $q->checkbox(
-					-name    => "field_aliases",
-					-id      => "field_aliases",
+					-name    => 'field_aliases',
+					-id      => 'field_aliases',
 					-checked => $prefs->{'maindisplayfields'}->{'aliases'},
 					-value   => 'checked',
 					-label   => 'aliases'
 				);
-				say "</li>";
-				push @js,  "\$(\"#field_aliases\").prop(\"checked\",true)";
-				push @js2, "\$(\"#field_aliases\").prop(\"checked\",false)";
-				my $value =
-				  $self->{'system'}->{'maindisplay_aliases'} && $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
-				push @js3, "\$(\"#field_aliases\").prop(\"checked\",$value)";
+				say q(</li>);
+				push @js,  q($("#field_aliases").prop("checked",true));
+				push @js2, q($("#field_aliases").prop("checked",false));
+				my $value = $self->{'system'}->{'maindisplay_aliases'}
+				  && $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 'true' : 'false';
+				push @js3, qq(\$("#field_aliases").prop("checked",$value));
 			}
 		}
 		if ( $composites{$field} ) {
 			foreach ( keys %composite_display_pos ) {
 				next if $composite_display_pos{$_} ne $field;
-				say "<li>";
+				say q(<li>);
 				say $q->checkbox(
 					-name    => "field_$_",
 					-id      => "field_$_",
@@ -403,22 +431,23 @@ HTML
 					-value   => 'checked',
 					-label   => $_
 				);
-				say "</li>";
-				push @js,  "\$(\"#field_$_\").prop(\"checked\",true)";
-				push @js2, "\$(\"#field_$_\").prop(\"checked\",false)";
+				say q(</li>);
+				push @js,  qq(\$("#field_$_").prop("checked",true));
+				push @js2, qq(\$("#field_$_").prop("checked",false));
 				my $value = $composite_main_display{$_} ? 'true' : 'false';
-				push @js3, "\$(\"#field_$_\").prop(\"checked\",$value)";
+				push @js3, qq(\$("#field_$_").prop("checked",$value));
 			}
 		}
 	}
-	say "</ul></div></div>";
-	say "<div style=\"clear:both\">";
+	say q(</ul></div></div>);
+	say q(<div style="clear:both">);
 	local $" = ';';
-	say "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" style=\"display:none\" />";
-	say "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" style=\"display:none\" />";
-	say "<input type=\"button\" value=\"Default\" onclick='@js3' class=\"smallbutton\" style=\"display:none\" />";
-	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	say "</div></div>";
+	my $all_none_class = RESET_BUTTON_CLASS;
+	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
+	say qq(<input type="button" value="None" onclick='@js2' class="batch $all_none_class" style="display:none" />);
+	say qq(<input type="button" value="Default" onclick='@js3' class="batch $all_none_class" style="display:none" />);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say q(</div></div>);
 	return;
 }
 
@@ -426,14 +455,12 @@ sub _print_isolate_query_fields_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	print << "HTML";
-<h2>Query filters</h2>
-<div>
-<p>Select the fields for which you would like dropdown lists containing known values on which to filter query results.  These will 
-be available in the filters section of the query interface.</p>
-<div class="scrollable">
-<div id="dropdown_query_filters">
-HTML
+	say q(<h2>Query filters</h2>);
+	say q(<div><p>Select the fields for which you would like dropdown lists containing known values )
+	  . q(on which to filter query results. These will be available in the filters section of the query )
+	  . q(interface.</p>);
+	say q(<div class="scrollable">);
+	say q(<div id="dropdown_query_filters">);
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -450,12 +477,12 @@ HTML
 		push @checkfields, 'Publications';
 	}
 	my ( @js, @js2, @js3 );
-	say "<div><ul>";
+	say q(<div><ul>);
 	foreach my $field (@checkfields) {
 		if ( $field ne 'id' ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			( my $id = "dropfield_$field" ) =~ tr/:/_/;
-			say "<li>";
+			say q(<li>);
 			say $q->checkbox(
 				-name    => "dropfield_$field",
 				-id      => $id,
@@ -463,24 +490,24 @@ HTML
 				-value   => 'checked',
 				-label   => $labels{$field} || ( $metafield // $field )
 			);
-			say "</li>";
-			push @js,  "\$(\"#$id\").prop(\"checked\",true)";
-			push @js2, "\$(\"#$id\").prop(\"checked\",false)";
+			say q(</li>);
+			push @js,  qq(\$("#$id").prop("checked",true));
+			push @js2, qq(\$("#$id").prop("checked",false));
 			my $value;
 
-			if ( $field =~ /^scheme_(\d+)_profile_status/ ) {
+			if ( $field =~ /^scheme_(\d+)_profile_status/x ) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
 				$value = $scheme_info->{'query_status'} ? 'true' : 'false';
 			} else {
 				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 				$value = ( ( $thisfield->{'dropdown'} // '' ) eq 'yes' ) ? 'true' : 'false';
 			}
-			push @js3, "\$(\"#$id\").prop(\"checked\",$value)";
+			push @js3, qq(\$("#$id").prop("checked",$value));
 		}
 		my $extatt = $self->{'extended'}->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				say "<li>";
+				say q(<li>);
 				say $q->checkbox(
 					-name    => "dropfield_e_$field\..$extended_attribute",
 					-id      => "dropfield_e_$field\___$extended_attribute",
@@ -488,22 +515,22 @@ HTML
 					-value   => 'checked',
 					-label   => $extended_attribute
 				);
-				say "</li>";
-				push @js,  "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",true)";
-				push @js2, "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",false)";
-				push @js3, "\$(\"#dropfield_e_$field\___$extended_attribute\").prop(\"checked\",false)";
+				say q(</li>);
+				push @js,  qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",true));
+				push @js2, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
+				push @js3, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
 			}
 		}
 	}
-	say "</ul></div>";
-	say "</div><div style=\"clear:both\">";
+	say q(</ul></div>);
+	say q(</div><div style="clear:both">);
 	local $" = ';';
-	say "<input type=\"button\" value=\"All\" onclick='@js' class=\"smallbutton\" style=\"display:none\" />";
-	say "<input type=\"button\" value=\"None\" onclick='@js2' class=\"smallbutton\" style=\"display:none\" />";
-	say "<input type=\"button\" value=\"Default\" onclick='@js3' class=\"smallbutton\" style=\"display:none\" />";
-	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
-	say "</div>";
-	say "</div></div>";
+	my $all_none_class = RESET_BUTTON_CLASS;
+	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
+	say qq(<input type="button" value="None" onclick='@js2' class="batch $all_none_class" style="display:none" />);
+	say qq(<input type="button" value="Default" onclick='@js3' class="batch $all_none_class" style="display:none" />);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say q(</div></div></div>);
 	return;
 }
 1;
