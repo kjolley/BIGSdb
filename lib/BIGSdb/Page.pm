@@ -70,7 +70,7 @@ use constant BUTTON_CLASS                  => 'submitbutton ui-button ui-widget 
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
   SUBMITTER_ALLOWED_PERMISSIONS BUTTON_CLASS);
 
-sub new {                                         ## no critic (RequireArgUnpacking)
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -359,9 +359,7 @@ sub print_page_content {
 		$self->_print_login_details
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
 		  || $self->{'curate'}
-		  || ( $q->param('page') // '' ) eq 'authorizeClient'
-		  || ( $q->param('page') // '' ) eq 'submit'
-		  || ( $q->param('page') // '' ) eq 'changePassword';
+		  || $self->{'needs_authentication'};
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;
@@ -536,11 +534,7 @@ sub print_action_fieldset {
 		  . qq(ui-button-text-only"><span class="ui-button-text">$reset_label</span>);
 		$buffer .= "</a>\n";
 	}
-	$buffer .= $q->submit(
-		-name  => 'submit',
-		-label => $submit_label,
-		-class => BUTTON_CLASS
-	);
+	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
 	$buffer .= q(</fieldset><div style="clear:both"></div>);
 	return $buffer if $options->{'get_only'};
 	say $buffer;

@@ -69,13 +69,14 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
+use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword submit);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = 50 * 1024 * 1024;             #Limit any uploads to 50Mb.
+	$CGI::POST_MAX              = 50 * 1024 * 1024;                                        #Limit any uploads to 50Mb.
 	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
@@ -96,6 +97,7 @@ sub new {
 	bless( $self, $class );
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	my $q = $self->{'cgi'};
 
 	if ( !$self->{'error'} ) {
@@ -437,23 +439,24 @@ sub print_page {
 	);
 	my $page;
 	my %page_attributes = (
-		system           => $self->{'system'},
-		dbase_config_dir => $self->{'dbase_config_dir'},
-		config_dir       => $self->{'config_dir'},
-		lib_dir          => $self->{'lib_dir'},
-		cgi              => $self->{'cgi'},
-		instance         => $self->{'instance'},
-		prefs            => $self->{'prefs'},
-		prefstore        => $self->{'prefstore'},
-		config           => $self->{'config'},
-		datastore        => $self->{'datastore'},
-		db               => $self->{'db'},
-		xmlHandler       => $self->{'xmlHandler'},
-		dataConnector    => $self->{'dataConnector'},
-		pluginManager    => $self->{'pluginManager'},
-		mod_perl_request => $self->{'mod_perl_request'},
-		jobManager       => $self->{'jobManager'},
-		curate           => 0
+		system               => $self->{'system'},
+		dbase_config_dir     => $self->{'dbase_config_dir'},
+		config_dir           => $self->{'config_dir'},
+		lib_dir              => $self->{'lib_dir'},
+		cgi                  => $self->{'cgi'},
+		instance             => $self->{'instance'},
+		prefs                => $self->{'prefs'},
+		prefstore            => $self->{'prefstore'},
+		config               => $self->{'config'},
+		datastore            => $self->{'datastore'},
+		db                   => $self->{'db'},
+		xmlHandler           => $self->{'xmlHandler'},
+		dataConnector        => $self->{'dataConnector'},
+		pluginManager        => $self->{'pluginManager'},
+		mod_perl_request     => $self->{'mod_perl_request'},
+		jobManager           => $self->{'jobManager'},
+		needs_authentication => $self->{'pages_needing_authentication'}->{ $self->{'page'} },
+		curate               => 0
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
@@ -465,9 +468,7 @@ sub print_page {
 		return;
 	}
 	if (   $self->{'system'}->{'read_access'} ne 'public'
-		|| $self->{'page'} eq 'authorizeClient'
-		|| $self->{'page'} eq 'submit'
-		|| $self->{'page'} eq 'changePassword'
+		|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
 		|| $self->{'page'} eq 'logout' )
 	{
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
@@ -535,9 +536,7 @@ sub authenticate {
 		}
 		if (   $self->{'curate'}
 			|| $self->{'system'}->{'read_access'} ne 'public'
-			|| $self->{'page'} eq 'authorizeClient'
-			|| $self->{'page'} eq 'submit' 
-			|| $self->{'page'} eq 'changePassword' )
+			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;

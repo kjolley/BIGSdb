@@ -986,7 +986,7 @@ sub _print_plugin_buttons {
 					$category = 'Miscellaneous' if !$category;
 					$cat_buffer .= qq(<tr><td style="text-align:right">$category: </td><td><table><tr>);
 					$cat_buffer .= $plugin_buffer;
-					$cat_buffer .= "</tr>\n";
+					$cat_buffer .= qq(</tr>\n);
 				}
 			}
 			say qq($cat_buffer</table></td></tr>) if $cat_buffer;
