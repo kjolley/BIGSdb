@@ -179,7 +179,7 @@ sub run_job {
 	return;
 }
 
-sub get_extra_form_elements {
+sub print_extra_form_elements {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";

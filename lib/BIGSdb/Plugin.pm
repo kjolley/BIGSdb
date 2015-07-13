@@ -30,64 +30,17 @@ use constant MAX_TREE_NODES => 1000;
 use constant SEQ_SOURCE     => 'seqbin id + position';
 our @EXPORT_OK = qw(SEQ_SOURCE);
 
-sub get_attributes {
-
-	#override in subclass
-	return \%;;
-}
-
-sub get_option_list {
-
-	#override in subclass
-	return \@;;
-}
-
-sub get_extra_form_elements {
-
-	#override in subclass
-	return '';
-}
-
-sub print_extra_fields {
-
-	#override in subclass
-	return '';
-}
-
-sub print_options {
-
-	#override in subclass
-	return '';
-}
-
-sub print_extra_options {
-
-	#override in subclass
-	return '';
-}
-
-sub get_hidden_attributes {
-
-	#override in subclass
-	return \@;;
-}
-
-sub get_plugin_javascript {
-
-	#override in subclass
-	return '';
-}
-
-sub run {
-
-	#override in subclass
-}
-
-sub run_job {
-
-	#used to run offline job
-	#override in subclass
-}
+#Override the following methods in subclass
+sub get_attributes { return {} }
+sub get_option_list { return [] }
+sub print_extra_form_elements { }
+sub print_extra_fields      { }
+sub print_options           { }
+sub print_extra_options     { }
+sub get_hidden_attributes   { return [] }
+sub get_plugin_javascript   { return q() }
+sub run                     { }
+sub run_job                 { }              #used to run offline job
 
 sub get_javascript {
 	my ($self) = @_;
@@ -97,7 +50,8 @@ sub get_javascript {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
 		if ($requires) {
-			$tree_js = $requires =~ /js_tree/ ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : '';
+			$tree_js =
+			  $requires =~ /js_tree/ ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : '';
 		} else {
 			$tree_js = '';
 		}
@@ -200,11 +154,11 @@ sub create_temp_tables {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		try {
-			foreach my $scheme_id(@$schemes) {
+			foreach my $scheme_id (@$schemes) {
 				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/ ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ){
+				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
 				if ( $qry =~ /temp_scheme_$scheme_id\s/ || $qry =~ /ORDER BY s_$scheme_id\_/ ) {
@@ -215,7 +169,8 @@ sub create_temp_tables {
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			if ( $format ne 'text' ) {
-				say "<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
+				say
+"<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
 			} else {
 				say "Can not connect to remote database.  The query can not be performed.";
 			}
@@ -260,7 +215,8 @@ sub print_content {
 	$plugin->{'username'} = $self->{'username'};
 	my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/ ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This plugin is not compatible with this type of database ($dbtype).</p></div>";
+		say
+"<div class=\"box\" id=\"statusbad\"><p>This plugin is not compatible with this type of database ($dbtype).</p></div>";
 		$continue = 0;
 	}
 	return if !$continue;
@@ -278,12 +234,15 @@ sub print_content {
 						} else {
 							$value = $q->param( $_->{'name'} ) ? 'true' : 'false';
 						}
-						$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'}, $value );
+						$self->{'prefstore'}
+						  ->set_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'},
+							$value );
 					}
 					$self->{'prefstore'}->update_datestamp($guid);
 				} elsif ( $q->param('reset') ) {
 					foreach (@$option_list) {
-						$self->{'prefstore'}->delete_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
+						$self->{'prefstore'}
+						  ->delete_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
 						my $value;
 						if ( $_->{'optlist'} ) {
 							$value = $_->{'default'};
@@ -313,7 +272,9 @@ sub print_content {
 			foreach (@$option_list) {
 				my $default;
 				try {
-					$default = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
+					$default =
+					  $self->{'prefstore'}
+					  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
 					if ( $default eq 'true' || $default eq 'false' ) {
 						$default = $default eq 'true' ? 1 : 0;
 					}
@@ -361,7 +322,8 @@ sub get_title {
 
 sub _print_fields {
 	my ( $self, $args ) = @_;
-	my ( $fields, $prefix, $num_columns, $labels, $default_select ) = @{$args}{qw(fields prefix num_columns labels default_select)};
+	my ( $fields, $prefix, $num_columns, $labels, $default_select ) =
+	  @{$args}{qw(fields prefix num_columns labels default_select)};
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
 	say "<div style=\"float:left;margin-bottom:1em\"><ul>";
@@ -373,7 +335,13 @@ sub _print_fields {
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
 		print "<li>";
-		print $q->checkbox( -name => "$prefix\_$field", -id => $id, -checked => $default_select, -value => 'checked', -label => $label );
+		print $q->checkbox(
+			-name    => "$prefix\_$field",
+			-id      => $id,
+			-checked => $default_select,
+			-value   => 'checked',
+			-label   => $label
+		);
 		say "</li>";
 		$i++;
 
@@ -424,12 +392,20 @@ sub print_field_export_form {
 	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
 	my %labels;
 	$self->_print_fields(
-		{ fields => \@display_fields, prefix => 'f', num_columns => 3, labels => \%labels, default_select => $default_select } );
+		{
+			fields         => \@display_fields,
+			prefix         => 'f',
+			num_columns    => 3,
+			labels         => \%labels,
+			default_select => $default_select
+		}
+	);
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
 	say "</fieldset>";
 	if ( $options->{'include_composites'} ) {
 		my $composites =
-		  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields ORDER BY id", undef, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM composite_fields ORDER BY id", undef, { fetch => 'col_arrayref' } );
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
 			foreach (@$composites) {
@@ -439,11 +415,13 @@ sub print_field_export_form {
 				push @com_js2, "\$(\"#c_$_\").prop(\"checked\",false)";
 			}
 			say qq(<fieldset style="float:left"><legend>Composite fields);
-			say qq( <a class="tooltip" title="Composite fields - These are constructed from combinations of other fields )
+			say
+			  qq( <a class="tooltip" title="Composite fields - These are constructed from combinations of other fields )
 			  . qq[(some of which may come from external databases).  Including composite fields will slow down the processing.">]
 			  . qq(<span class="fa fa-info-circle"></span></a>);
 			say "</legend>";
-			$self->_print_fields( { fields => $composites, prefix => 'c', num_columns => 1, labels => \%labels, default_select => 0 } );
+			$self->_print_fields(
+				{ fields => $composites, prefix => 'c', num_columns => 1, labels => \%labels, default_select => 0 } );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
 			say "</fieldset>";
 		}
@@ -517,8 +495,9 @@ sub get_selected_fields {
 		}
 	}
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $composites = $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
-	my $schemes    = $self->{'datastore'}->run_query( "SELECT id FROM schemes",          undef, { fetch => 'col_arrayref' } );
+	my $composites =
+	  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
+	my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
 	my @fields_selected;
 	foreach (@display_fields) {
 		push @fields_selected, "f_$_" if $q->param("f_$_");
@@ -623,8 +602,10 @@ sub print_sequence_export_form {
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		say qq(<fieldset style="float:left"><legend>$options_heading</legend>);
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			say qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
-			say qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the sequence bin )
+			say
+qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
+			say
+qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the sequence bin )
 			  . qq[(as nucleotide sequences)."><span class="fa fa-info-circle"></span></a>];
 			say "<br /><br />";
 			my %labels = (
@@ -640,21 +621,26 @@ sub print_sequence_export_form {
 			say "<br />";
 			if ( $options->{'ignore_seqflags'} ) {
 				say $q->checkbox(
-					-name    => 'ignore_seqflags',
-					-label   => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
+					-name  => 'ignore_seqflags',
+					-label => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
 					-checked => 'checked'
 				);
 				say "<br />";
 			}
 			if ( $options->{'ignore_incomplete'} ) {
-				say $q->checkbox( -name => 'ignore_incomplete', -label => 'Do not include incomplete sequences', -checked => 'checked' );
+				say $q->checkbox(
+					-name    => 'ignore_incomplete',
+					-label   => 'Do not include incomplete sequences',
+					-checked => 'checked'
+				);
 				say "<br />";
 			}
 			if ( $options->{'flanking'} ) {
 				say "Include ";
 				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 				say " bp flanking sequence";
-				say qq( <a class="tooltip" title="Flanking sequence - This can only be included if you select to retrieve sequences )
+				say
+qq( <a class="tooltip" title="Flanking sequence - This can only be included if you select to retrieve sequences )
 				  . qq(from the sequence bin rather than from an external database."><span class="fa fa-info-circle"></span></a>);
 				say "<br />";
 			}
@@ -682,7 +668,7 @@ sub print_sequence_export_form {
 		}
 		say "</fieldset>";
 	}
-	say $self->get_extra_form_elements;
+	$self->print_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say "<div style=\"clear:both\"></div>";
 	my $set_id = $self->get_set_id;
@@ -698,7 +684,8 @@ sub has_set_changed {
 	my $set_id = $self->get_set_id;
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {
-			say qq(<div class="box" id="statusbad"><p>The dataset has been changed since this plugin was started.  Please )
+			say
+qq(<div class="box" id="statusbad"><p>The dataset has been changed since this plugin was started.  Please )
 			  . qq(repeat the query.</p></div>);
 			return 1;
 		}
@@ -891,9 +878,11 @@ HTML
 	say "</div>";
 	if ( $options->{'fields_or_loci'} ) {
 		say "<div style=\"padding-top:1em\"><ul><li>";
-		say $q->checkbox( -name => 'scheme_fields', -label => 'Include all fields from selected schemes', -checked => 1 );
+		say $q->checkbox( -name => 'scheme_fields', -label => 'Include all fields from selected schemes',
+			-checked => 1 );
 		say "</li><li>";
-		say $q->checkbox( -name => 'scheme_members', -label => 'Include all loci from selected schemes', -checked => 1 );
+		say $q->checkbox( -name => 'scheme_members', -label => 'Include all loci from selected schemes',
+			-checked => 1 );
 		say "</li></ul></div>";
 	}
 	say "</fieldset>\n";
@@ -916,9 +905,10 @@ sub print_sequence_filter_fieldset {
 			'min_length',
 			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
 			{
-				text    => 'Minimum length',
-				tooltip => 'minimum length filter - Only include sequences that are longer or equal to the specified length.',
-				class   => 'parameter'
+				text => 'Minimum length',
+				tooltip =>
+				  'minimum length filter - Only include sequences that are longer or equal to the specified length.',
+				class => 'parameter'
 			}
 		);
 		say "<li>$buffer</li>";
@@ -930,9 +920,8 @@ sub print_sequence_filter_fieldset {
 sub filter_ids_by_project {
 	my ( $self, $ids, $project_id ) = @_;
 	return $ids if !$project_id;
-	my $ids_in_project =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?", $project_id, { fetch => 'col_arrayref' } );
+	my $ids_in_project = $self->{'datastore'}->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?",
+		$project_id, { fetch => 'col_arrayref' } );
 	my @filtered_ids;
 	foreach my $id (@$ids) {
 		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
@@ -998,7 +987,8 @@ sub order_loci {
 		$qry = "SELECT id FROM loci ORDER BY genome_position,id";
 	} else {
 		$logger->logdie("Invalid scheme_id passed.") if !BIGSdb::Utils::is_int( $options->{'scheme_id'} );
-		$qry = "SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND scheme_id=$options->{'scheme_id'} "
+		$qry =
+"SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND scheme_id=$options->{'scheme_id'} "
 		  . "ORDER BY field_order,genome_position,id";
 	}
 	my $ordered = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
@@ -1055,8 +1045,15 @@ sub escape_params {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
 	my @param_names = $q->param;
-	my %escapes =
-	  ( '__prime__' => "'", '__slash__' => "\\", '__comma__' => ',', '__space__' => ' ', '_OPEN_' => "(", '_CLOSE_' => ")", '_GT_' => ">" );
+	my %escapes     = (
+		'__prime__' => "'",
+		'__slash__' => "\\",
+		'__comma__' => ',',
+		'__space__' => ' ',
+		'_OPEN_'    => "(",
+		'_CLOSE_'   => ")",
+		'_GT_'      => ">"
+	);
 	foreach my $param_name (@param_names) {
 		my $key = $param_name;
 		if ( any { $param_name =~ /$_/ } keys %escapes ) {

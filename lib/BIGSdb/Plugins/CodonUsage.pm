@@ -219,19 +219,19 @@ HTML
 	return;
 }
 
-sub get_extra_form_elements {
+sub print_extra_form_elements {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $buffer = "<fieldset style=\"float:left\">\n<legend>Codons</legend>\n";
-	$buffer .= "<p>Select codon order:</p>\n";
-	$buffer .= $q->radio_group(
+	say q(<fieldset style="float:left"><legend>Codons</legend>);
+	say q(<p>Select codon order:</p>);
+	say $q->radio_group(
 		-name      => 'codonorder',
 		-values    => [ 'alphabetical', 'cg_ending_first' ],
 		-labels    => { cg_ending_first => 'C or G ending codons first' },
 		-linebreak => 'true'
 	);
-	$buffer .= "</fieldset>\n";
-	return $buffer;
+	say q(</fieldset>);
+	return;
 }
 
 sub run_job {
