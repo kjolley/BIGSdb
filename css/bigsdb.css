@@ -326,8 +326,8 @@ input.submit:hover {
 	border-bottom-color:#696
 }
 
-a.resetbutton { border:1px solid #bbe; color:#333; background:#eee}
-a.resetbutton:hover {border:1px solid #669 }
+a.resetbutton, input.resetbutton { border:1px solid #bbe; color:#333; background:#eee}
+a.resetbutton:hover, input.resetbutton:hover {border:1px solid #669 }
 a.smallbutton {padding: 0 0.5em}
 
 input.submitbutton {border:1px solid #ada; color:#333; background:#eee}
@@ -335,7 +335,7 @@ input.submitbutton:hover {border:1px solid #696}
 input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
 input.updatebutton:hover {border:1px solid #669}
 
-a.resetbutton:hover, input.submitbutton:hover {
+a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {
 	background: #fff;
 	color: #212121;
 }
@@ -677,24 +677,23 @@ div#banner {
 }
 
 div#pluginoptions, div#curatetools {
-	background:#a5a5b0;
+	background:#ddd;
 	float:right;
 	position:absolute;
 	top:4.5em;
 	right:5px;
 	z-index:3;
-	
 	padding:10px;
 	font-size:0.8em;
 	margin-bottom: 0.5em;
-	border: 1px solid #666;
+	border: 1px solid #999;
+	border-radius: 10px;
+	box-shadow: 3px 3px 3px #dfdfdf;
 }
+
+div#pluginoptions ul {list-style-type:none; margin-left:-2em}
 
 div#curatetools { background: #e5e5f0}
-
-div.pluginoptions table {
-	padding:0.1em;
-}
 
 div#logindetails {
 	background:#ecece9;

@@ -24,7 +24,7 @@ use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
-use BIGSdb::Page qw(FLANKING LOCUS_PATTERN);
+use BIGSdb::Page qw(FLANKING LOCUS_PATTERN BUTTON_CLASS RESET_BUTTON_CLASS);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_TREE_NODES => 1000;
 use constant SEQ_SOURCE     => 'seqbin id + position';
@@ -34,13 +34,13 @@ our @EXPORT_OK = qw(SEQ_SOURCE);
 sub get_attributes { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
-sub print_extra_fields      { }
-sub print_options           { }
-sub print_extra_options     { }
-sub get_hidden_attributes   { return [] }
-sub get_plugin_javascript   { return q() }
-sub run                     { }
-sub run_job                 { }              #used to run offline job
+sub print_extra_fields        { }
+sub print_options             { }
+sub print_extra_options       { }
+sub get_hidden_attributes     { return [] }
+sub get_plugin_javascript     { return q() }
+sub run                       { }
+sub run_job                   { }              #used to run offline job
 
 sub get_javascript {
 	my ($self) = @_;
@@ -51,14 +51,14 @@ sub get_javascript {
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
 		if ($requires) {
 			$tree_js =
-			  $requires =~ /js_tree/ ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : '';
+			  $requires =~ /js_tree/x ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : q();
 		} else {
-			$tree_js = '';
+			$tree_js = q();
 		}
 	}
 	catch BIGSdb::InvalidPluginException with {
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
-		$tree_js = '';
+		$tree_js = q();
 		$logger->warn($message);
 	};
 	$js .= <<"JS";
@@ -119,26 +119,26 @@ sub get_query {
 				close $fh;
 			} else {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
-					say "Can not open temporary file.";
+					say 'Cannot open temporary file.';
 				} else {
-					say qq(<div class="box" id="statusbad"><p>Can not open temporary file.</p></div>);
+					say q(<div class="box" id="statusbad"><p>Cannot open temporary file.</p></div>);
 				}
-				$logger->error("can't open temporary file $query_file. $@");
+				$logger->error($@);
 				return;
 			}
 		} else {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
-				say "The temporary file containing your query does not exist. Please repeat your query.";
+				say 'The temporary file containing your query does not exist. Please repeat your query.';
 			} else {
-				say qq(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
-				  . qq(Please repeat your query.</p></div>);
+				say q(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
+				  . q(Please repeat your query.</p></div>);
 			}
 			return;
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/g;
-		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/g;
+		$qry =~ s/([\s\(])datestamp/$1$view.datestamp/gx;
+		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/gx;
 	}
 	return \$qry;
 }
@@ -149,19 +149,19 @@ sub create_temp_tables {
 	my $qry      = $$qry_ref;
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
-	my $schemes  = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+	my $schemes  = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/ ) {
+				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
-				if ( $qry =~ /temp_scheme_$scheme_id\s/ || $qry =~ /ORDER BY s_$scheme_id\_/ ) {
+				if ( $qry =~ /temp_scheme_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
 					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
 					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 				}
@@ -169,12 +169,12 @@ sub create_temp_tables {
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			if ( $format ne 'text' ) {
-				say
-"<div class=\"box\" id=\"statusbad\"><p>Can not connect to remote database.  The query can not be performed.</p></div>";
+				say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
+				  . q(The query can not be performed.</p></div>);
 			} else {
-				say "Can not connect to remote database.  The query can not be performed.";
+				say q(Cannot connect to remote database.  The query can not be performed.);
 			}
-			$logger->error("Can't connect to remote database.");
+			$logger->error('Cannot connect to remote database.');
 			$continue = 0;
 		};
 	}
@@ -188,7 +188,7 @@ sub create_temp_tables {
 sub delete_temp_files {
 	my ( $self, $wildcard ) = @_;
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$wildcard");
-	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/ }
+	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
 	return;
 }
 
@@ -198,78 +198,38 @@ sub print_content {
 	my $plugin_name = $q->param('name');
 	if ( !$self->{'pluginManager'}->is_plugin($plugin_name) ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-		say "<h1>$desc</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid (or no) plugin called.</p></div>";
+		say qq(<h1>$desc</h1>);
+		say q(<div class="box" id="statusbad"><p>Invalid (or no) plugin called.</p></div>);
 		return;
 	}
-	my $plugin;
-	my $continue = 1;
-	try {
-		$plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
-	}
-	catch BIGSdb::InvalidPluginException with {
-		say "<div class=\"box\" id=\"statusbad\"><p>Plugin '$plugin_name' does not exist!</p></div>";
-		$continue = 0;
-	};
-	my $att = $plugin->get_attributes;
+	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
+	my $att    = $plugin->get_attributes;
 	$plugin->{'username'} = $self->{'username'};
 	my $dbtype = $self->{'system'}->{'dbtype'};
-	if ( $att->{'dbtype'} !~ /$dbtype/ ) {
-		say
-"<div class=\"box\" id=\"statusbad\"><p>This plugin is not compatible with this type of database ($dbtype).</p></div>";
-		$continue = 0;
+	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
+		say q(<div class="box" id="statusbad"><p>This plugin is not compatible )
+		  . qq(with this type of database ($dbtype).</p></div>);
+		return;
 	}
-	return if !$continue;
-	my $option_list = $plugin->get_option_list();
-	my $cookies_disabled;
+	my $option_list = $plugin->get_option_list;
 	if ( @$option_list && $q->param('format') eq 'html' ) {
 		if ( $q->param('update_options') ) {
-			my $guid = $self->get_guid;
-			if ($guid) {
-				if ( $q->param('set') ) {
-					foreach (@$option_list) {
-						my $value;
-						if ( $_->{'optlist'} ) {
-							$value = $q->param( $_->{'name'} );
-						} else {
-							$value = $q->param( $_->{'name'} ) ? 'true' : 'false';
-						}
-						$self->{'prefstore'}
-						  ->set_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'},
-							$value );
-					}
-					$self->{'prefstore'}->update_datestamp($guid);
-				} elsif ( $q->param('reset') ) {
-					foreach (@$option_list) {
-						$self->{'prefstore'}
-						  ->delete_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
-						my $value;
-						if ( $_->{'optlist'} ) {
-							$value = $_->{'default'};
-						} else {
-							$value = $_->{'default'} ? 'on' : 'off';
-						}
-						$q->param( $_->{'name'}, $value );
-					}
-				}
-			} else {
-				$cookies_disabled = 1;
-			}
+			$self->_update_options($option_list);
 		}
-		if ( !$cookies_disabled ) {
+		if ( !$self->{'cookies_disabled'} ) {
 			say $q->start_form;
 			$q->param( 'update_options', 1 );
 			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
 			say $q->hidden($_) foreach qw(page db name query_file update_options);
-			say "<div id=\"hidefromnonJS\" class=\"hiddenbydefault\">";
-			say "<div class=\"floatmenu\"><a id=\"toggle1\" class=\"showhide\">Show options</a>";
-			say "<a id=\"toggle2\" class=\"hideshow\">Hide options</a></div>";
-			say "<div class=\"hideshow\">";
-			say "<div id=\"pluginoptions\"><table><tr><th>$att->{'name'} options</th></tr>";
-			my $td   = 1;
+			say q(<div id="hidefromnonJS" class="hiddenbydefault">);
+			say q(<div class="floatmenu"><a id="toggle1" class="showhide">Show options</a>);
+			say q(<a id="toggle2" class="hideshow">Hide options</a></div>);
+			say q(<div class="hideshow">);
+			say q(<div id="pluginoptions"><h2>Options</h2><ul>);
 			my $guid = $self->get_guid;
 
 			foreach (@$option_list) {
+				say q(<li>);
 				my $default;
 				try {
 					$default =
@@ -282,30 +242,63 @@ sub print_content {
 				catch BIGSdb::DatabaseNoRecordException with {
 					$default = $_->{'default'};
 				};
-				say "<tr class=\"td$td\"><td>";
 				if ( $_->{'optlist'} ) {
 					print $_->{'description'} . ': ';
-					my @values = split /;/, $_->{'optlist'};
+					my @values = split /;/x, $_->{'optlist'};
 					say $q->popup_menu( -name => $_->{'name'}, -values => [@values], -default => $default );
 				} else {
 					say $q->checkbox( -name => $_->{'name'}, -label => $_->{'description'}, selected => $default );
 				}
-				say "</td></tr>";
-				$td = $td == 1 ? 2 : 1;
+				say q(</li>);
 			}
-			say "<tr class=\"td$td\"><td style=\"text-align:center\">";
-			say $q->submit( -name => 'reset', -label => 'Reset to defaults', -class => 'reset' );
-			say $q->submit( -name => 'set',   -label => 'Set options',       -class => 'submit' );
-			say "</td></tr>";
-			say "</table></div>\n</div>\n</div>";
+			say q(</ul><fieldset><legend>Action</legend>);
+			say $q->submit( -name => 'reset', -label => 'Reset to defaults', -class => RESET_BUTTON_CLASS );
+			say $q->submit( -name => 'set',   -label => 'Set options',       -class => BUTTON_CLASS );
+			say q(</fieldset></div></div></div>);
 			say $q->end_form;
 		} else {
-			say "<div class=\"floatmenu\" >Options disabled (allow cookies to enable)</div>";
+			say q(<div class="floatmenu">Options disabled (allow cookies to enable)</div>);
 		}
 	}
 	$plugin->initiate_prefs;
 	$plugin->initiate_view( $self->{'username'} );
 	$plugin->run;
+	return;
+}
+
+sub _update_options {
+	my ( $self, $option_list ) = @_;
+	my $q    = $self->{'cgi'};
+	my $guid = $self->get_guid;
+	if ($guid) {
+		if ( $q->param('set') ) {
+			foreach my $option (@$option_list) {
+				my $value;
+				if ( $option->{'optlist'} ) {
+					$value = $q->param( $option->{'name'} );
+				} else {
+					$value = $q->param( $option->{'name'} ) ? 'true' : 'false';
+				}
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$q->param('name'), $option->{'name'}, $value );
+			}
+			$self->{'prefstore'}->update_datestamp($guid);
+		} elsif ( $q->param('reset') ) {
+			foreach my $option (@$option_list) {
+				$self->{'prefstore'}
+				  ->delete_plugin_attribute( $guid, $self->{'system'}->{'db'}, $q->param('name'), $option->{'name'} );
+				my $value;
+				if ( $option->{'optlist'} ) {
+					$value = $option->{'default'};
+				} else {
+					$value = $option->{'default'} ? 'on' : 'off';
+				}
+				$q->param( $option->{'name'}, $value );
+			}
+		}
+	} else {
+		$self->{'cookies_disabled'} = 1;
+	}
 	return;
 }
 
@@ -326,15 +319,15 @@ sub _print_fields {
 	  @{$args}{qw(fields prefix num_columns labels default_select)};
 	my $q                 = $self->{'cgi'};
 	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
-	say "<div style=\"float:left;margin-bottom:1em\"><ul>";
+	say q(<div style="float:left;margin-bottom:1em"><ul>);
 	my $i = 0;
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
-		$label =~ s/^.*___//;         #only show extended field.
-		$label =~ s/^meta_[^:]+://;
+		$label =~ s/^.*___//x;         #only show extended field.
+		$label =~ s/^meta_[^:]+://x;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
-		print "<li>";
+		print q(<li>);
 		print $q->checkbox(
 			-name    => "$prefix\_$field",
 			-id      => $id,
@@ -342,16 +335,16 @@ sub _print_fields {
 			-value   => 'checked',
 			-label   => $label
 		);
-		say "</li>";
+		say q(</li>);
 		$i++;
 
 		if ( $i == $fields_per_column && $field ne $fields->[-1] ) {
 			$i = 0;
-			say "</ul></div><div style=\"float:left;margin-bottom:1em\"><ul>";
+			say q(</ul></div><div style="float:left;margin-bottom:1em"><ul>);
 		}
 	}
-	say "</ul></div>";
-	say "<div style=\"clear:both\"></div>";
+	say q(</ul></div>);
+	say q(<div style="clear:both"></div>);
 	return;
 }
 
@@ -383,47 +376,45 @@ sub print_field_export_form {
 	push @isolate_js2, @js2;
 	foreach my $field (@display_fields) {
 		( my $id = "f_$field" ) =~ tr/:/_/;
-		push @js,          "\$(\"#$id\").prop(\"checked\",true)";
-		push @js2,         "\$(\"#$id\").prop(\"checked\",false)";
-		push @isolate_js,  "\$(\"#$id\").prop(\"checked\",true)";
-		push @isolate_js2, "\$(\"#$id\").prop(\"checked\",false)";
+		push @js,          qq(\$("#$id").prop("checked",true));
+		push @js2,         qq(\$("#$id").prop("checked",false));
+		push @isolate_js,  qq(\$("#$id").prop("checked",true));
+		push @isolate_js2, qq(\$("#$id").prop("checked",false));
 	}
 	say $q->start_form;
-	say "<fieldset style=\"float:left\"><legend>Isolate fields</legend>";
-	my %labels;
+	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
 	$self->_print_fields(
 		{
 			fields         => \@display_fields,
 			prefix         => 'f',
 			num_columns    => 3,
-			labels         => \%labels,
+			labels         => {},
 			default_select => $default_select
 		}
 	);
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
-	say "</fieldset>";
+	say q(</fieldset>);
 	if ( $options->{'include_composites'} ) {
 		my $composites =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM composite_fields ORDER BY id", undef, { fetch => 'col_arrayref' } );
+		  ->run_query( 'SELECT id FROM composite_fields ORDER BY id', undef, { fetch => 'col_arrayref' } );
 		if (@$composites) {
 			my ( @com_js, @com_js2 );
 			foreach (@$composites) {
-				push @js,      "\$(\"#c_$_\").prop(\"checked\",true)";
-				push @js2,     "\$(\"#c_$_\").prop(\"checked\",false)";
-				push @com_js,  "\$(\"#c_$_\").prop(\"checked\",true)";
-				push @com_js2, "\$(\"#c_$_\").prop(\"checked\",false)";
+				push @js,      qq(\$("#c_$_").prop("checked",true));
+				push @js2,     qq(\$("#c_$_").prop("checked",false));
+				push @com_js,  qq(\$("#c_$_").prop("checked",true));
+				push @com_js2, qq(\$("#c_$_").prop("checked",false));
 			}
-			say qq(<fieldset style="float:left"><legend>Composite fields);
-			say
-			  qq( <a class="tooltip" title="Composite fields - These are constructed from combinations of other fields )
-			  . qq[(some of which may come from external databases).  Including composite fields will slow down the processing.">]
-			  . qq(<span class="fa fa-info-circle"></span></a>);
-			say "</legend>";
+			say q(<fieldset style="float:left"><legend>Composite fields);
+			say q( <a class="tooltip" title="Composite fields - These are constructed from combinations of )
+			  . q(other fields (some of which may come from external databases).  Including composite fields )
+			  . q(will slow down the processing."><span class="fa fa-info-circle"></span></a>);
+			say q(</legend>);
 			$self->_print_fields(
-				{ fields => $composites, prefix => 'c', num_columns => 1, labels => \%labels, default_select => 0 } );
+				{ fields => $composites, prefix => 'c', num_columns => 1, labels => {}, default_select => 0 } );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
-			say "</fieldset>";
+			say q(</fieldset>);
 		}
 	}
 	$self->print_extra_fields;
@@ -432,7 +423,7 @@ sub print_field_export_form {
 	$self->print_options;
 	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
-	say qq(<div style="clear:both"></div>);
+	say q(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
 	say $q->end_form;
@@ -443,7 +434,7 @@ sub set_offline_view {
 	my ( $self, $params ) = @_;
 	my $set_id = $params->{'set_id'};
 	if ( ( $self->{'system'}->{'view'} // '' ) eq 'isolates' && $set_id ) {
-		my $view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+		my $view = $self->{'datastore'}->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
 		$self->{'system'}->{'view'} = $view if defined $view;
 	}
 	return;
@@ -454,8 +445,8 @@ sub get_id_list {
 	my $q = $self->{'cgi'};
 	my $list;
 	if ( $q->param('list') ) {
-		foreach ( split /\n/, $q->param('list') ) {
-			$_ =~ s/\s*$//;
+		foreach ( split /\n/x, $q->param('list') ) {
+			$_ =~ s/\s*$//x;
 			push @$list, $_;
 		}
 	} elsif ($query_file) {
@@ -464,7 +455,7 @@ sub get_id_list {
 		return if !$self->create_temp_tables($qry_ref);
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			my $view = $self->{'system'}->{'view'};
-			$$qry_ref =~ s/SELECT ($view\.\*|\*)/SELECT $view\.$pk/;
+			$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $view\.$pk/x;
 			$self->rewrite_query_ref_order_by($qry_ref);
 		}
 		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
@@ -496,8 +487,8 @@ sub get_selected_fields {
 	}
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $composites =
-	  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
-	my $schemes = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	my @fields_selected;
 	foreach (@display_fields) {
 		push @fields_selected, "f_$_" if $q->param("f_$_");
@@ -530,11 +521,11 @@ sub get_loci_from_pasted_list {
 	my $q = $self->{'cgi'};
 	my ( @cleaned_loci, @invalid_loci );
 	if ( $q->param('locus_paste_list') ) {
-		my @list = split /\n/, $q->param('locus_paste_list');
+		my @list = split /\n/x, $q->param('locus_paste_list');
 		foreach my $locus (@list) {
-			next if $locus =~ /^\s*$/;
-			$locus =~ s/^\s*//;
-			$locus =~ s/\s*$//;
+			next if $locus =~ /^\s*$/x;
+			$locus =~ s/^\s*//x;
+			$locus =~ s/\s*$//x;
 			my $real_name;
 			my $set_id = $self->get_set_id;
 			if ($set_id) {
@@ -559,11 +550,11 @@ sub get_ids_from_pasted_list {
 	my $q = $self->{'cgi'};
 	my ( @cleaned_ids, @invalid_ids );
 	if ( $q->param('isolate_paste_list') ) {
-		my @list = split /\n/, $q->param('isolate_paste_list');
+		my @list = split /\n/x, $q->param('isolate_paste_list');
 		foreach my $id (@list) {
-			next if $id =~ /^\s*$/;
-			$id =~ s/^\s*//;
-			$id =~ s/\s*$//;
+			next if $id =~ /^\s*$/x;
+			$id =~ s/^\s*//x;
+			$id =~ s/\s*$//x;
 			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists($id) ) {
 				push @cleaned_ids, $id;
 			} else {
@@ -577,17 +568,17 @@ sub get_ids_from_pasted_list {
 
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
-	$logger->error("No primary key passed") if !defined $pk;
+	$logger->error('No primary key passed') if !defined $pk;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say $q->start_form;
-	say "<fieldset style=\"float:left\">\n<legend>Select $pk" . "s</legend>";
+	say qq(<fieldset style="float:left"><legend>Select ${pk}s</legend>);
 	local $" = "\n";
-	say "<p style=\"padding-right:2em\">Paste in list of ids to include, start a new<br />line for each. "
-	  . "Leave blank to include all ids.</p>";
+	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />)
+	  . q(line for each. Leave blank to include all ids.</p>);
 	@$list = uniq @$list;
 	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
-	say "</fieldset>";
+	say q(</fieldset>);
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	$self->print_includes_fieldset( { scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
@@ -602,12 +593,11 @@ sub print_sequence_export_form {
 		my $options_heading = $options->{'options_heading'} || 'Options';
 		say qq(<fieldset style="float:left"><legend>$options_heading</legend>);
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			say
-qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
-			say
-qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the sequence bin )
-			  . qq[(as nucleotide sequences)."><span class="fa fa-info-circle"></span></a>];
-			say "<br /><br />";
+			say q(<p>If both allele designations and tagged sequences<br />)
+			  . q(exist for a locus, choose how you want these handled: );
+			say q( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the )
+			  . q(sequence bin (as nucleotide sequences)."><span class="fa fa-info-circle"></span></a></p>);
+			say q(<ul><li>);
 			my %labels = (
 				seqbin             => 'Use sequences tagged from the bin',
 				allele_designation => 'Use allele sequence retrieved from external database'
@@ -618,14 +608,14 @@ qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be ret
 				-labels    => \%labels,
 				-linebreak => 'true'
 			);
-			say "<br />";
+			say q(</li><li style="margin-top:0.5em">);
 			if ( $options->{'ignore_seqflags'} ) {
 				say $q->checkbox(
-					-name  => 'ignore_seqflags',
-					-label => 'Do not include sequences with problem flagged ' . '(defined alleles will still be used)',
+					-name    => 'ignore_seqflags',
+					-label   => 'Do not include sequences with problem flagged (defined alleles will still be used)',
 					-checked => 'checked'
 				);
-				say "<br />";
+				say q(</li><li>);
 			}
 			if ( $options->{'ignore_incomplete'} ) {
 				say $q->checkbox(
@@ -633,44 +623,49 @@ qq( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be ret
 					-label   => 'Do not include incomplete sequences',
 					-checked => 'checked'
 				);
-				say "<br />";
+				say q(</li><li>);
 			}
 			if ( $options->{'flanking'} ) {
-				say "Include ";
+				say q(Include );
 				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
-				say " bp flanking sequence";
-				say
-qq( <a class="tooltip" title="Flanking sequence - This can only be included if you select to retrieve sequences )
-				  . qq(from the sequence bin rather than from an external database."><span class="fa fa-info-circle"></span></a>);
-				say "<br />";
+				say q( bp flanking sequence);
+				say q( <a class="tooltip" title="Flanking sequence - This can only be included if you )
+				  . q(select to retrieve sequences from the sequence bin rather than from an external database.">)
+				  . q(<span class="fa fa-info-circle"></span></a>);
+				say q(</li>);
 			}
+		} else {
+			say q(<ul>);
 		}
 		if ( $options->{'align'} ) {
+			say q(<li>);
 			say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
-			say "<br />";
+			say q(</li>);
 			my @aligners;
 			foreach my $aligner (qw(mafft muscle)) {
 				push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
 			}
 			if (@aligners) {
-				say "Aligner: ";
+				say q(<li>Aligner: );
 				say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
-				say "<br />";
+				say q(</li>);
 			}
 		}
 		if ( $options->{'translate'} ) {
+			say q(<li>);
 			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
-			say "<br />";
+			say q(</li>);
 		}
 		if ( $options->{'in_frame'} ) {
+			say q(<li>);
 			say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
-			say "<br />";
+			say q(</li>);
 		}
-		say "</fieldset>";
+		say q(</ul></fieldset>);
 	}
 	$self->print_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );
-	say "<div style=\"clear:both\"></div>";
+	say q(<div style="clear:both"></div>);
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
@@ -684,9 +679,8 @@ sub has_set_changed {
 	my $set_id = $self->get_set_id;
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {
-			say
-qq(<div class="box" id="statusbad"><p>The dataset has been changed since this plugin was started.  Please )
-			  . qq(repeat the query.</p></div>);
+			say q(<div class="box" id="statusbad"><p>The dataset has been changed since this )
+			  . q(plugin was started. Please repeat the query.</p></div>);
 			return 1;
 		}
 	}
@@ -730,7 +724,7 @@ sub print_includes_fieldset {
 			-default  => $options->{'preselect'},
 			-multiple => 'true'
 		);
-		say "</fieldset>";
+		say q(</fieldset>);
 	}
 	return;
 }
@@ -740,9 +734,9 @@ sub print_seqbin_isolate_fieldset {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
-	say "<fieldset style=\"float:left\">\n<legend>Isolates</legend>";
+	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	if (@$ids) {
-		say "<div style=\"float:left\">";
+		say q(<div style="float:left">);
 		say $self->popup_menu(
 			-name     => 'isolate_id',
 			-id       => 'isolate_id',
@@ -752,24 +746,23 @@ sub print_seqbin_isolate_fieldset {
 			-multiple => 'true',
 			-default  => $options->{'selected_ids'},
 		);
-		my $list_button = '';
+		my $list_button = q();
 		if ( $options->{'isolate_paste_list'} ) {
 			my $show_button_display = $q->param('isolate_paste_list') ? 'none'    : 'display';
 			my $hide_button_display = $q->param('isolate_paste_list') ? 'display' : 'none';
 			$list_button =
-			    qq(<input type="button" id="isolate_list_show_button" onclick='isolate_list_show()' value="Paste list" )
+			    q(<input type="button" id="isolate_list_show_button" onclick='isolate_list_show()' value="Paste list" )
 			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
-			  . qq(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
+			  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
 			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
 		}
-		print <<"HTML";
-	<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' value="All" style="margin-top:1em" 
-	class="smallbutton" /><input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" style="margin-top:1em" 
-	class="smallbutton" />$list_button</div></div>
-HTML
+		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
+		  . q(value="All" style="margin-top:1em" class="smallbutton" />)
+		  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
+		  . qq(style="margin-top:1em" class="smallbutton" />$list_button</div></div>);
 		if ( $options->{'isolate_paste_list'} ) {
 			my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
-			say "<div id=\"isolate_paste_list_div\" style=\"float:left; display:$display\">";
+			say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
 			say $q->textarea(
 				-name        => 'isolate_paste_list',
 				-id          => 'isolate_paste_list',
@@ -777,12 +770,12 @@ HTML
 				-rows        => 7,
 				-placeholder => 'Paste list of isolate ids...'
 			);
-			say "</div>";
+			say q(</div>);
 		}
 	} else {
-		say "No isolates available<br />for analysis";
+		say q(No isolates available<br />for analysis);
 	}
-	say "</fieldset>";
+	say q(</fieldset>);
 	return;
 }
 
@@ -790,11 +783,11 @@ sub print_isolates_locus_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	say "<fieldset id=\"locus_fieldset\" style=\"float:left\">\n<legend>Loci</legend>";
+	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
-		say "<div style=\"float:left\">";
+		say q(<div style="float:left">);
 		say $self->popup_menu(
 			-name     => 'locus',
 			-id       => 'locus',
@@ -803,23 +796,23 @@ sub print_isolates_locus_fieldset {
 			-size     => 8,
 			-multiple => 'true'
 		);
-		my $list_button = '';
+		my $list_button = q();
 		if ( $options->{'locus_paste_list'} ) {
 			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
 			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
 			$list_button =
-			    qq(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
+			    q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
 			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
-			  . qq(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
+			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
 			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
 		}
-		say <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" />$list_button</div></div>
-HTML
+		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
+		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" />)
+		  . qq($list_button</div></div>);
 		if ( $options->{'locus_paste_list'} ) {
 			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
-			say "<div id=\"locus_paste_list_div\" style=\"float:left; display:$display\">";
+			say qq(<div id="locus_paste_list_div" style="float:left; display:$display">);
 			say $q->textarea(
 				-name        => 'locus_paste_list',
 				-id          => 'locus_paste_list',
@@ -827,12 +820,12 @@ HTML
 				-rows        => 7,
 				-placeholder => 'Paste list of locus primary names...'
 			);
-			say "</div>";
+			say q(</div>);
 		}
 	} else {
-		say "No loci available<br />for analysis";
+		say q(No loci available<br />for analysis);
 	}
-	say "</fieldset>";
+	say q(</fieldset>);
 	return;
 }
 
@@ -842,7 +835,7 @@ sub print_scheme_locus_fieldset {
 	my $set_id     = $self->get_set_id;
 	my %labels;
 	( $labels{$_} = $self->clean_locus( $_, { text_output => 1 } ) ) foreach @$locus_list;
-	say "<fieldset style=\"float:left\"><legend>Select loci</legend>";
+	say q(<fieldset style="float:left"><legend>Select loci</legend>);
 	if (@$locus_list) {
 		print $self->{'cgi'}->scrolling_list(
 			-name     => 'locus',
@@ -852,16 +845,13 @@ sub print_scheme_locus_fieldset {
 			-size     => 8,
 			-multiple => 'true'
 		);
-		print <<"HTML";
-<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' 
-value="All" style="margin-top:1em" class="smallbutton" />
-<input type="button" onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" 
-class="smallbutton" /></div>
-HTML
+		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
+		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>);
 	} else {
-		say "No loci available<br />for analysis";
+		say q(No loci available<br />for analysis);
 	}
-	say "</fieldset>";
+	say q(</fieldset>);
 	return;
 }
 
@@ -869,58 +859,56 @@ sub print_scheme_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	print <<"HTML";
-<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>
-<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>
-<div id="tree" class="tree" style="height:13em; width:20em">
-HTML
+	say q(<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>)
+	  . q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>)
+	  . q(<div id="tree" class="tree" style="height:13em; width:20em">);
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
-	say "</div>";
+	say q(</div>);
 	if ( $options->{'fields_or_loci'} ) {
-		say "<div style=\"padding-top:1em\"><ul><li>";
+		say q(<div style="padding-top:1em"><ul><li>);
 		say $q->checkbox( -name => 'scheme_fields', -label => 'Include all fields from selected schemes',
 			-checked => 1 );
-		say "</li><li>";
+		say q(</li><li>);
 		say $q->checkbox( -name => 'scheme_members', -label => 'Include all loci from selected schemes',
 			-checked => 1 );
-		say "</li></ul></div>";
+		say q(</li></ul></div>);
 	}
-	say "</fieldset>\n";
+	say q(</fieldset>);
 	return;
 }
 
 sub print_sequence_filter_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	say qq(<fieldset style="float:left"><legend>Filter by</legend><ul>);
+	say q(<fieldset style="float:left"><legend>Filter by</legend><ul>);
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
+	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
+	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
-	say "<li>$buffer</li>" if $buffer;
+	say qq(<li>$buffer</li>) if $buffer;
 
 	if ( $options->{'min_length'} ) {
 		$buffer = $self->get_filter(
 			'min_length',
 			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
 			{
-				text => 'Minimum length',
-				tooltip =>
-				  'minimum length filter - Only include sequences that are longer or equal to the specified length.',
+				text    => 'Minimum length',
+				tooltip => 'minimum length filter - Only include sequences that are '
+				  . 'longer or equal to the specified length.',
 				class => 'parameter'
 			}
 		);
-		say "<li>$buffer</li>";
+		say qq(<li>$buffer</li>);
 	}
-	say "</ul></fieldset>\n";
+	say q(</ul></fieldset>);
 	return;
 }
 
 sub filter_ids_by_project {
 	my ( $self, $ids, $project_id ) = @_;
 	return $ids if !$project_id;
-	my $ids_in_project = $self->{'datastore'}->run_query( "SELECT isolate_id FROM project_members WHERE project_id=?",
+	my $ids_in_project = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM project_members WHERE project_id=?',
 		$project_id, { fetch => 'col_arrayref' } );
 	my @filtered_ids;
 	foreach my $id (@$ids) {
@@ -937,7 +925,7 @@ sub get_selected_loci {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus (@loci) {
-			my $locus_name = $locus =~ /$pattern/ ? $1 : undef;
+			my $locus_name = $locus =~ /$pattern/x ? $1 : undef;
 			push @loci_selected, "$locus_name" if defined $locus_name;
 		}
 	} else {
@@ -951,7 +939,7 @@ sub add_scheme_loci {
 	#Merge scheme loci into locus arrayref.  This deletes CGI params so don't call more than once.
 	my ( $self, $loci ) = @_;
 	my $q = $self->{'cgi'};
-	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	my @selected_schemes;
 	foreach my $scheme_id (@$scheme_ids) {
@@ -984,12 +972,11 @@ sub order_loci {
 	my %loci = map { $_ => 1 } @$loci;
 	my $qry;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' || !$options->{'scheme_id'} ) {
-		$qry = "SELECT id FROM loci ORDER BY genome_position,id";
+		$qry = 'SELECT id FROM loci ORDER BY genome_position,id';
 	} else {
-		$logger->logdie("Invalid scheme_id passed.") if !BIGSdb::Utils::is_int( $options->{'scheme_id'} );
-		$qry =
-"SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND scheme_id=$options->{'scheme_id'} "
-		  . "ORDER BY field_order,genome_position,id";
+		$logger->logdie('Invalid scheme_id passed.') if !BIGSdb::Utils::is_int( $options->{'scheme_id'} );
+		$qry = 'SELECT id FROM loci INNER JOIN scheme_members ON loci.id=scheme_members.locus AND '
+		  . "scheme_id=$options->{'scheme_id'} ORDER BY field_order,genome_position,id";
 	}
 	my $ordered = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my @list;
@@ -999,12 +986,11 @@ sub order_loci {
 	return \@list;
 }
 
+#Set CGI param from scheme tree selections for passing to offline job.
 sub set_scheme_param {
-
-	#Set CGI param from scheme tree selections for passing to offline job.
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $scheme_ids = $self->{'datastore'}->run_query( "SELECT id FROM schemes", undef, { fetch => 'col_arrayref' } );
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	my @selected_schemes;
 	foreach (@$scheme_ids) {
@@ -1022,8 +1008,8 @@ sub _print_all_none_buttons {
 	my ( $self, $js1, $js2, $class ) = @_;
 	if ( ref $js1 && ref $js2 ) {
 		local $" = ',';
-		say "<input type=\"button\" value=\"All\" class=\"$class\" onclick='@$js1' />";
-		say "<input type=\"button\" value=\"None\" class=\"$class\" onclick='@$js2' />";
+		say qq(<input type="button" value="All" class="$class" onclick='@$js1' />);
+		say qq(<input type="button" value="None" class="$class" onclick='@$js2' />);
 	}
 	return;
 }
@@ -1032,10 +1018,10 @@ sub get_ids_from_query {
 	my ( $self, $qry_ref ) = @_;
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
+	$qry =~ s/ORDER\ BY.*$//gx;
 	return if !$self->create_temp_tables($qry_ref);
 	my $view = $self->{'system'}->{'view'};
-	$qry =~ s/SELECT ($view\.\*|\*)/SELECT id/;
+	$qry =~ s/SELECT\ ($view\.\*|\*)/SELECT id/x;
 	$qry .= " ORDER BY $view.id";
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;
@@ -1046,19 +1032,19 @@ sub escape_params {
 	my $q           = $self->{'cgi'};
 	my @param_names = $q->param;
 	my %escapes     = (
-		'__prime__' => "'",
-		'__slash__' => "\\",
-		'__comma__' => ',',
-		'__space__' => ' ',
-		'_OPEN_'    => "(",
-		'_CLOSE_'   => ")",
-		'_GT_'      => ">"
+		'__prime__' => q('),
+		'__slash__' => q(\\),
+		'__comma__' => q(,),
+		'__space__' => q( ),
+		'_OPEN_'    => q[(],
+		'_CLOSE_'   => q[)],
+		'_GT_'      => q(>)
 	);
 	foreach my $param_name (@param_names) {
 		my $key = $param_name;
-		if ( any { $param_name =~ /$_/ } keys %escapes ) {
+		if ( any { $param_name =~ /$_/x } keys %escapes ) {
 			foreach my $escape_string ( keys %escapes ) {
-				$key =~ s/$escape_string/$escapes{$escape_string}/g;
+				$key =~ s/$escape_string/$escapes{$escape_string}/gx;
 			}
 			$q->param( $key, $q->param($param_name) );
 		}
@@ -1078,7 +1064,7 @@ sub get_scheme_field_values {
 sub attempted_spam {
 	my ( $self, $str ) = @_;
 	return if !$str || !ref $str;
-	return 1 if $$str =~ /<\s*a\s*href/i;    #Test for HTML links in submitted data
+	return 1 if $$str =~ /<\s*a\s*href/ix;    #Test for HTML links in submitted data
 	return;
 }
 1;

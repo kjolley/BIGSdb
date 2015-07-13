@@ -67,8 +67,9 @@ use constant FLANKING                      => qw(0 20 50 100 200 500 1000 2000 5
 use constant LOCUS_PATTERN                 => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
 use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
 use constant BUTTON_CLASS                  => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
+use constant RESET_BUTTON_CLASS            => 'resetbutton ui-button ui-widget ui-state-default ui-corner-all';
 our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
-  SUBMITTER_ALLOWED_PERMISSIONS BUTTON_CLASS);
+  SUBMITTER_ALLOWED_PERMISSIONS BUTTON_CLASS RESET_BUTTON_CLASS);
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
@@ -373,7 +374,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20150701';
+	my $version   = '20150713';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
