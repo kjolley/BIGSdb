@@ -440,7 +440,7 @@ sub _print_isolate_table_fields_options {
 		}
 	}
 	say q(</ul></div></div>);
-	say q(<div style="clear:both">);
+	say q(<div style="clear:both;padding-bottom:0.5em">);
 	local $" = ';';
 	my $all_none_class = RESET_BUTTON_CLASS;
 	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
@@ -523,7 +523,7 @@ sub _print_isolate_query_fields_options {
 		}
 	}
 	say q(</ul></div>);
-	say q(</div><div style="clear:both">);
+	say q(</div><div style="clear:both;padding-bottom:0.5em">);
 	local $" = ';';
 	my $all_none_class = RESET_BUTTON_CLASS;
 	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);

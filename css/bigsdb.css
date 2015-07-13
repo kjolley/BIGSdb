@@ -229,60 +229,36 @@ a.update:hover {
 	width:95%
 }
 
-.fieldsection {
-	width:90%;
-	margin:0px;
-}
-
 .button,.smallbutton, .fieldvaluebutton {
 	background:#f0f0f0;
 	color:#333;
-	border-top-color:#669;
-	border-left-color:#669;
-	border-right-color:#336;
-	border-bottom-color:#336
-}
-
-.button {
-	border:1px solid;
-	padding:0 0.5em;
-	margin:5px;
+	border:1px solid #999;
+	box-shadow: 1px 1px 1px #999;
 	border-radius:3px;
-}
-
-.smallbutton {
-	border:1px solid;
-	font-size:0.8em;
-    margin:1px;
-    border-radius: 3px;
-}
-
-.rightbutton {
-	margin:-20px 5px 10px 0;
-	float:right;
-}
-
-.legendbutton {
-	margin:-17px 5px 10px 0;
-	float:right;
 }
 
 .button:hover,.smallbutton:hover,.fieldvaluebutton:hover {
 	background:#fff;
 	color:black;
 	text-decoration:none;
-	border-top-color:#99b;
-	border-left-color:#99b;
-	border-right-color:#669;
-	border-bottom-color:#669
+	border:1px solid #666;
 }
 
-input.fieldvaluebutton {
-	margin:1px;
-	padding-left:2px;
-	padding-right:2px;
-	border:1px solid;
-	border-radius:3px;
+.button {
+	padding:0.1em 0.5em;
+	margin:5px;
+}
+
+.smallbutton {
+	font-size:0.9em;
+    margin:1px;
+    border-radius: 3px;
+    
+}
+
+.legendbutton {
+	margin:-17px 5px 10px 0;
+	float:right;
 }
 
 input.pagebar {
@@ -327,11 +303,11 @@ input.submit:hover {
 }
 
 a.resetbutton, input.resetbutton { border:1px solid #bbe; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
-a.resetbutton:hover, input.resetbutton:hover {border:1px solid #669 }
+a.resetbutton:hover, input.resetbutton:hover {border:1px solid #669; box-shadow: 1px 1px 1px #669; }
 a.smallbutton {padding: 0 0.5em}
 
 input.submitbutton {border:1px solid #ada; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
-input.submitbutton:hover {border:1px solid #696}
+input.submitbutton:hover {border:1px solid #696; box-shadow: 1px 1px 1px #696;}
 input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
 input.updatebutton:hover {border:1px solid #669}
 
