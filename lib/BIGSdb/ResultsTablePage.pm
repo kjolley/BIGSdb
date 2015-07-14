@@ -978,7 +978,7 @@ sub _print_plugin_buttons {
 					  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
 					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
 					$plugin_buffer .=
-					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'pagebar' );
+					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 					$plugin_buffer .= $q->end_form;
 					$plugin_buffer .= '</td>';
 				}

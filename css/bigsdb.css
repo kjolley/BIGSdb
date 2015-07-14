@@ -271,6 +271,7 @@ input.pagebar {
 	border-right-color:#363;
 	border-bottom-color:#363;
 	border-radius: 3px;
+	box-shadow: 1px 1px 1px #aaa; 
 }
 
 .pagebar_selected {
@@ -279,6 +280,17 @@ input.pagebar {
 	padding: 0 5px;
 	border-radius: 3px;
 }
+
+input.plugin_button {
+	border:1px solid #ada; 
+	color:black; 
+	background:#eee; 
+	border-radius: 3px; 
+	box-shadow: 1px 1px 1px #aaa; 
+	margin-right:0.2em
+}
+
+input.plugin_button:hover {border:1px solid #696; box-shadow: 1px 1px 1px #696;}
 
 input.submit {
 	background:#eee;
