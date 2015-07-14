@@ -24,6 +24,7 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 use BIGSdb::BIGSException;
+use BIGSdb::Page qw(BUTTON_CLASS);
 use Bio::DB::GenBank;
 use IO::String;
 use Bio::SeqIO;
@@ -371,7 +372,7 @@ sub _translate_button {
 	$q->param( 'page',     'sequenceTranslate' );
 	$q->param( 'sequence', $$seq_ref );
 	say $q->hidden($_) foreach (qw (db page sequence));
-	say $q->submit( -label => 'Translate query', -class => 'submit' );
+	say $q->submit( -label => 'Translate query', -class => BUTTON_CLASS );
 	say $q->end_form;
 	return;
 }
