@@ -880,10 +880,7 @@ sub _print_profile_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit(
-			-name  => 'Batch curate',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
+		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
 		my $page = $q->param('page');
 		$q->param( page            => 'profileBatchAdd' );
 		$q->param( scheme_id       => $scheme_id );
@@ -932,7 +929,7 @@ sub _print_isolate_table_fieldset {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit(
 			-name  => 'Batch curate',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+			-class => BUTTON_CLASS
 		);
 		my $page = $q->param('page');
 		$q->param( page   => 'batchAdd' );
@@ -1361,8 +1358,22 @@ sub _print_abort_form {
 }
 
 sub _print_file_upload_fieldset {
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
+	if ( $options->{'no_add'} ) {
+		$self->_print_file_fieldset($submission_id);
+		return;
+	}
+	if ( $submission_id =~ /(BIGSdb_\d+_\d+_\d+)/x ) {    #Untaint
+		$submission_id = $1;
+		if ( $q->param('file_upload') ) {
+			$self->_upload_files($submission_id);
+		}
+		if ( $q->param('delete') ) {
+			$self->_delete_selected_submission_files($submission_id);
+		}
+	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
 	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or )
 	  . q(add an explanatory note so that they can be linked to the appropriate submission item.  Individual filesize )
@@ -1371,12 +1382,9 @@ sub _print_file_upload_fieldset {
 	  . q(.</p>);
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
-	say $q->submit(
-		-name  => 'Upload files',
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-	);
+	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
 	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page alleles profiles isolates locus submit submission_id no_check);
+	say $q->hidden($_) foreach qw(db page alleles profiles isolates locus submit submission_id no_check view);
 	say $q->end_form;
 	my $files = $self->_get_submission_files($submission_id);
 
@@ -1384,11 +1392,8 @@ sub _print_file_upload_fieldset {
 		say $q->start_form;
 		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
 		$q->param( delete => 1 );
-		say $q->hidden($_) foreach qw(db page alleles profiles isolates delete no_check);
-		say $q->submit(
-			-label => 'Delete selected files',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
+		say $q->hidden($_) foreach qw(db page alleles profiles isolates locus submission_id delete no_check view);
+		say $q->submit( -label => 'Delete selected files', -class => BUTTON_CLASS );
 		say $q->end_form;
 	}
 	say q(</fieldset>);
@@ -1405,12 +1410,6 @@ sub _presubmit_alleles {
 		$locus         = $q->param('locus');
 		$submission_id = $self->_start_submission('alleles');
 		$self->_start_allele_submission( $submission_id, $locus, $seqs );
-	}
-	if ( $q->param('file_upload') ) {
-		$self->_upload_files($submission_id);
-	}
-	if ( $q->param('delete') ) {
-		$self->_delete_selected_submission_files($submission_id);
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
@@ -1443,12 +1442,6 @@ sub _presubmit_profiles {
 		$submission_id = $self->_start_submission('profiles');
 		$self->_start_profile_submission( $submission_id, $scheme_id, $profiles );
 	}
-	if ( $q->param('file_upload') ) {
-		$self->_upload_files($submission_id);
-	}
-	if ( $q->param('delete') ) {
-		$self->_delete_selected_submission_files($submission_id);
-	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
 		$self->_print_abort_form($submission_id);
@@ -1476,12 +1469,6 @@ sub _presubmit_isolates {
 	if ( !$submission_id ) {
 		$submission_id = $self->_start_submission('isolates');
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
-	}
-	if ( $q->param('file_upload') ) {
-		$self->_upload_files($submission_id);
-	}
-	if ( $q->param('delete') ) {
-		$self->_delete_selected_submission_files($submission_id);
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	if ( $q->param('abort') ) {
@@ -1827,10 +1814,7 @@ sub _print_sequence_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit(
-			-name  => 'Batch curate',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-		);
+		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
 		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
@@ -1857,11 +1841,7 @@ sub _print_update_button {
 		say $q->popup_menu( -name => 'record_status', id => 'record_status',
 			values => [qw(pending accepted rejected)] );
 	}
-	say $q->submit(
-		-name  => 'update',
-		-label => 'Update',
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
-	);
+	say $q->submit( -name => 'update', -label => 'Update', -class => BUTTON_CLASS );
 	say q(</div>);
 	return;
 }
@@ -1991,7 +1971,7 @@ sub _print_message_fieldset {
 				#Message from submitter
 				my $curators = $self->_get_curators($submission_id);
 				foreach my $curator_id (@$curators) {
-						$self->_email(
+					$self->_email(
 						$submission_id,
 						{
 							recipient => $curator_id,
@@ -2297,6 +2277,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 
 sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
 	my $submission = $self->{'datastore'}->get_submission($submission_id);
@@ -2306,7 +2287,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_isolate_table_fieldset($submission_id);
-	$self->_print_file_fieldset($submission_id);
+	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
 	say q(</div></div>);
