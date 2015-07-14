@@ -113,6 +113,9 @@ sub get_query {
 		$qry = "SELECT * FROM $view WHERE new_version IS NULL ORDER BY id";
 	} else {
 		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
+			if ( $query_file =~ /^([^\/]+)$/x ) {    #Untaint - no directory traversal
+				$query_file = $1;
+			}
 			my $fh;
 			if ( open( $fh, '<:encoding(utf8)', "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) ) {
 				$qry = <$fh>;

@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.1.1',
+		version       => '1.2.0',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -55,15 +55,16 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
 sub get_option_list {
 	my @list = (
-		{ name => 'style',       description => 'Pie chart style',            optlist => 'pie;doughnut', default => 'doughnut' },
-		{ name => 'small',       description => 'Display small charts',       default => 1 },
-		{ name => 'threeD',      description => 'Enable 3D effect',           default => 1 },
+		{ name => 'style',  description => 'Pie chart style',      optlist => 'pie;doughnut', default => 'doughnut' },
+		{ name => 'small',  description => 'Display small charts', default => 1 },
+		{ name => 'threeD', description => 'Enable 3D effect',     default => 1 },
 		{ name => 'transparent', description => 'Enable transparent palette', default => 1 },
 		{
 			name        => 'breakdown_composites',
@@ -90,21 +91,19 @@ sub get_plugin_javascript {
 		event.preventDefault();
 		var image = \$(this).attr("href");
 		\$("img#placeholder").attr("src",image);
-		var field = \$(this).attr("name");
+		var field = \$(this).attr("id");
 		var display = field;
 		display = display.replace(/^meta_[^:]+:/, "");
 		display = display.replace(/_/g," ");
 		display = display.replace(/^.*\\.\\./, "");
-		
 		\$("#field").empty();
 		\$("#field").append(display);
 		\$("#links").empty();
-		\$("#links").append("<p><a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-		  + "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=html'>Display table</a> | "
-		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
-		  + "$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=text'>Tab-delimited text</a> | "
-		  + "<a href='$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;function=summary_table"
-		  + "$query_clause$listfile_clause$datatype_clause&amp;field=" + field + "&amp;format=xlsx'>Excel format</a></p>");
+		var base_link = "$script_name?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
+		 + "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=" + field;
+		\$("#links").append("Select: <a href='" + base_link + "&amp;format=html'>Table</a> | "
+		  + "<a href='" + base_link + "&amp;format=text'>Tab-delimited text</a> | "
+		  + "<a href='" + base_link + "&amp;format=xlsx'>Excel format</a>");
 	});		
 });
 END
@@ -116,7 +115,9 @@ sub _use_composites {
 	my $use;
 	my $guid = $self->get_guid;
 	try {
-		$use = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'breakdown_composites' );
+		$use =
+		  $self->{'prefstore'}
+		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'breakdown_composites' );
 		$use = $use eq 'true' ? 1 : 0;
 	}
 	catch BIGSdb::DatabaseNoRecordException with {
@@ -130,17 +131,22 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $format     = $q->param('format');
+	local $| = 1;
 	if ( !( defined $q->param('function') && $q->param('function') eq 'summary_table' ) ) {
-		say "<h1>Field breakdown of dataset</h1>";
-		say "<script type=\"text/javascript\">\n//<![CDATA[\ndocument.write('<p id=\"hideonload\"><b>Please wait for charts to be "
-		  . "generated ...</b></p>')\n//]]>\n</script>";
+		say q(<h1>Field breakdown of dataset</h1>);
+		say q(<div class="hideonload"><p><b>Please wait for charts to be generated ...</b></p>)
+		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	}
+	if ( $ENV{'MOD_PERL'} ) {
+		$self->{'mod_perl_request'}->rflush;
+		return if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	my %prefs;
 	$prefs{'breakdown_composites'} = $self->_use_composites;
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
+	$qry =~ s/ORDER\ BY.*$//gx;
 	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
 	$self->{'extended'} = $self->get_extended_attributes;
@@ -149,32 +155,26 @@ sub run {
 		$self->_summary_table($qry);
 		return;
 	}
-	local $| = 1;
 	my %noshow;
 	if ( $self->{'system'}->{'noshow'} ) {
-		foreach ( split /,/, $self->{'system'}->{'noshow'} ) {
+		foreach ( split /,/x, $self->{'system'}->{'noshow'} ) {
 			$noshow{$_} = 1;
 		}
 	}
 	$noshow{$_} = 1 foreach qw (id isolate datestamp date_entered curator sender comments);
 	my $temp = BIGSdb::Utils::get_random();
-	print "<div id=\"imagegallery\">\n";
 	my ( $num_records, $value_frequency ) = $self->_get_value_frequency_hash( \$qry );
 	my $first = 1;
 	my ( $src, $name, $title );
-	print "<p>";
+	say q(<div class="box" id="resultsheader"><div id="imagegallery"><h2>Fields</h2><p>Select: );
 	my ( %composites, %composite_display_pos );
 
 	if ( $prefs{'breakdown_composites'} ) {
-		my $sql = $self->{'db'}->prepare("SELECT id,position_after FROM composite_fields");
-		eval { $sql->execute };
-		if ($@) {
-			$logger->error($@);
-		} else {
-			while ( my @data = $sql->fetchrow_array ) {
-				$composite_display_pos{ $data[0] } = $data[1];
-				$composites{ $data[1] }            = 1;
-			}
+		my $comp_data = $self->{'datastore'}->run_query( 'SELECT id,position_after FROM composite_fields',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $comp (@$comp_data) {
+			$composite_display_pos{ $comp->{'id'} }  = $comp->{'position_after'};
+			$composites{ $comp->{'position_after'} } = 1;
 		}
 	}
 	my $display_name;
@@ -182,11 +182,11 @@ sub run {
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my @expanded_list;
-	foreach (@$field_list) {
-		push @expanded_list, $_;
-		if ( ref $self->{'extended'}->{$_} eq 'ARRAY' ) {
-			foreach my $attribute ( @{ $self->{'extended'}->{$_} } ) {
-				push @expanded_list, "$_\.\.$attribute";
+	foreach my $field (@$field_list) {
+		push @expanded_list, $field;
+		if ( ref $self->{'extended'}->{$field} eq 'ARRAY' ) {
+			foreach my $attribute ( @{ $self->{'extended'}->{$field} } ) {
+				push @expanded_list, "$field\.\.$attribute";
 			}
 		}
 	}
@@ -196,13 +196,13 @@ sub run {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $display = $metafield // $field;
 			$display =~ tr/_/ /;
-			$display =~ s/^.*\.\.//;    #Only show extended attribute name and not parent field
+			$display =~ s/^.*\.\.//x;    #Only show extended attribute name and not parent field
 			my $display_field = $field;
 			my $num_values    = keys %{ $value_frequency->{$field} };
 			my $plural        = $num_values != 1 ? 's' : '';
 			$title = "$display - $num_values value$plural";
-			print " | " if !$first;
-			say "<a href=\"/tmp/$temp\_$field.png\" name=\"$display_field\" title=\"$title\">$display</a>";
+			print q( | ) if !$first;
+			say qq(<a href="/tmp/$temp\_$field.png" id="$display_field" title="$title">$display</a>);
 			$self->_create_chartdirector_chart( $field, $num_values, $value_frequency->{$field}, $temp, $query_file );
 
 			if ($first) {
@@ -217,43 +217,46 @@ sub run {
 			}
 		}
 		if ( $prefs{'breakdown_composites'} && $composites{$field} ) {
-			print " | " if !$first;
-			foreach ( keys %composite_display_pos ) {
-				next if $composite_display_pos{$_} ne $field;
-				my $display = $_;
+			print q( | ) if !$first;
+			foreach my $field ( keys %composite_display_pos ) {
+				next if $composite_display_pos{$field} ne $field;
+				my $display = $field;
 				$display =~ tr/_/ /;
 				$title = "$display - This is a composite field";
-				say "<a href=\"/tmp/$temp\_$_.png\" name=\"$_\" title=\"$title\">$display</a>";
-				$self->_create_chartdirector_chart( $_, 2, $value_frequency->{$_}, $temp, $query_file );
+				say qq(<a href="/tmp/$temp\_$field.png" id="$field" title="$title">$display</a>);
+				$self->_create_chartdirector_chart( $field, 2, $value_frequency->{$field}, $temp, $query_file );
 				if ($first) {
-					$src          = "/tmp/$temp\_$_.png";
+					$src          = "/tmp/$temp\_$field.png";
 					$display_name = $display;
-					$name         = $_;
+					$name         = $field;
 					undef $first;
 				}
 				$field_count++;
 			}
 		}
 	}
-	say "</p></div>";
-	say qq(<noscript><p class="highlight">Please enable Javascript to view breakdown charts in place.</p></noscript>);
+	say q(</p></div></div>);
+	say q(<noscript><p class="highlight">Please enable Javascript to view breakdown charts in place.</p></noscript>);
 	if ( !$field_count ) {
-		say qq(<div class="box" id="statusbad"><p>There are no displayable fields defined.</p></div>);
+		say q(<div class="box" id="statusbad"><p>There are no displayable fields defined.</p></div>);
 		return;
 	}
-	say qq(<h2 id="field">$display_name</h2>);
-	say qq(<div class="box" id="chart"><img id="placeholder" src="$src" alt="breakdown chart" /></div>);
-	my $query_clause    = defined $query_file ? "&amp;query_file=$query_file" : '';
+	say qq(<div class="box" id="chart"><h2 id="field">$display_name</h2><div class="scrollable">)
+	  . qq(<img id="placeholder" src="$src" alt="breakdown chart" /></div></div>);
+	
+	my $query_clause    = defined $query_file ? qq(&amp;query_file=$query_file) : q();
 	my $list_file       = $q->param('list_file');
 	my $datatype        = $q->param('datatype');
-	my $listfile_clause = defined $list_file ? "&amp;list_file=$list_file" : '';
-	my $datatype_clause = defined $datatype ? "&amp;datatype=$datatype" : '';
-	say "<p id=\"links\"><a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=html'>Display table</a> | "
-	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=text'>Tab-delimited text</a> | "
-	  . "<a href='$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=FieldBreakdown&amp;"
-	  . "function=summary_table$query_clause$listfile_clause$datatype_clause&amp;field=$name&amp;format=xlsx'>Excel format</a></p>";
+	my $listfile_clause = defined $list_file ? qq(&amp;list_file=$list_file) : q();
+	my $datatype_clause = defined $datatype ? qq(&amp;datatype=$datatype) : q();
+	my $base_link =
+	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+	  . qq(name=FieldBreakdown&amp;function=summary_table$query_clause$listfile_clause$datatype_clause&amp;)
+	  . qq(field=$name);
+	say q(<div class="box" id="resultsfooter"><h2>Output format</h2><p id="links">Select: )
+	  . qq(<a href="$base_link&amp;format=html">Table</a> | )
+	  . qq(<a href="$base_link&amp;format=text">Tab-delimited text</a> | )
+	  . qq(<a href="$base_link&amp;format=xlsx">Excel format</a></p></div>);
 	return;
 }
 
@@ -264,7 +267,8 @@ sub _create_chartdirector_chart {
 	my %prefs;
 	foreach (qw (threeD transparent small)) {
 		try {
-			$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', $_ );
+			$prefs{$_} =
+			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', $_ );
 			$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
 		}
 		catch BIGSdb::DatabaseNoRecordException with {
@@ -272,7 +276,8 @@ sub _create_chartdirector_chart {
 		};
 	}
 	try {
-		$prefs{'style'} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'style' );
+		$prefs{'style'} =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'style' );
 	}
 	catch BIGSdb::DatabaseNoRecordException with {
 		$prefs{'style'} = 'doughnut';
@@ -286,37 +291,40 @@ sub _create_chartdirector_chart {
 	my $plural      = $values_shown != 1 ? 's' : '';
 	my $script_name = $self->{'system'}->{'script_name'};
 	my $size        = $prefs{'small'} ? 'small' : 'large';
-	if (   $field =~ /^age_/
-		or $field =~ /^age$/
-		or $field =~ /^year_/
-		or $field =~ /^year$/ )
-	{
+	if ( $field =~ /^(?:age_|age$|year_|year$)/x ) {
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %value_frequency ) {
 			if ( !( $key eq 'No value/unassigned' && $numvalues > 1 ) ) {
-				$key =~ s/&Delta;/deleted/g;
+				$key =~ s/&Delta;/deleted/gx;
 				push @labels, $key;
 				push @values, $value_frequency{$key};
 			}
 		}
 		if (@labels) {
-			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png", $size, \%prefs );
+			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
+				$size, \%prefs );
 		}
 	} else {
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
-		foreach my $key ( sort { $value_frequency{$b} <=> $value_frequency{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %value_frequency ) {
-			$key =~ s/&Delta;/deleted/g;
+		foreach my $key (
+			sort { $value_frequency{$b} <=> $value_frequency{$a} || ( $a <=> $b ) || ( $a cmp $b ) }
+			keys %value_frequency
+		  )
+		{
+			$key =~ s/&Delta;/deleted/gx;
 			push @labels, $key;
 			push @values, $value_frequency{$key};
 		}
-		BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png", 24, $size, \%prefs );
+		BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
+			24, $size, \%prefs );
 	}
 	return;
 }
 
 sub _is_composite_field {
 	my ( $self, $field ) = @_;
-	my $is_composite = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)", $field );
+	my $is_composite =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)', $field );
 	return $is_composite;
 }
 
@@ -324,33 +332,33 @@ sub _summary_table {
 	my ( $self, $qry ) = @_;
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('field');
-	my $format = $q->param('format') || 'html';
+	my $format = $q->param('format') // 'html';
 	my $text_buffer;
 	if ( !$field ) {
 		if ( $format ne 'text' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No field selected.</p></div>";
+			say q(<div class="box" id="statusbad"><p>No field selected.</p></div>);
 		} else {
-			$text_buffer .= "No field selected.\n";
+			$text_buffer .= qq(No field selected.\n);
 		}
 		return;
 	}
 	my $isolate_field = $field;
-	$isolate_field =~ s/\.\..*$//;    #Extended attributes separated from parent field by '..'
+	$isolate_field =~ s/\.\..*$//x;    #Extended attributes separated from parent field by '..'
 	if (   !$self->{'xmlHandler'}->is_field($isolate_field)
 		&& !$self->_is_composite_field($field) )
 	{
 		if ( $format ne 'text' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Invalid field selected.</p></div>";
+			say q(<div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
 		} else {
-			$text_buffer .= "Invalid file selected.\n";
+			$text_buffer .= qq(Invalid file selected.\n);
 		}
 		return;
 	}
 	if ( !$qry ) {
 		if ( $format ne 'text' ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No query selected.</p></div>";
+			say q(<div class="box" id="statusbad"><p>No query selected.</p></div>);
 		} else {
-			$text_buffer .= "No query selected.\n";
+			$text_buffer .= qq(No query selected.\n);
 		}
 		return;
 	}
@@ -359,11 +367,11 @@ sub _summary_table {
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
-	$display_field =~ s/^.*\.\.//;
+	$display_field =~ s/^.*\.\.//x;
 	if ( $format eq 'html' ) {
-		say "<h1>Breakdown by $display_field</h1>";
+		say qq(<h1>Breakdown by $display_field</h1>);
 	} else {
-		$text_buffer .= "Breakdown for $display_field\n" if $format eq 'text';
+		$text_buffer .= qq(Breakdown for $display_field\n) if $format eq 'text';
 	}
 	$logger->debug("Breakdown query: $qry");
 	my ( $num_records, $frequency ) = $self->_get_value_frequency_hash( \$qry, $isolate_field );
@@ -375,26 +383,23 @@ sub _summary_table {
 	}
 	my $plural = $num_values != 1 ? 's' : '';
 	if ( $format eq 'html' ) {
-		say "<div class=\"box\" id=\"resultstable\">";
-		say "<p>$num_values value$plural.</p>";
-		say "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th>$display_field</th><th>Frequency</th><th>Percentage</th></tr>"
-		  . "</thead><tbody>";
+		say q(<div class="box" id="resultstable">);
+		say qq(<p>$num_values value$plural.</p>);
+		say qq(<table class="tablesorter" id="sortTable"><thead><tr><th>$display_field</th>)
+		  . q(<th>Frequency</th><th>Percentage</th></tr></thead><tbody>);
 	} else {
 		$text_buffer .= "$num_values value$plural.\n\n" if $format eq 'text';
 		$text_buffer .= "$display_field\tfrequency\tpercentage\n";
 	}
-	if (   $field =~ /^age_/
-		or $field =~ /^age$/
-		or $field =~ /^year_/
-		or $field =~ /^year$/ )
-	{
+	if ( $field =~ /^(?:age_|age$|year_|year$)/x ) {
+
 		#sort keys numerically
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %$value_frequency ) {
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
-				say "<tr class=\"td$td\"><td>$key</td><td>$value_frequency->{$key}</td><td style=\"text-align:center\">"
-				  . "$percentage%</td></tr>";
+				say qq(<tr class="td$td"><td>$key</td><td>$value_frequency->{$key}</td>)
+				  . qq(<td style="text-align:center">$percentage%</td></tr>);
 			} else {
 				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			}
@@ -402,15 +407,17 @@ sub _summary_table {
 		}
 	} else {
 		no warnings 'numeric';         #might complain about numeric comparison with non-numeric data
-		foreach
-		  my $key ( sort { $value_frequency->{$b} <=> $value_frequency->{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %$value_frequency )
+		foreach my $key (
+			sort { $value_frequency->{$b} <=> $value_frequency->{$a} || ( $a <=> $b ) || ( $a cmp $b ) }
+			keys %$value_frequency
+		  )
 		{
 			push @labels, $key;
 			push @values, $value_frequency->{$key};
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
 			if ( $format eq 'html' ) {
-				say "<tr class=\"td$td\"><td>$key</td><td style=\"text-align:center\">$value_frequency->{$key}</td>"
-				  . "<td style=\"text-align:center\">$percentage%</td></tr>";
+				say qq(<tr class="td$td"><td>$key</td><td style="text-align:center">$value_frequency->{$key}</td>)
+				  . qq(<td style="text-align:center">$percentage%</td></tr>);
 			} else {
 				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			}
@@ -418,7 +425,7 @@ sub _summary_table {
 		}
 	}
 	if ( $format eq 'html' ) {
-		say "</tbody></table></div>";
+		say q(</tbody></table></div>);
 	} else {
 		if ( $q->param('format') eq 'xlsx' ) {
 			my $temp_file = $self->make_temp_file($text_buffer);
@@ -444,7 +451,7 @@ sub _get_value_frequency_hash {
 	my $view   = $self->{'system'}->{'view'};
 	local $" = ",$view.";
 	my $field_string = "$view.@$fields";
-	$qry =~ s/SELECT ($view\.\*|\*)/SELECT $field_string/;
+	$qry =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -459,11 +466,11 @@ sub _get_value_frequency_hash {
 	my $composite_fields;
 	if ($use_composites) {
 		$composite_fields =
-		  $self->{'datastore'}->run_query( "SELECT id FROM composite_fields", undef, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
 	}
 	my @field_list;
 	my $format = $self->{'cgi'}->param('format');
-	if ( $query_field && $query_field !~ /^meta_[^:]+:/ ) {
+	if ( $query_field && $query_field !~ /^meta_[^:]+:/x ) {
 		push @field_list, ( 'id', $query_field );
 	} else {
 		@field_list = @$fields;
@@ -472,44 +479,42 @@ sub _get_value_frequency_hash {
 		my $value;
 		foreach my $field (@field_list) {
 			if ( !$field_is_composite ) {
-				$data{$field} = defined $data{$field} ? $data{$field} : '';
-				if (   $data{$field} eq '-999'
-					|| $data{$field} eq '0001-01-01'
-					|| $data{$field} eq '' )
-				{
+				$data{$field} //= q();
+				if ( $data{$field} eq q() ) {
 					$value = 'No value/unassigned';
 				} else {
 					$value = $data{$field};
 					if ( $format eq 'text' ) {
-						$value =~ s/&Delta;/deleted/g;
+						$value =~ s/&Delta;/deleted/gx;
 					}
 				}
 				$value_frequency->{$field}->{$value}++;
 			}
 		}
 		if ( $use_composites && !( !$field_is_composite && $query_field ) ) {
-			foreach (@$composite_fields) {
-				$value = $self->{'datastore'}->get_composite_value( $data{'id'}, $_, \%data );
+			foreach my $field (@$composite_fields) {
+				$value = $self->{'datastore'}->get_composite_value( $data{'id'}, $field, \%data );
 				if ( $format eq 'text' ) {
-					$value =~ s/&Delta;/deleted/g;
+					$value =~ s/&Delta;/deleted/gx;
 				}
-				$value_frequency->{$_}->{$value}++;
+				$value_frequency->{$field}->{$value}++;
 			}
 		}
 		$num_records++;
 	}
 
 	#Extended attributes
-	my $sql_extended =
-	  $self->{'db'}->prepare("SELECT value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=? AND field_value=?");
 	foreach my $field (@field_list) {
 		my $extatt = $self->{'extended'}->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
 				foreach ( keys %{ $value_frequency->{$field} } ) {
-					eval { $sql_extended->execute( $field, $extended_attribute, $_ ) };
-					$logger->error($@) if $@;
-					my ($value) = $sql_extended->fetchrow_array;
+					my $value = $self->{'datastore'}->run_query(
+						'SELECT value FROM isolate_value_extended_attributes WHERE '
+						  . '(isolate_field,attribute,field_value)=(?,?,?)',
+						[ $field, $extended_attribute, $_ ],
+						{ cache => 'FieldBreakdown::get_value_frequency_hash::ext' }
+					);
 					$value = 'No value/unassigned' if !defined $value || $value eq '';
 					$value_frequency->{"$field..$extended_attribute"}->{$value} += $value_frequency->{$field}->{$_};
 				}

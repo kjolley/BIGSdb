@@ -13,7 +13,7 @@ $(function () {
 	});	
 	$('.showhide').show();
 	$("#hidefromnonJS").removeClass("hiddenbydefault");
-	$("#hideonload").slideUp("normal");
+	$(".hideonload").slideUp("normal");
 	$('.hideshow').hide();
 	$('#toggle1,#toggle2').click(function(){
       $('.showhide').toggle();

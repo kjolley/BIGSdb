@@ -65,7 +65,6 @@ function enable_controls(){
 
 \$(document).ready(function(){ 
 	enable_controls();
-	\$(".hide_on_load").css("display", "none");
 }); 
 END
 	return $js;
@@ -192,7 +191,7 @@ sub run {
 			}
 			say q(<div class="box" id="resultstable">);
 			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			say q(<p><span class="hide_on_load main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
 			print q(<p>Output files being generated ...);
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			$self->_write_tab_text(
