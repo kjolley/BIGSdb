@@ -2409,12 +2409,13 @@ sub _notify_curators {
 		  . qq(required to curate this submission.\n\n);
 		$message .= qq(Please log in to the curator's interface to handle this submission.\n\n);
 		$message .= $self->_get_text_summary( $submission_id, { messages => 1 } );
+		my $subject = "New $submission->{'type'} submission ($desc) - $submission_id";
 		$self->_email(
 			$submission_id,
 			{
 				recipient => $curator_id,
 				sender    => $submission->{'submitter'},
-				subject   => "New $desc $submission->{'type'} submission - $submission_id",
+				subject   => $subject,
 				message   => $message
 			}
 		);
