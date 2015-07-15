@@ -29,8 +29,8 @@ use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use File::Copy;
-use constant MAX_INSTANT_RUN => 100;     #Number of sequences before we start an offline job
-use constant MAX_SEQUENCES        => 2000;
+use constant MAX_INSTANT_RUN => 100;    #Number of sequences before we start an offline job
+use constant MAX_SEQUENCES   => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
@@ -58,7 +58,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 sub get_plugin_javascript { }    #override version in LocusExplorer.pm
@@ -69,16 +70,21 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $list_file  = $q->param('list_file');
 	my $datatype   = $q->param('datatype');
-	say "<h1>Polymorphic site analysis</h1>";
-	my $locus = $q->param('locus') || '';
-	if ( $locus =~ /^cn_(.+)/ ) {
-		$locus = $1;
-		$q->param( 'locus', $locus );
-	}
+	say q(<h1>Polymorphic site analysis</h1>);
+	my $locus = $q->param('locus') // q();
+	$locus =~ s/^cn_//x;
+
 	if ( !$locus ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please select a locus.</p></div>" if $q->param('submit');
+		say q(<div class="box" id="statusbad"><p>Please select a locus.</p></div>) if $q->param('submit');
 		$self->_print_interface;
 		return;
+	}
+	local $| = 1;
+	say q(<div class="hideonload"><p>Please wait - checking sequences (do not refresh) ...</p>)
+	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	if ( $ENV{'MOD_PERL'} ) {
+		$self->{'mod_perl_request'}->rflush;
+		return if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
@@ -94,29 +100,30 @@ sub run {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>There are no $locus alleles in your selection.</p></div>";
+			say qq(<div class="box" id="statusbad"><p>There are no $locus alleles in your selection.</p></div>);
 			return;
 		}
-		say "<div class=\"box\" id=\"resultsheader\">";
+		say q(<div class="box" id="resultspanel">);
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
+		say q(</div>);
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
-		say "</div>";
+		say q(</div>);
 	} elsif ( $seq_count <= MAX_SEQUENCES ) {
 
 		#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 		#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this over to the tmp_dir.
 		if ( defined $query_file && !-e "$self->{'config'}->{'tmp_dir'}/$query_file" ) {
-			if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
+			if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/x ) {
 				$query_file = $1;    #untaint
 			}
 			copy( "$self->{'config'}->{'secure_tmp_dir'}/$query_file", "$self->{'config'}->{'tmp_dir'}/$query_file" )
 			  || $logger->error("Can't copy $query_file");
 		}
 		if ( defined $list_file && !-e "$self->{'config'}->{'tmp_dir'}/$list_file" ) {
-			if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/ ) {
+			if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/x ) {
 				$list_file = $1;     #untaint
 			}
 			copy( "$self->{'config'}->{'secure_tmp_dir'}/$list_file", "$self->{'config'}->{'tmp_dir'}/$list_file" )
@@ -135,23 +142,22 @@ sub run {
 				email        => $user_info->{'email'}
 			}
 		);
-		print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of sequences to align
-and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
-<p>Since alignment is offloaded to a third-party application, the progress report will not be accurate.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+		say q(<div class="box" id="resultstable">)
+		  . q(<p>This analysis has been submitted to the job queue.</p>)
+		  . q(<p>Please be aware that this job may take a long time depending on the number of )
+		  . q(sequences to align and how busy the server is.</p>)
+		  . q(<p>Since alignment is offloaded to a third-party application, the progress report )
+		  . q(will not be accurate.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
 		return;
 	} else {
 		my $max      = MAX_SEQUENCES;
 		my $num_seqs = @$ids;
-		say "<div class=\"box\" id=\"statusbad\"><p>This analysis relies are being able to produce an alignment "
-		  . "of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of "
-		  . "sequences and is consequently limited to $max records.  You have $num_seqs records in your analysis.</p></div>";
+		say q(<div class="box" id="statusbad"><p>This analysis relies are being able to produce )
+		  . q(an alignment of your sequences. This is a potentially processor- and memory-intensive operation )
+		  . qq(for large numbers of sequences and is consequently limited to $max records.  You have $num_seqs )
+		  . q(records in your analysis.</p></div>);
 	}
 	return;
 }
@@ -164,14 +170,14 @@ sub run_job {
 	#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 	#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this from the tmp_dir.
 	if ( $query_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
-		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/ ) {
+		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/x ) {
 			$query_file = $1;    #untaint
 		}
 		copy( "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file" )
 		  || $logger->error("Can't copy $query_file");
 	}
 	if ( $list_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$list_file" ) {
-		if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/ ) {
+		if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/x ) {
 			$list_file = $1;     #untaint
 		}
 		copy( "$self->{'config'}->{'tmp_dir'}/$list_file", "$self->{'config'}->{'secure_tmp_dir'}/$list_file" )
@@ -181,9 +187,7 @@ sub run_job {
 		$self->{'datastore'}->create_temp_list_table( $params->{'datatype'}, $params->{'list_file'} );
 	}
 	my $locus = $params->{'locus'};
-	if ( $locus =~ /^cn_(.+)/ ) {
-		$locus = $1;
-	}
+	$locus =~ s/^cn_//x;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	my $qry_ref = $self->get_query($query_file);
 	my $ids     = $self->get_ids_from_query($qry_ref);
@@ -194,7 +198,8 @@ sub run_job {
 	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 
 	if ( !@$seqs ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => "<p>No sequences retrieved for analysis.</p>" } );
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { message_html => '<p>No sequences retrieved for analysis.</p>' } );
 		return;
 	}
 	my $temp      = BIGSdb::Utils::get_random();
@@ -209,23 +214,18 @@ sub run_job {
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 	say $html_fh $buffer;
 	say $html_fh q(</div></body></html>);
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 	return;
 }
 
+#Options: count_only - don't align, just count how many sequences would be included.
+#         unique - only include one example of each allele.
+#         from_bin - choose sequences from seqbin in preference to allele from external db.
+#		  exclude_incompletes - don't include incomplete sequences.
 sub _get_seqs {
 	my ( $self, $locus_name, $isolate_ids, $options ) = @_;
-
-	#options: count_only - don't align, just count how many sequences would be included.
-	#         unique - only include one example of each allele.
-	#         from_bin - choose sequences from seqbin in preference to allele from external db.
-	#		  exclude_incompletes - don't include incomplete sequences.
 	$options = {} if ref $options ne 'HASH';
-	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
-	my $seqbin_sql =
-	  $self->{'db'}->prepare( "SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM allele_sequences "
-		  . "LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE sequence_bin.isolate_id=? AND locus=? "
-		  . "$exclude_clause ORDER BY complete desc,allele_sequences.datestamp LIMIT 1" );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 	my $locus;
 	try {
@@ -241,11 +241,14 @@ sub _get_seqs {
 	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
 	my $i = 0;
 	foreach my $id (@$isolate_ids) {
-		my $seqbin_seq;
-		my $reverse;
-		eval { $seqbin_sql->execute( $id, $locus_name ); };
-		$logger->error($@) if $@;
-		( $seqbin_seq, $reverse ) = $seqbin_sql->fetchrow_array;
+		my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
+		my $qry =
+		    'SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM '
+		  . 'allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE '
+		  . "sequence_bin.isolate_id=? AND locus=? $exclude_clause ORDER BY complete "
+		  . 'desc,allele_sequences.datestamp LIMIT 1';
+		my ( $seqbin_seq, $reverse ) =
+		  $self->{'datastore'}->run_query( $qry, [ $id, $locus_name ], { cache => 'Polymorphisms::get_seqs' } );
 		if ($reverse) {
 			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 		}
@@ -288,8 +291,10 @@ sub _get_seqs {
 	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 	if ( $i > 1 ) {
 		if ( -x $self->{'config'}->{'mafft_path'} ) {
-			my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
-			system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
+			my $threads =
+			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+			system(
+				"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
 		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
 			system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $tempfile, -fastaout => $aligned_file ) );
 		}
@@ -314,38 +319,58 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
 	if ( !@$loci ) {
-		say qq(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
 		return;
 	}
-	say qq(<div class="box" id="queryform">);
-	say qq(<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>);
-	say qq(<p>If more than 50 sequences have been selected, the job will be run by the offline job manager which may )
-	  . qq(take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and )
-	  . qq(consequently need to be aligned which is a processor- and memory- intensive operation.</p>);
-	say qq(<div class="scrollable">);
+	my $max = MAX_INSTANT_RUN;
+	say q(<div class="box" id="queryform">);
+	say q(<p>This tool will analyse the polymorphic sites in the selected locus for the current isolate dataset.</p>);
+	say qq(<p>If more than $max sequences have been selected, the job will be run by the offline job manager which may )
+	  . q(take a few minutes (or longer depending on the queue).  This is because sequences may have gaps in them and )
+	  . q(consequently need to be aligned which is a processor- and memory- intensive operation.</p>);
+	say q(<div class="scrollable">);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Loci</legend>);
-	say $q->scrolling_list( -name => 'locus', -id => 'locus', -values => $loci, -labels => $cleaned, -size => 8 );
-	say qq(</fieldset>);
-	say qq(<fieldset style="float:left"><legend>Options</legend>);
-	say qq(If both allele designations and tagged sequences<br />exist for a locus, choose how you want these handled: );
-	say qq( <a class="tooltip" title=\"Sequence retrieval - Peptide loci will only be retrieved from the sequence bin (as nucleotide )
-	  . qq(sequences)."><span class="fa fa-info-circle"></span></a>);
-	say qq(<br /><br />);
-	say qq(<ul><li>);
-	my %labels =
-	  ( seqbin => 'Use sequences tagged from the bin', allele_designation => 'Use allele sequence retrieved from external database' );
-	say $q->radio_group( -name => 'chooseseq', -values => [qw(allele_designation seqbin)], -labels => \%labels, -linebreak => 'true' );
-	say qq(</li><li style="margin-top:1em">);
-	say $q->checkbox( -name => 'unique', -label => 'Analyse single example of each unique sequence', -checked => 'checked' );
-	say qq(</li><li>);
+	say q(<fieldset style="float:left"><legend>Loci</legend>);
+	say $q->scrolling_list(
+		-name     => 'locus',
+		-id       => 'locus',
+		-values   => $loci,
+		-labels   => $cleaned,
+		-size     => 8,
+		-required => 'required'
+	);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(If both allele designations and tagged sequences<br />)
+	  . q(exist for a locus, choose how you want these handled: );
+	say q[ <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from ]
+	  . q[the sequence bin (as nucleotide sequences)."><span class="fa fa-info-circle"></span></a>];
+	say q(<br /><br />);
+	say q(<ul><li>);
+	my %labels = (
+		seqbin             => 'Use sequences tagged from the bin',
+		allele_designation => 'Use allele sequence retrieved from external database'
+	);
+	say $q->radio_group(
+		-name      => 'chooseseq',
+		-values    => [qw(allele_designation seqbin)],
+		-labels    => \%labels,
+		-linebreak => 'true'
+	);
+	say q(</li><li style="margin-top:1em">);
+	say $q->checkbox(
+		-name    => 'unique',
+		-label   => 'Analyse single example of each unique sequence',
+		-checked => 'checked'
+	);
+	say q(</li><li>);
 	say $q->checkbox( -name => 'exclude_incompletes', -label => 'Exclude incomplete sequences', -checked => 'checked' );
-	say qq(</li></ul>);
-	say qq(</fieldset>);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Analyse' } );
 	say $q->hidden($_) foreach qw (page name db query_file list_file datatype);
 	say $q->end_form;
-	say qq(</div></div>);
+	say q(</div></div>);
 	return;
 }
 1;

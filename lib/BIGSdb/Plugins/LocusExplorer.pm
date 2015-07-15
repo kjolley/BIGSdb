@@ -292,8 +292,13 @@ sub _get_seqs {
 	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 	if ( $locus_info->{'length_varies'} && @seqs > 1 ) {
 		if ( $options->{'print_status'} ) {
+			local $| = 1;
 			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
 			  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+			if ( $ENV{'MOD_PERL'} ) {
+				$self->{'mod_perl_request'}->rflush;
+				return if $self->{'mod_perl_request'}->connection->aborted;
+			}
 		}
 		if ( -x $self->{'config'}->{'mafft_path'} ) {
 			my $threads =
@@ -514,7 +519,7 @@ sub _site_explorer {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	say q(<div class="box" id="resultsheader">);
+	say q(<div class="box" id="resultstable">);
 	my $cleaned = $self->clean_locus($locus);
 	say qq(<h2>$cleaned position $pos</h2>);
 	my %seq;
@@ -676,8 +681,13 @@ sub _translate {
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
 	if ( $allele_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
+		local $| = 1;
 		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
 		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
 		my $orf = $locus_info->{'orf'} // 1;
 		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
