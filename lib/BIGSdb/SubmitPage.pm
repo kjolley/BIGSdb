@@ -927,10 +927,7 @@ sub _print_isolate_table_fieldset {
 
 	if ( $options->{'curate'} && !$submission->{'outcome'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit(
-			-name  => 'Batch curate',
-			-class => BUTTON_CLASS
-		);
+		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
 		my $page = $q->param('page');
 		$q->param( page   => 'batchAdd' );
 		$q->param( table  => 'isolates' );
@@ -1811,8 +1808,10 @@ sub _print_sequence_table_fieldset {
 	$self->_print_update_button if $options->{'curate'} && !$status->{'all_assigned'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
+	my $has_extended_attributes =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=?)', $locus );
 
-	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
+	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} && !$has_extended_attributes ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
 		my $page = $q->param('page');
