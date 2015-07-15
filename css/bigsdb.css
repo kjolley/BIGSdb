@@ -31,24 +31,11 @@ h3 {
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
-table {
-	font-size: 1em;
-	border-spacing:1px
-}
+table {font-size: 1em;border-spacing:1px}
 
-a {
-	color:#00b;
-	text-decoration:none;
-}
-
-a.hideshow,a.showhide {
-	cursor:pointer;	
-}
-
-a:hover {
-	color:#000;
-	text-decoration:underline
-}
+a {color:#00b;text-decoration:none}
+a.hideshow,a.showhide {cursor:pointer}
+a:hover {color:#000;text-decoration:underline}
 
 th {background:#404090}
 th,th a {color:#fff}
@@ -166,9 +153,7 @@ a.action {
 	background:#d5e0d5;
 }
 
-a.action:hover {
-	background:#d0f5d0;
-}
+a.action:hover {background:#d0f5d0}
 
 a.delete {
 	color:black;
@@ -177,9 +162,7 @@ a.delete {
 	background:#e0d5d5;
 }
 
-a.delete:hover {
-	background:#f0d0d0;
-}
+a.delete:hover {background:#f0d0d0}
 
 a.update {
 	color:black;
@@ -189,9 +172,7 @@ a.update {
 	background:#d5e0d5;
 }
 
-a.update:hover {
-	background:#d0f5d0;
-}
+a.update:hover {background:#d0f5d0}
 
 .provisional {	
 	border:1px solid #c0c0c0;
@@ -213,12 +194,7 @@ a.update:hover {
 .warning {background:#fcc}
 .incomplete {background:#fb6}
 
-.chartbar {
-	background:#707090;
-	color:#c7e0e0;
-	padding:3px
-}
-
+.chartbar {background:#707090;color:#c7e0e0;padding:3px}
 .chartbar,.chart {border:1px solid #000}
 
 .chart {
@@ -245,17 +221,9 @@ a.update:hover {
 	box-shadow: 1px 1px 1px #666;
 }
 
-.button {
-	padding:0.1em 0.5em;
-	margin:5px;
-}
-
+.button {padding:0.1em 0.5em;margin:5px}
 .smallbutton {font-size:0.9em}
-
-.legendbutton {
-	margin:-17px 5px 10px 0;
-	float:right;
-}
+.legendbutton {margin:-17px 5px 10px 0;float:right}
 
 input.pagebar {
 	font:84% arial,helvetica,sans-serif;
@@ -319,11 +287,7 @@ input.submitbutton:hover {border:1px solid #696; box-shadow: 1px 1px 1px #696;}
 input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
 input.updatebutton:hover {border:1px solid #669}
 
-a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {
-	background: #fff;
-	color: #212121;
-}
-
+a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {background: #fff;color: #212121}
 input.pagebar:hover {border:1px solid #f00; background:#fff}
 
 .td1 {background:#efefff; vertical-align:top}
@@ -372,20 +336,9 @@ div.menu {
 	font-size:0.8em;
 }
 
-div.menu,div.content {
-	border-radius: 10px;	
-}
-
-div.menu a {
-	white-space:nowrap
-}
-
-div.menu a:hover {
-	background:#9090c0;
-	color:white;
-	text-decoration:none
-}
-
+div.menu,div.content {border-radius: 10px}
+div.menu a {white-space:nowrap}
+div.menu a:hover {background:#9090c0;color:white;text-decoration:none}
 div.menu a.logo:hover {background:transparent}
 
 div.panel {
@@ -423,17 +376,13 @@ a#close_trigger {
  	text-decoration:none;
 }
 
-p.statusgood {color:green}
-p.statusbad {color:red}
-td.statusgood {color:green}
-td.statusbad {color:red}
+.statusgood {color:green}
+.statusbad {color:red}
 td.partialmatch {color:#ff8c00}
 td.header {background:#404090;color:white}
 tr.total {background:green;color:white}
 tr.warning {background:#e0a0a0;color:black}
 
-span.statusgood {color:green}
-span.statusbad {color:red}
 span.link {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
 span.source {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
 span.metaset {padding:0 0.5em;font-size:0.8em; background:blue; color:white;}
@@ -445,62 +394,23 @@ span.highlightvalue {background:#ffffa0; border-bottom:1px solid #e0e000; color:
 .T {color:red}
 .C {color:blue}
 
-div.seqmap {font-family: Courier New, monospace}
+div.seqmap {font-family:Courier New, monospace}
 
 .pc10,.pc20,.pc30,.pc40,.pc50,.pc60,.pc70,.pc80,.pc90,.pc100 {font-weight:bold}
 a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.pc70:hover,a.pc80:hover,a.pc90:hover,a.pc100:hover {
 	color:red;
 	text-decoration:none
 }
-.pc10 {
-	background-color:#ff99ff;
-	color:navy
-}
-
-.pc20 {
-	background-color:#cc66ff;
-	color:white
-}
-
-.pc30 {
-	background-color:#9900cc;
-	color:white
-}
-
-.pc40 {
-	background-color:#0066cc;
-	color:white
-}
-
-.pc50 {
-	background-color:#3399ff;
-	color:white
-}
-
-.pc60 {
-	background-color:#33ffff;
-	color:navy
-}
-
-.pc70 {
-	background-color:#66cc00;
-	color:white
-}
-
-.pc80 {
-	background-color:#339900;
-	color:white
-}
-
-.pc90 {
-	background-color:#006600;
-	color:white
-}
-
-.pc100 {
-	background-color:#000000;
-	color:white
-}
+.pc10 {background-color:#ff99ff;color:navy}
+.pc20 {background-color:#cc66ff;color:white}
+.pc30 {background-color:#9900cc;color:white}
+.pc40 {background-color:#0066cc;color:white}
+.pc50 {background-color:#3399ff;color:white}
+.pc60 {background-color:#33ffff;color:navy}
+.pc70 {background-color:#66cc00;color:white}
+.pc80 {background-color:#339900;color:white}
+.pc90 {background-color:#006600;color:white}
+.pc100 {background-color:#000000;color:white}
 
 div.box {
 	padding:10px;
@@ -511,154 +421,40 @@ div.box {
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
 
-div.queryform, div#queryform {
-	background:#e0e0e0;
-}
-
-div#queryform table {
-	border-collapse:collapse; 
-	border-spacing:0 
-}
-
-div#queryform table.queryform {
-	border-collapse:separate; 
-	border-spacing:1px;
-}
-
-div#queryform table.queryform td {
-	padding:0
-}
-
-div#chart {
-	background:#e0e0e0;
-}
-
-div#sequence {
-	background:#efefff;
-}
-
-div#index {
-	background:#d5e0d5;
-}
-
-div#submissions {
-	background:#d5d5e0;
-}
-
-div#sets {
-	background:#e0e0d5;
-}
-
-div#schemes {
-	background:#e0e0d5;
-}
-
-div#projects,div#jobs {
-	background:#f0f0e5;
-}
-
-div#index img,#plugins img,#sets img, #restricted img {
-	float:left;
-	margin-right:10px;
-	width:32px;
-}
-
-div#index h2,#plugins h2,#sets h2, #restricted h2{
-	margin-left:42px;	
-}
-
-div#index ul.toplevel, #plugins ul.toplevel{margin-left:16px}
-
-div#restricted {
-	background:#e0d5d5;
-}
-
-div#statuswarn, div.statuswarn {
-	background:#e0e0d5;
-	color:#404000
-}
-
-div#statusbad, div.statusbad {
-	background:#e0d5d5;
-	color:#800000
-}
-
-div.statusbad_no_resize {
-	background:#e0d5d5;
-	color:#800000
-}
-
-div.statusgood_no_resize {
-	background:#d5e0d5;
-	color:#008000
-}
-
-div#warning {
-	background:#e0a0a0;
-	color:#000000
-}
-	
-div#resultsheader {
-	background:#d5e0d5;
-	padding:5px;
-}
-
-div#resultsfooter {
-	background:#d5e0d5;
-	padding:5px	
-}
-
-table.resultstable {
-	text-align:center;
-	padding:0.1em 
-}
-
-table.resultstable td,th {padding:0 0.2em}
-
-table.profile {
-	background:#e0e0e0;
-	text-align:center;
-}
-
-div#resultstable {
-	background:#e0e0e0;	
-}
-
-div#resultspanel {
-	background:#f0f0f0;	
-}
-
+div.queryform, div#queryform {background:#e0e0e0}
+div#queryform table {border-collapse:collapse;border-spacing:0}
+div#queryform table.queryform {border-collapse:separate;border-spacing:1px}
+div#queryform table.queryform td {padding:0}
+div#chart {background:#e0e0e0}
+div#sequence {background:#efefff}
+div#index {background:#d5e0d5}
+div#submissions {background:#d5d5e0}
+div#sets {background:#e0e0d5}
+div#schemes {background:#e0e0d5}
+div#projects,div#jobs {background:#f0f0e5}
+div#index img,#plugins img,#sets img, #restricted img {float:left;margin-right:10px;width:32px}
+div#index h2,#plugins h2,#sets h2, #restricted h2 {margin-left:42px}
+div#index ul.toplevel, #plugins ul.toplevel {margin-left:16px}
+div#restricted {background:#e0d5d5}
+div#statuswarn, div.statuswarn {background:#e0e0d5;color:#404000}
+div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
+div.statusbad_no_resize {background:#e0d5d5;color:#800000}
+div.statusgood_no_resize {background:#d5e0d5;color:#008000}
+div#warning {background:#e0a0a0;color:#000000}
+div#resultsheader {background:#d5e0d5;padding:5px}
+div#resultsfooter {background:#d5e0d5;padding:5px}
+div#resultstable {background:#e0e0e0}
+div#resultspanel {background:#f0f0f0}
 div#samples table {border-spacing:1px}
-
-div#samples {
-	background:#f0e0e0	
-}
-
-div#alleles {
-	background:#e0e0f0;	
-}
-
+div#samples {background:#f0e0e0}
+div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
-
-div.scrollable {
-	overflow-x:auto;
-}
-
+div.scrollable {overflow-x:auto}
 div#resultstable p.comment {font-size:0.95em}
-
-div#abstract {
-	background:#d5d5e0;
-}
-
-div#banner {
-	background:#d5d5d5;
-	padding:10px 10px 1px 10px;
-	color:#006;
-}
-
-.hiddenbydefault {
-	display:none	
-}
+div#abstract {background:#d5d5e0}
+div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
+div#plugins {background:#d5d5e0}
+div#curatetools { background: #e5e5f0}
 
 div#pluginoptions, div#curatetools {
 	background:#ddd;
@@ -676,8 +472,6 @@ div#pluginoptions, div#curatetools {
 }
 
 div#pluginoptions ul {list-style-type:none; margin-left:-2em}
-
-div#curatetools { background: #e5e5f0}
 
 div#logindetails {
 	background:#ecece9;
@@ -719,9 +513,9 @@ div.floatmenu a {
 	cursor:pointer;	
 }
 
-div#plugins {
-	background:#d5d5e0;
-}
+table.resultstable {text-align:center;padding:0.1em}
+table.resultstable td,th {padding:0 0.2em}
+table.profile {background:#e0e0e0;text-align:center}
 
 span.field { color: blue }
 span.text { color: black }
@@ -730,9 +524,8 @@ span.scheme { color: red}
 span.aliases {font-size: 0.9em}
 span.context_help a {background:#66f; color:white; margin-right:2em; padding: 0 0.5em; text-decoration:none}
 
-pre.sixpack {
-	font-size:1.3em	
-}
+.hiddenbydefault {display:none}
+pre.sixpack {font-size:1.3em}
 
 fieldset {
 	display:inline;
@@ -741,19 +534,11 @@ fieldset {
 	border-top:1px solid #aaa;
 }
 
-div#accordion ul {
-	padding:0 0 0 0.5em;  
-	list-style:none; 
-}
+div#accordion ul {padding:0 0 0 0.5em;list-style:none}
 
-fieldset ul { 
-	margin:0; 
-	padding:0 0 0 0.5em;  
-	list-style:none;  
-}  
-fieldset li {  
-	padding-bottom:0.2em;  
-}
+fieldset ul {margin:0;padding:0 0 0 0.5em;list-style:none}  
+fieldset li {padding-bottom:0.2em}
+
 fieldset label.filter {    
 	float:left;    
 	width:12em;    
@@ -775,10 +560,7 @@ fieldset label.parameter {
 	text-align:right;  
 }
 
-fieldset.display {
-	padding-top:2em;
-	background:transparent	
-}
+fieldset.display {padding-top:2em;background:transparent}
 
 fieldset label.display {    
 	float:left;    
@@ -787,10 +569,7 @@ fieldset label.display {
 	text-align:right;  
 }
 
-legend {  
-	margin-left:1em;  
-	color:navy;  	
-}  
+legend {margin-left:1em;color:navy}  
 
 div.tree {
 	width:80%;
@@ -822,22 +601,17 @@ div.scheme_tree {
  	font-weight: bold; 
  	color: #404080; 
  } 
- .data dt:after { content: ":"; } 
- .data dd { 
-	margin: 0 0 0 11em; 
-	padding: 0 0 0.3em 0; 
-}
+ .data dt:after {content: ":"} 
+ .data dd {margin: 0 0 0 11em;padding: 0 0 0.3em 0}
  
- dl.profile
-{
+ dl.profile {
 	margin:0;
 	display:inline-block;
 	border:1px solid #ccc;
 	text-align:center;
 }
 	
-.profile dt
-{
+.profile dt {
 	margin:0;
 	padding:0 0.5em;
 	height:1.2em;
@@ -846,8 +620,7 @@ div.scheme_tree {
 	font-weight:bold;
 }
 	
-.profile dd
-{
+.profile dd {
 	min-height:1.5em;
 	padding: 0 0.2em;
 	margin:0;
@@ -855,8 +628,7 @@ div.scheme_tree {
 }
 
 
- .projects dt
-{
+ .projects dt {
 	background-color: #666;
 	color: white;
 	padding: 0.1em;
@@ -865,8 +637,7 @@ div.scheme_tree {
 	border-radius:30px
 }
 	
-.projects dd
-{
+.projects dd {
 	margin: 0 0 1em 0;
 	text-align: left;
 	padding: 0.5em;
@@ -907,7 +678,6 @@ span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.file_icon {color:#44d}
 
-
 .fa-stack-1x { top: .25em; }
 .filetype-text {font-size:0.7em;font-weight:700;font-family:'Oswald'}
 
@@ -918,16 +688,9 @@ span.file_icon {color:#44d}
 	div#isolate_update {width:95%}
 }
 
-.coolfieldset, .coolfieldset.expanded{
-	min-width:15em
-}
-
+.coolfieldset, .coolfieldset.expanded{min-width:15em}
 .coolfieldset.collapsed{}
-
-.coolfieldset legend{
-	padding-left:13px;
-	cursor:pointer;
-}
+.coolfieldset legend{padding-left:13px;cursor:pointer}
 
 .coolfieldset legend, .coolfieldset.expanded legend{
 	background: transparent url(/javascript/coolfieldset/expanded.gif) no-repeat center left;
@@ -1016,13 +779,8 @@ span.file_icon {color:#44d}
 	outline: none;
 }
 
-#lbCaption, #lbNumber {
-	margin-right: 71px;
-}
-
-#lbCaption {
-	font-weight: bold;
-}
+#lbCaption, #lbNumber {margin-right: 71px}
+#lbCaption {font-weight: bold}
 
 .ui-multiselect { text-align:left; margin:0 }
 .ui-multiselect span.ui-icon { float:right }

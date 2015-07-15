@@ -168,10 +168,10 @@ sub run_job {
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 		open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 		print $html_fh $self->get_html_header($locus);
-		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel"><div class="scrollable">);
+		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
 		print $html_fh $buffer;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		say $html_fh q(</div></div>);
+		say $html_fh q(</div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
 		say $html_fh q(</body></html>);
@@ -333,13 +333,13 @@ sub _snp {
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
 	if ( $seq_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
-		say q(<div class="box" id="resultspanel"><div class="scrollable">);
+		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
 		say qq(<h2>$cleaned</h2>);
 		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, $allele_ids, { print_status => 1 } );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
-		say q(</div></div>);
+		say q(</div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
 
@@ -459,9 +459,9 @@ sub get_snp_schematic {
 		$buffer .= q(&gt;) if $low;
 		$buffer .= qq($low - $high</span>);
 	}
-	$buffer .= qq(</p><div class="seqmap" style="white-space:nowrap">\n);
+	$buffer .= qq(</p><div class="scrollable"><div class="seqmap" style="white-space:nowrap">\n);
 	$buffer .= $pagebuffer;
-	$buffer .= q(</div></div>);
+	$buffer .= q(</div></div></div>);
 	return ( $buffer, $freqs );
 }
 
