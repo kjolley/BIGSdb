@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,7 +31,8 @@ use constant PI => 3.141592654;
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -47,7 +48,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -67,30 +68,32 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	say "<h1>BURST analysis</h1>";
+	say q(<h1>BURST analysis</h1>);
 	my $list;
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
 		if ( !$scheme_id ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>No scheme id passed.</p></div>";
+			say q(<div class="box" id="statusbad"><p>No scheme id passed.</p></div>);
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>Scheme id must be an integer.</p></div>";
+			say q(<div class="box" id="statusbad"><p>Scheme id must be an integer.</p></div>);
 			return;
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( !$scheme_info ) {
-				say "<div class=\"box\" id=\"statusbad\">Scheme does not exist.</p></div>";
+				say q(<div class="box" id="statusbad">Scheme does not exist.</p></div>);
 				return;
 			}
 		}
 	}
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		$pk = $self->{'datastore'}->run_query( "SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key", $scheme_id );
+		$pk =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key', $scheme_id );
 		if ( !$pk ) {
-			say qq(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme.  Profile concatenation )
-			  . qq(can not be done until this has been set.</p></div>);
+			say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
+			  . q(Profile concatenation cannot be done until this has been set.</p></div>);
 			return;
 		}
 	}
@@ -104,88 +107,95 @@ sub run {
 		}
 		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 	} else {
-		say "<div class=\"box\" id=\"statusbad\">";
-		say "<p>No query has been passed.</p>";
-		say "</div>";
+		say q(<div class="box" id="statusbad"><p>No query has been passed.</p></div>);
 	}
 	if ( $q->param('submit') ) {
 		$self->_run_burst( $scheme_id, $pk, $list );
 		return;
 	}
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>This is the original BURST algorithm, developed by Ed Feil, first implemented by Man-Suen
-Chan.  This version has been adapted for use as a plugin for the BIGSdb database software 
-by Keith Jolley.</p>
-<p>BURST analysis can be used to:</p>
-<ul>
-<li>Divide strains into groups according to their allelic profiles.</li>
-<li>Count the number of Single Locus Variants (SLV), Double Locus Variants (DLV) 
-and Satellites (SAT) for each sequence type (ST).</li>
-<li>Identify the potential Ancestral Type (AT). These are shown with an asterisk next to their
-names in the results table.</li>
-</ul>
-<p>Graphic representations of BURST groups can be saved in SVG format.  This is a vector
-image format that can be manipulated and scaled in drawing packages, including the freely 
-available <a href="http://www.inkscape.org">Inkscape</a>. </p>
-HTML
+	say q(<div class="box" id="queryform">)
+	  . q(<p>This is the original BURST algorithm, developed by Ed Feil, first implemented by Man-Suen )
+	  . q(Chan.  This version has been adapted for use as a plugin for the BIGSdb database software )
+	  . q(by Keith Jolley.</p>);
+	say q(<p>BURST analysis can be used to:</p><ul>);
+	say q(<li>Divide strains into groups according to their allelic profiles.</li>);
+	say q(<li>Count the number of Single Locus Variants (SLV), Double Locus Variants (DLV) )
+	  . q(and Satellites (SAT) for each sequence type (ST).</li>);
+	say q(<li>Identify the potential Ancestral Type (AT). These are shown with an asterisk next to their )
+	  . q(names in the results table.</li></ul>);
+	say q(<p>Graphic representations of BURST groups can be saved in SVG format.  This is a vector )
+	  . q(image format that can be manipulated and scaled in drawing packages, including the freely )
+	  . q(available <a href="http://www.inkscape.org">Inkscape</a>.</p>);
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page name query_file list_file datatype);
 	my $locus_count;
-	say qq(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 		if ( !@$scheme_data ) {
 			say $q->end_form;
-			say "<p class=\"statusbad\">No schemes available.</p></div>";
+			say q(<p class="statusbad">No schemes available.</p></div>);
 			return;
 		}
 		my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 		if ( @$scheme_ids_ref > 1 ) {
-			say "<p>Select scheme: ";
+			say q(<p>Select scheme: );
 			say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-			say "</p>";
+			say q(</p>);
 		} else {
-			say "<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>";
+			say qq(<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>);
 			$q->param( 'scheme_id', $scheme_ids_ref->[0] );
 			say $q->hidden('scheme_id');
 		}
 		$locus_count =
-		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
-			  . "scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1" );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
+			  . 'scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1' );
 	} else {
-		$locus_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?", $scheme_id );
+		$locus_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
 		$q->param( scheme_id => $scheme_id );
 		say $q->hidden('scheme_id');
 	}
-	say "<p>Group definition: profiles match at ";
+	say q(<p>Group definition: profiles match at );
 	my @values;
 	for my $i ( 1 .. $locus_count - 1 ) {
 		push @values, "n-$i";
 	}
 	say $q->popup_menu( -name => 'grpdef', -value => [@values], -default => 'n-2' );
-	say " loci to any other member of the group <span class=\"comment\">[n = number of loci in scheme]</span>.</p>\n<p>";
+	say q( loci to any other member of the group <span class="comment">)
+	  . q([n = number of loci in scheme]</span>.</p><p>);
 	say $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
-	say "<br />";
-	say $q->checkbox( -name => 'hide', -label => 'Hide variant names (useful for overview if names start to overlap)', -checked => 0 );
-	say "</fieldset>";
+	say q(<br />);
+	say $q->checkbox(
+		-name    => 'hide',
+		-label   => 'Hide variant names (useful for overview if names start to overlap)',
+		-checked => 0
+	);
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
 sub _run_burst {
 	my ( $self, $scheme_id, $pk, $list ) = @_;
+	local $| = 1;
+	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
+	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	my ( $loci, $profiles_ref, $profile_freq_ref, $num_profiles ) = $self->_get_profile_array( $scheme_id, $pk, $list );
 	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $loci, $num_profiles, $profiles_ref );
 	if ($error) {
-		say "<div class=\"box\" id=\"statusbad\"><p>$error</p></div>";
+		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
 		return;
 	}
 	if ( !$num_profiles ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No complete profiles were returned for the selected scheme.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No complete profiles were )
+		  . q(returned for the selected scheme.</p></div>);
 		return;
 	}
 	$self->_recursive_search(
@@ -208,15 +218,14 @@ sub _get_profile_array {
 	my $num_profiles = 0;
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach (@$loci) {
-		$_ =~ s/'/_PRIME_/g;
+		$_ =~ s/'/_PRIME_/gx;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $i = 0;
 		foreach my $st (@$list) {
 			local $" = ',';
-			my @profile =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT $pk,@$loci FROM scheme_$scheme_id WHERE $pk=?", $st, { cache => 'BURST::get_profile_array' } );
+			my @profile = $self->{'datastore'}->run_query( "SELECT $pk,@$loci FROM scheme_$scheme_id WHERE $pk=?",
+				$st, { cache => 'BURST::get_profile_array' } );
 			my $j = 0;
 			if ( $st_frequency{ $profile[0] } ) {
 				$st_frequency{ $profile[0] }++;
@@ -243,7 +252,8 @@ sub _get_profile_array {
 		}
 		$i = 0;
 		foreach my $id (@$list) {
-			my $scheme_field_values = $self->get_scheme_field_values( { isolate_id => $id, field => $pk, scheme_id => $scheme_id } );
+			my $scheme_field_values =
+			  $self->get_scheme_field_values( { isolate_id => $id, field => $pk, scheme_id => $scheme_id } );
 			foreach my $st (@$scheme_field_values) {
 				my $profile = $self->{'datastore'}->get_profile_by_primary_key( $scheme_id, $st );
 				unshift @$profile, $st;
@@ -275,7 +285,8 @@ sub _generate_distance_matrix {
 		for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 			my $same = 0;
 			for ( my $k = 1 ; $k < @$loci + 1 ; $k++ ) {
-				if ( defined $profiles[$i][$k] && defined $profiles[$j][$k] && $profiles[$i][$k] eq $profiles[$j][$k] ) {
+				if ( defined $profiles[$i][$k] && defined $profiles[$j][$k] && $profiles[$i][$k] eq $profiles[$j][$k] )
+				{
 					$same++;
 				}
 				$matrix[$i][$j] = $same;
@@ -302,14 +313,14 @@ sub _recursive_search {
 	my @result;
 	my $grpdef = $self->{'cgi'}->param('grpdef') || 'n-2';
 
-	if ( $grpdef =~ /n\-(\d+)/ ) {
+	if ( $grpdef =~ /n\-(\d+)/x ) {
 		$grpdef = @$loci - $1;
 	}
 	if (   !BIGSdb::Utils::is_int($grpdef)
 		|| $grpdef < 1
 		|| $grpdef > @$loci - 1 )
 	{
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid group definition selected.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Invalid group definition selected.</p></div>);
 		return;
 	}
 	my $g = 0;
@@ -318,18 +329,27 @@ sub _recursive_search {
 		if ( !defined $grp[$search] || $grp[$search] == 0 ) {
 			$g++;
 			$self->_dfs(
-				{ profile_count => $num_profiles, x => $search, matrix_ref => $matrix_ref, grp_ref => \@grp, grpdef => $grpdef, g => $g } );
+				{
+					profile_count => $num_profiles,
+					x             => $search,
+					matrix_ref    => $matrix_ref,
+					grp_ref       => \@grp,
+					grpdef        => $grpdef,
+					g             => $g
+				}
+			);
 		}
 	}
 	my $ng = $g + 1;
 
 	#calculate group details
 	my $h = 0;
-	say "<div class=\"box\" id=\"resultstable\">";
-	say "<h2>Groups:</h2>";
-	say "<strong>Group definition: $grpdef or more matches</strong>";
+	say q(<div class="box" id="resultstable">);
+	local $| = 1;
+	say q(<h2>Groups:</h2>);
+	say qq(<strong>Group definition: $grpdef or more matches</strong>);
 	if ( $self->{'config'}->{'mogrify_path'} ) {
-		say "<p>Groups with central $pk will be displayed as an image.</p>";
+		say qq(<p>Groups with central $pk will be displayed as an image.</p>);
 	}
 	my $td = 1;
 	my @groupSize;
@@ -338,7 +358,6 @@ sub _recursive_search {
 		my $maxslv        = 0;
 		my $noancestor    = 0;
 		my $ancestor      = 0;
-		local $| = 1;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			if ( $self->{'mod_perl_request'}->connection->aborted ) {
@@ -378,9 +397,9 @@ sub _recursive_search {
 		my $at = 0;
 		if ( $thisGroupSize > 1 ) {
 			$h++;
-			say "<div class=\"scrollable\" style=\"margin-bottom:1em\">";
-			say "<table class=\"resultstable\"><tr><th colspan=\"5\">group: $h</th></tr>";
-			say "<tr><th>$pk</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>";
+			say q(<div class="scrollable" style="margin-bottom:1em">);
+			say qq(<table class="resultstable"><tr><th colspan="5">group: $h</th></tr>);
+			say qq(<tr><th>$pk</th><th>Frequency</th><th>SLV</th><th>DLV</th><th>SAT</th></tr>);
 			if ( $maxslv < 2 ) {
 				$noancestor = 1;
 			} else {
@@ -437,13 +456,13 @@ sub _recursive_search {
 					if ($noancestor) {
 						$anc = ' ';
 					}
-					say "<tr class=\"td$td\">";
-					say "<td>$profiles[$i][0]$anc</td>";
-					say "<td>$st_freq{$profiles[$i][0]}</td>";
+					say qq(<tr class="td$td">);
+					say qq(<td>$profiles[$i][0]$anc</td>);
+					say qq(<td>$st_freq{$profiles[$i][0]}</td>);
 					say defined $result[0][$i] ? "<td>$result[0][$i]</td>" : '<td></td>';
 					say defined $result[1][$i] ? "<td>$result[1][$i]</td>" : '<td></td>';
 					say defined $result[2][$i] ? "<td>$result[2][$i]</td>" : '<td></td>';
-					say "</tr>";
+					say q(</tr>);
 					$td = $td == 1 ? 2 : 1;    #row stripes
 					$st[$stCount] = $profiles[$i][0];
 					my $stCount2 = 0;
@@ -478,36 +497,38 @@ sub _recursive_search {
 			}
 			if ( $self->{'config'}->{'mogrify_path'} ) {
 				my $imageFile = $self->_create_group_graphic( \@st, \@grpDisMat, $at );
-				say "<tr class=\"td2\"><td colspan=\"5\" style=\"border:1px dashed black\"><img src=\"/tmp/$imageFile.png\" "
-				  . "alt=\"BURST group\" /></td></tr>";
-				say "<tr class=\"td1\"><td colspan=\"5\"><a href=\"/tmp/$imageFile.svg\">SVG file</a> (right click to save)</td></tr>";
+				say q(<tr class="td2"><td colspan="5" style="border:1px dashed black">)
+				  . qq(<img src="/tmp/$imageFile.png" alt="BURST group" /></td></tr>);
+				say qq(<tr class="td1"><td colspan="5"><a href="/tmp/$imageFile.svg">)
+				  . q(SVG file</a> (right click to save)</td></tr>);
 			}
 		}
-		print "</table></div>\n" if ( $thisGroupSize > 1 );
+		say q(</table></div>) if ( $thisGroupSize > 1 );
 	}
 
 	# print singles
-	say "<h2>Singletons:</h2>";
-	my $buffer = "<div class=\"scrollable\">\n<table class=\"resultstable\"><tr><th>$pk</th><th>Frequency</th></tr>";
+	say q(<h2>Singletons:</h2>);
+	my $buffer = qq(<div class="scrollable"><table class="resultstable"><tr><th>$pk</th><th>Frequency</th></tr>);
 	$td = 1;
 	my $count;
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
 		if ( $groupSize[$i] == 1 ) {
-			$buffer .= "<tr class=\"td$td\"><td>$profiles[$i][0]</td><td>";
-			$buffer .= "$st_freq{$profiles[$i][0]}</td></tr>\n";
+			$buffer .= qq(<tr class="td$td"><td>$profiles[$i][0]</td><td>);
+			$buffer .= qq($st_freq{$profiles[$i][0]}</td></tr>\n);
 			$td = $td == 1 ? 2 : 1;    #row stripes
 			$count++;
 		}
 	}
-	$buffer .= "</table></div>";
-	say $count ? $buffer : "<p>None</p>";
-	say "</div>";
+	$buffer .= q(</table></div>);
+	say $count ? $buffer : q(<p>None</p>);
+	say q(</div>);
 	return;
 }
 
 sub _dfs {
 	my ( $self, $args ) = @_;
-	my ( $profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) = @{$args}{qw(profile_count x matrix_ref grp_ref grpdef g)};
+	my ( $profile_count, $x, $matrix_ref, $grp_ref, $grpdef, $g ) =
+	  @{$args}{qw(profile_count x matrix_ref grp_ref grpdef g)};
 	for my $y ( 0 .. $profile_count - 1 ) {
 		if (   ( !defined $$grp_ref[$y] || $$grp_ref[$y] == 0 )
 			&& ( $$matrix_ref[$x][$y] > ( $grpdef - 1 ) ) )
@@ -617,7 +638,8 @@ SVG
 			my $x2 = $posnX->[ $atPosn[$at] ];
 			my $y2 = $posnY->[ $atPosn[$at] ];
 			( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-			$buffer .= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" opacity=\"0.2\" stroke-width=\"1\"/>";
+			$buffer .=
+			  qq(<line x1="$x1" y1="$y1" x2="$x2" y2="$y2" ) . q(stroke="black" opacity="0.2" stroke-width="1"/>);
 		} else {
 			$conncentre[$at] = 0;
 		}
@@ -637,9 +659,11 @@ SVG
 					my $x2 = $posnX->[ $atPosn[$at] ];
 					my $y2 = $posnY->[ $atPosn[$at] ];
 					( $x1, $y1, $x2, $y2 ) = $self->_offset_line( $x1, $y1, $x2, $y2, $unit );
-					$buffer .= "<line x1=\"$x1\" y1=\"$y1\" x2=\"$x2\" y2=\"$y2\" stroke=\"black\" stroke-width=\"1\"/>";
-					$buffer .= "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX->[$atPosn[$at]]\" cy=\"$posnY->[$atPosn[$at]]\" r=\""
-					  . ( $unit / 2 ) . "\"/>";
+					$buffer .= qq(<line x1="$x1" y1="$y1" x2="$x2" y2="$y2" ) . q(stroke="black" stroke-width="1"/>);
+					$buffer .=
+					    qq(<circle stroke="black" fill="none" cx="$posnX->[$atPosn[$at]]" )
+					  . qq(cy="$posnY->[$atPosn[$at]]" r=")
+					  . ( $unit / 2 ) . q("/>);
 				}
 			}
 		}
@@ -701,7 +725,7 @@ SVG
 			atPosn_ref      => \@atPosn,
 		}
 	);
-	$buffer .= "</svg>\n";
+	$buffer .= qq(</svg>\n);
 	my $svg_filename = "$self->{'config'}->{'tmp_dir'}/$filename.svg";
 	open( my $fh, '>', $svg_filename ) || $logger->error("Can't open $svg_filename for writing");
 	print $fh $buffer;
@@ -728,28 +752,32 @@ sub _draw_slv_rings {
 		#Draw SLV ring
 		if ( $self->{'cgi'}->param('shade') ) {
 			$buffer .=
-"<circle stroke=\"black\" fill=\"black\" fill-opacity=\"0.1\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			    qq(<circle stroke="black" fill="black" fill-opacity="0.1" cx="$posnX->[$atPosn_ref->[$at]]" )
+			  . qq(cy="$posnY->[$atPosn_ref->[$at]]" r=")
 			  . ( $unit / 2 )
-			  . "\"/>\n";
+			  . qq("/>\n);
 		} else {
 			$buffer .=
-			    "<circle stroke=\"black\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			    qq(<circle stroke="black" fill="none" cx="$posnX->[$atPosn_ref->[$at]]" )
+			  . qq(cy="$posnY->[$atPosn_ref->[$at]]" r=")
 			  . ( $unit / 2 )
-			  . "\"/>\n";
+			  . qq("/>\n);
 		}
 		if ( $self->{'cgi'}->param('shade') ) {
 			$buffer .=
-"<circle stroke=\"red\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+			    qq(<circle stroke="red" stroke-width="$unit" stroke-opacity="0.1" fill="none" )
+			  . qq(cx="$posnX->[$atPosn_ref->[$at]]" cy="$posnY->[$atPosn_ref->[$at]]" r=")
 			  . ($unit)
-			  . "\"/>\n";
+			  . qq("/>\n);
 		}
 		$buffer .=
-		    "<circle stroke=\"red\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+		    qq(<circle stroke="red" fill="none" cx="$posnX->[$atPosn_ref->[$at]]" )
+		  . qq(cy="$posnY->[$atPosn_ref->[$at]]" r=")
 		  . ( 1.5 * $unit )
-		  . "\"/>\n";
+		  . qq("/>\n);
 		my $x = $posnX->[ $atPosn_ref->[$at] ] - length( $st_ref->[ $atList_ref->[$at] ] ) * 2;
 		my $y = $posnY->[ $atPosn_ref->[$at] ] + 4;
-		$buffer .= "<text x=\"$x\" y=\"$y\" font-size=\"9\">$st_ref->[$atList_ref->[$at]]</text>\n";
+		$buffer .= qq(<text x="$x" y="$y" font-size="9">$st_ref->[$atList_ref->[$at]]</text>\n);
 	}
 	return $buffer;
 }
@@ -786,14 +814,16 @@ sub _draw_ring_sts {
 				#draw outer circle if there are DLVs
 				if ( $self->{'cgi'}->param('shade') ) {
 					$buffer .=
-"<circle stroke=\"blue\" stroke-width=\"$unit\" stroke-opacity=\"0.1\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+					    qq(<circle stroke="blue" stroke-width="$unit" stroke-opacity="0.1" fill="none" )
+					  . qq(cx="$posnX->[$atPosn_ref->[$at]]" cy="$posnY->[$atPosn_ref->[$at]]" r=")
 					  . ( 2 * $unit )
-					  . "\"/>\n";
+					  . qq("/>\n);
 				}
 				$buffer .=
-				    "<circle stroke=\"blue\" fill=\"none\" cx=\"$posnX->[$atPosn_ref->[$at]]\" cy=\"$posnY->[$atPosn_ref->[$at]]\" r=\""
+				    qq(<circle stroke="blue" fill="none" cx="$posnX->[$atPosn_ref->[$at]]" )
+				  . qq(cy="$posnY->[$atPosn_ref->[$at]]" r=")
 				  . ( 2.5 * $unit )
-				  . "\"/>\n";
+				  . qq("/>\n);
 				$angle_offset += 2 * PI * 10 / 360;
 			}
 			if ( $circle != 0 ) {
@@ -804,8 +834,10 @@ sub _draw_ring_sts {
 						&& ( $assigned_ref->[$j] == -9 ) )
 					{
 						$k++;
-						my $x = int( $posnX->[ $atPosn_ref->[$at] ] + cos( $angle * $k + $angle_offset ) * $unit * $distance );
-						my $y = int( $posnY->[ $atPosn_ref->[$at] ] + sin( $angle * $k + $angle_offset ) * $unit * $distance );
+						my $x = int(
+							$posnX->[ $atPosn_ref->[$at] ] + cos( $angle * $k + $angle_offset ) * $unit * $distance );
+						my $y = int(
+							$posnY->[ $atPosn_ref->[$at] ] + sin( $angle * $k + $angle_offset ) * $unit * $distance );
 						if ( $self->{'cgi'}->param('hide') ) {
 							my $colour;
 							if    ( $distance == 1 ) { $colour = 'red' }
@@ -872,10 +904,14 @@ sub _draw_spokes {
 									# offset ensures that red line is not obscured by blue line
 									( $colour, $distance, $xOffset, $yOffset ) = ( 'red', 1, 1, 2 );
 								}
-								my $posXAnchor = int(
-									$posnX->[ $atPosn_ref->[$at] ] + $xOffset + cos( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
-								my $posYAnchor = int(
-									$posnY->[ $atPosn_ref->[$at] ] + $yOffset + sin( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
+								my $posXAnchor =
+								  int( $posnX->[ $atPosn_ref->[$at] ] +
+									  $xOffset +
+									  cos( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
+								my $posYAnchor =
+								  int( $posnY->[ $atPosn_ref->[$at] ] +
+									  $yOffset +
+									  sin( $angle_value_ref->[$k] ) * $unit * $radius_ref->[$k] );
 								my $posX =
 								  int( $posnX->[ $atPosn_ref->[$at] ] +
 									  $xOffset +
@@ -890,20 +926,21 @@ sub _draw_spokes {
 									  sin( $angle_value_ref->[$k] ) * $unit * ( $distance + $radius_ref->[$k] ) );
 								my $posY_text = $posY;
 								$posY_text += 4 if $posYAnchor < $posY;
-								$buffer .=
-"<line x1=\"$posXAnchor\" y1=\"$posYAnchor\" x2=\"$posX\" y2=\"$posY\" stroke=\"$colour\" opacity=\"0.2\" stroke-width=\"1\"/>\n";
+								$buffer .= qq(<line x1="$posXAnchor" y1="$posYAnchor" x2="$posX" )
+								  . qq(y2="$posY" stroke="$colour" opacity="0.2" stroke-width="1"/>\n);
 								if ( $self->{'cgi'}->param('hide') ) {
 									$posX -= $xOffset;
-									$buffer .= "<circle fill=\"black\" stroke=\"black\" cx=\"$posX\" cy=\"$posY\" r=\"2\" \/>";
+									$buffer .= qq(<circle fill="black" stroke="black" cx="$posX" cy="$posY" r="2" />);
 								} else {
 									if ( $textOffset == 0 ) {
-										$buffer .= "<text x=\"$posX_text\" y=\"$posY_text\" font-size=\"9\">$st_ref->[$j]</text>\n";
+										$buffer .= qq(<text x="$posX_text" y="$posY_text" )
+										  . qq(font-size="9">$st_ref->[$j]</text>\n);
 										$textOffset += 8;
 									} else {
 										$buffer .=
-										    "<text x=\"$posX_text\" y=\""
+										    qq(<text x="$posX_text" y=")
 										  . ( $posY_text + $textOffset )
-										  . "\" font-size=\"9\">$st_ref->[$j]</text>\n";
+										  . qq(" font-size="9">$st_ref->[$j]</text>\n);
 									}
 								}
 								( $thisgo[$j], $assigned_ref->[$j], $angle_value_ref->[$j], $radius_ref->[$j] ) =
