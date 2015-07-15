@@ -168,10 +168,10 @@ sub run_job {
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 		open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 		print $html_fh $self->get_html_header($locus);
-		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
+		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel"><div class="scrollable">);
 		print $html_fh $buffer;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		say $html_fh q(</div>);
+		say $html_fh q(</div></div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
 		say $html_fh q(</body></html>);
@@ -333,13 +333,13 @@ sub _snp {
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
 	if ( $seq_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		my $cleaned = $self->clean_locus($locus);
 		say qq(<h2>$cleaned</h2>);
 		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, $allele_ids, { print_status => 1 } );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
-		say q(</div>);
+		say q(</div></div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
 
@@ -376,7 +376,7 @@ sub _submit_job {
 	);
 	say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
 	  . q(<p>Please be aware that this job may take a long time depending on the number of sequences to align )
-	  . q(and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>)
+	  . q(and how busy the server is.</p>)
 	  . q(<p>Since alignment is offloaded to a third-party application, the progress report will not be )
 	  . q(accurate.</p>)
 	  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
@@ -459,7 +459,7 @@ sub get_snp_schematic {
 		$buffer .= q(&gt;) if $low;
 		$buffer .= qq($low - $high</span>);
 	}
-	$buffer .= q(</p><div class="seqmap">);
+	$buffer .= qq(</p><div class="seqmap" style="white-space:nowrap">\n);
 	$buffer .= $pagebuffer;
 	$buffer .= q(</div></div>);
 	return ( $buffer, $freqs );
@@ -609,7 +609,7 @@ sub _codon {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $orf = $locus_info->{'orf'} // 1;
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	my $cleaned = $self->clean_locus($locus);
 	say qq(<h2>$cleaned</h2>);
 	say qq(<p>ORF used: $orf</p>);
@@ -646,9 +646,9 @@ sub _codon {
 		}
 	}
 	close $fh;
-	say q(</p></div>);
+	say q(</p></div></div>);
 	return if !$locus_info->{'coding_sequence'};
-	say q(<div class="box" id="resultstable"><h3>Codons</h3>)
+	say q(<div class="box" id="resultstable"><div class="scrollable"><h3>Codons</h3>)
 	  . q[<p>Fraction: Proportion of usage of a given codon among its ]
 	  . q[redundant set (i.e. the set of codons which code for this ]
 	  . q[codon's amino acid).<br />]
@@ -665,7 +665,7 @@ sub _codon {
 	}
 	say q(</tbody></table>);
 	unlink $outfile;
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
@@ -689,7 +689,7 @@ sub _translate {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $orf = $locus_info->{'orf'} // 1;
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		my $cleaned = $self->clean_locus($locus);
 		say qq(<h2>$cleaned</h2>);
 		say qq(<p>ORF used: $orf</p>);
@@ -699,7 +699,7 @@ sub _translate {
 		my $final_file = $self->_run_translate( $locus, $allele_ids );
 		say q(<pre style="font-size:1.2em">);
 		$self->print_file($final_file);
-		say q(</pre></div>);
+		say q(</pre></div></div>);
 		unlink $final_file;
 	} elsif ( $locus_info->{'length_varies'} && @$allele_ids > MAX_SEQUENCES ) {
 		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore )

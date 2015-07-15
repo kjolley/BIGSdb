@@ -103,10 +103,10 @@ sub run {
 			say qq(<div class="box" id="statusbad"><p>There are no $locus alleles in your selection.</p></div>);
 			return;
 		}
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
-		say q(</div>);
+		say q(</div></div>);
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
@@ -207,9 +207,9 @@ sub run_job {
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 	open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 	say $html_fh $self->get_html_header($locus);
-	say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
+	say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel"><div class="scrollable">);
 	say $html_fh $buffer;
-	say $html_fh q(</div>);
+	say $html_fh q(</div></div>);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 	say $html_fh $buffer;
