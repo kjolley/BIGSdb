@@ -29,8 +29,8 @@ use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
 use File::Copy;
-use constant ONLINE_MAX_SEQS => 50;     #Number of sequences before we start an offline job
-use constant MAX_SEQS        => 2000;
+use constant MAX_INSTANT_RUN => 100;     #Number of sequences before we start an offline job
+use constant MAX_SEQUENCES        => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -51,7 +51,7 @@ sub get_attributes {
 		input       => 'query',
 		help        => 'tooltips',
 		order       => 15,
-		max         => MAX_SEQS
+		max         => MAX_SEQUENCES
 	);
 	return \%att;
 }
@@ -90,7 +90,7 @@ sub run {
 	$options{'count_only'}          = 1;
 	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
 
-	if ( $seq_count <= ONLINE_MAX_SEQS ) {
+	if ( $seq_count <= MAX_INSTANT_RUN ) {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
@@ -104,7 +104,7 @@ sub run {
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
 		say "</div>";
-	} elsif ( $seq_count <= MAX_SEQS ) {
+	} elsif ( $seq_count <= MAX_SEQUENCES ) {
 
 		#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
 		#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this over to the tmp_dir.
@@ -147,7 +147,7 @@ Follow the progress of this job and view the output.</a></p>
 HTML
 		return;
 	} else {
-		my $max      = MAX_SEQS;
+		my $max      = MAX_SEQUENCES;
 		my $num_seqs = @$ids;
 		say "<div class=\"box\" id=\"statusbad\"><p>This analysis relies are being able to produce an alignment "
 		  . "of your sequences.  This is a potentially processor- and memory-intensive operation for large numbers of "
@@ -202,12 +202,13 @@ sub run_job {
 	my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 	open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 	say $html_fh $self->get_html_header($locus);
-	say $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">";
+	say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
 	say $html_fh $buffer;
+	say $html_fh q(</div>);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 	say $html_fh $buffer;
-	say $html_fh "</div>\n</body>\n</html>";
+	say $html_fh q(</div></body></html>);
 	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 	return;
 }

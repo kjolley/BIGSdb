@@ -242,6 +242,7 @@ a.update:hover {
 	color:black;
 	text-decoration:none;
 	border:1px solid #666;
+	box-shadow: 1px 1px 1px #666;
 }
 
 .button {
@@ -249,12 +250,7 @@ a.update:hover {
 	margin:5px;
 }
 
-.smallbutton {
-	font-size:0.9em;
-    margin:1px;
-    border-radius: 3px;
-    
-}
+.smallbutton {font-size:0.9em}
 
 .legendbutton {
 	margin:-17px 5px 10px 0;

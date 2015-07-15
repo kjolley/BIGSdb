@@ -24,11 +24,11 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use List::MoreUtils qw(none);
 use Apache2::Connection ();
 use Bio::SeqIO;
-use constant MAX_SNP_SEQUENCES       => 200;
-use constant MAX_TRANSLATE_SEQUENCES => 50;
+use constant MAX_INSTANT_RUN => 100;
+use constant MAX_SEQUENCES   => 2000;
+use constant STYLESHEET      => 'http://pubmlst.org/css/bigsdb.css';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.2.3',
+		version          => '1.3.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -77,93 +77,13 @@ END
 
 sub get_html_header {
 	my ($self) = @_;
-	my $buffer = << "HEADER";
-<!DOCTYPE html
-	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
-<head>
-<title>Polymorphic site analysis</title>
-<style type="text/css">
-body {
-	font:0.85em/110% Arial,Helvetica,sans-serif;
-	background:#fff;
-	color:#000;
-	margin: 0 1em;
-}
-
-h1 {
-	font: italic 600 1.5em/110% Arial,Helvetica,sans-serif;
-	text-align: left;
-	line-height: 110%;
-	color: #606080;
-	border-top: solid #a0a0d0 3px;
-	border-bottom: dotted #8080b0 1px;
-	background: #f0f0f0;
-}
-
-h2 {
-	font: 600 1.2em Arial,Helvetica,sans-serif; 
-	color: #606060;
-	border-bottom: dotted #8080b0 1px;
-}
-
-table {
-	border: 1px solid #ddd;
-	background: #ddd; 
-	font-size: 0.9em; 
-	border-spacing:1px;
-	text-align: center;
-}
-
-th {background:#404090; color:#fff}
-.td1 {background:#efefff}
-.td2 {background:#efefef}
-.A,.G,.T,.C {font-weight:600}
-.A {color:green}
-.G {color:black}
-.T {color:red}
-.C {color:blue}
-
-div.results {
-	background:#d5e0d5;	
-	padding: 0.5em;
-	border:1px solid #d0d0d0;
-	-moz-box-shadow: 3px 3px 5px #dfdfdf;
-	-webkit-box-shadow: 3px 3px 5px #dfdfdf;
-	box-shadow: 3px 3px 5px #dfdfdf;
-	-webkit-border-radius: 5px;
-	-moz-border-radius: 5px;
-	border-radius: 5px;
-}
-
-div.seqmap {
-	overflow-x:auto;
-	min-width:80%;
-	font-family: Courier New, monospace;
-}
-
-.pc10,.pc20,.pc30,.pc40,.pc50,.pc60,.pc70,.pc80,.pc90,.pc100 {
-	font-weight:bold; 
-	color: white
-}
-
-.pc10 {background:#ff99ff; color:navy}
-.pc20 {background:#cc66ff}
-.pc30 {background:#9900cc}
-.pc40 {background:#0066cc}
-.pc50 {background:#3399ff}
-.pc60 {background:#33ffff; color:navy}
-.pc70 {background:#66cc00}
-.pc80 {background:#339900}
-.pc90 {background:#006600}
-.pc100 {background:#000000}
-
-</style>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-</head>
-<body>
-HEADER
+	my $stylesheet = $self->{'config'}->{'stylesheet'} // STYLESHEET;
+	my $buffer =
+	    qq(<!DOCTYPE html>\n)
+	  . qq(<html><head><title>Polymorphic site analysis</title>\n)
+	  . qq(<meta name="viewport" content="width=device-width" />\n)
+	  . qq(<link rel="stylesheet" type="text/css" href="$stylesheet" media="Screen" />\n)
+	  . qq(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />\n</head><body>\n);
 	return $buffer;
 }
 
@@ -172,62 +92,75 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+	my $query_file = $q->param('query_file');
+	my $list       = $self->get_allele_id_list($query_file);
+	my $desc       = $self->get_db_description;
 	if ( !@$display_loci ) {
-		say "<h1>Locus Explorer</h1>";
-		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
+		say qq(<h1>Locus Explorer - $desc</h1>);
+		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
 		return;
 	}
 	if ( !$q->param('locus') ) {
 		$q->param( locus => $display_loci->[0] );
 	}
 	my $locus = $q->param('locus');
-	if ( $locus =~ /^cn_(.+)/ ) {
-		$locus = $1;
-		$q->param( locus => $locus );
-	}
-	if ( $q->param('snp') ) {
-		$self->_snp           if $q->param('function') eq 'snp';
-		$self->_site_explorer if $q->param('function') eq 'siteExplorer';
-		return;
-	} else {
-		if ( $q->param('codon') ) {
-			$self->_codon if $q->param('codon');
-			return;
-		} elsif ( $q->param('translate') ) {
-			$self->_translate if $q->param('translate');
+	$locus =~ s/^cn_//x;
+	my @allele_ids = $q->param('allele_ids');
+	if ( $q->param('submit') ) {
+		my $total_seq_count =
+		  $self->{'datastore'}
+		  ->run_query( q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id NOT IN ('0','N'))), $locus );
+		my $continue = 1;
+		if ( !$self->{'datastore'}->is_locus($locus) ) {
+			say qq(<h1>Locus Explorer - $desc</h1>);
+			say q(<div class="box" id="statusbad"><p>Invalid locus.</p></div>);
+			$continue = 0;
+		} elsif ( !$total_seq_count ) {
+			say q(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
+			$continue = 0;
+		} elsif ( !@allele_ids ) {
+			say qq(<h1>Locus Explorer - $desc</h1>);
+			say q(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
+			$continue = 0;
+		}
+		if ( !$continue ) {
+			$q->delete('submit');
+			$self->_print_interface( $locus, $display_loci, $cleaned, $list );
 			return;
 		}
 	}
-	my $query_file = $q->param('query_file');
-	my $list       = $self->_get_id_list($query_file);
+	my $analysis = $q->param('analysis') // '';
+	if ($analysis) {
+		if ( $analysis eq 'snp' ) {
+			$self->_snp( $locus, \@allele_ids ) if $q->param('function') eq 'snp';
+			$self->_site_explorer($locus) if $q->param('function') eq 'siteExplorer';
+			return;
+		} else {
+			if ( $analysis eq 'codon' ) {
+				$self->_codon( $locus, \@allele_ids );
+				return;
+			} elsif ( $analysis eq 'translate' ) {
+				$self->_translate( $locus, \@allele_ids );
+				return;
+			}
+		}
+	}
+	say qq(<h1>Locus Explorer - $desc</h1>);
 	$self->_print_interface( $locus, $display_loci, $cleaned, $list );
 	return;
-}
-
-sub _get_id_list {
-	my ( $self, $query_file ) = @_;
-	if ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		$$qry_ref =~ s/\*/allele_id/;
-		my $ids = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
-		return $ids;
-	}
-	return \@;;
 }
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $locus = $params->{'locus'};
-	if ( $locus =~ /^cn_(.+)/ ) {
-		$locus = $1;
-	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
-	if ( $params->{'snp'} ) {
-		my @allele_ids = split /\|\|/, $params->{'allele_ids'};
+	$params->{'analysis'} //= 'snp';
+	my @allele_ids = split /\|\|/x, $params->{'allele_ids'};
+	if ( $params->{'analysis'} eq 'snp' ) {
 		my ( $seqs, undef, $prefix ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
 		if ( !@$seqs ) {
-			$self->{'jobManager'}->update_job_status( $job_id, { message_html => "<p>No sequences retrieved for analysis.</p>" } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { message_html => '<p>No sequences retrieved for analysis.</p>' } );
 			return;
 		}
 		my $temp      = BIGSdb::Utils::get_random();
@@ -235,44 +168,59 @@ sub run_job {
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, undef, $params->{'alignwidth'} );
 		open( my $html_fh, '>', $html_file ) || $logger->error("Can't open $html_file for writing");
 		print $html_fh $self->get_html_header($locus);
-		say $html_fh "<h1>Polymorphic site analysis</h1>\n<div class=\"box\" id=\"resultsheader\">";
+		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
 		print $html_fh $buffer;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		say $html_fh q(</div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
-		say $html_fh "</div>\n</body>\n</html>";
-		$self->{'jobManager'}->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
+		say $html_fh q(</body></html>);
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 		$self->delete_temp_files("$prefix*");
+	} elsif ( $params->{'analysis'} eq 'translate' ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $orf        = $locus_info->{'orf'} // 1;
+		my $final_file = $self->_run_translate( $locus, \@allele_ids, { alignwidth => $params->{'alignwidth'} } );
+		if ( -e $final_file ) {
+			( my $rel_file_path = $final_file ) =~ s/.*\///x;
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => $rel_file_path, description => 'Aligned translated sequence' } );
+		}
 	}
 	return;
 }
 
 sub _print_interface {
 	my ( $self, $locus, $display_loci, $cleaned, $list_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $desc = $self->get_db_description;
-	say qq(<h1>Locus Explorer - $desc</h1>\n<div class="box" id="queryform">);
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="queryform">);
 	say $q->start_form;
-	$q->param( 'function', 'snp' );
+	$q->param( function => 'snp' );
 	say $q->hidden($_) foreach qw (db page function name);
-	say "<p>Please select locus for analysis:</p>";
-	say "<p><b>Locus: </b>";
+	say q(<p>Please select locus for analysis:</p>);
+	say q(<p><b>Locus: </b>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	say " <span class=\"comment\">Page will reload when changed</span></p>";
-	my $desc_exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)", $locus );
+	say q( <span class="comment">Page will reload when changed</span></p>);
+	my $desc_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
 
 	if ($desc_exists) {
-		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">)
-		  . qq(Further information</a> is available for this locus.</li></ul>);
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
+		  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return if !$locus_info;
 	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
+	my $max_sequences = MAX_SEQUENCES;
 	my $allele_ids =
-	  $self->{'datastore'}->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY $order",
+	  $self->{'datastore'}
+	  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY $order",
 		$locus, { fetch => 'col_arrayref' } );
-	say "<p>Polymorphic site analysis is limited to " . MAX_SNP_SEQUENCES . " sequences for this locus since it requires alignment.</p>"
-	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SNP_SEQUENCES;
-	say "<fieldset>\n<legend>Select sequences</legend>";
+	say qq(<p>Polymorphic site analysis is limited to $max_sequences sequences )
+	  . q(for this locus since it requires alignment.</p>)
+	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SEQUENCES;
+	say q(<fieldset style="float:left"><legend>Select sequences</legend>);
 	say $q->scrolling_list(
 		-name     => 'allele_ids',
 		-id       => 'allele_ids',
@@ -282,38 +230,34 @@ sub _print_interface {
 		-multiple => 'true',
 		-default  => $list_ref
 	);
-	say qq(<br /><input type="button" onclick='listbox_selectall("allele_ids",true)' value="All" style="margin-top:1em" )
-	  . qq(class="smallbutton" />);
-	say qq(<input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" style="margin-top:1em" )
-	  . qq(class="smallbutton" />);
-	say "</fieldset>";
-	say "<fieldset>\n<legend>Analysis functions</legend>";
-	say "<table>";
+	say q(<input type="button" onclick='listbox_selectall("allele_ids",true)' value="All" style="margin-top:1em" )
+	  . q(class="smallbutton" />);
+	say q(<input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" style="margin-top:1em" )
+	  . q(class="smallbutton" />);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Select analysis</legend>);
 	my $aligner_available = ( $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'} ) ? 1 : 0;
+	my $labels = {
+		snp       => 'Polymorphic Sites - Display polymorphic site frequencies and sequence schematic',
+		codon     => 'Codon - Calculate G+C content and codon usage',
+		translate => 'Translate - Translate DNA to peptide sequences'
+	};
+	my @values;
 
 	if ( !$locus_info->{'length_varies'} || $aligner_available ) {
-		say "<tr><td style=\"text-align:right\">";
-		say $q->submit( -name => 'snp', -label => 'Polymorphic sites', -class => 'submit' );
-		say "</td><td>Display polymorphic site frequencies and sequence schematic</td></tr>";
+		push @values, 'snp';
 	}
 	if ( $self->{'config'}->{'emboss_path'} && $locus_info->{'data_type'} eq 'DNA' ) {
-		say "<tr><td style=\"text-align:right\">";
-		say $q->submit( -name => 'codon', -label => 'Codon', -class => 'submit' );
-		say "</td><td>\nCalculate G+C content";
-		say " and codon usage" if $locus_info->{'coding_sequence'};
-		say "</td></tr>";
+		push @values, 'codon';
 		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $aligner_available ) ) {
-			say "<tr><td style=\"text-align:right\">";
-			say $q->submit( -name => 'translate', -label => 'Translate', -class => 'submit' );
-			say "</td><td>Translate DNA to peptide sequences";
-			say " (limited to " . MAX_TRANSLATE_SEQUENCES . " sequences)"
-			  if $locus_info->{'length_varies'} && @$allele_ids > MAX_TRANSLATE_SEQUENCES;
-			say "</td></tr>";
+			push @values, 'translate';
 		}
 	}
-	say "</table>\n</fieldset>";
+	say $q->radio_group( -name => 'analysis', -values => \@values, -labels => $labels, -linebreak => 'true' );
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->endform;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -323,19 +267,20 @@ sub _get_seqs {
 	#options: count_only - don't align, just count how many sequences would be included.
 	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $sql        = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
 	my @seqs;
 	my $temp     = BIGSdb::Utils::get_random();
 	my $tempfile = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
 	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
-	my $i = 0;
+	my $i    = 0;
+	my $data = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	my %selected_id = map { $_ => 1 } @$allele_ids;
 
-	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
-		next if none { $_ eq $allele_id } @$allele_ids;
-		push @seqs, $seq;
-		print $fh ">$allele_id\n$seq\n";
+	foreach my $allele (@$data) {
+		next if !$selected_id{ $allele->{'allele_id'} };
+		push @seqs, $allele->{'sequence'};
+		say $fh ">$allele->{'allele_id'}";
+		say $fh $allele->{'sequence'};
 		$i++;
 	}
 	close $fh;
@@ -346,14 +291,21 @@ sub _get_seqs {
 	my $seq_file;
 	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 	if ( $locus_info->{'length_varies'} && @seqs > 1 ) {
-		say "<p>Please wait - aligning (do not refresh) ...</p>" if $options->{'print_status'};
+		if ( $options->{'print_status'} ) {
+			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
+			  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		}
 		if ( -x $self->{'config'}->{'mafft_path'} ) {
-			my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
-			system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
+			my $threads =
+			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} )
+			  ? $self->{'config'}->{'mafft_threads'}
+			  : 1;
+			system(
+				"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $tempfile > $aligned_file");
 		} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
 			system( $self->{'config'}->{'muscle_path'}, '-in', $tempfile, '-fastaout', $aligned_file, '-quiet' );
 		} else {
-			$logger->error("No aligner available");
+			$logger->error('No aligner available.');
 		}
 		my $seqio_object = Bio::SeqIO->new( -file => $aligned_file, -format => 'Fasta' );
 		undef @seqs;
@@ -368,71 +320,62 @@ sub _get_seqs {
 }
 
 sub _snp {
-	my ($self) = @_;
+	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
 	print "<h1>Polymorphic site analysis</h1>\n";
-	my $locus = $q->param('locus');
-	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus.</p></div>";
-		return;
-	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
-	if ( !$total_seq_count ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
-		return;
-	}
-	my @allele_ids = $q->param('allele_ids');
-	if ( !@allele_ids ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
-		return;
-	}
-	my $seq_count = $self->_get_seqs( $locus, \@allele_ids, { count_only => 1 } );
-	if ( $seq_count <= 20 || !$locus_info->{'length_varies'} ) {
-		say "<div class=\"box\" id=\"resultsheader\">";
+	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
+	my $seq_count     = $self->_get_seqs( $locus, $allele_ids, { count_only => 1 } );
+	my $max_sequences = MAX_SEQUENCES;
+	my $allele_count  = @$allele_ids;
+	if ( $seq_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
+		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
-		say "<h2>$cleaned</h2>";
-		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, \@allele_ids, { print_status => 1 } );
+		say qq(<h2>$cleaned</h2>);
+		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, $allele_ids, { print_status => 1 } );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
+		say q(</div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		say $buffer if $buffer;
-		say "</div>";
 
 		#Keep temp files as they are needed for site explorer function.
-	} elsif ( $seq_count > MAX_SNP_SEQUENCES && $locus_info->{'length_varies'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>This locus is variable length and will therefore require real-time alignment.  "
-		  . "Consequently this function is limited to "
-		  . MAX_SNP_SEQUENCES
-		  . " sequences or fewer - you have selected "
-		  . @allele_ids
-		  . ".</p></div>";
-		return;
+	} elsif ( $seq_count > $max_sequences && $locus_info->{'length_varies'} ) {
+		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore require )
+		  . qq(real-time alignment. Consequently this function is limited to $max_sequences sequences or )
+		  . qq(fewer - you have selected $allele_count.</p></div>);
 	} else {
-		my $params = $q->Vars;
-		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $job_id    = $self->{'jobManager'}->add_job(
-			{
-				dbase_config => $self->{'instance'},
-				ip_address   => $q->remote_host,
-				module       => 'LocusExplorer',
-				parameters   => $params,
-				username     => $self->{'username'},
-				email        => $user_info->{'email'}
-			}
-		);
-		print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of sequences to align
-and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>
-<p>Since alignment is offloaded to a third-party application, the progress report will not be accurate.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+		$self->_submit_job( $locus, $allele_ids );
 	}
+	return;
+}
+
+sub _submit_job {
+	my ( $self, $locus, $allele_ids ) = @_;
+	my $q      = $self->{'cgi'};
+	my $params = $q->Vars;
+	$q->delete('locus');
+	$params->{'locus'} = $locus;
+	local $" = q(||);
+	$params->{'allele_id'}  = "@$allele_ids";
+	$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $job_id    = $self->{'jobManager'}->add_job(
+		{
+			dbase_config => $self->{'instance'},
+			ip_address   => $q->remote_host,
+			module       => 'LocusExplorer',
+			parameters   => $params,
+			username     => $self->{'username'},
+			email        => $user_info->{'email'}
+		}
+	);
+	say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
+	  . q(<p>Please be aware that this job may take a long time depending on the number of sequences to align )
+	  . q(and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>)
+	  . q(<p>Since alignment is offloaded to a third-party application, the progress report will not be )
+	  . q(accurate.</p>)
+	  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
+	  . q(Follow the progress of this job and view the output.</a></p></div>);
 	return;
 }
 
@@ -456,11 +399,11 @@ sub get_snp_schematic {
 			foreach my $line (@linebuffer) {
 				( my $test = $line ) =~ tr/\&nbsp;//d;
 				next if $test eq '';
-				$pagebuffer .= "&nbsp;" x 7 . "$line<br />\n";
+				$pagebuffer .= q(&nbsp;) x 7 . qq($line<br />\n);
 			}
 			undef @linebuffer;
 			$pagebuffer .= $self->_get_seq_ruler( $i + 1, $length, $align_width );
-			$pagebuffer .= "<br />\n";
+			$pagebuffer .= qq(<br />\n);
 		}
 		my %nuc;
 		foreach (@$seqs) {
@@ -471,49 +414,49 @@ sub get_snp_schematic {
 		$ps++ if keys %nuc > 1;
 		my $linenumber = 0;
 		foreach my $base ( sort { $nuc{$b} <=> $nuc{$a} } ( keys(%nuc) ) ) {
-			my $prop = $nuc{$base} / $seq_count;
+			my $prop  = $nuc{$base} / $seq_count;
+			my $class = $self->_get_prop_class($prop);
 			if ($seq_file) {
+				my $pos = $i + 1;
 				$linebuffer[$linenumber] .=
-				    "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-				  . "name=LocusExplorer&amp;snp=1&amp;function=siteExplorer&amp;file=$seq_file&amp;locus=$locus&amp;pos="
-				  . ( $i + 1 )
-				  . "\" class=\""
-				  . $self->_get_prop_class($prop)
-				  . "\">$base</a>";
+				    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . q(page=plugin&amp;name=LocusExplorer&amp;analysis=snp&amp;function=siteExplorer&amp;)
+				  . qq(file=$seq_file&amp;locus=$locus&amp;pos=$pos" class="$class">$base</a>);
 			} else {
-				$linebuffer[$linenumber] .= "<span class=\"" . $self->_get_prop_class($prop) . "\">$base</span>";
+				$linebuffer[$linenumber] .= qq(<span class="$class">$base</span>);
 			}
 			$linenumber++;
 		}
 		for ( my $j = $linenumber ; $j < 21 ; $j++ ) {
-			$linebuffer[$j] .= "&nbsp;";
+			$linebuffer[$j] .= q(&nbsp;);
 		}
 	}
-	foreach (@linebuffer) {
-		( my $test = $_ ) =~ tr/\&nbsp;//d;
-		next if $test eq '';
-		$pagebuffer .= "&nbsp;" x 7 . "$_<br />\n";
+	foreach my $line (@linebuffer) {
+		( my $test = $line ) =~ tr/\&nbsp;//d;
+		next if $test eq q();
+		$pagebuffer .= q(&nbsp;) x 7 . qq($line<br />\n);
 	}
 	my $pluralps = $ps != 1        ? 's' : '';
 	my $plural   = $seq_count != 1 ? 's' : '';
-	my $buffer   = << "HTML";
-<div class="results">
-<p>The colour codes represent the percentage of alleles that have
-a particular nucleotide at each position. Click anywhere within
-the sequence to drill down to allele and profile information. 
-The width of the display can be altered by going to the options 
-page - change this if the display goes off the page.</p>
-<p>$seq_count allele$plural included in analysis.  $ps polymorphic site$pluralps found.</p>
-<p><b>Key: </b><span class="pc10">0 - 10%</span> | <span class="pc20">&gt;10 - 20%</span> | 
-<span class="pc30">&gt;20 - 30%</span> | <span class="pc40">&gt;30 - 40%</span> | 
-<span class="pc50">&gt;40 - 50%</span> | <span class="pc60">&gt;50 - 60%</span> | 
-<span class="pc70">&gt;60 - 70%</span> | <span class="pc80">&gt;70 - 80%</span> | 
-<span class="pc90">&gt;80 - 90%</span> | <span class="pc100">&gt;90 - 100%</span></p>
-<div class=\"seqmap\">
-$pagebuffer
-</div>
-</div>
-HTML
+	my $buffer =
+	    q(<div class="results">)
+	  . q(<p>The colour codes represent the percentage of alleles that have )
+	  . q(a particular nucleotide at each position. Click anywhere within )
+	  . q(the sequence to drill down to allele and profile information. )
+	  . q(The width of the display can be altered by going to the options )
+	  . q(page - change this if the display goes off the page.</p>)
+	  . qq(<p>$seq_count allele$plural included in analysis. )
+	  . qq($ps polymorphic site$pluralps found.</p><p><b>Key: </b>);
+	foreach my $low (qw (0 10 20 30 40 50 60 70 80 90)) {
+		my $high = $low + 10;
+		$buffer .= q( | )  if $low;
+		$buffer .= qq(<span class="pc$high">);
+		$buffer .= q(&gt;) if $low;
+		$buffer .= qq($low - $high</span>);
+	}
+	$buffer .= q(</p><div class="seqmap">);
+	$buffer .= $pagebuffer;
+	$buffer .= q(</div></div>);
 	return ( $buffer, $freqs );
 }
 
@@ -528,7 +471,7 @@ sub _get_seq_ruler {
 		push @label, $value if $value <= $length;
 	}
 	my $num_spaces = 8 - length( $label[0] );
-	$ruler .= ( "&nbsp;" x $num_spaces ) . $label[0]
+	$ruler .= ( q(&nbsp;) x $num_spaces ) . $label[0]
 	  if length($ruler) < $length;
 
 	# First label on 1, rest on tens
@@ -536,11 +479,11 @@ sub _get_seq_ruler {
 	for ( my $i = 1 ; $i < $num_labels ; $i++ ) {
 		if ( $label[$i] ) {
 			$num_spaces = 9 - length( $label[$i] );
-			$label[$i] = ( "&nbsp;" x $num_spaces ) . $label[$i];
-			$ruler .= ( $label[$i] . " " );
+			$label[$i] = ( q(&nbsp;) x $num_spaces ) . $label[$i];
+			$ruler .= ( $label[$i] . q( ) );
 		}
 	}
-	$ruler .= "\n";
+	$ruler .= qq(\n);
 	return $ruler;
 }
 
@@ -561,51 +504,48 @@ sub _get_prop_class {
 }
 
 sub _site_explorer {
-	my ($self) = @_;
+	my ( $self, $locus ) = @_;
 	my $q = $self->{'cgi'};
 	print "<h1>Site Explorer</h1>\n";
-	my $locus = $q->param('locus');
-	my $pos   = $q->param('pos');
-	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus.</p></div>";
-		return;
-	}
+	my $pos       = $q->param('pos');
 	my $temp_file = $q->param('file');
 	if ( !$temp_file || !-e "$self->{'config'}->{'secure_tmp_dir'}/$temp_file" ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No sequence file passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No sequence file passed.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	say "<div class=\"box\" id=\"resultsheader\">";
+	say q(<div class="box" id="resultsheader">);
 	my $cleaned = $self->clean_locus($locus);
-	say "<h2>$cleaned position $pos</h2>";
+	say qq(<h2>$cleaned position $pos</h2>);
 	my %seq;
-	my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'secure_tmp_dir'}/$temp_file", -format => 'fasta' );
+	my $seqio_object =
+	  Bio::SeqIO->new( -file => "$self->{'config'}->{'secure_tmp_dir'}/$temp_file", -format => 'fasta' );
 	while ( my $seq_object = $seqio_object->next_seq ) {
 		$seq{ $seq_object->seq } = $seq_object->id;
 	}
 	my $seq_count = keys %seq;
-	say "<p>$seq_count alleles included in analysis.</p>";
+	say qq(<p>$seq_count alleles included in analysis.</p>);
 	my %site;
 	my %allele;
 	foreach my $allele ( keys %seq ) {
 		$site{ uc( substr( $allele, $pos - 1, 1 ) ) }++;
 		push @{ $allele{ uc( substr( $allele, $pos - 1, 1 ) ) } }, $seq{$allele};
 	}
-	my $td = 1;
-	my $sql =
-	  $self->{'db'}->prepare( "SELECT id,description FROM schemes LEFT JOIN scheme_members ON scheme_id=schemes.id WHERE locus=? "
-		  . "AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)" );
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
+	my $td          = 1;
+	my $scheme_list = $self->{'datastore'}->run_query(
+		'SELECT id,description FROM schemes LEFT JOIN scheme_members ON '
+		  . 'scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
+		$locus,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 	my ( @schemes, %desc );
-	while ( my ( $scheme_id, $desc ) = $sql->fetchrow_array ) {
-		push @schemes, $scheme_id;
-		$desc{$scheme_id} = $desc;
+	foreach my $scheme (@$scheme_list) {
+		push @schemes, $scheme->{'id'};
+		$desc{ $scheme->{'id'} } = $scheme->{'description'};
 	}
-	say "<table class=\"resultstable\"><tr><th>Base</th><th>Number of alleles</th><th>Percentage of alleles</th>";
-	say "<th>$desc{$_} profiles</th>" foreach (@schemes);
-	say "</tr>";
+	say q(<table class="resultstable"><tr><th>Base</th><th>Number of alleles</th><th>Percentage of alleles</th>);
+	say qq(<th>$desc{$_} profiles</th>) foreach @schemes;
+	say q(</tr>);
 	foreach my $base ( sort { $site{$b} <=> $site{$a} } ( keys(%site) ) ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -614,12 +554,12 @@ sub _site_explorer {
 		my @allelelist    = @{ $allele{$base} };
 		my @sortedalleles = sort { $a <=> $b } @allelelist;
 		my $pc            = BIGSdb::Utils::decimal_place( ( ( $site{$base} / $seq_count ) * 100 ), 2 );
-		print "<tr class=\"td$td\"><td>$base</td><td>$site{$base}";
+		say qq(<tr class="td$td"><td>$base</td><td>$site{$base});
 		if ( $site{$base} < 6 ) {
 			local $" = ", $cleaned-";
-			say "<br />($cleaned-@sortedalleles)";
+			say qq(<br />($cleaned-@sortedalleles));
 		}
-		say "</td><td>$pc</td>";
+		say qq(</td><td>$pc</td>);
 		local $" = "' OR $locus='";
 		foreach (@schemes) {
 			my $qry      = "SELECT COUNT(*) FROM scheme_$_ WHERE $locus='@allelelist'";
@@ -632,63 +572,53 @@ sub _site_explorer {
 			} else {
 				$pcST = BIGSdb::Utils::decimal_place( ( ( $numSTs / $totalSTs ) * 100 ), 2 );
 			}
-			say "<br />($pcST\%)</td>";
+			say qq(<br />($pcST\%)</td>);
 		}
-		say "</tr>";
+		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</table>\n</div>";
+	say q(</table></div>);
 	return;
 }
 
+sub _get_selected_alleles {
+	my ( $self, $locus, $allele_ids ) = @_;
+	my %selected = map { $_ => 1 } @$allele_ids;
+	my $alleles = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	my @seqs;
+	foreach my $allele (@$alleles) {
+		next if !$selected{ $allele->{'allele_id'} };
+		push @seqs, $allele->{'sequence'};
+	}
+	return \@seqs;
+}
+
 sub _codon {
-	my ($self) = @_;
+	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Codon Usage</h1>";
+	say q(<h1>Codon Usage</h1>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>EMBOSS is not installed - function unavailable.</p></div>";
-		return;
-	}
-	my $locus = $q->param('locus');
-	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus.</p></div>";
-		return;
-	}
-	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
-	if ( !$total_seq_count ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
-		return;
-	}
-	my @allele_ids = $q->param('allele_ids');
-	if ( !@allele_ids ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
+		say q(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $orf = $locus_info->{'orf'} || 1;
-	say qq(<div class="box" id="resultsheader">);
+	my $orf = $locus_info->{'orf'} // 1;
+	say q(<div class="box" id="resultspanel">);
 	my $cleaned = $self->clean_locus($locus);
-	say "<h2>$cleaned</h2>";
-	say "<p>ORF used: $orf</p>";
-	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
-	my @seqs;
-
-	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
-		next if none { $_ eq $allele_id } @allele_ids;
-		push @seqs, $seq;
-	}
-	my $seq_count = scalar @seqs;
-	my $plural = $seq_count != 1 ? 's' : '';
-	say "<p>$seq_count allele$plural included in analysis.</p>";
+	say qq(<h2>$cleaned</h2>);
+	say qq(<p>ORF used: $orf</p>);
+	my $seqs      = $self->_get_selected_alleles( $locus, $allele_ids );
+	my $seq_count = scalar @$seqs;
+	my $plural    = $seq_count != 1 ? 's' : '';
+	say qq(<p>$seq_count allele$plural included in analysis.</p>);
 	my $temp     = BIGSdb::Utils::get_random();
 	my $tempfile = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 	my $outfile  = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
 	open( my $fh, '>', "$tempfile" ) or $logger->error("could not open temp file $tempfile");
 	my $i = 1;
 
-	foreach (@seqs) {
+	foreach (@$seqs) {
 		my $seq = BIGSdb::Utils::chop_seq( $_, $orf );
 		say $fh ">$i\n$seq";
 		$i++;
@@ -697,105 +627,99 @@ sub _codon {
 	system("$self->{'config'}->{'emboss_path'}/cusp -sequence $tempfile -outfile $outfile 2> /dev/null");
 	unlink $tempfile;
 	my @codons;
-	say "<h3>GC content</h3>";
-	say "<p>";
+	say q(<h3>GC content</h3>);
+	say q(<p>);
 	open $fh, '<', $outfile || $logger->error("Can't open $outfile for reading");
 
 	while ( my $line = <$fh> ) {
 		chomp $line;
-		push @codons, $line if $line && $line !~ /^#/;
-		if ( $line =~ /%/ ) {
-			$line =~ s/#//;
-			$line =~ s/ GC/: GC/;
-			say "$line<br />";
+		push @codons, $line if $line && $line !~ /^\#/x;
+		if ( $line =~ /%/x ) {
+			$line =~ s/\#//x;
+			$line =~ s/\ GC/:\ GC/x;
+			say qq($line<br />);
 		}
 	}
-	say "</p>";
 	close $fh;
-	if ( !$locus_info->{'coding_sequence'} ) {
-		say "</div>";
-		return;
-	}
-	print << "HTML";
-
-<h3>Codons</h3>
-<p>Fraction: Proportion of usage of a given codon among its 
-redundant set (i.e. the set of codons which code for this 
-codon's amino acid).<br />
-Frequency: Usage of given codon per 1000 codons.</p>
-<table class="tablesorter" id=\"sortTable\"><thead><tr><th>Codon</th>
-<th>Amino acid</th><th>Fraction</th><th>Frequency</th><th>Number</th></tr></thead>
-<tbody>
-HTML
+	say q(</p></div>);
+	return if !$locus_info->{'coding_sequence'};
+	say q(<div class="box" id="resultstable"><h3>Codons</h3>)
+	  . q[<p>Fraction: Proportion of usage of a given codon among its ]
+	  . q[redundant set (i.e. the set of codons which code for this ]
+	  . q[codon's amino acid).<br />]
+	  . q[Frequency: Usage of given codon per 1000 codons.</p>]
+	  . q[<table class="tablesorter" id="sortTable"><thead><tr><th>Codon</th>]
+	  . q[<th>Amino acid</th><th>Fraction</th><th>Frequency</th><th>Number</th></tr></thead>]
+	  . q[<tbody>];
 	local $" = '</td><td>';
 	my $td = 1;
 	foreach (@codons) {
-		my @values = split /\s+/, $_;
-		say "<tr class=\"td$td\"><td>@values</td></tr>";
+		my @values = split /\s+/x, $_;
+		say qq(<tr class="td$td"><td>@values</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</tbody>\n</table>";
+	say q(</tbody></table>);
 	unlink $outfile;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
 sub _translate {
-	my ($self) = @_;
+	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Translate - aligned protein sequences</h1>";
+	say q(<h1>Translate - aligned protein sequences</h1>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
-		say qq(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
+		say q(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
 		return;
 	}
-	my $locus = $q->param('locus');
-	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say qq(<div class="box" id="statusbad"><p>Invalid locus.</p></div>);
-		return;
+	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
+	my $max_sequences = MAX_SEQUENCES;
+	my $allele_count  = @$allele_ids;
+	if ( $allele_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
+		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
+		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		my $orf = $locus_info->{'orf'} // 1;
+		say q(<div class="box" id="resultspanel">);
+		my $cleaned = $self->clean_locus($locus);
+		say qq(<h2>$cleaned</h2>);
+		say qq(<p>ORF used: $orf</p>);
+		my $plural = $allele_count != 1 ? 's' : '';
+		say q(<p>The width of the alignment can be varied by going to the options page.</p>) if $allele_count > 1;
+		say qq(<p>$allele_count allele$plural included in analysis.</p>);
+		my $final_file = $self->_run_translate( $locus, $allele_ids );
+		say q(<pre style="font-size:1.2em">);
+		$self->print_file($final_file);
+		say q(</pre></div>);
+		unlink $final_file;
+	} elsif ( $locus_info->{'length_varies'} && @$allele_ids > MAX_SEQUENCES ) {
+		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore )
+		  . qq(require real-time alignment. Consequently this function is limited to $max_sequences )
+		  . qq(sequences or fewer - you have selected $allele_count.</p></div>);
+	} else {
+		$self->_submit_job( $locus, $allele_ids );
 	}
-	my $total_seq_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
-	if ( !$total_seq_count ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
-		return;
-	}
-	my @allele_ids = $q->param('allele_ids');
-	if ( !@allele_ids ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
-		return;
-	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( $locus_info->{'length_varies'} && @allele_ids > MAX_TRANSLATE_SEQUENCES ) {
-		say qq(<div class="box" id="statusbad"><p>This locus is variable length and will therefore require real-time alignment.  )
-		  . "Consequently this function is limited to "
-		  . MAX_TRANSLATE_SEQUENCES
-		  . " sequences or fewer - you have selected "
-		  . @allele_ids
-		  . ".</p></div>";
-		return;
-	}
-	my $orf = $locus_info->{'orf'} || 1;
-	say qq(<div class="box" id="resultsheader">);
-	my $cleaned = $self->clean_locus($locus);
-	say "<h2>$cleaned</h2>";
-	say "<p>ORF used: $orf</p>";
-	my $sql = $self->{'db'}->prepare("SELECT allele_id,sequence FROM sequences WHERE locus=?");
-	eval { $sql->execute($locus) };
-	$logger->error($@) if $@;
-	my %seqs_hash;
+	return;
+}
 
-	while ( my ( $allele_id, $seq ) = $sql->fetchrow_array ) {
-		next if none { $_ eq $allele_id } @allele_ids;
-		$seqs_hash{$allele_id} = $seq;
+sub _run_translate {
+	my ( $self, $locus, $allele_ids, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my %seqs_hash;
+	my %selected = map { $_ => 1 } @$allele_ids;
+	my $alleles = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $allele (@$alleles) {
+		next if !$selected{ $allele->{'allele_id'} };
+		$seqs_hash{ $allele->{'allele_id'} } = $allele->{'sequence'};
 	}
-	my $seq_count = keys %seqs_hash;
-	my $plural = $seq_count != 1 ? 's' : '';
-	say "<p>The width of the alignment can be varied by going to the options page.</p>" if $seq_count > 1;
-	say "<p>$seq_count allele$plural included in analysis.</p>";
-	my $temp      = BIGSdb::Utils::get_random();
-	my $tempfile  = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
-	my $outfile   = "$self->{'config'}->{'secure_tmp_dir'}/$temp.pep";
-	my $finalfile = "$self->{'config'}->{'secure_tmp_dir'}/$temp.aln";
-	open( my $fh, '>', "$tempfile" ) or $logger->error("could not open temp file $tempfile");
+	my $seq_count  = keys %seqs_hash;
+	my $temp       = BIGSdb::Utils::get_random();
+	my $temp_file  = "$self->{'config'}->{'secure_tmp_dir'}/$temp.txt";
+	my $out_file   = "$self->{'config'}->{'tmp_dir'}/$temp.pep";
+	my $final_file = "$self->{'config'}->{'tmp_dir'}/$temp.aln";
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $orf        = $locus_info->{'orf'} // 1;
+	open( my $fh, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 		foreach ( sort { $a <=> $b } keys %seqs_hash ) {
@@ -807,31 +731,32 @@ sub _translate {
 		}
 	}
 	close $fh;
-	system("$self->{'config'}->{'emboss_path'}/transeq -sequence $tempfile -outseq $outfile -frame $orf -trim -clean 2> /dev/null");
+	system( "$self->{'config'}->{'emboss_path'}/transeq -sequence $temp_file -outseq "
+		  . "$out_file -frame $orf -trim -clean 2> /dev/null" );
 	if ( $seq_count > 1 ) {
 		if ( $locus_info->{'length_varies'} ) {
 			my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 			if ( -x $self->{'config'}->{'mafft_path'} ) {
-				my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
-				system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $outfile > $aligned_file");
+				my $threads =
+				  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} )
+				  ? $self->{'config'}->{'mafft_threads'}
+				  : 1;
+				system( "$self->{'config'}->{'mafft_path'} --thread $threads "
+					  . "--quiet --preservecase $out_file > $aligned_file" );
 			} elsif ( -x $self->{'config'}->{'muscle_path'} ) {
-				system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $outfile, -out => $aligned_file ) );
+				system( $self->{'config'}->{'muscle_path'}, '-quiet', ( -in => $out_file, -out => $aligned_file ) );
 			}
-			unlink $outfile;
-			$outfile = $aligned_file;
+			unlink $out_file;
+			$out_file = $aligned_file;
 		}
-		system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $self->{'prefs'}->{'alignwidth'} -sequence $outfile "
-			  . "-outfile $finalfile 2> /dev/null" );
-		unlink $tempfile;
+		my $alignwidth = $options->{'alignwidth'} // $self->{'prefs'}->{'alignwidth'} // 100;
+		system( "$self->{'config'}->{'emboss_path'}/showalign -nosimilarcase -width $alignwidth "
+			  . "-sequence $out_file -outfile $final_file 2> /dev/null" );
+		unlink $temp_file;
 	} else {
-		$finalfile = $outfile;
+		$final_file = $out_file;
 	}
-	say "<pre style=\"font-size:1.2em\">";
-	$self->print_file($finalfile);
-	say "</pre></div>";
-	unlink $outfile;
-	unlink $finalfile;
-	return;
+	return $final_file;
 }
 
 sub get_freq_table {
@@ -842,22 +767,23 @@ sub get_freq_table {
 	my $filename = $self->{'config'}->{'tmp_dir'} . "/$temp.txt";
 	open( my $fh, '>', $filename ) or $logger->error("Can't open output file $filename");
 	my $heading = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
+	$buffer .= q(<div class="box" id="resultstable">);
 	$buffer .= "<h2>$heading frequencies</h2>\n";
 	say $fh "$heading frequencies";
 	say $fh '-' x length("$heading frequencies");
 	my @chars = $locus_info->{'data_type'} eq 'DNA' ? qw(A C G T -) : qw (G A L M F W K Q E S P V I C Y H R N D T -);
 	my $cols = @chars * 2;
-	$buffer .= "<div class=\"scrollable\">\n";
-	$buffer .= "<table class=\"tablesorter\" id=\"sortTable\"><thead><tr><th rowspan=\"2\">Position</th><th colspan=\"$cols\" "
-	  . "class=\"{sorter: false}\">$heading</th></tr>\n";
+	$buffer .= q(<div class="scrollable">);
+	$buffer .= q(<table class="tablesorter" id="sortTable"><thead><tr><th rowspan="2">Position</th>)
+	  . qq(<th colspan="$cols" class="{sorter: false}">$heading</th></tr>);
 	local $" = '</th><th>';
-	$buffer .= "<tr><th>@chars</th>";
+	$buffer .= qq(<tr><th>@chars</th>);
 	local $" = '</th><th>%';
-	$buffer .= "<th>\%@chars</th></tr>\n</thead><tbody>\n";
+	$buffer .= qq(<th>\%@chars</th></tr></thead><tbody>);
 	local $" = "\t";
-	print $fh "Position\t@chars";
+	print $fh qq(Position\t@chars);
 	local $" = "\t\%";
-	say $fh "\t\%@chars";
+	say $fh qq(\t\%@chars);
 	my $td = 1;
 	my $total;
 	my $first = 1;
@@ -874,17 +800,18 @@ sub get_freq_table {
 		foreach my $nuc (@chars) {
 			$freqs->{$_}->{$nuc} ||= 0;
 			my $percent = BIGSdb::Utils::decimal_place( 100 * $freqs->{$_}->{$nuc} / $total, 2 );
-			$buffer .= $percent > 0 ? "<td>$percent</td>" : "<td></td>";
-			print $fh $percent > 0 ? "\t$percent" : "\t";
+			$buffer .= $percent > 0 ? qq(<td>$percent</td>) : q(<td></td>);
+			print $fh $percent > 0 ? qq(\t$percent) : qq(\t);
 		}
-		$buffer .= "</tr>\n";
-		print $fh "\n";
+		$buffer .= qq(</tr>\n);
+		print $fh qq(\n);
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
 	}
-	$buffer .= "</tbody></table>\n</div>\n";
+	$buffer .= q(</tbody></table></div></div>);
 	close $fh;
-	$buffer .= "<p><a href=\"/tmp/$temp.txt\">Tab-delimited text format</a></p>";
+	$buffer .= q(<div class="box" id="resultsfooter"><p>Download: )
+	  . qq(<a href="/tmp/$temp.txt">Tab-delimited text format</a></p></div>);
 	return ( $buffer, "$temp.txt" );
 }
 1;

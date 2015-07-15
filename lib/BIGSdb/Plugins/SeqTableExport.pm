@@ -70,7 +70,7 @@ sub run {
 		return;
 	}
 	my $query_file = $q->param('query_file');
-	my $list       = $self->_get_id_list($query_file);
+	my $list       = $self->_get_id_list($query_file);#TODO Use Plugin::get_allele_id_list
 	if ( !@$list ) {
 		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
 		$logger->error("No sequences available.");

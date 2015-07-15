@@ -468,6 +468,18 @@ sub get_id_list {
 	return $list;
 }
 
+sub get_allele_id_list {
+	my ( $self, $query_file ) = @_;
+	if ($query_file) {
+		my $qry_ref = $self->get_query($query_file);
+		return if ref $qry_ref ne 'SCALAR';
+		$$qry_ref =~ s/\*/allele_id/x;
+		my $ids = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
+		return $ids;
+	}
+	return \@;;
+}
+
 sub get_selected_fields {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
