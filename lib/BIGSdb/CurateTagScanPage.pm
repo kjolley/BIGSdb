@@ -550,28 +550,31 @@ sub _tag {
 			next if !$self->is_allowed_to_view_isolate($isolate_id);
 			my $display_locus = $self->clean_locus($locus);
 			my $seqbin_id     = $q->param("id_$isolate_id\_$locus\_seqbin_id_$id");
-			if (   $q->param("id_$isolate_id\_$locus\_allele_$id")
-				&& defined $q->param("id_$isolate_id\_$locus\_allele_id_$id")
-				&& defined $seqbin_id )
+			if ( $q->param("id_$isolate_id\_$locus\_allele_$id")
+				&& defined $q->param("id_$isolate_id\_$locus\_allele_id_$id") )
 			{
-				my $allele_id      = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
+				my $allele_id = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
 				my $set_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
-				my $seqbin_sender  = $self->{'datastore'}->run_query( 'SELECT sender FROM sequence_bin WHERE id=?',
-					$seqbin_id, { cache => 'CurateTagScanPage::tag::seqbin_sender' } );
+				my $seqbin_sender;
+				if ($seqbin_id) {    #Seqbin id may not exist if scanning for missing alleles.
+					$seqbin_sender = $self->{'datastore'}->run_query( 'SELECT sender FROM sequence_bin WHERE id=?',
+						$seqbin_id, { cache => 'CurateTagScanPage::tag::seqbin_sender' } );
+				}
+				my $sender = $seqbin_sender // $self->get_curator_id;
 				my $status = $allele_id ? 'confirmed' : 'provisional';
 				if ( ( none { $allele_id eq $_ } @$set_allele_ids )
 					&& !$designation_added->{$isolate_id}->{$locus}->{$allele_id} )
 				{
-					push @updates, {
+					push @updates,
+					  {
 						statement =>
 						  'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
 						  . 'date_entered,datestamp,comments) VALUES (?,?,?,?,?,?,?,?,?,?)',
 						arguments => [
-							$isolate_id, $locus, $allele_id, $seqbin_sender, $status, 'automatic', $curator_id, 'now',
-							'now',
+							$isolate_id, $locus, $allele_id, $sender, $status, 'automatic', $curator_id, 'now', 'now',
 							'Scanned from sequence bin'
 						]
-					};
+					  };
 					push @allele_updates, ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  $allele_id";
 					push @{ $history->{$isolate_id} }, "$locus: new designation '$allele_id' (sequence bin scan)";
 					$designation_added->{$isolate_id}->{$locus}->{$allele_id} = 1;
