@@ -26,7 +26,8 @@ my $logger = get_logger('BIGSdb.Charts');
 sub piechart {
 
 	#size = 'small' or 'large'
-	my ( $labels, $data, $filename, $num_labels, $size, $prefs ) = @_;
+	my ( $labels, $data, $filename, $num_labels, $size, $prefs, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$prefs->{'style'} = 'pie' if !$prefs->{'style'} || $prefs->{'style'} ne 'doughnut';
 
 	#if there are more than $num_labels headings, display the top ones and group the rest
@@ -80,7 +81,7 @@ sub piechart {
 	$chart->setStartAngle( 45, 0 );
 	$chart->set3D() if $prefs->{'threeD'};
 	$chart->setBackground(0x00FFFFFF);
-	$chart->setTransparentColor(0x00FFFFFF);
+	$chart->setTransparentColor(0x00FFFFFF) if !$options->{'no_transparent'};
 	{
 		no warnings 'once';
 		$chart->setLabelLayout($perlchartdir::SideLayout);
