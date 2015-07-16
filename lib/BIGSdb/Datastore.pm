@@ -93,7 +93,7 @@ sub get_user_string {
 	$user .= "$info->{'first_name'} "               if $info->{'first_name'};
 	$user .= $info->{'surname'}                     if $info->{'surname'};
 	$user .= '</a>'                                 if $use_email;
-
+	$info->{'affiliation'} =~ s/^\s*//x;
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
 		$user .= ", $info->{'affiliation'}";
 	}
