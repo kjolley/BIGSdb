@@ -101,9 +101,9 @@ sub run {
 		$self->_do_analysis($list_table);
 		return;
 	}
-	say q(<div class="box" id="queryform">);
+	say q(<div class="box" id="queryform"><div class="scrollable">);
 	$self->_print_tree;
-	say q(</div>);
+	say q(</div></div>);
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes ORDER BY display_order,description', undef, { fetch => 'col_arrayref' } );
@@ -116,7 +116,9 @@ sub run {
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	say q(<div class="box" id="resultstable">);
 	foreach my $scheme_id (@selected_schemes) {
+		say q(<div class="scrollable">);
 		$self->_print_scheme_table( $list_table, $scheme_id );
+		say q(</div>);
 	}
 	say q(</div>);
 	return;
