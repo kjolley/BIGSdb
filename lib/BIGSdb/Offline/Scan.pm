@@ -749,7 +749,6 @@ sub _parse_blast_exact {
 	open( my $blast_fh, '<', $full_path )
 	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@; );
 	my @matches;
-	my $lengths;
 	my $matched_already;
 	my $region_matched_already;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -758,37 +757,33 @@ sub _parse_blast_exact {
 		next if !$line || $line =~ /^\#/x;
 		my @record = split /\s+/x, $line;
 		if ( $record[2] == 100 ) {    #identity
-			my $length;
-			if ( ref $lengths ne 'HASH' ) {
-				if ( $record[1] eq 'ref' ) {
-					$lengths->{'ref'} =
-					  $self->{'datastore'}->run_query( 'SELECT length(reference_sequence) FROM loci WHERE id=?',
-						$locus, { cache => 'Scan::parse_blast_exact' } );
-				} else {
-					$lengths = $self->{'datastore'}->get_locus($locus)->get_all_sequence_lengths;
-				}
+			my $ref_length;
+			if ( $record[1] eq 'ref' ) {
+				$ref_length = length( $locus_info->{'reference_sequence'} );
+			} else {
+				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
+				$ref_length = length $$ref_seq;
 			}
-			next if !defined $lengths->{ $record[1] };
-			$length = $lengths->{ $record[1] };
+			next if !defined $ref_length;
 			if (
 				(
 					(
-						$record[8] == 1             #sequence start position
-						&& $record[9] == $length    #end position
+						$record[8] == 1                 #sequence start position
+						&& $record[9] == $ref_length    #end position
 					)
 					|| (
-						$record[8] == $length       #sequence start position (reverse complement)
-						&& $record[9] == 1          #end position
+						$record[8] == $ref_length       #sequence start position (reverse complement)
+						&& $record[9] == 1              #end position
 					)
 				)
-				&& !$record[4]                      #no gaps
+				&& !$record[4]                          #no gaps
 			  )
 			{
 				$match->{'seqbin_id'} = $record[0];
 				$match->{'allele'}    = $record[1];
 				$match->{'identity'}  = $record[2];
 				$match->{'alignment'} = $self->{'cgi'}->param('tblastx') ? ( $record[3] * 3 ) : $record[3];
-				$match->{'length'}    = $length;
+				$match->{'length'}    = $ref_length;
 				if ( $record[6] < $record[7] ) {
 					$match->{'start'} = $record[6];
 					$match->{'end'}   = $record[7];
