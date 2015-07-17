@@ -432,7 +432,7 @@ div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader {background:#d5e0d5;padding:5px}
 div#resultsfooter {background:#d5e0d5;padding:5px}
-div#resultstable {background:#e0e0e0}
+div#resultstable, div.resultstable {background:#e0e0e0}
 div#resultspanel {background:#f0f0f0}
 div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}

@@ -116,6 +116,29 @@ sub get_all_sequences {
 	return \%seqs;
 }
 
+sub get_sequence_count {
+	my ($self) = @_;
+	if ( !$self->{'db'} ) {
+		$logger->info("No connection to locus $self->{'id'} database");
+		return;
+	}
+	my $qry;
+	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
+		$qry = "SELECT COUNT(*) FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}=?";
+	} else {
+		$qry = "SELECT COUNT(*) FROM $self->{'dbase_table'}";
+	}
+	my $sql = $self->{'db'}->prepare($qry);
+	my @args;
+	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
+	eval { $sql->execute(@args) };
+	if ($@) {
+		$logger->error($@);
+		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+	}
+	return $sql->fetchrow_array;
+}
+
 sub get_flags {
 	my ( $self, $allele_id ) = @_;
 	if ( !$self->{'db'} ) {

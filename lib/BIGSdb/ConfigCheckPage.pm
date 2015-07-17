@@ -27,189 +27,223 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	say "<h1>Configuration check - $desc</h1>";
-	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) ) {
-		say qq(<div class="box" id="statusbad"><p>You do not have permission to view this page.</p></div>);
+	say qq(<h1>Configuration check - $desc</h1>);
+	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) )
+	{
+		say q(<div class="box" id="statusbad"><p>You do not have permission to view this page.</p></div>);
 		return;
 	}
-	say qq(<div class="box" id="resultstable">);
-	say "<h2>Helper applications</h2>";
-	say qq(<div class="scrollable"><table class="resultstable"><tr><th>Program</th><th>Path</th><th>Installed</th>)
-	  . qq(<th>Executable</th></tr>);
-	my %helpers;
-	{
-		no warnings 'uninitialized';
-		%helpers = (
-			'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
-			'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
-			'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
-			blastn             => $self->{'config'}->{'blast+_path'} . '/blastn',
-			blastp             => $self->{'config'}->{'blast+_path'} . '/blastp',
-			blastx             => $self->{'config'}->{'blast+_path'} . '/blastx',
-			tblastx            => $self->{'config'}->{'blast+_path'} . '/tblastx',
-			makeblastdb        => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
-			mafft              => $self->{'config'}->{'mafft_path'},
-			muscle             => $self->{'config'}->{'muscle_path'},
-			ipcress            => $self->{'config'}->{'ipcress_path'},
-			mogrify            => $self->{'config'}->{'mogrify_path'},
-		);
-	}
-	my $td = 1;
-	foreach ( sort { $a cmp $b } keys %helpers ) {
-		say "<tr class=\"td$td\"><td>$_</td><td>$helpers{$_}</td><td>"
-		  . ( -e ( $helpers{$_} ) ? '<span class="statusgood">ok</span>' : '<span class="statusbad">X</span>' )
-		  . "</td><td>"
-		  . ( -x ( $helpers{$_} ) ? '<span class="statusgood">ok</span>' : '<span class="statusbad">X</span>' )
-		  . "</td></tr>";
-		$td = $td == 1 ? 2 : 1;
-	}
-	say "</table></div>";
+	$self->_check_helpers;
 	local $| = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say "<h2>Locus databases</h2>";
-		my $set_id = $self->get_set_id;
-		my $set_clause =
-		  $set_id
-		  ? "AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
-		  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-		  : '';
-		my $loci =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id", undef, { fetch => 'col_arrayref' } );
-		$td = 1;
-		if (@$loci) {
-			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Locus</th><th>Database</th><th>Host</th><th>Port</th>)
-			  . qq(<th>Table</th><th>Primary id field</th><th>Secondary id field</th><th>Secondary id field value</th>)
-			  . qq(<th>Sequence field</th><th>Database accessible</th><th>Sequence query</th><th>Sequences assigned</th></tr>);
-			foreach (@$loci) {
-				if ( $ENV{'MOD_PERL'} ) {
-					$self->{'mod_perl_request'}->rflush;
-					return if $self->{'mod_perl_request'}->connection->aborted;
-				}
-				my $locus_info = $self->{'datastore'}->get_locus_info($_);
-				next if !$locus_info->{'dbase_name'};
-				my $cleaned = $self->clean_locus($_);
-				print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>"
-				  . ( $locus_info->{'dbase_host'} || 'localhost' )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_port'} || 5432 )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_table'} || '' )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_id_field'} || '' )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_id2_field'} || '' )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_id2_value'} || '' )
-				  . "</td><td>"
-				  . ( $locus_info->{'dbase_seq_field'} || '' )
-				  . "</td><td>";
-				my $locus_db = $self->{'datastore'}->get_locus($_)->{'db'};
-				if ( !$locus_db ) {
-					say '<span class="statusbad">X</span>';
-				} else {
-					say '<span class="statusgood">ok</span>';
-				}
-				print "</td><td>";
-				my $seq;
-				eval { $seq = $self->{'datastore'}->get_locus($_)->get_allele_sequence('1'); };
-				if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/ ) ) {
-
-					#seq can contain opening brace if sequence_field = table by mistake
-					$logger->debug("$_; $@");
-					say '<span class="statusbad">X</span>';
-				} else {
-					say '<span class="statusgood">ok</span>';
-				}
-				say "</td><td>";
-				my $seqs;
-				eval { $seqs = $self->{'datastore'}->get_locus($_)->get_all_sequences; };
-				if ( $@ || ( ref $seqs eq 'HASH' && scalar keys %$seqs == 0 ) ) {
-					$logger->debug("$_; $@");
-					say '<span class="statusbad">X</span>';
-				} else {
-					say '<span class="statusgood">' . scalar keys(%$seqs) . '</span>';
-				}
-				say "</td></tr>";
-				$td = $td == 1 ? 2 : 1;
-			}
-			say "</table></div>";
-		} else {
-			say "<p>No loci with databases defined.</p>";
-		}
-		print "<h2>Scheme databases</h2>";
-		$set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-		my $schemes =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id", undef, { fetch => 'col_arrayref' } );
-		$td = 1;
-		if (@$schemes) {
-			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Scheme description</th><th>Database</th>)
-			  . qq(<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>);
-			foreach my $scheme_id (@$schemes) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$scheme_info->{'description'} =~ s/&/&amp;/g;
-				print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>"
-				  . ( $scheme_info->{'dbase_name'} || '' )
-				  . "</td><td>"
-				  . ( $scheme_info->{'dbase_host'} || 'localhost' )
-				  . "</td><td>"
-				  . ( $scheme_info->{'dbase_port'} || 5432 )
-				  . "</td><td>"
-				  . ( $scheme_info->{'dbase_table'} || '' )
-				  . "</td><td>";
-				if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
-					print '<span class="statusgood">ok</span>';
-				} else {
-					print '<span class="statusbad">X</span>';
-				}
-				print "</td><td>";
-				eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };
-				if ($@) {
-					print '<span class="statusbad">X</span>';
-				} else {
-					print '<span class="statusgood">ok</span>';
-				}
-				say "</td></tr>";
-				$td = $td == 1 ? 2 : 1;
-			}
-			say "</table></div>";
-		} else {
-			say "<p>No schemes with databases defined.</p>";
-		}
+		$self->_check_locus_databases;
+		$self->_check_scheme_databases;
 	} else {
-
-		#profiles databases
-		my $client_dbs = $self->{'datastore'}->run_query( "SELECT id FROM client_dbases ORDER BY id", undef, { fetch => 'col_arrayref' } );
-		my $buffer;
-		foreach (@$client_dbs) {
-			my $client      = $self->{'datastore'}->get_client_db($_);
-			my $client_info = $self->{'datastore'}->get_client_db_info($_);
-			$buffer .=
-			    "<tr class=\"td$td\"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>"
-			  . "<td>$client_info->{'dbase_name'}</td><td>"
-			  . ( $client_info->{'dbase_host'} || 'localhost' ) . "</td>
-			<td>" . ( $client_info->{'dbase_port'} || 5432 ) . "</td><td>";
-			eval {
-				my $sql = $client->get_db->prepare("SELECT * FROM allele_designations LIMIT 1");
-				$sql->execute;
-			};
-			if ($@) {
-				$buffer .= '<span class="statusbad">X</span>';
-			} else {
-				$buffer .= '<span class="statusgood">ok</span>';
-			}
-			$buffer .= "</td></tr>\n";
-		}
-		if ($buffer) {
-			say "<h2>Client databases</h2>";
-			say qq(<div class="scrollable"><table class="resultstable"><tr><th>Name</th><th>Description</th><th>Database</th>)
-			  . qq(<th>Host</th><th>Port</th><th>Database accessible</th></tr>);
-			say $buffer;
-			say "</table></div>";
-		}
+		$self->_check_client_databases;
 	}
-	say "</div>";
+	return;
+}
+
+sub _check_helpers {
+	my ($self) = @_;
+	my %helpers;
+	%helpers = (
+		'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
+		'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
+		'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
+		blastn             => $self->{'config'}->{'blast+_path'} . '/blastn',
+		blastp             => $self->{'config'}->{'blast+_path'} . '/blastp',
+		blastx             => $self->{'config'}->{'blast+_path'} . '/blastx',
+		tblastx            => $self->{'config'}->{'blast+_path'} . '/tblastx',
+		makeblastdb        => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
+		mafft              => $self->{'config'}->{'mafft_path'},
+		muscle             => $self->{'config'}->{'muscle_path'},
+		ipcress            => $self->{'config'}->{'ipcress_path'},
+		mogrify            => $self->{'config'}->{'mogrify_path'},
+	);
+	my $td = 1;
+	say q(<div class="box resultstable">);
+	say q(<h2>Helper applications</h2>);
+	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
+	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
+	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
+		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
+		  . (
+			-e ( $helpers{$program} ) ? q(<span class="statusgood fa fa-check"></span>)
+			: q(<span class="statusbad fa fa-times"></span>)
+		  )
+		  . q(</td><td>)
+		  . (
+			-x ( $helpers{$program} ) ? q(<span class="statusgood fa fa-check"></span>)
+			: q(<span class="statusbad fa fa-times"></span>)
+		  ) . q(</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table></div></div>);
+	return;
+}
+
+sub _check_locus_databases {
+	my ($self) = @_;
+	say q(<div class="box resultstable">);
+	say q(<h2>Locus databases</h2>);
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? 'AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  . 'WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))'
+	  : '';
+	my $loci =
+	  $self->{'datastore'}->run_query( "SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id",
+		undef, { fetch => 'col_arrayref' } );
+	my $td = 1;
+	if (@$loci) {
+		say q(<div class="scrollable"><table class="resultstable"><tr><th>Locus</th><th>Database</th>)
+		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Primary id field</th><th>Secondary id field</th>)
+		  . q(<th>Secondary id field value</th><th>Sequence field</th><th>Database accessible</th>)
+		  . q(<th>Sequence query</th><th>Sequences assigned</th></tr>);
+		foreach my $locus (@$loci) {
+			if ( $ENV{'MOD_PERL'} ) {
+				$self->{'mod_perl_request'}->rflush;
+				return if $self->{'mod_perl_request'}->connection->aborted;
+			}
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			next if !$locus_info->{'dbase_name'};
+			my $cleaned = $self->clean_locus($locus);
+			print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>"
+			  . ( $locus_info->{'dbase_host'} // 'localhost' )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_port'} // 5432 )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_table'} // q() )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_id_field'} // q() )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_id2_field'} // q() )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_id2_value'} // q() )
+			  . q(</td><td>)
+			  . ( $locus_info->{'dbase_seq_field'} // q() )
+			  . q(</td><td>);
+			my $locus_db = $self->{'datastore'}->get_locus($locus)->{'db'};
+			if ( !$locus_db ) {
+				say q(<span class="statusbad fa fa-times"></span>);
+			} else {
+				say q(<span class="statusgood fa fa-check"></span>);
+			}
+			print q(</td><td>);
+			my $seq;
+			eval { $seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence('1'); };
+			if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/x ) ) {
+
+				#seq can contain opening brace if sequence_field = table by mistake
+				$logger->debug("$locus; $@");
+				say q(<span class="statusbad fa fa-times"></span>);
+			} else {
+				say q(<span class="statusgood fa fa-check"></span>);
+			}
+			say q(</td><td>);
+			my $seq_count;
+			eval { $seq_count = $self->{'datastore'}->get_locus($locus)->get_sequence_count; };
+			if ( $@ || ( $seq_count == 0 ) ) {
+				$logger->debug("$locus; $@");
+				say q(<span class="statusbad fa fa-times"></span>);
+			} else {
+				say qq(<span class="statusgood">$seq_count</span>);
+			}
+			say q(</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</table></div>);
+	} else {
+		say q(<p class="statusbad">No loci with databases defined.</p>);
+	}
+	say q(</div>);
+	return;
+}
+
+sub _check_scheme_databases {
+	my ($self) = @_;
+	say q(<div class="box resultstable">);
+	say q(<h2>Scheme databases</h2>);
+	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+	my $schemes =
+	  $self->{'datastore'}->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id",
+		undef, { fetch => 'col_arrayref' } );
+	my $td = 1;
+	if (@$schemes) {
+		say q(<div class="scrollable"><table class="resultstable"><tr><th>Scheme description</th><th>Database</th>)
+		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>);
+		foreach my $scheme_id (@$schemes) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+			$scheme_info->{'description'} =~ s/&/&amp;/gx;
+			print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>"
+			  . ( $scheme_info->{'dbase_name'} // q() )
+			  . q(</td><td>)
+			  . ( $scheme_info->{'dbase_host'} // 'localhost' )
+			  . q(</td><td>)
+			  . ( $scheme_info->{'dbase_port'} // 5432 )
+			  . q(</td><td>)
+			  . ( $scheme_info->{'dbase_table'} // q() )
+			  . q(</td><td>);
+			if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
+				print q(<span class="statusgood fa fa-check"></span>);
+			} else {
+				print q(<span class="statusbad fa fa-times"></span>);
+			}
+			print q(</td><td>);
+			eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };
+			if ($@) {
+				print q(<span class="statusbad fa fa-times"></span>);
+			} else {
+				print q(<span class="statusgood fa fa-check"></span>);
+			}
+			say q(</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</table></div></div>);
+	} else {
+		say q(<p>No schemes with databases defined.</p>);
+	}
+	return;
+}
+
+sub _check_client_databases {
+	my ($self) = @_;
+	my $client_dbs =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM client_dbases ORDER BY id', undef, { fetch => 'col_arrayref' } );
+	my $buffer;
+	my $td = 1;
+	foreach (@$client_dbs) {
+		my $client      = $self->{'datastore'}->get_client_db($_);
+		my $client_info = $self->{'datastore'}->get_client_db_info($_);
+		$buffer .=
+		    qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
+		  . qq(<td>$client_info->{'dbase_name'}</td><td>)
+		  . ( $client_info->{'dbase_host'} // 'localhost' )
+		  . q(</td><td>)
+		  . ( $client_info->{'dbase_port'} // 5432 )
+		  . q(</td><td>);
+		eval {
+			my $sql = $client->get_db->prepare('SELECT * FROM allele_designations LIMIT 1');
+			$sql->execute;
+		};
+		if ($@) {
+			$buffer .= q(<span class="statusbad fa fa-times"></span>);
+		} else {
+			$buffer .= q(<span class="statusgood fa fa-check"></span>);
+		}
+		$buffer .= "</td></tr>\n";
+	}
+	if ($buffer) {
+		say q(<div class="box resultstable">);
+		say q(<h2>Client databases</h2>);
+		say q(<div class="scrollable"><table class="resultstable"><tr><th>Name</th><th>Description</th>)
+		  . q(<th>Database</th><th>Host</th><th>Port</th><th>Database accessible</th></tr>);
+		say $buffer;
+		say q(</table></div></div>);
+	}
 	return;
 }
 
