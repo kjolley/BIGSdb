@@ -94,6 +94,7 @@ sub get_user_string {
 	$user .= $info->{'surname'}                     if $info->{'surname'};
 	$user .= '</a>'                                 if $use_email;
 	$info->{'affiliation'} =~ s/^\s*//x;
+
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
 		$user .= ", $info->{'affiliation'}";
 	}
@@ -1063,10 +1064,9 @@ sub create_temp_scheme_status_table {
 	eval { $self->{'db'}->do($create_table) };
 	$logger->error($@) if $@;
 
-	#If run from cache script, create new temp table, then drop old and rename the new - 
+	#If run from cache script, create new temp table, then drop old and rename the new -
 	#this should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
-		
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
 		$logger->error($@) if $@;
 		$self->{'db'}->commit;
@@ -1086,6 +1086,15 @@ sub create_temp_list_table {
 	}
 	close $fh;
 	return;
+}
+
+sub create_temp_list_table_from_array {
+	my ( $self, $datatype, $list ) = @_;
+	$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+	foreach my $value (@$list) {
+		$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+	}
+	return 'temp_list';
 }
 
 sub _create_profile_indices {
@@ -1947,7 +1956,7 @@ sub is_sequence_similar_to_others {
 sub get_citation_hash {
 	my ( $self, $pmids, $options ) = @_;
 	my $citation_ref = {};
-	my %att = (
+	my %att          = (
 		dbase_name => $self->{'config'}->{'ref_db'},
 		host       => $self->{'system'}->{'host'},
 		port       => $self->{'system'}->{'port'},

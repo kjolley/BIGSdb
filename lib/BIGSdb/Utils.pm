@@ -150,9 +150,10 @@ sub split_line {
 sub break_line {
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
-	my $seq = '';
+	$orig_string //= q();
+	my $seq = q();
 	my $s;
-	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, '';
+	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, q();
 	$seq =~ s/\n$//x;
 	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }

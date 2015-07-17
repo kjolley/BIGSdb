@@ -94,11 +94,11 @@ sub run {
 	}
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
-	my $qry = $$qry_ref;
-	$qry =~ s/ORDER\ BY.*$//gx;
 	return if !$self->create_temp_tables($qry_ref);
 	if ( $q->param('field_breakdown') || $q->param('download') ) {
-		$self->_do_analysis( \$qry );
+		my $ids = $self->get_ids_from_query($qry_ref);
+		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+		$self->_do_analysis($list_table);
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -112,24 +112,24 @@ sub run {
 		push @selected_schemes, $_ if $q->param("s_$_");
 	}
 	return if !@selected_schemes;
+	my $ids = $self->get_ids_from_query($qry_ref);
+	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	say q(<div class="box" id="resultstable">);
 	foreach my $scheme_id (@selected_schemes) {
-		$self->_print_scheme_table( $scheme_id, \$qry );
+		$self->_print_scheme_table( $list_table, $scheme_id );
 	}
 	say q(</div>);
 	return;
 }
 
 sub _do_analysis {
-	my ( $self, $qry_ref ) = @_;
-	my $q           = $self->{'cgi'};
-	my $field_query = $$qry_ref;
-	my $field_type  = 'text';
+	my ( $self, $list_table ) = @_;
+	my $q          = $self->{'cgi'};
+	my $field_type = 'text';
 	my ( $field, $scheme_id );
 	my $temp_table;
-	my $view = $self->{'system'}->{'view'};
+	my $qry;
 	if ( $q->param('type') eq 'field' ) {
-
 		if ( $q->param('field') =~ /^(\d+)_(.*)$/x ) {
 			$scheme_id = $1;
 			$field     = $2;
@@ -143,8 +143,9 @@ sub _do_analysis {
 			if ( $scheme_info->{'dbase_name'} ) {
 				my $continue = 1;
 				try {
-					$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-					$scheme_fields_qry = "SELECT * FROM $view LEFT JOIN $temp_table ON $view.id=$temp_table.id";
+					$temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+					$qry        = "SELECT DISTINCT(${temp_table}.$field),COUNT(${temp_table}.$field) FROM $list_table "
+					  . "LEFT JOIN $temp_table ON $list_table.value=$temp_table.id GROUP BY $temp_table.$field";
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say qq("<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
@@ -153,21 +154,6 @@ sub _do_analysis {
 				};
 				return if !$continue;
 			}
-			$field_query = $scheme_fields_qry;
-			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-			$field_type = $scheme_field_info->{'type'};
-			if ( $field_type eq 'integer' ) {
-				$field_query =~ s/\*/DISTINCT(CAST($temp_table\.$field AS int)),COUNT($temp_table\.$field)/x;
-			} else {
-				$field_query =~ s/\*/DISTINCT($temp_table\.$field),COUNT($temp_table\.$field)/x;
-			}
-			if ( $$qry_ref =~ /SELECT\ \*\ FROM\ refs/x || $$qry_ref =~ /SELECT\ \*\ FROM\ $view\ LEFT\ JOIN\ refs/x ) {
-				$field_query =~ s/FROM\ $view/FROM $view LEFT JOIN refs ON refs.isolate_id=id/x;
-			}
-			if ( $$qry_ref =~ /WHERE\ (.*)$/x ) {
-				$field_query .= " AND $1";
-			}
-			$field_query .= " GROUP BY $temp_table.$field";
 		} else {
 			say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
 			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
@@ -175,30 +161,15 @@ sub _do_analysis {
 		}
 	} elsif ( $q->param('type') eq 'locus' ) {
 		my $locus = $q->param('field');
-		if ( !$self->{'datastore'}->is_locus($locus) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid locus passed for analysis!</p></div>);
-			$logger->error( q(Invalid locus passed for analysis. Locus is set as ') . $q->param('field') . q('.) );
-			return;
-		}
+		$field = $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		$locus =~ s/'/\\'/gx;
 		$field_type = $locus_info->{'allele_id_format'};
-		$field_query =~ s/SELECT\ \*\ FROM\ $view/
-		SELECT \* FROM $view LEFT JOIN allele_designations ON isolate_id=$view\.id/x;
-		if ( $field_type eq 'integer' ) {
-			$field_query =~ s/\*/DISTINCT(CAST(allele_id AS int)),COUNT(allele_id)/x;
-		} else {
-			$field_query =~ s/\*/DISTINCT(allele_id),COUNT(allele_id)/x;
-		}
-		if ( $field_query =~ /WHERE/x ) {
-			$field_query =~ s/WHERE\ (.*)$/WHERE \($1\)/x;
-			$field_query .= " AND locus=E'$locus'";
-		} else {
-			$field_query .= " WHERE locus=E'$locus'";
-		}
-		$field_query =~ s/refs\ RIGHT\ JOIN\ $view/
-		refs RIGHT JOIN $view LEFT JOIN allele_designations ON isolate_id=$view\.id/x;
-		$field_query .= ' GROUP BY allele_id';
+		my $allele_id_term = $field_type eq 'integer' ? 'CAST(allele_id AS integer)' : 'allele_id';
+		$locus =~ s/'/\\'/gx;
+		$qry =
+		    "SELECT DISTINCT($allele_id_term),COUNT(allele_id) FROM $list_table LEFT JOIN allele_designations ON "
+		  . "$list_table.value=allele_designations.isolate_id AND allele_designations.locus=E'$locus' "
+		  . 'GROUP BY allele_designations.allele_id';
 	} else {
 		say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
 		$logger->error( q(Invalid field passed for analysis. Field type is set as ') . $q->param('type') . q('.) );
@@ -212,38 +183,36 @@ sub _do_analysis {
 	} else {
 		$temp_fieldname = defined $scheme_id ? "$temp_table\.$field" : $field;
 	}
+	my $field_order =
+	    $field_type eq 'text'
+	  ? $temp_fieldname
+	  : "CAST($temp_fieldname AS int)";
 	try {
 		$order =
 		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', 'order' );
 		if ( $order eq 'frequency' ) {
-			$order = "COUNT($temp_fieldname) desc";
+			$order = "COUNT($temp_fieldname) desc, $field_order";
 		} else {
-			$order =
-			    $field_type eq 'text'
-			  ? $temp_fieldname
-			  : "CAST($temp_fieldname AS int)";
+			$order = $field_order;
 		}
 	}
 	catch BIGSdb::DatabaseNoRecordException with {
-		$order = "COUNT($temp_fieldname) desc";
+		$order = "COUNT($temp_fieldname) desc, $field_order";
 	};
-	$field_query .= " ORDER BY $order";
+	$qry .= " ORDER BY $order";
+	my $total = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $list_table");
 	if ( $q->param('download') ) {
-		$self->_download_alleles( $q->param('field'), \$field_query );
-		return;
+		$self->_download_alleles( $field, $qry );
 	} else {
-		$self->_breakdown_field( $field, $$qry_ref, \$field_query );
+		$self->_breakdown_field( $field, $qry, $total );
 	}
 	return;
 }
 
 sub _breakdown_field {
-	my ( $self, $field, $qry, $field_query_ref ) = @_;
-	my $q   = $self->{'cgi'};
-	my $sql = $self->{'db'}->prepare($$field_query_ref);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my $heading = $q->param('type') eq 'field' ? $field : $q->param('field');
+	my ( $self, $field, $qry, $total ) = @_;
+	my $q            = $self->{'cgi'};
+	my $heading      = $q->param('type') eq 'field' ? $field : $q->param('field');
 	my $html_heading = '';
 	if ( $q->param('type') eq 'locus' ) {
 		my $locus = $q->param('field');
@@ -253,9 +222,7 @@ sub _breakdown_field {
 		push @other_display_names, @$aliases if @$aliases;
 		$html_heading .= qq( <span class="comment">(@other_display_names)</span>) if @other_display_names;
 	}
-	my $td = 1;
-	$qry =~ s/\*/COUNT(\*)/x;
-	my $total  = $self->{'datastore'}->run_query($qry);
+	my $td     = 1;
 	my $format = $q->param('format');
 	if ( $format eq 'text' ) {
 		say qq(Total: $total isolates\n);
@@ -269,7 +236,10 @@ sub _breakdown_field {
 		say qq(<thead><tr><th>$heading$html_heading</th><th>Frequency</th><th>Percentage</th></tr></thead>);
 	}
 	my ( @labels, @values );
-	while ( my ( $allele_id, $count ) = $sql->fetchrow_array ) {
+	$qry =~ s/\*/COUNT(\*)/x;
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+	foreach my $allele (@$data) {
+		my ( $allele_id, $count ) = @$allele;
 		if ($count) {
 			my $percentage = BIGSdb::Utils::decimal_place( $count * 100 / $total, 2 );
 			if ( $format eq 'text' ) {
@@ -354,7 +324,7 @@ sub _breakdown_field {
 }
 
 sub _print_scheme_table {
-	my ( $self, $scheme_id, $qry_ref ) = @_;
+	my ( $self, $list_table, $scheme_id ) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	return
@@ -378,12 +348,11 @@ sub _print_scheme_table {
 	}
 	my $scheme_fields_qry;
 	my $temp_table;
-	my $view = $self->{'system'}->{'view'};
 	if ( $scheme_id && $scheme_info->{'dbase_name'} && @$fields ) {
 		my $continue = 1;
 		try {
 			$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			$scheme_fields_qry = "SELECT * FROM $view LEFT JOIN $temp_table ON $view.id=$temp_table.id";
+			$scheme_fields_qry = "SELECT * FROM $list_table LEFT JOIN $temp_table ON $list_table.value=$temp_table.id";
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			say q(<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
@@ -407,21 +376,10 @@ sub _print_scheme_table {
 
 	if ( $scheme_info->{'dbase_name'} && @$fields ) {
 		my $scheme_query = $scheme_fields_qry;
-		if ( $$qry_ref =~ /SELECT\ \*\ FROM\ refs/x || $$qry_ref =~ /SELECT\ \*\ FROM\ $view\ LEFT\ JOIN\ refs/x ) {
-			$scheme_query =~ s/FROM\ $view/FROM $view LEFT JOIN refs ON refs.isolate_id=id/x;
-		}
-		if ( $$qry_ref =~ /WHERE\ (.*)$/x ) {
-			$scheme_query .= " WHERE ($1)";
-		}
 		local $" = ",$temp_table.";
 		my $field_string = "$temp_table.@$fields";
 		$scheme_query =~ s/\*/$field_string/x;
-		my $sql = $self->{'db'}->prepare($scheme_query);
-		$logger->debug($scheme_query);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		my $data = $sql->fetchall_arrayref;
-
+		my $data = $self->{'datastore'}->run_query( $scheme_query, undef, { fetch => 'all_arrayref' } );
 		foreach my $values (@$data) {
 			my $i = 0;
 			foreach my $field (@$fields) {
@@ -431,15 +389,15 @@ sub _print_scheme_table {
 		}
 	}
 	for my $i ( 0 .. $rows - 1 ) {
-		say "<tr class=\"td$td\">" if $i;
+		say qq(<tr class="td$td">) if $i;
 		my $display;
 		if (@$fields) {
 			$display = $fields->[$i] || '';
 			$display =~ tr/_/ /;
-			say "<td>$display</td>";
+			say qq(<td>$display</td>);
 			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
 				my $value = keys %{ $field_values->{ $fields->[$i] } };
-				say "<td>$value</td><td>";
+				say qq(<td>$value</td><td>);
 				if ($value) {
 					say $q->start_form;
 					say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
@@ -462,29 +420,19 @@ sub _print_scheme_table {
 		}
 		if (@$locus_aliases) {
 			local $" = ', ';
-			$display .= " <span class=\"comment\">(@$locus_aliases)</span>";
+			$display .= qq( <span class="comment">(@$locus_aliases)</span>);
 			$display =~ tr/_/ /;
 		}
-		print defined $display ? "<td>$display</td>" : '<td></td>';
+		print defined $display ? qq(<td>$display</td>) : q(<td></td>);
 		if ( $loci->[$i] ) {
-			my $cleaned_locus = $loci->[$i];
-			$cleaned_locus =~ s/'/\\'/gx;
-			my $locus_query = $$qry_ref;
-			$locus_query =~ s/SELECT\ \*\ FROM\ $view/
-			SELECT \* FROM $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/x;
-			$locus_query =~ s/\*/COUNT (DISTINCT(allele_id))/x;
-			if ( $locus_query =~ /WHERE/x ) {
-				$locus_query =~ s/WHERE\ (.*)$/WHERE \($1\)/x;
-				$locus_query .= " AND locus=E'$cleaned_locus'";
-			} else {
-				$locus_query .= " WHERE locus=E'$cleaned_locus'";
-			}
+			my $locus_query = "SELECT COUNT(DISTINCT(allele_id)) FROM $list_table LEFT JOIN allele_designations ON "
+			  . "allele_designations.isolate_id=$list_table.value";
+			$locus_query .= ' WHERE locus=?';
 			$locus_query .= q( AND status != 'ignore');
-			$locus_query =~ s/refs\ RIGHT\ JOIN\ $view/
-			refs RIGHT JOIN $view LEFT JOIN allele_designations ON allele_designations.isolate_id=$view.id/x;
-			my $value = $self->{'datastore'}->run_query($locus_query);
+			my $value =
+			  $self->{'datastore'}
+			  ->run_query( $locus_query, $loci->[$i], { cache => 'SchemeBreakdown::print_scheme_table:loci' } );
 			say qq(<td>$value</td>);
-
 			if ($value) {
 				say q(<td>);
 				say $q->start_form;
@@ -520,16 +468,21 @@ sub _print_scheme_table {
 }
 
 sub _download_alleles {
-	my ( $self, $locus_name, $query_ref ) = @_;
-	my $allele_ids = $self->{'datastore'}->run_query( $$query_ref, undef, { fetch => 'all_arrayref', slice => {} } );
-	my $locus = $self->{'datastore'}->get_locus($locus_name);
-	foreach (@$allele_ids) {
-		my $seq_ref = $locus->get_allele_sequence( $_->{'allele_id'} );
-		if ( ref $seq_ref eq 'SCALAR' && defined $$seq_ref ) {
-			$seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
-			say ">$_->{'allele_id'}";
-			say $$seq_ref;
+	my ( $self, $locus, $qry ) = @_;
+	my $alleles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $locus_obj = $self->{'datastore'}->get_locus($locus);
+	foreach my $allele (@$alleles) {
+		next if !defined $allele->{'allele_id'};
+		try {
+			my $seq_ref = $locus_obj->get_allele_sequence( $allele->{'allele_id'} );
+			my $formatted_seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
+			say ">$allele->{'allele_id'}";
+			$$formatted_seq_ref = q(-) if length $$formatted_seq_ref == 0;
+			say $$formatted_seq_ref;
 		}
+		catch BIGSdb::BIGSException with {
+			$logger->error("Locus $locus is misconfigured.");
+		};
 	}
 	return;
 }
