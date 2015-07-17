@@ -454,7 +454,7 @@ sub _print_scheme_table {
 				say q(<td></td><td></td>);
 			}
 		} else {
-			say q(<td></td><td></td>);
+			say q(<td></td><td></td><td></td>);
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
