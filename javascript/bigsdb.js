@@ -48,7 +48,7 @@ $(function () {
 });
 
 function reloadTooltips() {
-	var title = $("[title]");
+	var title = $("a[title]").not('.lightbox');
 	$.each(title, function(index, value) {
 		var value = $(this).attr('title');
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>$1</h3>");
