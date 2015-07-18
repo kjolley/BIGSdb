@@ -112,10 +112,6 @@ sub run {
 		push @selected_schemes, $_ if $q->param("s_$_");
 	}
 	return if !@selected_schemes;
-	local $| = 1;
-	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
-	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
-	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	my $ids = $self->get_ids_from_query($qry_ref);
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	say q(<div class="box" id="resultstable">);
@@ -465,6 +461,7 @@ sub _print_scheme_table {
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+		$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	}
 	print "</table>\n";
 	if ( $ENV{'MOD_PERL'} ) {
