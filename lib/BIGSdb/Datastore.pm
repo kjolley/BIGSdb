@@ -1077,12 +1077,21 @@ sub create_temp_scheme_status_table {
 
 sub create_temp_list_table {
 	my ( $self, $datatype, $list_file ) = @_;
-	$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
-	while ( my $value = <$fh> ) {
-		chomp $value;
-		$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+	eval {
+		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+		$self->{'db'}->do('COPY temp_list FROM STDIN');
+		while ( my $value = <$fh> ) {
+			chomp $value;
+			$self->{'db'}->pg_putcopydata("$value\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error("Can't put data into temp table: $@");
+		$self->{'db'}->rollback;
+		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
 	close $fh;
 	return;
@@ -1090,9 +1099,18 @@ sub create_temp_list_table {
 
 sub create_temp_list_table_from_array {
 	my ( $self, $datatype, $list ) = @_;
-	$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
-	foreach my $value (@$list) {
-		$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
+	eval {
+		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+		$self->{'db'}->do('COPY temp_list FROM STDIN');
+		foreach (@$list) {
+			$self->{'db'}->pg_putcopydata("$_\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error("Can't put data into temp table: $@");
+		$self->{'db'}->rollback;
+		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
 	return 'temp_list';
 }

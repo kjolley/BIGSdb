@@ -359,7 +359,7 @@ sub _print_scheme_table {
 		my $continue = 1;
 		try {
 			$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			$scheme_fields_qry = "SELECT * FROM $list_table LEFT JOIN $temp_table ON $list_table.value=$temp_table.id";
+			$scheme_fields_qry = "SELECT * FROM $list_table INNER JOIN $temp_table ON $list_table.value=$temp_table.id";
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			say q(<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
@@ -432,7 +432,7 @@ sub _print_scheme_table {
 		}
 		print defined $display ? qq(<td>$display</td>) : q(<td></td>);
 		if ( $loci->[$i] ) {
-			my $locus_query = "SELECT COUNT(DISTINCT(allele_id)) FROM $list_table LEFT JOIN allele_designations ON "
+			my $locus_query = "SELECT COUNT(DISTINCT(allele_id)) FROM $list_table INNER JOIN allele_designations ON "
 			  . "allele_designations.isolate_id=$list_table.value";
 			$locus_query .= ' WHERE locus=?';
 			$locus_query .= q( AND status != 'ignore');
