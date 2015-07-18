@@ -1075,6 +1075,8 @@ sub create_temp_scheme_status_table {
 	return $table;
 }
 
+#This should only be used to create a table of user entered values.
+#The table name is hard-coded.
 sub create_temp_list_table {
 	my ( $self, $datatype, $list_file ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
@@ -1099,9 +1101,10 @@ sub create_temp_list_table {
 
 sub create_temp_list_table_from_array {
 	my ( $self, $datatype, $list ) = @_;
+	my $table = 'temp_list' . int(rand(99999999));
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
-		$self->{'db'}->do('COPY temp_list FROM STDIN');
+		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
+		$self->{'db'}->do("COPY $table FROM STDIN");
 		foreach (@$list) {
 			$self->{'db'}->pg_putcopydata("$_\n");
 		}
@@ -1112,7 +1115,7 @@ sub create_temp_list_table_from_array {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
-	return 'temp_list';
+	return $table;
 }
 
 sub _create_profile_indices {

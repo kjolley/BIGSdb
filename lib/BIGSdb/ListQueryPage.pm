@@ -168,24 +168,24 @@ sub _run_profile_query {
 		$q->delete($_) foreach qw(query_file list_file datatype);    #Clear if temp files have been deleted.
 		my @list = split /\n/, $q->param('list');
 		@list = uniq @list;
-		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
 		$list_file = BIGSdb::Utils::get_random() . '.list';
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 		open( my $list_fh, '>', $full_path ) || $logger->error("Can't open $list_file for writing");
-		my $valid_values = 0;
+		my @valid_values;
 
 		foreach my $value (@list) {
 			next if $self->_format_value( $field, $datatype, \$value ) == INVALID_VALUE;
 			next if !defined $value;
 			say $list_fh $value;
-			$self->{'db'}->do( 'INSERT INTO temp_list VALUES (?)', undef, ($value) );
-			$valid_values++;
+			push @valid_values, $value;
 		}
+		
 		close $list_fh;
-		if ( !$valid_values ) {
+		if ( !@valid_values ) {
 			say "<div class=\"box\" id=\"statusbad\"><p>No valid values entered.</p></div>";
 			return;
 		}
+		$self->{'datastore'}->create_temp_list_table( $datatype, $list_file );
 		my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		$qry =
 "SELECT * FROM $scheme_view WHERE $scheme_view.$primary_key IN (SELECT $scheme_view.$primary_key FROM $scheme_view INNER JOIN temp_list ON ";
