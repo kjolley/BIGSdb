@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,6 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any);
+use BIGSdb::Page qw(BUTTON_CLASS);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -39,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.2.2',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -66,7 +67,7 @@ sub get_hidden_attributes {
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Two field breakdown of dataset</h1>";
+	say q(<h1>Two field breakdown of dataset</h1>);
 	my $format = $q->param('format');
 	$self->{'extended'} = $self->get_extended_attributes;
 	if ( !$q->param('function') ) {
@@ -78,7 +79,8 @@ sub run {
 	my $id_list = $self->get_id_list( 'id', $query_file );
 	if ( !@$id_list ) {
 		$id_list =
-		  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
 	}
 	$self->_breakdown($id_list) if $q->param('function') eq 'breakdown';
 	return;
@@ -87,11 +89,12 @@ sub run {
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<div class=\"scrollable\">";
-	say "<p>Here you can create a table breaking down one field by another, e.g. breakdown of serogroup by year.</p>";
+	say q(<div class="box" id="queryform">);
+	say q(<div class="scrollable">);
+	say q(<p>Here you can create a table breaking down one field by another, )
+	  . q(e.g. breakdown of serogroup by year.</p>);
 	say $q->startform;
-	$q->param( 'function', 'breakdown' );
+	$q->param( function => 'breakdown' );
 	say $q->hidden($_) foreach qw (db page name function query_file list_file datatype);
 	my $set_id = $self->get_set_id;
 	my ( $headings, $labels ) = $self->get_field_selection_list(
@@ -105,27 +108,32 @@ sub _print_interface {
 			set_id              => $set_id
 		}
 	);
-	say "<fieldset style=\"float:left\"><legend>Select fields</legend><ul><li>";
-	say "<label for=\"field1\">Field 1:</label>";
+	say q(<fieldset style="float:left"><legend>Select fields</legend><ul><li>);
+	say q(<label for="field1">Field 1:</label>);
 	say $q->popup_menu( -name => 'field1', -id => 'field1', -values => $headings, -labels => $labels );
-	say "</li><li>";
-	say "<label for=\"field2\">Field 2:</label>";
+	say q(</li><li>);
+	say q(<label for="field2">Field 2:</label>);
 	say $q->popup_menu( -name => 'field2', -id => 'field2', -values => $headings, -labels => $labels );
-	say "</li></ul></fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Display</legend>";
+	say q(</li></ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say $q->radio_group(
 		-name      => 'display',
 		-values    => [ 'values only', 'values and percentages', 'percentages only' ],
 		-default   => 'values only',
 		-linebreak => 'true'
 	);
-	say "</fieldset>";
-	say "<fieldset style=\"float:left\"><legend>Calculate percentages by</legend>";
-	say $q->radio_group( -name => 'calcpc', -values => [ 'dataset', 'row', 'column' ], -default => 'dataset', -linebreak => 'true' );
-	say "</fieldset>";
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Calculate percentages by</legend>);
+	say $q->radio_group(
+		-name      => 'calcpc',
+		-values    => [ 'dataset', 'row', 'column' ],
+		-default   => 'dataset',
+		-linebreak => 'true'
+	);
+	say q(</fieldset>);
 	$self->print_action_fieldset( { name => 'TwoFieldBreakdown' } );
 	say $q->endform;
-	say "</div>\n</div>";
+	say q(</div></div>);
 	return;
 }
 
@@ -134,8 +142,8 @@ sub _reverse {
 	my $q = $self->{'cgi'};
 	$field1 = $q->param('field2');
 	$field2 = $q->param('field1');
-	$q->param( 'field1', $field1 );
-	$q->param( 'field2', $field2 );
+	$q->param( field1 => $field1 );
+	$q->param( field2 => $field2 );
 	return ( $field1, $field2 );
 }
 
@@ -143,36 +151,41 @@ sub _print_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say $q->startform;
-	say qq(<fieldset style="float:left"><legend>Axes</legend>);
+	say q(<fieldset style="float:left"><legend>Axes</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
-	say $q->submit( -name => 'reverse', -value => 'Reverse', -class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all' );
-	say "</fieldset>";
-	say $q->endform;
-	say $q->startform;
-	say qq(<fieldset style="float:left"><legend>Show</legend>);
-	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
-	my %display_toggle =
-	  ( 'values only' => 'Values and percentages', 'values and percentages' => 'Percentages only', 'percentages only' => 'Values only' );
 	say $q->submit(
-		-name  => 'toggledisplay',
-		-label => $display_toggle{ $q->param('display') },
+		-name  => 'reverse',
+		-value => 'Reverse',
 		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
 	);
-	say "</fieldset>";
+	say q(</fieldset>);
+	say $q->endform;
+	say $q->startform;
+	say q(<fieldset style="float:left"><legend>Show</legend>);
+	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
+	my %display_toggle = (
+		'values only'            => 'Values and percentages',
+		'values and percentages' => 'Percentages only',
+		'percentages only'       => 'Values only'
+	);
+	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') },
+		-class => BUTTON_CLASS );
+	say q(</fieldset>);
 	say $q->endform;
 
 	if ( $q->param('display') ne 'values only' ) {
 		say $q->startform;
-		say qq(<fieldset style="float:left"><legend>Calculate percentages</legend>);
-		say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
+		say q(<fieldset style="float:left"><legend>Calculate percentages</legend>);
+		say $q->hidden($_)
+		  foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
-		say qq(<span style="text-align:center; display:block">);
+		say q(<span style="text-align:center; display:block">);
 		say $q->submit(
 			-name  => 'togglepc',
 			-label => ( 'By ' . $pc_toggle{ $q->param('calcpc') } ),
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all',
+			-class => BUTTON_CLASS,
 		);
-		say "</span></fieldset>";
+		say q(</span></fieldset>);
 		say $q->endform;
 	}
 	return;
@@ -187,27 +200,32 @@ sub _breakdown {
 		( $field1, $field2 ) = $self->_reverse( $field1, $field2 );
 	}
 	my ( $attribute1, $attribute2 );
-	if ( $field1 =~ /^e_(.*)\|\|(.*)$/ ) {
+	if ( $field1 =~ /^e_(.*)\|\|(.*)$/x ) {
 		$field1     = $1;
 		$attribute1 = $2;
 	}
-	if ( $field2 =~ /^e_(.*)\|\|(.*)$/ ) {
+	if ( $field2 =~ /^e_(.*)\|\|(.*)$/x ) {
 		$field2     = $1;
 		$attribute2 = $2;
 	}
 	if ( $field1 eq $field2 ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>You must select two <em>different</em> fields.</p></div>";
+		say q(<div class="box" id="statusbad"><p>You must select two <em>different</em> fields.</p></div>);
 		return;
 	}
 	my ( $display, $calcpc );
-	my ( $grandtotal, $datahash_ref, $field1total_ref, $field2total_ref, $clean_field1, $clean_field2, $print_field1, $print_field2 );
+	my (
+		$grandtotal,   $datahash_ref, $field1total_ref, $field2total_ref,
+		$clean_field1, $clean_field2, $print_field1,    $print_field2
+	);
 	try {
-		( $grandtotal, $datahash_ref, $field1total_ref, $field2total_ref, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
-		  $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
+		(
+			$grandtotal,   $datahash_ref, $field1total_ref, $field2total_ref,
+			$clean_field1, $clean_field2, $print_field1,    $print_field2
+		) = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say "<div class=\"box\" id=\"statusbad\"><p>The database for the scheme of one of your selected fields is inaccessible.  "
-		  . "This may be a configuration problem.</p></div>";
+		say q(<div class="box" id="statusbad"><p>The database for the scheme of one of your selected )
+		  . q(fields is inaccessible. This may be a configuration problem.</p></div>);
 		return;
 	};
 	if ( $attribute1 || $attribute2 ) {
@@ -237,7 +255,7 @@ sub _breakdown {
 	};
 	if ( $@ =~ /HASH reference/ ) {
 		$logger->debug($@);
-		say "<div class=\"box\" id=\"statusbad\"><p>No data retrieved.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No data retrieved.</p></div>);
 		return;
 	}
 
@@ -255,11 +273,11 @@ sub _breakdown {
 	}
 	my $numfield2 = scalar @field2values + 1;
 	if ( scalar keys %datahash > 2000 || $numfield2 > 2000 ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>One of your selected fields has more than 2000 values - calculation "
-		  . "has been disabled to prevent your browser locking up.</p>";
-		say "<p>$print_field1: " . ( scalar keys %datahash ) . "<br />";
-		say "$print_field2: $numfield2</p>";
-		say "</div>";
+		say q(<div class="box" id="statusbad"><p>One of your selected fields has more than 2000 values - )
+		  . q(calculation has been disabled to prevent your browser locking up.</p>);
+		say qq(<p>$print_field1: ) . ( scalar keys %datahash ) . q(<br />);
+		say qq($print_field2: $numfield2</p>);
+		say q(</div>);
 		return;
 	}
 	if ( $q->param('toggledisplay') ) {
@@ -294,34 +312,38 @@ sub _breakdown {
 	my $out_file = "$self->{'config'}->{'tmp_dir'}/$temp1.txt";
 	open( my $fh, '>', $out_file )
 	  or $logger->error("Can't open temp file $out_file for writing");
-	say "<div class=\"box\" id=\"resultstable\">\n";
+	say q(<div class="box" id="resultstable">);
 	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
 	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
 	my $text_field1 =
-	  $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus( $print_field1, { text_output => 1 } ) : $print_field1;
+	    $self->{'datastore'}->is_locus($print_field1)
+	  ? $self->clean_locus( $print_field1, { text_output => 1 } )
+	  : $print_field1;
 	my $text_field2 =
-	  $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus( $print_field2, { text_output => 1 } ) : $print_field2;
-	say "<h2>Breakdown of $html_field1 by $html_field2:</h2>";
-	say $fh "Breakdown of $text_field1 by $text_field2:";
-	say "<p>Selected options: Display $display. ";
-	print $fh "Selected options: Display $display. ";
+	    $self->{'datastore'}->is_locus($print_field2)
+	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
+	  : $print_field2;
+	say qq(<h2>Breakdown of $html_field1 by $html_field2:</h2>);
+	say $fh qq(Breakdown of $text_field1 by $text_field2:);
+	say qq(<p>Selected options: Display $display. );
+	print $fh qq(Selected options: Display $display. );
 
 	if ( $display ne 'values only' ) {
-		say "Calculate percentages by $calcpc.";
-		print $fh "Calculate percentages by $calcpc.";
+		say qq(Calculate percentages by $calcpc.);
+		print $fh qq(Calculate percentages by $calcpc.);
 	}
-	say "</p>";
-	say $fh "\n";
+	say q(</p>);
+	say $fh qq(\n);
 	$self->_print_controls;
-	say "<div class=\"scrollable\" style=\"clear:both\">";
-	say "<table class=\"tablesorter\" id=\"sortTable\">\n<thead>";
-	say "<tr><td></td><td colspan=\"$numfield2\" class=\"header\">$html_field2</td></tr>";
-	say $fh "$text_field1\t$text_field2";
-	local $" = "</th><th class=\"{sorter: 'digit'}\">";
-	say "<tr><th>$html_field1</th><th class=\"{sorter: 'digit'}\">@field2values</th><th class=\"{sorter: 'digit'}\">"
-	  . "Total</th></tr></thead><tbody>";
-	local $" = "\t";
-	say $fh "\t@field2values\tTotal";
+	say q(<div class="scrollable" style="clear:both">);
+	say q(<table class="tablesorter" id="sortTable"><thead>);
+	say qq(<tr><td></td><td colspan="$numfield2" class="header">$html_field2</td></tr>);
+	say $fh qq($text_field1\t$text_field2);
+	local $" = q(</th><th class="{sorter:'digit'}">);
+	say qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@field2values</th>)
+	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
+	local $" = qq(\t);
+	say $fh qq(\t@field2values\tTotal);
 	my $td = 1;
 	{
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
@@ -341,18 +363,18 @@ sub _breakdown {
 				}
 				$total += $value;
 				if ( !$value ) {
-					say "<td></td>";
-					print $fh "\t";
+					say q(<td></td>);
+					print $fh qq(\t);
 				} else {
 					if ( $q->param('display') eq 'values and percentages' ) {
-						say "<td>$value ($percentage%)</td>";
-						print $fh "\t$value ($percentage%)";
+						say qq(<td>$value ($percentage%)</td>);
+						print $fh qq(\t$value ($percentage%));
 					} elsif ( $q->param('display') eq 'percentages only' ) {
-						say "<td>$percentage</td>";
-						print $fh "\t$percentage";
+						say qq(<td>$percentage</td>);
+						print $fh qq(\t$percentage);
 					} else {
-						say "<td>$value</td>";
-						print $fh "\t$value";
+						say qq(<td>$value</td>);
+						print $fh qq(\t$value);
 					}
 				}
 			}
@@ -363,20 +385,20 @@ sub _breakdown {
 				$percentage = BIGSdb::Utils::decimal_place( ( $field1total{$field1value} / $grandtotal ) * 100, 1 );
 			}
 			if ( $q->param('display') eq 'values and percentages' ) {
-				say "<td>$total ($percentage%)</td></tr>";
-				say $fh "\t$total ($percentage%)";
+				say qq(<td>$total ($percentage%)</td></tr>);
+				say $fh qq(\t$total ($percentage%));
 			} elsif ( $q->param('display') eq 'percentages only' ) {
-				say "<td>$percentage</td></tr>";
-				say $fh "\t$percentage";
+				say qq(<td>$percentage</td></tr>);
+				say $fh qq(\t$percentage);
 			} else {
-				say "<td>$total</td></tr>";
-				say $fh "\t$total";
+				say qq(<td>$total</td></tr>);
+				say $fh qq(\t$total);
 			}
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	};
-	say "</tbody><tbody><tr class=\"total\"><td>Total</td>";
-	print $fh "Total";
+	say q(</tbody><tbody><tr class="total"><td>Total</td>);
+	print $fh q(Total);
 	foreach my $field2value (@field2values) {
 		my $percentage;
 		if ( $q->param('calcpc') eq 'column' ) {
@@ -385,29 +407,29 @@ sub _breakdown {
 			$percentage = BIGSdb::Utils::decimal_place( ( $field2total{$field2value} / $grandtotal ) * 100, 1 );
 		}
 		if ( $q->param('display') eq 'values and percentages' ) {
-			say "<td>$field2total{$field2value} ($percentage%)</td>";
-			print $fh "\t$field2total{$field2value} ($percentage%)";
+			say qq(<td>$field2total{$field2value} ($percentage%)</td>);
+			print $fh qq(\t$field2total{$field2value} ($percentage%));
 		} elsif ( $q->param('display') eq 'percentages only' ) {
-			say "<td>$percentage</td>";
-			print $fh "\t$percentage";
+			say qq(<td>$percentage</td>);
+			print $fh qq(\t$percentage);
 		} else {
-			say "<td>$field2total{$field2value}</td>";
-			print $fh "\t$field2total{$field2value}";
+			say qq(<td>$field2total{$field2value}</td>);
+			print $fh qq(\t$field2total{$field2value});
 		}
 	}
 	if ( $q->param('display') eq 'values and percentages' ) {
-		say "<td>$grandtotal (100%)</td></tr>";
-		say $fh "\t$grandtotal (100%)";
+		say qq(<td>$grandtotal (100%)</td></tr>);
+		say $fh qq(\t$grandtotal (100%));
 	} elsif ( $q->param('display') eq 'percentages only' ) {
-		say "<td>100</td></tr>";
-		say $fh "\t100";
+		say q(<td>100</td></tr>);
+		say $fh qq(\t100);
 	} else {
-		say "<td>$grandtotal</td></tr>";
-		say $fh "\t$grandtotal";
+		say qq(<td>$grandtotal</td></tr>);
+		say $fh qq(\t$grandtotal);
 	}
-	say "</tbody></table></div>";
+	say q(</tbody></table></div>);
 	close $fh;
-	say "<p><a href='/tmp/$temp1.txt'>Download as tab-delimited text.</a></p></div>";
+	say qq(<p><a href="/tmp/$temp1.txt">Download as tab-delimited text.</a></p></div>);
 
 	#Chartdirector
 	$self->_print_charts(
@@ -438,17 +460,19 @@ sub _print_charts {
 	my $text_field1   = $args->{'text_field1'};
 	my $text_field2   = $args->{'text_field2'};
 	if ( $self->{'config'}->{'chartdirector'} && keys %$data < 31 && @$field2_values < 31 ) {
-		print "<div class=\"box\" id=\"chart\"><h2>Charts</h2>";
-		print "<p>Click to enlarge.</p>";
+		say q(<div class="box" id="chart"><h2>Charts</h2>);
+		say q(<p>Click to enlarge.</p>);
 		my $guid = $self->get_guid;
 		my %prefs;
-		foreach (qw (threeD transparent)) {
+		foreach my $att (qw (threeD transparent)) {
 			try {
-				$prefs{$_} = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $_ );
-				$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
+				$prefs{$att} =
+				  $self->{'prefstore'}
+				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
+				$prefs{$att} = $prefs{$att} eq 'true' ? 1 : 0;
 			}
 			catch BIGSdb::DatabaseNoRecordException with {
-				$prefs{$_} = 0;
+				$prefs{$att} = 0;
 			};
 		}
 		for ( my $i = 0 ; $i < 2 ; $i++ ) {
@@ -500,30 +524,32 @@ sub _print_charts {
 				}
 			}
 			if ( !$i ) {
-				$chart->addTitle( "Values", "arial.ttf", 14 );
-				my $filename = "$prefix\_$field1\_$field2.png";
-				if ( $filename =~ /(BIGSdb.*\.png)/ ) {
+				$chart->addTitle( 'Values', 'arial.ttf', 14 );
+				my $filename = "${prefix}_${field1}_$field2.png";
+				if ( $filename =~ /(BIGSdb.*\.png)/x ) {
 					$filename = $1;    #untaint
 				}
-				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				say "<fieldset><legend>Values</legend>";
-				say "<a href=\"/tmp/$filename\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$text_field1 vs $text_field2\">"
-				  . "<img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2\" style=\"width:200px; border: 1px dashed black\" /></a>";
-				say "</fieldset>";
+				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
+				say q(<fieldset><legend>Values</legend>);
+				say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
+				  . qq(title="$text_field1 vs $text_field2"><img src="/tmp/$filename" )
+				  . qq(alt="$text_field1 vs $text_field2" style="width:200px;border:1px dashed black" />)
+				  . q(</a></fieldset>);
 			} else {
-				$chart->addTitle( "Percentages", "arial.ttf", 14 );
-				my $filename = "$prefix\_$field1\_$field2\_pc.png";
-				if ( $filename =~ /(BIGSdb.*\.png)/ ) {
+				$chart->addTitle( 'Percentages', 'arial.ttf', 14 );
+				my $filename = "${prefix}_${field1}_${field2}_pc.png";
+				if ( $filename =~ /(BIGSdb.*\.png)/x ) {
 					$filename = $1;    #untaint
 				}
-				$chart->makeChart("$self->{'config'}->{'tmp_dir'}\/$filename");
-				say "<fieldset><legend>Percentages</legend>";
-				say "<a href=\"/tmp/$filename\" data-rel=\"lightbox-1\" class=\"lightbox\"  title=\"$text_field1 vs $text_field2 "
-				  . "percentage chart\"><img src=\"/tmp/$filename\" alt=\"$text_field1 vs $text_field2 percentage chart\"  "
-				  . "style=\"width:200px;border:1px dashed black\" /></a></fieldset>";
+				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
+				say q(<fieldset><legend>Percentages</legend>);
+				say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
+				  . qq(title="$text_field1 vs $text_field2 percentage chart"><img src="/tmp/$filename" )
+				  . qq(alt="$text_field1 vs $text_field2 percentage chart" )
+				  . q(style="width:200px;border:1px dashed black" /></a></fieldset>);
 			}
 		}
-		say "</div>";
+		say q(</div>);
 	}
 	return;
 }
@@ -541,35 +567,33 @@ sub _get_value_frequency_hashes {
 	my %field_type;
 	my %clean;
 	my %print;
-	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//;
-	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//;
-	foreach ( $field1, $field2 ) {
-
-		if ( $_ =~ /^la_(.+)\|\|/ || $_ =~ /^cn_(.+)/ ) {
-			$clean{$_} = $1;
-		}
-	}
+	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//x;
+	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//x;
 	my %scheme_id;
-	foreach ( $field1, $field2 ) {
-		if ( $self->{'xmlHandler'}->is_field( $clean{$_} ) ) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($_);
-			$field_type{$_} = defined $metaset ? 'metafield' : 'field';
+
+	foreach my $field ( $field1, $field2 ) {
+		if ( $field =~ /^la_(.+)\|\|/ || $field =~ /^cn_(.+)/ ) {
+			$clean{$field} = $1;
+		}
+		if ( $self->{'xmlHandler'}->is_field( $clean{$field} ) ) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$field_type{$field} = defined $metaset ? 'metafield' : 'field';
 			$metafield =~ tr/_/ / if defined $metafield;
-			$print{$_} = $metafield // $clean{$_};
-		} elsif ( $self->{'datastore'}->is_locus( $clean{$_} ) ) {
-			$field_type{$_} = 'locus';
-			$print{$_}      = $clean{$_};
+			$print{$field} = $metafield // $clean{$field};
+		} elsif ( $self->{'datastore'}->is_locus( $clean{$field} ) ) {
+			$field_type{$field} = 'locus';
+			$print{$field}      = $clean{$field};
 		} else {
-			if ( $_ =~ /^s_(\d+)_(.*)/ ) {
-				my $scheme_id = $1;
-				my $field     = $2;
-				if ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-					$clean{$_}      = $field;
-					$print{$_}      = $clean{$_};
-					$field_type{$_} = 'scheme_field';
-					$scheme_id{$_}  = $scheme_id;
+			if ( $field =~ /^s_(\d+)_(.*)/x ) {
+				my $scheme_id    = $1;
+				my $scheme_field = $2;
+				if ( $self->{'datastore'}->is_scheme_field( $scheme_id, $scheme_field ) ) {
+					$clean{$field}      = $scheme_field;
+					$print{$field}      = $clean{$field};
+					$field_type{$field} = 'scheme_field';
+					$scheme_id{$field}  = $scheme_id;
 					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-					$print{$_} .= " ($scheme_info->{'description'})";
+					$print{$field} .= " ($scheme_info->{'description'})";
 				}
 			}
 		}
@@ -599,13 +623,16 @@ sub _get_value_frequency_hashes {
 			}
 		}
 	}
-	return ( $grandtotal, $datahash, $field1total, $field2total, $clean{$field1}, $clean{$field2}, $print{$field1}, $print{$field2} );
+	return (
+		$grandtotal,     $datahash,       $field1total,    $field2total,
+		$clean{$field1}, $clean{$field2}, $print{$field1}, $print{$field2}
+	);
 }
 
+#If number of records is >=50% of total records, query database and fetch all rows,
+#otherwise call for each record in turn.
+#Values are arrayref in an array representing field1 and field2.
 sub _get_values {
-
-	#If number of records is >=50% of total records, query database and fetch all rows, otherwise call for each record in turn.
-	#Values are arrayref in an array representing field1 and field2.
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $options ) =
 	  @{$args}{qw(isolate_id fields clean_fields field_type scheme_id options)};
@@ -613,8 +640,13 @@ sub _get_values {
 	my @values;
 	foreach my $field (@$fields) {
 		my $values;
-		my $sub_args =
-		  { isolate_id => $isolate_id, field => $field, clean_fields => $clean_fields, scheme_id => $scheme_id, options => $options };
+		my $sub_args = {
+			isolate_id   => $isolate_id,
+			field        => $field,
+			clean_fields => $clean_fields,
+			scheme_id    => $scheme_id,
+			options      => $options
+		};
 		if    ( $field_type->{$field} eq 'field' ) { $values = [ $self->_get_field_value($sub_args) ] }
 		elsif ( $field_type->{$field} eq 'locus' ) { $values = $self->_get_locus_values($sub_args) }
 		elsif ( $field_type->{$field} eq 'scheme_field' ) {
@@ -634,20 +666,15 @@ sub _get_field_value {
 	my $value;
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
-			my $sql = $self->{'db'}->prepare("SELECT id, $clean_fields->{$field} FROM $self->{'system'}->{'view'}");
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			$self->{'cache'}->{$field} = $sql->fetchall_hashref('id');
+			$self->{'cache'}->{$field} =
+			  $self->{'datastore'}->run_query( "SELECT id,$clean_fields->{$field} FROM $self->{'system'}->{'view'}",
+				undef, { fetch => 'all_hashref', key => 'id' } );
 		}
 		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ $clean_fields->{$field} };
 	} else {
-		if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
-			$self->{'sql'}->{'field_value'}->{$field} =
-			  $self->{'db'}->prepare("SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?");
-		}
-		eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
-		$logger->error($@) if $@;
-		($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+		$value =
+		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",
+			$isolate_id, { cache => "TwoFieldBreakdown::get_field_value::$field" } );
 	}
 	return $value;
 }
@@ -658,11 +685,13 @@ sub _get_locus_values {
 	my $values = [];
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
-			my $sql = $self->{'db'}->prepare("SELECT isolate_id, allele_id FROM allele_designations WHERE locus=? AND status != 'ignore'");
-			eval { $sql->execute( $clean_fields->{$field} ) };
-			$logger->error($@) if $@;
-			while ( my $data = $sql->fetchrow_arrayref ) {
-				push @{ $self->{'cache'}->{$field}->{ $data->[0] } }, $data->[1];
+			my $data = $self->{'datastore'}->run_query(
+				q(SELECT isolate_id, allele_id FROM allele_designations WHERE locus=? AND status != 'ignore'),
+				$clean_fields->{$field},
+				{ fetch => 'all_arrayref' }
+			);
+			foreach (@$data) {
+				push @{ $self->{'cache'}->{$field}->{ $_->[0] } }, $_->[1];
 			}
 		}
 		$values = $self->{'cache'}->{$field}->{$isolate_id} // [];
@@ -679,21 +708,17 @@ sub _get_metafield_value {
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $clean_fields->{$field} );
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
-			my $sql =
-			  $self->{'db'}->prepare(
-				"SELECT isolate_id, $metafield FROM meta_$metaset WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})");
-			eval { $sql->execute };
-			$logger->error($@) if $@;
-			$self->{'cache'}->{$field} = $sql->fetchall_hashref('isolate_id');
+			$self->{'cache'}->{$field} = $self->{'datastore'}->run_query(
+				"SELECT isolate_id,$metafield FROM meta_$metaset WHERE isolate_id IN "
+				  . "(SELECT id FROM $self->{'system'}->{'view'})",
+				undef,
+				{ fetch => 'all_hashref', key => 'isolate_id' }
+			);
 		}
 		$value = $self->{'cache'}->{$field}->{$isolate_id}->{$metafield};
 	} else {
-		if ( !$self->{'sql'}->{'field_value'}->{$field} ) {
-			$self->{'sql'}->{'field_value'}->{$field} = $self->{'db'}->prepare("SELECT $metafield FROM meta_$metaset WHERE isolate_id=?");
-		}
-		eval { $self->{'sql'}->{'field_value'}->{$field}->execute($isolate_id) };
-		$logger->error($@) if $@;
-		($value) = $self->{'sql'}->{'field_value'}->{$field}->fetchrow_array;
+		$value = $self->{'datastore'}->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?",
+			$isolate_id, { cache => "TwoFieldBreakdown::get_metafield_value::$field" } );
 	}
 	return $value;
 }
@@ -705,22 +730,27 @@ sub _recalculate_for_attributes {
 	my $new_hash;
 	if ( $attribute[0] || $attribute[1] ) {
 		my $lookup;
-		foreach ( 0 .. 1 ) {
-			my $sql =
-			  $self->{'db'}
-			  ->prepare("SELECT field_value,value FROM isolate_value_extended_attributes WHERE isolate_field=? AND attribute=?");
-			eval { $sql->execute( $field[$_], $attribute[$_] ) };
-			$logger->error($@) if $@;
-			while ( my ( $field_value, $attribute_value ) = $sql->fetchrow_array ) {
-				$lookup->[$_]->{$field_value} = $attribute_value;
+		foreach my $att_num ( 0 .. 1 ) {
+			next if !defined $attribute[$att_num];
+			my $data = $self->{'datastore'}->run_query(
+				'SELECT field_value,value FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
+				[ $field[$att_num], $attribute[$att_num] ],
+				{ fetch => 'all_arrayref' }
+			);
+			foreach (@$data) {
+				my ( $field_value, $attribute_value ) = @$_;
+				$lookup->[$att_num]->{$field_value} = $attribute_value;
 			}
 		}
 		foreach my $value1 ( keys %$datahash_ref ) {
 			foreach my $value2 ( keys %{ $datahash_ref->{$value1} } ) {
-				$lookup->[0]->{$value1} = 'No value' if !defined $lookup->[0]->{$value1} || $lookup->[0]->{$value1} eq '';
-				$lookup->[1]->{$value2} = 'No value' if !defined $lookup->[1]->{$value2} || $lookup->[1]->{$value2} eq '';
+				$lookup->[0]->{$value1} = 'No value'
+				  if !defined $lookup->[0]->{$value1} || $lookup->[0]->{$value1} eq '';
+				$lookup->[1]->{$value2} = 'No value'
+				  if !defined $lookup->[1]->{$value2} || $lookup->[1]->{$value2} eq '';
 				if ( $attribute[0] && $attribute[1] ) {
-					$new_hash->{ $lookup->[0]->{$value1} }->{ $lookup->[1]->{$value2} } += $datahash_ref->{$value1}->{$value2};
+					$new_hash->{ $lookup->[0]->{$value1} }->{ $lookup->[1]->{$value2} } +=
+					  $datahash_ref->{$value1}->{$value2};
 				} elsif ( $attribute[0] ) {
 					$new_hash->{ $lookup->[0]->{$value1} }->{$value2} += $datahash_ref->{$value1}->{$value2};
 				} elsif ( $attribute[1] ) {
