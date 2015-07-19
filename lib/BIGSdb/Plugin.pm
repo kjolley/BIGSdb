@@ -1069,11 +1069,23 @@ sub escape_params {
 
 sub get_scheme_field_values {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $field, $scheme_id ) = @{$args}{qw(isolate_id field scheme_id )};
-	my $data = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
-	no warnings 'numeric';
-	my @values = sort { $a <=> $b || $a cmp $b } keys %{ $data->{ lc $field } };
-	return \@values;
+	my ( $isolate_id, $scheme_id, $field, ) = @{$args}{qw(isolate_id scheme_id field )};
+	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
+		try {
+			$self->{'scheme_field_table'}->{$scheme_id} =
+			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+			$logger->error('Cannot copy data to temporary table.');
+		};
+	}
+	my $values = $self->{'datastore'}->run_query(
+		"SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
+		$isolate_id,
+		{ fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::$scheme_id::$field" }
+	);
+	@$values = uniq @$values;
+	return $values;
 }
 
 sub attempted_spam {

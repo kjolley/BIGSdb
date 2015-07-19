@@ -650,7 +650,7 @@ sub _get_values {
 		if    ( $field_type->{$field} eq 'field' ) { $values = [ $self->_get_field_value($sub_args) ] }
 		elsif ( $field_type->{$field} eq 'locus' ) { $values = $self->_get_locus_values($sub_args) }
 		elsif ( $field_type->{$field} eq 'scheme_field' ) {
-			$values = $self->_get_scheme_field_values(
+			$values = $self->get_scheme_field_values(
 				{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} } );
 		} elsif ( $field_type->{$field} eq 'metafield' ) {
 			$values = [ $self->_get_metafield_value($sub_args) ];
@@ -658,26 +658,6 @@ sub _get_values {
 		push @values, $values;
 	}
 	return @values;
-}
-
-sub _get_scheme_field_values {
-	my ( $self, $args ) = @_;
-	my ( $isolate_id, $scheme_id, $field, ) = @{$args}{qw(isolate_id scheme_id field )};
-	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
-		try {
-			$self->{'scheme_field_table'}->{$scheme_id} =
-			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$logger->error('Cannot copy data to temporary table.');
-		};
-	}
-	my $values = $self->{'datastore'}->run_query(
-		"SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
-		$isolate_id,
-		{ fetch => 'col_arrayref', cache => "TwoFieldBreakdown::get_scheme_field_values::$scheme_id::$field" }
-	);
-	return $values;
 }
 
 sub _get_field_value {
