@@ -52,7 +52,7 @@ sub get_attributes {
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
-		order       => 10,
+		order       => 12,
 		system_flag => 'BURST',
 		input       => 'query',
 		requires    => 'mogrify,pk_scheme',
