@@ -1082,7 +1082,7 @@ sub get_scheme_field_values {
 	my $values =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
-		$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::$scheme_id::$field" } );
+		$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::${scheme_id}::$field" } );
 	no warnings 'uninitialized';    #Values most probably include undef
 	@$values = uniq @$values;
 	return $values;

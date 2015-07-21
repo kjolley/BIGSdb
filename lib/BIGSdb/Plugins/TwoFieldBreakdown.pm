@@ -427,9 +427,19 @@ sub _breakdown {
 		say qq(<td>$grandtotal</td></tr>);
 		say $fh qq(\t$grandtotal);
 	}
-	say q(</tbody></table></div>);
+	say q(</tbody></table></div></div>);
 	close $fh;
-	say qq(<p><a href="/tmp/$temp1.txt">Download as tab-delimited text.</a></p></div>);
+	my $excel = BIGSdb::Utils::text2excel(
+		$out_file,
+		{
+			worksheet => 'Breakdown',
+			tmp_dir   => $self->{'config'}->{'secure_tmp_dir'},
+			no_header => 1
+		}
+	);
+	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">) . q(Tab-delimited text</a>);
+	say qq( | <a href="/tmp/$temp1.xlsx">Excel format</a>) if $excel;
+	say q(</p></div>);
 
 	#Chartdirector
 	$self->_print_charts(

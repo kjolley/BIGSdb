@@ -590,7 +590,7 @@ div.scheme_tree {
  	font-weight: bold; 
  	color: #404080; 
  } 
- .data dt:after {content: ":"} 
+ .data dt:after {content:":"} 
  .data dd {margin: 0 0 0 11em;padding: 0 0 0.3em 0}
  
  dl.profile {
