@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any);
 use BIGSdb::Page qw(BUTTON_CLASS);
+use constant MAX_TABLE => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -82,7 +83,33 @@ sub run {
 		  $self->{'datastore'}
 		  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
 	}
-	$self->_breakdown($id_list) if $q->param('function') eq 'breakdown';
+	my $field1 = $q->param('field1');
+	my $field2 = $q->param('field2');
+	if ( $q->param('reverse') ) {
+		( $field1, $field2 ) = $self->_reverse( $field1, $field2 );
+	}
+	my ( $attribute1, $attribute2 );
+	if ( $field1 =~ /^e_(.*)\|\|(.*)$/x ) {
+		$field1     = $1;
+		$attribute1 = $2;
+	}
+	if ( $field2 =~ /^e_(.*)\|\|(.*)$/x ) {
+		$field2     = $1;
+		$attribute2 = $2;
+	}
+	if ( $field1 eq $field2 ) {
+		say q(<div class="box" id="statusbad"><p>You must select two <em>different</em> fields.</p></div>);
+		return;
+	}
+	$self->_breakdown(
+		{
+			id_list    => $id_list,
+			field1     => $field1,
+			field2     => $field2,
+			attribute1 => $attribute1,
+			attribute2 => $attribute2
+		}
+	) if $q->param('function') eq 'breakdown';
 	return;
 }
 
@@ -192,91 +219,44 @@ sub _print_controls {
 }
 
 sub _breakdown {
-	my ( $self, $id_list ) = @_;
-	my $q      = $self->{'cgi'};
-	my $field1 = $q->param('field1');
-	my $field2 = $q->param('field2');
-	if ( $q->param('reverse') ) {
-		( $field1, $field2 ) = $self->_reverse( $field1, $field2 );
-	}
-	my ( $attribute1, $attribute2 );
-	if ( $field1 =~ /^e_(.*)\|\|(.*)$/x ) {
-		$field1     = $1;
-		$attribute1 = $2;
-	}
-	if ( $field2 =~ /^e_(.*)\|\|(.*)$/x ) {
-		$field2     = $1;
-		$attribute2 = $2;
-	}
-	if ( $field1 eq $field2 ) {
-		say q(<div class="box" id="statusbad"><p>You must select two <em>different</em> fields.</p></div>);
-		return;
-	}
-	my ( $display, $calcpc );
-	my (
-		$grandtotal,   $datahash_ref, $field1total_ref, $field2total_ref,
-		$clean_field1, $clean_field2, $print_field1,    $print_field2
-	);
+	my ( $self, $args ) = @_;
+	my ( $id_list, $field1, $field2, $attribute1, $attribute2 ) =
+	  @{$args}{qw(id_list field1 field2 attribute1 attribute2)};
+	my $q = $self->{'cgi'};
+	my $freq_hashes;
 	try {
-		(
-			$grandtotal,   $datahash_ref, $field1total_ref, $field2total_ref,
-			$clean_field1, $clean_field2, $print_field1,    $print_field2
-		) = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
+		$freq_hashes = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		say q(<div class="box" id="statusbad"><p>The database for the scheme of one of your selected )
 		  . q(fields is inaccessible. This may be a configuration problem.</p></div>);
 		return;
 	};
-	if ( $attribute1 || $attribute2 ) {
-		$datahash_ref = $self->_recalculate_for_attributes( $field1, $attribute1, $field2, $attribute2, $datahash_ref );
-
-		#Recalculate fieldtotals
-		undef $field1total_ref;
-		undef $field2total_ref;
-		foreach my $value1 ( keys %$datahash_ref ) {
-			foreach my $value2 ( keys %{ $datahash_ref->{$value1} } ) {
-				$field1total_ref->{$value1} += $datahash_ref->{$value1}->{$value2};
-				$field2total_ref->{$value2} += $datahash_ref->{$value1}->{$value2};
-			}
+	my ( $grandtotal, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
+	  @{$freq_hashes}{qw(grandtotal datahash cleanfield1 cleanfield2 printfield1 printfield2)};
+	$self->_recalculate_for_attributes(
+		{
+			field1       => $field1,
+			attribute1   => $attribute1,
+			field2       => $field2,
+			attribute2   => $attribute2,
+			datahash_ref => $data
 		}
-	}
-	if ($attribute1) {
-		$print_field1 = $attribute1;
-	}
-	if ($attribute2) {
-		$print_field2 = $attribute2;
-	}
-	my ( %datahash, %field1total, %field2total );
-	eval {
-		%datahash    = %$datahash_ref;
-		%field1total = %$field1total_ref;
-		%field2total = %$field2total_ref;
-	};
-	if ( $@ =~ /HASH reference/ ) {
-		$logger->debug($@);
-		say q(<div class="box" id="statusbad"><p>No data retrieved.</p></div>);
-		return;
-	}
+	);
+	my ( $field1total, $field2total ) = $self->_calculate_field_totals($data);
+	$print_field1 = $attribute1 if $attribute1;
+	$print_field2 = $attribute2 if $attribute2;
+	my $field2values = $self->_get_field2_values($data);
 
-	#get list of field2 values
-	my @field2values;
-	for my $field1value ( sort keys %datahash ) {
-		for my $field2value ( sort keys %{ $datahash{$field1value} } ) {
-			push @field2values, $field2value;
-		}
-	}
-	@field2values = uniq @field2values;
-	{
-		no warnings;
-		@field2values = sort { $a <=> $b || $a cmp $b } @field2values;
-	}
-	my $numfield2 = scalar @field2values + 1;
-	if ( scalar keys %datahash > 2000 || $numfield2 > 2000 ) {
-		say q(<div class="box" id="statusbad"><p>One of your selected fields has more than 2000 values - )
+
+	my $field1_count = keys %$data;
+	my $field2_count = @$field2values;
+	if ( $field1_count > MAX_TABLE || $field2_count > MAX_TABLE ) {
+		my $max_table = MAX_TABLE;
+		say qq(<div class="box" id="statusbad"><p>One of your selected fields has more than $max_table values - )
 		  . q(calculation has been disabled to prevent your browser locking up.</p>);
-		say qq(<p>$print_field1: ) . ( scalar keys %datahash ) . q(<br />);
-		say qq($print_field2: $numfield2</p>);
+		say qq(<p>$print_field1: $field1_count<br />);
+		say qq($print_field2: $field2_count</p>);
 		say q(</div>);
 		return;
 	}
@@ -289,6 +269,7 @@ sub _breakdown {
 			$q->param( display => 'percentages only' );
 		}
 	}
+	my ( $display, $calcpc );
 	if ( $q->param('display') ) {
 		$display = $q->param('display');
 	} else {
@@ -296,11 +277,11 @@ sub _breakdown {
 	}
 	if ( $q->param('togglepc') ) {
 		if ( $q->param('togglepc') eq 'By row' ) {
-			$q->param( 'calcpc', 'row' );
+			$q->param( calcpc => 'row' );
 		} elsif ( $q->param('togglepc') eq 'By column' ) {
-			$q->param( 'calcpc', 'column' );
+			$q->param( calcpc => 'column' );
 		} elsif ( $q->param('togglepc') eq 'By dataset' ) {
-			$q->param( 'calcpc', 'dataset' );
+			$q->param( calcpc => 'dataset' );
 		}
 	}
 	if ( $q->param('calcpc') ) {
@@ -337,27 +318,28 @@ sub _breakdown {
 	$self->_print_controls;
 	say q(<div class="scrollable" style="clear:both">);
 	say q(<table class="tablesorter" id="sortTable"><thead>);
-	say qq(<tr><td></td><td colspan="$numfield2" class="header">$html_field2</td></tr>);
+	my $field2_cols = $field2_count+1;
+	say qq(<tr><td></td><td colspan="$field2_cols" class="header">$html_field2</td></tr>);
 	say $fh qq($text_field1\t$text_field2);
 	local $" = q(</th><th class="{sorter:'digit'}">);
-	say qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@field2values</th>)
+	say qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
 	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
 	local $" = qq(\t);
-	say $fh qq(\t@field2values\tTotal);
+	say $fh qq(\t@$field2values\tTotal);
 	my $td = 1;
 	{
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
-		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %datahash ) {
+		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %$data ) {
 			my $total = 0;
 			say "<tr class=\"td$td\"><td>$field1value</td>";
 			print $fh "$field1value";
-			foreach my $field2value (@field2values) {
-				my $value = $datahash{$field1value}{$field2value} || 0;
+			foreach my $field2value (@$field2values) {
+				my $value = $data->{$field1value}->{$field2value} || 0;
 				my $percentage;
 				if ( $q->param('calcpc') eq 'row' ) {
-					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field1total{$field1value} ) * 100, 1 );
+					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field1total->{$field1value} ) * 100, 1 );
 				} elsif ( $q->param('calcpc') eq 'column' ) {
-					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field2total{$field2value} ) * 100, 1 );
+					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field2total->{$field2value} ) * 100, 1 );
 				} else {
 					$percentage = BIGSdb::Utils::decimal_place( ( $value / $grandtotal ) * 100, 1 );
 				}
@@ -382,7 +364,7 @@ sub _breakdown {
 			if ( $q->param('calcpc') eq 'row' ) {
 				$percentage = 100;
 			} else {
-				$percentage = BIGSdb::Utils::decimal_place( ( $field1total{$field1value} / $grandtotal ) * 100, 1 );
+				$percentage = BIGSdb::Utils::decimal_place( ( $field1total->{$field1value} / $grandtotal ) * 100, 1 );
 			}
 			if ( $q->param('display') eq 'values and percentages' ) {
 				say qq(<td>$total ($percentage%)</td></tr>);
@@ -399,22 +381,22 @@ sub _breakdown {
 	};
 	say q(</tbody><tbody><tr class="total"><td>Total</td>);
 	print $fh q(Total);
-	foreach my $field2value (@field2values) {
+	foreach my $field2value (@$field2values) {
 		my $percentage;
 		if ( $q->param('calcpc') eq 'column' ) {
 			$percentage = 100;
 		} else {
-			$percentage = BIGSdb::Utils::decimal_place( ( $field2total{$field2value} / $grandtotal ) * 100, 1 );
+			$percentage = BIGSdb::Utils::decimal_place( ( $field2total->{$field2value} / $grandtotal ) * 100, 1 );
 		}
 		if ( $q->param('display') eq 'values and percentages' ) {
-			say qq(<td>$field2total{$field2value} ($percentage%)</td>);
-			print $fh qq(\t$field2total{$field2value} ($percentage%));
+			say qq(<td>$field2total->{$field2value} ($percentage%)</td>);
+			print $fh qq(\t$field2total->{$field2value} ($percentage%));
 		} elsif ( $q->param('display') eq 'percentages only' ) {
 			say qq(<td>$percentage</td>);
 			print $fh qq(\t$percentage);
 		} else {
-			say qq(<td>$field2total{$field2value}</td>);
-			print $fh qq(\t$field2total{$field2value});
+			say qq(<td>$field2total->{$field2value}</td>);
+			print $fh qq(\t$field2total->{$field2value});
 		}
 	}
 	if ( $q->param('display') eq 'values and percentages' ) {
@@ -429,14 +411,9 @@ sub _breakdown {
 	}
 	say q(</tbody></table></div></div>);
 	close $fh;
-	my $excel = BIGSdb::Utils::text2excel(
-		$out_file,
-		{
-			worksheet => 'Breakdown',
-			tmp_dir   => $self->{'config'}->{'secure_tmp_dir'},
-			no_header => 1
-		}
-	);
+	my $excel =
+	  BIGSdb::Utils::text2excel( $out_file,
+		{ worksheet => 'Breakdown', tmp_dir => $self->{'config'}->{'secure_tmp_dir'}, no_header => 1 } );
 	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">) . q(Tab-delimited text</a>);
 	say qq( | <a href="/tmp/$temp1.xlsx">Excel format</a>) if $excel;
 	say q(</p></div>);
@@ -451,12 +428,41 @@ sub _breakdown {
 			html_field2   => $html_field2,
 			text_field1   => $text_field1,
 			text_field2   => $text_field2,
-			data          => \%datahash,
-			field1_total  => \%field1total,
-			field2_values => \@field2values
+			data          => $data,
+			field1_total  => $field1total,
+			field2_values => $field2values
 		}
 	);
 	return;
+}
+
+sub _calculate_field_totals {
+	my ( $self, $data ) = @_;
+	my $field1total = {};
+	my $field2total = {};
+	foreach my $value1 ( keys %$data ) {
+		foreach my $value2 ( keys %{ $data->{$value1} } ) {
+			$field1total->{$value1} += $data->{$value1}->{$value2};
+			$field2total->{$value2} += $data->{$value1}->{$value2};
+		}
+	}
+	return ( $field1total, $field2total );
+}
+
+sub _get_field2_values {
+	my ($self, $data) = @_;
+	my @field2_values;
+	for my $field1_value ( sort keys %$data ) {
+		for my $field2_value ( sort keys %{ $data->{$field1_value} } ) {
+			push @field2_values, $field2_value;
+		}
+	}
+	@field2_values = uniq @field2_values;
+	{
+		no warnings;
+		@field2_values = sort { $a <=> $b || $a cmp $b } @field2_values;
+	}
+	return \@field2_values;
 }
 
 sub _print_charts {
@@ -569,11 +575,6 @@ sub _get_value_frequency_hashes {
 	my $total_isolates = $self->{'datastore'}->run_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}");
 	my $datahash;
 	my $grandtotal = 0;
-
-	#We need to calculate field1 and field2 totals so that we can
-	#calculate percentages based on these.
-	my $field1total;
-	my $field2total;
 	my %field_type;
 	my %clean;
 	my %print;
@@ -582,7 +583,7 @@ sub _get_value_frequency_hashes {
 	my %scheme_id;
 
 	foreach my $field ( $field1, $field2 ) {
-		if ( $field =~ /^la_(.+)\|\|/ || $field =~ /^cn_(.+)/ ) {
+		if ( $field =~ /^la_(.+)\|\|/x || $field =~ /^cn_(.+)/x ) {
 			$clean{$field} = $1;
 		}
 		if ( $self->{'xmlHandler'}->is_field( $clean{$field} ) ) {
@@ -628,14 +629,18 @@ sub _get_value_frequency_hashes {
 				next if !defined $field2_value;
 				$datahash->{$field1_value}->{$field2_value}++;
 				$grandtotal++;
-				$field1total->{$field1_value}++;
-				$field2total->{$field2_value}++;
 			}
 		}
 	}
 	return (
-		$grandtotal,     $datahash,       $field1total,    $field2total,
-		$clean{$field1}, $clean{$field2}, $print{$field1}, $print{$field2}
+		{
+			grandtotal  => $grandtotal,
+			datahash    => $datahash,
+			cleanfield1 => $clean{$field1},
+			cleanfield2 => $clean{$field2},
+			printfield1 => $print{$field1},
+			printfield2 => $print{$field2}
+		}
 	);
 }
 
@@ -734,41 +739,44 @@ sub _get_metafield_value {
 }
 
 sub _recalculate_for_attributes {
-	my ( $self, $field1, $attribute1, $field2, $attribute2, $datahash_ref ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $field1, $attribute1, $field2, $attribute2, $datahash_ref ) =
+	  @{$args}{qw( field1 attribute1 field2 attribute2 datahash_ref  )};
 	my @field     = ( $field1,     $field2 );
 	my @attribute = ( $attribute1, $attribute2 );
 	my $new_hash;
-	if ( $attribute[0] || $attribute[1] ) {
-		my $lookup;
-		foreach my $att_num ( 0 .. 1 ) {
-			next if !defined $attribute[$att_num];
-			my $data = $self->{'datastore'}->run_query(
-				'SELECT field_value,value FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
-				[ $field[$att_num], $attribute[$att_num] ],
-				{ fetch => 'all_arrayref' }
-			);
-			foreach (@$data) {
-				my ( $field_value, $attribute_value ) = @$_;
-				$lookup->[$att_num]->{$field_value} = $attribute_value;
-			}
+	return if !$attribute[0] && !$attribute[1];
+	my $lookup;
+	foreach my $att_num ( 0 .. 1 ) {
+		next if !defined $attribute[$att_num];
+		my $data = $self->{'datastore'}->run_query(
+			'SELECT field_value,value FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
+			[ $field[$att_num], $attribute[$att_num] ],
+			{ fetch => 'all_arrayref' }
+		);
+		foreach (@$data) {
+			my ( $field_value, $attribute_value ) = @$_;
+			$lookup->[$att_num]->{$field_value} = $attribute_value;
 		}
-		foreach my $value1 ( keys %$datahash_ref ) {
-			foreach my $value2 ( keys %{ $datahash_ref->{$value1} } ) {
-				$lookup->[0]->{$value1} = 'No value'
-				  if !defined $lookup->[0]->{$value1} || $lookup->[0]->{$value1} eq '';
-				$lookup->[1]->{$value2} = 'No value'
-				  if !defined $lookup->[1]->{$value2} || $lookup->[1]->{$value2} eq '';
-				if ( $attribute[0] && $attribute[1] ) {
-					$new_hash->{ $lookup->[0]->{$value1} }->{ $lookup->[1]->{$value2} } +=
-					  $datahash_ref->{$value1}->{$value2};
-				} elsif ( $attribute[0] ) {
-					$new_hash->{ $lookup->[0]->{$value1} }->{$value2} += $datahash_ref->{$value1}->{$value2};
-				} elsif ( $attribute[1] ) {
-					$new_hash->{$value1}->{ $lookup->[1]->{$value2} } += $datahash_ref->{$value1}->{$value2};
-				}
+	}
+	foreach my $value1 ( keys %$datahash_ref ) {
+		foreach my $value2 ( keys %{ $datahash_ref->{$value1} } ) {
+			$lookup->[0]->{$value1} = 'No value'
+			  if !defined $lookup->[0]->{$value1} || $lookup->[0]->{$value1} eq '';
+			$lookup->[1]->{$value2} = 'No value'
+			  if !defined $lookup->[1]->{$value2} || $lookup->[1]->{$value2} eq '';
+			if ( $attribute[0] && $attribute[1] ) {
+				$new_hash->{ $lookup->[0]->{$value1} }->{ $lookup->[1]->{$value2} } +=
+				  $datahash_ref->{$value1}->{$value2};
+			} elsif ( $attribute[0] ) {
+				$new_hash->{ $lookup->[0]->{$value1} }->{$value2} += $datahash_ref->{$value1}->{$value2};
+			} elsif ( $attribute[1] ) {
+				$new_hash->{$value1}->{ $lookup->[1]->{$value2} } += $datahash_ref->{$value1}->{$value2};
 			}
 		}
 	}
-	return $new_hash;
+	undef %$datahash_ref;
+	%$datahash_ref = %$new_hash;
+	return;
 }
 1;
