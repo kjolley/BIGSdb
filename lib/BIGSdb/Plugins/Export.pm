@@ -169,7 +169,7 @@ sub run {
 			#information so the output will be in the same order as requested, which it wouldn't be if we 
 			#used the isolate id list from the job database.
 			$params->{'isolate_count'} = scalar @$ids;
-			if ( @$ids > MAX_INSTANT_RUN || !$self->{'config'}->{'jobs_db'} ) {
+			if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
 				my $att       = $self->get_attributes;
 				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 				my $job_id    = $self->{'jobManager'}->add_job(
