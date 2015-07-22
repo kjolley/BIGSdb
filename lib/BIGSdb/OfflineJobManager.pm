@@ -157,18 +157,19 @@ sub add_job {
 			}
 		}
 
-		#Benchmarked quicker to use single insert rather than multiple inserts,
+		#Benchmarked quicker to use pg_copydata rather than multiple inserts,
 		#ids are integers so no problem with escaping values.
 		if ( ref $params->{'isolates'} eq 'ARRAY' ) {
 			my @checked_list;
 			foreach my $id ( @{ $params->{'isolates'} } ) {
 				push @checked_list, $id if BIGSdb::Utils::is_int($id);
 			}
-			local $" = "),('$id',";
 			if (@checked_list) {
-				my $sql =
-				  $self->{'db'}->prepare("INSERT INTO isolates (job_id,isolate_id) VALUES ('$id',@checked_list)");
-				$sql->execute;
+				$self->{'db'}->do('COPY isolates (job_id,isolate_id) FROM STDIN');
+				foreach my $isolate_id (@checked_list) {
+					$self->{'db'}->pg_putcopydata("$id\t$isolate_id\n");
+				}
+				$self->{'db'}->pg_putcopyend;
 			}
 		}
 
