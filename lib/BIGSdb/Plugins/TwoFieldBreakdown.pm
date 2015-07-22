@@ -76,7 +76,6 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my %prefs;
 	my $query_file = $q->param('query_file');
 	my $id_list = $self->get_id_list( 'id', $query_file );
 	if ( !@$id_list ) {
