@@ -232,8 +232,8 @@ sub _breakdown {
 		  . q(fields is inaccessible. This may be a configuration problem.</p></div>);
 		return;
 	};
-	my ( $grandtotal, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
-	  @{$freq_hashes}{qw(grandtotal datahash cleanfield1 cleanfield2 printfield1 printfield2)};
+	my ( $grand_total, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
+	  @{$freq_hashes}{qw(grand_total datahash cleanfield1 cleanfield2 printfield1 printfield2)};
 	$self->_recalculate_for_attributes(
 		{
 			field1       => $field1,
@@ -243,22 +243,22 @@ sub _breakdown {
 			datahash_ref => $data
 		}
 	);
-	my ( $field1total, $field2total ) = $self->_calculate_field_totals($data);
+	my ( $field1_total, $field2_total ) = $self->_calculate_field_totals($data);
 	$print_field1 = $attribute1 if $attribute1;
 	$print_field2 = $attribute2 if $attribute2;
 	my $field2values = $self->_get_field2_values($data);
-
-
 	my $field1_count = keys %$data;
 	my $field2_count = @$field2values;
+	my $disable_html_table;
+
 	if ( $field1_count > MAX_TABLE || $field2_count > MAX_TABLE ) {
 		my $max_table = MAX_TABLE;
 		say qq(<div class="box" id="statusbad"><p>One of your selected fields has more than $max_table values - )
-		  . q(calculation has been disabled to prevent your browser locking up.</p>);
+		  . q(table rendering has been disabled to prevent your browser locking up.</p>);
 		say qq(<p>$print_field1: $field1_count<br />);
 		say qq($print_field2: $field2_count</p>);
 		say q(</div>);
-		return;
+		$disable_html_table = 1;
 	}
 	if ( $q->param('toggledisplay') ) {
 		if ( $q->param('toggledisplay') eq 'Values only' ) {
@@ -289,11 +289,8 @@ sub _breakdown {
 	} else {
 		$calcpc = 'dataset';
 	}
-	my $temp1    = BIGSdb::Utils::get_random();
-	my $out_file = "$self->{'config'}->{'tmp_dir'}/$temp1.txt";
-	open( my $fh, '>', $out_file )
-	  or $logger->error("Can't open temp file $out_file for writing");
-	say q(<div class="box" id="resultstable">);
+	my $temp1       = BIGSdb::Utils::get_random();
+	my $out_file    = "$self->{'config'}->{'tmp_dir'}/$temp1.txt";
 	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
 	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
 	my $text_field1 =
@@ -304,153 +301,63 @@ sub _breakdown {
 	    $self->{'datastore'}->is_locus($print_field2)
 	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
 	  : $print_field2;
-	say qq(<h2>Breakdown of $html_field1 by $html_field2:</h2>);
+	if ( !$disable_html_table ) {
+		say q(<div class="box" id="resultstable">);
+		say qq(<h2>Breakdown of $html_field1 by $html_field2:</h2>);
+		say qq(<p>Selected options: Display $display. );
+		say qq(Calculate percentages by $calcpc.) if $display ne 'values only';
+		say q(</p>);
+	}
+	open( my $fh, '>:encoding(utf8)', $out_file )
+	  or $logger->error("Can't open temp file $out_file for writing");
 	say $fh qq(Breakdown of $text_field1 by $text_field2:);
-	say qq(<p>Selected options: Display $display. );
 	print $fh qq(Selected options: Display $display. );
-
-	if ( $display ne 'values only' ) {
-		say qq(Calculate percentages by $calcpc.);
-		print $fh qq(Calculate percentages by $calcpc.);
-	}
-	say q(</p>);
+	print $fh qq(Calculate percentages by $calcpc.) if $display ne 'values only';
 	say $fh qq(\n);
-	$self->_print_controls;
-	say q(<div class="scrollable" style="clear:both">);
-	say q(<table class="tablesorter" id="sortTable"><thead>);
-	my $field2_cols = $field2_count+1;
-	say qq(<tr><td></td><td colspan="$field2_cols" class="header">$html_field2</td></tr>);
-	say $fh qq($text_field1\t$text_field2);
-	local $" = q(</th><th class="{sorter:'digit'}">);
-	say qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
-	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
-	local $" = qq(\t);
-	say $fh qq(\t@$field2values\tTotal);
-	my $td = 1;
-	{
-		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
-		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %$data ) {
-			my $total = 0;
-			say "<tr class=\"td$td\"><td>$field1value</td>";
-			print $fh "$field1value";
-			foreach my $field2value (@$field2values) {
-				my $value = $data->{$field1value}->{$field2value} || 0;
-				my $percentage;
-				if ( $q->param('calcpc') eq 'row' ) {
-					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field1total->{$field1value} ) * 100, 1 );
-				} elsif ( $q->param('calcpc') eq 'column' ) {
-					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field2total->{$field2value} ) * 100, 1 );
-				} else {
-					$percentage = BIGSdb::Utils::decimal_place( ( $value / $grandtotal ) * 100, 1 );
-				}
-				$total += $value;
-				if ( !$value ) {
-					say q(<td></td>);
-					print $fh qq(\t);
-				} else {
-					if ( $q->param('display') eq 'values and percentages' ) {
-						say qq(<td>$value ($percentage%)</td>);
-						print $fh qq(\t$value ($percentage%));
-					} elsif ( $q->param('display') eq 'percentages only' ) {
-						say qq(<td>$percentage</td>);
-						print $fh qq(\t$percentage);
-					} else {
-						say qq(<td>$value</td>);
-						print $fh qq(\t$value);
-					}
-				}
-			}
-			my $percentage;
-			if ( $q->param('calcpc') eq 'row' ) {
-				$percentage = 100;
-			} else {
-				$percentage = BIGSdb::Utils::decimal_place( ( $field1total->{$field1value} / $grandtotal ) * 100, 1 );
-			}
-			if ( $q->param('display') eq 'values and percentages' ) {
-				say qq(<td>$total ($percentage%)</td></tr>);
-				say $fh qq(\t$total ($percentage%));
-			} elsif ( $q->param('display') eq 'percentages only' ) {
-				say qq(<td>$percentage</td></tr>);
-				say $fh qq(\t$percentage);
-			} else {
-				say qq(<td>$total</td></tr>);
-				say $fh qq(\t$total);
-			}
-			$td = $td == 1 ? 2 : 1;    #row stripes
-		}
+	$self->_print_controls if !$disable_html_table;
+	$args = {
+		data          => $data,
+		html_field1   => $html_field1,
+		html_field2   => $html_field2,
+		text_field1   => $text_field1,
+		text_field2   => $text_field2,
+		field1_total  => $field1_total,
+		field2_total  => $field2_total,
+		grand_total   => $grand_total,
+		prefix        => $temp1,
+		field1        => $field1,
+		field2        => $field2,
+		field2_values => $field2values
 	};
-	say q(</tbody><tbody><tr class="total"><td>Total</td>);
-	print $fh q(Total);
-	foreach my $field2value (@$field2values) {
-		my $percentage;
-		if ( $q->param('calcpc') eq 'column' ) {
-			$percentage = 100;
-		} else {
-			$percentage = BIGSdb::Utils::decimal_place( ( $field2total->{$field2value} / $grandtotal ) * 100, 1 );
-		}
-		if ( $q->param('display') eq 'values and percentages' ) {
-			say qq(<td>$field2total->{$field2value} ($percentage%)</td>);
-			print $fh qq(\t$field2total->{$field2value} ($percentage%));
-		} elsif ( $q->param('display') eq 'percentages only' ) {
-			say qq(<td>$percentage</td>);
-			print $fh qq(\t$percentage);
-		} else {
-			say qq(<td>$field2total->{$field2value}</td>);
-			print $fh qq(\t$field2total->{$field2value});
-		}
-	}
-	if ( $q->param('display') eq 'values and percentages' ) {
-		say qq(<td>$grandtotal (100%)</td></tr>);
-		say $fh qq(\t$grandtotal (100%));
-	} elsif ( $q->param('display') eq 'percentages only' ) {
-		say q(<td>100</td></tr>);
-		say $fh qq(\t100);
-	} else {
-		say qq(<td>$grandtotal</td></tr>);
-		say $fh qq(\t$grandtotal);
-	}
-	say q(</tbody></table></div></div>);
+	my ( $html_table, $text_table ) = $self->_generate_tables($args);
+	say $fh $$text_table;
 	close $fh;
+	say qq(<div class="scrollable" style="clear:both">$$html_table</div></div>) if !$disable_html_table;
 	my $excel =
 	  BIGSdb::Utils::text2excel( $out_file,
 		{ worksheet => 'Breakdown', tmp_dir => $self->{'config'}->{'secure_tmp_dir'}, no_header => 1 } );
-	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">) . q(Tab-delimited text</a>);
+	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">Tab-delimited text</a>);
 	say qq( | <a href="/tmp/$temp1.xlsx">Excel format</a>) if $excel;
 	say q(</p></div>);
-
-	#Chartdirector
-	$self->_print_charts(
-		{
-			prefix        => $temp1,
-			field1        => $field1,
-			field2        => $field2,
-			html_field1   => $html_field1,
-			html_field2   => $html_field2,
-			text_field1   => $text_field1,
-			text_field2   => $text_field2,
-			data          => $data,
-			field1_total  => $field1total,
-			field2_values => $field2values
-		}
-	);
+	$self->_print_charts($args);
 	return;
 }
 
 sub _calculate_field_totals {
 	my ( $self, $data ) = @_;
-	my $field1total = {};
-	my $field2total = {};
+	my $field1_total = {};
+	my $field2_total = {};
 	foreach my $value1 ( keys %$data ) {
 		foreach my $value2 ( keys %{ $data->{$value1} } ) {
-			$field1total->{$value1} += $data->{$value1}->{$value2};
-			$field2total->{$value2} += $data->{$value1}->{$value2};
+			$field1_total->{$value1} += $data->{$value1}->{$value2};
+			$field2_total->{$value2} += $data->{$value1}->{$value2};
 		}
 	}
-	return ( $field1total, $field2total );
+	return ( $field1_total, $field2_total );
 }
 
 sub _get_field2_values {
-	my ($self, $data) = @_;
+	my ( $self, $data ) = @_;
 	my @field2_values;
 	for my $field1_value ( sort keys %$data ) {
 		for my $field2_value ( sort keys %{ $data->{$field1_value} } ) {
@@ -463,6 +370,110 @@ sub _get_field2_values {
 		@field2_values = sort { $a <=> $b || $a cmp $b } @field2_values;
 	}
 	return \@field2_values;
+}
+
+sub _generate_tables {
+	my ( $self, $args ) = @_;
+	my ( $data, $html_field1, $html_field2, $text_field1, $text_field2, $field1_total, $field2_total, $grand_total ) =
+	  @{$args}{qw(data html_field1 html_field2 text_field1 text_field2 field1_total field2_total grand_total)};
+	my $q            = $self->{'cgi'};
+	my $field2values = $self->_get_field2_values($data);
+	my $field2_count = @$field2values;
+	my ( $text_buffer, $html_buffer );
+	$html_buffer .= q(<table class="tablesorter" id="sortTable"><thead>);
+	my $field2_cols = $field2_count + 1;
+	$html_buffer .= qq(<tr><td></td><td colspan="$field2_cols" class="header">$html_field2</td></tr>);
+	local $" = q(</th><th class="{sorter:'digit'}">);
+	$html_buffer .= qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
+	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
+	$text_buffer .= qq($text_field1\t$text_field2\n);
+	local $" = qq(\t);
+	$text_buffer .= qq(\t@$field2values\tTotal\n);
+	my $td = 1;
+	{
+		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+		for my $field1value ( sort { $a <=> $b || $a cmp $b } keys %$data ) {
+			my $total = 0;
+			$html_buffer .= qq(<tr class="td$td"><td>$field1value</td>);
+			$text_buffer .= $field1value;
+			foreach my $field2value (@$field2values) {
+				my $value = $data->{$field1value}->{$field2value} || 0;
+				my $percentage;
+				if ( $q->param('calcpc') eq 'row' ) {
+					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field1_total->{$field1value} ) * 100, 1 );
+				} elsif ( $q->param('calcpc') eq 'column' ) {
+					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field2_total->{$field2value} ) * 100, 1 );
+				} else {
+					$percentage = BIGSdb::Utils::decimal_place( ( $value / $grand_total ) * 100, 1 );
+				}
+				$total += $value;
+				if ( !$value ) {
+					$html_buffer .= q(<td></td>);
+					$text_buffer .= qq(\t);
+				} else {
+					if ( $q->param('display') eq 'values and percentages' ) {
+						$html_buffer .= qq(<td>$value ($percentage%)</td>);
+						$text_buffer .= qq(\t$value ($percentage%));
+					} elsif ( $q->param('display') eq 'percentages only' ) {
+						$html_buffer .= qq(<td>$percentage</td>);
+						$text_buffer .= qq(\t$percentage);
+					} else {
+						$html_buffer .= qq(<td>$value</td>);
+						$text_buffer .= qq(\t$value);
+					}
+				}
+			}
+			my $percentage;
+			if ( $q->param('calcpc') eq 'row' ) {
+				$percentage = 100;
+			} else {
+				$percentage = BIGSdb::Utils::decimal_place( ( $field1_total->{$field1value} / $grand_total ) * 100, 1 );
+			}
+			if ( $q->param('display') eq 'values and percentages' ) {
+				$html_buffer .= qq(<td>$total ($percentage%)</td></tr>);
+				$text_buffer .= qq(\t$total ($percentage%)\n);
+			} elsif ( $q->param('display') eq 'percentages only' ) {
+				$html_buffer .= qq(<td>$percentage</td></tr>);
+				$text_buffer .= qq(\t$percentage\n);
+			} else {
+				$html_buffer .= qq(<td>$total</td></tr>);
+				$text_buffer .= qq(\t$total\n);
+			}
+			$td = $td == 1 ? 2 : 1;    #row stripes
+		}
+	};
+	$html_buffer .= q(</tbody><tbody><tr class="total"><td>Total</td>);
+	$text_buffer .= q(Total);
+	foreach my $field2value (@$field2values) {
+		my $percentage;
+		if ( $q->param('calcpc') eq 'column' ) {
+			$percentage = 100;
+		} else {
+			$percentage = BIGSdb::Utils::decimal_place( ( $field2_total->{$field2value} / $grand_total ) * 100, 1 );
+		}
+		if ( $q->param('display') eq 'values and percentages' ) {
+			$html_buffer .= qq(<td>$field2_total->{$field2value} ($percentage%)</td>);
+			$text_buffer .= qq(\t$field2_total->{$field2value} ($percentage%));
+		} elsif ( $q->param('display') eq 'percentages only' ) {
+			$html_buffer .= qq(<td>$percentage</td>);
+			$text_buffer .= qq(\t$percentage);
+		} else {
+			$html_buffer .= qq(<td>$field2_total->{$field2value}</td>);
+			$text_buffer .= qq(\t$field2_total->{$field2value});
+		}
+	}
+	if ( $q->param('display') eq 'values and percentages' ) {
+		$html_buffer .= qq(<td>$grand_total (100%)</td></tr>);
+		$text_buffer .= qq(\t$grand_total (100%)\n);
+	} elsif ( $q->param('display') eq 'percentages only' ) {
+		$html_buffer .= q(<td>100</td></tr>);
+		$text_buffer .= qq(\t100\n);
+	} else {
+		$html_buffer .= qq(<td>$grand_total</td></tr>);
+		$text_buffer .= qq(\t$grand_total\n);
+	}
+	$html_buffer .= q(</tbody></table>);
+	return ( \$html_buffer, \$text_buffer );
 }
 
 sub _print_charts {
@@ -574,7 +585,7 @@ sub _get_value_frequency_hashes {
 	my ( $self, $field1, $field2, $id_list ) = @_;
 	my $total_isolates = $self->{'datastore'}->run_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}");
 	my $datahash;
-	my $grandtotal = 0;
+	my $grand_total = 0;
 	my %field_type;
 	my %clean;
 	my %print;
@@ -628,13 +639,13 @@ sub _get_value_frequency_hashes {
 			foreach my $field2_value ( @{ $values[1] } ) {
 				next if !defined $field2_value;
 				$datahash->{$field1_value}->{$field2_value}++;
-				$grandtotal++;
+				$grand_total++;
 			}
 		}
 	}
 	return (
 		{
-			grandtotal  => $grandtotal,
+			grand_total => $grand_total,
 			datahash    => $datahash,
 			cleanfield1 => $clean{$field1},
 			cleanfield2 => $clean{$field2},
