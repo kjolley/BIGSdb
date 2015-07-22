@@ -27,7 +27,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any);
 use BIGSdb::Page qw(BUTTON_CLASS);
-use constant MAX_TABLE => 2000;
+use constant MAX_INSTANT_RUN => 10000;
+use constant MAX_TABLE       => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -101,15 +102,175 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>You must select two <em>different</em> fields.</p></div>);
 		return;
 	}
+	return if ( $q->param('function') // '' ) ne 'breakdown';
+	my $guid = $self->get_guid;
+
+	#	my %prefs;
+	my %options;
+	foreach my $att (qw (threeD transparent)) {
+		try {
+			$options{$att} =
+			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
+			$options{$att} = $options{$att} eq 'true' ? 1 : 0;
+		}
+		catch BIGSdb::DatabaseNoRecordException with {
+			$options{$att} = 0;
+		};
+	}
+	if ( @$id_list > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
+		my $att       = $self->get_attributes;
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $params    = $q->Vars;
+		delete $params->{$_} foreach qw(field1 field2);
+		$params->{'field1'}      = $field1;
+		$params->{'field2'}      = $field2;
+		$params->{'attribute1'}  = $attribute1;
+		$params->{'attribute2'}  = $attribute2;
+		$params->{'threeD'}      = $options{'threeD'};
+		$params->{'transparent'} = $options{'transparent'};
+		my $job_id = $self->{'jobManager'}->add_job(
+			{
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => $att->{'module'},
+				priority     => $att->{'priority'},
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'},
+				isolates     => $id_list
+			}
+		);
+		say q(<div class="box" id="resultstable">);
+		say q(<p>This job has been submitted to the job queue.</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+		return;
+	}
 	$self->_breakdown(
 		{
-			id_list    => $id_list,
-			field1     => $field1,
-			field2     => $field2,
-			attribute1 => $attribute1,
-			attribute2 => $attribute2
+			id_list     => $id_list,
+			field1      => $field1,
+			field2      => $field2,
+			attribute1  => $attribute1,
+			attribute2  => $attribute2,
+			threeD      => $options{'threeD'},
+			transparent => $options{'transparent'}
 		}
-	) if $q->param('function') eq 'breakdown';
+	);
+	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
+	my $continue = 1;
+	my $freq_hashes;
+	try {
+		$freq_hashes = $self->_get_value_frequency_hashes( $params->{'field1'}, $params->{'field2'}, $isolate_ids );
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$continue = 0;
+	};
+	throw BIGSdb::PluginException( 'The database for the scheme of one of your selected '
+		  . 'fields is inaccessible. This may be a configuration problem.' )
+	  if !$continue;
+	my ( $grand_total, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
+	  @{$freq_hashes}{qw(grand_total datahash cleanfield1 cleanfield2 printfield1 printfield2)};
+	$self->_recalculate_for_attributes(
+		{
+			field1       => $params->{'field1'},
+			attribute1   => $params->{'attribute1'},
+			field2       => $params->{'field2'},
+			attribute2   => $params->{'attribute2'},
+			datahash_ref => $data
+		}
+	);
+	my ( $field1_total, $field2_total ) = $self->_calculate_field_totals($data);
+	$print_field1 = $params->{'attribute1'} if $params->{'attribute1'};
+	$print_field2 = $params->{'attribute2'} if $params->{'attribute2'};
+	my $field2values = $self->_get_field2_values($data);
+	my $field1_count = keys %$data;
+	my $field2_count = @$field2values;
+	my $disable_html_table;
+	$disable_html_table = 1 if $field1_count > MAX_TABLE || $field2_count > MAX_TABLE;
+	my ( $display, $calcpc );
+
+	if ( $params->{'display'} ) {
+		$display = $params->{'display'};
+	} else {
+		$display = 'values only';
+	}
+	if ( $params->{'calcpc'} ) {
+		$calcpc = $params->{'calcpc'};
+	} else {
+		$calcpc = 'dataset';
+	}
+	my $out_file    = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
+	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
+	my $text_field1 =
+	    $self->{'datastore'}->is_locus($print_field1)
+	  ? $self->clean_locus( $print_field1, { text_output => 1 } )
+	  : $print_field1;
+	my $text_field2 =
+	    $self->{'datastore'}->is_locus($print_field2)
+	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
+	  : $print_field2;
+	my $html_buffer;
+	if ( !$disable_html_table ) {
+		$html_buffer .= qq(<h2>Breakdown of $html_field1 by $html_field2:</h2>);
+		$html_buffer .= qq(<p>Selected options: Display $display. );
+		$html_buffer .= qq(Calculate percentages by $calcpc.) if $display ne 'values only';
+		$html_buffer .= q(</p>);
+	}
+	open( my $fh, '>:encoding(utf8)', $out_file )
+	  or $logger->error("Can't open temp file $out_file for writing");
+	say $fh qq(Breakdown of $text_field1 by $text_field2:);
+	print $fh qq(Selected options: Display $display. );
+	print $fh qq(Calculate percentages by $calcpc.) if $display ne 'values only';
+	say $fh qq(\n);
+	my $args = {
+		data          => $data,
+		html_field1   => $html_field1,
+		html_field2   => $html_field2,
+		text_field1   => $text_field1,
+		text_field2   => $text_field2,
+		field1_total  => $field1_total,
+		field2_total  => $field2_total,
+		grand_total   => $grand_total,
+		prefix        => $job_id,
+		field1        => $params->{'field1'},
+		field2        => $params->{'field2'},
+		field2_values => $field2values,
+		calcpc        => $params->{'calcpc'},
+		display       => $params->{'display'}
+	};
+	my ( $html_table, $text_table ) = $self->_generate_tables($args);
+	$html_buffer .= $$html_table;
+	say $fh $$text_table;
+	close $fh;
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } )
+	  if !$disable_html_table;
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Tab-delimited text' } );
+	my $excel =
+	  BIGSdb::Utils::text2excel( $out_file,
+		{ worksheet => 'Breakdown', tmp_dir => $self->{'config'}->{'secure_tmp_dir'}, no_header => 1 } );
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
+	  if -e $excel;
+	$args->{'no_print'} = 1;
+	$args->{$_} = $params->{$_} foreach qw(threeD transparent);
+	my $charts = $self->_print_charts($args);
+	my $i      = 3;
+
+	foreach my $chart (@$charts) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => $chart->{'filename'}, description => "0${i}_$chart->{'title'}" } );
+		$i++;
+	}
 	return;
 }
 
@@ -220,8 +381,8 @@ sub _print_controls {
 
 sub _breakdown {
 	my ( $self, $args ) = @_;
-	my ( $id_list, $field1, $field2, $attribute1, $attribute2 ) =
-	  @{$args}{qw(id_list field1 field2 attribute1 attribute2)};
+	my ( $id_list, $field1, $field2, $attribute1, $attribute2, $threeD, $transparent ) =
+	  @{$args}{qw(id_list field1 field2 attribute1 attribute2 threeD transparent)};
 	my $q = $self->{'cgi'};
 	my $freq_hashes;
 	try {
@@ -327,7 +488,9 @@ sub _breakdown {
 		prefix        => $temp1,
 		field1        => $field1,
 		field2        => $field2,
-		field2_values => $field2values
+		field2_values => $field2values,
+		calcpc        => $q->param('calcpc'),
+		display       => $q->param('display')
 	};
 	my ( $html_table, $text_table ) = $self->_generate_tables($args);
 	say $fh $$text_table;
@@ -339,6 +502,8 @@ sub _breakdown {
 	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">Tab-delimited text</a>);
 	say qq( | <a href="/tmp/$temp1.xlsx">Excel format</a>) if $excel;
 	say q(</p></div>);
+	$args->{'threeD'}      = $threeD;
+	$args->{'transparent'} = $transparent;
 	$self->_print_charts($args);
 	return;
 }
@@ -374,9 +539,12 @@ sub _get_field2_values {
 
 sub _generate_tables {
 	my ( $self, $args ) = @_;
-	my ( $data, $html_field1, $html_field2, $text_field1, $text_field2, $field1_total, $field2_total, $grand_total ) =
-	  @{$args}{qw(data html_field1 html_field2 text_field1 text_field2 field1_total field2_total grand_total)};
-	my $q            = $self->{'cgi'};
+	my (
+		$data,         $html_field1,  $html_field2, $text_field1, $text_field2,
+		$field1_total, $field2_total, $grand_total, $calcpc,      $display
+	  )
+	  = @{$args}
+	  {qw(data html_field1 html_field2 text_field1 text_field2 field1_total field2_total grand_total calcpc display)};
 	my $field2values = $self->_get_field2_values($data);
 	my $field2_count = @$field2values;
 	my ( $text_buffer, $html_buffer );
@@ -399,9 +567,9 @@ sub _generate_tables {
 			foreach my $field2value (@$field2values) {
 				my $value = $data->{$field1value}->{$field2value} || 0;
 				my $percentage;
-				if ( $q->param('calcpc') eq 'row' ) {
+				if ( $calcpc eq 'row' ) {
 					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field1_total->{$field1value} ) * 100, 1 );
-				} elsif ( $q->param('calcpc') eq 'column' ) {
+				} elsif ( $calcpc eq 'column' ) {
 					$percentage = BIGSdb::Utils::decimal_place( ( $value / $field2_total->{$field2value} ) * 100, 1 );
 				} else {
 					$percentage = BIGSdb::Utils::decimal_place( ( $value / $grand_total ) * 100, 1 );
@@ -411,10 +579,10 @@ sub _generate_tables {
 					$html_buffer .= q(<td></td>);
 					$text_buffer .= qq(\t);
 				} else {
-					if ( $q->param('display') eq 'values and percentages' ) {
+					if ( $display eq 'values and percentages' ) {
 						$html_buffer .= qq(<td>$value ($percentage%)</td>);
 						$text_buffer .= qq(\t$value ($percentage%));
-					} elsif ( $q->param('display') eq 'percentages only' ) {
+					} elsif ( $display eq 'percentages only' ) {
 						$html_buffer .= qq(<td>$percentage</td>);
 						$text_buffer .= qq(\t$percentage);
 					} else {
@@ -424,15 +592,15 @@ sub _generate_tables {
 				}
 			}
 			my $percentage;
-			if ( $q->param('calcpc') eq 'row' ) {
+			if ( $calcpc eq 'row' ) {
 				$percentage = 100;
 			} else {
 				$percentage = BIGSdb::Utils::decimal_place( ( $field1_total->{$field1value} / $grand_total ) * 100, 1 );
 			}
-			if ( $q->param('display') eq 'values and percentages' ) {
+			if ( $display eq 'values and percentages' ) {
 				$html_buffer .= qq(<td>$total ($percentage%)</td></tr>);
 				$text_buffer .= qq(\t$total ($percentage%)\n);
-			} elsif ( $q->param('display') eq 'percentages only' ) {
+			} elsif ( $display eq 'percentages only' ) {
 				$html_buffer .= qq(<td>$percentage</td></tr>);
 				$text_buffer .= qq(\t$percentage\n);
 			} else {
@@ -446,15 +614,15 @@ sub _generate_tables {
 	$text_buffer .= q(Total);
 	foreach my $field2value (@$field2values) {
 		my $percentage;
-		if ( $q->param('calcpc') eq 'column' ) {
+		if ( $calcpc eq 'column' ) {
 			$percentage = 100;
 		} else {
 			$percentage = BIGSdb::Utils::decimal_place( ( $field2_total->{$field2value} / $grand_total ) * 100, 1 );
 		}
-		if ( $q->param('display') eq 'values and percentages' ) {
+		if ( $display eq 'values and percentages' ) {
 			$html_buffer .= qq(<td>$field2_total->{$field2value} ($percentage%)</td>);
 			$text_buffer .= qq(\t$field2_total->{$field2value} ($percentage%));
-		} elsif ( $q->param('display') eq 'percentages only' ) {
+		} elsif ( $display eq 'percentages only' ) {
 			$html_buffer .= qq(<td>$percentage</td>);
 			$text_buffer .= qq(\t$percentage);
 		} else {
@@ -462,10 +630,10 @@ sub _generate_tables {
 			$text_buffer .= qq(\t$field2_total->{$field2value});
 		}
 	}
-	if ( $q->param('display') eq 'values and percentages' ) {
+	if ( $display eq 'values and percentages' ) {
 		$html_buffer .= qq(<td>$grand_total (100%)</td></tr>);
 		$text_buffer .= qq(\t$grand_total (100%)\n);
-	} elsif ( $q->param('display') eq 'percentages only' ) {
+	} elsif ( $display eq 'percentages only' ) {
 		$html_buffer .= q(<td>100</td></tr>);
 		$text_buffer .= qq(\t100\n);
 	} else {
@@ -478,31 +646,33 @@ sub _generate_tables {
 
 sub _print_charts {
 	my ( $self, $args ) = @_;
-	my $prefix        = $args->{'prefix'};
-	my $data          = $args->{'data'};
-	my $field1_total  = $args->{'field1_total'};
-	my $field2_values = $args->{'field2_values'};
-	my $field1        = $args->{'field1'};
-	my $field2        = $args->{'field2'};
-	my $text_field1   = $args->{'text_field1'};
-	my $text_field2   = $args->{'text_field2'};
+	my (
+		$prefix,      $data,        $field1_total, $field2_values, $field1, $field2,
+		$text_field1, $text_field2, $no_print,     $threeD,        $transparent
+	  )
+	  = @{$args}
+	  {qw(prefix data field1_total field2_values field1 field2 text_field1 text_field2 no_print threeD transparent)};
+	my $filename_info = [];
 	if ( $self->{'config'}->{'chartdirector'} && keys %$data < 31 && @$field2_values < 31 ) {
-		say q(<div class="box" id="chart"><h2>Charts</h2>);
-		say q(<p>Click to enlarge.</p>);
-		my $guid = $self->get_guid;
-		my %prefs;
-		foreach my $att (qw (threeD transparent)) {
-			try {
-				$prefs{$att} =
-				  $self->{'prefstore'}
-				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
-				$prefs{$att} = $prefs{$att} eq 'true' ? 1 : 0;
-			}
-			catch BIGSdb::DatabaseNoRecordException with {
-				$prefs{$att} = 0;
-			};
+		if ( !$no_print ) {
+			say q(<div class="box" id="chart"><h2>Charts</h2>);
+			say q(<p>Click to enlarge.</p>);
 		}
-		for ( my $i = 0 ; $i < 2 ; $i++ ) {
+
+		#		my $guid = $self->get_guid;
+		#		my %prefs;
+		#		foreach my $att (qw (threeD transparent)) {
+		#			try {
+		#				$prefs{$att} =
+		#				  $self->{'prefstore'}
+		#				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
+		#				$prefs{$att} = $prefs{$att} eq 'true' ? 1 : 0;
+		#			}
+		#			catch BIGSdb::DatabaseNoRecordException with {
+		#				$prefs{$att} = 0;
+		#			};
+		#		}
+		for my $i ( 0 .. 1 ) {
 			my $chart = XYChart->new( 1000, 500 );
 			$chart->setPlotArea( 100, 40, 580, 300 );
 			$chart->setBackground(0x00FFFFFF);
@@ -516,10 +686,10 @@ sub _print_charts {
 				no warnings 'once';
 				$layer = $chart->addBarLayer2( $perlchartdir::Percentage, 0 );
 			}
-			$layer->set3D if $prefs{'threeD'};
+			$layer->set3D if $threeD;
 			{
 				no warnings 'once';
-				$chart->setColors($perlchartdir::transparentPalette) if $prefs{'transparent'};
+				$chart->setColors($perlchartdir::transparentPalette) if $transparent;
 			}
 			for my $field1value ( sort { $field1_total->{$b} <=> $field1_total->{$a} || $a cmp $b } keys %$data ) {
 				if ( $field1value ne 'No value' ) {
@@ -557,11 +727,14 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
-				say q(<fieldset><legend>Values</legend>);
-				say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
-				  . qq(title="$text_field1 vs $text_field2"><img src="/tmp/$filename" )
-				  . qq(alt="$text_field1 vs $text_field2" style="width:200px;border:1px dashed black" />)
-				  . q(</a></fieldset>);
+				if ( !$no_print ) {
+					say q(<fieldset><legend>Values</legend>);
+					say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
+					  . qq(title="$text_field1 vs $text_field2"><img src="/tmp/$filename" )
+					  . qq(alt="$text_field1 vs $text_field2" style="width:200px;border:1px dashed black" />)
+					  . q(</a></fieldset>);
+				}
+				push @$filename_info, { filename => $filename, title => "$text_field1 vs $text_field2 (values)" };
 			} else {
 				$chart->addTitle( 'Percentages', 'arial.ttf', 14 );
 				my $filename = "${prefix}_${field1}_${field2}_pc.png";
@@ -569,16 +742,19 @@ sub _print_charts {
 					$filename = $1;    #untaint
 				}
 				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
-				say q(<fieldset><legend>Percentages</legend>);
-				say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
-				  . qq(title="$text_field1 vs $text_field2 percentage chart"><img src="/tmp/$filename" )
-				  . qq(alt="$text_field1 vs $text_field2 percentage chart" )
-				  . q(style="width:200px;border:1px dashed black" /></a></fieldset>);
+				if ( !$no_print ) {
+					say q(<fieldset><legend>Percentages</legend>);
+					say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
+					  . qq(title="$text_field1 vs $text_field2 percentage chart"><img src="/tmp/$filename" )
+					  . qq(alt="$text_field1 vs $text_field2 percentage chart" )
+					  . q(style="width:200px;border:1px dashed black" /></a></fieldset>);
+				}
+				push @$filename_info, { filename => $filename, title => "$text_field1 vs $text_field2 (percentages)" };
 			}
 		}
-		say q(</div>);
+		say q(</div>) if !$no_print;
 	}
-	return;
+	return $filename_info;
 }
 
 sub _get_value_frequency_hashes {
