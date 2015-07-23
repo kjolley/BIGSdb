@@ -276,12 +276,13 @@ sub get_all_locus_prefs {
 	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
 	my $prefs;
 	my $sql = $self->{'db'}->prepare('SELECT locus,action,value FROM locus WHERE (guid,dbase)=(?,?)');
-	eval { $sql->execute( $guid, $dbname ); };
+	eval { $sql->execute( $guid, $dbname ) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
 		$prefs->{ $pref->{'locus'} }->{ $pref->{'action'} } = $pref->{'value'};
 	}
+	$self->{'db'}->commit;    #Prevent idle in transaction table locks
 	return $prefs;
 }
 

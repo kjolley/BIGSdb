@@ -324,7 +324,9 @@ sub update_job_status {
 
 sub get_job_status {
 	my ( $self, $job_id ) = @_;
-	return $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
+	my $status = $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
+	$self->{'db'}->commit; #Prevent idle in transaction table lock.
+	return $status;
 }
 
 sub get_job {

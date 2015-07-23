@@ -1431,11 +1431,13 @@ sub get_allele_ids {
 	my ( $self, $isolate_id, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
-	return $self->run_query(
+	my $allele_ids = $self->run_query(
 		"SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?$ignore_clause",
 		[ $isolate_id, $locus ],
 		{ fetch => 'col_arrayref', cache => 'get_allele_ids' }
 	);
+	$self->{'db'}->commit;    #Stop idle in transaction table lock.
+	return $allele_ids;
 }
 
 sub get_all_allele_ids {

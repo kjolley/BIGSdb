@@ -487,6 +487,7 @@ sub _blast {
 	}
 	my $data =
 	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
+	$self->{'db'}->commit; #Prevent idle in transaction table lock.
 	open( my $fastafile_fh, '>', $temp_fastafile )
 	  or $logger->error("Can't open temp file $temp_fastafile for writing");
 	foreach (@$data) {

@@ -2390,6 +2390,7 @@ sub _extract_sequence {
 	if ( $match->{'reverse'} ) {
 		return BIGSdb::Utils::reverse_complement($seq);
 	}
+	$self->{'db'}->commit;
 	return $seq;
 }
 
@@ -2667,6 +2668,7 @@ sub _create_isolate_FASTA {
 		say $infile_fh ">$_->[0]\n$_->[1]";
 	}
 	close $infile_fh;
+	$self->{'db'}->commit;
 	return $temp_infile;
 }
 

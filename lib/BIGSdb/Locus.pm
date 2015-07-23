@@ -78,7 +78,7 @@ sub get_allele_sequence {
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	} else {
 		my ($sequence) = $self->{'sql'}->{'sequence'}->fetchrow_array;
-		$self->{'db'}->rollback;    #Prevent table lock on long offline jobs
+		$self->{'db'}->commit;    #Prevent table lock on long offline jobs
 		return \$sequence;
 	}
 }
@@ -110,9 +110,12 @@ sub get_all_sequences {
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
 	my %seqs;
-	while ( my ( $id, $seq ) = $self->{'sql'}->{'all_sequences'}->fetchrow_array ) {
+	my $data = $self->{'sql'}->{'all_sequences'}->fetchall_arrayref;
+	foreach (@$data) {
+		my ( $id, $seq ) = @$_;
 		$seqs{$id} = $seq;
 	}
+	$self->{'db'}->commit;    #Prevent table lock on long offline jobs
 	return \%seqs;
 }
 
@@ -153,16 +156,17 @@ sub get_flags {
 		$self->{'sql'}->{'flags'} =
 		  $self->{'db'}->prepare('SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?)');
 	}
-	eval { $self->{'sql'}->{'flags'}->execute( $self->{'dbase_id2_value'}, $allele_id ) };
+	my $flags;
+	eval {
+		$flags =
+		  $self->{'db'}->selectcol_arrayref( $self->{'sql'}->{'flags'}, undef, $self->{'dbase_id2_value'}, $allele_id );
+	};
 	if ($@) {
 		$logger->error($@) if $@;
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
-	my @flags;
-	while ( my ($flag) = $self->{'sql'}->{'flags'}->fetchrow_array ) {
-		push @flags, $flag;
-	}
-	return \@flags;
+	$self->{'db'}->commit;    #Stop idle in transaction table lock.
+	return $flags;
 }
 
 sub get_description {

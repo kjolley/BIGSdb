@@ -930,9 +930,7 @@ sub _print_submission_section {
 		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 		say $buffer if $buffer;
 		if ($closed_buffer) {
-			if (!$buffer){
-				say q(<h2>Submissions</h2>);
-			}
+			say q(<h2>Submissions</h2>) if !$buffer;
 			my $class = RESET_BUTTON_CLASS;
 			say qq(<a id="show_closed" class="$class ui-button-text-only" >)
 			  . q(<span id="show_closed_text" class="ui-button-text" )
@@ -940,12 +938,10 @@ sub _print_submission_section {
 			  . q(<span id="hide_closed_text" class="ui-button-text" )
 			  . q(style="display:none">Hide closed submissions</span></a>);
 			say q(<div id="closed" style="display:none">)
-			  . q(<h2>Closed submissions for which you had curator rights</h2>)  ;
-			  
+			  . q(<h2>Closed submissions for which you had curator rights</h2>);
 			my $days = $self->get_submission_days;
-			say
-			  q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
-			  . qq(for $days days.);
+			say q(<p>The following submissions are now closed - they will remain here until )
+			  . qq(removed by the submitter or for $days days.);
 			say $closed_buffer;
 			say q(</div>);
 		}
