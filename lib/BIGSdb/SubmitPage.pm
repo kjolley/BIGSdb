@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
-use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS);
+use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS RESET_BUTTON_CLASS);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
 use File::Path qw(make_path remove_tree);
@@ -35,6 +35,11 @@ use constant READ_LENGTH              => qw(<100 100-199 200-299 300-499 >500);
 use constant ASSEMBLY                 => ( 'de novo', 'mapped' );
 use constant MAX_UPLOAD_SIZE          => 32 * 1024 * 1024;                        #32Mb
 use constant SUBMISSIONS_DELETED_DAYS => 90;
+use constant FACE_STYLE               => (
+	good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
+	mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
+	bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
+);
 
 sub get_help_url {
 	my ($self) = @_;
@@ -44,6 +49,14 @@ sub get_help_url {
 	} else {
 		return "$self->{'config'}->{'doclink'}/submissions.html";
 	}
+}
+
+sub get_submission_days {
+	my ($self) = @_;
+	my $days = $self->{'system'}->{'submissions_deleted_days'} // $self->{'config'}->{'submissions_deleted_days'}
+	  // SUBMISSIONS_DELETED_DAYS;
+	$days = SUBMISSIONS_DELETED_DAYS if !BIGSdb::Utils::is_int($days);
+	return $days;
 }
 
 sub get_javascript {
@@ -63,6 +76,17 @@ sub get_javascript {
 		check_technology();
 	});
 	check_technology();
+	\$( "#show_closed" ).click(function() {
+		if (\$("span#show_closed_text").css('display') == 'none'){
+			\$("span#show_closed_text").css('display', 'block');
+			\$("span#hide_closed_text").css('display', 'none');
+		} else {
+			\$("span#show_closed_text").css('display', 'none');
+			\$("span#hide_closed_text").css('display', 'block');
+		}
+		\$( "#closed" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
 });
 
 function check_technology() {
@@ -131,7 +155,7 @@ sub print_content {
 		}
 	}
 	$self->_delete_old_closed_submissions;
-	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		$self->_print_new_submission_links;
 	}
@@ -140,7 +164,26 @@ sub print_content {
 	$self->_print_closed_submissions;
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
 	  . q(Return to index page</a></p>);
+	my $closed_buffer =
+	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
+	if ($closed_buffer) {
+		my $class = RESET_BUTTON_CLASS;
+		say qq(<a id="show_closed" class="$class ui-button-text-only" >)
+		  . q(<span id="show_closed_text" class="ui-button-text" )
+		  . q(style="display:block">Show closed submissions</span>)
+		  . q(<span id="hide_closed_text" class="ui-button-text" )
+		  . q(style="display:none">Hide closed submissions</span></a>);
+	}
 	say q(</div></div>);
+	if ($closed_buffer) {
+		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
+		say q(<h2>Closed submissions for which you had curator rights</h2>);
+		my $days = $self->get_submission_days;
+		say q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
+		  . qq(for $days days.);
+		say $closed_buffer;
+		say q(</div></div>);
+	}
 	return;
 }
 
@@ -214,9 +257,7 @@ sub _print_new_submission_links {
 
 sub _delete_old_closed_submissions {
 	my ($self) = @_;
-	my $days = $self->{'system'}->{'submissions_deleted_days'} // $self->{'config'}->{'submissions_deleted_days'}
-	  // SUBMISSIONS_DELETED_DAYS;
-	$days = SUBMISSIONS_DELETED_DAYS if !BIGSdb::Utils::is_int($days);
+	my $days = $self->get_submission_days;
 	my $submissions =
 	  $self->{'datastore'}
 	  ->run_query( qq(SELECT id FROM submissions WHERE status=? AND datestamp<now()-interval '$days days'),
@@ -343,11 +384,7 @@ sub _get_own_submissions {
 			  . qq(<td>$submission->{'type'}</td>);
 			$table_buffer .= qq(<td>$details</td>);
 			if ( $options->{'show_outcome'} ) {
-				my %style = (
-					good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
-					mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
-					bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
-				);
+				my %style = FACE_STYLE;
 				$table_buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
 			}
 			if ( $options->{'allow_remove'} ) {
@@ -392,10 +429,10 @@ sub print_submissions_for_curation {
 	return if !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' );
 	my $buffer;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$buffer .= $self->_get_allele_submissions_for_curation;
-		$buffer .= $self->_get_profile_submissions_for_curation;
+		$buffer .= $self->_get_allele_submissions_for_curation($options);
+		$buffer .= $self->_get_profile_submissions_for_curation($options);
 	} else {
-		$buffer .= $self->_get_isolate_submissions_for_curation;
+		$buffer .= $self->_get_isolate_submissions_for_curation($options);
 	}
 	return $buffer if $options->{'get_only'};
 	say $buffer if $buffer;
@@ -403,9 +440,10 @@ sub print_submissions_for_curation {
 }
 
 sub _get_allele_submissions_for_curation {
-	my ($self) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
+	my ( $self, $options ) = @_;
+	my $status      = $options->{'status'} // 'pending';
+	my $user_info   = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
 	my $td     = 1;
 	my $set_id = $self->get_set_id;
@@ -425,15 +463,27 @@ sub _get_allele_submissions_for_curation {
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$locus</td>);
 		my $seq_count = @{ $allele_submission->{'seqs'} };
-		$buffer .= qq(<td>$seq_count</td></tr>\n);
+		$buffer .= qq(<td>$seq_count</td>);
+
+		if ( $status eq 'closed' ) {
+			my %style = FACE_STYLE;
+			$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
+		}
+		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $return_buffer = q();
 	if ($buffer) {
-		$return_buffer .= qq(<h2>New allele sequence submissions waiting for curation</h2>\n);
-		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		if ( $status eq 'closed' ) {
+			$return_buffer .= q(<h3>Allele submissions</h3>);
+		} else {
+			$return_buffer .= qq(<h2>New allele sequence submissions waiting for curation</h2>\n);
+			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . qq(<th>Submitter</th><th>Locus</th><th>Sequences</th></tr>\n);
+		  . q(<th>Submitter</th><th>Locus</th><th>Sequences</th>);
+		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
+		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
 		$return_buffer .= qq(</table>\n);
 	}
@@ -441,9 +491,10 @@ sub _get_allele_submissions_for_curation {
 }
 
 sub _get_profile_submissions_for_curation {
-	my ($self) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
+	my ( $self, $options ) = @_;
+	my $status      = $options->{'status'} // 'pending';
+	my $user_info   = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
 	my $td     = 1;
 	my $set_id = $self->get_set_id;
@@ -465,15 +516,27 @@ sub _get_profile_submissions_for_curation {
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$scheme_info->{'description'}</td>);
 		my $seq_count = @{ $profile_submission->{'profiles'} };
-		$buffer .= qq(<td>$seq_count</td></tr>\n);
+		$buffer .= qq(<td>$seq_count</td>);
+
+		if ( $status eq 'closed' ) {
+			my %style = FACE_STYLE;
+			$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
+		}
+		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $return_buffer = q();
 	if ($buffer) {
-		$return_buffer .= qq(<h2>New allelic profile submissions waiting for curation</h2>\n);
-		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		if ( $status eq 'closed' ) {
+			$return_buffer .= q(<h3>Profile submissions</h3>);
+		} else {
+			$return_buffer .= qq(<h2>New allelic profile submissions waiting for curation</h2>\n);
+			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . qq(<th>Submitter</th><th>Scheme</th><th>Profiles</th></tr>\n);
+		  . q(<th>Submitter</th><th>Scheme</th><th>Profiles</th>);
+		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
+		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
 		$return_buffer .= qq(</table>\n);
 	}
@@ -481,9 +544,10 @@ sub _get_profile_submissions_for_curation {
 }
 
 sub _get_isolate_submissions_for_curation {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	my $status = $options->{'status'} // 'pending';
 	return q() if !$self->is_admin && !$self->can_modify_table('isolates');
-	my $submissions = $self->_get_submissions_by_status( 'pending', { get_all => 1 } );
+	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
 	my $td = 1;
 	foreach my $submission (@$submissions) {
@@ -495,15 +559,26 @@ sub _get_isolate_submissions_for_curation {
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
-		  . qq(<td>$isolate_count</td></tr>\n);
+		  . qq(<td>$isolate_count</td>);
+		if ( $status eq 'closed' ) {
+			my %style = FACE_STYLE;
+			$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
+		}
+		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $return_buffer = q();
 	if ($buffer) {
-		$return_buffer .= qq(<h2>New isolate submissions waiting for curation</h2>\n);
-		$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		if ( $status eq 'closed' ) {
+			$return_buffer .= q(<h3>Isolate submissions</h3>);
+		} else {
+			$return_buffer .= qq(<h2>New isolate submissions waiting for curation</h2>\n);
+			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . qq(<th>Submitter</th><th>Isolates</th></tr>\n);
+		  . q(<th>Submitter</th><th>Isolates</th>);
+		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
+		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
 		$return_buffer .= qq(</table>\n);
 	}
@@ -515,7 +590,10 @@ sub _print_closed_submissions {
 	my $buffer = $self->_get_own_submissions( 'closed', { show_outcome => 1, allow_remove => 1 } );
 	if ($buffer) {
 		say q(<h2>Recently closed submissions</h2>);
-		say q(<p>You have submitted the following submissions which are now closed:</p>);
+		my $days = $self->get_submission_days;
+		say q(<p>You have submitted the following submissions which are now closed - they can be removed once )
+		  . q(you have recorded the results.  Alternatively they will be removed automatically after )
+		  . qq($days days.</p>);
 		say $buffer;
 	}
 	return;

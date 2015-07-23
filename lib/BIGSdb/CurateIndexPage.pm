@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
+use BIGSdb::Page qw(RESET_BUTTON_CLASS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -39,6 +40,26 @@ sub initiate {
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$( "#show_closed" ).click(function() {
+		if (\$("span#show_closed_text").css('display') == 'none'){
+			\$("span#show_closed_text").css('display', 'block');
+			\$("span#hide_closed_text").css('display', 'none');
+		} else {
+			\$("span#show_closed_text").css('display', 'none');
+			\$("span#hide_closed_text").css('display', 'block');
+		}
+		\$( "#closed" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
+});	
+END
+	return $buffer;
 }
 
 sub print_content {
@@ -902,10 +923,32 @@ sub _print_table {
 sub _print_submission_section {
 	my ($self) = @_;
 	my $buffer = $self->print_submissions_for_curation( { get_only => 1 } );
-	if ($buffer) {
+	my $closed_buffer =
+	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
+	if ( $buffer || $closed_buffer ) {
 		say q(<div class="box" id="submissions"><div class="scrollable">);
 		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
-		say $buffer;
+		say $buffer if $buffer;
+		if ($closed_buffer) {
+			if (!$buffer){
+				say q(<h2>Submissions</h2>);
+			}
+			my $class = RESET_BUTTON_CLASS;
+			say qq(<a id="show_closed" class="$class ui-button-text-only" >)
+			  . q(<span id="show_closed_text" class="ui-button-text" )
+			  . q(style="display:block">Show closed submissions</span>)
+			  . q(<span id="hide_closed_text" class="ui-button-text" )
+			  . q(style="display:none">Hide closed submissions</span></a>);
+			say q(<div id="closed" style="display:none">)
+			  . q(<h2>Closed submissions for which you had curator rights</h2>)  ;
+			  
+			my $days = $self->get_submission_days;
+			say
+			  q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
+			  . qq(for $days days.);
+			say $closed_buffer;
+			say q(</div>);
+		}
 		say q(</div></div>);
 	}
 	return;
