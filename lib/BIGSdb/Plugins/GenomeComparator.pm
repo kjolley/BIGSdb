@@ -27,6 +27,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
+use Bio::Seq;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
@@ -52,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.4',
+		version     => '1.7.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -265,7 +266,7 @@ sub run {
 		}
 		$q->param( upload_filename => $q->param('ref_upload') );
 		my $ref_upload;
-		if ( $q->param('ref_upload')){
+		if ( $q->param('ref_upload') ) {
 			$ref_upload = $self->_upload_ref_file;
 		}
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
@@ -506,8 +507,7 @@ sub _print_parameters_fieldset {
 		-checked => 1
 	);
 	say q( <a class="tooltip" title="Tagged desginations - Allele sequences will be extracted from the )
-	  . q(definition database based on allele designation rather than by BLAST.  This should be much quicker. )
-	  . q(Peptide loci, however, are always extracted using BLAST.">)
+	  . q(definition database based on allele designation rather than by BLAST.  This should be much quicker."> )
 	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
 	say $q->checkbox( -name => 'disable_html', -id => 'disable_html', -label => 'Disable HTML output' );
 	say q( <a class="tooltip" title="Disable HTML - Select this option if you are analysing very large numbers )
@@ -1755,12 +1755,11 @@ sub _scan_by_locus {
 	my ( $self, $isolate_id, $locus, $seqs_ref, $allele_seqs_ref, $args ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my ( $match, @values, $extracted_seq );
-	if ( $self->{'params'}->{'use_tagged'} && $locus_info->{'data_type'} eq 'DNA' ) {
+	if ( $self->{'params'}->{'use_tagged'} ) {
 		my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 		@$allele_ids = sort @$allele_ids;
 		if (@$allele_ids) {
 			$match->{'exact'} = 1;
-			local $" = ',';
 			@{ $match->{'allele'} } = @$allele_ids;
 		}
 		foreach my $allele_id (@$allele_ids) {
@@ -1768,14 +1767,42 @@ sub _scan_by_locus {
 			if ( $allele_id ne '0' ) {
 				try {
 					my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-					$extracted_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
-					$seqs_ref->{$isolate_id}       .= $extracted_seq;
-					$allele_seqs_ref->{$allele_id} .= $extracted_seq;
+					my $db_allele_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+					if ( $locus_info->{'data_type'} eq 'DNA' ) {
+						$seqs_ref->{$isolate_id}       .= $db_allele_seq;
+						$allele_seqs_ref->{$allele_id} .= $db_allele_seq;
+						$extracted_seq = $db_allele_seq;
+					} else {
+						my $allele_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+						foreach my $allele_seq (@$allele_sequences) {
+							my $seq = $self->_extract_sequence(
+								{
+									seqbin_id       => $allele_seq->{'seqbin_id'},
+									predicted_start => $allele_seq->{'start_pos'},
+									predicted_end   => $allele_seq->{'end_pos'},
+									reverse         => $allele_seq->{'reverse'}
+								}
+							);
+							my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+							my $translated_seq = $seq_obj->translate->seq;
+							if ( $translated_seq eq $db_allele_seq ) {
+								$seqs_ref->{$isolate_id}       .= $seq;
+								$allele_seqs_ref->{$allele_id} .= $seq;
+								$extracted_seq=  $seq;
+								last;
+							}
+						}
+					}
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					$logger->debug("No connection to $locus database");    #ignore
 				};
 			}
+		}
+		if ( $locus_info->{'data_type'} eq 'peptide' &&  !$seqs_ref->{$isolate_id} ) {
+			#The allele designation may be set but if we can't find the sequence in the bin, then
+			#we don't know the exact nucleotide sequence of a peptide locus.
+			$match->{'exact'} = 0;
 		}
 	}
 	if ( !$match->{'exact'} && !-z $args->{'ref_seq_file'} ) {
@@ -1800,6 +1827,7 @@ sub _scan_by_locus {
 					program    => 'blastx'
 				}
 			);
+			
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
 		@values = ( $match->{'allele'} ) if $match->{'exact'};
@@ -2401,10 +2429,8 @@ sub _blast {
 	$options = {} if ref $options ne 'HASH';
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-	system(
-		"$self->{'config'}->{'blast+_path'}/$program",
-		(
-			-num_threads     => $blast_threads,
+	my %params = (
+				-num_threads     => $blast_threads,
 			-max_target_seqs => $options->{'max_target_seqs'} // 10,
 			-word_size       => $word_size,
 			-db              => $fasta_file,
@@ -2412,8 +2438,9 @@ sub _blast {
 			-out             => $out_file,
 			-outfmt          => 6,
 			-$filter         => 'no'
-		)
 	);
+	$params{'-comp_based_stats'} = 0 if $program ne 'blastn' && $program ne 'tblastx'; 
+	system(	"$self->{'config'}->{'blast+_path'}/$program",%params	);
 	return;
 }
 
