@@ -1788,7 +1788,7 @@ sub _scan_by_locus {
 							if ( $translated_seq eq $db_allele_seq ) {
 								$seqs_ref->{$isolate_id}       .= $seq;
 								$allele_seqs_ref->{$allele_id} .= $seq;
-								$extracted_seq=  $seq;
+								$extracted_seq = $seq;
 								last;
 							}
 						}
@@ -1799,7 +1799,8 @@ sub _scan_by_locus {
 				};
 			}
 		}
-		if ( $locus_info->{'data_type'} eq 'peptide' &&  !$seqs_ref->{$isolate_id} ) {
+		if ( $locus_info->{'data_type'} eq 'peptide' && !$seqs_ref->{$isolate_id} ) {
+
 			#The allele designation may be set but if we can't find the sequence in the bin, then
 			#we don't know the exact nucleotide sequence of a peptide locus.
 			$match->{'exact'} = 0;
@@ -1827,7 +1828,6 @@ sub _scan_by_locus {
 					program    => 'blastx'
 				}
 			);
-			
 		}
 		$match = $self->_parse_blast_by_locus( $locus, $args->{'out_file'} );
 		@values = ( $match->{'allele'} ) if $match->{'exact'};
@@ -2430,17 +2430,17 @@ sub _blast {
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 	my %params = (
-				-num_threads     => $blast_threads,
-			-max_target_seqs => $options->{'max_target_seqs'} // 10,
-			-word_size       => $word_size,
-			-db              => $fasta_file,
-			-query           => $in_file,
-			-out             => $out_file,
-			-outfmt          => 6,
-			-$filter         => 'no'
+		-num_threads     => $blast_threads,
+		-max_target_seqs => $options->{'max_target_seqs'} // 10,
+		-word_size       => $word_size,
+		-db              => $fasta_file,
+		-query           => $in_file,
+		-out             => $out_file,
+		-outfmt          => 6,
+		-$filter         => 'no'
 	);
-	$params{'-comp_based_stats'} = 0 if $program ne 'blastn' && $program ne 'tblastx'; 
-	system(	"$self->{'config'}->{'blast+_path'}/$program",%params	);
+	$params{'-comp_based_stats'} = 0 if $program ne 'blastn' && $program ne 'tblastx';
+	system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 	return;
 }
 
