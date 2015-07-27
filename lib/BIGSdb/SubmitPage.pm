@@ -2055,7 +2055,6 @@ sub _print_message_fieldset {
 							sender    => $submission->{'submitter'},
 							subject   => $subject,
 							message   => $message,
-							cc_sender => 1
 						}
 					);
 				}
