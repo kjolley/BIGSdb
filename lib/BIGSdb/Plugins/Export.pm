@@ -166,8 +166,9 @@ sub run {
 
 			#We only need the isolate count to calculate the %progress.  The isolate list is not uploaded
 			#to the job database because we have included the query as a parameter.  The query has ordering
-			#information so the output will be in the same order as requested, which it wouldn't be if we 
+			#information so the output will be in the same order as requested, which it wouldn't be if we
 			#used the isolate id list from the job database.
+			#If we did a list query though, we should upload the list.
 			$params->{'isolate_count'} = scalar @$ids;
 			if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
 				my $att       = $self->get_attributes;
@@ -181,6 +182,7 @@ sub run {
 						parameters   => $params,
 						username     => $self->{'username'},
 						email        => $user_info->{'email'},
+						isolates     => $$qry_ref =~ /temp_list/x ? $ids : undef
 					}
 				);
 				say q(<div class="box" id="resultstable">);
@@ -243,6 +245,10 @@ sub run_job {
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my @fields = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
+	if ( $params->{'qry'} =~ /temp_list/x ) {
+		my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
+		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
+	}
 	$self->_write_tab_text(
 		{
 			qry_ref  => \$params->{'qry'},
@@ -254,7 +260,6 @@ sub run_job {
 		}
 	);
 	return if $self->{'exit'};
-
 	if ( -e $filename ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );

@@ -1100,8 +1100,9 @@ sub create_temp_list_table {
 }
 
 sub create_temp_list_table_from_array {
-	my ( $self, $datatype, $list ) = @_;
-	my $table = 'temp_list' . int(rand(99999999));
+	my ( $self, $datatype, $list, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $table = $options->{'table'} // ('temp_list' . int(rand(99999999)));
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
 		$self->{'db'}->do("COPY $table FROM STDIN");
