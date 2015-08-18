@@ -36,12 +36,16 @@ sub run_script {
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
-	die "This script can only be run against an isolate database.\n" if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	die "This script can only be run against an isolate database.\n"
+	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $params;
 	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
-	$params->{'alignment'} = BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
-	$params->{'identity'}  = BIGSdb::Utils::is_int( $self->{'options'}->{'B'} ) ? $self->{'options'}->{'B'} : DEFAULT_IDENTITY;
-	$params->{'word_size'} = BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
+	$params->{'alignment'} =
+	  BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
+	$params->{'identity'} =
+	  BIGSdb::Utils::is_int( $self->{'options'}->{'B'} ) ? $self->{'options'}->{'B'} : DEFAULT_IDENTITY;
+	$params->{'word_size'} =
+	  BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
 	my $loci = $self->get_loci_with_ref_db;
 
 	if ( $self->{'options'}->{'a'} && !$self->_can_define_alleles($loci) ) {
@@ -76,23 +80,37 @@ sub run_script {
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
-				my $seq           = $self->extract_seq_from_match($match);
-				my $complete_gene = $self->is_complete_gene($seq);
-				next if $self->{'options'}->{'c'} && !$complete_gene;
+				my $seq          = $self->extract_seq_from_match($match);
+				my $complete_cds = BIGSdb::Utils::is_complete_cds($seq);
+				my $flag         = q();
+				if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
+					if ( $self->{'options'}->{'allow_frameshift'} ) {
+						$complete_cds->{'err'} //= q();
+						if ( $complete_cds->{'err'} =~ /internal\ stop\ codon/x ) {
+							$flag = 'internal stop codon';
+						} elsif ( $complete_cds->{'err'} =~ /multiple\ of\ 3/x ) {
+							$flag = 'frameshift';
+						} else {    #Sequence does not have start or stop codon.
+							next;
+						}
+					} else {
+						next;
+					}
+				}
 				my $seq_hash = Digest::MD5::md5_hex($seq);
 				next if $seqs{$seq_hash};
 				$seqs{$seq_hash} = 1;
 				if ( $self->{'options'}->{'a'} ) {
-					next if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/;
-					my $allele_id = $self->_define_allele( $locus, $seq );
+					next if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
+					my $allele_id = $self->_define_allele( $locus, $seq, $flag );
 					say ">$locus-$allele_id";
 					say $seq;
 				} else {
 					if ($first) {
-						say "locus\tallele_id\tstatus\tsequence";
+						say "locus\tallele_id\tstatus\tsequence\tflags";
 						$first = 0;
 					}
-					say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
+					say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag";
 				}
 			}
 			last if $EXIT || $self->_is_time_up;
@@ -105,14 +123,15 @@ sub run_script {
 	}
 
 	#Delete isolate working files
+	#Only delete if single threaded (we'll delete when all threads finished in multithreaded).
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*")
-	  if !$self->{'options'}->{'prefix'};    #Only delete if single threaded (we'll delete when all threads finished in multithreaded).
+	  if !$self->{'options'}->{'prefix'};
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop");
 	return;
 }
 
 sub _define_allele {
-	my ( $self, $locus, $seq ) = @_;
+	my ( $self, $locus, $seq, $flag ) = @_;
 	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
 	my $data_connector = $self->{'datastore'}->get_data_connector;
 	my $can_define     = 1;
@@ -130,15 +149,28 @@ sub _define_allele {
 		$allele_id = $self->_get_next_id( $locus_db, $locus );
 		eval {
 			$locus_db->do(
-				"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)",
-				undef, $locus, $allele_id, $seq, 'WGS: automated extract (BIGSdb)',
-				'now', 'now', DEFINER_USER, DEFINER_USER
+				'INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,'
+				  . 'sender,curator) VALUES (?,?,?,?,?,?,?,?)',
+				undef,
+				$locus,
+				$allele_id,
+				$seq,
+				'WGS: automated extract (BIGSdb)',
+				'now',
+				'now',
+				DEFINER_USER,
+				DEFINER_USER
 			);
+			if ($flag) {
+				$locus_db->do( 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
+					undef, $locus, $allele_id, $flag, DEFINER_USER, 'now' );
+			}
 		};
 		if ($@) {
 			if ( $@ =~ /duplicate key value/ ) {
 				$self->{'logger'}->info("Duplicate allele: $locus-$allele_id (can't define)");
-				say "Can't add new allele - duplicate. Somebody else has probably defined allele in the past few minutes.";
+				say 'Cannot add new allele - duplicate. Somebody else has probably '
+				  . 'defined allele in the past few minutes.';
 			} else {
 				$self->{'logger'}->error($@);
 				say "Can't add new allele. Error: $@";
@@ -166,7 +198,7 @@ sub _get_next_id {
 	do {
 		$allele_id++;
 		$exists = $self->{'datastore'}->run_query(
-			"SELECT EXISTS(SELECT allele_id FROM sequences WHERE locus=? AND allele_id=?)",
+			'SELECT EXISTS(SELECT allele_id FROM sequences WHERE (locus,allele_id)=(?,?))',
 			[ $locus, $allele_id ],
 			{ db => $db, fetch => 'row_array', cache => 'ScanNew::get_next_id' }
 		);
@@ -176,7 +208,7 @@ sub _get_next_id {
 
 sub _off_end_of_contig {
 	my ( $self, $match ) = @_;
-	my $seqbin_length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?",
+	my $seqbin_length = $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?',
 		$match->{'seqbin_id'}, { cache => 'ScanNew::off_end_of_contig' } );
 	if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 		$match->{'predicted_start'} = '1';
@@ -222,7 +254,7 @@ sub _can_define_alleles {
 				}
 			);
 			my $user_exists = $self->{'datastore'}->run_query(
-				"SELECT EXISTS(SELECT * FROM users WHERE id=? AND user_name=?)",
+				'SELECT EXISTS(SELECT * FROM users WHERE (id,user_name)=(?,?))',
 				[ DEFINER_USER, DEFINER_USERNAME ],
 				{ db => $locus_db }
 			);
@@ -232,7 +264,8 @@ sub _can_define_alleles {
 				$can_define = 0;
 			}
 			my $extended_attributes =
-			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)",
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)',
 				$locus, { db => $locus_db, cache => 'ScanNew::can_define_alleles_attributes' } );
 			if ($extended_attributes) {
 				$self->{'logger'}->error("Locus $locus has required extended attributes.");

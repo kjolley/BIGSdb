@@ -59,6 +59,7 @@ GetOptions(
 	'x|min=i'              => \$opts{'x'},
 	'y|max=i'              => \$opts{'y'},
 	'a|assign'             => \$opts{'a'},
+	'allow_frameshift'     => \$opts{'allow_frameshift'},
 	'c|coding_sequences'   => \$opts{'c'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
@@ -67,7 +68,6 @@ GetOptions(
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
-
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
@@ -93,8 +93,10 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 		}
 	);
 	local @SIG{qw (INT TERM HUP)} =
-	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autodefiner kill signal detected.  Waiting for child processes.") } ) x 3;
-	die "Script initialization failed - check logs (authentication problems or server too busy?).\n" if !defined $script->{'db'};
+	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autodefiner kill signal detected.  Waiting for child processes.") }
+	  ) x 3;
+	die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+	  if !defined $script->{'db'};
 	my $loci = $script->get_loci_with_ref_db;
 	$script->{'db'}->commit;    #Prevent idle in transaction table locks
 	my $lists = [];
@@ -165,6 +167,15 @@ ${bold}SYNOPSIS$norm
 ${bold}OPTIONS$norm
 ${bold}-a, --assign$norm
     Assign new alleles in definitions database.
+    
+${bold}--allow_frameshift$norm
+    Allow sequences to contain a frameshift so that the length is not a 
+    multiple of 3, or an internal stop codon. To be used with 
+    --coding_sequences option to allow automated curation of pseudogenes.
+    New alleles assigned will be flagged either 'frameshift' or 'internal stop
+    codon' if appropriate.  Essentially, combining these two options only 
+    checks that the sequence starts with a start codon and ends with a stop
+    codon.    
 
 ${bold}-A, --alignment$norm ${under}INT$norm
     Percentage alignment (default: 100).
