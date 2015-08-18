@@ -113,6 +113,7 @@ sub _print_interface {
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
+	my $sender;
 
 	if ( $q->param('isolate_id') ) {
 		say q(<li><label class="parameter">isolate id: !</label>);
@@ -124,6 +125,9 @@ sub _print_interface {
 			  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
 				$isolate_id );
 			$isolate_name //= 'Invalid isolate';
+			$sender =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id );
 		} else {
 			$isolate_name = 'Invalid isolate';
 		}
@@ -153,7 +157,8 @@ sub _print_interface {
 		-id       => 'sender',
 		-values   => [ '', @$users ],
 		-labels   => $user_names,
-		-required => 'required'
+		-required => 'required',
+		-default  => $sender
 	);
 	say q(</li><li><label for="method" class="parameter">method: </label>);
 	my $method_labels = { '' => ' ' };
@@ -499,7 +504,8 @@ sub _upload {
 		}
 	}
 	eval {
-		foreach ( keys %$seq_ref ) {
+		foreach ( keys %$seq_ref )
+		{
 			my ( $designation, $comments );
 			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
@@ -513,7 +519,7 @@ sub _upload {
 				$designation, $comments, $sender, $curator, 'now', 'now'
 			);
 			$sql->execute(@values);
-			my $id = $self->{'db'}->last_insert_id(undef,undef,'sequence_bin','id');
+			my $id = $self->{'db'}->last_insert_id( undef, undef, 'sequence_bin', 'id' );
 			$sql_experiment->execute( $experiment, $id, $curator, 'now' ) if $experiment;
 			$_->execute($id) foreach @attribute_sql;
 		}
