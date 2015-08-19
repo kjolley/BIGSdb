@@ -40,6 +40,14 @@ sub _print_interface {
 		$desc{$scheme_id} = "$scheme_id) $scheme_info->{'description'}";
 	}
 	say q(<div class="box" id="queryform">);
+	say q(<p>The scheme caches contain scheme fields, e.g. MLST ST values, within the isolate database, removing the )
+	  . q(requirement to determine these in real time.  This can significantly speed up querying and data export, but )
+	  . q(the cache can become stale if there are changes to either the isolate or sequence definition database after )
+	  . q(it was last updated.</p>);
+	if ( $self->{'system'}->{'cache_schemes'} ) {
+		say q(<p>This database is also set to automatically refresh scheme caches when isolates are added using the )
+		  . q(batch add page.</p>);
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Select scheme</legend>);
 	$desc{0} = 'All schemes';
