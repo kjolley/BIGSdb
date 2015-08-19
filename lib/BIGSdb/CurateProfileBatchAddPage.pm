@@ -287,7 +287,10 @@ sub _check {
 
 		#check if profile exists
 		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		$problems{$pk} .= "$msg<br />" if $profile_exists;
+		if ($profile_exists) {
+			next RECORD if $q->param('ignore_existing');
+			$problems{$pk} .= "$msg<br />";
+		}
 
 		#check if primary key already exists
 		my $pk_exists = $self->{'datastore'}->run_query(
@@ -399,7 +402,7 @@ sub _upload {
 		@records = <$tmp_fh>;
 		close $tmp_fh;
 	} else {
-		$logger->error("Can't open $tmp_file for reading.")
+		$logger->error("Can't open $tmp_file for reading.");
 	}
 	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");
@@ -535,7 +538,11 @@ sub _print_interface {
 		-required => 'required'
 	);
 	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore previously defined profiles' );
+	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Ignore duplicate profiles' );
+	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
