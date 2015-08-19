@@ -55,6 +55,7 @@ use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
+use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::SubmitPage;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
@@ -105,9 +106,10 @@ sub print_page {
 		profileInfo        => 'ProfileInfoPage',
 		profileUpdate      => 'CurateProfileUpdatePage',
 		pubquery           => 'PubQueryPage',
-		query    => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
-		renumber => 'CurateRenumber',
-		seqbin   => 'SeqbinPage',
+		query => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
+		refreshCache   => 'RefreshSchemeCachePage',
+		renumber       => 'CurateRenumber',
+		seqbin         => 'SeqbinPage',
 		setAlleleFlags => 'CurateBatchSetAlleleFlagsPage',
 		setPassword    => 'ChangePasswordPage',
 		submit         => 'SubmitPage',
@@ -153,7 +155,7 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		return;
-	} 
+	}
 	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

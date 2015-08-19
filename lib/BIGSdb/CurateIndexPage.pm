@@ -192,14 +192,36 @@ sub print_content {
 			}
 		}
 	}
+	my $list_buffer = $self->_get_admin_list_links;
+	$can_do_something = 1 if $list_buffer;
+	if ( $buffer || $list_buffer ) {
+		say q(<div class="box" id="restricted">);
+		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say q(<h2>Database configuration</h2>);
+		say q(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
+		  . qq(<th>Update or delete</th><th>Comments</th></tr>$buffer</table>)
+		  if $buffer;
+		say qq(<ul>$list_buffer</ul>) if $list_buffer;
+		say q(</div>);
+	}
+	if ( !$can_do_something ) {
+		say q(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, )
+		  . q(you haven't been granted specific permission to do anything.  Please contact the )
+		  . q(database administrator to set your appropriate permissions.</p></div>);
+	}
+	return;
+}
+
+sub _get_admin_list_links {
+	my ($self) = @_;
 	my $list_buffer;
 	if ( $self->{'system'}->{'authentication'} eq 'builtin'
 		&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 	{
-		$list_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword">)
-		  . qq(Set user passwords</a> - Set a user password to enable them to log on or change an existing password.</li>\n);
-		$can_do_something = 1;
+		$list_buffer =
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=setPassword">Set user passwords</a> - Set a user password to enable them to log on )
+		  . qq(or change an existing password.</li>\n);
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
@@ -207,29 +229,23 @@ sub print_content {
 		  . q(page=configCheck">Configuration check</a> - Checks database connectivity for loci and schemes )
 		  . qq(and that required helper applications are properly installed.</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$list_buffer .=
-			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair">)
-			  . qq(Configuration repair</a> - Rebuild scheme tables</li>\n);
+			$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=configRepair">Configuration repair</a> - Rebuild scheme tables</li>\n);
 		}
-		$can_do_something = 1;
 	}
-	if ( $buffer || $list_buffer ) {
-		say q(<div class="box" id="restricted">);
-		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
-		say q(<h2>Database configuration</h2>);
+	if ( $self->is_admin && $self->{'system'}->{'dbtype'} eq 'isolates' && $self->_cache_tables_exists ) {
+		$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=refreshCache">Refresh scheme caches</a> - Update one or all scheme field caches.</li>\n);
 	}
-	if ($buffer) {
-		say q(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
-		  . qq(<th>Update or delete</th><th>Comments</th></tr>$buffer</table>);
-	}
-	say qq(<ul>$list_buffer</ul>) if $list_buffer;
-	say q(</div>) if $buffer || $list_buffer;
-	if ( !$can_do_something ) {
-		say q(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, )
-		  . q(you haven't been granted specific permission to do anything.  Please contact the )
-		  . q(database administrator to set your appropriate permissions.</p></div>);
-	}
-	return;
+	return $list_buffer;
+}
+
+sub _cache_tables_exists {
+	my ($self) = @_;
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query(q(SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name LIKE 'temp_%')));
+	return $exists;
 }
 
 sub _print_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
