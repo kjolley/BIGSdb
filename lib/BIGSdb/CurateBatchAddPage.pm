@@ -26,6 +26,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Page qw(ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID);
 use BIGSdb::CurateAddPage qw(MAX_POSTGRES_COLS);
+use BIGSdb::Offline::UpdateSchemeCaches;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -1567,8 +1568,39 @@ qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
 		  . qq(ignore_similarity=$ignore_similarity">Add more</a>);
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
 	}
 	say q(</p></div>);
+	return;
+}
+
+sub _update_scheme_caches {
+	my ($self) = @_;
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null' || $logger->error("Can't detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
+			BIGSdb::Offline::UpdateSchemeCaches->new(
+				{
+					config_dir       => $self->{'config_dir'},
+					lib_dir          => $self->{'lib_dir'},
+					dbase_config_dir => $self->{'dbase_config_dir'},
+					instance         => $self->{'instance'}
+				}
+			);
+			CORE::exit(0);
+		}
+	}
 	return;
 }
 
