@@ -37,14 +37,13 @@ sub _print_interface {
 	my %desc;
 	foreach my $scheme_id (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = "$scheme_id ) $scheme_info->{'description'}";
+		$desc{$scheme_id} = "$scheme_id) $scheme_info->{'description'}";
 	}
 	say q(<div class="box" id="queryform">);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Select scheme</legend>);
-	
 	$desc{0} = 'All schemes';
-	say $q->popup_menu( -name => 'scheme', -values => [0,@$schemes], -labels => \%desc );
+	say $q->popup_menu( -name => 'scheme', -values => [ 0, @$schemes ], -labels => \%desc );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Refresh cache' } );
 	say $q->hidden($_) foreach qw(db page);
@@ -90,7 +89,6 @@ sub _refresh_caches {
 	my ( $self, $schemes ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultsheader"><p>);
-	
 	my @selected_schemes;
 	if ( $q->param('scheme') && BIGSdb::Utils::is_int( $q->param('scheme') ) ) {
 		push @selected_schemes, $q->param('scheme');
@@ -105,12 +103,12 @@ sub _refresh_caches {
 			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.<br />";
 		} else {
 			say qq(Updating scheme $scheme_id cache ($scheme_info->{'description'}) ...);
-			$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1 } );
-			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
+			$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1 } );
+			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
 			say q(done.<br />);
 		}
 	}
