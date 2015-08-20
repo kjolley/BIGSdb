@@ -36,7 +36,7 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (filter)) {
+		foreach my $attribute (qw (filter list)) {
 			my $value =
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
 			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
@@ -55,9 +55,11 @@ sub get_javascript {
 	my $q        = $self->{'cgi'};
 	my $max_rows = MAX_ROWS;
 	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'inline' : 'none';
+	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'} || $q->param('list') ? 'inline' : 'none';
 	my $buffer = << "END";
 \$(function () {
    \$('#filter_fieldset').css({display:"$filter_fieldset_display"});
+   \$('#list_fieldset').css({display:"$list_fieldset_display"});
    \$("#locus").change(function(){
  	  var locus_name = \$("#locus").val();
  	  locus_name = locus_name.replace("cn_","");
@@ -81,6 +83,15 @@ sub get_javascript {
 		\$("a#save_options").fadeIn();
 		return false;
     });
+    \$("#show_list").click(function() {
+		if(\$(this).text() == 'Hide'){
+			\$("#list").val('');
+		}
+ 		\$("#list_fieldset").toggle(100);
+		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
+		return false;
+    });
   	\$(".trigger").click(function(){		
 		\$(".panel").toggle("slide",{direction:"right"},"fast");
 		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);
@@ -91,9 +102,10 @@ sub get_javascript {
 		\$("a#save_options").click(function(event){		
 		event.preventDefault();
 		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
+		var list = \$("#show_list").text() == 'Show' ? 0 : 1;
 	  	\$(this).attr('href', function(){  	
 	  		\$("a#save_options").text('Saving ...');
-	  		var new_url = this.href + "&filter=" + filter;
+	  		var new_url = this.href + "&filter=" + filter + "&list=" + list;
 		  		\$.ajax({
 	  			url : new_url,
 	  			success: function () {	  				
@@ -135,7 +147,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (filter)) {
+	foreach my $attribute (qw (filter list)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
 	}
@@ -262,12 +274,8 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page no_js);
 
 	if ( $q->param('locus') ) {
-		my $desc_exists =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
-		if ($desc_exists) {
-			say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
-			  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
-		}
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
+		  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
@@ -291,21 +299,38 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
+	$self->_print_list_fieldset;
+	$self->_print_filter_fieldset;
+	$self->print_action_fieldset( { locus => $locus } );
+	$self->_print_modify_search_fieldset;
+	say $q->endform;
+	say q(</div></div>);
+	return;
+}
+
+sub _print_list_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $display = $q->param('no_js') ? 'block' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Allele id list</legend>);
+	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -cols => 12 );
+	say q(</fieldset>);
+	return;
+}
+
+sub _print_filter_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my $display = $q->param('no_js') ? 'block' : 'none';
 	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
 	say q(<ul><li>);
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say q(</li><li>);
-
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
 		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
 	}
 	say q(</li></ul></fieldset>);
-	$self->print_action_fieldset( { locus => $locus } );
-	$self->_print_modify_search_fieldset;
-	say $q->endform;
-	say q(</div></div>);
 	return;
 }
 
@@ -315,7 +340,11 @@ sub _print_modify_search_fieldset {
 	say q(<div class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional query terms:</p><ul>);
+	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
+	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say q(Allele id list box</li>);
 	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
 	  || $self->filters_selected ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
