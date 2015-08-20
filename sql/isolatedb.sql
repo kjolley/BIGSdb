@@ -205,6 +205,7 @@ ON UPDATE CASCADE
 
 CREATE INDEX i_isolate_id on sequence_bin (isolate_id);
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_bin TO apache;
+GRANT USAGE,SELECT ON SEQUENCE sequence_bin_id_seq TO apache;
 
 CREATE TABLE seqbin_stats (
 isolate_id int NOT NULL,
