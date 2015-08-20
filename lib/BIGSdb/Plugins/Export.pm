@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.0',
+		version     => '1.3.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -261,16 +261,24 @@ sub run_job {
 	);
 	return if $self->{'exit'};
 	if ( -e $filename ) {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "$job_id.txt", description => '01_Output in tab-delimited text format' } );
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$job_id.txt",
+				description => '01_Output in tab-delimited text format',
+				compress    => 1,
+				keep_original => 1    #Original needed to generate Excel file
+			}
+		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
 		my $excel_file =
 		  BIGSdb::Utils::text2excel( $filename,
 			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
+				{ filename => "$job_id.xlsx", description => '02_Output in Excel format', compress => 1 } );
 		}
+		unlink $filename if -e "$filename.gz";
 	}
 	return;
 }
