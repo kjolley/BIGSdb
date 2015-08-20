@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.4',
+		version          => '1.5.5',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -64,7 +64,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -81,7 +82,8 @@ sub run {
 	my $allow_alignment = 1;
 
 	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
-		$logger->error( "This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one isn't.  Please install one of these "
+		$logger->error(
+"This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one isn't.  Please install one of these "
 			  . "or check the settings in bigsdb.conf." );
 		$allow_alignment = 0;
 	}
@@ -110,7 +112,8 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
 			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+			say
+"<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
 		} elsif ( !@$loci_selected ) {
 			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
 			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
@@ -140,7 +143,8 @@ sub run {
 			my $total_seqs = @$loci_selected * @list;
 			if ( $total_seqs > $max_seqs ) {
 				my $commified_total = BIGSdb::Utils::commify($total_seqs);
-				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences (records x loci).  You )
+				say
+qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences (records x loci).  You )
 				  . qq(have selected $commified_total.</p></div>);
 				return;
 			}
@@ -161,11 +165,14 @@ sub run {
 			);
 			say qq(<div class="box" id="resultstable">);
 			say qq(<p>This analysis has been submitted to the job queue.</p>);
-			say qq(<p>Please be aware that this job may take a long time depending on the number of sequences to align and how busy the )
+			say
+qq(<p>Please be aware that this job may take a long time depending on the number of sequences to align and how busy the )
 			  . qq(server is.  Alignment of hundreds of sequences can take many hours!</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">Follow the progress )
+			say
+qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">Follow the progress )
 			  . qq(of this job and view the output.</a></p>);
-			say qq(<p>Please note that the % complete value will only update after the extraction (and, if selected, alignment) of )
+			say
+qq(<p>Please note that the % complete value will only update after the extraction (and, if selected, alignment) of )
 			  . qq(each locus.</p></div>);
 			return;
 		}
@@ -173,20 +180,26 @@ sub run {
 	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say qq(<div class="box" id="queryform">);
-		say qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
+		say
+qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
 		  . qq(applications, such as ClonalFrame.  It will also produce concatenated FASTA files. Only DNA loci that have a corresponding )
 		  . qq(database containing allele sequence identifiers, or DNA and peptide loci with genome sequences tagged, can be included. )
 		  . qq(Please check the loci that you would like to include.  Alternatively select one or more schemes to include )
 		  . qq(all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with )
 		  . qq(gap characters.</p>);
-		say qq(<p>Aligned output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
-		say qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
+		say
+qq(<p>Aligned output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
+		say
+qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
 	} else {
 		say qq(<div class="box" id="queryform">);
-		say qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
+		say
+qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
 		  . qq(applications, such as ClonalFrame.</p>);
-		say qq(<p>Aligned Output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
-		say qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
+		say
+qq(<p>Aligned Output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
+		say
+qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	$self->print_sequence_export_form(
@@ -211,7 +224,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk        = $params->{'pk'};
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
@@ -238,12 +251,13 @@ sub run_job {
 		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
 		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
 	} else {
-		$substring_query = "substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
+		$substring_query =
+"substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
 	}
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $seqbin_qry =
-	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
+"SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
 	  . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
 	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1";
 	my @problem_ids;
@@ -262,7 +276,8 @@ sub run_job {
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $params->{'align'} && @$ids > $limit ) {
-		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
+		my $message_html =
+		  "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $progress = 0;
@@ -300,7 +315,7 @@ sub run_job {
 						if ( defined $metaset ) {
 							$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 						} else {
-							$value = $isolate_data->{lc($field)} // '';
+							$value = $isolate_data->{ lc($field) } // '';
 						}
 						$value =~ tr/ /_/;
 						push @include_values, $value;
@@ -332,7 +347,8 @@ sub run_job {
 				} else {
 					my ( $reverse, $seqbin_id, $start_pos );
 					( $seqbin_seq, $reverse, $seqbin_id, $start_pos ) =
-					  $self->{'datastore'}->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
+					  $self->{'datastore'}
+					  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
 					if ($reverse) {
 						$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
 					}
@@ -372,7 +388,10 @@ sub run_job {
 					say $fh_unaligned $seq;
 				}
 			} else {
-				my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+				my $scheme_view =
+				  $self->{'datastore'}->materialized_view_exists($scheme_id)
+				  ? "mv_scheme_$scheme_id"
+				  : "scheme_$scheme_id";
 				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM $scheme_view WHERE $pk=?");
 				eval { $profile_sql->execute($id) };
 				$logger->error($@) if $@;
@@ -390,7 +409,9 @@ sub run_job {
 					}
 				}
 				if ($profile_id) {
-					my $allele_id = $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
+					my $allele_id =
+					  $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )
+					  ->{'allele_id'};
 					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
 					say $fh_unaligned $header;
 					if ( $allele_id eq '0' || $allele_id eq 'N' ) {
@@ -398,7 +419,9 @@ sub run_job {
 						$no_seq{$id} = 1;
 					} else {
 						my $allele_seq = $$allele_seq_ref;
-						if ( ( $params->{'in_frame'} || $params->{'translate'} ) && $locus_info->{'data_type'} eq 'DNA' ) {
+						if ( ( $params->{'in_frame'} || $params->{'translate'} )
+							&& $locus_info->{'data_type'} eq 'DNA' )
+						{
 							$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
 						}
 						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
@@ -419,8 +442,11 @@ sub run_job {
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
 		my $output_file;
 		if ( $params->{'align'} && $params->{'aligner'} eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
-			my $threads = BIGSdb::Utils::is_int($self->{'config'}->{'mafft_threads'}) ? $self->{'config'}->{'mafft_threads'} : 1;
-			system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file");
+			my $threads =
+			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+			system(
+				"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file"
+			);
 			$output_file = $aligned_file;
 		} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
 			system( $self->{'config'}->{'muscle_path'}, -in => $temp_file, -out => $aligned_file, '-quiet' );
@@ -461,22 +487,31 @@ sub run_job {
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .=
+		  "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
-		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xmfa", description => "10_XMFA output file $align_qualifier" } );
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename      => "$job_id.xmfa",
+				description   => "10_XMFA output file $align_qualifier",
+				compress      => 1,
+				keep_original => 1 #Original needed to generate FASTA file
+			}
+		);
 		try {
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
-			my $fasta_file = BIGSdb::Utils::xmfa2fasta("$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa");
+			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}
-				  ->update_job_output( $job_id, { filename => "$job_id.fas", description => "20_Concatenated FASTA $align_qualifier" } );
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.fas", description => "20_Concatenated FASTA $align_qualifier",compress      => 1 } );
 			}
 		}
 		catch BIGSdb::CannotOpenFileException with {
 			$logger->error("Can't create FASTA file from XMFA.");
 		};
+		unlink $filename if -e "$filename.gz";
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 	return;
