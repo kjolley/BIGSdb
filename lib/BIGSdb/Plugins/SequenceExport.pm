@@ -82,9 +82,8 @@ sub run {
 	my $allow_alignment = 1;
 
 	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
-		$logger->error(
-"This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one isn't.  Please install one of these "
-			  . "or check the settings in bigsdb.conf." );
+		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
+			  . 'Please install one of these or check the settings in bigsdb.conf.' );
 		$allow_alignment = 0;
 	}
 	my $pk;
@@ -97,7 +96,7 @@ sub run {
 			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
 		if ( !defined $scheme_id ) {
-			say qq(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
 			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -111,21 +110,21 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
-			local $" = ', ';
-			say
-"<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+			local $" = q(, );
+			say q(<div class="box" id="statusbad"><p>The following loci in your pasted list are )
+			  . qq(invalid: @$invalid_loci.</p></div>);
 		} elsif ( !@$loci_selected ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci";
-			print " or schemes" if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say ".</p></div>\n";
+			print q(<div class="box" id="statusbad"><p>You must select one or more loci);
+			print q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
+			say q(.</p></div>);
 		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
-			say qq(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
 			$params->{'pk'}     = $pk;
 			$params->{'set_id'} = $self->get_set_id;
-			my @list = split /[\r\n]+/, $q->param('list');
+			my @list = split /[\r\n]+/x, $q->param('list');
 			@list = uniq @list;
 			if ( !@list ) {
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -134,7 +133,7 @@ sub run {
 					@list = @$id_list;
 				} else {
 					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-					my $qry = "SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ";
+					my $qry = 'SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ';
 					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
 					my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
 					@list = @$id_list;
@@ -143,9 +142,8 @@ sub run {
 			my $total_seqs = @$loci_selected * @list;
 			if ( $total_seqs > $max_seqs ) {
 				my $commified_total = BIGSdb::Utils::commify($total_seqs);
-				say
-qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences (records x loci).  You )
-				  . qq(have selected $commified_total.</p></div>);
+				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences )
+				  . qq((records x loci).  You have selected $commified_total.</p></div>);
 				return;
 			}
 			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';
@@ -163,43 +161,39 @@ qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified
 					$list_type   => \@list
 				}
 			);
-			say qq(<div class="box" id="resultstable">);
-			say qq(<p>This analysis has been submitted to the job queue.</p>);
-			say
-qq(<p>Please be aware that this job may take a long time depending on the number of sequences to align and how busy the )
-			  . qq(server is.  Alignment of hundreds of sequences can take many hours!</p>);
-			say
-qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">Follow the progress )
-			  . qq(of this job and view the output.</a></p>);
-			say
-qq(<p>Please note that the % complete value will only update after the extraction (and, if selected, alignment) of )
-			  . qq(each locus.</p></div>);
+			say q(<div class="box" id="resultstable">);
+			say q(<p>This analysis has been submitted to the job queue.</p>);
+			say q(<p>Please be aware that this job may take a long time depending on the number of sequences )
+			  . q(to align and how busy the server is.  Alignment of hundreds of sequences can take many hours!</p>);
+			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
+			  . q(Follow the progress of this job and view the output.</a></p>);
+			say q(<p>Please note that the % complete value will only update after the extraction )
+			  . q((and, if selected, alignment) of each locus.</p></div>);
 			return;
 		}
 	}
 	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say qq(<div class="box" id="queryform">);
-		say
-qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
-		  . qq(applications, such as ClonalFrame.  It will also produce concatenated FASTA files. Only DNA loci that have a corresponding )
-		  . qq(database containing allele sequence identifiers, or DNA and peptide loci with genome sequences tagged, can be included. )
-		  . qq(Please check the loci that you would like to include.  Alternatively select one or more schemes to include )
-		  . qq(all loci that are members of the scheme.  If a sequence does not exist in the remote database, it will be replaced with )
-		  . qq(gap characters.</p>);
-		say
-qq(<p>Aligned output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
-		say
-qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
+		say q(<div class="box" id="queryform">);
+		say q(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for )
+		  . q(loading into third-party applications, such as ClonalFrame.  It will also produce concatenated )
+		  . q(FASTA files. Only DNA loci that have a corresponding database containing allele sequence identifiers, )
+		  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
+		  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
+		  . q(of the scheme.  If a sequence does not exist in the remote database, it will be replaced with )
+		  . q(gap characters.</p>);
+		say qq(<p>Aligned output is limited to $limit records; total output (records x loci) is )
+		  . qq(limited to $commified_max sequences.</p>);
+		say q(<p>Please be aware that if you select the alignment option it may take a long time )
+		  . q(to generate the output file.</p>);
 	} else {
-		say qq(<div class="box" id="queryform">);
-		say
-qq(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for loading into third-party )
-		  . qq(applications, such as ClonalFrame.</p>);
-		say
-qq(<p>Aligned Output is limited to $limit records; total output (records x loci) is limited to $commified_max sequences.</p>);
-		say
-qq(<p>Please be aware that if you select the alignment option it may take a long time to generate the output file.</p>);
+		say q(<div class="box" id="queryform">);
+		say q(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable )
+		  . q(for loading into third-party applications, such as ClonalFrame.</p>);
+		say qq(<p>Aligned Output is limited to $limit records; total output (records x loci) is limited to )
+		  . qq($commified_max sequences.</p>);
+		say q(<p>Please be aware that if you select the alignment option it may take a long time to )
+		  . q(generate the output file.</p>);
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	$self->print_sequence_export_form(
@@ -216,7 +210,7 @@ qq(<p>Please be aware that if you select the alignment option it may take a long
 			include_seqbin_id => 1
 		}
 	);
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -238,7 +232,7 @@ sub run_job {
 
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
-		@includes = split /$separator/, $params->{'includes'};
+		@includes = split /$separator/x, $params->{'includes'};
 		%field_included = map { $_ => 1 } @includes;
 	}
 	my $substring_query;
@@ -251,15 +245,17 @@ sub run_job {
 		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
 		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
 	} else {
-		$substring_query =
-"substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences.start_pos+1)";
+		$substring_query = 'substring(sequence from allele_sequences.start_pos for '
+		  . 'allele_sequences.end_pos-allele_sequences.start_pos+1)';
 	}
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $seqbin_qry =
-"SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id="
-	  . "sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? "
-	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY complete,allele_sequences.datestamp LIMIT 1";
+	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN "
+	  . 'sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON '
+	  . 'allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? '
+	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
+	  . 'complete,allele_sequences.datestamp LIMIT 1';
 	my @problem_ids;
 	my %problem_id_checked;
 	my $start = 1;
@@ -462,7 +458,7 @@ sub run_job {
 				$end = $start + $length - 1;
 				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
 				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-				( my $id = $seq->id ) =~ s/\|.*$//;
+				( my $id = $seq->id ) =~ s/\|.*$//x;
 				$sequence =~ s/N/-/g if $no_seq{$id};
 				say $fh $sequence;
 			}
@@ -487,8 +483,8 @@ sub run_job {
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		$message_html .=
-		  "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .= '<p>No output generated.  Please ensure that your sequences '
+		  . "have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
@@ -497,19 +493,25 @@ sub run_job {
 				filename      => "$job_id.xmfa",
 				description   => "10_XMFA output file $align_qualifier",
 				compress      => 1,
-				keep_original => 1 #Original needed to generate FASTA file
+				keep_original => 1                                         #Original needed to generate FASTA file
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => "Converting XMFA to FASTA" } );
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.fas", description => "20_Concatenated FASTA $align_qualifier",compress      => 1 } );
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => "$job_id.fas",
+						description => "20_Concatenated FASTA $align_qualifier",
+						compress    => 1
+					}
+				);
 			}
 		}
 		catch BIGSdb::CannotOpenFileException with {
-			$logger->error("Can't create FASTA file from XMFA.");
+			$logger->error('Cannot create FASTA file from XMFA.');
 		};
 		unlink $filename if -e "$filename.gz";
 	}
