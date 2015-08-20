@@ -1692,20 +1692,17 @@ sub _get_select_items {
 
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
-	my $param_name;
-	if ( $type eq 'provenance' ) {
-		$param_name = 'prov_value';
-	} elsif ( $type eq 'loci' ) {
-		$param_name = 'designation_value';
-	} elsif ( $type eq 'allele_status' ) {
-		$param_name = 'allele_sequence_value';
-	} elsif ( $type eq 'tags' ) {
-		$param_name = 'tag_value';
-	}
+	my %param_name = (
+		provenance    => 'prov_value',
+		loci          => 'designation_value',
+		allele_status => 'allele_sequence_value',
+		tags          => 'tag_value'
+	);
 	my $q = $self->{'cgi'};
 	my $highest;
-	for ( 1 .. MAX_ROWS ) {
-		$highest = $_ if defined $q->param("$param_name$_") && $q->param("$param_name$_") ne '';
+	for my $row ( 1 .. MAX_ROWS ) {
+		$highest = $row
+		  if defined $q->param( $param_name{$type} . $row ) && $q->param( $param_name{$type} . $row ) ne '';
 	}
 	return $highest;
 }
