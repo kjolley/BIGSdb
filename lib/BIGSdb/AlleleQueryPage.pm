@@ -30,12 +30,18 @@ use BIGSdb::QueryPage qw(OPERATORS);
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('no_header') ) {
-		$self->{'type'} = 'no_header';
-		return;
+	my $q = $self->{'cgi'};
+	$self->SUPER::initiate;
+	$self->{'noCache'} = 1;
+	if ( !$self->{'cgi'}->param('save_options') ) {
+		my $guid = $self->get_guid;
+		return if !$guid;
+		foreach my $attribute (qw (filter)) {
+			my $value =
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
+			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+		}
 	}
-	$self->{$_} = 1 foreach qw(jQuery tooltips);
-	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
 
@@ -48,22 +54,55 @@ sub get_javascript {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
 	my $max_rows = MAX_ROWS;
-	my $buffer   = << "END";
+	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'inline' : 'none';
+	my $buffer = << "END";
 \$(function () {
- \$("#locus").change(function(){
- 	var locus_name = \$("#locus").val();
- 	locus_name = locus_name.replace("cn_","");
-  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
- 	location.href=url;
-  });
-  \$('a[data-rel=ajax]').click(function(){
-  	\$(this).attr('href', function(){
-  		if (this.href.match(/javascript.loadContent/)){
-  			return;
-  		};
-   		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
-   	});
-  });
+   \$('#filter_fieldset').css({display:"$filter_fieldset_display"});
+   \$("#locus").change(function(){
+ 	  var locus_name = \$("#locus").val();
+ 	  locus_name = locus_name.replace("cn_","");
+  	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
+ 	  location.href=url;
+    });
+    \$('a[data-rel=ajax]').click(function(){
+  	  \$(this).attr('href', function(){
+  		  if (this.href.match(/javascript.loadContent/)){
+  			  return;
+  		  };
+   		  return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+   	  });
+    });
+    \$("#show_filters").click(function() {
+		if(\$(this).text() == 'Hide'){
+			\$('[id\$="_list"]').val('');
+		}
+ 		\$("#filter_fieldset").toggle(100);
+		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
+		return false;
+    });
+  	\$(".trigger").click(function(){		
+		\$(".panel").toggle("slide",{direction:"right"},"fast");
+		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);
+		
+		return false;
+	});
+	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
+		\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").text('Saving ...');
+	  		var new_url = this.href + "&filter=" + filter;
+		  		\$.ajax({
+	  			url : new_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("a#save_options").text('Save options');
+	  			}
+	  		});
+	   	});
+	});
 });
 
 function loadContent(url) {
@@ -91,19 +130,30 @@ sub _ajax_content {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	return if !$guid;
+	foreach my $attribute (qw (filter)) {
+		my $value = $q->param($attribute) ? 'on' : 'off';
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
+	}
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $locus = $q->param('locus') || '';
 	$locus =~ s/^cn_//x;
-	if ( $q->param('no_header') ) {
-		$self->_ajax_content($locus);
-		return;
-	}
+	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
+	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $desc          = $self->get_db_description;
 	say "<h1>Query $cleaned_locus sequences - $desc database</h1>";
 	my $qry;
+
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
@@ -241,7 +291,8 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-	say q(<fieldset style="float:left"><legend>Filter query by</legend>);
+	my $display = $q->param('no_js') ? 'block' : 'none';
+	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
 	say q(<ul><li>);
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say q(</li><li>);
@@ -252,8 +303,28 @@ sub _print_interface {
 	}
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { locus => $locus } );
+	$self->_print_modify_search_fieldset;
 	say $q->endform;
 	say q(</div></div>);
+	return;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="panel">);
+	say q(<a class="trigger" id="close_trigger" href="#">[X]</a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p>Click to add or remove additional query terms:</p><ul>);
+	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
+	  || $self->filters_selected ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+	say q(Filters</li>);
+	say q(</ul>);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=alleleQuery&amp;save_options=1" style="display:none">Save options</a><br />);
+	say q(</div>);
+	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
 	return;
 }
 
@@ -261,7 +332,7 @@ sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $qry;
-	my $errors = [];
+	my $errors     = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
 	$locus =~ s/^cn_//x;
@@ -409,13 +480,14 @@ sub _generate_query {
 	$qry2 .= $self->_process_flags;
 	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
 	$qry2 .= q( ORDER BY );
-	$q->param(order => 'allele_id') if !defined $q->param('order');
+	$q->param( order => 'allele_id' ) if !defined $q->param('order');
+
 	if ( $q->param('order') eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {
 		$qry2 .= q(CAST (allele_id AS integer));
 	} else {
 		$qry2 .= $q->param('order');
 	}
-	my $dir = ($q->param('direction') // '') eq 'descending' ? 'desc' : 'asc';
+	my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 	$qry2 .= " $dir;";
 	$qry2 =~ s/sequence_length/length(sequence)/g;
 	return ( $qry2, $errors );
