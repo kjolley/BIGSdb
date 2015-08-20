@@ -313,7 +313,7 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#">[X]</a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
 	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
