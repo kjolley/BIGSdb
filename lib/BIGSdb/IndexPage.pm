@@ -84,7 +84,9 @@ sub print_content {
 		say qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - )
 		  . q(query multiple sequences in FASTA format.</li>);
 		say qq(<li><a href="${url_root}page=tableQuery&amp;table=sequences">Sequence attribute search</a> - )
-		  . q(find alleles by matching attributes.</li>);
+		  . q(find alleles by matching criteria (all loci together)</li>);
+		say qq(<li><a href="${url_root}page=alleleQuery&amp;table=sequences">Locus-specific sequence attribute )
+		  . q(search</a> - select, analyse and download specific alleles.</li>);
 		if (@$scheme_data) {
 			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
