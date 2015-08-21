@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -44,18 +44,6 @@ sub get_attributes {
 		order       => 20
 	);
 	return \%att;
-}
-
-sub _get_id_list {
-	my ( $self, $query_file ) = @_;
-	if ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		$$qry_ref =~ s/\*/allele_id/;
-		my $ids = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
-		return $ids;
-	}
-	return [];
 }
 
 sub run {
@@ -70,7 +58,10 @@ sub run {
 		return;
 	}
 	my $query_file = $q->param('query_file');
-	my $list       = $self->_get_id_list($query_file);#TODO Use Plugin::get_allele_id_list
+	my $list_file = $q->param('list_file');
+	my $list       = $self->get_allele_id_list($query_file, $list_file);
+
+	
 	if ( !@$list ) {
 		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
 		$logger->error("No sequences available.");

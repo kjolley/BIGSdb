@@ -469,7 +469,10 @@ sub get_id_list {
 }
 
 sub get_allele_id_list {
-	my ( $self, $query_file ) = @_;
+	my ( $self, $query_file, $list_file ) = @_;
+	if ($list_file) {
+		$self->{'datastore'}->create_temp_list_table( 'text', $list_file );
+	}
 	if ($query_file) {
 		my $qry_ref = $self->get_query($query_file);
 		return if ref $qry_ref ne 'SCALAR';

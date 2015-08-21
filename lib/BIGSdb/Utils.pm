@@ -541,4 +541,13 @@ sub slurp {
 	my $contents = do { local $/ = undef; <$fh> };
 	return \$contents;
 }
+
+sub remove_trailing_spaces_from_list {
+	my ($list) = @_;
+	foreach (@$list) {
+		s/^\s*//x;
+		s/\s*$//x;
+	}
+	return;
+}
 1;

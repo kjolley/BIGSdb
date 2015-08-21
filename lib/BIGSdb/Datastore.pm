@@ -1080,7 +1080,7 @@ sub create_temp_scheme_status_table {
 sub create_temp_list_table {
 	my ( $self, $datatype, $list_file ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
-	open( my $fh, '<', $full_path ) || $logger->error("Can't open $full_path for reading");
+	open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for reading");
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
 		$self->{'db'}->do('COPY temp_list FROM STDIN');

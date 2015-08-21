@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.0',
+		version          => '1.3.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -93,7 +93,8 @@ sub run {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $query_file = $q->param('query_file');
-	my $list       = $self->get_allele_id_list($query_file);
+	my $list_file = $q->param('list_file');
+	my $list       = $self->get_allele_id_list($query_file, $list_file);
 	my $desc       = $self->get_db_description;
 	if ( !@$display_loci ) {
 		say qq(<h1>Locus Explorer - $desc</h1>);

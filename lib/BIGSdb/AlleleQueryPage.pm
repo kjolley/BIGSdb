@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_ROWS => 10;
@@ -157,7 +157,7 @@ sub _save_options {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $locus = $q->param('locus') || '';
+	my $locus = $q->param('locus') // '';
 	$locus =~ s/^cn_//x;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
@@ -311,6 +311,9 @@ sub _print_interface {
 sub _print_list_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	if ($q->param('list_file')){
+		
+	}
 	my $display = $q->param('no_js') ? 'block' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Allele id list</legend>);
 	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -cols => 12 );
@@ -360,7 +363,7 @@ sub _print_modify_search_fieldset {
 sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $qry;
+	my ($qry, $list_file);
 	my $errors     = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
@@ -370,10 +373,17 @@ sub _run_query {
 		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
+	
 	if ( !defined $q->param('query_file') ) {
-		( $qry, $errors ) = $self->_generate_query($locus);
+		( $qry, $list_file, $errors ) = $self->_generate_query($locus);
+		$q->param(list_file => $list_file);
+		
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		if ($q->param('list_file')){
+			$self->{'datastore'}->create_temp_list_table('text', $q->param('list_file'));
+		}
+		
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
@@ -383,7 +393,7 @@ sub _run_query {
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
 	}
-	push @hidden_attributes, qw(locus no_js);
+	push @hidden_attributes, qw(locus no_js list list_file allele_flag_list);
 	if (@$errors) {
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@$errors</p></div>);
@@ -505,6 +515,7 @@ sub _generate_query {
 	$qry //= q();
 	$qry =~ s/sequence_length/length(sequence)/g;
 	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
+	my $list_file = $self->_modify_by_list (\$qry2, $locus);
 	$self->_modify_by_filter( \$qry2, $locus );
 	$qry2 .= $self->_process_flags;
 	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
@@ -519,7 +530,29 @@ sub _generate_query {
 	my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 	$qry2 .= " $dir;";
 	$qry2 =~ s/sequence_length/length(sequence)/g;
-	return ( $qry2, $errors );
+	return ( $qry2, $list_file, $errors );
+}
+
+sub _modify_by_list {
+	my ($self, $qry_ref, $locus) = @_;
+	my $q = $self->{'cgi'};
+	my @list = split /\n/x, $q->param('list');
+	@list = uniq @list;
+	BIGSdb::Utils::remove_trailing_spaces_from_list(\@list);
+	return if !@list;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array('text', \@list, {table=>'temp_list'});
+	my $list_file = BIGSdb::Utils::get_random() . '.list';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open (my $fh, '>:encoding(utf8)', $full_path) || $logger->error("Can't open $full_path for writing");
+	say $fh $_ foreach @list;
+	close $fh;
+	if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+		$$qry_ref .= ' AND ';
+	} else {
+		$$qry_ref = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
+	}
+	$$qry_ref .= "sequences.allele_id IN (SELECT value FROM $temp_table)";
+	return $list_file;
 }
 
 sub _modify_by_filter {

@@ -36,7 +36,7 @@ sub get_attributes {
 		menutext    => 'Export FASTA',
 		buttontext  => 'FASTA',
 		module      => 'FastaExport',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -69,7 +69,8 @@ sub run {
 		return;
 	}
 	my $query_file = $q->param('query_file');
-	my $list       = $self->_get_id_list($query_file); #TODO Use Plugin::get_allele_id_list
+	my $list_file = $q->param('list_file');
+	my $list       = $self->get_allele_id_list($query_file, $list_file);
 	if ( !@$list ) {
 		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
 		$logger->error("No sequences available.");
