@@ -304,6 +304,8 @@ sub _print_interface {
 		say q(</li>);
 	}
 	say q(</ul></fieldset>);
+	$self->_print_list_fieldset;
+	$self->_print_filter_fieldset;
 	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
@@ -311,8 +313,7 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-	$self->_print_list_fieldset;
-	$self->_print_filter_fieldset;
+
 	$self->print_action_fieldset( { locus => $locus } );
 	$self->_print_modify_search_fieldset;
 	say $q->endform;
