@@ -41,8 +41,8 @@ sub initiate {
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset" );
 			$self->{'prefs'}->{"aq_${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
-		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_locus_fieldset' );
-		$self->{'prefs'}->{'aq_locus_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_allele_fieldset' );
+		$self->{'prefs'}->{'aq_allele_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	return;
 }
@@ -56,8 +56,6 @@ sub get_javascript {
 	my ($self)                 = @_;
 	my $q                      = $self->{'cgi'};
 	my $max_rows               = MAX_ROWS;
-	my $locus_fieldset_display = $self->{'prefs'}->{'aq_locus_fieldset'}
-	  || $self->_highest_entered_fields ? 'inline' : 'none';
 	my $filter_fieldset_display = $self->{'prefs'}->{'aq_filter_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
@@ -79,9 +77,9 @@ sub get_javascript {
    		  return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
    	  });
     });
-    \$("#show_locus").click(function() {
+    \$("#show_allele").click(function() {
   		if(\$(this).text() == 'Hide'){\$('[id^="value"]').val('')}
- 		\$("#locus_fieldset").toggle(100);
+ 		\$("#allele_fieldset").toggle(100);
 		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
 		\$("a#save_options").fadeIn();
 		return false;
@@ -115,10 +113,10 @@ sub get_javascript {
 		event.preventDefault();
 		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
 		var list = \$("#show_list").text() == 'Show' ? 0 : 1;
-		var locus = \$("#show_locus").text() == 'Show' ? 0 : 1;
+		var allele = \$("#show_allele").text() == 'Show' ? 0 : 1;
 	  	\$(this).attr('href', function(){  	
 	  		\$("a#save_options").text('Saving ...');
-	  		var new_url = this.href + "&filter=" + filter + "&list=" + list + "&locus=" + locus;
+	  		var new_url = this.href + "&filter=" + filter + "&list=" + list + "&allele=" + allele;
 		  		\$.ajax({
 	  			url : new_url,
 	  			success: function () {	  				
@@ -160,7 +158,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (locus filter list)) {
+	foreach my $attribute (qw (allele filter list)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset", $value );
 	}
@@ -292,8 +290,8 @@ sub _print_interface {
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
-	my $display = $self->{'prefs'}->{'aq_locus_fieldset'} || $self->_highest_entered_fields ? 'inline' : 'none';
-	say qq(<fieldset id="locus_fieldset" style="float:left;display:$display"><legend>Locus fields</legend>);
+	my $display = $self->{'prefs'}->{'aq_allele_fieldset'} || $self->_highest_entered_fields ? 'inline' : 'none';
+	say qq(<fieldset id="allele_fieldset" style="float:left;display:$display"><legend>Allele fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
 	  . q(<label for="c0">Combine searches with: </label>);
@@ -355,10 +353,10 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
-	my $locus_fieldset_display = $self->{'prefs'}->{'aq_locus_fieldset'}
+	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
 	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
-	say qq(<li><a href="" class="button" id="show_locus">$locus_fieldset_display</a>);
-	say q(Locus fields</li>);
+	say qq(<li><a href="" class="button" id="show_allele">$allele_fieldset_display</a>);
+	say q(Allele fields</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
