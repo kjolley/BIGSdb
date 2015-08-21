@@ -38,9 +38,11 @@ sub initiate {
 		return if !$guid;
 		foreach my $attribute (qw (filter list)) {
 			my $value =
-			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
-			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset" );
+			$self->{'prefs'}->{"aq_${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_locus_fieldset' );
+		$self->{'prefs'}->{'aq_locus_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	return;
 }
@@ -51,11 +53,14 @@ sub get_help_url {
 }
 
 sub get_javascript {
-	my ($self)   = @_;
-	my $q        = $self->{'cgi'};
-	my $max_rows = MAX_ROWS;
-	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'inline' : 'none';
-	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'} || $q->param('list') ? 'inline' : 'none';
+	my ($self)                 = @_;
+	my $q                      = $self->{'cgi'};
+	my $max_rows               = MAX_ROWS;
+	my $locus_fieldset_display = $self->{'prefs'}->{'aq_locus_fieldset'}
+	  || $self->_highest_entered_fields ? 'inline' : 'none';
+	my $filter_fieldset_display = $self->{'prefs'}->{'aq_filter_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
 	my $buffer = << "END";
 \$(function () {
    \$('#filter_fieldset').css({display:"$filter_fieldset_display"});
@@ -74,6 +79,13 @@ sub get_javascript {
    		  return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
    	  });
     });
+    \$("#show_locus").click(function() {
+  		if(\$(this).text() == 'Hide'){\$('[id^="value"]').val('')}
+ 		\$("#locus_fieldset").toggle(100);
+		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
+		\$("a#save_options").fadeIn();
+		return false;
+	});
     \$("#show_filters").click(function() {
 		if(\$(this).text() == 'Hide'){
 			\$('[id\$="_list"]').val('');
@@ -103,9 +115,10 @@ sub get_javascript {
 		event.preventDefault();
 		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
 		var list = \$("#show_list").text() == 'Show' ? 0 : 1;
+		var locus = \$("#show_locus").text() == 'Show' ? 0 : 1;
 	  	\$(this).attr('href', function(){  	
 	  		\$("a#save_options").text('Saving ...');
-	  		var new_url = this.href + "&filter=" + filter + "&list=" + list;
+	  		var new_url = this.href + "&filter=" + filter + "&list=" + list + "&locus=" + locus;
 		  		\$.ajax({
 	  			url : new_url,
 	  			success: function () {	  				
@@ -147,9 +160,9 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (filter list)) {
+	foreach my $attribute (qw (locus filter list)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
-		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset", $value );
 	}
 	return;
 }
@@ -240,9 +253,9 @@ sub _print_table_fields {
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
-	say $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say $q->popup_menu( -name => "field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
+	say $q->popup_menu( -name => "operator$row", -values => [OPERATORS] );
+	say $q->textfield( -name => "value$row", -id => "value$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		$locus //= '';
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -279,7 +292,8 @@ sub _print_interface {
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
-	say qq(<fieldset style="float:left">\n<legend>Locus fields</legend>);
+	my $display = $self->{'prefs'}->{'aq_locus_fieldset'} || $self->_highest_entered_fields ? 'inline' : 'none';
+	say qq(<fieldset id="locus_fieldset" style="float:left;display:$display"><legend>Locus fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
 	  . q(<label for="c0">Combine searches with: </label>);
@@ -311,9 +325,6 @@ sub _print_interface {
 sub _print_list_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ($q->param('list_file')){
-		
-	}
 	my $display = $q->param('no_js') ? 'block' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Allele id list</legend>);
 	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -cols => 12 );
@@ -344,11 +355,15 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
-	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
+	my $locus_fieldset_display = $self->{'prefs'}->{'aq_locus_fieldset'}
+	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_locus">$locus_fieldset_display</a>);
+	say q(Locus fields</li>);
+	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Allele id list box</li>);
-	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
+	my $filter_fieldset_display = $self->{'prefs'}->{'aq_filter_fieldset'}
 	  || $self->filters_selected ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
 	say q(Filters</li>);
@@ -363,7 +378,7 @@ sub _print_modify_search_fieldset {
 sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ($qry, $list_file);
+	my ( $qry, $list_file );
 	my $errors     = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
@@ -373,22 +388,19 @@ sub _run_query {
 		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
-	
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $list_file, $errors ) = $self->_generate_query($locus);
-		$q->param(list_file => $list_file);
-		
+		$q->param( list_file => $list_file );
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
-		if ($q->param('list_file')){
-			$self->{'datastore'}->create_temp_list_table('text', $q->param('list_file'));
+		if ( $q->param('list_file') ) {
+			$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
 		}
-		
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		push @hidden_attributes, "s$i", "t$i", "y$i";
+		push @hidden_attributes, "field$i", "value$i", "operator$i";
 	}
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
@@ -415,10 +427,10 @@ sub _generate_query {
 	my ( $qry, $qry2 );
 	my $errors = [];
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
-		my $field    = $q->param("s$i");
-		my $operator = $q->param("y$i") // '=';
-		my $text     = $q->param("t$i");
+		next if !defined $q->param("value$i") || $q->param("value$i") eq q();
+		my $field    = $q->param("field$i");
+		my $operator = $q->param("operator$i") // '=';
+		my $text     = $q->param("value$i");
 		$self->process_value( \$text );
 		if ( $field =~ /^extatt_(.*)$/x ) {    #search by extended attribute
 			$field = $1;
@@ -515,7 +527,7 @@ sub _generate_query {
 	$qry //= q();
 	$qry =~ s/sequence_length/length(sequence)/g;
 	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
-	my $list_file = $self->_modify_by_list (\$qry2, $locus);
+	my $list_file = $self->_modify_by_list( \$qry2, $locus );
 	$self->_modify_by_filter( \$qry2, $locus );
 	$qry2 .= $self->_process_flags;
 	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
@@ -534,24 +546,27 @@ sub _generate_query {
 }
 
 sub _modify_by_list {
-	my ($self, $qry_ref, $locus) = @_;
+	my ( $self, $qry_ref, $locus ) = @_;
 	my $q = $self->{'cgi'};
+	return if !$q->param('list');
 	my @list = split /\n/x, $q->param('list');
 	@list = uniq @list;
-	BIGSdb::Utils::remove_trailing_spaces_from_list(\@list);
+	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	return if !@list;
-	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array('text', \@list, {table=>'temp_list'});
+	my $temp_table =
+	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list, { table => 'temp_list' } );
 	my $list_file = BIGSdb::Utils::get_random() . '.list';
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
-	open (my $fh, '>:encoding(utf8)', $full_path) || $logger->error("Can't open $full_path for writing");
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	say $fh $_ foreach @list;
 	close $fh;
+
 	if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
 		$$qry_ref .= ' AND ';
 	} else {
 		$$qry_ref = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
 	}
-	$$qry_ref .= "sequences.allele_id IN (SELECT value FROM $temp_table)";
+	$$qry_ref .= "(sequences.allele_id IN (SELECT value FROM $temp_table))";
 	return $list_file;
 }
 
@@ -785,8 +800,8 @@ sub _highest_entered_fields {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $highest;
-	for ( 1 .. MAX_ROWS ) {
-		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
+	for my $row ( 1 .. MAX_ROWS ) {
+		$highest = $row if defined $q->param("value$row") && $q->param("value$row") ne '';
 	}
 	return $highest;
 }
