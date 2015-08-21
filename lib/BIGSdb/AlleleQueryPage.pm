@@ -47,7 +47,7 @@ sub initiate {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#locus-specific-attributes";
+	return "$self->{'config'}->{'doclink'}/data_query.html#locus-specific-sequence-attribute-search";
 }
 
 sub get_javascript {
