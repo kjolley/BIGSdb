@@ -49,30 +49,28 @@ sub get_attributes {
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Export sequence attribute table</h1>";
+	say q(<h1>Export sequence attribute table</h1>);
 	my $locus = $q->param('locus');
-	$locus =~ s/^cn_//;
+	$locus =~ s/^cn_//x;
 	if ( !$locus ) {
-		say qq(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
-		$logger->error("No locus passed.");
+		say q(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
+		$logger->error('No locus passed.');
 		return;
 	}
 	my $query_file = $q->param('query_file');
-	my $list_file = $q->param('list_file');
-	my $list       = $self->get_allele_id_list($query_file, $list_file);
-
-	
+	my $list_file  = $q->param('list_file');
+	my $list       = $self->get_allele_id_list( $query_file, $list_file );
 	if ( !@$list ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
-		$logger->error("No sequences available.");
+		say q(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
+		$logger->error('No sequences available.');
 		return;
 	}
-	say qq(<div class="box" id="resultspanel"><div class="scrollable">);
-	say "<h2>Results</h2>";
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<h2>Results</h2>);
 	my $filename = $self->_create_table( $locus, $list );
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	if ( -e $full_path ) {
-		say "Download: <ul>";
+		say q(Download: <ul>);
 		say qq(<li><a href="/tmp/$filename">Tab-delimited text</a></li>);
 		my $excel = BIGSdb::Utils::text2excel( $full_path, { max_width => 25 } );
 		if ( -e $excel ) {
@@ -80,9 +78,9 @@ sub run {
 			say qq(<li><a href="/tmp/$excel_file">Excel file</a></li>);
 		}
 	} else {
-		say qq(<p>Output file not available.</p>);
+		say q(<p>Output file not available.</p>);
 	}
-	say "</div></div>";
+	say q(</div></div>);
 	return;
 }
 
@@ -90,8 +88,8 @@ sub _create_table {
 	my ( $self, $locus, $list ) = @_;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $extended_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order", $locus, { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
+		$locus, { fetch => 'col_arrayref' } );
 	my @att_header;
 	foreach my $attribute (@$attributes) {
 		next if $attribute->{'hide_public'};
@@ -110,11 +108,11 @@ sub _create_table {
 	local $" = "\t";
 	say $fh "@header";
 	local $| = 1;
-	say qq(<div id="calculating">Calculating);
+	say q(<div id="calculating">Calculating);
 	my $i = 0;
 	foreach my $allele_id (@$list) {
 		my $data = $self->{'datastore'}->run_query(
-			"SELECT * FROM sequences WHERE locus=? AND allele_id=?",
+			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
 			[ $locus, $allele_id ],
 			{ fetch => 'row_hashref', cache => 'SeqTableExport::create_table' }
 		);
@@ -125,7 +123,7 @@ sub _create_table {
 			push @results, length( $data->{'sequence'} ) if $attribute->{'name'} eq 'sequence';
 		}
 		my $ext_data = $self->{'datastore'}->run_query(
-			"SELECT * FROM sequence_extended_attributes WHERE locus=? AND allele_id=?",
+			'SELECT * FROM sequence_extended_attributes WHERE (locus,allele_id)=(?,?)',
 			[ $locus, $allele_id ],
 			{ fetch => 'all_hashref', key => 'field', cache => 'SeqTableExport::create_table_extended_attributes' }
 		);
@@ -147,7 +145,7 @@ sub _create_table {
 		}
 	}
 	close $fh;
-	say "</div>";
+	say q(</div>);
 	return $filename;
 }
 
