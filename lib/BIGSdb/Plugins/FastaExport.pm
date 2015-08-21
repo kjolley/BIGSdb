@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2014, University of Oxford
+#Copyright (c) 2012-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,34 +46,23 @@ sub get_attributes {
 	return \%att;
 }
 
-sub _get_id_list {
-	my ( $self, $query_file ) = @_;
-	if ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		$$qry_ref =~ s/\*/allele_id/;
-		return $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
-	}
-	return [];
-}
-
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Export FASTA file</h1>";
+	say q(<h1>Export FASTA file</h1>);
 	my $locus = $q->param('locus');
-	$locus =~ s/^cn_//;
+	$locus =~ s/^cn_//x;
 	if ( !$locus ) {
-		say qq(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
-		$logger->error("No locus passed.");
+		say q(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
+		$logger->error('No locus passed.');
 		return;
 	}
 	my $query_file = $q->param('query_file');
-	my $list_file = $q->param('list_file');
-	my $list       = $self->get_allele_id_list($query_file, $list_file);
+	my $list_file  = $q->param('list_file');
+	my $list       = $self->get_allele_id_list( $query_file, $list_file );
 	if ( !@$list ) {
-		say qq(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
-		$logger->error("No sequences available.");
+		say q(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
+		$logger->error('No sequences available.');
 		return;
 	}
 	my $temp      = BIGSdb::Utils::get_random();
@@ -82,7 +71,7 @@ sub run {
 	open( my $fh, '>', $full_path ) or $logger->error("Can't open $full_path for writing.");
 	foreach my $allele_id (@$list) {
 		my $seq_data = $self->{'datastore'}->run_query(
-			"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id=?",
+			'SELECT allele_id,sequence FROM sequences WHERE (locus,allele_id)=(?,?)',
 			[ $locus, $allele_id ],
 			{ fetch => 'row_hashref', cache => 'FastaExport::run' }
 		);
@@ -92,18 +81,18 @@ sub run {
 	}
 	close $fh;
 	if ( !-e $full_path ) {
-		say qq(<div class="box" id="statusbad"><p>Sequence file could not be generated.</p></div>);
-		$logger->error("Sequence file can not be generated");
+		say q(<div class="box" id="statusbad"><p>Sequence file could not be generated.</p></div>);
+		$logger->error('Sequence file cannot be generated');
 		return;
 	}
-	say qq(<div class="box" id="resultsheader">);
-	say "<p>Sequences have been exported in FASTA format:</p>";
+	say q(<div class="box" id="resultspanel">);
+	say q(<p>Sequences are available in FASTA format:</p>);
 	my $cleaned_name = $self->clean_locus($locus);
-	say "<ul><li>Locus: $cleaned_name</li>";
+	say qq(<ul><li>Locus: $cleaned_name</li>);
 	my $plural = @$list == 1 ? '' : 's';
-	say "<li>" . (@$list) . " sequence$plural</li>";
+	say q(<li>) . (@$list) . qq( sequence$plural</li>);
 	say qq(<li><a href="/tmp/$filename">Download</a></li>);
-	say "</ul></div>";
+	say q(</ul></div>);
 	return;
 }
 1;
