@@ -798,10 +798,15 @@ sub _submit_profiles {
 		}
 	}
 	my $scheme_id   = $q->param('scheme_id');
+	if (!BIGSdb::Utils::is_int($scheme_id)){
+		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer</p></div>);
+		return;
+	}
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
 	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
 		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
+		return;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
