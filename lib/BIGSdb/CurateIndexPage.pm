@@ -293,8 +293,7 @@ sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutin
 	my $query_cell =
 	  $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
-	  . qq(query</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=browse$set_string">browse</a> | <a href="$self->{'system'}->{'script_name'}?)
+	  . qq(query/browse</a> | <a href="$self->{'system'}->{'script_name'}?)
 	  . qq(db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> | )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
@@ -596,8 +595,7 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 <tr class="td$td"><td>$desc{$scheme_id} profiles</td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
 <td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id$set_string">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id$set_string">browse</a> |
+<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id$set_string">query/browse</a> | 
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a> |
 <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;scheme_id=$scheme_id$set_string">batch update</a></td>
 <td></td></tr>

@@ -72,8 +72,7 @@ sub print_content {
 	  ->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="${url_root}page=query">Search database</a> - advanced queries.</li>);
-		say qq(<li><a href="${url_root}page=browse">Browse database</a> - peruse all records.</li>);
+		say qq(<li><a href="${url_root}page=query">Search/browse database</a> - advanced queries.</li>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 		if (@$loci) {
 			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a> - )
@@ -90,8 +89,7 @@ sub print_content {
 		if (@$scheme_data) {
 			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
-			say qq(<li><a href="${url_root}page=browse$scheme_arg">Browse $scheme_desc profiles</a></li>);
-			say qq(<li><a href="${url_root}page=query$scheme_arg">Search $scheme_desc profiles</a></li>);
+			say qq(<li><a href="${url_root}page=query$scheme_arg">Search or browse $scheme_desc profiles</a></li>);
 			say qq(<li><a href="${url_root}page=listQuery$scheme_arg">List</a> - )
 			  . qq(find $scheme_desc profiles matched to entered list.</li>);
 			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc )

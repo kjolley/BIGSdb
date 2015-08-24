@@ -77,7 +77,7 @@ sub _save_options {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Isolate query/update - $desc" : "Search database - $desc";
+	return $self->{'curate'} ? "Isolate query/update - $desc" : "Search/browse database - $desc";
 }
 
 sub print_content {
@@ -88,7 +88,7 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search $desc database</h1>);
+	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
@@ -111,6 +111,7 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->startform;
+	say q(<p>Enter search criteria or leave blank to browse all records.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
 	say $q->hidden($_) foreach qw (db page table no_js);
 	say q(<div style="white-space:nowrap">);
@@ -616,11 +617,17 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
+	my $browse;
+	if ($qry =~ /\(\)/x){
+		$qry =~ s/\ WHERE\ \(\)//x;
+		$browse = 1;
+	}
+	
 	if (@errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@errors</p></div>);
-	} elsif ( $qry !~ /\(\)/x ) {
+	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
 		for ( 1 .. MAX_ROWS ) {
@@ -649,14 +656,10 @@ sub _run_query {
 		#datestamp exists in other tables and can be ambiguous on complex queries
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
-		my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
+		my $args = { table => $self->{'system'}->{'view'}, query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed.  Try to )
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db="$self->{'instance'}&amp;page=browse">)
-		  . q(browse all records</a>.</div>);
-	}
+	} 
 	my $elapsed = time - $start_time;
 	if ( $elapsed > WARN_IF_TAKES_LONGER_THAN_X_SECONDS && $self->{'datastore'}->{'scheme_not_cached'} ) {
 		$logger->warn( "$self->{'instance'}: Query took $elapsed seconds.  Schemes are not cached for this "

@@ -51,7 +51,7 @@ sub get_help_url {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Profile query/update - $desc" : "Search database - $desc";
+	return $self->{'curate'} ? "Profile query/update - $desc" : "Search/browse database - $desc";
 }
 
 sub print_content {
@@ -61,7 +61,7 @@ sub print_content {
 	my $scheme_info;
 	if ( $q->param('no_header') ) { $self->_ajax_content; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search profiles - $desc</h1>";
+	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search or browse profiles - $desc</h1>";
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
@@ -251,11 +251,16 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
+	my $browse;
+	if ($qry =~ /\(\)/x){
+		$qry =~ s/\ WHERE\ \(\)//x;
+		$browse = 1;
+	}
 	if (@$errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@$errors</p></div>);
-	} elsif ( $qry !~ /\(\)/x ) {
+	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
 		foreach my $i ( 1 .. MAX_ROWS ) {
@@ -265,14 +270,10 @@ sub _run_query {
 			push @hidden_attributes, $_ . '_list';
 		}
 		push @hidden_attributes, qw (publication_list scheme_id no_js);
-		my $args = { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes };
+		my $args = { table => 'profiles', query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed. Try to )
-		  . qq(<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=browse&amp;scheme_id=$scheme_id">browse all records</a>.</div>);
-	}
+	} 
 	return;
 }
 

@@ -26,7 +26,6 @@ use BIGSdb::AlleleSequencePage;
 use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
-use BIGSdb::BrowsePage;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::CurateSubmissionExcelPage;
@@ -405,7 +404,7 @@ sub print_page {
 		authorizeClient    => 'AuthorizeClientPage',
 		batchProfiles      => 'BatchProfileQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
-		browse             => 'BrowsePage',
+		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
 		customize          => 'CustomizePage',
 		downloadAlleles    => 'DownloadAllelesPage',

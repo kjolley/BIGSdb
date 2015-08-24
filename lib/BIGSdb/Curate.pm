@@ -63,6 +63,8 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub print_page {
 	my ($self) = @_;
+	my $query_page =
+	  ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' );
 	my %classes = (
 		add                => 'CurateAddPage',
 		alleleInfo         => 'AlleleInfoPage',
@@ -75,7 +77,7 @@ sub print_page {
 		batchIsolateUpdate => 'CurateBatchIsolateUpdatePage',
 		batchProfileUpdate => 'CurateBatchProfileUpdatePage',
 		batchAddSeqbin     => 'CurateBatchAddSeqbinPage',
-		browse             => 'BrowsePage',
+		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
 		compositeQuery     => 'CurateCompositeQueryPage',
 		compositeUpdate    => 'CurateCompositeUpdatePage',
@@ -106,18 +108,18 @@ sub print_page {
 		profileInfo        => 'ProfileInfoPage',
 		profileUpdate      => 'CurateProfileUpdatePage',
 		pubquery           => 'PubQueryPage',
-		query => ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' ),
-		refreshCache   => 'RefreshSchemeCachePage',
-		renumber       => 'CurateRenumber',
-		seqbin         => 'SeqbinPage',
-		setAlleleFlags => 'CurateBatchSetAlleleFlagsPage',
-		setPassword    => 'ChangePasswordPage',
-		submit         => 'SubmitPage',
-		tableHeader    => 'CurateTableHeaderPage',
-		tableQuery     => 'TableQueryPage',
-		tagScan        => 'CurateTagScanPage',
-		tagUpdate      => 'CurateTagUpdatePage',
-		update         => 'CurateUpdatePage'
+		query              => $query_page,
+		refreshCache       => 'RefreshSchemeCachePage',
+		renumber           => 'CurateRenumber',
+		seqbin             => 'SeqbinPage',
+		setAlleleFlags     => 'CurateBatchSetAlleleFlagsPage',
+		setPassword        => 'ChangePasswordPage',
+		submit             => 'SubmitPage',
+		tableHeader        => 'CurateTableHeaderPage',
+		tableQuery         => 'TableQueryPage',
+		tagScan            => 'CurateTagScanPage',
+		tagUpdate          => 'CurateTagUpdatePage',
+		update             => 'CurateUpdatePage'
 	);
 	my %page_attributes = (
 		system           => $self->{'system'},

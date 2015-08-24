@@ -172,6 +172,9 @@ sub paged_display {
 		$bar_buffer .= $q->endform;
 	}
 	say q(<div class="box" id="resultsheader">);
+	if ($args->{'browse'}){
+		say q(<p>Browsing all records.</p>);
+	}
 	if ($records) {
 		print qq(<p>$message</p>) if $message;
 		my $plural = $records == 1 ? '' : 's';
