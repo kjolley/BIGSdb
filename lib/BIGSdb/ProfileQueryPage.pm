@@ -91,6 +91,7 @@ sub _print_interface {
 	$self->print_scheme_section( { with_pk => 1 } );
 	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<p>Enter search criteria or leave blank to browse all records.</p>);
 	say $q->startform;
 	say $q->hidden($_) foreach qw (db page scheme_id no_js);
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
@@ -336,18 +337,16 @@ sub _generate_query {
 			  ? "$cleaned is null"
 			  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
 			$equals .= " OR $cleaned = 'N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
-			if ( $operator eq 'NOT' ) {
-				$qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)";
-			} elsif ( $operator eq 'contains' ) {
-				$qry .= "(upper($cleaned) LIKE upper('\%$text\%'))";
-			} elsif ( $operator eq 'starts with' ) {
-				$qry .= "(upper($cleaned) LIKE upper('$text\%'))";
-			} elsif ( $operator eq 'ends with' ) {
-				$qry .= "(upper($cleaned) LIKE upper('\%$text'))";
-			} elsif ( $operator eq 'NOT contain' ) {
-				$qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)";
-			} elsif ( $operator eq '=' ) {
-				$qry .= "($equals)";
+			my %modify = (
+				'NOT' => $text eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned IS NULL)",
+				'contains'    => "(upper($cleaned) LIKE upper('\%$text\%'))",
+				'starts with' => "(upper($cleaned) LIKE upper('$text\%'))",
+				'ends with'   => "(upper($cleaned) LIKE upper('\%$text'))",
+				'NOT contain' => "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)",
+				'='           => "($equals)"
+			);
+			if ( $modify{$operator} ) {
+				$qry .= $modify{$operator};
 			} else {
 				if ( $text eq 'null' ) {
 					my $clean_operator = $operator;
