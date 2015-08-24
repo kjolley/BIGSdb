@@ -252,7 +252,7 @@ sub _run_query {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	my $browse;
-	if ($qry =~ /\(\)/x){
+	if ( $qry =~ /\(\)/x ) {
 		$qry =~ s/\ WHERE\ \(\)//x;
 		$browse = 1;
 	}
@@ -273,15 +273,15 @@ sub _run_query {
 		my $args = { table => 'profiles', query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} 
+	}
 	return;
 }
 
 sub _is_locus_in_scheme {
-	my ($self, $scheme_id, $locus) = @_;
-	if (!$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}){
+	my ( $self, $scheme_id, $locus ) = @_;
+	if ( !$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id} ) {
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		%{$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}} = map {$_ => 1} @$loci;
+		%{ $self->{'cache'}->{'is_scheme_locus'}->{$scheme_id} } = map { $_ => 1 } @$loci;
 	}
 	return $self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}->{$locus};
 }
@@ -299,7 +299,7 @@ sub _generate_query {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
-		my $is_locus = $self->_is_locus_in_scheme($scheme_id,$field);
+		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
 		my $type;
 		( my $cleaned = $field ) =~ s/'/_PRIME_/gx;
 		if ($is_locus) {
@@ -362,6 +362,30 @@ sub _generate_query {
 		}
 	}
 	$qry .= ')';
+	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
+	my $primary_key   = $scheme_info->{'primary_key'};
+	my $order         = $q->param('order') || $primary_key;
+	my $dir           = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
+	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+
+	if ( $self->{'datastore'}->is_locus($order) ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($order);
+		$order =~ s/'/_PRIME_/gx;
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
+		}
+	}
+	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
+	return ( $qry, $errors );
+}
+
+sub _modify_query_for_filters {
+	my ( $self, $scheme_id, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
@@ -391,19 +415,7 @@ sub _generate_query {
 			}
 		}
 	}
-	my $order = $q->param('order') || $primary_key;
-	my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
-	if ( $self->{'datastore'}->is_locus($order) ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($order);
-		$order =~ s/'/_PRIME_/gx;
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
-		}
-	}
-	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
-	return ( $qry, $errors );
+	return $qry;
 }
 
 sub get_javascript {
