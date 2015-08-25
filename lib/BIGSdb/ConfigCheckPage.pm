@@ -111,9 +111,9 @@ sub _check_locus_databases {
 			next if !$locus_info->{'dbase_name'};
 			my $cleaned = $self->clean_locus($locus);
 			print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>"
-			  . ( $locus_info->{'dbase_host'} // 'localhost' )
+			  . ( $locus_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_port'} // 5432 )
+			  . ( $locus_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_table'} // q() )
 			  . q(</td><td>)
@@ -181,9 +181,9 @@ sub _check_scheme_databases {
 			print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>"
 			  . ( $scheme_info->{'dbase_name'} // q() )
 			  . q(</td><td>)
-			  . ( $scheme_info->{'dbase_host'} // 'localhost' )
+			  . ( $scheme_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 			  . q(</td><td>)
-			  . ( $scheme_info->{'dbase_port'} // 5432 )
+			  . ( $scheme_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_table'} // q() )
 			  . q(</td><td>);
@@ -219,11 +219,11 @@ sub _check_client_databases {
 		my $client      = $self->{'datastore'}->get_client_db($_);
 		my $client_info = $self->{'datastore'}->get_client_db_info($_);
 		$buffer .=
-		    qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
+		  qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
 		  . qq(<td>$client_info->{'dbase_name'}</td><td>)
-		  . ( $client_info->{'dbase_host'} // 'localhost' )
+		  . ( $client_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 		  . q(</td><td>)
-		  . ( $client_info->{'dbase_port'} // 5432 )
+		  . ( $client_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 		  . q(</td><td>);
 		eval {
 			my $sql = $client->get_db->prepare('SELECT * FROM allele_designations LIMIT 1');
