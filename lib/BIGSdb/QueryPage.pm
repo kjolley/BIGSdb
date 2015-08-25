@@ -55,11 +55,12 @@ sub get_javascript_panel {
 		list    => q[$("#list").val('')],
 		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
 		  . q[          $('[id$="_list"]').val('')],
-		allele  => q[$('[id^="value"]').val('')],
-		scheme => q[$('[id^="value"]').val('')],
+		provenance          => q[$('[id^="value"]').val('')],
+		allele              => q[$('[id^="value"]').val('')],
+		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
-		allele_status => q[$('[id^="allele_sequence"]').val('')],
-		tags => q[$('[id^="tag"]').val('')]
+		allele_status       => q[$('[id^="allele_sequence"]').val('')],
+		tags                => q[$('[id^="tag"]').val('')]
 	);
 	foreach my $fieldset (@fieldsets) {
 		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").text() == 'Show' ? 0 : 1;\n);

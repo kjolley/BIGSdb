@@ -67,7 +67,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (allele_designations allele_status tags filters)) {
+	foreach my $attribute (qw (provenance allele_designations allele_status tags filters)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
 	}
@@ -133,13 +133,18 @@ sub _print_interface {
 sub _print_provenance_fields_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Isolate provenance/phenotype fields</legend>);
+		my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'provenance_fieldset'}
+	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
+	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Isolate provenance/phenotype fields</legend>);
 	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
 	  . q(<label for="prov_andor">Combine with: </label>);
 	say $q->popup_menu( -name => 'prov_andor', -id => 'prov_andor', -values => [qw (AND OR)] );
-	say "</span>\n<ul id=\"provenance\">";
+	say q(</span><ul id="provenance">);
 	my ( $select_items, $labels ) = $self->_get_select_items;
 
 	for ( 1 .. $prov_fields ) {
@@ -380,6 +385,10 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
+	my $provenance_fieldset_display = $self->{'prefs'}->{'provenance_fieldset'}
+	  || $self->_highest_entered_fields('provenance') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
+	say q(Provenance fields</li>);
 	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
@@ -1503,7 +1512,7 @@ sub get_javascript {
 	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
 	my $buffer = $self->SUPER::get_javascript;
-	my $panel_js = $self->get_javascript_panel(qw(allele_designations allele_status tags filters));
+	my $panel_js = $self->get_javascript_panel(qw(provenance allele_designations allele_status tags filters));
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -1665,6 +1674,8 @@ sub initiate {
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
 			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
+		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	return;
 }
