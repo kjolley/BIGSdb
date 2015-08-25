@@ -134,7 +134,7 @@ sub filters_selected {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my %params = $q->Vars;
-	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
+	return 1 if any { $_ =~ /_list$/x && $params{$_} ne '' } keys %params;
 	return 1 if $q->param('include_old');
 	return;
 }
@@ -142,12 +142,12 @@ sub filters_selected {
 sub get_grouped_fields {
 	my ( $self, $field, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	$field =~ s/^f_// if $options->{'strip_prefix'};
+	$field =~ s/^f_//x if $options->{'strip_prefix'};
 	my @groupedfields;
 	for ( 1 .. 10 ) {
 		if ( $self->{'system'}->{"fieldgroup$_"} ) {
-			my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$_"} );
-			@groupedfields = split /,/, $grouped[1] if $field eq $grouped[0];
+			my @grouped = ( split /:/x, $self->{'system'}->{"fieldgroup$_"} );
+			@groupedfields = split /,/x, $grouped[1] if $field eq $grouped[0];
 		}
 	}
 	return @groupedfields;
@@ -162,21 +162,28 @@ sub is_valid_operator {
 sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
-	$suffix =~ s/[\(\)\s]//g;
-	my $qry = "SELECT id FROM users WHERE ";
+	$suffix =~ s/[\(\)\s]//gx;
+	my $qry = 'SELECT id FROM users WHERE ';
 	my $equals = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
 	my $contains =
 	  $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
 	my $starts_with =
 	  $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
 	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
-	if    ( $operator eq 'NOT' )         { $qry .= "NOT $equals" }
-	elsif ( $operator eq 'contains' )    { $qry .= $contains }
-	elsif ( $operator eq 'starts with' ) { $qry .= $starts_with }
-	elsif ( $operator eq 'ends with' )   { $qry .= $ends_with }
-	elsif ( $operator eq 'NOT contain' ) { $qry .= "NOT $contains" }
-	elsif ( $operator eq '=' )           { $qry .= $equals }
-	else                                 { $qry .= "$suffix $operator '$text'" }
+	my %modify = (
+		'NOT'         => "NOT $equals",
+		'contains'    => $contains,
+		'starts with' => $starts_with,
+		'ends with'   => $ends_with,
+		'NOT contain' => "NOT $contains",
+		'='           => $equals
+	);
+
+	if ( $modify{$operator} ) {
+		$qry .= $modify{$operator};
+	} else {
+		$qry .= "$suffix $operator '$text'";
+	}
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
@@ -193,15 +200,15 @@ sub check_format {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
 		if ( $data->{'type'} =~ /int/ ) {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
-				$error = ( $metafield // $clean_fieldname ) . " is an integer field.";
+				$error = ( $metafield // $clean_fieldname ) . ' is an integer field.';
 			} elsif ( $data->{'text'} > MAX_INT ) {
 				$error =
-				  ( $metafield // $clean_fieldname ) . " is too big (largest allowed integer is " . MAX_INT . ').';
+				  ( $metafield // $clean_fieldname ) . ' is too big (largest allowed integer is ' . MAX_INT . ').';
 			}
 		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a boolean (true/false) field.";
+			$error = ( $metafield // $clean_fieldname ) . ' is a boolean (true/false) field.';
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a floating point number field.";
+			$error = ( $metafield // $clean_fieldname ) . ' is a floating point number field.';
 		} elsif (
 			$data->{'type'} eq 'date' && (
 				any {
@@ -214,7 +221,7 @@ sub check_format {
 			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
 			$error = ( $metafield // $clean_fieldname )
-			  . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+			  . q( is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').);
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
@@ -226,10 +233,10 @@ sub check_format {
 
 sub process_value {
 	my ( $self, $value_ref ) = @_;
-	$$value_ref =~ s/^\s*//;
-	$$value_ref =~ s/\s*$//;
-	$$value_ref =~ s/\\/\\\\/g;
-	$$value_ref =~ s/'/\\'/g;
+	$$value_ref =~ s/^\s*//x;
+	$$value_ref =~ s/\s*$//x;
+	$$value_ref =~ s/\\/\\\\/gx;
+	$$value_ref =~ s/'/\\'/gx;
 	return;
 }
 1;
