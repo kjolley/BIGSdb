@@ -41,8 +41,63 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
+}
+
+sub get_javascript_panel {
+	my ( $self, @fieldsets ) = @_;
+	my $button_text_js;
+	my $button_toggle_js;
+	my $new_url    = 'this.href';
+	my %clear_form = (
+		list    => q[$("#list").val('')],
+		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
+		  . q[          $('[id$="_list"]').val('')],
+		allele  => q[$('[id^="value"]').val('')],
+		allele_designations => q[$('[id^="designation"]').val('')],
+		allele_status => q[$('[id^="allele_sequence"]').val('')],
+		tags => q[$('[id^="tag"]').val('')]
+	);
+	foreach my $fieldset (@fieldsets) {
+		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").text() == 'Show' ? 0 : 1;\n);
+		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
+		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function() {\n];
+		$button_toggle_js .= qq[       if(\$(this).text() == 'Hide'){\n];
+		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
+		$button_toggle_js .= qq[       }\n];
+		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
+		$button_toggle_js .= qq[       \$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');\n];
+		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
+		$button_toggle_js .= qq[       return false;\n];
+		$button_toggle_js .= qq[    });\n];
+	}
+	my $buffer = <<"END";
+	$button_toggle_js
+	\$(".trigger").click(function(){		
+		\$(".panel").toggle("slide",{direction:"right"},"fast");
+		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);		
+		return false;
+	});
+	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
+		\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		$button_text_js
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").text('Saving ...');
+	  		var new_url = $new_url;
+		  		\$.ajax({
+	  			url : new_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("a#save_options").text('Save options');
+	  			}
+	  		});
+	   	});
+	});
+END
+	return $buffer;
 }
 
 sub get_javascript {
@@ -106,11 +161,13 @@ sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
 	$suffix =~ s/[\(\)\s]//g;
-	my $qry         = "SELECT id FROM users WHERE ";
-	my $equals      = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
-	my $contains    = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
-	my $starts_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
-	my $ends_with   = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
+	my $qry = "SELECT id FROM users WHERE ";
+	my $equals = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
+	my $contains =
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	my $starts_with =
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
+	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
 	if    ( $operator eq 'NOT' )         { $qry .= "NOT $equals" }
 	elsif ( $operator eq 'contains' )    { $qry .= $contains }
 	elsif ( $operator eq 'starts with' ) { $qry .= $starts_with }
@@ -136,7 +193,8 @@ sub check_format {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
 				$error = ( $metafield // $clean_fieldname ) . " is an integer field.";
 			} elsif ( $data->{'text'} > MAX_INT ) {
-				$error = ( $metafield // $clean_fieldname ) . " is too big (largest allowed integer is " . MAX_INT . ').';
+				$error =
+				  ( $metafield // $clean_fieldname ) . " is too big (largest allowed integer is " . MAX_INT . ').';
 			}
 		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
 			$error = ( $metafield // $clean_fieldname ) . " is a boolean (true/false) field.";
@@ -153,7 +211,8 @@ sub check_format {
 		{
 			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+			$error = ( $metafield // $clean_fieldname )
+			  . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {

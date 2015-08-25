@@ -67,7 +67,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+	foreach my $attribute (qw (allele_designations allele_status tags filters)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
 	}
@@ -120,8 +120,8 @@ sub _print_interface {
 	say q(<div style="clear:both"></div>);
 	$self->_print_designations_fieldset;
 	$self->_print_allele_status_fieldset;
-	$self->_print_tag_fieldset;
-	$self->_print_filter_fieldset;
+	$self->_print_tags_fieldset;
+	$self->_print_filters_fieldset;
 	$self->print_action_fieldset;
 	$self->_print_modify_search_fieldset;
 	say q(</div>);
@@ -174,7 +174,7 @@ sub _print_designations_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="locus_fieldset" style="float:left;display:$display" >);
+		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
 		say q(<legend>Allele designations/scheme fields</legend><div>);
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
@@ -219,7 +219,7 @@ sub _print_allele_status_fieldset {
 	return;
 }
 
-sub _print_tag_fieldset {
+sub _print_tags_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
@@ -227,7 +227,7 @@ sub _print_tag_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="tag_fieldset" style="float:left;display:$display">);
+		say qq(<fieldset id="tags_fieldset" style="float:left;display:$display">);
 		say q(<legend>Tagged sequence status</legend><div>);
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
@@ -242,12 +242,12 @@ sub _print_tag_fieldset {
 			say q(</li>);
 		}
 		say q(</ul></div></fieldset>);
-		$self->{'tag_fieldset_exists'} = 1;
+		$self->{'tags_fieldset_exists'} = 1;
 	}
 	return;
 }
 
-sub _print_filter_fieldset {
+sub _print_filters_fieldset {
 	my ($self) = @_;
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
@@ -365,11 +365,11 @@ sub _print_filter_fieldset {
 	}
 	push @filters, $self->get_old_version_filter;
 	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
 	say q(<div><ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
 	say q(</ul></div></fieldset>);
-	$self->{'filter_fieldset_exists'} = 1;
+	$self->{'filters_fieldset_exists'} = 1;
 	return;
 }
 
@@ -380,25 +380,25 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
-	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
-	say qq(<li><a href="" class="button" id="show_allele_designations">$locus_fieldset_display</a>);
+	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
-	if ( $self->{'tag_fieldset_exists'} ) {
-		my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'}
+	if ( $self->{'tags_fieldset_exists'} ) {
+		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
 		  || $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
-		say qq(<li><a href="" class="button" id="show_tags">$tag_fieldset_display</a>);
+		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
-	if ( $self->{'filter_fieldset_exists'} ) {
-		my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
+	if ( $self->{'filters_fieldset_exists'} ) {
+		my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 		  || $self->filters_selected ? 'Hide' : 'Show';
-		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
 		say q(Filters</li>);
 	}
 	say q(</ul>);
@@ -1495,21 +1495,22 @@ sub _modify_query_for_designation_status {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
-	my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'}
+	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
 	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'inline' : 'none';
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
 	my $buffer = $self->SUPER::get_javascript;
+	my $panel_js = $self->get_javascript_panel(qw(allele_designations allele_status tags filters));
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
-   	\$('#locus_fieldset').css({display:"$locus_fieldset_display"});
+   	\$('#allele_designations_fieldset').css({display:"$allele_designations_fieldset_display"});
    	\$('#allele_status_fieldset').css({display:"$allele_status_fieldset_display"});
-   	\$('#tag_fieldset').css({display:"$tag_fieldset_display"});
-   	\$('#filter_fieldset').css({display:"$filter_fieldset_display"});
+   	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
+   	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
   	\$('#prov_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
@@ -1519,66 +1520,7 @@ sub get_javascript {
   	if (! Modernizr.touch){
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
-  	
-  	\$("#show_allele_designations").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="designation"]').val('')}
-		\$("#locus_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	 \$("#show_allele_status").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="allele_sequence"]').val('')}
-		\$("#allele_status_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$("#show_tags").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="tag"]').val('')}
-		\$("#tag_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$("#show_filters").click(function() {
-		if(\$(this).text() == 'Hide'){
-			if (! Modernizr.touch){
-				\$('.multiselect').multiselect("uncheckAll");
-			}
-			\$('[id\$="_list"]').val('');
-		}
- 		\$("#filter_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$(".trigger").click(function(){		
-		\$(".panel").toggle("slide",{direction:"right"},"fast");
-		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);
-		
-		return false;
-	});
-	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
-	\$("a#save_options").click(function(event){		
-		event.preventDefault();
-		var allele_designations = \$("#show_allele_designations").text() == 'Show' ? 0 : 1;
-		var allele_status = \$("#show_allele_status").text() == 'Show' ? 0 : 1;
-		var tag = \$("#show_tags").text() == 'Show' ? 0 : 1;
-		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
-	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").text('Saving ...');
-	  		var new_url = this.href + "&allele_designations=" + allele_designations + "&allele_status=" + allele_status 
-	  		  + "&tag=" + tag + "&filter=" + filter;
-		  		\$.ajax({
-	  			url : new_url,
-	  			success: function () {	  				
-	  				\$("a#save_options").hide();
-	  				\$("a#save_options").text('Save options');
-	  			}
-	  		});
-	   	});
-	});
+$panel_js
  });
  
 function loadContent(url) {
@@ -1718,7 +1660,7 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+		foreach my $attribute (qw (allele_designations allele_status tags filters)) {
 			my $value =
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
 			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
