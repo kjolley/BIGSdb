@@ -80,10 +80,10 @@ sub initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	$self->{'system'}->{'host'}     = $self->{'host'}     || 'localhost';
-	$self->{'system'}->{'port'}     = $self->{'port'}     || 5432;
-	$self->{'system'}->{'user'}     = $self->{'user'}     || 'apache';
-	$self->{'system'}->{'password'} = $self->{'password'} || 'remote';
+	$self->{'system'}->{'host'}     = $self->{'host'}     // $self->{'system'}->{'host'}     // 'localhost';
+	$self->{'system'}->{'port'}     = $self->{'port'}     // $self->{'system'}->{'port'}     // 5432;
+	$self->{'system'}->{'user'}     = $self->{'user'}     // $self->{'system'}->{'user'}     // 'apache';
+	$self->{'system'}->{'password'} = $self->{'password'} // $self->{'system'}->{'password'} // 'remote';
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
@@ -122,7 +122,7 @@ sub get_load_average {
 		return $loadavg;
 	}
 	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
-	if ($uptime =~ /load\ average:\s+([\d\.]+)/x){
+	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
 		return $1;
 	}
 	throw BIGSdb::DataException('Cannot determine load average');
