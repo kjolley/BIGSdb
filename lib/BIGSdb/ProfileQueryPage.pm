@@ -290,10 +290,33 @@ sub _is_locus_in_scheme {
 sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my ( $qry, $errors ) = $self->_generate_query_from_locus_fields($scheme_id);
+	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
+	my $primary_key   = $scheme_info->{'primary_key'};
+	my $order         = $q->param('order') || $primary_key;
+	my $dir           = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
+	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+
+	if ( $self->{'datastore'}->is_locus($order) ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($order);
+		$order =~ s/'/_PRIME_/gx;
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
+		}
+	}
+	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
+	return ( $qry, $errors );
+}
+
+sub _generate_query_from_locus_fields {
+	my ( $self, $scheme_id ) = @_;
+	my $q      = $self->{'cgi'};
+	my $errors = [];
 	my $scheme_view =
 	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $errors      = [];
 	my $qry         = "SELECT * FROM $scheme_view WHERE (";
 	my $andor       = $q->param('c0');
 	my $first_value = 1;
@@ -361,21 +384,6 @@ sub _generate_query {
 		}
 	}
 	$qry .= ')';
-	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
-	my $primary_key   = $scheme_info->{'primary_key'};
-	my $order         = $q->param('order') || $primary_key;
-	my $dir           = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
-
-	if ( $self->{'datastore'}->is_locus($order) ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($order);
-		$order =~ s/'/_PRIME_/gx;
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
-		}
-	}
-	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
 	return ( $qry, $errors );
 }
 
