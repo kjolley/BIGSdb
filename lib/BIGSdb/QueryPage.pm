@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,7 +55,7 @@ sub get_javascript_panel {
 		list    => q[$("#list").val('')],
 		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
 		  . q[          $('[id$="_list"]').val('')],
-		provenance          => q[$('[id^="value"]').val('')],
+		provenance          => q[$('[id^="prov_value"]').val('')],
 		allele              => q[$('[id^="value"]').val('')],
 		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
