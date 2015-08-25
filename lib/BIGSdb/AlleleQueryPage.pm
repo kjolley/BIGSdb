@@ -53,14 +53,14 @@ sub get_help_url {
 }
 
 sub get_javascript {
-	my ($self)                 = @_;
-	my $q                      = $self->{'cgi'};
-	my $max_rows               = MAX_ROWS;
+	my ($self)                   = @_;
+	my $q                        = $self->{'cgi'};
+	my $max_rows                 = MAX_ROWS;
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
-	my $panel_js = $self->get_javascript_panel(qw(filters list allele));
-	my $buffer = << "END";
+	my $panel_js              = $self->get_javascript_panel(qw(filters list allele));
+	my $buffer                = << "END";
 \$(function () {
    \$('#filters_fieldset').css({display:"$filters_fieldset_display"});
    \$('#list_fieldset').css({display:"$list_fieldset_display"});
@@ -243,7 +243,10 @@ sub _print_interface {
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
 	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
-	my $display = $self->{'prefs'}->{'aq_allele_fieldset'} || $self->_highest_entered_fields ? 'inline' : 'none';
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'aq_allele_fieldset'}
+	  || $self->_highest_entered_fields ? 'inline' : 'none';
 	say qq(<fieldset id="allele_fieldset" style="float:left;display:$display"><legend>Allele fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
@@ -266,7 +269,6 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-
 	$self->print_action_fieldset( { locus => $locus } );
 	$self->_print_modify_search_fieldset;
 	say $q->endform;

@@ -40,6 +40,18 @@ sub _ajax_content {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	return if !$guid;
+	foreach my $attribute (qw (scheme filters)) {
+		my $value = $q->param($attribute) ? 'on' : 'off';
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset", $value );
+	}
+	return;
+}
+
 sub get_help_url {
 	my ($self) = @_;
 	if ( $self->{'curate'} ) {
@@ -59,7 +71,8 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $scheme_info;
-	if ( $q->param('no_header') ) { $self->_ajax_content; return }
+	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
+	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search or browse profiles - $desc</h1>";
 	my $qry;
@@ -81,6 +94,25 @@ sub print_content {
 	return;
 }
 
+sub initiate {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->SUPER::initiate;
+	$self->{'noCache'} = 1;
+	if ( !$self->{'cgi'}->param('save_options') ) {
+		my $guid = $self->get_guid;
+		return if !$guid;
+		foreach my $attribute (qw (filters)) {
+			my $value =
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
+			$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+		}
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'scheme_fieldset' );
+		$self->{'prefs'}->{'scheme_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+	}
+	return;
+}
+
 sub _print_interface {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};
@@ -97,7 +129,11 @@ sub _print_interface {
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
 	say q(<div style="white-space:nowrap">);
-	say q(<fieldset style="float:left"><legend>Locus/scheme fields</legend>);
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'scheme_fieldset'}
+	  || $self->_highest_entered_fields ? 'inline' : 'none';
+	say qq(<fieldset style="float:left;display:$display" id="scheme_fieldset"><legend>Locus/scheme fields</legend>);
 	say qq(<span id="scheme_field_heading" style="display:$scheme_field_heading">)
 	  . q(<label for="c0">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw(AND OR)] );
@@ -111,7 +147,10 @@ sub _print_interface {
 	}
 	say q(</ul></fieldset>);
 	$self->_print_filter_fieldset($scheme_id);
+	$self->_print_order_fieldset($scheme_id);
 	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id } );
+	$self->_print_modify_search_fieldset;
+	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -166,6 +205,19 @@ sub _print_filter_fieldset {
 			  );
 		}
 	}
+	if (@filters) {
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+		say q(<ul>);
+		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
+		say q(</ul></fieldset>);
+	}
+	return;
+}
+
+sub _print_order_fieldset {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
@@ -174,15 +226,6 @@ sub _print_filter_fieldset {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-	say q(</div><div style="clear:both"></div>);
-
-	if (@filters) {
-		say q(<fieldset style="float:left">);
-		say q(<legend>Filter query by</legend>);
-		say q(<ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-		say q(</ul></fieldset>);
-	}
 	return;
 }
 
@@ -427,15 +470,21 @@ sub _modify_query_for_filters {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $buffer = $self->SUPER::get_javascript;
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	my $panel_js = $self->get_javascript_panel(qw(scheme filters));
+	my $buffer   = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
+	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
    	\$('#scheme_field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3>"
   		+ "<p>Add more fields by clicking the '+' button.</p>"
   		+ "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search "
-  		+ "terms, 'OR' to match ANY of these terms.</p>" });
-   });
+  		+ "terms, 'OR' to match ANY of these terms.</p>" 
+   	});
+   	$panel_js
+});
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
@@ -456,5 +505,28 @@ sub _highest_entered_fields {
 		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
 	}
 	return $highest;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="panel">);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
+	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
+	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);
+	say q(Locus/scheme field values</li>);
+	my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+	say q(Filters</li>);
+	say q(</ul>);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=query&amp;save_options=1" style="display:none">Save options</a><br />);
+	say q(</div>);
+	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
+	return;
 }
 1;
