@@ -123,7 +123,8 @@ sub _print_interface {
 	$self->print_scheme_section( { with_pk => 1 } );
 	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<p>Enter search criteria or leave blank to browse all records.</p>);
+	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
+	  . q(enter a list of values.</p>);
 	say $q->startform;
 	say $q->hidden($_) foreach qw (db page scheme_id no_js);
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );

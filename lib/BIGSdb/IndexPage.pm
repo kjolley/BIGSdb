@@ -89,9 +89,8 @@ sub print_content {
 		if (@$scheme_data) {
 			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
-			say qq(<li><a href="${url_root}page=query$scheme_arg">Search or browse $scheme_desc profiles</a></li>);
-			say qq(<li><a href="${url_root}page=listQuery$scheme_arg">List</a> - )
-			  . qq(find $scheme_desc profiles matched to entered list.</li>);
+			say qq(<li><a href="${url_root}page=query$scheme_arg">Search, browse or enter list of )
+			  . qq($scheme_desc profiles</a></li>);
 			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc )
 			  . q(alleles</a> - including partial matching.</li>);
 			say qq(<li><a href="${url_root}page=batchProfiles$scheme_arg">Batch profile query</a> - )

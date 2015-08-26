@@ -591,15 +591,16 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .= <<"HTML";
-<tr class="td$td"><td>$desc{$scheme_id} profiles</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id$set_string">query/browse</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;scheme_id=$scheme_id$set_string">batch update</a></td>
-<td></td></tr>
-HTML
+		$buffer .=
+		    qq(<tr class="td$td"><td>$desc{$scheme_id} profiles</td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">+</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">++</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">query/browse/list</a> | )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">batch update</a></td><td></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	return ( $buffer, $td );
