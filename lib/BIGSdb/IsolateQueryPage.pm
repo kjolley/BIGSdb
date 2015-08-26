@@ -67,7 +67,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (provenance allele_designations allele_status tags filters)) {
+	foreach my $attribute (qw (provenance allele_designations allele_status tags list filters)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
 	}
@@ -116,12 +116,12 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page table no_js);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
-	$self->_print_display_fieldset;
-	say q(<div style="clear:both"></div>);
 	$self->_print_designations_fieldset;
 	$self->_print_allele_status_fieldset;
 	$self->_print_tags_fieldset;
+	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
+	$self->_print_display_fieldset;
 	$self->print_action_fieldset;
 	$self->_print_modify_search_fieldset;
 	say q(</div>);
@@ -133,7 +133,7 @@ sub _print_interface {
 sub _print_provenance_fields_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-		my $display =
+	my $display =
 	     $q->param('no_js')
 	  || $self->{'prefs'}->{'provenance_fieldset'}
 	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
@@ -249,6 +249,37 @@ sub _print_tags_fieldset {
 		say q(</ul></div></fieldset>);
 		$self->{'tags_fieldset_exists'} = 1;
 	}
+	return;
+}
+
+sub _print_list_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my @grouped_fields;
+	my ( $field_list, $labels ) = $self->get_field_selection_list(
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 1, extended_attributes => 1 }
+	);
+	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
+	foreach (@$grouped) {
+		push @grouped_fields, "f_$_";
+		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
+	}
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'inline' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
+	say q(Field:);
+	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say q(<br />);
+	say $q->textarea(
+		-name        => 'list',
+		-id          => 'list',
+		-rows        => 6,
+		-style       => 'width:100%',
+		-placeholder => 'Enter list of values...'
+	);
+	say q(</fieldset>);
 	return;
 }
 
@@ -404,6 +435,10 @@ sub _print_modify_search_fieldset {
 		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
+	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say q(Attribute values list</li>);
 	if ( $self->{'filters_fieldset_exists'} ) {
 		my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 		  || $self->filters_selected ? 'Hide' : 'Show';
@@ -627,11 +662,10 @@ sub _run_query {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
 	my $browse;
-	if ($qry =~ /\(\)/x){
+	if ( $qry =~ /\(\)/x ) {
 		$qry =~ s/\ WHERE\ \(\)//x;
 		$browse = 1;
 	}
-	
 	if (@errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
@@ -665,10 +699,15 @@ sub _run_query {
 		#datestamp exists in other tables and can be ambiguous on complex queries
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
-		my $args = { table => $self->{'system'}->{'view'}, query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
+		my $args = {
+			table             => $self->{'system'}->{'view'},
+			query             => $qry,
+			browse            => $browse,
+			hidden_attributes => \@hidden_attributes
+		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} 
+	}
 	my $elapsed = time - $start_time;
 	if ( $elapsed > WARN_IF_TAKES_LONGER_THAN_X_SECONDS && $self->{'datastore'}->{'scheme_not_cached'} ) {
 		$logger->warn( "$self->{'instance'}: Query took $elapsed seconds.  Schemes are not cached for this "
@@ -1510,9 +1549,10 @@ sub get_javascript {
 	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
 	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
 	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
-	my $buffer = $self->SUPER::get_javascript;
-	my $panel_js = $self->get_javascript_panel(qw(provenance allele_designations allele_status tags filters));
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	my $buffer   = $self->SUPER::get_javascript;
+	my $panel_js = $self->get_javascript_panel(qw(provenance allele_designations allele_status tags list filters));
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -1669,7 +1709,7 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (allele_designations allele_status tags filters)) {
+		foreach my $attribute (qw (allele_designations allele_status tags list filters)) {
 			my $value =
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
 			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;

@@ -513,7 +513,7 @@ sub _modify_by_list {
 sub _print_list_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
-	my ( $field_list, $labels, );
+	my ( $field_list, $labels );
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$fields) {
 		push @$field_list, "s_$scheme_id\_$_";
