@@ -257,8 +257,7 @@ sub _print_list_fieldset {
 	my $q = $self->{'cgi'};
 	my @grouped_fields;
 	my ( $field_list, $labels ) = $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 1, extended_attributes => 1 }
-	);
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 0, extended_attributes => 1 } );
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
 	foreach (@$grouped) {
 		push @grouped_fields, "f_$_";
@@ -281,6 +280,109 @@ sub _print_list_fieldset {
 	);
 	say q(</fieldset>);
 	return;
+}
+
+sub _modify_query_by_list {
+	my ( $self, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	return $qry if !$q->param('list');
+	my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field)};
+	return $qry if !$field;
+	my @list = split /\n/x, $q->param('list');
+	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	my $list = $self->_clean_list( $data_type, \@list );
+	$self->{'datastore'}->create_temp_list_table_from_array( $data_type, $list, { table => 'temp_list' } );
+	my $list_file = BIGSdb::Utils::get_random() . '.list';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
+	say $fh $_ foreach @$list;
+	close $fh;
+	$q->param( list_file => $list_file );
+	$q->param( datatype  => $data_type );
+	my $view = $self->{'system'}->{'view'};
+	my $isolate_scheme_field_view;
+
+	if ( $field_type eq 'scheme_field' ) {
+		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	}
+	my %sql = (
+		provenance => ( $data_type eq 'text' ? "UPPER($field)" : $field ) . ' IN (SELECT value FROM temp_list)',
+		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
+		  . ( $data_type eq 'text' ? "UPPER($meta_field)" : $meta_field )
+		  . ' IN (SELECT value FROM temp_list))',
+		extended_isolate => "$view.$extended_field IN (SELECT field_value FROM isolate_value_extended_attributes "
+		  . "WHERE isolate_field='$extended_field' AND attribute='$field' AND "
+		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
+		  . ' IN (SELECT value FROM temp_list))',
+		locus => "$view.id IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$field' AND allele_id IN "
+		  . '(SELECT value FROM temp_list))',
+		scheme_field => "$view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE "
+		  . ( $data_type eq 'text' ? "UPPER($field)" : $field )
+		  . ' IN (SELECT value FROM temp_list))'
+	);
+	return $qry if !$sql{$field_type};
+	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+		$qry .= " AND ($sql{$field_type})";
+	} else {
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($sql{$field_type})";
+	}
+	return $qry;
+}
+
+sub _get_list_attribute_data {
+	my ( $self, $attribute ) = @_;
+	my $pattern = LOCUS_PATTERN;
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field );
+	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {
+		$scheme_id  = $1;
+		$field      = $2;
+		$field_type = 'scheme_field';
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		$data_type = $scheme_field_info->{'type'};
+		return if !$scheme_field_info;
+	} elsif ( $attribute =~ /$pattern/x ) {
+		$field      = $1;
+		$field_type = 'locus';
+		$data_type  = 'text';
+		return if !$self->{'datastore'}->is_locus($field);
+		$field =~ s/\'/\\'/gx;
+	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
+		$field = $1;
+		( $meta_set, $meta_field ) = $self->get_metaset_and_fieldname($field);
+		$field_type = defined $meta_set ? 'metafield' : 'provenance';
+		return if !$self->{'xmlHandler'}->is_field($field);
+		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
+		$data_type = $field_info->{'type'};
+	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
+		$extended_field = $1;
+		$field          = $2;
+		$data_type      = 'text';
+		$field_type     = 'extended_isolate';
+	}
+	return {
+		field          => $field,
+		extended_field => $extended_field,
+		scheme_id      => $scheme_id,
+		field_type     => $field_type,
+		data_type      => $data_type,
+		meta_set       => $meta_set,
+		meta_field     => $meta_field
+	};
+}
+
+sub _clean_list {
+	my ( $self, $data_type, $list ) = @_;
+	my @new_list;
+	foreach my $value (@$list) {
+		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
+		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
+		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
+		push @new_list, uc($value);
+	}
+	return \@new_list;
 }
 
 sub _print_filters_fieldset {
@@ -644,6 +746,7 @@ sub _run_query {
 	my $start_time = time;
 	if ( !defined $q->param('query_file') ) {
 		$qry = $self->_generate_query_for_provenance_fields( \@errors );
+		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_query_for_designations( $qry, \@errors );
 		$qry = $self->_modify_query_for_tags( $qry, \@errors );
@@ -660,6 +763,10 @@ sub _run_query {
 		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		if ( $q->param('list_file') && $q->param('attribute') ) {
+			my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
+			$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $q->param('list_file') );
+		}
 	}
 	my $browse;
 	if ( $qry =~ /\(\)/x ) {
@@ -687,7 +794,8 @@ sub _run_query {
 				}
 			}
 		}
-		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list include_old);
+		push @hidden_attributes,
+		  qw(no_js publication_list project_list linked_sequences_list include_old list list_file attribute datatype);
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
