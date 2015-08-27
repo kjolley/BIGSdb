@@ -67,7 +67,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+	foreach my $attribute (qw (provenance allele_designations allele_status tags list filters)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
 	}
@@ -77,7 +77,7 @@ sub _save_options {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Isolate query/update - $desc" : "Search database - $desc";
+	return $self->{'curate'} ? "Isolate query/update - $desc" : "Search/browse database - $desc";
 }
 
 sub print_content {
@@ -88,7 +88,7 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search $desc database</h1>);
+	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
@@ -111,16 +111,17 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->startform;
+	say q(<p>Enter search criteria or leave blank to browse all records.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
 	say $q->hidden($_) foreach qw (db page table no_js);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
-	$self->_print_display_fieldset;
-	say q(<div style="clear:both"></div>);
 	$self->_print_designations_fieldset;
 	$self->_print_allele_status_fieldset;
-	$self->_print_tag_fieldset;
-	$self->_print_filter_fieldset;
+	$self->_print_tags_fieldset;
+	$self->_print_list_fieldset;
+	$self->_print_filters_fieldset;
+	$self->_print_display_fieldset;
 	$self->print_action_fieldset;
 	$self->_print_modify_search_fieldset;
 	say q(</div>);
@@ -132,13 +133,18 @@ sub _print_interface {
 sub _print_provenance_fields_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Isolate provenance/phenotype fields</legend>);
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'provenance_fieldset'}
+	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
+	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Isolate provenance/phenotype fields</legend>);
 	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
 	  . q(<label for="prov_andor">Combine with: </label>);
 	say $q->popup_menu( -name => 'prov_andor', -id => 'prov_andor', -values => [qw (AND OR)] );
-	say "</span>\n<ul id=\"provenance\">";
+	say q(</span><ul id="provenance">);
 	my ( $select_items, $labels ) = $self->_get_select_items;
 
 	for ( 1 .. $prov_fields ) {
@@ -173,7 +179,7 @@ sub _print_designations_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="locus_fieldset" style="float:left;display:$display" >);
+		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
 		say q(<legend>Allele designations/scheme fields</legend><div>);
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
@@ -218,7 +224,7 @@ sub _print_allele_status_fieldset {
 	return;
 }
 
-sub _print_tag_fieldset {
+sub _print_tags_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
@@ -226,7 +232,7 @@ sub _print_tag_fieldset {
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="tag_fieldset" style="float:left;display:$display">);
+		say qq(<fieldset id="tags_fieldset" style="float:left;display:$display">);
 		say q(<legend>Tagged sequence status</legend><div>);
 		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
@@ -241,12 +247,145 @@ sub _print_tag_fieldset {
 			say q(</li>);
 		}
 		say q(</ul></div></fieldset>);
-		$self->{'tag_fieldset_exists'} = 1;
+		$self->{'tags_fieldset_exists'} = 1;
 	}
 	return;
 }
 
-sub _print_filter_fieldset {
+sub _print_list_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my @grouped_fields;
+	my ( $field_list, $labels ) = $self->get_field_selection_list(
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 0, extended_attributes => 1 } );
+	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
+	foreach (@$grouped) {
+		push @grouped_fields, "f_$_";
+		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
+	}
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'inline' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
+	say q(Field:);
+	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say q(<br />);
+	say $q->textarea(
+		-name        => 'list',
+		-id          => 'list',
+		-rows        => 6,
+		-style       => 'width:100%',
+		-placeholder => 'Enter list of values...'
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub _modify_query_by_list {
+	my ( $self, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	return $qry if !$q->param('list');
+	my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field)};
+	return $qry if !$field;
+	my @list = split /\n/x, $q->param('list');
+	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	my $list = $self->_clean_list( $data_type, \@list );
+	$self->{'datastore'}->create_temp_list_table_from_array( $data_type, $list, { table => 'temp_list' } );
+	my $list_file = BIGSdb::Utils::get_random() . '.list';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
+	say $fh $_ foreach @$list;
+	close $fh;
+	$q->param( list_file => $list_file );
+	$q->param( datatype  => $data_type );
+	my $view = $self->{'system'}->{'view'};
+	my $isolate_scheme_field_view = q();
+
+	if ( $field_type eq 'scheme_field' ) {
+		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	}
+	my %sql = (
+		provenance => ( $data_type eq 'text' ? "UPPER($field)" : $field ) . ' IN (SELECT value FROM temp_list)',
+		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
+		  . ( $data_type eq 'text' ? "UPPER($meta_field)" : $meta_field )
+		  . ' IN (SELECT value FROM temp_list))',
+		extended_isolate => "$view.$extended_field IN (SELECT field_value FROM isolate_value_extended_attributes "
+		  . "WHERE isolate_field='$extended_field' AND attribute='$field' AND "
+		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
+		  . ' IN (SELECT value FROM temp_list))',
+		locus => "$view.id IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$field' AND allele_id IN "
+		  . '(SELECT value FROM temp_list))',
+		scheme_field => "$view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE "
+		  . ( $data_type eq 'text' ? "UPPER($field)" : $field )
+		  . ' IN (SELECT value FROM temp_list))'
+	);
+	return $qry if !$sql{$field_type};
+	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+		$qry .= " AND ($sql{$field_type})";
+	} else {
+		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($sql{$field_type})";
+	}
+	return $qry;
+}
+
+sub _get_list_attribute_data {
+	my ( $self, $attribute ) = @_;
+	my $pattern = LOCUS_PATTERN;
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field );
+	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {
+		$scheme_id  = $1;
+		$field      = $2;
+		$field_type = 'scheme_field';
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		$data_type = $scheme_field_info->{'type'};
+		return if !$scheme_field_info;
+	} elsif ( $attribute =~ /$pattern/x ) {
+		$field      = $1;
+		$field_type = 'locus';
+		$data_type  = 'text';
+		return if !$self->{'datastore'}->is_locus($field);
+		$field =~ s/\'/\\'/gx;
+	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
+		$field = $1;
+		( $meta_set, $meta_field ) = $self->get_metaset_and_fieldname($field);
+		$field_type = defined $meta_set ? 'metafield' : 'provenance';
+		return if !$self->{'xmlHandler'}->is_field($field);
+		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
+		$data_type = $field_info->{'type'};
+	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
+		$extended_field = $1;
+		$field          = $2;
+		$data_type      = 'text';
+		$field_type     = 'extended_isolate';
+	}
+	return {
+		field          => $field,
+		extended_field => $extended_field // q(),
+		scheme_id      => $scheme_id,
+		field_type     => $field_type,
+		data_type      => $data_type,
+		meta_set       => $meta_set // q(),
+		meta_field     => $meta_field // q()
+	};
+}
+
+sub _clean_list {
+	my ( $self, $data_type, $list ) = @_;
+	my @new_list;
+	foreach my $value (@$list) {
+		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
+		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
+		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
+		push @new_list, uc($value);
+	}
+	return \@new_list;
+}
+
+sub _print_filters_fieldset {
 	my ($self) = @_;
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
@@ -364,11 +503,11 @@ sub _print_filter_fieldset {
 	}
 	push @filters, $self->get_old_version_filter;
 	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="filter_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
 	say q(<div><ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
 	say q(</ul></div></fieldset>);
-	$self->{'filter_fieldset_exists'} = 1;
+	$self->{'filters_fieldset_exists'} = 1;
 	return;
 }
 
@@ -379,25 +518,33 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
-	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	my $provenance_fieldset_display = $self->{'prefs'}->{'provenance_fieldset'}
+	  || $self->_highest_entered_fields('provenance') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
+	say q(Provenance fields</li>);
+	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
-	say qq(<li><a href="" class="button" id="show_allele_designations">$locus_fieldset_display</a>);
+	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
-	if ( $self->{'tag_fieldset_exists'} ) {
-		my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'}
+	if ( $self->{'tags_fieldset_exists'} ) {
+		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
 		  || $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
-		say qq(<li><a href="" class="button" id="show_tags">$tag_fieldset_display</a>);
+		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
-	if ( $self->{'filter_fieldset_exists'} ) {
-		my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'}
+	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say q(Attribute values list</li>);
+	if ( $self->{'filters_fieldset_exists'} ) {
+		my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 		  || $self->filters_selected ? 'Hide' : 'Show';
-		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
 		say q(Filters</li>);
 	}
 	say q(</ul>);
@@ -599,6 +746,7 @@ sub _run_query {
 	my $start_time = time;
 	if ( !defined $q->param('query_file') ) {
 		$qry = $self->_generate_query_for_provenance_fields( \@errors );
+		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_query_for_designations( $qry, \@errors );
 		$qry = $self->_modify_query_for_tags( $qry, \@errors );
@@ -615,12 +763,21 @@ sub _run_query {
 		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		if ( $q->param('list_file') && $q->param('attribute') ) {
+			my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
+			$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $q->param('list_file') );
+		}
+	}
+	my $browse;
+	if ( $qry =~ /\(\)/x ) {
+		$qry =~ s/\ WHERE\ \(\)//x;
+		$browse = 1;
 	}
 	if (@errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@errors</p></div>);
-	} elsif ( $qry !~ /\(\)/x ) {
+	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
 		for ( 1 .. MAX_ROWS ) {
@@ -637,7 +794,8 @@ sub _run_query {
 				}
 			}
 		}
-		push @hidden_attributes, qw(no_js publication_list project_list linked_sequences_list include_old);
+		push @hidden_attributes,
+		  qw(no_js publication_list project_list linked_sequences_list include_old list list_file attribute datatype);
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
@@ -649,13 +807,14 @@ sub _run_query {
 		#datestamp exists in other tables and can be ambiguous on complex queries
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
-		my $args = { table => $self->{'system'}->{'view'}, query => $qry, hidden_attributes => \@hidden_attributes };
+		my $args = {
+			table             => $self->{'system'}->{'view'},
+			query             => $qry,
+			browse            => $browse,
+			hidden_attributes => \@hidden_attributes
+		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed.  Try to )
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db="$self->{'instance'}&amp;page=browse">)
-		  . q(browse all records</a>.</div>);
 	}
 	my $elapsed = time - $start_time;
 	if ( $elapsed > WARN_IF_TAKES_LONGER_THAN_X_SECONDS && $self->{'datastore'}->{'scheme_not_cached'} ) {
@@ -1492,21 +1651,23 @@ sub _modify_query_for_designation_status {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $locus_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
+	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
-	my $tag_fieldset_display = $self->{'prefs'}->{'tag_fieldset'}
+	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
 	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filter_fieldset_display = $self->{'prefs'}->{'filter_fieldset'} || $self->filters_selected ? 'inline' : 'none';
-	my $buffer = $self->SUPER::get_javascript;
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	my $buffer   = $self->SUPER::get_javascript;
+	my $panel_js = $self->get_javascript_panel(qw(provenance allele_designations allele_status tags list filters));
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
-   	\$('#locus_fieldset').css({display:"$locus_fieldset_display"});
+   	\$('#allele_designations_fieldset').css({display:"$allele_designations_fieldset_display"});
    	\$('#allele_status_fieldset').css({display:"$allele_status_fieldset_display"});
-   	\$('#tag_fieldset').css({display:"$tag_fieldset_display"});
-   	\$('#filter_fieldset').css({display:"$filter_fieldset_display"});
+   	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
+   	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
   	\$('#prov_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
@@ -1516,66 +1677,7 @@ sub get_javascript {
   	if (! Modernizr.touch){
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
-  	
-  	\$("#show_allele_designations").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="designation"]').val('')}
-		\$("#locus_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	 \$("#show_allele_status").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="allele_sequence"]').val('')}
-		\$("#allele_status_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$("#show_tags").click(function() {
-  		if(\$(this).text() == 'Hide'){\$('[id^="tag"]').val('')}
-		\$("#tag_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$("#show_filters").click(function() {
-		if(\$(this).text() == 'Hide'){
-			if (! Modernizr.touch){
-				\$('.multiselect').multiselect("uncheckAll");
-			}
-			\$('[id\$="_list"]').val('');
-		}
- 		\$("#filter_fieldset").toggle(100);
-		\$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');
-		\$("a#save_options").fadeIn();
-		return false;
-	});
-	\$(".trigger").click(function(){		
-		\$(".panel").toggle("slide",{direction:"right"},"fast");
-		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);
-		
-		return false;
-	});
-	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
-	\$("a#save_options").click(function(event){		
-		event.preventDefault();
-		var allele_designations = \$("#show_allele_designations").text() == 'Show' ? 0 : 1;
-		var allele_status = \$("#show_allele_status").text() == 'Show' ? 0 : 1;
-		var tag = \$("#show_tags").text() == 'Show' ? 0 : 1;
-		var filter = \$("#show_filters").text() == 'Show' ? 0 : 1;
-	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").text('Saving ...');
-	  		var new_url = this.href + "&allele_designations=" + allele_designations + "&allele_status=" + allele_status 
-	  		  + "&tag=" + tag + "&filter=" + filter;
-		  		\$.ajax({
-	  			url : new_url,
-	  			success: function () {	  				
-	  				\$("a#save_options").hide();
-	  				\$("a#save_options").text('Save options');
-	  			}
-	  		});
-	   	});
-	});
+$panel_js
  });
  
 function loadContent(url) {
@@ -1715,11 +1817,13 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (allele_designations allele_status tag filter)) {
+		foreach my $attribute (qw (allele_designations allele_status tags list filters)) {
 			my $value =
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
 			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
+		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	return;
 }

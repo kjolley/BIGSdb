@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
-use List::MoreUtils qw(any );
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -40,6 +40,18 @@ sub _ajax_content {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	return if !$guid;
+	foreach my $attribute (qw (scheme list filters)) {
+		my $value = $q->param($attribute) ? 'on' : 'off';
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset", $value );
+	}
+	return;
+}
+
 sub get_help_url {
 	my ($self) = @_;
 	if ( $self->{'curate'} ) {
@@ -51,7 +63,7 @@ sub get_help_url {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Profile query/update - $desc" : "Search database - $desc";
+	return $self->{'curate'} ? "Profile query/update - $desc" : "Search/browse database - $desc";
 }
 
 sub print_content {
@@ -59,9 +71,10 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $scheme_info;
-	if ( $q->param('no_header') ) { $self->_ajax_content; return }
+	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
+	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search profiles - $desc</h1>";
+	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search or browse profiles - $desc</h1>";
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
@@ -81,6 +94,25 @@ sub print_content {
 	return;
 }
 
+sub initiate {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->SUPER::initiate;
+	$self->{'noCache'} = 1;
+	if ( !$self->{'cgi'}->param('save_options') ) {
+		my $guid = $self->get_guid;
+		return if !$guid;
+		foreach my $attribute (qw (list filters)) {
+			my $value =
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
+			$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+		}
+		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'scheme_fieldset' );
+		$self->{'prefs'}->{'scheme_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+	}
+	return;
+}
+
 sub _print_interface {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};
@@ -91,12 +123,18 @@ sub _print_interface {
 	$self->print_scheme_section( { with_pk => 1 } );
 	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
+	  . q(enter a list of values.</p>);
 	say $q->startform;
 	say $q->hidden($_) foreach qw (db page scheme_id no_js);
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
 	say q(<div style="white-space:nowrap">);
-	say q(<fieldset style="float:left"><legend>Locus/scheme fields</legend>);
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'scheme_fieldset'}
+	  || $self->_highest_entered_fields ? 'inline' : 'none';
+	say qq(<fieldset style="float:left;display:$display" id="scheme_fieldset"><legend>Locus/scheme fields</legend>);
 	say qq(<span id="scheme_field_heading" style="display:$scheme_field_heading">)
 	  . q(<label for="c0">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw(AND OR)] );
@@ -109,8 +147,12 @@ sub _print_interface {
 		say q(</li>);
 	}
 	say q(</ul></fieldset>);
+	$self->_print_list_fieldset($scheme_id);
 	$self->_print_filter_fieldset($scheme_id);
+	$self->_print_order_fieldset($scheme_id);
 	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id } );
+	$self->_print_modify_search_fieldset;
+	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -165,6 +207,19 @@ sub _print_filter_fieldset {
 			  );
 		}
 	}
+	if (@filters) {
+		my $display = $q->param('no_js') ? 'block' : 'none';
+		say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+		say q(<ul>);
+		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
+		say q(</ul></fieldset>);
+	}
+	return;
+}
+
+sub _print_order_fieldset {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
@@ -173,15 +228,6 @@ sub _print_filter_fieldset {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-	say q(</div><div style="clear:both"></div>);
-
-	if (@filters) {
-		say q(<fieldset style="float:left">);
-		say q(<legend>Filter query by</legend>);
-		say q(<ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-		say q(</ul></fieldset>);
-	}
 	return;
 }
 
@@ -243,19 +289,28 @@ sub _run_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
-	my $qry;
+	my ($qry, $list_file);
 	my $errors = [];
 	my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	if ( !defined $q->param('query_file') ) {
-		( $qry, $errors ) = $self->_generate_query($scheme_id);
+		( $qry, $list_file, $errors ) = $self->_generate_query($scheme_id);
+		$q->param( list_file => $list_file );
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		if ( $q->param('list_file') ) {
+			$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
+		}
+	}
+	my $browse;
+	if ( $qry =~ /\(\)/x ) {
+		$qry =~ s/\ WHERE\ \(\)//x;
+		$browse = 1;
 	}
 	if (@$errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@$errors</p></div>);
-	} elsif ( $qry !~ /\(\)/x ) {
+	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
 		foreach my $i ( 1 .. MAX_ROWS ) {
@@ -264,23 +319,19 @@ sub _run_query {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			push @hidden_attributes, $_ . '_list';
 		}
-		push @hidden_attributes, qw (publication_list scheme_id no_js);
-		my $args = { table => 'profiles', query => $qry, hidden_attributes => \@hidden_attributes };
+		push @hidden_attributes, qw (publication_list scheme_id no_js list list_file datatype);
+		my $args = { table => 'profiles', query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed. Try to )
-		  . qq(<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=browse&amp;scheme_id=$scheme_id">browse all records</a>.</div>);
 	}
 	return;
 }
 
 sub _is_locus_in_scheme {
-	my ($self, $scheme_id, $locus) = @_;
-	if (!$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}){
+	my ( $self, $scheme_id, $locus ) = @_;
+	if ( !$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id} ) {
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		%{$self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}} = map {$_ => 1} @$loci;
+		%{ $self->{'cache'}->{'is_scheme_locus'}->{$scheme_id} } = map { $_ => 1 } @$loci;
 	}
 	return $self->{'cache'}->{'is_scheme_locus'}->{$scheme_id}->{$locus};
 }
@@ -288,17 +339,42 @@ sub _is_locus_in_scheme {
 sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my ( $qry, $errors ) = $self->_generate_query_from_locus_fields($scheme_id);
+	($qry, my $list_file) = $self->_modify_by_list( $scheme_id, $qry );
+	$q->param(datatype => 'text');
+	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
+	my $primary_key   = $scheme_info->{'primary_key'};
+	my $order         = $q->param('order') || $primary_key;
+	my $dir           = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
+	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
+
+	if ( $self->{'datastore'}->is_locus($order) ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($order);
+		$order =~ s/'/_PRIME_/gx;
+		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
+		}
+	}
+	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
+	return ( $qry, $list_file, $errors );
+}
+
+sub _generate_query_from_locus_fields {
+	my ( $self, $scheme_id ) = @_;
+	my $q      = $self->{'cgi'};
+	my $errors = [];
 	my $scheme_view =
 	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $errors      = [];
 	my $qry         = "SELECT * FROM $scheme_view WHERE (";
 	my $andor       = $q->param('c0');
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
-		my $is_locus = $self->_is_locus_in_scheme($scheme_id,$field);
+		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
 		my $type;
 		( my $cleaned = $field ) =~ s/'/_PRIME_/gx;
 		if ($is_locus) {
@@ -335,18 +411,16 @@ sub _generate_query {
 			  ? "$cleaned is null"
 			  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
 			$equals .= " OR $cleaned = 'N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
-			if ( $operator eq 'NOT' ) {
-				$qry .= $text eq 'null' ? "(not $equals)" : "((NOT $equals) OR $cleaned IS NULL)";
-			} elsif ( $operator eq 'contains' ) {
-				$qry .= "(upper($cleaned) LIKE upper('\%$text\%'))";
-			} elsif ( $operator eq 'starts with' ) {
-				$qry .= "(upper($cleaned) LIKE upper('$text\%'))";
-			} elsif ( $operator eq 'ends with' ) {
-				$qry .= "(upper($cleaned) LIKE upper('\%$text'))";
-			} elsif ( $operator eq 'NOT contain' ) {
-				$qry .= "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)";
-			} elsif ( $operator eq '=' ) {
-				$qry .= "($equals)";
+			my %modify = (
+				'NOT' => $text eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned IS NULL)",
+				'contains'    => "(upper($cleaned) LIKE upper('\%$text\%'))",
+				'starts with' => "(upper($cleaned) LIKE upper('$text\%'))",
+				'ends with'   => "(upper($cleaned) LIKE upper('\%$text'))",
+				'NOT contain' => "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)",
+				'='           => "($equals)"
+			);
+			if ( $modify{$operator} ) {
+				$qry .= $modify{$operator};
 			} else {
 				if ( $text eq 'null' ) {
 					my $clean_operator = $operator;
@@ -361,6 +435,15 @@ sub _generate_query {
 		}
 	}
 	$qry .= ')';
+	return ( $qry, $errors );
+}
+
+sub _modify_query_for_filters {
+	my ( $self, $scheme_id, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
@@ -390,32 +473,88 @@ sub _generate_query {
 			}
 		}
 	}
-	my $order = $q->param('order') || $primary_key;
-	my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
-	if ( $self->{'datastore'}->is_locus($order) ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($order);
-		$order =~ s/'/_PRIME_/gx;
-		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
-		}
+	return $qry;
+}
+
+sub _modify_by_list {
+	my ( $self, $scheme_id, $qry ) = @_;
+	my $q = $self->{'cgi'};
+	return $qry if !$q->param('list');
+	my $field;
+	if ($q->param('attribute') =~ /^s_${scheme_id}_(.*)$/x){
+		$field = $1;
+		return $qry if !$self->{'datastore'}->is_scheme_field($scheme_id, $field);
+	} elsif ($q->param('attribute') =~ /^l_(.*)$/x){
+		$field = $1;
+		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $field );
 	}
-	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
-	return ( $qry, $errors );
+	my @list = split /\n/x, $q->param('list');
+	@list = uniq @list;
+	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	return $qry if !@list || (@list == 1 && $list[0] eq q()) ;
+	my $temp_table =
+	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list, { table => 'temp_list' } );
+	my $list_file = BIGSdb::Utils::get_random() . '.list';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
+	say $fh $_ foreach @list;
+	close $fh;
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+		$qry .= ' AND ';
+	} else {
+		$qry = "SELECT * FROM $scheme_view WHERE ";
+	}
+	$qry .= "($field IN (SELECT value FROM $temp_table))";
+	return ($qry, $list_file);
+}
+
+sub _print_list_fieldset {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $field_list, $labels );
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	foreach (@$fields) {
+		push @$field_list, "s_$scheme_id\_$_";
+		( $labels->{"s_$scheme_id\_$_"} = $_ ) =~ tr/_/ /;
+	}
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		push @$field_list, "l_$locus";
+		$labels->{"l_$locus"} = $self->clean_locus( $locus, { text_output => 1 } );
+	}
+	my $display =
+	     $q->param('no_js')
+	  || $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'inline' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
+	say q(Field:);
+	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say q(<br />);
+	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -style=> 'width:100%', -placeholder => 'Enter list of values...' );
+	say q(</fieldset>);
+	return;
 }
 
 sub get_javascript {
 	my ($self) = @_;
-	my $buffer = $self->SUPER::get_javascript;
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	my $panel_js = $self->get_javascript_panel(qw(scheme list filters));
+	my $buffer   = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
+	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
    	\$('#scheme_field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3>"
   		+ "<p>Add more fields by clicking the '+' button.</p>"
   		+ "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search "
-  		+ "terms, 'OR' to match ANY of these terms.</p>" });
-   });
+  		+ "terms, 'OR' to match ANY of these terms.</p>" 
+   	});
+   	$panel_js
+});
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
@@ -436,5 +575,32 @@ sub _highest_entered_fields {
 		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
 	}
 	return $highest;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="panel">);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
+	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
+	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);
+	say q(Locus/scheme field values</li>);
+	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say q(Attribute values list</li>);
+	my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+	say q(Filters</li>);
+	say q(</ul>);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=query&amp;save_options=1" style="display:none">Save options</a><br />);
+	say q(</div>);
+	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
+	return;
 }
 1;

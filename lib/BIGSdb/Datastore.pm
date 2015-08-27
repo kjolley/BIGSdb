@@ -918,7 +918,12 @@ sub create_temp_isolate_scheme_fields_view {
 	$logger->error($@) if $@;
 	if ( $options->{'cache'} ) {
 		foreach my $field ( @$scheme_fields, 'id' ) {
-			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
+			my $scheme_field_info = $self->get_scheme_field_info($scheme_id, $field);
+			if ($scheme_field_info->{'type'} eq 'text'){
+				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
+			} else {
+				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
+			}
 		}
 
 		#Create new temp table, then drop old and rename the new - this

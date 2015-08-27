@@ -289,23 +289,20 @@ sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutin
 
 sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	my $query_cell =
-	  $exists
+	my $exists     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
+	my $query_cell = $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
-	  . qq(query</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=browse$set_string">browse</a> | <a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> | )
+	  . q(query/browse</a> | )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
 	  : q();
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolates</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates$set_string">++</a></td>
-<td>$query_cell</td>
-<td></td></tr>
-HTML
+	my $buffer =
+	    qq(<tr class="td$td"><td>isolates</td>)
+	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=isolateAdd$set_string">+</a></td>)
+	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=batchAdd&amp;table=isolates$set_string">++</a></td><td>$query_cell</td>)
+	  . q(<td class="comment" style="text-align:left">Query or browse for isolates to update or delete.</td></tr>);
 	return $buffer;
 }
 
@@ -592,16 +589,16 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .= <<"HTML";
-<tr class="td$td"><td>$desc{$scheme_id} profiles</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;scheme_id=$scheme_id$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;scheme_id=$scheme_id$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;scheme_id=$scheme_id$set_string">query</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=browse&amp;scheme_id=$scheme_id$set_string">browse</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=listQuery&amp;scheme_id=$scheme_id$set_string">list</a> |
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;scheme_id=$scheme_id$set_string">batch update</a></td>
-<td></td></tr>
-HTML
+		$buffer .=
+		    qq(<tr class="td$td"><td>$desc{$scheme_id} profiles</td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">+</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">++</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">query/browse/list</a> | )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
+		  . qq(scheme_id=$scheme_id$set_string">batch update</a></td><td></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	return ( $buffer, $td );

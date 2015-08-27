@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,8 +41,65 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 1, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
+}
+
+sub get_javascript_panel {
+	my ( $self, @fieldsets ) = @_;
+	my $button_text_js;
+	my $button_toggle_js;
+	my $new_url    = 'this.href';
+	my %clear_form = (
+		list    => q[$("#list").val('')],
+		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
+		  . q[          $('[id$="_list"]').val('')],
+		provenance          => q[$('[id^="prov_value"]').val('')],
+		allele              => q[$('[id^="value"]').val('')],
+		scheme              => q[$('[id^="value"]').val('')],
+		allele_designations => q[$('[id^="designation"]').val('')],
+		allele_status       => q[$('[id^="allele_sequence"]').val('')],
+		tags                => q[$('[id^="tag"]').val('')]
+	);
+	foreach my $fieldset (@fieldsets) {
+		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").text() == 'Show' ? 0 : 1;\n);
+		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
+		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function() {\n];
+		$button_toggle_js .= qq[       if(\$(this).text() == 'Hide'){\n];
+		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
+		$button_toggle_js .= qq[       }\n];
+		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
+		$button_toggle_js .= qq[       \$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');\n];
+		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
+		$button_toggle_js .= qq[       return false;\n];
+		$button_toggle_js .= qq[    });\n];
+	}
+	my $buffer = <<"END";
+	$button_toggle_js
+	\$(".trigger").click(function(){		
+		\$(".panel").toggle("slide",{direction:"right"},"fast");
+		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);		
+		return false;
+	});
+	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
+		\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		$button_text_js
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").text('Saving ...');
+	  		var new_url = $new_url;
+		  		\$.ajax({
+	  			url : new_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("a#save_options").text('Save options');
+	  			}
+	  		});
+	   	});
+	});
+END
+	return $buffer;
 }
 
 sub get_javascript {
@@ -77,7 +134,7 @@ sub filters_selected {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my %params = $q->Vars;
-	return 1 if any { $_ =~ /_list$/ && $params{$_} ne '' } keys %params;
+	return 1 if any { $_ =~ /_list$/x && $params{$_} ne '' } keys %params;
 	return 1 if $q->param('include_old');
 	return;
 }
@@ -85,12 +142,12 @@ sub filters_selected {
 sub get_grouped_fields {
 	my ( $self, $field, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	$field =~ s/^f_// if $options->{'strip_prefix'};
+	$field =~ s/^f_//x if $options->{'strip_prefix'};
 	my @groupedfields;
 	for ( 1 .. 10 ) {
 		if ( $self->{'system'}->{"fieldgroup$_"} ) {
-			my @grouped = ( split /:/, $self->{'system'}->{"fieldgroup$_"} );
-			@groupedfields = split /,/, $grouped[1] if $field eq $grouped[0];
+			my @grouped = ( split /:/x, $self->{'system'}->{"fieldgroup$_"} );
+			@groupedfields = split /,/x, $grouped[1] if $field eq $grouped[0];
 		}
 	}
 	return @groupedfields;
@@ -105,19 +162,28 @@ sub is_valid_operator {
 sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
-	$suffix =~ s/[\(\)\s]//g;
-	my $qry         = "SELECT id FROM users WHERE ";
-	my $equals      = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
-	my $contains    = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
-	my $starts_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
-	my $ends_with   = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
-	if    ( $operator eq 'NOT' )         { $qry .= "NOT $equals" }
-	elsif ( $operator eq 'contains' )    { $qry .= $contains }
-	elsif ( $operator eq 'starts with' ) { $qry .= $starts_with }
-	elsif ( $operator eq 'ends with' )   { $qry .= $ends_with }
-	elsif ( $operator eq 'NOT contain' ) { $qry .= "NOT $contains" }
-	elsif ( $operator eq '=' )           { $qry .= $equals }
-	else                                 { $qry .= "$suffix $operator '$text'" }
+	$suffix =~ s/[\(\)\s]//gx;
+	my $qry = 'SELECT id FROM users WHERE ';
+	my $equals = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
+	my $contains =
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	my $starts_with =
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
+	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
+	my %modify = (
+		'NOT'         => "NOT $equals",
+		'contains'    => $contains,
+		'starts with' => $starts_with,
+		'ends with'   => $ends_with,
+		'NOT contain' => "NOT $contains",
+		'='           => $equals
+	);
+
+	if ( $modify{$operator} ) {
+		$qry .= $modify{$operator};
+	} else {
+		$qry .= "$suffix $operator '$text'";
+	}
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
@@ -134,14 +200,15 @@ sub check_format {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
 		if ( $data->{'type'} =~ /int/ ) {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
-				$error = ( $metafield // $clean_fieldname ) . " is an integer field.";
+				$error = ( $metafield // $clean_fieldname ) . ' is an integer field.';
 			} elsif ( $data->{'text'} > MAX_INT ) {
-				$error = ( $metafield // $clean_fieldname ) . " is too big (largest allowed integer is " . MAX_INT . ').';
+				$error =
+				  ( $metafield // $clean_fieldname ) . ' is too big (largest allowed integer is ' . MAX_INT . ').';
 			}
 		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a boolean (true/false) field.";
+			$error = ( $metafield // $clean_fieldname ) . ' is a boolean (true/false) field.';
 		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a floating point number field.";
+			$error = ( $metafield // $clean_fieldname ) . ' is a floating point number field.';
 		} elsif (
 			$data->{'type'} eq 'date' && (
 				any {
@@ -153,7 +220,8 @@ sub check_format {
 		{
 			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
 		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . " is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').";
+			$error = ( $metafield // $clean_fieldname )
+			  . q( is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').);
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
@@ -165,10 +233,10 @@ sub check_format {
 
 sub process_value {
 	my ( $self, $value_ref ) = @_;
-	$$value_ref =~ s/^\s*//;
-	$$value_ref =~ s/\s*$//;
-	$$value_ref =~ s/\\/\\\\/g;
-	$$value_ref =~ s/'/\\'/g;
+	$$value_ref =~ s/^\s*//x;
+	$$value_ref =~ s/\s*$//x;
+	$$value_ref =~ s/\\/\\\\/gx;
+	$$value_ref =~ s/'/\\'/gx;
 	return;
 }
 1;

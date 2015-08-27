@@ -26,7 +26,6 @@ use BIGSdb::AlleleSequencePage;
 use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
-use BIGSdb::BrowsePage;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::CurateSubmissionExcelPage;
@@ -43,7 +42,6 @@ use BIGSdb::IsolateInfoPage;
 use BIGSdb::IsolateQueryPage;
 use BIGSdb::JobsListPage;
 use BIGSdb::JobViewerPage;
-use BIGSdb::ListQueryPage;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
 use BIGSdb::OptionsPage;
@@ -405,7 +403,7 @@ sub print_page {
 		authorizeClient    => 'AuthorizeClientPage',
 		batchProfiles      => 'BatchProfileQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
-		browse             => 'BrowsePage',
+		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
 		customize          => 'CustomizePage',
 		downloadAlleles    => 'DownloadAllelesPage',
@@ -419,7 +417,7 @@ sub print_page {
 		info               => 'IsolateInfoPage',
 		job                => 'JobViewerPage',
 		jobs               => 'JobsListPage',
-		listQuery          => 'ListQueryPage',
+		listQuery          => $query_page,
 		locusInfo          => 'LocusInfoPage',
 		options            => 'OptionsPage',
 		pubquery           => 'PubQueryPage',
