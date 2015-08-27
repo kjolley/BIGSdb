@@ -42,7 +42,6 @@ use BIGSdb::IsolateInfoPage;
 use BIGSdb::IsolateQueryPage;
 use BIGSdb::JobsListPage;
 use BIGSdb::JobViewerPage;
-use BIGSdb::ListQueryPage;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
 use BIGSdb::OptionsPage;
@@ -418,7 +417,7 @@ sub print_page {
 		info               => 'IsolateInfoPage',
 		job                => 'JobViewerPage',
 		jobs               => 'JobsListPage',
-		listQuery          => 'ListQueryPage',
+		listQuery          => $query_page,
 		locusInfo          => 'LocusInfoPage',
 		options            => 'OptionsPage',
 		pubquery           => 'PubQueryPage',

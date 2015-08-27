@@ -302,7 +302,7 @@ sub _modify_query_by_list {
 	$q->param( list_file => $list_file );
 	$q->param( datatype  => $data_type );
 	my $view = $self->{'system'}->{'view'};
-	my $isolate_scheme_field_view;
+	my $isolate_scheme_field_view = q();
 
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
@@ -363,12 +363,12 @@ sub _get_list_attribute_data {
 	}
 	return {
 		field          => $field,
-		extended_field => $extended_field,
+		extended_field => $extended_field // q(),
 		scheme_id      => $scheme_id,
 		field_type     => $field_type,
 		data_type      => $data_type,
-		meta_set       => $meta_set,
-		meta_field     => $meta_field
+		meta_set       => $meta_set // q(),
+		meta_field     => $meta_field // q()
 	};
 }
 
