@@ -532,7 +532,7 @@ sub _print_allele_designation_form_elements {
 		}
 	} else {
 		$locus_buffer .= '<p>Too many to display. You can batch add allele designations '
-		  . "after entering isolate provenace data.</p>\n";
+		  . "after entering isolate provenance data.</p>\n";
 	}
 	if (@$loci) {
 		say q(<div id="scheme_loci_add" style="overflow:auto">);
