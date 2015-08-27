@@ -72,11 +72,10 @@ sub print_content {
 	  ->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="${url_root}page=query">Search/browse database</a> - advanced queries.</li>);
+		say qq(<li><a href="${url_root}page=query">Search or browse database</a></li>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 		if (@$loci) {
-			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a> - )
-			  . q(including partial matching.</li>);
+			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a></li>);
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - query an allele sequence.</li>);
@@ -102,8 +101,6 @@ sub print_content {
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="${url_root}page=listQuery">List query</a> - )
-		  . q(find isolates by matching a field to an entered list.</li>);
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects WHERE list');
 		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;

@@ -289,22 +289,20 @@ sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutin
 
 sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	my $query_cell =
-	  $exists
+	my $exists     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
+	my $query_cell = $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
-	  . qq(query/browse</a> | <a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=listQuery$set_string">list</a> | )
+	  . q(query/browse</a> | )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
 	  : q();
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>isolates</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates$set_string">++</a></td>
-<td>$query_cell</td>
-<td></td></tr>
-HTML
+	my $buffer =
+	    qq(<tr class="td$td"><td>isolates</td>)
+	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=isolateAdd$set_string">+</a></td>)
+	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=batchAdd&amp;table=isolates$set_string">++</a></td><td>$query_cell</td>)
+	  . q(<td class="comment" style="text-align:left">Query or browse for isolates to update or delete.</td></tr>);
 	return $buffer;
 }
 
