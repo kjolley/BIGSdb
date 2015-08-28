@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.5',
+		version          => '1.5.6',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -262,7 +262,7 @@ sub run_job {
 	my $end;
 	my $no_output     = 1;
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
-	my $selected_loci = $self->order_loci($loci);
+	my $selected_loci = $self->order_loci( $loci, { scheme_id => $scheme_id } );
 	my $ids;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -483,8 +483,8 @@ sub run_job {
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		$message_html .= '<p>No output generated.  Please ensure that your sequences '
-		  . "have been defined for these isolates.</p>\n";
+		$message_html .=
+		  '<p>No output generated.  Please ensure that your sequences ' . "have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
