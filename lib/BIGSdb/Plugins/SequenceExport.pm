@@ -483,8 +483,8 @@ sub run_job {
 		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		$message_html .=
-		  '<p>No output generated.  Please ensure that your sequences ' . "have been defined for these isolates.</p>\n";
+		$message_html .= '<p>No output generated.  Please ensure that your sequences '
+		  . "have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
