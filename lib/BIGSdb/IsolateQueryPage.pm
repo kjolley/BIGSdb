@@ -302,14 +302,15 @@ sub _modify_query_by_list {
 	close $fh;
 	$q->param( list_file => $list_file );
 	$q->param( datatype  => $data_type );
-	my $view = $self->{'system'}->{'view'};
+	my $view                      = $self->{'system'}->{'view'};
 	my $isolate_scheme_field_view = q();
 
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	my %sql = (
-		provenance => ( $data_type eq 'text' ? "UPPER($field)" : $field ) . ' IN (SELECT value FROM temp_list)',
+		provenance => ( $data_type eq 'text' ? "UPPER($view.$field)" : "$view.$field" )
+		  . ' IN (SELECT value FROM temp_list)',
 		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
 		  . ( $data_type eq 'text' ? "UPPER($meta_field)" : $meta_field )
 		  . ' IN (SELECT value FROM temp_list))',
@@ -931,7 +932,8 @@ sub _generate_query_for_provenance_fields {
 							next;
 						}
 						if ( defined $metaset ) {
-							$qry .= "id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield $operator E'$text')";
+							$qry .= "$view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield "
+							  . "$operator E'$text')";
 						} else {
 							$qry .= "$field $operator E'$text'";
 						}
