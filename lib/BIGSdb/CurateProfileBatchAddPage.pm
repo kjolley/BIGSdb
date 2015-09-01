@@ -288,7 +288,10 @@ sub _check {
 		#check if profile exists
 		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
 		if ($profile_exists) {
-			next RECORD if $q->param('ignore_existing');
+			if ( $q->param('ignore_existing') ) {
+				$first_record = 0;
+				next RECORD;
+			}
 			$problems{$pk} .= "$msg<br />";
 		}
 
