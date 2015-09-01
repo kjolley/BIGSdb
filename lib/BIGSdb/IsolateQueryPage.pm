@@ -111,7 +111,8 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->startform;
-	say q(<p>Enter search criteria or leave blank to browse all records.</p>);
+	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
+	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
 	say $q->hidden($_) foreach qw (db page table no_js);
 	say q(<div style="white-space:nowrap">);
