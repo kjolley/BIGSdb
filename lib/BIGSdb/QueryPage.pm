@@ -231,12 +231,27 @@ sub check_format {
 	return $error ? 1 : 0;
 }
 
+sub clean_list {
+	my ( $self, $data_type, $list ) = @_;
+	my @new_list;
+	foreach my $value (@$list) {
+		$value =~ tr/[\x{ff10}-\x{ff19}]/[0-9]/;    #Convert Unicode full width integers
+		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
+		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
+		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
+		push @new_list, uc($value);
+	}
+	return \@new_list;
+}
+
 sub process_value {
 	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/^\s*//x;
 	$$value_ref =~ s/\s*$//x;
 	$$value_ref =~ s/\\/\\\\/gx;
 	$$value_ref =~ s/'/\\'/gx;
+	$$value_ref =~ tr/[\x{ff10}-\x{ff19}]/[0-9]/;    #Convert Unicode full width integers
 	return;
 }
 1;

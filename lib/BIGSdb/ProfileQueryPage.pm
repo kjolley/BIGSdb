@@ -493,9 +493,10 @@ sub _modify_by_list {
 	my @list = split /\n/x, $q->param('list');
 	@list = uniq @list;
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	my $list = $self->clean_list( 'text', \@list );
 	return $qry if !@list || (@list == 1 && $list[0] eq q()) ;
 	my $temp_table =
-	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list, { table => 'temp_list' } );
+	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', $list, { table => 'temp_list' } );
 	my $list_file = BIGSdb::Utils::get_random() . '.list';
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");

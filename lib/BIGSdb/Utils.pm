@@ -188,8 +188,8 @@ sub is_bool {
 sub is_int {
 	my ( $N, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	return if ( !defined $N || $N eq '' );
 	return if $N =~ /[\x{ff10}-\x{ff19}]/x;    #Reject Unicode full width form
-	return 0 if ( !defined $N || $N eq '' );
 	my ($sign) = '^\s* [-+]? \s*';
 	my ($int)  = '\d+ \s* $ ';
 	if ( $N =~ /$sign $int/x ) {

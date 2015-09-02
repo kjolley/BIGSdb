@@ -293,7 +293,7 @@ sub _modify_query_by_list {
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
-	my $list = $self->_clean_list( $data_type, \@list );
+	my $list = $self->clean_list( $data_type, \@list );
 	$self->{'datastore'}->create_temp_list_table_from_array( $data_type, $list, { table => 'temp_list' } );
 	my $list_file = BIGSdb::Utils::get_random() . '.list';
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
@@ -372,19 +372,6 @@ sub _get_list_attribute_data {
 		meta_set       => $meta_set // q(),
 		meta_field     => $meta_field // q()
 	};
-}
-
-sub _clean_list {
-	my ( $self, $data_type, $list ) = @_;
-	my @new_list;
-	foreach my $value (@$list) {
-		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
-		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
-		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
-		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
-		push @new_list, uc($value);
-	}
-	return \@new_list;
 }
 
 sub _print_filters_fieldset {
