@@ -532,8 +532,8 @@ sub print_action_fieldset {
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
 		my $class = RESET_BUTTON_CLASS;
-		$buffer .= qq(<a href="$url" class="$class ui-button-text-only">)
-		  . qq(<span class="ui-button-text">$reset_label</span>);
+		$buffer .=
+		  qq(<a href="$url" class="$class ui-button-text-only">) . qq(<span class="ui-button-text">$reset_label</span>);
 		$buffer .= "</a>\n";
 	}
 	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
@@ -1811,7 +1811,7 @@ sub initiate_prefs {
 	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
-	my $guid = $self->get_guid || 1;
+	my $guid = $self->get_guid // 1;
 	try {
 		$self->{'prefstore'}->update_datestamp($guid);
 	}
@@ -1840,10 +1840,10 @@ sub initiate_prefs {
 		$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 			$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname );
-			$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} || 25;
-			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     || 'top and bottom';
-			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  || 100;
-			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    || 100;
+			$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} // 25;
+			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     // 'top and bottom';
+			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  // 100;
+			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    // 100;
 			foreach (
 				qw(set_id submit_allele_technology submit_allele_read_length
 				submit_allele_coverage submit_allele_assembly submit_allele_software)
@@ -1896,210 +1896,243 @@ sub initiate_prefs {
 
 sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $params        = $q->Vars;
-	my $extended      = $self->get_extended_attributes;
+	my $q                = $self->{'cgi'};
+	my $set_id           = $self->get_set_id;
+	my $metadata_list    = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list       = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $extended         = $self->get_extended_attributes;
+	my $args             = {
+		field_list       => $field_list,
+		field_prefs      => $field_prefs,
+		extended         => $extended,
+		field_attributes => $field_attributes
+	};
 
 	#Parameters set by preference store via session cookie
-	if (   $params->{'page'} eq 'options'
-		&& $params->{'set'} )
-	{
-		#Switches
-		foreach (
-			qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main sequence_details_main
-			display_seqbin_main display_contig_count locus_alias scheme_members_alias sample_details display_publications)
-		  )
-		{
-			$self->{'prefs'}->{$_} = $params->{$_} ? 1 : 0;
-		}
-		foreach (@$field_list) {
-			if ( $_ ne 'id' ) {
-				$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"}     ? 1 : 0;
-				$self->{'prefs'}->{'dropdownfields'}->{$_}    = $params->{"dropfield_$_"} ? 1 : 0;
-				my $extatt = $extended->{$_};
-				if ( ref $extatt eq 'ARRAY' ) {
-					foreach my $extended_attribute (@$extatt) {
-						$self->{'prefs'}->{'maindisplayfields'}->{"$_\..$extended_attribute"} =
-						  $params->{"extended_$_\..$extended_attribute"} ? 1 : 0;
-						$self->{'prefs'}->{'dropdownfields'}->{"$_\..$extended_attribute"} =
-						  $params->{"dropfield_e_$_\..$extended_attribute"} ? 1 : 0;
-					}
-				}
-			}
-		}
-		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{'field_aliases'} ? 1 : 0;
-		my $composites =
-		  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
-		foreach (@$composites) {
-			$self->{'prefs'}->{'maindisplayfields'}->{$_} = $params->{"field_$_"} ? 1 : 0;
-		}
-		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $params->{'dropfield_Publications'} ? 1 : 0;
-		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-		foreach (@$schemes) {
-			my $field = "scheme_$_\_profile_status";
-			$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
-		}
+	if ( $q->param('page') eq 'options' && $q->param('set') ) {
+		$self->_set_isolatedb_options($args);
 	} else {
-		my $guid             = $self->get_guid || 1;
-		my $dbname           = $self->{'system'}->{'db'};
-		my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-		if ( $self->{'pref_requirements'}->{'general'} ) {
-
-			#default off
-			foreach (
-				qw (update_details allele_flags scheme_members_alias sequence_details_main
-				display_seqbin_main display_contig_count locus_alias display_publications)
-			  )
-			{
-				$general_prefs->{$_} ||= 'off';
-				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
-			}
-
-			#default on
-			foreach (qw (sequence_details sample_details mark_provisional mark_provisional_main)) {
-				$general_prefs->{$_} ||= 'on';
-				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
-			}
-		}
-		if ( $self->{'pref_requirements'}->{'query_field'} ) {
-			foreach (@$field_list) {
-				next if $_ eq 'id';
-				if ( defined $field_prefs->{$_}->{'dropdown'} ) {
-					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_prefs->{$_}->{'dropdown'};
-				} else {
-					$field_attributes->{$_}->{'dropdown'} ||= 'no';
-					$self->{'prefs'}->{'dropdownfields'}->{$_} = $field_attributes->{$_}->{'dropdown'} eq 'yes' ? 1 : 0;
-				}
-				my $extatt = $extended->{$_};
-				if ( ref $extatt eq 'ARRAY' ) {
-					foreach my $extended_attribute (@$extatt) {
-						if ( defined $field_prefs->{$_}->{'dropdown'} ) {
-							$self->{'prefs'}->{'dropdownfields'}->{"$_\..$extended_attribute"} =
-							  $field_prefs->{"$_\..$extended_attribute"}->{'dropdown'};
-						} else {
-							$self->{'prefs'}->{'dropdownfields'}->{"$_\..$extended_attribute"} = 0;
-						}
-					}
-				}
-			}
-			if ( defined $field_prefs->{'Publications'}->{'dropdown'} ) {
-				$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $field_prefs->{'Publications'}->{'dropdown'};
-			} else {
-				$self->{'prefs'}->{'dropdownfields'}->{'Publications'} =
-				  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 0 : 1;
-			}
-		}
-		if ( $self->{'pref_requirements'}->{'main_display'} ) {
-			if ( defined $field_prefs->{'aliases'}->{'maindisplay'} ) {
-				$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $field_prefs->{'aliases'}->{'maindisplay'};
-			} else {
-				$self->{'system'}->{'maindisplay_aliases'} ||= 'no';
-				$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} =
-				  $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 1 : 0;
-			}
-			foreach (@$field_list) {
-				next if $_ eq 'id';
-				if ( defined $field_prefs->{$_}->{'maindisplay'} ) {
-					$self->{'prefs'}->{'maindisplayfields'}->{$_} = $field_prefs->{$_}->{'maindisplay'};
-				} else {
-					$field_attributes->{$_}->{'maindisplay'} ||= 'yes';
-					$self->{'prefs'}->{'maindisplayfields'}->{$_} =
-					  $field_attributes->{$_}->{'maindisplay'} eq 'no' ? 0 : 1;
-				}
-				my $extatt = $extended->{$_};
-				if ( ref $extatt eq 'ARRAY' ) {
-					foreach my $extended_attribute (@$extatt) {
-						if ( defined $field_prefs->{$_}->{'maindisplay'} ) {
-							$self->{'prefs'}->{'maindisplayfields'}->{"$_\..$extended_attribute"} =
-							  $field_prefs->{"$_\..$extended_attribute"}->{'maindisplay'};
-						} else {
-							$self->{'prefs'}->{'maindisplayfields'}->{"$_\..$extended_attribute"} = 0;
-						}
-					}
-				}
-			}
-			my $qry = 'SELECT id,main_display FROM composite_fields';
-			my $sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute };
-			$logger->logdie($@) if $@;
-			while ( my ( $id, $main_display ) = $sql->fetchrow_array ) {
-				if ( defined $field_prefs->{$id}->{'maindisplay'} ) {
-					$self->{'prefs'}->{'maindisplayfields'}->{$id} = $field_prefs->{$id}->{'maindisplay'};
-				} else {
-					$self->{'prefs'}->{'maindisplayfields'}->{$id} = $main_display ? 1 : 0;
-				}
-			}
-		}
-
-		#Define locus defaults
-		my $qry       = 'SELECT id,isolate_display,main_display,query_field,analysis FROM loci';
-		my $locus_sql = $self->{'db'}->prepare($qry);
-		eval { $locus_sql->execute };
-		$logger->error($@) if $@;
-		my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
-		my $array_ref        = $locus_sql->fetchall_arrayref;
-		my $i                = 1;
-		foreach my $action (qw (isolate_display main_display query_field analysis)) {
-
-			if ( !$self->{'pref_requirements'}->{$action} ) {
-				$i++;
-				next;
-			}
-			my $term = "$action\_loci";
-			foreach (@$array_ref) {
-				if ( defined $prefstore_values->{ $_->[0] }->{$action} ) {
-					if ( $action eq 'isolate_display' ) {
-						$self->{'prefs'}->{$term}->{ $_->[0] } = $prefstore_values->{ $_->[0] }->{$action};
-					} else {
-						$self->{'prefs'}->{$term}->{ $_->[0] } =
-						  $prefstore_values->{ $_->[0] }->{$action} eq 'true' ? 1 : 0;
-					}
-				} else {
-					$self->{'prefs'}->{$term}->{ $_->[0] } = $_->[$i];
-				}
-			}
-			$i++;
-		}
+		my $guid = $self->get_guid // 1;
+		my $dbname = $self->{'system'}->{'db'};
+		$self->_initiate_isolatedb_general_prefs($general_prefs) if $self->{'pref_requirements'}->{'general'};
+		$self->_initiate_isolatedb_query_field_prefs($args)      if $self->{'pref_requirements'}->{'query_field'};
+		$self->_initiate_isolatedb_main_display_prefs($args)     if $self->{'pref_requirements'}->{'main_display'};
 		return if none { $self->{'pref_requirements'}->{$_} } qw (isolate_display main_display query_field analysis);
-		my $scheme_ids =
-		  $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-		my $scheme_values              = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
-		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
-		my $scheme_info                = $self->{'datastore'}->get_all_scheme_info;
-		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
-		foreach my $scheme_id (@$scheme_ids) {
+		$self->_initiate_isolatedb_locus_prefs( $guid, $dbname );
+		$self->_initiate_isolatedb_scheme_prefs( $guid, $dbname, $field_prefs, $scheme_field_prefs );
+	}
+	return;
+}
 
-			foreach my $action (qw(isolate_display main_display query_field query_status analysis)) {
-				if ( defined $scheme_values->{$scheme_id}->{$action} ) {
-					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} =
-					  $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
-				} else {
-					$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$scheme_id}->{$action};
+sub _set_isolatedb_options {
+	my ( $self,       $args )     = @_;
+	my ( $field_list, $extended ) = @{$args}{qw(field_list extended)};
+	my $q      = $self->{'cgi'};
+	my $params = $q->Vars;
+
+	#Switches
+	foreach my $option (
+		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
+		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
+		sample_details display_publications)
+	  )
+	{
+		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
+	}
+	foreach my $field (@$field_list) {
+		if ( $field ne 'id' ) {
+			$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"}     ? 1 : 0;
+			$self->{'prefs'}->{'dropdownfields'}->{$field}    = $params->{"dropfield_$field"} ? 1 : 0;
+			my $extatt = $extended->{$field};
+			if ( ref $extatt eq 'ARRAY' ) {
+				foreach my $extended_attribute (@$extatt) {
+					$self->{'prefs'}->{'maindisplayfields'}->{"${field}..$extended_attribute"} =
+					  $params->{"extended_${field}..$extended_attribute"} ? 1 : 0;
+					$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} =
+					  $params->{"dropfield_e_${field}..$extended_attribute"} ? 1 : 0;
 				}
 			}
-			if ( ref $scheme_fields->{$scheme_id} eq 'ARRAY' ) {
-				foreach ( @{ $scheme_fields->{$scheme_id} } ) {
-					foreach my $action (qw(isolate_display main_display query_field)) {
-						if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
-							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-							  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
-						} else {
-							$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-							  $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
-						}
+		}
+	}
+	$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{'field_aliases'} ? 1 : 0;
+	my $composites =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
+	foreach my $field (@$composites) {
+		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"} ? 1 : 0;
+	}
+	$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $params->{'dropfield_Publications'} ? 1 : 0;
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	foreach my $scheme_id (@$schemes) {
+		my $field = "scheme_${scheme_id}_profile_status";
+		$self->{'prefs'}->{'dropdownfields'}->{$field} = $params->{"dropfield_$field"} ? 1 : 0;
+	}
+	return;
+}
+
+sub _initiate_isolatedb_general_prefs {
+	my ( $self, $general_prefs ) = @_;
+
+	#default off
+	foreach my $option (
+		qw (update_details allele_flags scheme_members_alias sequence_details_main
+		display_seqbin_main display_contig_count locus_alias display_publications)
+	  )
+	{
+		$general_prefs->{$option} //= 'off';
+		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'on' ? 1 : 0;
+	}
+
+	#default on
+	foreach my $option (qw (sequence_details sample_details mark_provisional mark_provisional_main)) {
+		$general_prefs->{$option} //= 'on';
+		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
+	}
+	return;
+}
+
+sub _initiate_isolatedb_query_field_prefs {
+	my ( $self, $args ) = @_;
+	my ( $field_list, $field_prefs, $field_attributes, $extended ) =
+	  @{$args}{qw(field_list field_prefs field_attributes extended)};
+	foreach my $field (@$field_list) {
+		next if $field eq 'id';
+		if ( defined $field_prefs->{$field}->{'dropdown'} ) {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
+		} else {
+			$field_attributes->{$field}->{'dropdown'} ||= 'no';
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_attributes->{$field}->{'dropdown'} eq 'yes' ? 1 : 0;
+		}
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( defined $field_prefs->{$field}->{'dropdown'} ) {
+					$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} =
+					  $field_prefs->{"${field}..$extended_attribute"}->{'dropdown'};
+				} else {
+					$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} = 0;
+				}
+			}
+		}
+	}
+	if ( defined $field_prefs->{'Publications'}->{'dropdown'} ) {
+		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $field_prefs->{'Publications'}->{'dropdown'};
+	} else {
+		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} =
+		  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 0 : 1;
+	}
+	return;
+}
+
+sub _initiate_isolatedb_main_display_prefs {
+	my ( $self, $args ) = @_;
+	my ( $field_list, $field_prefs, $field_attributes, $extended ) =
+	  @{$args}{qw(field_list field_prefs field_attributes extended)};
+	if ( defined $field_prefs->{'aliases'}->{'maindisplay'} ) {
+		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $field_prefs->{'aliases'}->{'maindisplay'};
+	} else {
+		$self->{'system'}->{'maindisplay_aliases'} ||= 'no';
+		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} =
+		  $self->{'system'}->{'maindisplay_aliases'} eq 'yes' ? 1 : 0;
+	}
+	foreach my $field (@$field_list) {
+		next if $field eq 'id';
+		if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
+			$self->{'prefs'}->{'maindisplayfields'}->{$field} = $field_prefs->{$field}->{'maindisplay'};
+		} else {
+			$field_attributes->{$field}->{'maindisplay'} ||= 'yes';
+			$self->{'prefs'}->{'maindisplayfields'}->{$field} =
+			  $field_attributes->{$field}->{'maindisplay'} eq 'no' ? 0 : 1;
+		}
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
+					$self->{'prefs'}->{'maindisplayfields'}->{"${field}..$extended_attribute"} =
+					  $field_prefs->{"${field}..$extended_attribute"}->{'maindisplay'};
+				} else {
+					$self->{'prefs'}->{'maindisplayfields'}->{"${field}..$extended_attribute"} = 0;
+				}
+			}
+		}
+	}
+	my $qry = 'SELECT id,main_display FROM composite_fields';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
+	$logger->logdie($@) if $@;
+	while ( my ( $id, $main_display ) = $sql->fetchrow_array ) {
+		if ( defined $field_prefs->{$id}->{'maindisplay'} ) {
+			$self->{'prefs'}->{'maindisplayfields'}->{$id} = $field_prefs->{$id}->{'maindisplay'};
+		} else {
+			$self->{'prefs'}->{'maindisplayfields'}->{$id} = $main_display ? 1 : 0;
+		}
+	}
+	return;
+}
+
+sub _initiate_isolatedb_locus_prefs {
+	my ( $self, $guid, $dbname ) = @_;
+	my $locus_prefs =
+	  $self->{'datastore'}->run_query( 'SELECT id,isolate_display,main_display,query_field,analysis FROM loci',
+		undef, { fetch => 'all_arrayref' } );
+	my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
+	my $i = 1;
+	foreach my $action (qw (isolate_display main_display query_field analysis)) {
+		if ( !$self->{'pref_requirements'}->{$action} ) {
+			$i++;
+			next;
+		}
+		my $term = "${action}_loci";
+		foreach my $locus_pref (@$locus_prefs) {
+			my $locus = $locus_pref->[0];
+			if ( defined $prefstore_values->{$locus}->{$action} ) {
+				if ( $action eq 'isolate_display' ) {
+					$self->{'prefs'}->{$term}->{$locus} = $prefstore_values->{$locus}->{$action};
+				} else {
+					$self->{'prefs'}->{$term}->{$locus} = $prefstore_values->{$locus}->{$action} eq 'true' ? 1 : 0;
+				}
+			} else {
+				$self->{'prefs'}->{$term}->{$locus} = $locus_pref->[$i];
+			}
+		}
+		$i++;
+	}
+	return;
+}
+
+sub _initiate_isolatedb_scheme_prefs {
+	my ( $self, $guid, $dbname, $field_prefs, $scheme_field_prefs ) = @_;
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $scheme_values              = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
+	my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
+	my $scheme_info                = $self->{'datastore'}->get_all_scheme_info;
+	my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
+	foreach my $scheme_id (@$scheme_ids) {
+		foreach my $action (qw(isolate_display main_display query_field query_status analysis)) {
+			if ( defined $scheme_values->{$scheme_id}->{$action} ) {
+				$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
+			} else {
+				$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$scheme_id}->{$action};
+			}
+		}
+		if ( ref $scheme_fields->{$scheme_id} eq 'ARRAY' ) {
+			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
+				foreach my $action (qw(isolate_display main_display query_field)) {
+					if ( defined $scheme_field_prefs->{$scheme_id}->{$field}->{$action} ) {
+						$self->{'prefs'}->{"${action}_scheme_fields"}->{$scheme_id}->{$field} =
+						  $scheme_field_prefs->{$scheme_id}->{$field}->{$action} ? 1 : 0;
+					} else {
+						$self->{'prefs'}->{"${action}_scheme_fields"}->{$scheme_id}->{$field} =
+						  $scheme_field_default_prefs->{$scheme_id}->{$field}->{$action};
 					}
 				}
 			}
-			my $field = "scheme_$scheme_id\_profile_status";
-			if ( defined $field_prefs->{$field}->{'dropdown'} ) {
-				$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
-			} else {
-				$self->{'prefs'}->{'dropdownfields'}->{$field} =
-				  $self->{'prefs'}->{'query_status_schemes'}->{$scheme_id};
-			}
+		}
+		my $field = "scheme_$scheme_id\_profile_status";
+		if ( defined $field_prefs->{$field}->{'dropdown'} ) {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
+		} else {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $self->{'prefs'}->{'query_status_schemes'}->{$scheme_id};
 		}
 	}
 	return;
