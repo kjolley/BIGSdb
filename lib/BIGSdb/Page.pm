@@ -532,9 +532,8 @@ sub print_action_fieldset {
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
 		my $class = RESET_BUTTON_CLASS;
-		$buffer .=
-		  qq(<a href="$url" class="$class ui-button-text-only">) . qq(<span class="ui-button-text">$reset_label</span>);
-		$buffer .= "</a>\n";
+		$buffer .= qq(<a href="$url" class="$class ui-button-text-only">)
+		  . qq(<span class="ui-button-text">$reset_label</span></a>\n);
 	}
 	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
 	$buffer .= q(</fieldset><div style="clear:both"></div>);
@@ -1976,7 +1975,7 @@ sub _initiate_isolatedb_general_prefs {
 	#default off
 	foreach my $option (
 		qw (update_details allele_flags scheme_members_alias sequence_details_main
-		display_seqbin_main display_contig_count locus_alias display_publications)
+		display_seqbin_main display_contig_count display_publications)
 	  )
 	{
 		$general_prefs->{$option} //= 'off';
@@ -1988,6 +1987,8 @@ sub _initiate_isolatedb_general_prefs {
 		$general_prefs->{$option} //= 'on';
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
 	}
+	my $default_locus_aliases = ( $self->{'system'}->{'locus_aliases'} // '' ) eq 'yes' ? 1 : 0;
+	$self->{'prefs'}->{'locus_alias'} = $general_prefs->{'locus_alias'} eq 'on' ? 1 : $default_locus_aliases;
 	return;
 }
 
