@@ -109,6 +109,42 @@ sub get_javascript {
 	return q();    #Empty string
 }
 
+sub _get_javascript_paths {
+	my ($self) = @_;
+	my $page_js = $self->get_javascript;
+	my @javascript;
+	if ( $self->{'jQuery'} ) {
+		my @language = ( language => 'Javascript' );
+		if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
+			push @javascript, ( { src => '/javascript/jquery.js',    @language } );
+			push @javascript, ( { src => '/javascript/jquery-ui.js', @language } );
+		} else {
+
+			#Load jQuery library from Google CDN
+			push @javascript,
+			  ( { src => 'http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
+			push @javascript,
+			  ( { src => 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
+		}
+		push @javascript, ( { src => '/javascript/bigsdb.js?v20130615', @language } );
+		my %js = (
+			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
+			'jQuery.jstree'       => [qw(jquery.jstree.js jquery.cookie.js jquery.hotkeys.js)],
+			'jQuery.coolfieldset' => [qw(jquery.coolfieldset.js)],
+			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
+			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
+			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
+			'CryptoJS.MD5'        => [qw(md5.js)]
+		);
+		foreach my $feature ( keys %js ) {
+			my $libs = $js{$feature};
+			push @javascript, ( { src => "/javascript/$_", @language } ) foreach @$libs;
+		}
+		push @javascript, { code => $page_js, @language } if $page_js;
+	}
+	return \@javascript;
+}
+
 sub get_guid {
 
 	#If the user is logged in, use a combination of database and user names as the
@@ -222,36 +258,17 @@ sub print_page_content {
 	$q->charset('UTF-8');
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
-			embl => 'chemical/x-embl-dl-nucleotide',
-			tar => 'application/x-tar',
-			xlsx => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			embl      => 'chemical/x-embl-dl-nucleotide',
+			tar       => 'application/x-tar',
+			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
 		);
-		my %attachment = (
-			embl => 'sequence' . ($q->param('seqbin_id') // $q->param('isolate_id') // q()) . '.embl',
-		);
-		
+		my %attachment =
+		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
 		my %atts;
-		$atts{'type'} = $mime_type{$self->{'type'}} // 'text/plain';
-		$atts{'attachment'} = $attachment{$self->{'type'}} // $self->{'attachment'} // undef;
+		$atts{'type'} = $mime_type{ $self->{'type'} } // 'text/plain';
+		$atts{'attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
 		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header';
-#		if ( $self->{'type'} eq 'embl' ) {
-#			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
-#			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
-#			$atts{'attachment'} = "sequence$id.embl";
-#		} elsif ( $self->{'type'} eq 'tar' ) {
-#			$atts{'type'}       = 'application/x-tar';
-#			$atts{'attachment'} = $self->{'attachment'};
-#		} elsif ( $self->{'type'} eq 'xlsx' ) {
-#			$atts{'type'}       = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-#			$atts{'attachment'} = $self->{'attachment'};
-#		} elsif ( $self->{'type'} eq 'no_header' ) {
-#			$atts{'type'} = 'text/html';
-#			binmode STDOUT, ':encoding(utf8)';
-#		} else {
-#			$atts{'type'}       = 'text/plain';
-#			$atts{'attachment'} = $self->{'attachment'};
-#		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );
 		$self->print_content;
@@ -266,63 +283,8 @@ sub print_page_content {
 		$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
 		$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header(%header_options);
-		my $title   = $self->get_title;
-		my $page_js = $self->get_javascript;
-		my @javascript;
-
-		if ( $self->{'jQuery'} ) {
-			if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.js' } );
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery-ui.js' } );
-			} else {
-
-				#Load jQuery library from Google CDN
-				push @javascript,
-				  (
-					{
-						'language' => 'Javascript',
-						'src'      => 'http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'
-					}
-				  );
-				push @javascript,
-				  (
-					{
-						'language' => 'Javascript',
-						'src'      => 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js'
-					}
-				  );
-			}
-			push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/bigsdb.js?v20130615' } );
-			if ( $self->{'jQuery.tablesort'} ) {
-				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.tablesorter.js?v20110725' } );
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.metadata.js' } );
-			}
-			if ( $self->{'jQuery.jstree'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.jstree.js?v20110605' } );
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.cookie.js' } );
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.hotkeys.js' } );
-			}
-			if ( $self->{'jQuery.coolfieldset'} ) {
-				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.coolfieldset.js?v20130405' } );
-			}
-			if ( $self->{'jQuery.slimbox'} ) {
-				push @javascript,
-				  ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.slimbox2.js?v20130405' } );
-			}
-			if ( $self->{'jQuery.columnizer'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.columnizer.js' } );
-			}
-			if ( $self->{'jQuery.multiselect'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/modernizr.js' } );
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/jquery.multiselect.js' } );
-			}
-			if ( $self->{'CryptoJS.MD5'} ) {
-				push @javascript, ( { 'language' => 'Javascript', 'src' => '/javascript/md5.js' } );
-			}
-			push @javascript, { 'language' => 'Javascript', 'code' => $page_js } if $page_js;
-		}
+		my $title      = $self->get_title;
+		my $javascript = $self->_get_javascript_paths;
 
 		#META tag inclusion code written by Andreas Tille.
 		my $meta_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html";
@@ -356,7 +318,7 @@ sub print_page_content {
 			-title    => $title,
 			-meta     => {%meta_content},
 			-style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
-			-script   => \@javascript,
+			-script   => $javascript,
 			-encoding => 'utf-8'
 		);
 		if (%shortcut_icon) {
