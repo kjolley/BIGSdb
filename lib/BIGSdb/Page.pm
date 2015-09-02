@@ -221,24 +221,37 @@ sub print_page_content {
 	}
 	$q->charset('UTF-8');
 	if ( $self->{'type'} ne 'xhtml' ) {
+		my %mime_type = (
+			embl => 'chemical/x-embl-dl-nucleotide',
+			tar => 'application/x-tar',
+			xlsx => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			no_header => 'text/html',
+		);
+		my %attachment = (
+			embl => 'sequence' . ($q->param('seqbin_id') // $q->param('isolate_id') // q()) . '.embl',
+		);
+		
 		my %atts;
-		if ( $self->{'type'} eq 'embl' ) {
-			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
-			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
-			$atts{'attachment'} = "sequence$id.embl";
-		} elsif ( $self->{'type'} eq 'tar' ) {
-			$atts{'type'}       = 'application/x-tar';
-			$atts{'attachment'} = $self->{'attachment'};
-		} elsif ( $self->{'type'} eq 'xlsx' ) {
-			$atts{'type'}       = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-			$atts{'attachment'} = $self->{'attachment'};
-		} elsif ( $self->{'type'} eq 'no_header' ) {
-			$atts{'type'} = 'text/html';
-			binmode STDOUT, ':encoding(utf8)';
-		} else {
-			$atts{'type'}       = 'text/plain';
-			$atts{'attachment'} = $self->{'attachment'};
-		}
+		$atts{'type'} = $mime_type{$self->{'type'}} // 'text/plain';
+		$atts{'attachment'} = $attachment{$self->{'type'}} // $self->{'attachment'} // undef;
+		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header';
+#		if ( $self->{'type'} eq 'embl' ) {
+#			$atts{'type'} = 'chemical/x-embl-dl-nucleotide';
+#			my $id = $q->param('seqbin_id') || $q->param('isolate_id') || '';
+#			$atts{'attachment'} = "sequence$id.embl";
+#		} elsif ( $self->{'type'} eq 'tar' ) {
+#			$atts{'type'}       = 'application/x-tar';
+#			$atts{'attachment'} = $self->{'attachment'};
+#		} elsif ( $self->{'type'} eq 'xlsx' ) {
+#			$atts{'type'}       = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+#			$atts{'attachment'} = $self->{'attachment'};
+#		} elsif ( $self->{'type'} eq 'no_header' ) {
+#			$atts{'type'} = 'text/html';
+#			binmode STDOUT, ':encoding(utf8)';
+#		} else {
+#			$atts{'type'}       = 'text/plain';
+#			$atts{'attachment'} = $self->{'attachment'};
+#		}
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );
 		$self->print_content;
@@ -1810,7 +1823,7 @@ sub initiate_prefs {
 	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
-	my $guid = $self->get_guid // 1;
+	my $guid = $self->get_guid || 1;
 	try {
 		$self->{'prefstore'}->update_datestamp($guid);
 	}
@@ -1912,7 +1925,7 @@ sub _initiate_isolatedb_prefs {
 	if ( $q->param('page') eq 'options' && $q->param('set') ) {
 		$self->_set_isolatedb_options($args);
 	} else {
-		my $guid = $self->get_guid // 1;
+		my $guid = $self->get_guid || 1;
 		my $dbname = $self->{'system'}->{'db'};
 		$self->_initiate_isolatedb_general_prefs($general_prefs) if $self->{'pref_requirements'}->{'general'};
 		$self->_initiate_isolatedb_query_field_prefs($args)      if $self->{'pref_requirements'}->{'query_field'};
