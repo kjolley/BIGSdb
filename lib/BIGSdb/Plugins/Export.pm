@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.1',
+		version     => '1.3.2',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -264,10 +264,10 @@ sub run_job {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
-				filename    => "$job_id.txt",
-				description => '01_Output in tab-delimited text format',
-				compress    => 1,
-				keep_original => 1    #Original needed to generate Excel file
+				filename      => "$job_id.txt",
+				description   => '01_Output in tab-delimited text format',
+				compress      => 1,
+				keep_original => 1                                           #Original needed to generate Excel file
 			}
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
@@ -644,9 +644,16 @@ sub _get_molwt {
 		$peptide = ${ $locus->get_allele_sequence($allele) };
 	}
 	return if !$peptide;
-	my $seqobj    = Bio::PrimarySeq->new( -seq => $peptide, -id => $allele, -alphabet => 'protein', );
-	my $seq_stats = Bio::Tools::SeqStats->new($seqobj);
-	my $weight    = $seq_stats->get_mol_wt;
-	return $weight->[0];
+	my $weight;
+	try {
+		my $seqobj    = Bio::PrimarySeq->new( -seq => $peptide, -id => $allele, -alphabet => 'protein', );
+		my $seq_stats = Bio::Tools::SeqStats->new($seqobj);
+		my $stats     = $seq_stats->get_mol_wt;
+		$weight = $stats->[0];
+	}
+	catch Bio::Root::Exception with {
+		$weight = q(-);
+	};
+	return $weight;
 }
 1;
