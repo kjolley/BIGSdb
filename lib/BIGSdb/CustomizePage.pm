@@ -101,6 +101,7 @@ sub print_content {
 	say q(<div class="box" id="resultstable">);
 	say qq(<p>Here you can customize the display of $record records.  These settings will be remembered between )
 	  . q(sessions. Click the checkboxes to select loci and select the required option for each attribute.</p>);
+	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
 	say qq(<tr><th>Select</th><th>@cleaned_headers</th></tr>);
 	my $td = 1;
@@ -133,7 +134,7 @@ sub print_content {
 		say q(</tr>);
 		$td = $td == 2 ? 1 : 2;
 	}
-	say q(</table><p>);
+	say q(</table></div><p>);
 	say q( <span class="highlight">* Value updated</span>) if $updated;
 	say q( <span class="non-default">&#134; Non-default value (overridden by user selection)</span>)
 	  if $not_default;
@@ -142,31 +143,30 @@ sub print_content {
 	say qq(<input type="button" value="Select none" onclick='@js2' class="button" />);
 	say q(<noscript><span class="comment"> Enable javascript for select buttons to work!</span></noscript>);
 	say q(</div>);
-	say q(<div class="box" id="resultsheader"><table>);
+	say q(<div class="box" id="resultsheader"><div class="scrollable">);
+	say q(<fieldset><legend>Modify options</legend><ul>);
 	my %action = map { $_ => 1 } qw (main_display isolate_display query_field analysis);
 
 	foreach my $att (@$attributes) {
 		next
 		  if $att->{'hide'} eq 'yes'
 		  || ( !$action{ $att->{'name'} } && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
-		say q(<tr><td style="text-align:right">);
 		( my $cleaned = $att->{'name'} ) =~ tr/_/ /;
-		print "$cleaned: ";
 		my $tooltip = $self->_get_tooltip( $att->{'name'} );
-		say qq( <a class="tooltip" title="$tooltip"><span class="fa fa-info-circle"></span></a>);
-		say q(</td><td>);
+		say qq(<li style="white-space:nowrap"><label for="$att->{'name'}" class="parameter" )
+		  . qq(style="padding-top:0.7em">$cleaned <a class="tooltip" title="$tooltip">)
+		  . q(<span class="fa fa-info-circle"></span></a></label>);
 		if ( $att->{'type'} eq 'bool' ) {
-			print $q->popup_menu( -name => $att->{'name'}, -values => [qw(true false)] );
+			say $q->popup_menu( -name => $att->{'name'}, -id => $att->{'name'}, -values => [qw(true false)] );
 		} elsif ( $att->{'optlist'} ) {
 			my @values = split /;/x, $att->{'optlist'};
-			print $q->popup_menu( -name => $att->{'name'}, -values => [@values] );
+			say $q->popup_menu( -name => $att->{'name'}, -id => $att->{'name'}, -values => [@values] );
 		}
-		say q(</td><td>);
 		say $q->submit( -name => "$att->{'name'}_change",  -label => 'Change',           -class => 'button' );
 		say $q->submit( -name => "$att->{'name'}_default", -label => 'Restore defaults', -class => 'button' );
-		say q(</td></tr>);
+		say q(</li>);
 	}
-	say q(</table></div>);
+	say q(</ul></fieldset></div></div>);
 	print $q->hidden($_) foreach qw (db page filename table);
 	print $q->hidden( set => 1 );
 	print $q->end_form;
@@ -332,14 +332,14 @@ sub _get_tooltip {
 	my %tooltip = (
 		isolate_display => sub {
 			my $t = $table eq 'loci' ? 'how' : 'whether';
-			$value = "isolate_display - Sets $t to display the $record in the isolate information page.";
+			$value = "isolate display - Sets $t to display the $record in the isolate information page.";
 		},
 		main_display => sub {
-			$value = "main_display - Sets whether to display the $record in the isolate query results table.";
+			$value = "main display - Sets whether to display the $record in the isolate query results table.";
 		},
 		query_field => sub {
 			my $plural = $table eq 'schemes' ? '' : 's';
-			$value = "query_field - Sets whether the $record can be used in isolate queries.  This setting "
+			$value = "query field - Sets whether the $record can be used in isolate queries.  This setting "
 			  . "affects whether the $record appear$plural in the drop-down list boxes in the query interfaces.";
 		},
 		analysis => sub {
