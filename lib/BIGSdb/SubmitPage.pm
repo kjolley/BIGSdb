@@ -797,12 +797,12 @@ sub _submit_profiles {
 			return;
 		}
 	}
-	my $scheme_id   = $q->param('scheme_id');
-	if (!BIGSdb::Utils::is_int($scheme_id)){
+	my $scheme_id = $q->param('scheme_id');
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer</p></div>);
 		return;
 	}
-	my $set_id      = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
 	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
 		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
@@ -1896,7 +1896,7 @@ sub _print_sequence_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} && !$has_extended_attributes ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS, -style => 'float:left' );
 		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
@@ -1906,7 +1906,12 @@ sub _print_sequence_table_fieldset {
 		$q->param( complete_CDS => $locus_info->{'complete_cds'} ? 'on' : 'off' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
-		$q->param( page => $page );    #Restore value
+		say $q->start_form( -action => $self->{'system'}->{'query_script'}, -target => '_blank' );
+		say $q->submit( -name => 'Batch query', -class => BUTTON_CLASS, -style => 'float:left' );
+		$q->param( page => 'batchSequenceQuery' );
+		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
+		say $q->end_form;
+		$q->param( page => $page );                                                                   #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};

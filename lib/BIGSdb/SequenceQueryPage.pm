@@ -169,7 +169,7 @@ sub print_content {
 	my $sequence;
 	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
-		$q->delete('sequence');
+		$q->delete('sequence') if !$q->param('submission_id');
 	}
 	$self->_print_interface;
 	if ( $q->param('submit') ) {
