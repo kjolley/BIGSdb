@@ -768,7 +768,7 @@ sub print_additional_headerbar_functions {
 	my $record = $self->get_record_name( $q->param('table') );
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
-	say $q->submit( -name => 'customize', -label => "$record options", -class => BUTTON_CLASS );
+	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => BUTTON_CLASS );
 	$q->param( page => 'customize' );
 	$q->param( filename => $filename );
 	say $q->hidden($_) foreach qw (db filename table page);
