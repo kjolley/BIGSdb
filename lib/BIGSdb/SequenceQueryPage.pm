@@ -689,9 +689,9 @@ sub _output_single_query_nonexact {
 	}
 	say qq($cleaned_match</a>);
 	if ( ref $flags eq 'ARRAY' ) {
-		local $" = '</a> <a class="seqflag_tooltip">';
+		local $" = q(</a> <a class="seqflag_tooltip">);
 		my $plural = @$flags == 1 ? '' : 's';
-		say q( (Flag$plural: <a class=\"seqflag_tooltip\">@$flags</a>)) if @$flags;
+		say qq( (Flag$plural: <a class="seqflag_tooltip">@$flags</a>)) if @$flags;
 	}
 	say q(</p>);
 	if ($field_values) {
