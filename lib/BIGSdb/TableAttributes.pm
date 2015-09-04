@@ -272,7 +272,8 @@ sub get_loci_table_attributes {
 			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=alleleInfo&locus=PUT_LOCUS_NAME_HERE&allele_id=[?]';
 		}
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name        => 'reference_sequence',
 				type        => 'text',
@@ -444,7 +445,7 @@ sub get_loci_table_attributes {
 				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
 				  . 'template will become unwieldy.'
 			}
-		);
+		  );
 	} else {    #Seqdef database
 		push @$attributes,
 		  {
@@ -1004,6 +1005,7 @@ sub get_schemes_table_attributes {
 			type     => 'text',
 			required => 'yes',
 			length   => 50,
+			unique   => 'yes',
 			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		}
 	];
@@ -1269,6 +1271,7 @@ sub get_scheme_groups_table_attributes {
 			required       => 'yes',
 			length         => 50,
 			dropdown_query => 'yes',
+			unique         => 'yes',
 			tooltip        => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{ name => 'description',   type => 'text', length => 256 },
@@ -1724,6 +1727,7 @@ sub get_projects_table_attributes {
 			required       => 'yes',
 			length         => 40,
 			dropdown_query => 'yes',
+			unique         => 'yes',
 			tooltip => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{
@@ -1771,9 +1775,9 @@ sub get_project_members_table_attributes {
 
 sub get_sets_table_attributes {
 	my $attributes = [
-		{ name => 'id',               type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'description',      type => 'text', required => 'yes', length      => 40 },
-		{ name => 'long_description', type => 'text', length   => 256 },
+		{ name => 'id',          type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'description', type => 'text', required => 'yes', length      => 40, unique => 'yes' },
+		{ name => 'long_description', type => 'text', length => 256 },
 		{ name => 'display_order',    type => 'int' },
 		{
 			name    => 'hidden',
