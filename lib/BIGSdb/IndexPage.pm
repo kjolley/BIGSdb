@@ -177,7 +177,8 @@ sub _print_download_section {
 		$scheme_buffer .= $q->end_form;
 		$scheme_buffer .= q(</li>);
 	} elsif ( @$scheme_data == 1 ) {
-		$scheme_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		$scheme_buffer .=
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}">)
 		  . qq($scheme_data->[0]->{'description'} profiles</a></li>);
 	}
@@ -231,7 +232,10 @@ sub _print_options_section {
 sub _print_submissions_section {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
-	return if !$self->{'config'}->{'submission_dir'};
+	if ( !$self->{'config'}->{'submission_dir'} ) {
+		$logger->error('Submission directory is not configured in bigsdb.conf.');
+		return;
+	}
 	say q(<div style="float:left; margin-right:1em">);
 	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say q(<h2>Submissions</h2><ul class="toplevel">);
