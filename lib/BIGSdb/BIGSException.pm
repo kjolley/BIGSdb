@@ -82,6 +82,10 @@ package BIGSdb::DataException;
 use parent qw(BIGSdb::BIGSException);
 1;
 
+package BIGSdb::DataWarning;
+use parent qw(BIGSdb::BIGSException);
+1;
+
 #Authentication exceptions
 package BIGSdb::AuthenticationException;
 use parent qw(BIGSdb::BIGSException);

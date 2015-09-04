@@ -365,7 +365,7 @@ sub _check_data {
 		}
 	}
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-	my ( %locus_format, %locus_regex, $header_row, $record_count );
+	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
 	my $first_record = 1;
 	foreach my $record (@records) {
 		$record =~ s/\r//gx;
@@ -399,7 +399,7 @@ sub _check_data {
 			foreach my $field (@fieldorder) {
 
 				#Prepare checked header
-				if ( $first_record && ( defined $file_header_pos{$field} || $field eq 'id' ) ) {
+				if ( !$header_complete && ( defined $file_header_pos{$field} || $field eq 'id' ) ) {
 					$header_row .= "$field\t";
 				}
 
@@ -483,6 +483,7 @@ sub _check_data {
 				  if defined $file_header_pos{$field}
 				  or ( $field eq 'id' );
 			}
+			$header_complete = 1;
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
@@ -500,6 +501,7 @@ sub _check_data {
 				pk_combination     => $pk_combination,
 				pk_values          => $pk_values_ref,
 				problems           => \%problems,
+				advisories         => \%advisories,
 				checked_record     => \$checked_record,
 				table              => $table
 			);
@@ -520,13 +522,18 @@ sub _check_data {
 
 			#Check for various invalid combinations of fields
 			if ( $table ne 'sequences' ) {
+				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key( \%args );
 				}
 				catch BIGSdb::DataException with {
 					$continue = 0;
+				}
+				catch BIGSdb::DataWarning with {
+					$skip_record = 1;
 				};
 				last if !$continue;
+				next if $skip_record;
 			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences'
 				&& ( $table eq 'accession' || $table eq 'sequence_refs' ) )
@@ -905,10 +912,23 @@ sub _check_data_primary_key {
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
-			my $problem_text = 'Primary key already exists in the database.<br />';
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination}
-			  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
+			my %warn_tables = map { $_ => 1 } qw(project_members refs);
+			if ( $warn_tables{ $arg_ref->{'table'} } ) {
+				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
+				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
+					|| $arg_ref->{'advisories'}->{$pk_combination} !~ /$warning_text/x )
+				{
+					$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
+					throw BIGSdb::DataWarning('Primary key already exists.');
+				}
+			} else {
+				my $problem_text = 'Primary key already exists in the database.<br />';
+				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
+					|| $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x )
+				{
+					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+				}
+			}
 		}
 	}
 	return;
@@ -938,7 +958,8 @@ sub _check_data_loci {
 		  . 'which will get hidden in the query interface.<br />';
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_']/x ) {
-		$arg_ref->{'problems'}->{$pk_combination} .= q(Locus names can only contain alphanumeric, underscore (_) )
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		    q(Locus names can only contain alphanumeric, underscore (_) )
 		  . q(and prime (') characters (no spaces or other symbols).<br />);
 	}
 	return;
@@ -990,8 +1011,11 @@ sub _check_data_allele_designations {
 				  if !defined $arg_ref->{'problems'}->{$pk_combination}
 				  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
 				${ $arg_ref->{'special_problem'} } = 1;
-			} elsif ( $format->{'allele_id_regex'} && ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/x ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= qq($field value is invalid - it must match the regular )
+			} elsif ( $format->{'allele_id_regex'}
+				&& ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/x )
+			{
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				    qq($field value is invalid - it must match the regular )
 				  . qq(expression /$format->{'allele_id_regex'}/.<br />);
 				${ $arg_ref->{'special_problem'} } = 1;
 			}
@@ -1158,7 +1182,9 @@ sub _check_data_sequences {
 				my $end_codon = substr( ${ $arg_ref->{'value'} }, -3 );
 				${ $arg_ref->{'continue'} } = 0 if none { $end_codon eq $_ } qw (TAA TGA TAG);
 				my $multiple_of_3 =
-				  ( length( ${ $arg_ref->{'value'} } ) / 3 ) == int( length( ${ $arg_ref->{'value'} } ) / 3 ) ? 1 : 0;
+				  ( length( ${ $arg_ref->{'value'} } ) / 3 ) == int( length( ${ $arg_ref->{'value'} } ) / 3 )
+				  ? 1
+				  : 0;
 				${ $arg_ref->{'continue'} } = 0 if !$multiple_of_3;
 				my $internal_stop;
 				for ( my $pos = 0 ; $pos < length( ${ $arg_ref->{'value'} } ) - 3 ; $pos += 3 ) {
@@ -1459,7 +1485,8 @@ sub _upload_data {
 					my $product = defined $fieldorder{'product'}
 					  && $data[ $fieldorder{'product'} ] ? $data[ $fieldorder{'product'} ] : undef;
 					my $description = defined $fieldorder{'description'} ? $data[ $fieldorder{'description'} ] : undef;
-					$qry = 'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
+					$qry =
+					    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
 					  . 'VALUES (?,?,?,?,?,?)';
 					push @inserts,
 					  { statement => $qry, arguments => [ $id, $curator, 'now', $full_name, $product, $description ] };
@@ -1526,7 +1553,9 @@ sub _upload_data {
 			}
 		}
 	}
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
+	{
 		foreach my $scheme_id ( keys %schemes ) {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
