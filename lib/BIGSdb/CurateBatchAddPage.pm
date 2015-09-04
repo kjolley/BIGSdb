@@ -71,14 +71,15 @@ sub print_content {
 		return;
 	}
 	my %table_message = (
-		sequence_bin     => 'You can not use this interface to add sequences to the bin.',
+		sequence_bin     => 'You cannot use this interface to add sequences to the bin.',
 		allele_sequences => 'Tag allele sequences using the scan interface.'
 	);
 	if ( $table_message{$table} ) {
 		say qq(<div class="box" id="statusbad">$table_message{$table}</p></div>);
 		return;
 	}
-	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
+	my %modify_warning = map { $_ => 1 } qw (scheme_fields scheme_members);
+	if (   $modify_warning{$table}
 		&& $self->{'system'}->{'dbtype'} eq 'sequences'
 		&& !$q->param('data')
 		&& !$q->param('checked_buffer') )
@@ -101,7 +102,7 @@ sub print_content {
 			}
 		}
 	}
-	my $args_ref =
+	my $args =
 	  { table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus };
 	if ( $q->param('datatype') && $q->param('list_file') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
@@ -112,14 +113,14 @@ sub print_content {
 		$q->param( query => $query );
 	}
 	if ( $q->param('checked_buffer') ) {
-		$self->_upload_data($args_ref);
+		$self->_upload_data($args);
 	} elsif ( $q->param('data') || $q->param('query') ) {
-		$self->_check_data($args_ref);
+		$self->_check_data($args);
 	} else {
 		if ( $q->param('submission_id') ) {
 			$self->_set_submission_params( $q->param('submission_id') );
 		}
-		$self->_print_interface($args_ref);
+		$self->_print_interface($args);
 	}
 	return;
 }
@@ -276,10 +277,9 @@ sub _print_interface_sequence_switches {
 }
 
 sub _check_data {
-	my ( $self, $arg_ref ) = @_;
-	my $table = $arg_ref->{'table'};
-	my $locus = $arg_ref->{'locus'};
-	my $q     = $self->{'cgi'};
+	my ( $self,  $args )  = @_;
+	my ( $table, $locus ) = @{$args}{qw (table locus)};
+	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
 		$q->param( 'data', $self->_convert_query( $q->param('table'), $q->param('query') ) );
 	}
@@ -288,10 +288,8 @@ sub _check_data {
 	my $extended_attributes;
 	my $required_extended_exist;
 	my %last_id;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'sequences' ) {
-		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-			push @fieldorder, 'flags';
-		}
+	if ( $table eq 'sequences' ) {
+		push @fieldorder, 'flags' if ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes';
 		if ($locus) {
 			my $ext_att = $self->{'datastore'}->run_query(
 				'SELECT field,value_format,value_regex,required,option_list FROM '
@@ -316,25 +314,25 @@ sub _check_data {
 		push @fieldorder, qw(full_name product description);
 	}
 	my $sender_message = q();
-	if ( $arg_ref->{'has_sender_field'} ) {
+	if ( $args->{'has_sender_field'} ) {
 		my $sender = $q->param('sender');
-		if ( !$sender || !BIGSdb::Utils::is_int($sender) ) {
+		if ( !BIGSdb::Utils::is_int($sender) ) {
 			say q(<div class="box" id="statusbad"><p>Please go back and select the sender )
 			  . q(for this submission.</p></div>);
 			return;
-		} elsif ( $sender == -1 ) {
+		} 
+		if ( $sender == -1 ) {
 			$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 		} else {
 			my $sender_ref = $self->{'datastore'}->get_user_info($sender);
 			$sender_message = qq(<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n);
 		}
 	}
-	my %problems;
-	my %advisories;
-	my $tablebuffer =
-	  q(<div class="scrollable"><table class="resultstable"><tr>) . $self->_get_field_table_header($table) . q(</tr>);
-	my @records = split /\n/x, $q->param('data');
-	my $td = 1;
+	my ( %problems, %advisories );
+	my $table_header = $self->_get_field_table_header($table);
+	my $tablebuffer  = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	my @records      = split /\n/x, $q->param('data');
+	my $td           = 1;
 	my $header;
 	while ( $header = shift @records ) {    #ignore blank lines before header
 		$header =~ s/\r//gx;
@@ -374,12 +372,9 @@ sub _check_data {
 		my $checked_record;
 		if ($record) {
 			my @data = split /\t/x, $record;
-			foreach (@data) {    #remove trailing spaces from each value
-				s/^\s*//x;
-				s/\s*$//x;
-			}
+			BIGSdb::Utils::remove_trailing_spaces_from_list( \@data );
 			my $first = 1;
-			if ( !defined $file_header_pos{'id'} && $arg_ref->{'uses_integer_id'} && !$first_record ) {
+			if ( !defined $file_header_pos{'id'} && $args->{'uses_integer_id'} && !$first_record ) {
 				do { $id++ } while ( $self->_is_id_used( $table, $id ) );
 			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
@@ -414,7 +409,7 @@ sub _check_data {
 					}
 				);
 				my $special_problem;
-				my %args = (
+				my $new_args = {
 					locus                   => $locus,
 					field                   => $field,
 					value                   => \$value,
@@ -428,25 +423,34 @@ sub _check_data {
 					last_id                 => \%last_id,
 					extended_attributes     => $extended_attributes,
 					unique_field            => \%unique_field
+				};
+				$self->_check_data_duplicates($new_args);
+				my %further_checks = (
+					sequences => sub {
+						$file_header_pos{'allele_id'} = keys %file_header_pos if !defined $file_header_pos{'allele_id'};
+						$self->_check_data_sequences($new_args);
+					},
+					allele_designations => sub {
+						$self->_check_data_allele_designations($new_args);
+					},
+					users => sub {
+						$self->_check_data_users($new_args);
+					},
+					scheme_group_group_members => sub {
+						$self->_check_data_scheme_group_group_members($new_args);
+					},
+					isolates => sub {
+						$self->_check_data_refs($new_args);
+						$self->_check_data_aliases($new_args);
+					},
+					scheme_fields => sub {
+						$self->_check_data_scheme_fields($new_args);
+					},
+					isolate_aliases => sub {
+						$self->_check_data_isolate_aliases($new_args);
+					}
 				);
-				$self->_check_data_duplicates( \%args );
-				if ( $table eq 'sequences' ) {
-					$file_header_pos{'allele_id'} = keys %file_header_pos if !defined $file_header_pos{'allele_id'};
-					$self->_check_data_sequences( \%args );
-				} elsif ( $table eq 'allele_designations' ) {
-					$self->_check_data_allele_designations( \%args );
-				} elsif ( $table eq 'users' ) {
-					$self->_check_data_users( \%args );
-				} elsif ( $table eq 'scheme_group_group_members' ) {
-					$self->_check_data_scheme_group_group_members( \%args );
-				} elsif ( $table eq 'isolates' ) {
-					$self->_check_data_refs( \%args );
-					$self->_check_data_aliases( \%args );
-				} elsif ( $table eq 'scheme_fields' ) {
-					$self->_check_data_scheme_fields( \%args );
-				} elsif ( $table eq 'isolate_aliases' ) {
-					$self->_check_data_isolate_aliases( \%args );
-				}
+				$further_checks{$table}->() if $further_checks{$table};
 
 				#Display field - highlight in red if invalid.
 				my $display_value;
@@ -489,7 +493,7 @@ sub _check_data {
 				next;
 			}
 			$tablebuffer .= qq(<tr class="td$td">$rowbuffer);
-			my %args = (
+			my $new_args = {
 				file_header_fields => \@file_header_fields,
 				header_row         => \$header_row,
 				first_record       => $first_record,
@@ -504,11 +508,11 @@ sub _check_data {
 				advisories         => \%advisories,
 				checked_record     => \$checked_record,
 				table              => $table
-			);
+			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 
 				#Check for locus values that can also be uploaded with an isolate record.
-				$tablebuffer .= $self->_check_data_isolate_record_locus_fields( \%args );
+				$tablebuffer .= $self->_check_data_isolate_record_locus_fields($new_args);
 
 				#Check if a record with the same name already exists
 				if ( defined $file_header_pos{ $self->{'system'}->{'labelfield'} }
@@ -524,7 +528,7 @@ sub _check_data {
 			if ( $table ne 'sequences' ) {
 				my $skip_record = 0;
 				try {
-					$self->_check_data_primary_key( \%args );
+					$self->_check_data_primary_key($new_args);
 				}
 				catch BIGSdb::DataException with {
 					$continue = 0;
@@ -535,15 +539,15 @@ sub _check_data {
 				last if !$continue;
 				next if $skip_record;
 			}
-			if ( $self->{'system'}->{'dbtype'} eq 'sequences'
-				&& ( $table eq 'accession' || $table eq 'sequence_refs' ) )
-			{
-				#check that sequence exists when adding accession or PubMed number
+
+			#Check that sequence exists when adding accession or PubMed number
+			my %seq_accession_table = map { $_ => 1 } qw (accession sequence_refs);
+			if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $seq_accession_table{$table} ) {
 				if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
 					$problems{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist.";
 				}
 			} elsif ( $table eq 'loci' ) {
-				$self->_check_data_loci( \%args );
+				$self->_check_data_loci($new_args);
 			}
 
 			#check that user is allowed to add sequences for this locus
@@ -568,7 +572,7 @@ sub _check_data {
 		push @checked_buffer, $checked_record;
 		$first_record = 0;
 	}
-	$tablebuffer .= qq(</table></div>\n);
+	$tablebuffer .= q(</table></div>);
 	if ( !$record_count ) {
 		say q(<div class="box" id="statusbad"><p>No valid data entered. Make sure )
 		  . q(you've included the header line.</p></div>);

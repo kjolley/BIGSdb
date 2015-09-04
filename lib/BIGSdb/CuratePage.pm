@@ -837,24 +837,22 @@ sub check_record {
 				( $user_status, $user_username ) =
 				  $self->{'datastore'}->run_query( 'SELECT status,user_name FROM users WHERE id=?', $newdata->{'id'} );
 			}
+			$user_status //= q();
 			if (   $status ne 'admin'
-				&& !$self->{'permissions'}->{'set_user_permissions'}
 				&& defined $user_status
 				&& $newdata->{'status'} ne $user_status
 				&& $update )
 			{
 				push @problems,
-				  "You must have either admin rights or specific permission to change the status of a user.\n";
+				  "You must have admin rights to change the status of a user.\n";
 			}
 			if (   $status ne 'admin'
-				&& $self->{'permissions'}->{'set_user_permissions'}
 				&& $newdata->{'status'} ne 'admin'
 				&& $user_status eq 'admin' )
 			{
 				push @problems, "You must have admin rights to revoke admin status from another user.\n";
 			}
 			if (   $status ne 'admin'
-				&& $self->{'permissions'}->{'set_user_permissions'}
 				&& $newdata->{'status'} eq 'admin'
 				&& $user_status ne 'admin'
 				&& $update )
@@ -862,10 +860,10 @@ sub check_record {
 				push @problems, "You must have admin rights to upgrade a user to admin status.\n";
 			}
 			if (   $status ne 'admin'
-				&& $newdata->{'status'} eq 'admin'
+				&& $newdata->{'status'} ne 'user'
 				&& !$update )
 			{
-				push @problems, "You must have admin rights to create a user with admin status.\n";
+				push @problems, "You must have admin rights to create a user with a status other than 'user'.\n";
 			}
 			if (   $status ne 'admin'
 				&& defined $user_username
