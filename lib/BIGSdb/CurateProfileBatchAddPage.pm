@@ -374,7 +374,7 @@ sub _check {
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender scheme_id submission_id);
 		say $q->hidden( checked_buffer => $filename );
-		say $q->submit( -name => 'Import data', -class => 'submit' );
+		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->endform;
 		say q(</div>);
 	}
