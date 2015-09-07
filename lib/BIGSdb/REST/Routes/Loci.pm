@@ -32,19 +32,20 @@ any [qw(get post)] => '/db/:db/loci' => sub {
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? " WHERE (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  ? ' WHERE (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $locus_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM loci$set_clause");
 	my $pages       = ceil( $locus_count / $self->{'page_size'} );
 	my $offset      = ( $page - 1 ) * $self->{'page_size'};
-	my $loci = $self->{'datastore'}->run_query( "SELECT id FROM loci$set_clause ORDER BY id OFFSET $offset LIMIT $self->{'page_size'}",
-		undef, { fetch => 'col_arrayref' } );
+	my $qry         = "SELECT id FROM loci$set_clause ORDER BY id";
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = {};
 
 	if (@$loci) {
 		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page );
-		$values->{'paging'} = $paging if $pages > 1;
+		$values->{'paging'} = $paging if $paging;
 		my @links;
 		foreach my $locus (@$loci) {
 			my $cleaned_locus = $self->clean_locus($locus);
@@ -83,7 +84,8 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 
 		#Extended attributes
 		my $extended_attributes =
-		  $self->{'datastore'}->run_query( "SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field",
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field',
 			$locus_name, { fetch => 'all_arrayref', slice => {} } );
 		my @attributes;
 		foreach my $attribute (@$extended_attributes) {
@@ -93,7 +95,7 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 			}
 			$attribute_list->{'required'} = $attribute->{'required'} ? JSON::true : JSON::false;
 			if ( $attribute->{'option_list'} ) {
-				my @values = split /\|/, $attribute->{'option_list'};
+				my @values = split /\|/x, $attribute->{'option_list'};
 				$attribute_list->{'allowed_values'} = \@values;
 			}
 			push @attributes, $attribute_list;
@@ -102,27 +104,27 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	}
 
 	#Aliases
-	my $aliases =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias", $locus_name, { fetch => 'col_arrayref' } );
+	my $aliases = $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
+		$locus_name, { fetch => 'col_arrayref' } );
 	$values->{'aliases'} = $aliases if @$aliases;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
 		#Description
 		my $description =
-		  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus_name, { fetch => 'row_hashref' } );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $locus_name, { fetch => 'row_hashref' } );
 		foreach (qw(full_name product description)) {
 			$values->{$_} = $description->{$_} if defined $description->{$_} && $description->{$_} ne '';
 		}
 		my $pubmed_ids =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id", $locus_name, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id',
+			$locus_name, { fetch => 'col_arrayref' } );
 		$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
 
 		#Curators
 		my $curators =
-		  $self->{'datastore'}->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id", $locus_name,
-			{ fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( 'SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id',
+			$locus_name, { fetch => 'col_arrayref' } );
 		my @curator_links;
 		foreach my $user_id (@$curators) {
 			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
@@ -131,16 +133,17 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	} else {
 
 		#Isolate databases - attempt to link to seqdef definitions
-		#We probably need to have a specific field in the loci table to define this as there are too many cases where this won't work.
+		#We probably need to have a specific field in the loci table to
+		#define this as there are too many cases where this won't work.
 		if (
 			   $locus_info->{'description_url'}
-			&& $locus_info->{'description_url'} =~ /page=locusInfo/
-			&& $locus_info->{'description_url'} =~ /^\//              #Relative URL so on same server
-			&& $locus_info->{'description_url'} =~ /locus=(\w+)/
+			&& $locus_info->{'description_url'} =~ /page=locusInfo/x
+			&& $locus_info->{'description_url'} =~ /^\//x              #Relative URL so on same server
+			&& $locus_info->{'description_url'} =~ /locus=(\w+)/x
 		  )
 		{
 			my $seqdef_locus = $1;
-			if ( $locus_info->{'description_url'} =~ /db=(\w+)/ ) {
+			if ( $locus_info->{'description_url'} =~ /db=(\w+)/x ) {
 				my $seqdef_config = $1;
 				$values->{'seqdef_definition'} = request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string;
 			}
@@ -150,13 +153,16 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	my $scheme_member_list = [];
 	foreach my $scheme (@$schemes) {
 		my $is_member = $self->{'datastore'}->run_query(
-			"SELECT EXISTS(SELECT * FROM scheme_members WHERE scheme_id=? AND locus=?)",
+			'SELECT EXISTS(SELECT * FROM scheme_members WHERE (scheme_id,locus)=(?,?))',
 			[ $scheme->{'id'}, $locus_name ],
 			{ cache => 'Loci::scheme_member' }
 		);
 		if ($is_member) {
 			push @$scheme_member_list,
-			  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string, description => $scheme->{'description'} };
+			  {
+				scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string,
+				description => $scheme->{'description'}
+			  };
 		}
 	}
 	if (@$scheme_member_list) {
@@ -164,7 +170,7 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
-			$values->{'alleles'} = request->uri_for("/db/$db/loci/$locus_name/alleles")->as_string;
+			$values->{'alleles'}       = request->uri_for("/db/$db/loci/$locus_name/alleles")->as_string;
 			$values->{'alleles_fasta'} = request->uri_for("/db/$db/loci/$locus_name/alleles_fasta")->as_string;
 		}
 	}

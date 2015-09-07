@@ -43,16 +43,16 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 	my $pages        = ceil( $allele_count / $self->{'page_size'} );
 	my $offset       = ( $page - 1 ) * $self->{'page_size'};
 	my $qry =
-	    q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
-	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' )
-	  . qq( LIMIT $self->{'page_size'} OFFSET $offset);
+	  q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
+	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
+	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	if ( !@$allele_ids ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
 	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/loci/$locus_name/alleles", $pages, $page );
-	$values->{'paging'} = $paging if $pages > 1;
+	$values->{'paging'} = $paging if $paging;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
 		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")->as_string;

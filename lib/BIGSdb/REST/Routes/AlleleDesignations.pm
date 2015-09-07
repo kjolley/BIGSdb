@@ -37,22 +37,20 @@ any [qw(get post)] => '/db/:db/isolates/:id/allele_designations' => sub {
 	  : '';
 	my $designation_count =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
+	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id )
+	  ;
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $pages  = ceil( $designation_count / $self->{'page_size'} );
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $loci   = $self->{'datastore'}->run_query(
-		"SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause "
-		  . "ORDER BY locus OFFSET $offset LIMIT $self->{'page_size'}",
-		$isolate_id,
-		{ fetch => 'col_arrayref' }
-	);
+	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
 
 	if ( !@$loci ) {
 		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page );
-	$values->{'paging'} = $paging if $pages > 1;
+	$values->{'paging'} = $paging if $paging;
 	my $designation_links = [];
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
@@ -117,23 +115,19 @@ any [qw(get post)] => '/db/:db/isolates/:id/allele_ids' => sub {
 	  : '';
 	my $allele_count =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id )
-	  ;
+	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $pages  = ceil( $allele_count / $self->{'page_size'} );
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $loci   = $self->{'datastore'}->run_query(
-		"SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause "
-		  . "ORDER BY locus OFFSET $offset LIMIT $self->{'page_size'}",
-		$isolate_id,
-		{ fetch => 'col_arrayref' }
-	);
+	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
 
 	if ( !@$loci ) {
 		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page );
-	$values->{'paging'} = $paging if $pages > 1;
+	$values->{'paging'} = $paging if $paging;
 	my $designations = [];
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);

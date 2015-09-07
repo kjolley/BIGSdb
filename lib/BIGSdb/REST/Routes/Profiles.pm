@@ -40,15 +40,18 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	} elsif ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 404 );
 	}
-	my $profile_view  = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $profile_view =
+	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
 	my $pages         = ceil( $profile_count / $self->{'page_size'} );
 	my $offset        = ( $page - 1 ) * $self->{'page_size'};
 	my $pk_info       = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 	my $qry =
-	    "SELECT $scheme_info->{'primary_key'} FROM $profile_view ORDER BY "
-	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($scheme_info->{'primary_key'} AS int)" : $scheme_info->{'primary_key'} )
-	  . " LIMIT $self->{'page_size'} OFFSET $offset";
+	  "SELECT $scheme_info->{'primary_key'} FROM $profile_view ORDER BY "
+	  . ( $pk_info->{'type'} eq 'integer'
+		? "CAST($scheme_info->{'primary_key'} AS int)"
+		: $scheme_info->{'primary_key'} );
+	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 
 	if ( !@$profiles ) {
@@ -56,7 +59,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	}
 	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/schemes/$scheme_id/profiles", $pages, $page );
-	$values->{'paging'} = $paging if $pages > 1;
+	$values->{'paging'} = $paging if $paging;
 	my $profile_links = [];
 	foreach my $profile_id (@$profiles) {
 		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id")->as_string;
@@ -88,7 +91,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
 		push @heading, $header_value;
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
 		push @fields, $cleaned;
 	}
 	foreach my $field (@$scheme_fields) {
@@ -99,10 +102,12 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
 	local $" = "\t";
 	my $buffer = "@heading\n";
 	local $" = ',';
-	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $qry =
-	  "SELECT @fields FROM $scheme_view ORDER BY " . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	  "SELECT @fields FROM $scheme_view ORDER BY "
+	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 
 	if ( !@$data ) {
@@ -115,7 +120,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
 			$buffer .= "@$profile\n";
 		}
 	}
-	content_type "text/plain";
+	content_type 'text/plain';
 	return $buffer;
 };
 any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
@@ -131,10 +136,10 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	if ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
 	}
-	my $profile_view = ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $profile =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM $profile_view WHERE $scheme_info->{'primary_key'}=?", $profile_id, { fetch => 'row_hashref' } );
+	my $profile_view =
+	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $profile = $self->{'datastore'}->run_query( "SELECT * FROM $profile_view WHERE $scheme_info->{'primary_key'}=?",
+		$profile_id, { fetch => 'row_hashref' } );
 	if ( !$profile ) {
 		send_error( "Profile $scheme_info->{'primary_key'}-$profile_id does not exist.", 404 );
 	}
@@ -143,7 +148,7 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	my $allele_links = [];
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
-		( my $profile_name = $locus ) =~ s/'/_PRIME_/g;
+		( my $profile_name = $locus ) =~ s/'/_PRIME_/gx;
 		my $allele_id = $profile->{ lc($profile_name) };
 		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id")->as_string;
 	}
@@ -158,9 +163,11 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 			$values->{$field} = $profile->{ lc($field) };
 		}
 	}
-	my $profile_info =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?", [ $scheme_id, $profile_id ], { fetch => 'row_hashref' } );
+	my $profile_info = $self->{'datastore'}->run_query(
+		'SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?',
+		[ $scheme_id, $profile_id ],
+		{ fetch => 'row_hashref' }
+	);
 	foreach my $attribute (qw(sender curator date_entered datestamp)) {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
