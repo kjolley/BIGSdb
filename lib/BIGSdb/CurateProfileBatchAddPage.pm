@@ -284,14 +284,13 @@ sub _check {
 			  if defined $fileheaderPos{$field}
 			  or ( $field eq $primary_key );
 		}
+		push @checked_buffer, $header_row if $first_record;
+		$first_record = 0;
 
 		#check if profile exists
 		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
 		if ($profile_exists) {
-			if ( $q->param('ignore_existing') ) {
-				$first_record = 0;
-				next RECORD;
-			}
+			next RECORD if $q->param('ignore_existing');
 			$problems{$pk} .= "$msg<br />";
 		}
 
@@ -342,10 +341,8 @@ sub _check {
 		$row_buffer   .= "</tr>\n";
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
-		push @checked_buffer, $header_row if $first_record;
 		$checked_record =~ s/\t$//x;
 		push @checked_buffer, $checked_record;
-		$first_record = 0;
 	}
 	$table_buffer .= "</table>\n";
 	if ( !$record_count ) {
