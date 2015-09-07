@@ -30,7 +30,8 @@ any [qw(get post)] => '/db/:db/users/:user' => sub {
 	if ( !BIGSdb::Utils::is_int($user_id) ) {
 		send_error( 'User id must be an integer.', 400 );
 	}
-	my $user = $self->{'datastore'}->run_query( "SELECT * FROM users WHERE id=?", $user_id, { fetch => 'row_hashref' } );
+	my $user =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE id=?', $user_id, { fetch => 'row_hashref' } );
 	if ( !defined $user->{'id'} ) {
 		send_error( "User $user_id does not exist.", 404 );
 	}

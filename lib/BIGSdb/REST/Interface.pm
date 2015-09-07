@@ -78,7 +78,7 @@ sub _initiate {
 hook before => sub {
 	my $self        = setting('self');
 	my $request_uri = request->uri();
-	$self->{'instance'} = $request_uri =~ /^\/db\/([\w\d\-_]+)/ ? $1 : '';
+	$self->{'instance'} = $request_uri =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	if ( !$self->{'instance'} ) {
 		undef $self->{'system'};
@@ -97,7 +97,7 @@ hook before => sub {
 		$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
 	}
 	$self->set_system_overrides;
-	$ENV{'PATH'} = '/bin:/usr/bin';              ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
+	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$self->{'system'}->{'read_access'} ||= 'public';                          #everyone can view by default
 	$self->{'system'}->{'host'}        ||= $self->{'host'} || 'localhost';
@@ -109,8 +109,9 @@ hook before => sub {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$logger->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database.  "
-				  . "Please set the labelfield attribute in the system tag of the database XML file." );
+			$logger->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the "
+				  . 'database. Please set the labelfield attribute in the system tag of the database XML file.' )
+			  ;
 		}
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
@@ -118,18 +119,24 @@ hook before => sub {
 	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
 	$self->_initiate_view;
-	$self->{'page_size'} = ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
-	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' || ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+	$self->{'page_size'} =
+	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
+	if (   ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates'
+		|| ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' )
+	{
 
-		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public' && $request_uri !~ /^\/db\/$self->{'instance'}\/oauth\// ) {
+		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public'
+			&& $request_uri !~ /^\/db\/$self->{'instance'}\/oauth\//x )
+		{
 			send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 		}
 	}
 	return;
 };
 
-#Drop the connection because we may have hundreds of databases on the system.  Keeping them all open will exhaust resources.
-#This could be made optional for systems with only a few databases.
+#Drop the connection because we may have hundreds of databases on the system.  
+#Keeping them all open will exhaust resources. This could be made optional 
+#for systems with only a few databases.
 hook after => sub {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_all_connections;
@@ -140,24 +147,24 @@ sub _is_authorized {
 	my $params = params;
 	my $db     = param('db');
 	if ( !param('oauth_consumer_key') ) {
-		send_error( "Unauthorized - Generate new session token.", 401 );
+		send_error( 'Unauthorized - Generate new session token.', 401 );
 	}
 	my $client = $self->{'datastore'}->run_query(
-		"SELECT * FROM clients WHERE client_id=?",
+		'SELECT * FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::get_client_secret' }
 	);
 	if ( !$client->{'client_secret'} ) {
-		send_error( "Unrecognized client", 403 );
+		send_error( 'Unrecognized client', 403 );
 	}
 	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
-		"SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)",
+		'SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)',
 		[ param('oauth_token'), $self->{'system'}->{'db'} ],
 		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
-		send_error( "Invalid session token.  Generate new request token (/get_access_token).", 401 );
+		send_error( 'Invalid session token.  Generate new request token (/get_access_token).', 401 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
@@ -180,20 +187,19 @@ sub _is_authorized {
 	};
 
 	if ($@) {
-		warn $@;
-		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
+		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
 		} else {
 			$self->{'logger'}->error($@);
-			send_error( "Invalid token request.", 400 );
+			send_error( 'Invalid token request.', 400 );
 		}
 	}
 	if ( !$request->verify ) {
-		$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
-		send_error( "Signature verification failed.", 401 );
+		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
+		send_error( 'Signature verification failed.', 401 );
 	}
 	my $authorize = $self->{'datastore'}->run_query(
-		"SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)",
+		'SELECT authorize FROM client_permissions WHERE (client_id,dbase)=(?,?)',
 		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
 		{ db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::client_permissions' }
 	);
@@ -204,14 +210,14 @@ sub _is_authorized {
 		$client_authorized = ( !$authorize || $authorize eq 'deny' ) ? 0 : 1;
 	}
 	if ( !$client_authorized ) {
-		send_error( "Client is unauthorized to access this database.", 401 );
+		send_error( 'Client is unauthorized to access this database.', 401 );
 	}
 	return 1;
 }
 
 sub delete_old_sessions {
 	my ($self) = @_;
-	eval { $self->{'auth_db'}->do( "DELETE FROM api_sessions WHERE start_time<?", undef, time - SESSION_EXPIRES ) };
+	eval { $self->{'auth_db'}->do( 'DELETE FROM api_sessions WHERE start_time<?', undef, time - SESSION_EXPIRES ) };
 	if ($@) {
 		$self->{'auth_db'}->rollback;
 		$self->{'logger'}->error($@);
@@ -237,7 +243,7 @@ sub _initiate_view {
 	my $set_id = $self->get_set_id;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
-			my $view = $self->{'datastore'}->run_query( "SELECT view FROM set_view WHERE set_id=?", $set_id );
+			my $view = $self->{'datastore'}->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
 			$self->{'system'}->{'view'} = $view if defined $view;
 		}
 	}
@@ -247,16 +253,17 @@ sub _initiate_view {
 #Get the contents of the rest_db database.
 sub get_resources {
 	my ($self) = @_;
-	my $groups = $self->{'datastore'}->run_query( "SELECT * FROM groups ORDER BY name",
+	my $groups = $self->{'datastore'}->run_query( 'SELECT * FROM groups ORDER BY name',
 		undef, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::groups' } );
 	my $resources = [];
 	foreach my $group (@$groups) {
 		my $group_resources =
-		  $self->{'datastore'}->run_query( "SELECT dbase_config FROM group_resources WHERE group_name=? ORDER BY dbase_config",
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT dbase_config FROM group_resources WHERE group_name=? ORDER BY dbase_config',
 			$group->{'name'}, { fetch => 'col_arrayref', cache => 'REST::Interface::get_resources::resources' } );
 		my @databases;
 		foreach my $dbase_config (@$group_resources) {
-			my $desc = $self->{'datastore'}->run_query( "SELECT description FROM resources WHERE dbase_config=?",
+			my $desc = $self->{'datastore'}->run_query( 'SELECT description FROM resources WHERE dbase_config=?',
 				$dbase_config, { cache => 'REST::Interface::get_resources::desc' } );
 			push @databases, { dbase_config => $dbase_config, description => $desc };
 		}
@@ -281,9 +288,9 @@ sub get_paging {
 	if ( $page != $pages ) {
 		$paging->{'last'} = request->uri_base . "$route?page=$pages&page_size=$self->{'page_size'}";
 	}
-	if (%$paging){
+	if (%$paging) {
 		$paging->{'return_all'} = request->uri_base . "$route?return_all=1";
-	} 
+	}
 	return $paging;
 }
 
@@ -294,7 +301,7 @@ sub clean_locus {
 	my $set_id     = $self->get_set_id;
 	if ($set_id) {
 		my $set_name = $self->{'datastore'}->run_query(
-			"SELECT set_name FROM set_loci WHERE set_id=? AND locus=?",
+			'SELECT set_name FROM set_loci WHERE set_id=? AND locus=?',
 			[ $set_id, $locus ],
 			{ fetch => 'row_array', cache => 'clean_locus' }
 		);
@@ -309,7 +316,9 @@ sub check_isolate_is_valid {
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
 		send_error( 'Isolate id must be an integer', 400 );
 	}
-	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
 		send_error( "Isolate $isolate_id does not exist.", 404 );
 	}

@@ -33,12 +33,12 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 	my $params          = params;
 	my $db              = param('db');
 	my $consumer_secret = $self->{'datastore'}->run_query(
-		"SELECT client_secret FROM clients WHERE client_id=?",
+		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
 		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
 	);
 	if ( !$consumer_secret ) {
-		send_error( "Unrecognized client", 403 );
+		send_error( 'Unrecognized client', 403 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
@@ -60,35 +60,34 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 	};
 
 	if ($@) {
-		warn $@;
-		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
+		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1", 400 );
 		} else {
 			$self->{'logger'}->error($@);
-			send_error( "Invalid token request", 400 );
+			send_error( 'Invalid token request', 400 );
 		}
 	}
-	$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
+	$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 	if ( !$request->verify ) {
-		send_error( "Signature verification failed", 401 );
+		send_error( 'Signature verification failed', 401 );
 	}
 	if ( abs( $request->timestamp - time ) > REQUEST_TOKEN_TIMEOUT ) {
-		send_error( "Request timestamp more than " . REQUEST_TOKEN_TIMEOUT . " seconds from current time.", 401 );
+		send_error( 'Request timestamp more than ' . REQUEST_TOKEN_TIMEOUT . ' seconds from current time.', 401 );
 	}
 	my $request_repeated = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM request_tokens WHERE (nonce,timestamp)=(?,?))",
+		'SELECT EXISTS(SELECT * FROM request_tokens WHERE (nonce,timestamp)=(?,?))',
 		[ param('oauth_nonce'), param('oauth_timestamp') ],
 		{ db => $self->{'auth_db'} }
 	);
 	if ($request_repeated) {
-		send_error( "Request with same nonce and timestamp already made", 401 );
+		send_error( 'Request with same nonce and timestamp already made', 401 );
 	}
 	my $token        = BIGSdb::Utils::random_string(32);
 	my $token_secret = BIGSdb::Utils::random_string(32);
 	eval {
-		$self->{'auth_db'}->do( "DELETE FROM request_tokens WHERE start_time<?", undef, time - REQUEST_TOKEN_EXPIRES );
+		$self->{'auth_db'}->do( 'DELETE FROM request_tokens WHERE start_time<?', undef, time - REQUEST_TOKEN_EXPIRES );
 		$self->{'auth_db'}->do(
-			"INSERT INTO request_tokens (token,secret,client_id,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?)",
+			'INSERT INTO request_tokens (token,secret,client_id,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?)',
 			undef, $token, $token_secret, param('oauth_consumer_key'),
 			param('oauth_nonce'), param('oauth_timestamp'), time
 		);
@@ -96,7 +95,7 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 	if ($@) {
 		$self->{'logger'}->error($@);
 		$self->{'auth_db'}->rollback;
-		send_error( "Error creating request token", 400 );
+		send_error( 'Error creating request token', 400 );
 	}
 	$self->{'auth_db'}->commit;
 	return { oauth_token => $token, oauth_token_secret => $token_secret, oauth_callback_confirmed => 'true' };
@@ -108,23 +107,26 @@ any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
 	my $params          = params;
 	my $db              = param('db');
 	my $consumer_secret = $self->{'datastore'}->run_query(
-		"SELECT client_secret FROM clients WHERE client_id=?",
+		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
 		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
 	);
 	if ( !$consumer_secret ) {
-		send_error( "Unrecognized client", 403 );
+		send_error( 'Unrecognized client', 403 );
 	}
-	my $request_token = $self->{'datastore'}->run_query( "SELECT * FROM request_tokens WHERE token=?",
+	my $request_token = $self->{'datastore'}->run_query( 'SELECT * FROM request_tokens WHERE token=?',
 		param('oauth_token'), { fetch => 'row_hashref', db => $self->{'auth_db'} } );
 	if ( !$request_token->{'secret'} ) {
-		send_error( "Invalid request token.  Generate new request token (/get_request_token).", 401 );
-	} elsif ( !$request_token->{'verifier'} || $request_token->{'verifier'} ne param('oauth_verifier') ) {
-		send_error( "Invalid verifier code.", 401 );
-	} elsif ( $request_token->{'redeemed'} ) {
-		send_error( "Request token has already been redeemed.  Generate new request token (/get_request_token).", 401 );
-	} elsif ( abs( $request_token->{'timestamp'} - time ) > REQUEST_TOKEN_EXPIRES ) {
-		send_error( "Request token has expired.  Generate new request token (/get_request_token).", 401 );
+		send_error( 'Invalid request token.  Generate new request token (/get_request_token).', 401 );
+	}
+	if ( !$request_token->{'verifier'} || $request_token->{'verifier'} ne param('oauth_verifier') ) {
+		send_error( 'Invalid verifier code.', 401 );
+	}
+	if ( $request_token->{'redeemed'} ) {
+		send_error( 'Request token has already been redeemed.  Generate new request token (/get_request_token).', 401 );
+	}
+	if ( abs( $request_token->{'timestamp'} - time ) > REQUEST_TOKEN_EXPIRES ) {
+		send_error( 'Request token has expired.  Generate new request token (/get_request_token).', 401 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
@@ -148,33 +150,33 @@ any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
 	};
 
 	if ($@) {
-		warn $@;
-		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
+		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
 		} else {
 			$self->{'logger'}->error($@);
-			send_error( "Invalid token request.", 400 );
+			send_error( 'Invalid token request.', 400 );
 		}
 	}
-	$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
+	$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 	if ( !$request->verify ) {
-		send_error( "Signature verification failed.", 401 );
+		send_error( 'Signature verification failed.', 401 );
 	}
 	my $access_token        = BIGSdb::Utils::random_string(32);
 	my $access_token_secret = BIGSdb::Utils::random_string(32);
 	eval {
-		$self->{'auth_db'}->do( "UPDATE request_tokens SET redeemed=? WHERE token=?", undef, 1, $request_token->{'token'} );
+		$self->{'auth_db'}
+		  ->do( 'UPDATE request_tokens SET (redeemed,token)=(?,?)', undef, 1, $request_token->{'token'} );
 
 		#Replace existing access token for same user.
 		$self->{'auth_db'}->do(
-			"DELETE FROM access_tokens WHERE (client_id,username,dbase)=(?,?,?)",
+			'DELETE FROM access_tokens WHERE (client_id,username,dbase)=(?,?,?)',
 			undef,
 			param('oauth_consumer_key'),
 			$request_token->{'username'},
 			$request_token->{'dbase'}
 		);
 		$self->{'auth_db'}->do(
-			"INSERT INTO access_tokens (token,secret,client_id,datestamp,username,dbase) VALUES (?,?,?,?,?,?)",
+			'INSERT INTO access_tokens (token,secret,client_id,datestamp,username,dbase) VALUES (?,?,?,?,?,?)',
 			undef, $access_token, $access_token_secret, param('oauth_consumer_key'),
 			'now',
 			$request_token->{'username'},
@@ -196,18 +198,24 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	my $params          = params;
 	my $db              = param('db');
 	my $consumer_secret = $self->{'datastore'}->run_query(
-		"SELECT client_secret FROM clients WHERE client_id=?",
+		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
 		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
 	);
 	if ( !$consumer_secret ) {
-		send_error( "Unrecognized client", 403 );
+		send_error( 'Unrecognized client', 403 );
 	}
-	my $access_token = $self->{'datastore'}->run_query( "SELECT * FROM access_tokens WHERE token=?",
+	my $access_token = $self->{'datastore'}->run_query(
+		'SELECT * FROM access_tokens WHERE token=?',
 		param('oauth_token'),
-		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Routes::OAuth::get_session_token::access_token' } );
+		{
+			fetch => 'row_hashref',
+			db    => $self->{'auth_db'},
+			cache => 'REST::Routes::OAuth::get_session_token::access_token'
+		}
+	);
 	if ( !$access_token->{'secret'} ) {
-		send_error( "Invalid access token.  Generate new request token (/get_access_token).", 401 );
+		send_error( 'Invalid access token.  Generate new request token (/get_access_token).', 401 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
@@ -230,39 +238,43 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 	};
 
 	if ($@) {
-		warn $@;
-		if ( $@ =~ /Missing required parameter \'(\w+?)\'/ ) {
+		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
 		} else {
 			$self->{'logger'}->error($@);
-			send_error( "Invalid token request.", 400 );
+			send_error( 'Invalid token request.', 400 );
 		}
 	}
-	$self->{'logger'}->debug( "Request string: " . $request->signature_base_string );
+	$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 	if ( !$request->verify ) {
-		send_error( "Signature verification failed.", 401 );
+		send_error( 'Signature verification failed.', 401 );
 	}
 	my $request_repeated = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM api_sessions WHERE (nonce,timestamp)=(?,?))",
+		'SELECT EXISTS(SELECT * FROM api_sessions WHERE (nonce,timestamp)=(?,?))',
 		[ param('oauth_nonce'), param('oauth_timestamp') ],
 		{ db => $self->{'auth_db'}, cache => 'REST::Routes::OAuth::get_session_token::session_exists' }
 	);
 	if ($request_repeated) {
-		send_error( "Request with same nonce and timestamp already made", 401 );
+		send_error( 'Request with same nonce and timestamp already made', 401 );
 	} elsif ( abs( $request->timestamp - time ) > ACCESS_TOKEN_TIMEOUT ) {
-		send_error( "Request timestamp more than " . ACCESS_TOKEN_TIMEOUT . " seconds from current time.", 401 );
+		send_error( 'Request timestamp more than ' . ACCESS_TOKEN_TIMEOUT . ' seconds from current time.', 401 );
 	}
 	my $session_token        = BIGSdb::Utils::random_string(32);
 	my $session_token_secret = BIGSdb::Utils::random_string(32);
 	$self->delete_old_sessions;
 	eval {
 		$self->{'auth_db'}->do(
-			"INSERT INTO api_sessions (dbase,username,client_id,session,secret,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?,?,?)",
+			'INSERT INTO api_sessions (dbase,username,client_id,session,'
+			  . 'secret,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?,?,?)',
 			undef,
 			$access_token->{'dbase'},
 			$access_token->{'username'},
 			param('oauth_consumer_key'),
-			$session_token, $session_token_secret, param('oauth_nonce'), param('oauth_timestamp'), time
+			$session_token,
+			$session_token_secret,
+			param('oauth_nonce'),
+			param('oauth_timestamp'),
+			time
 		);
 	};
 	if ($@) {

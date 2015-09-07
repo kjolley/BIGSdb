@@ -21,10 +21,9 @@ use strict;
 use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-
-get '/robots.txt' => sub {
-  content_type "text/plain";
-  return "User-agent: *\nDisallow: /";
+get '/robots.txt'   => sub {
+	content_type 'text/plain';
+	return "User-agent: *\nDisallow: /";
 };
 
 #Resource description routes
@@ -51,7 +50,7 @@ any [qw(get post)] => '/' => sub {
 	}
 	return $values;
 };
-any [qw(get post)] => qr{^/db/?+$} => sub {
+any [qw(get post)] => qr{^/db/?+$}x => sub {
 	redirect '/';
 };
 any [qw(get post)] => '/db/:db' => sub {
