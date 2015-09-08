@@ -320,7 +320,7 @@ sub _check_data {
 			say q(<div class="box" id="statusbad"><p>Please go back and select the sender )
 			  . q(for this submission.</p></div>);
 			return;
-		} 
+		}
 		if ( $sender == -1 ) {
 			$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 		} else {
@@ -488,6 +488,8 @@ sub _check_data {
 				  or ( $field eq 'id' );
 			}
 			$header_complete = 1;
+			push @checked_buffer, $header_row if $first_record;
+			$first_record = 0;
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
@@ -567,10 +569,8 @@ sub _check_data {
 			}
 		}
 		$td = $td == 1 ? 2 : 1;    #row stripes
-		push @checked_buffer, $header_row if $first_record;
 		$checked_record =~ s/\t$//x if defined $checked_record;
 		push @checked_buffer, $checked_record;
-		$first_record = 0;
 	}
 	$tablebuffer .= q(</table></div>);
 	if ( !$record_count ) {
