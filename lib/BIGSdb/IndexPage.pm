@@ -131,6 +131,7 @@ sub _print_jobs {
 	my $days_plural = $days == 1  ? '' : 's';
 	my $jobs_plural = @$jobs == 1 ? '' : 's';
 	say q(<div class="box" id="jobs">);
+	say q(<span class="job_icon fa fa-briefcase fa-3x pull-left"></span>);
 	say q(<h2>Jobs</h2>);
 	say q(<p>You have submitted or run )
 	  . @$jobs
