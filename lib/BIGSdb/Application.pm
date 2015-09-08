@@ -74,7 +74,7 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = 50 * 1024 * 1024;                                        #Limit any uploads to 50Mb.
+	$CGI::POST_MAX              = 200 * 1024 * 1024;                                        #Limit any uploads to 200Mb.
 	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
