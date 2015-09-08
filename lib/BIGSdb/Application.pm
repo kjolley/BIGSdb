@@ -68,6 +68,7 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword submit);
+use constant PAGES_NEEDING_JOB_MANAGER    => qw (plugin job jobs index logout options);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
@@ -109,9 +110,10 @@ sub new {
 					  . q(in the system tag of the XML database description.) );
 			}
 			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
+			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
-			  && ( any { $q->param('page') eq $_ } qw (plugin job jobs index logout options) )
+			  && $job_manager_pages{ $q->param('page') }
 			  && $self->{'config'}->{'jobs_db'};
 		}
 	}
@@ -176,9 +178,9 @@ sub _initiate {
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$q->param( 'page', 'index' ) if !defined $q->param('page');
+	$q->param( page => 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
-	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
+	$self->{'system'}->{'read_access'} //= 'public';               #everyone can view by default
 	$self->{'system'}->{'host'}        //= 'localhost';
 	$self->{'system'}->{'port'}        //= 5432;
 	$self->{'system'}->{'user'}        //= 'apache';
