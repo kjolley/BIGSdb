@@ -30,7 +30,9 @@ sub print_content {
 	my $desc   = $self->get_title;
 	say qq(<h1>$desc</h1>);
 	say q(<div class="box" id="statusbad">);
-	my %error = (
+	no warnings 'once';
+	my $upload_limit = BIGSdb::Utils::get_nice_size($CGI::POST_MAX);
+	my %error        = (
 		invalidXML    => q(Invalid (or no) database description file specified!),
 		invalidDbType => q(Invalid database type specified! Please set dbtype to either 'isolates' )
 		  . q(or 'sequences' in the system attributes of the XML description file for this database.),
@@ -46,8 +48,11 @@ sub print_content {
 		accessDisabled => q(Your user account has been disabled.  If you believe this to be an error, )
 		  . q(please contact the system administrator.),
 		configAccessDenied => q(Your user account can not access this database configuration.  If you believe )
-		  . q(this to be an error, please contact the system administrator.)
+		  . q(this to be an error, please contact the system administrator.),
+		tooBig => q(You are attempting to upload too much data in one go.  )
+		  . qq(Uploads are limited to a size of $upload_limit.)
 	);
+
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
 		say qq(<p>Unknown function '$function' requested - either an incorrect link brought you )

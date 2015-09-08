@@ -74,7 +74,7 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = 200 * 1024 * 1024;                                        #Limit any uploads to 200Mb.
+	$CGI::POST_MAX              = 50 * 1024 * 1024;             #Limit any uploads to 50Mb.
 	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
@@ -128,10 +128,16 @@ sub _initiate {
 	$self->read_config_file($config_dir);
 	$self->read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
+	my $content_length = defined $ENV{'CONTENT_LENGTH'} ? $ENV{'CONTENT_LENGTH'} : 0;
+	if ( $content_length > $CGI::POST_MAX ) {
+		$self->{'error'} = 'tooBig';
+		my $size = BIGSdb::Utils::get_nice_size($content_length);
+		$logger->fatal("Attempted upload too big - $size.");
+		return;
+	}
 	my $db = $q->param('db') // '';
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
-
 	if ( !-e $full_path ) {
 		$logger->fatal("Database config file for '$self->{'instance'}' does not exist.");
 		$self->{'error'} = 'invalidXML';
