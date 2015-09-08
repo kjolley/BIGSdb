@@ -877,6 +877,9 @@ sub _output_batch_query_nonexact {
 					$text_buffer .= "\[$_->{'spos'}\]$_->{'sbase'}->\[" . ( $_->{'qpos'} // '' ) . "\]$_->{'qbase'}";
 					$first = 0;
 				}
+			} else {
+				$buffer      .= q(Gaps or missing sequence - try single sequence query to see alignment.);
+				$text_buffer .= q(Gaps or missing sequence - try single sequence query to see alignment.);
 			}
 		}
 	} else {
