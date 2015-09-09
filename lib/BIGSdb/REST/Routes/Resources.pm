@@ -77,6 +77,8 @@ sub _get_db {
 		};
 		$routes->{'schemes'} = $scheme_route if $scheme_route;
 		$routes->{'loci'}    = $loci_route   if $loci_route;
+		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
+		$routes->{'projects'} = request->uri_for("/db/$db/projects")->as_string if $projects;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $routes = {};
