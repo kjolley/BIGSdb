@@ -137,6 +137,7 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5'        => [qw(md5.js)]
 		);
 		foreach my $feature ( keys %js ) {
+			next if !$self->{$feature};
 			my $libs = $js{$feature};
 			push @javascript, ( { src => "/javascript/$_", @language } ) foreach @$libs;
 		}
