@@ -40,7 +40,7 @@ sub _get_projects {
 	foreach my $project (@$projects) {
 		my $isolate_count = $self->{'datastore'}->run_query(
 			'SELECT COUNT(*) FROM project_members WHERE project_id=? AND '
-			  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
+			  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
 			$project->{'id'}
 		);
 		push @project_list,
@@ -66,7 +66,7 @@ sub _get_project {
 	}
 	my $isolate_count = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM project_members WHERE project_id=? AND '
-		  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
+		  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
 		$project_id
 	);
 	return {
@@ -91,13 +91,13 @@ sub _get_project_isolates {
 	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $isolate_count = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM project_members WHERE project_id=? AND isolate_id '
-		  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
+		  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
 		$project_id
 	);
 	my $pages  = ceil( $isolate_count / $self->{'page_size'} );
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
 	my $qry    = 'SELECT isolate_id FROM project_members WHERE project_id=? AND isolate_id '
-	  . "IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY isolate_id";
+	  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL) ORDER BY isolate_id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, $project_id, { fetch => 'col_arrayref' } );
 	my $values = {};
