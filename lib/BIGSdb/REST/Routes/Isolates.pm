@@ -149,10 +149,32 @@ sub _get_isolate {
 		push @$scheme_links, $scheme_object;
 	}
 	$values->{'schemes'} = $scheme_links if @$scheme_links;
+	my $projects = _get_isolate_projects($id);
+	$values->{'projects'} = $projects if @$projects;
 
-	#TODO projects
 	#TODO versions
 	return $values;
+}
+
+sub _get_isolate_projects {
+	my ($isolate_id) = @_;
+	my $self         = setting('self');
+	my ($db)         = params->{'db'};
+	my $project_data = $self->{'datastore'}->run_query(
+		'SELECT id,short_description FROM projects JOIN project_members ON projects.id=project_members.project_id '
+		  . 'WHERE isolate_id=? AND isolate_display ORDER BY id',
+		$isolate_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my @projects;
+	foreach my $project (@$project_data) {
+		push @projects,
+		  {
+			id => request->uri_for("/db/$db/projects/$project->{'id'}")->as_string,
+			, description => $project->{'short_description'}
+		  };
+	}
+	return \@projects;
 }
 
 sub _get_fields {
