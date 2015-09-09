@@ -79,6 +79,17 @@ sub _get_scheme {
 		$values->{'profile_count'} = int($profile_count);    #Force integer output (non-quoted)
 		$values->{'profiles'}     = request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string;
 		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv")->as_string;
+
+		#Curators
+		my $curators =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT curator_id FROM scheme_curators WHERE scheme_id=? ORDER BY curator_id',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		my @curator_links;
+		foreach my $user_id (@$curators) {
+			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
+		}
+		$values->{'curators'} = \@curator_links if @curator_links;
 	}
 	return $values;
 }
