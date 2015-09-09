@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::ConfigRepairPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -33,39 +34,41 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	print "<h1>Configuration repair - $desc</h1>";
+	say qq(<h1>Configuration repair - $desc</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		print "<div class=\"box\" id=\"statusbad\"><p>This function is only for use on sequence definition databases.</p></div>\n";
+		say q(<div class="box" id="statusbad"><p>This function is only for use on )
+		  . q(sequence definition databases.</p></div>);
 		return;
 	}
-	print "<div class=\"box\" id=\"queryform\">\n";
-	print "<h2>Rebuild scheme views</h2>\n";
-	print "<p>Scheme views can become damaged if the database is modifed outside of the web interface. This "
-	  . "is especially likely if loci that belong to schemes are renamed.</p>";
-	print "<p>As materialized views are enabled for this database, these will also be (re)created.</p>"
+	say q(<div class="box" id="queryform">);
+	say q(<h2>Rebuild scheme views</h2>);
+	say q(<p>Scheme views can become damaged if the database is modifed outside of the web interface. This )
+	  . q(is especially likely if loci that belong to schemes are renamed.</p>);
+	say q(<p>As materialized views are enabled for this database, these will also be (re)created.</p>)
 	  if $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes';
-	my $scheme_ids = $self->{'datastore'}->run_query(
-		"SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields "
-		  . "WHERE primary_key) AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id",
+	my $schemes = $self->{'datastore'}->run_query(
+		'SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields '
+		  . 'WHERE primary_key) AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	if ( !@$scheme_ids ) {
-		print "<p class=\"statusbad\">No schemes with a primary key and locus members have been defined.</p>\n";
+	if ( !@$schemes ) {
+		say q(<p class="statusbad">No schemes with a primary key and locus members have been defined.</p>);
 	} else {
-		print "<p>Select the damaged scheme view and click 'Rebuild'.</p>\n";
 		my ( @ids, %desc );
-		foreach (@$scheme_ids) {
-			push @ids, $_->{'id'};
-			$desc{ $_->{'id'} } = "$_->{'id'}) $_->{'description'}";
+		foreach my $scheme (@$schemes) {
+			push @ids, $scheme->{'id'};
+			$desc{ $scheme->{'id'} } = "$scheme->{'id'}) $scheme->{'description'}";
 		}
-		print $q->start_form;
-		print $q->hidden($_) foreach qw (db page);
-		print $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc );
-		print $q->submit( -name => 'rebuild', -value => 'Rebuild', -class => 'submit' );
-		print $q->end_form;
+		say q(<fieldset><legend>Select damaged scheme view</legend>);
+		say $q->start_form;
+		say $q->hidden($_) foreach qw (db page);
+		say $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc );
+		say $q->submit( -name => 'rebuild', -value => 'Rebuild', -class => 'button' );
+		say $q->end_form;
+		say q(</fieldset>);
 	}
-	print "</div>\n";
+	say q(</div>);
 	if ( $q->param('rebuild') && $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		$self->_rebuild( $q->param('scheme_id') );
 	}
@@ -79,10 +82,11 @@ sub _rebuild {
 		$self->create_scheme_view($scheme_id);
 	};
 	if ($@) {
-		print "<div class=\"box\" id=\"statusbad\"><p>Scheme rebuild failed.</p></div>\n";
+		$logger->error($@);
+		say q(<div class="box" id="statusbad"><p>Scheme rebuild failed.</p></div>);
 		$self->{'db'}->rollback;
 	} else {
-		print "<div class=\"box\" id=\"resultsheader\"><p>Scheme rebuild completed.</p></div>\n";
+		say q(<div class="box" id="resultsheader"><p>Scheme rebuild completed.</p></div>);
 		$self->{'db'}->commit;
 	}
 	return;
