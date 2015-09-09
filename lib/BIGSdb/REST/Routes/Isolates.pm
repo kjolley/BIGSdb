@@ -151,8 +151,14 @@ sub _get_isolate {
 	$values->{'schemes'} = $scheme_links if @$scheme_links;
 	my $projects = _get_isolate_projects($id);
 	$values->{'projects'} = $projects if @$projects;
-
-	#TODO versions
+	if ( BIGSdb::Utils::is_int( $field_values->{'new_version'} ) ) {
+		$values->{'new_version'} = request->uri_for("/db/$db/isolates/$field_values->{'new_version'}")->as_string;
+	}
+	my $old_version =
+	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?", $id );
+	if ($old_version) {
+		$values->{'old_version'} = request->uri_for("/db/$db/isolates/$old_version")->as_string;
+	}
 	return $values;
 }
 
