@@ -26,7 +26,11 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-any [qw(get post)] => '/db/:db/isolates' => sub {
+any [qw(get post)] => '/db/:db/isolates'     => sub { _get_isolates() };
+any [qw(get post)] => '/db/:db/isolates/:id' => sub { _get_isolate() };
+any [qw(get post)] => '/db/:db/fields'       => sub { _get_fields() };
+
+sub _get_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my ($db) = params->{'db'};
@@ -41,14 +45,15 @@ any [qw(get post)] => '/db/:db/isolates' => sub {
 
 	if (@$ids) {
 		my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
-		$values->{'paging'} = $paging if $paging;
+		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
 		$values->{'isolates'} = \@links;
 	}
 	return $values;
-};
-any [qw(get post)] => '/db/:db/isolates/:id' => sub {
+}
+
+sub _get_isolate {
 	my $self = setting('self');
 	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($id);
@@ -148,8 +153,9 @@ any [qw(get post)] => '/db/:db/isolates/:id' => sub {
 	#TODO projects
 	#TODO versions
 	return $values;
-};
-any [qw(get post)] => '/db/:db/fields' => sub {
+}
+
+sub _get_fields {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my $fields = $self->{'xmlHandler'}->get_field_list;
@@ -175,5 +181,5 @@ any [qw(get post)] => '/db/:db/fields' => sub {
 		push @$values, $value;
 	}
 	return $values;
-};
+}
 1;

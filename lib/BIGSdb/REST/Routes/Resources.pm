@@ -21,13 +21,19 @@ use strict;
 use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-get '/robots.txt'   => sub {
-	content_type 'text/plain';
-	return "User-agent: *\nDisallow: /";
-};
+get '/robots.txt' => sub { _get_robots() };
 
 #Resource description routes
-any [qw(get post)] => '/' => sub {
+any [qw(get post)] => '/'           => sub { _get_root() };
+any [qw(get post)] => qr{^/db/?+$}x => sub { redirect '/' };
+any [qw(get post)] => '/db/:db'     => sub { _get_db() };
+
+sub _get_robots {
+	content_type 'text/plain';
+	return "User-agent: *\nDisallow: /";
+}
+
+sub _get_root {
 	my $self            = setting('self');
 	my $resource_groups = $self->get_resources;
 	my $values          = [];
@@ -49,11 +55,9 @@ any [qw(get post)] => '/' => sub {
 		}
 	}
 	return $values;
-};
-any [qw(get post)] => qr{^/db/?+$}x => sub {
-	redirect '/';
-};
-any [qw(get post)] => '/db/:db' => sub {
+}
+
+sub _get_db {
 	my $self = setting('self');
 	my $db   = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {
@@ -82,5 +86,5 @@ any [qw(get post)] => '/db/:db' => sub {
 	} else {
 		return { title => 'Database configuration is invalid' };
 	}
-};
+}
 1;

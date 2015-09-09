@@ -24,7 +24,11 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Profile routes
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles'             => sub { _get_profiles() };
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv'         => sub { _get_profiles_csv() };
+any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
+
+sub _get_profiles {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -46,11 +50,12 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	my $pages         = ceil( $profile_count / $self->{'page_size'} );
 	my $offset        = ( $page - 1 ) * $self->{'page_size'};
 	my $pk_info       = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-	my $qry =
-	  "SELECT $scheme_info->{'primary_key'} FROM $profile_view ORDER BY "
-	  . ( $pk_info->{'type'} eq 'integer'
+	my $qry           = "SELECT $scheme_info->{'primary_key'} FROM $profile_view ORDER BY "
+	  . (
+		$pk_info->{'type'} eq 'integer'
 		? "CAST($scheme_info->{'primary_key'} AS int)"
-		: $scheme_info->{'primary_key'} );
+		: $scheme_info->{'primary_key'}
+	  );
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 
@@ -59,15 +64,16 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles' => sub {
 	}
 	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/schemes/$scheme_id/profiles", $pages, $page );
-	$values->{'paging'} = $paging if $paging;
+	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
 	foreach my $profile_id (@$profiles) {
 		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id")->as_string;
 	}
 	$values->{'profiles'} = $profile_links;
 	return $values;
-};
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
+}
+
+sub _get_profiles_csv {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -122,8 +128,9 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv' => sub {
 	}
 	content_type 'text/plain';
 	return $buffer;
-};
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
+}
+
+sub _get_profile {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -132,7 +139,6 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 	my $page        = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-
 	if ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
 	}
@@ -179,5 +185,5 @@ any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub {
 		}
 	}
 	return $values;
-};
+}
 1;

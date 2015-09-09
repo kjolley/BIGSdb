@@ -276,8 +276,8 @@ sub get_resources {
 
 sub get_paging {
 	my ( $self, $route, $pages, $page ) = @_;
-	return if param('return_all');
 	my $paging = {};
+	return $paging if param('return_all');
 	if ( $page > 1 ) {
 		$paging->{'first'} = request->uri_base . "$route?page=1&page_size=$self->{'page_size'}";
 		$paging->{'previous'} = request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";

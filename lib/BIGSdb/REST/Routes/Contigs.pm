@@ -22,7 +22,11 @@ use warnings;
 use 5.010;
 use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-any [qw(get post)] => '/db/:db/isolates/:id/contigs' => sub {
+any [qw(get post)] => '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
+any [qw(get post)] => '/db/:db/isolates/:id/contigs_fasta' => sub { _get_contigs_fasta() };
+any [qw(get post)] => '/db/:db/contigs/:contig'            => sub { _get_contig() };
+
+sub _get_contigs {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -40,15 +44,16 @@ any [qw(get post)] => '/db/:db/isolates/:id/contigs' => sub {
 		send_error( "No contigs for isolate id-$isolate_id are defined.", 404 );
 	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page );
-	$values->{'paging'} = $paging if $paging;
+	$values->{'paging'} = $paging if %$paging;
 	my $contig_links = [];
 	foreach my $contig_id (@$contigs) {
 		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id")->as_string;
 	}
 	$values->{'contigs'} = $contig_links;
 	return $values;
-};
-any [qw(get post)] => '/db/:db/isolates/:id/contigs_fasta' => sub {
+}
+
+sub _get_contigs_fasta {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
@@ -68,8 +73,9 @@ any [qw(get post)] => '/db/:db/isolates/:id/contigs_fasta' => sub {
 	}
 	content_type 'text/plain';
 	return $buffer;
-};
-any [qw(get post)] => '/db/:db/contigs/:contig' => sub {
+}
+
+sub _get_contig {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my ( $db, $contig_id ) = ( params->{'db'}, params->{'contig'} );
@@ -107,5 +113,5 @@ any [qw(get post)] => '/db/:db/contigs/:contig' => sub {
 		}
 	}
 	return $values;
-};
+}
 1;

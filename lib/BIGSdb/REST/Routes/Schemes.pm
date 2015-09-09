@@ -24,7 +24,11 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
-any [qw(get post)] => '/db/:db/schemes' => sub {
+any [qw(get post)] => '/db/:db/schemes'                       => sub { _get_schemes() };
+any [qw(get post)] => '/db/:db/schemes/:scheme'               => sub { _get_scheme() };
+any [qw(get post)] => '/db/:db/schemes/:scheme/fields/:field' => sub { _get_scheme_field() };
+
+sub _get_schemes {
 	my $self    = setting('self');
 	my ($db)    = params->{'db'};
 	my $set_id  = $self->get_set_id;
@@ -38,8 +42,9 @@ any [qw(get post)] => '/db/:db/schemes' => sub {
 		  };
 	}
 	return $values;
-};
-any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
+}
+
+sub _get_scheme {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
 	$self->check_scheme($scheme_id);
@@ -76,8 +81,9 @@ any [qw(get post)] => '/db/:db/schemes/:scheme' => sub {
 		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv")->as_string;
 	}
 	return $values;
-};
-any [qw(get post)] => '/db/:db/schemes/:scheme/fields/:field' => sub {
+}
+
+sub _get_scheme_field {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $scheme_id, $field ) = @{$params}{qw(db scheme field)};
@@ -92,5 +98,5 @@ any [qw(get post)] => '/db/:db/schemes/:scheme/fields/:field' => sub {
 	}
 	$values->{'primary_key'} = $field_info->{'primary_key'} ? JSON::true : JSON::false;
 	return $values;
-};
+}
 1;

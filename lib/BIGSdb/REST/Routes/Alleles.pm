@@ -24,7 +24,11 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele routes
-any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
+any [qw(get post)] => '/db/:db/loci/:locus/alleles'            => sub { _get_alleles() };
+any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub { _get_allele() };
+any [qw(get post)] => '/db/:db/loci/:locus/alleles_fasta'      => sub { _get_alleles_fasta() };
+
+sub _get_alleles {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -52,15 +56,16 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles' => sub {
 	}
 	my $values = {};
 	my $paging = $self->get_paging( "/db/$db/loci/$locus_name/alleles", $pages, $page );
-	$values->{'paging'} = $paging if $paging;
+	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
 		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")->as_string;
 	}
 	$values->{'alleles'} = $allele_links;
 	return $values;
-};
-any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub {
+}
+
+sub _get_allele {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -112,8 +117,9 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles/:allele_id' => sub {
 
 	#TODO scheme members
 	return $values;
-};
-any [qw(get post)] => '/db/:db/loci/:locus/alleles_fasta' => sub {
+}
+
+sub _get_alleles_fasta {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
@@ -140,5 +146,5 @@ any [qw(get post)] => '/db/:db/loci/:locus/alleles_fasta' => sub {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
 	}
 	return $buffer;
-};
+}
 1;

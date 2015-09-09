@@ -25,7 +25,10 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
-any [qw(get post)] => '/db/:db/loci' => sub {
+any [qw(get post)] => '/db/:db/loci'        => sub { _get_loci() };
+any [qw(get post)] => '/db/:db/loci/:locus' => sub { _get_locus() };
+
+sub _get_loci {
 	my $self   = setting('self');
 	my ($db)   = params->{'db'};
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -45,7 +48,7 @@ any [qw(get post)] => '/db/:db/loci' => sub {
 
 	if (@$loci) {
 		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page );
-		$values->{'paging'} = $paging if $paging;
+		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		foreach my $locus (@$loci) {
 			my $cleaned_locus = $self->clean_locus($locus);
@@ -54,8 +57,9 @@ any [qw(get post)] => '/db/:db/loci' => sub {
 		$values->{'loci'} = \@links;
 	}
 	return $values;
-};
-any [qw(get post)] => '/db/:db/loci/:locus' => sub {
+}
+
+sub _get_locus {
 	my $self = setting('self');
 	my ( $db, $locus ) = ( params->{'db'}, params->{'locus'} );
 	my $set_id     = $self->get_set_id;
@@ -175,5 +179,5 @@ any [qw(get post)] => '/db/:db/loci/:locus' => sub {
 		}
 	}
 	return $values;
-};
+}
 1;

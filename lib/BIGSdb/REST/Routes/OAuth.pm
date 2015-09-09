@@ -26,9 +26,11 @@ use Dancer2 appname                => 'BIGSdb::REST::Interface';
 use constant REQUEST_TOKEN_EXPIRES => 3600;
 use constant REQUEST_TOKEN_TIMEOUT => 600;
 use constant ACCESS_TOKEN_TIMEOUT  => 600;
+any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub { _get_request_token() };
+any [qw(get post)] => '/db/:db/oauth/get_access_token'  => sub { _get_access_token() };
+any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub { _get_session_token() };
 
-#get_request_token
-any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
+sub _get_request_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
@@ -99,10 +101,9 @@ any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub {
 	}
 	$self->{'auth_db'}->commit;
 	return { oauth_token => $token, oauth_token_secret => $token_secret, oauth_callback_confirmed => 'true' };
-};
+}
 
-#get_access_token
-any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
+sub _get_access_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
@@ -190,10 +191,9 @@ any [qw(get post)] => '/db/:db/oauth/get_access_token' => sub {
 		$self->{'auth_db'}->commit;
 	}
 	return { oauth_token => $access_token, oauth_token_secret => $access_token_secret };
-};
+}
 
-#get_session_token
-any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
+sub _get_session_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
@@ -284,5 +284,5 @@ any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub {
 		$self->{'auth_db'}->commit;
 	}
 	return { oauth_token => $session_token, oauth_token_secret => $session_token_secret };
-};
+}
 1;

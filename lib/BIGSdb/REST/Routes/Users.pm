@@ -24,7 +24,9 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #User routes
-any [qw(get post)] => '/db/:db/users/:user' => sub {
+any [qw(get post)] => '/db/:db/users/:user' => sub { _get_user() };
+
+sub _get_user {
 	my $self    = setting('self');
 	my $user_id = param('user');
 	if ( !BIGSdb::Utils::is_int($user_id) ) {
@@ -43,5 +45,5 @@ any [qw(get post)] => '/db/:db/users/:user' => sub {
 		$values->{$field} = $user->{$field};
 	}
 	return $values;
-};
+}
 1;
