@@ -41,6 +41,8 @@ use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
 use constant PAGE_SIZE       => 100;
+hook before => sub { _before() };
+hook after  => sub { _after() };
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -76,7 +78,7 @@ sub _initiate {
 }
 
 #Read database configs and connect before entering route.
-hook before => sub {
+sub _before {
 	my $self        = setting('self');
 	my $request_uri = request->uri();
 	$self->{'instance'} = $request_uri =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
@@ -111,8 +113,7 @@ hook before => sub {
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
 			$logger->error( "The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the "
-				  . 'database. Please set the labelfield attribute in the system tag of the database XML file.' )
-			  ;
+				  . 'database. Please set the labelfield attribute in the system tag of the database XML file.' );
 		}
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
@@ -133,15 +134,16 @@ hook before => sub {
 		}
 	}
 	return;
-};
+}
 
-#Drop the connection because we may have hundreds of databases on the system.  
-#Keeping them all open will exhaust resources. This could be made optional 
+#Drop the connection because we may have hundreds of databases on the system.
+#Keeping them all open will exhaust resources. This could be made optional
 #for systems with only a few databases.
-hook after => sub {
+sub _after {
 	my $self = setting('self');
 	$self->{'dataConnector'}->drop_all_connections;
-};
+	return;
+}
 
 sub _is_authorized {
 	my ($self) = @_;
