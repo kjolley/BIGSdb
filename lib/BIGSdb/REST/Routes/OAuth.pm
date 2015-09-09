@@ -166,7 +166,7 @@ sub _get_access_token {
 	my $access_token_secret = BIGSdb::Utils::random_string(32);
 	eval {
 		$self->{'auth_db'}
-		  ->do( 'UPDATE request_tokens SET (redeemed,token)=(?,?)', undef, 1, $request_token->{'token'} );
+		  ->do( 'UPDATE request_tokens SET redeemed=? WHERE token=?', undef, 1, $request_token->{'token'} );
 
 		#Replace existing access token for same user.
 		$self->{'auth_db'}->do(
