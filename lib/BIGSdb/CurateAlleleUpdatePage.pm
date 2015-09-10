@@ -40,42 +40,44 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
-	$locus =~ s/^cn_//;
+	$locus =~ s/^cn_//x;
 	my $isolate_id = $q->param('isolate_id') // $q->param('allele_designations_isolate_id');
 	if ( !$isolate_id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No isolate id passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No isolate id passed.</p></div>);
 		return;
 	}
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid locus passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Invalid locus passed.</p></div>);
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
-	say "<h1>Update $cleaned_locus allele for isolate $isolate_id</h1>";
+	say qq(<h1>Update $cleaned_locus allele for isolate $isolate_id</h1>);
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid id - Isolate ids are integers.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Invalid id - Isolate ids are integers.</p></div>);
 		return;
 	}
 	if ( !$self->can_modify_table('allele_designations') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update allele designations.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
+		  . q(to update allele designations.</p></div>);
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update allele designations "
-		  . "for this isolate.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
+		  . q(allele designations for this isolate.</p></div>);
 		return;
 	}
 	my $data =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No record with id = $isolate_id exists.</p></div>";
+		say qq(<div class="box" id="statusbad"><p>No record with id = $isolate_id exists.</p></div>);
 		return;
 	}
-	my $right_buffer = "<h2>Locus: $cleaned_locus</h2>\n";
+	my $right_buffer = qq(<h2>Locus: $cleaned_locus</h2>\n);
 	my @params       = keys %{ $q->Vars };
 	my $update;
 	my $id;
 	foreach my $param (@params) {
-		if ( $param =~ /^(\d+)_update/ ) {
+		if ( $param =~ /^(\d+)_update/x ) {
 			$update              = 1;
 			$id                  = $1;
 			$data->{'update_id'} = $id;
@@ -94,37 +96,40 @@ sub print_content {
 	}
 	my $datestamp = $self->get_datestamp;
 	if ($update) {
-		$right_buffer .= "<h3>Update allele designation</h3>\n";
+		$right_buffer .= qq(<h3>Update allele designation</h3>\n);
 		my $designation =
-		  $self->{'datastore'}->run_query( "SELECT * FROM allele_designations WHERE id=?", $id, { fetch => 'row_hashref' } );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM allele_designations WHERE id=?', $id, { fetch => 'row_hashref' } );
 		$right_buffer .=
-		  $self->create_record_table( 'allele_designations', $designation, { update => 1, nodiv => 1, prepend_table_name => 1 } );
+		  $self->create_record_table( 'allele_designations', $designation,
+			{ update => 1, nodiv => 1, prepend_table_name => 1 } );
 	} else {
-		$right_buffer .= "<h3>Add new allele designation</h3>\n";
+		$right_buffer .= qq(<h3>Add new allele designation</h3>\n);
 		$q->delete('update_id');
-		my $designation = { isolate_id => $isolate_id, locus => $locus, date_entered => $datestamp, method => 'manual' };
+		my $designation =
+		  { isolate_id => $isolate_id, locus => $locus, date_entered => $datestamp, method => 'manual' };
 		$right_buffer .=
 		  $self->create_record_table( 'allele_designations', $designation,
 			{ update => 0, reset_params => 1, nodiv => 1, prepend_table_name => 1, newdata_readonly => 1 } );
 	}
 	$right_buffer .= $self->_get_existing_designations( $isolate_id, $locus );
-	say "<div class=\"box\" id=\"resultstable\">";
-	say "<div class=\"scrollable\"><table><tr><td style=\"vertical-align:top\">";
+	say q(<div class="box" id="resultstable">);
+	say q(<div class="scrollable"><table><tr><td style="vertical-align:top">);
 	$self->_display_isolate_summary($isolate_id);
-	say "<h2>Update other loci:</h2>";
+	say q(<h2>Update other loci:</h2>);
 	print $q->start_form;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	say "<label for=\"locus\">Locus: </label>";
+	say q(<label for="locus">Locus: </label>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
-	say $q->submit( -label => 'Add/update', -class => 'submit' );
+	say $q->submit( -label => 'Add/update', -class => 'button' );
 	$q->param( update_id => $data->{'update_id'} );
 	say $q->hidden($_) foreach qw(db page isolate_id update_id);
 	say $q->end_form;
-	say "</td><td style=\"vertical-align:top; padding-left:2em\">";
+	say q(</td><td style="vertical-align:top; padding-left:2em">);
 	say $right_buffer;
-	say "</td></tr></table>\n</div>";
-	say "</div>";
+	say q(</td></tr></table></div>);
+	say q(</div>);
 	return;
 }
 
@@ -134,20 +139,23 @@ sub _get_existing_designations {
 	my $buffer       = '';
 	my $designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
 	if (@$designations) {
-		$buffer .= "<h3>Existing designations</h3>\n";
+		$buffer .= qq(<h3>Existing designations</h3>\n);
 		$buffer .= $q->start_form;
-		$buffer .= qq(<table class="resultstable"><tr><th>Update</th><th>Delete</th><th>allele id</th><th>sender</th>)
+		$buffer .= q(<table class="resultstable"><tr><th>Update</th><th>Delete</th><th>allele id</th><th>sender</th>)
 		  . qq(<th>status</th><th>method</th><th>comments</th></tr>\n);
 		my $td = 1;
 		foreach my $designation (@$designations) {
 			my $sender = $self->{'datastore'}->get_user_info( $designation->{'sender'} );
 			$designation->{'comments'} //= '';
 			$buffer .= qq(<tr class="td$td"><td>);
-			$buffer .= $q->submit( -name => "$designation->{'id'}\_update", -label => 'Update', -class => 'smallbutton' );
+			$buffer .=
+			  $q->submit( -name => "$designation->{'id'}\_update", -label => 'Update', -class => 'smallbutton' );
 			$buffer .= '</td><td>';
-			$buffer .= $q->submit( -name => "$designation->{'id'}\_delete", -label => 'Delete', -class => 'smallbutton' );
-			$buffer .= "</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>"
-			  . "<td>$designation->{'status'}</td><td>$designation->{'method'}</td><td>$designation->{'comments'}</td></tr>";
+			$buffer .=
+			  $q->submit( -name => "$designation->{'id'}\_delete", -label => 'Delete', -class => 'smallbutton' );
+			$buffer .=
+			    qq(</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>)
+			  . qq(<td>$designation->{'status'}</td><td>$designation->{'method'}</td><td>$designation->{'comments'}</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= "</table>\n";
@@ -164,14 +172,16 @@ sub _delete {
 	my $q      = $self->{'cgi'};
 	my @params = keys %{ $q->Vars };
 	foreach my $param (@params) {
-		if ( $param =~ /^(\d+)_delete/ ) {
+		if ( $param =~ /^(\d+)_delete/x ) {
 			my $id = $1;
 			my $designation =
-			  $self->{'datastore'}->run_query( "SELECT * FROM allele_designations WHERE id=?", $id, { fetch => 'row_hashref' } );
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT * FROM allele_designations WHERE id=?', $id, { fetch => 'row_hashref' } );
 
 			#Although id is the PK, include isolate_id and locus to prevent somebody from easily modifying CGI params.
 			eval {
-				$self->{'db'}->do( "DELETE FROM allele_designations WHERE (id,isolate_id,locus)=(?,?,?)", undef, $id, $isolate_id, $locus );
+				$self->{'db'}->do( 'DELETE FROM allele_designations WHERE (id,isolate_id,locus)=(?,?,?)',
+					undef, $id, $isolate_id, $locus );
 			};
 			if ($@) {
 				$logger->error($@);
@@ -204,23 +214,29 @@ sub _update {
 	$newdata->{'curator'}      = $self->get_curator_id;
 	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
+
 	#TODO Use placeholders for all SQL values.
 	my $existing_designation;
 	if ( $q->param('update_id') ) {    #Update existing allele
-		$existing_designation =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT * FROM allele_designations WHERE id=?", $q->param('update_id'), { fetch => 'row_hashref' } );
+		$existing_designation = $self->{'datastore'}->run_query(
+			'SELECT * FROM allele_designations WHERE id=?',
+			$q->param('update_id'),
+			{ fetch => 'row_hashref' }
+		);
 	} else {                           #Add new allele
 		$existing_designation = $self->{'datastore'}->run_query(
-			"SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)",
+			'SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)',
 			[ $isolate_id, $locus, $newdata->{'allele_id'} ],
 			{ fetch => 'row_hashref' }
 		);
 	}
-	if ( $q->param('update_id') && $existing_designation && $newdata->{'allele_id'} ne $existing_designation->{'allele_id'} ) {
+	if (   $q->param('update_id')
+		&& $existing_designation
+		&& $newdata->{'allele_id'} ne $existing_designation->{'allele_id'} )
+	{
 		my $allele_id_exists =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT EXISTS (SELECT * FROM allele_designations WHERE isolate_id=? AND locus=? AND allele_id=?)",
+		  ->run_query( 'SELECT EXISTS (SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?))',
 			[ $isolate_id, $locus, $newdata->{'allele_id'} ] );
 		if ($allele_id_exists) {
 			push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
@@ -252,8 +268,8 @@ sub _update {
 				&& $attribute->{'name'}               ne 'date_entered'
 				&& $attribute->{'name'}               ne 'curator' )
 			{
-				push @updated_field,
-				  "$locus $attribute->{'name'}: $existing_designation->{lc($attribute->{'name'})} -> $newdata->{ $attribute->{'name'}}";
+				push @updated_field, "$locus $attribute->{'name'}: "
+				  . "$existing_designation->{lc($attribute->{'name'})} -> $newdata->{ $attribute->{'name'}}";
 			}
 		}
 		local $" = ',';
@@ -263,15 +279,15 @@ sub _update {
 			my $qry = "UPDATE allele_designations SET @values WHERE (id,isolate_id,locus)=(?,?,?)";
 			eval { $self->{'db'}->do( $qry, undef, $q->param('update_id'), $isolate_id, $locus ) };
 			if ($@) {
-				$buffer .=
-				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
-				$buffer .= "<p>Failed SQL: $qry</p>\n";
-				$buffer .= "<p>Error message: $@</p></div>\n";
+				$buffer .= q(<div class="statusbad_no_resize"><p>Update failed - transaction cancelled - )
+				  . qq(no records have been touched.</p>\n);
+				$buffer .= qq(<p>Failed SQL: $qry</p>\n);
+				$buffer .= qq(<p>Error message: $@</p></div>\n);
 				$logger->error($@);
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				$buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation updated!</p></div>";
+				$buffer .= q(<div class="statusgood_no_resize"><p>allele designation updated!</p></div>);
 				local $" = '<br />';
 				$self->update_history( $isolate_id, "@updated_field" );
 			}
@@ -281,13 +297,13 @@ sub _update {
 			my $results_buffer;
 			eval { $self->{'db'}->do($qry) };
 			if ($@) {
-				$results_buffer .=
-				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p></div>\n";
+				$results_buffer .= q(<div class="statusbad_no_resize"><p>Update failed - transaction cancelled - )
+				  . qq(no records have been touched.</p></div>\n);
 				$logger->error("$qry $@");
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				$results_buffer .= "<div class=\"statusgood_no_resize\"><p>allele designation added!</p></div>";
+				$results_buffer .= q(<div class="statusgood_no_resize"><p>allele designation added!</p></div>);
 				$self->update_history( $isolate_id, "$locus: new designation '$newdata->{'allele_id'}'" );
 			}
 			$buffer .= $results_buffer;
@@ -325,7 +341,7 @@ sub get_title {
 	my $id    = $q->param('isolate_id') || $q->param('allele_designations_isolate_id');
 	$id    //= '';
 	$locus //= '';
-	$locus =~ s/^cn_//;
+	$locus =~ s/^cn_//x;
 	return "Update $locus allele for isolate $id - $desc";
 }
 1;
