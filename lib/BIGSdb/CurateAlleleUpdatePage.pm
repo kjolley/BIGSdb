@@ -204,6 +204,7 @@ sub _update {
 	$newdata->{'curator'}      = $self->get_curator_id;
 	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
+	#TODO Use placeholders for all SQL values.
 	my $existing_designation;
 	if ( $q->param('update_id') ) {    #Update existing allele
 		$existing_designation =
@@ -237,8 +238,8 @@ sub _update {
 			$newdata->{ $attribute->{'name'} } = '' if !defined $newdata->{ $attribute->{'name'} };
 			if ( ( $newdata->{ $attribute->{'name'} } // '' ) ne '' ) {
 				my $escaped = $newdata->{ $attribute->{'name'} };
-				$escaped =~ s/\\/\\\\/g;
-				$escaped =~ s/'/\\'/g;
+				$escaped =~ s/\\/\\\\/gx;
+				$escaped =~ s/'/''/gx;
 				push @values,     "$attribute->{'name'} = E'$escaped'";
 				push @add_values, "E'$escaped'";
 			} else {
@@ -266,6 +267,7 @@ sub _update {
 				  "<div class=\"statusbad_no_resize\"><p>Update failed - transaction cancelled - no records have been touched.</p>\n";
 				$buffer .= "<p>Failed SQL: $qry</p>\n";
 				$buffer .= "<p>Error message: $@</p></div>\n";
+				$logger->error($@);
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
