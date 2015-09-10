@@ -918,8 +918,8 @@ sub create_temp_isolate_scheme_fields_view {
 	$logger->error($@) if $@;
 	if ( $options->{'cache'} ) {
 		foreach my $field ( @$scheme_fields, 'id' ) {
-			my $scheme_field_info = $self->get_scheme_field_info($scheme_id, $field);
-			if ($scheme_field_info->{'type'} eq 'text'){
+			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
+			if ( $scheme_field_info->{'type'} eq 'text' ) {
 				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
 			} else {
 				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
@@ -1107,7 +1107,7 @@ sub create_temp_list_table {
 sub create_temp_list_table_from_array {
 	my ( $self, $datatype, $list, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $table = $options->{'table'} // ('temp_list' . int(rand(99999999)));
+	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
 		$self->{'db'}->do("COPY $table FROM STDIN");
@@ -2318,13 +2318,17 @@ sub get_submission {
 }
 
 sub get_allele_submission {
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$logger->logcarp('No submission_id passed') if !$submission_id;
 	my $submission = $self->run_query( 'SELECT * FROM allele_submissions WHERE submission_id=?',
 		$submission_id, { fetch => 'row_hashref', cache => 'get_allele_submission' } );
 	return if !$submission;
-	my $seq_data = $self->run_query( 'SELECT * FROM allele_submission_sequences WHERE submission_id=? ORDER BY index',
-		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_allele_submission::sequences' } );
+	my $fields = $options->{'fields'} // '*';
+	my $seq_data = $self->run_query(
+		"SELECT $fields FROM allele_submission_sequences WHERE submission_id=? ORDER BY index",
+		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_allele_submission::sequences' }
+	);
 	$submission->{'seqs'} = $seq_data;
 	return $submission;
 }
