@@ -916,7 +916,7 @@ sub _check_data_primary_key {
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(project_members refs);
+			my %warn_tables = map { $_ => 1 } qw(project_members refs isolate_aliases locus_aliases);
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
 				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
 				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
