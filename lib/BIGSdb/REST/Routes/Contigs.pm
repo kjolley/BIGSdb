@@ -71,8 +71,8 @@ sub _get_contigs_fasta {
 		my $header = $contig->{$header_field} // $contig->{'id'};
 		$buffer .= ">$header\n$contig->{'sequence'}\n";
 	}
-	content_type 'text/plain';
-	return $buffer;
+	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
+	return;
 }
 
 sub _get_contig {
