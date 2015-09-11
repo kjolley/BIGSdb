@@ -22,9 +22,9 @@ use warnings;
 use 5.010;
 use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-any [qw(get post)] => '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
-any [qw(get post)] => '/db/:db/isolates/:id/contigs_fasta' => sub { _get_contigs_fasta() };
-any [qw(get post)] => '/db/:db/contigs/:contig'            => sub { _get_contig() };
+get '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
+get '/db/:db/isolates/:id/contigs_fasta' => sub { _get_contigs_fasta() };
+get '/db/:db/contigs/:contig'            => sub { _get_contig() };
 
 sub _get_contigs {
 	my $self = setting('self');

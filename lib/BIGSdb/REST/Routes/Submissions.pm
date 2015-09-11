@@ -22,11 +22,11 @@ use warnings;
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
-any [qw(get post)] => '/db/:db/submissions'             => sub { _get_submissions() };
-any [qw(get post)] => '/db/:db/submissions/pending'     => sub { _get_submissions_by_status('pending') };
-any [qw(get post)] => '/db/:db/submissions/closed'      => sub { _get_submissions_by_status('closed') };
-any [qw(get post)] => '/db/:db/submissions/started'     => sub { _get_submissions_by_status('started') };
-any [qw(get post)] => '/db/:db/submissions/:submission' => sub { _get_submission() };
+get '/db/:db/submissions'             => sub { _get_submissions() };
+get '/db/:db/submissions/pending'     => sub { _get_submissions_by_status('pending') };
+get '/db/:db/submissions/closed'      => sub { _get_submissions_by_status('closed') };
+get '/db/:db/submissions/started'     => sub { _get_submissions_by_status('started') };
+get '/db/:db/submissions/:submission' => sub { _get_submission() };
 
 sub _get_submissions {
 	my $self      = setting('self');

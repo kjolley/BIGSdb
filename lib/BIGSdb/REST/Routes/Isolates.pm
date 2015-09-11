@@ -26,9 +26,9 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-any [qw(get post)] => '/db/:db/isolates'     => sub { _get_isolates() };
-any [qw(get post)] => '/db/:db/isolates/:id' => sub { _get_isolate() };
-any [qw(get post)] => '/db/:db/fields'       => sub { _get_fields() };
+get '/db/:db/isolates'     => sub { _get_isolates() };
+get '/db/:db/isolates/:id' => sub { _get_isolate() };
+get '/db/:db/fields'       => sub { _get_fields() };
 
 sub _get_isolates {
 	my $self = setting('self');

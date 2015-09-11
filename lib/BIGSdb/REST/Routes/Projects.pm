@@ -23,9 +23,9 @@ use 5.010;
 use POSIX qw(ceil);
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-any [qw(get post)] => '/db/:db/projects'                   => sub { _get_projects() };
-any [qw(get post)] => '/db/:db/projects/:project'          => sub { _get_project() };
-any [qw(get post)] => '/db/:db/projects/:project/isolates' => sub { _get_project_isolates() };
+get '/db/:db/projects'                   => sub { _get_projects() };
+get '/db/:db/projects/:project'          => sub { _get_project() };
+get '/db/:db/projects/:project/isolates' => sub { _get_project_isolates() };
 
 sub _get_projects {
 	my $self = setting('self');

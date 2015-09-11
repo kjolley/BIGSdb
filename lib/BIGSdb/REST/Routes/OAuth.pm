@@ -26,9 +26,9 @@ use Dancer2 appname                => 'BIGSdb::REST::Interface';
 use constant REQUEST_TOKEN_EXPIRES => 3600;
 use constant REQUEST_TOKEN_TIMEOUT => 600;
 use constant ACCESS_TOKEN_TIMEOUT  => 600;
-any [qw(get post)] => '/db/:db/oauth/get_request_token' => sub { _get_request_token() };
-any [qw(get post)] => '/db/:db/oauth/get_access_token'  => sub { _get_access_token() };
-any [qw(get post)] => '/db/:db/oauth/get_session_token' => sub { _get_session_token() };
+get '/db/:db/oauth/get_request_token' => sub { _get_request_token() };
+get '/db/:db/oauth/get_access_token'  => sub { _get_access_token() };
+get '/db/:db/oauth/get_session_token' => sub { _get_session_token() };
 
 sub _get_request_token {
 	my $self            = setting('self');
