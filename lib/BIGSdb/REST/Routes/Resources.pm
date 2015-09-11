@@ -24,9 +24,9 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/robots.txt' => sub { _get_robots() };
 
 #Resource description routes
-any [qw(get post)] => '/'           => sub { _get_root() };
-any [qw(get post)] => qr{^/db/?+$}x => sub { redirect '/' };
-any [qw(get post)] => '/db/:db'     => sub { _get_db() };
+get '/'           => sub { _get_root() };
+get qr{^/db/?+$}x => sub { redirect '/' };
+get '/db/:db'     => sub { _get_db() };
 
 sub _get_robots {
 	content_type 'text/plain';

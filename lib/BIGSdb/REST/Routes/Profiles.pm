@@ -24,9 +24,9 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Profile routes
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles'             => sub { _get_profiles() };
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles_csv'         => sub { _get_profiles_csv() };
-any [qw(get post)] => '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
+get '/db/:db/schemes/:scheme_id/profiles'             => sub { _get_profiles() };
+get '/db/:db/schemes/:scheme_id/profiles_csv'         => sub { _get_profiles_csv() };
+get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
 
 sub _get_profiles {
 	my $self = setting('self');

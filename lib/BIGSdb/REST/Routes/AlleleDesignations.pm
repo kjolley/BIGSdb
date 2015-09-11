@@ -24,11 +24,11 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele designation routes
-any [qw(get post)] => '/db/:db/isolates/:id/allele_designations'        => sub { _get_allele_designations() };
-any [qw(get post)] => '/db/:db/isolates/:id/allele_designations/:locus' => sub { _get_allele_designation() };
-any [qw(get post)] => '/db/:db/isolates/:id/allele_ids'                 => sub { _get_allele_ids() };
-any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub { _get_scheme_allele_ids() };
-any [qw(get post)] => '/db/:db/isolates/:id/schemes/:scheme/allele_designations' =>
+get '/db/:db/isolates/:id/allele_designations'        => sub { _get_allele_designations() };
+get '/db/:db/isolates/:id/allele_designations/:locus' => sub { _get_allele_designation() };
+get '/db/:db/isolates/:id/allele_ids'                 => sub { _get_allele_ids() };
+get '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub { _get_scheme_allele_ids() };
+get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' =>
   sub { _get_scheme_allele_designations() };
 
 sub _get_allele_designations {
