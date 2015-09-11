@@ -37,7 +37,7 @@ sub _get_schemes {
 	foreach my $scheme (@$schemes) {
 		push @$values,
 		  {
-			scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string,
+			scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}"),
 			description => $scheme->{'description'}
 		  };
 	}
@@ -55,13 +55,13 @@ sub _get_scheme {
 	$values->{'description'}           = $scheme_info->{'description'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
 	$values->{'primary_key_field'} =
-	  request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")->as_string
+	  request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
 
 	foreach my $field (@$scheme_fields) {
-		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field")->as_string;
+		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field");
 	}
 	$values->{'fields'} = $scheme_field_links if @$scheme_field_links;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -69,7 +69,7 @@ sub _get_scheme {
 	my $locus_links = [];
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
-		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
+		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus");
 	}
 	$values->{'loci'} = $locus_links if @$locus_links;
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -77,8 +77,8 @@ sub _get_scheme {
 		  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
 		$values->{'profile_count'} = int($profile_count);    #Force integer output (non-quoted)
-		$values->{'profiles'}     = request->uri_for("/db/$db/schemes/$scheme_id/profiles")->as_string;
-		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv")->as_string;
+		$values->{'profiles'}     = request->uri_for("/db/$db/schemes/$scheme_id/profiles");
+		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv");
 
 		#Curators
 		my $curators =
@@ -87,7 +87,7 @@ sub _get_scheme {
 			$scheme_id, { fetch => 'col_arrayref' } );
 		my @curator_links;
 		foreach my $user_id (@$curators) {
-			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
+			push @curator_links, request->uri_for("/db/$db/users/$user_id");
 		}
 		$values->{'curators'} = \@curator_links if @curator_links;
 	}

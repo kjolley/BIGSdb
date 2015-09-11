@@ -39,7 +39,7 @@ sub _get_submissions {
 	send_error( 'You currently have no submissions.', 404 ) if !@$submission_status;
 	my $values = {};
 	foreach my $status (@$submission_status) {
-		$values->{$status} = request->uri_for("/db/$db/submissions/$status")->as_string;
+		$values->{$status} = request->uri_for("/db/$db/submissions/$status");
 	}
 	return $values;
 }
@@ -57,7 +57,7 @@ sub _get_submissions_by_status {
 	);
 	send_error( 'You currently have no $status submissions.', 404 ) if !@$submission_ids;
 	my $values = [];
-	push @$values, request->uri_for("/db/$db/submissions/$_")->as_string foreach @$submission_ids;
+	push @$values, request->uri_for("/db/$db/submissions/$_") foreach @$submission_ids;
 	return $values;
 }
 
@@ -72,7 +72,7 @@ sub _get_submission {
 		$values->{$field} = $submission->{$field} if defined $submission->{$field};
 	}
 	foreach my $field (qw (submitter curator)) {
-		$values->{$field} = request->uri_for("/db/$db/users/$submission->{$field}")->as_string
+		$values->{$field} = request->uri_for("/db/$db/users/$submission->{$field}")
 		  if defined $submission->{$field};
 	}
 	my %type = (
@@ -94,7 +94,7 @@ sub _get_submission {
 	my $correspondence = [];
 	if (@$messages) {
 		foreach my $message (@$messages) {
-			$message->{'user'} = request->uri_for("/db/$db/users/$message->{'user_id'}")->as_string;
+			$message->{'user'} = request->uri_for("/db/$db/users/$message->{'user_id'}");
 			delete $message->{$_} foreach qw(user_id submission_id);
 			push @$correspondence, $message;
 		}

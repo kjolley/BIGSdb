@@ -67,7 +67,7 @@ sub _get_profiles {
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
 	foreach my $profile_id (@$profiles) {
-		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id")->as_string;
+		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id");
 	}
 	$values->{'profiles'} = $profile_links;
 	return $values;
@@ -156,7 +156,7 @@ sub _get_profile {
 		my $cleaned_locus = $self->clean_locus($locus);
 		( my $profile_name = $locus ) =~ s/'/_PRIME_/gx;
 		my $allele_id = $profile->{ lc($profile_name) };
-		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id")->as_string;
+		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -178,7 +178,7 @@ sub _get_profile {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} = request->uri_for("/db/$db/users/$profile_info->{$attribute}")->as_string
+			$values->{$attribute} = request->uri_for("/db/$db/users/$profile_info->{$attribute}")
 			  if $profile_info->{$attribute};
 		} else {
 			$values->{$attribute} = $profile_info->{$attribute};

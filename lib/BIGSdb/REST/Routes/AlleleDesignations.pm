@@ -61,7 +61,7 @@ sub _get_allele_designations {
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
 		push @$designation_links,
-		  request->uri_for("/db/$db/isolates/$isolate_id/allele_designations/$locus_name")->as_string;
+		  request->uri_for("/db/$db/isolates/$isolate_id/allele_designations/$locus_name");
 	}
 	$values->{'allele_designations'} = $designation_links;
 	return $values;
@@ -92,7 +92,7 @@ sub _get_allele_designation {
 		foreach my $attribute (qw(locus allele_id status method comments sender curator datestamp)) {
 			next if !defined $designation->{$attribute} || $designation->{$attribute} eq '';
 			if ( $attribute eq 'locus' ) {
-				$returned_designation->{'locus'} = request->uri_for("/db/$db/loci/$locus")->as_string;
+				$returned_designation->{'locus'} = request->uri_for("/db/$db/loci/$locus");
 			} elsif ( $attribute eq 'allele_id' ) {
 				$returned_designation->{'allele_id'} =
 				  $locus_info->{'allele_id_format'} eq 'integer'
@@ -100,7 +100,7 @@ sub _get_allele_designation {
 				  : $designation->{'allele_id'};
 			} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 				$returned_designation->{$attribute} =
-				  request->uri_for("/db/$db/users/$designation->{$attribute}")->as_string;
+				  request->uri_for("/db/$db/users/$designation->{$attribute}");
 			} else {
 				$returned_designation->{$attribute} = $designation->{$attribute};
 			}
@@ -222,14 +222,14 @@ sub _get_scheme_allele_designations {
 			my $value = {};
 			foreach my $field (qw ( locus allele_id sender status method curator date_entered datestamp)) {
 				if ( $field eq 'locus' ) {
-					$value->{'locus'} = request->uri_for("/db/$db/loci/$locus_name")->as_string;
+					$value->{'locus'} = request->uri_for("/db/$db/loci/$locus_name");
 				} elsif ( $field eq 'allele_id'
 					&& $locus_info->{'allele_id_format'} eq 'integer'
 					&& BIGSdb::Utils::is_int( $designation->{'allele_id'} ) )
 				{
 					$value->{'allele_id'} = int( $designation->{'allele_id'} );
 				} elsif ( $field eq 'sender' || $field eq 'curator' ) {
-					$value->{$field} = request->uri_for("/db/$db/users/$designation->{$field}")->as_string;
+					$value->{$field} = request->uri_for("/db/$db/users/$designation->{$field}");
 				} else {
 					$value->{$field} = $designation->{$field} if defined $designation->{$field};
 				}

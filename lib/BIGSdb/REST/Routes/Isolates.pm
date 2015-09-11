@@ -47,7 +47,7 @@ sub _get_isolates {
 		my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
-		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
+		push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
 		$values->{'isolates'} = \@links;
 	}
 	return $values;
@@ -66,7 +66,7 @@ sub _get_isolate {
 	foreach my $field (@$field_list) {
 
 		if ( $field eq 'sender' || $field eq 'curator' ) {
-			$provenance->{$field} = request->uri_for("/db/$db/users/$field_values->{$field}")->as_string;
+			$provenance->{$field} = request->uri_for("/db/$db/users/$field_values->{$field}");
 		} else {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( defined $field_values->{ lc $field } ) {
@@ -90,8 +90,8 @@ sub _get_isolate {
 		my $seqbin = {
 			contig_count  => $seqbin_stats->{'contigs'},
 			total_length  => $seqbin_stats->{'total_length'},
-			contigs       => request->uri_for("/db/$db/isolates/$id/contigs")->as_string,
-			contigs_fasta => request->uri_for("/db/$db/isolates/$id/contigs_fasta")->as_string
+			contigs       => request->uri_for("/db/$db/isolates/$id/contigs"),
+			contigs_fasta => request->uri_for("/db/$db/isolates/$id/contigs_fasta")
 		};
 		$values->{'sequence_bin'} = $seqbin;
 	}
@@ -106,8 +106,8 @@ sub _get_isolate {
 	if ($designations) {
 		$values->{'allele_designations'} = {
 			designation_count => int($designations),
-			full_designations => request->uri_for("/db/$db/isolates/$id/allele_designations")->as_string,
-			allele_ids        => request->uri_for("/db/$db/isolates/$id/allele_ids")->as_string
+			full_designations => request->uri_for("/db/$db/isolates/$id/allele_designations"),
+			allele_ids        => request->uri_for("/db/$db/isolates/$id/allele_ids")
 		};
 	}
 	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
@@ -120,8 +120,8 @@ sub _get_isolate {
 			description           => $scheme->{'description'},
 			loci_designated_count => scalar keys %$allele_designations,
 			full_designations =>
-			  request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations")->as_string,
-			allele_ids => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")->as_string
+			  request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations"),
+			allele_ids => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")
 		};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
@@ -152,12 +152,12 @@ sub _get_isolate {
 	my $projects = _get_isolate_projects($id);
 	$values->{'projects'} = $projects if @$projects;
 	if ( BIGSdb::Utils::is_int( $field_values->{'new_version'} ) ) {
-		$values->{'new_version'} = request->uri_for("/db/$db/isolates/$field_values->{'new_version'}")->as_string;
+		$values->{'new_version'} = request->uri_for("/db/$db/isolates/$field_values->{'new_version'}");
 	}
 	my $old_version =
 	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?", $id );
 	if ($old_version) {
-		$values->{'old_version'} = request->uri_for("/db/$db/isolates/$old_version")->as_string;
+		$values->{'old_version'} = request->uri_for("/db/$db/isolates/$old_version");
 	}
 	return $values;
 }
@@ -176,7 +176,7 @@ sub _get_isolate_projects {
 	foreach my $project (@$project_data) {
 		push @projects,
 		  {
-			id => request->uri_for("/db/$db/projects/$project->{'id'}")->as_string,
+			id => request->uri_for("/db/$db/projects/$project->{'id'}"),
 			, description => $project->{'short_description'}
 		  };
 	}
