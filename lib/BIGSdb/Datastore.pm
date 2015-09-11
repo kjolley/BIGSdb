@@ -917,7 +917,7 @@ sub create_temp_isolate_scheme_fields_view {
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
 	if ( $options->{'cache'} ) {
-		foreach my $field ( @$scheme_fields, 'id' ) {
+		foreach my $field (@$scheme_fields) {
 			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
 			if ( $scheme_field_info->{'type'} eq 'text' ) {
 				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
@@ -925,6 +925,7 @@ sub create_temp_isolate_scheme_fields_view {
 				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
 			}
 		}
+		$self->{'db'}->do("CREATE INDEX i_$table\_id ON $table (id)");
 
 		#Create new temp table, then drop old and rename the new - this
 		#should minimize the time that the table is unavailable.
@@ -2325,10 +2326,9 @@ sub get_allele_submission {
 		$submission_id, { fetch => 'row_hashref', cache => 'get_allele_submission' } );
 	return if !$submission;
 	my $fields = $options->{'fields'} // '*';
-	my $seq_data = $self->run_query(
-		"SELECT $fields FROM allele_submission_sequences WHERE submission_id=? ORDER BY index",
-		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_allele_submission::sequences' }
-	);
+	my $seq_data =
+	  $self->run_query( "SELECT $fields FROM allele_submission_sequences WHERE submission_id=? ORDER BY index",
+		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_allele_submission::sequences' } );
 	$submission->{'seqs'} = $seq_data;
 	return $submission;
 }

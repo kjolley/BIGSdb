@@ -126,8 +126,8 @@ sub _get_profiles_csv {
 			$buffer .= "@$profile\n";
 		}
 	}
-	content_type 'text/plain';
-	return $buffer;
+	send_file(\$buffer, content_type => 'text/plain; charset=UTF-8');
+	return;
 }
 
 sub _get_profile {

@@ -74,7 +74,7 @@ sub _get_db {
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		$routes->{'records'}  = int($count);                                       #Force integer output (non-quoted)
+		$routes->{'records'}  = int($count);                            #Force integer output (non-quoted)
 		$routes->{'isolates'} = request->uri_for("/db/$db/isolates");
 		$routes->{'fields'}   = request->uri_for("/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');

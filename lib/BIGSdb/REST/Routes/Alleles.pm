@@ -140,11 +140,11 @@ sub _get_alleles_fasta {
 	if ( !@$alleles ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
-	content_type 'text/plain';
 	my $buffer = '';
 	foreach my $allele (@$alleles) {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
 	}
-	return $buffer;
+	send_file(\$buffer, content_type => 'text/plain; charset=UTF-8');
+	return;
 }
 1;
