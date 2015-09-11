@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Application);
-use Dancer2;
+use Dancer2 0.156;
 use Error qw(:try);
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
@@ -64,7 +64,7 @@ sub new {
 	bless( $self, $class );
 	$self->_initiate;
 	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
-	set serializer => 'JSON';    #Mutable isn't working with Dancer2.
+	set serializer => 'JSON';
 	set self       => $self;
 	return $self;
 }

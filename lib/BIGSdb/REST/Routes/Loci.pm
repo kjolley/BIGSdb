@@ -52,7 +52,7 @@ sub _get_loci {
 		my @links;
 		foreach my $locus (@$loci) {
 			my $cleaned_locus = $self->clean_locus($locus);
-			push @links, request->uri_for("/db/$db/loci/$cleaned_locus")->as_string;
+			push @links, request->uri_for("/db/$db/loci/$cleaned_locus");
 		}
 		$values->{'loci'} = \@links;
 	}
@@ -131,7 +131,7 @@ sub _get_locus {
 			$locus_name, { fetch => 'col_arrayref' } );
 		my @curator_links;
 		foreach my $user_id (@$curators) {
-			push @curator_links, request->uri_for("/db/$db/users/$user_id")->as_string;
+			push @curator_links, request->uri_for("/db/$db/users/$user_id");
 		}
 		$values->{'curators'} = \@curator_links if @curator_links;
 	} else {
@@ -149,7 +149,7 @@ sub _get_locus {
 			my $seqdef_locus = $1;
 			if ( $locus_info->{'description_url'} =~ /db=(\w+)/x ) {
 				my $seqdef_config = $1;
-				$values->{'seqdef_definition'} = request->uri_for("/db/$seqdef_config/loci/$seqdef_locus")->as_string;
+				$values->{'seqdef_definition'} = request->uri_for("/db/$seqdef_config/loci/$seqdef_locus");
 			}
 		}
 	}
@@ -164,7 +164,7 @@ sub _get_locus {
 		if ($is_member) {
 			push @$scheme_member_list,
 			  {
-				scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}")->as_string,
+				scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}"),
 				description => $scheme->{'description'}
 			  };
 		}
@@ -174,8 +174,8 @@ sub _get_locus {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
-			$values->{'alleles'}       = request->uri_for("/db/$db/loci/$locus_name/alleles")->as_string;
-			$values->{'alleles_fasta'} = request->uri_for("/db/$db/loci/$locus_name/alleles_fasta")->as_string;
+			$values->{'alleles'}       = request->uri_for("/db/$db/loci/$locus_name/alleles");
+			$values->{'alleles_fasta'} = request->uri_for("/db/$db/loci/$locus_name/alleles_fasta");
 		}
 	}
 	return $values;

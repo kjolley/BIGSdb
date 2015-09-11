@@ -59,7 +59,7 @@ sub _get_alleles {
 	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
 	foreach my $allele_id (@$allele_ids) {
-		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")->as_string;
+		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	return $values;
@@ -90,11 +90,11 @@ sub _get_allele {
 	my $values = {};
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
 		if ( $attribute eq 'locus' ) {
-			$values->{$attribute} = request->uri_for("/db/$db/loci/$locus")->as_string;
+			$values->{$attribute} = request->uri_for("/db/$db/loci/$locus");
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")->as_string
+			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")
 			  if $allele->{$attribute};
 		} else {
 			$values->{$attribute} = $allele->{$attribute}
@@ -140,11 +140,11 @@ sub _get_alleles_fasta {
 	if ( !@$alleles ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
-	content_type 'text/plain';
 	my $buffer = '';
 	foreach my $allele (@$alleles) {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
 	}
-	return $buffer;
+	send_file(\$buffer, content_type => 'text/plain; charset=UTF-8');
+	return;
 }
 1;

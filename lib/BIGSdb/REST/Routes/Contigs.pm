@@ -47,7 +47,7 @@ sub _get_contigs {
 	$values->{'paging'} = $paging if %$paging;
 	my $contig_links = [];
 	foreach my $contig_id (@$contigs) {
-		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id")->as_string;
+		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id");
 	}
 	$values->{'contigs'} = $contig_links;
 	return $values;
@@ -89,12 +89,12 @@ sub _get_contig {
 		send_error( "Contig id-$contig_id does not exist.", 404 );
 	}
 	my $values = {
-		isolate_id => request->uri_for("/db/$db/isolates/$contig->{'isolate_id'}")->as_string,
+		isolate_id => request->uri_for("/db/$db/isolates/$contig->{'isolate_id'}"),
 		id         => int( $contig->{'id'} ),
 		sequence   => $contig->{'sequence'},
 		length     => length $contig->{'sequence'},
-		sender     => request->uri_for("/db/$db/users/$contig->{'sender'}")->as_string,
-		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}")->as_string
+		sender     => request->uri_for("/db/$db/users/$contig->{'sender'}"),
+		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}")
 	};
 	foreach my $field (qw (method orignal_designation comments date_entered datestamp)) {
 		$values->{$field} = $contig->{ lc $field }

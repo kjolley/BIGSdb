@@ -45,7 +45,7 @@ sub _get_projects {
 		);
 		push @project_list,
 		  {
-			project       => request->uri_for("/db/$db/projects/$project->{'id'}")->as_string,
+			project       => request->uri_for("/db/$db/projects/$project->{'id'}"),
 			description   => $project->{'short_description'},
 			isolate_count => int($isolate_count)
 		  };
@@ -73,7 +73,7 @@ sub _get_project {
 		id            => int($project_id),
 		description   => $desc,
 		isolate_count => int($isolate_count),
-		isolates      => request->uri_for("/db/$db/projects/$project_id/isolates")->as_string,
+		isolates      => request->uri_for("/db/$db/projects/$project_id/isolates"),
 	};
 }
 
@@ -106,7 +106,7 @@ sub _get_project_isolates {
 		my $paging = $self->get_paging( "/db/$db/projects/$project_id/isolates", $pages, $page );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
-		push @links, request->uri_for("/db/$db/isolates/$_")->as_string foreach @$ids;
+		push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
 		$values->{'isolates'} = \@links;
 	}
 	return $values;

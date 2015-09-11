@@ -56,7 +56,7 @@ sub _get_request_token {
 		Net::OAuth->request('request token')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_request_token")->as_string,
+			request_url     => uri_for("/db/$db/oauth/get_request_token"),
 			consumer_secret => $consumer_secret
 		);
 	};
@@ -144,7 +144,7 @@ sub _get_access_token {
 		Net::OAuth->request('access token')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_access_token")->as_string,
+			request_url     => uri_for("/db/$db/oauth/get_access_token"),
 			consumer_secret => $consumer_secret,
 			token_secret    => $request_token->{'secret'},
 		);
@@ -231,7 +231,7 @@ sub _get_session_token {
 		Net::OAuth->request('protected resource')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_session_token")->as_string,
+			request_url     => uri_for("/db/$db/oauth/get_session_token"),
 			consumer_secret => $consumer_secret,
 			token_secret    => $access_token->{'secret'},
 		);

@@ -45,7 +45,7 @@ sub _get_root {
 				  {
 					name        => $database->{'dbase_config'},
 					description => $database->{'description'},
-					href        => request->uri_for("/db/$database->{'dbase_config'}")->as_string
+					href        => request->uri_for("/db/$database->{'dbase_config'}")
 				  };
 			}
 			if ($databases) {
@@ -66,19 +66,19 @@ sub _get_db {
 	my $set_id       = $self->get_set_id;
 	my $schemes      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci         = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $scheme_route = @$schemes ? request->uri_for("/db/$db/schemes")->as_string : undef;
-	my $loci_route   = @$loci ? request->uri_for("/db/$db/loci")->as_string : undef;
+	my $scheme_route = @$schemes ? request->uri_for("/db/$db/schemes") : undef;
+	my $loci_route   = @$loci ? request->uri_for("/db/$db/loci") : undef;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $count  = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 		my $routes = {
 			records  => int($count),                                       #Force integer output (non-quoted)
-			isolates => request->uri_for("/db/$db/isolates")->as_string,
-			fields   => request->uri_for("/db/$db/fields")->as_string
+			isolates => request->uri_for("/db/$db/isolates"),
+			fields   => request->uri_for("/db/$db/fields")
 		};
 		$routes->{'schemes'} = $scheme_route if $scheme_route;
 		$routes->{'loci'}    = $loci_route   if $loci_route;
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
-		$routes->{'projects'} = request->uri_for("/db/$db/projects")->as_string if $projects;
+		$routes->{'projects'} = request->uri_for("/db/$db/projects") if $projects;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $routes = {};
