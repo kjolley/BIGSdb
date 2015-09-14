@@ -41,15 +41,12 @@ sub _get_isolates {
 	my $qry           = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	my $values = {};
-
-	if (@$ids) {
-		my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
-		$values->{'paging'} = $paging if %$paging;
-		my @links;
-		push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
-		$values->{'isolates'} = \@links;
-	}
+	my $values = { records => int($isolate_count) };
+	my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
+	$values->{'paging'} = $paging if %$paging;
+	my @links;
+	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	$values->{'isolates'} = \@links;
 	return $values;
 }
 
@@ -119,9 +116,8 @@ sub _get_isolate {
 		my $scheme_object = {
 			description           => $scheme->{'description'},
 			loci_designated_count => scalar keys %$allele_designations,
-			full_designations =>
-			  request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations"),
-			allele_ids => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")
+			full_designations => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations"),
+			allele_ids        => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")
 		};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );

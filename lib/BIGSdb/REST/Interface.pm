@@ -130,11 +130,11 @@ sub _before {
 	my $submission_route = "/db/$self->{'instance'}/submissions";
 
 	#DEBUGGING - so submission routes can be checked without authentication handshake.
-	$submission_route = 'xxx';                   #TODO Remove
+#	$submission_route = 'xxx';                   #TODO Remove
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
-	$self->{'username'} = 'keith';    #TODO remove DEBUGGING only.
+#	$self->{'username'} = 'keith';    #TODO remove DEBUGGING only.
 	return;
 }
 
@@ -283,7 +283,7 @@ sub get_resources {
 sub get_paging {
 	my ( $self, $route, $pages, $page ) = @_;
 	my $paging = {};
-	return $paging if param('return_all');
+	return $paging if param('return_all') || !$pages;
 	if ( $page > 1 ) {
 		$paging->{'first'} = request->uri_base . "$route?page=1&page_size=$self->{'page_size'}";
 		$paging->{'previous'} = request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";

@@ -33,12 +33,9 @@ sub _get_submissions {
 	my $db        = params->{'db'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	send_error( 'Unrecognized user.', 401 ) if !$user_info;
-	my $submission_status =
-	  $self->{'datastore'}->run_query( 'SELECT DISTINCT(status) FROM submissions WHERE submitter=?',
-		$user_info->{'id'}, { fetch => 'col_arrayref' } );
-	send_error( 'You currently have no submissions.', 404 ) if !@$submission_status;
-	my $values = {};
-	foreach my $status (@$submission_status) {
+	my @submission_status = qw(closed started pending);
+	my $values            = {};
+	foreach my $status (@submission_status) {
 		$values->{$status} = request->uri_for("/db/$db/submissions/$status");
 	}
 	return $values;
@@ -55,9 +52,10 @@ sub _get_submissions_by_status {
 		[ $status, $user_info->{'id'} ],
 		{ fetch => 'col_arrayref' }
 	);
-	send_error( 'You currently have no $status submissions.', 404 ) if !@$submission_ids;
-	my $values = [];
-	push @$values, request->uri_for("/db/$db/submissions/$_") foreach @$submission_ids;
+	my $values = { records => int(@$submission_ids) };
+	my @submissions;
+	push @submissions, request->uri_for("/db/$db/submissions/$_") foreach @$submission_ids;
+	$values->{'submissions'} = \@submissions;
 	return $values;
 }
 
@@ -84,6 +82,15 @@ sub _get_submission {
 				foreach my $field (qw (locus technology read_length coverage assembly_method software comments seqs)) {
 					$values->{$field} = $allele_submission->{$field} if $allele_submission->{$field};
 				}
+			}
+		},
+		profiles => sub {
+			my $profile_submission =
+			  $self->{'datastore'}
+			  ->get_profile_submission( $submission->{'id'}, { fields => 'profile_id,status,assigned_id' } );
+			if ($profile_submission) {
+				$values->{'scheme'}   = request->uri_for("/db/$db/schemes/$profile_submission->{'scheme_id'}");
+				$values->{'profiles'} = $profile_submission->{'profiles'};
 			}
 		}
 	);

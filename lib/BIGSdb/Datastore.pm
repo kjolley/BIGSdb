@@ -2334,12 +2334,14 @@ sub get_allele_submission {
 }
 
 sub get_profile_submission {
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$logger->logcarp('No submission_id passed') if !$submission_id;
 	my $submission = $self->run_query( 'SELECT * FROM profile_submissions WHERE submission_id=?',
 		$submission_id, { fetch => 'row_hashref', cache => 'get_profile_submission' } );
 	return if !$submission;
-	my $profiles = $self->run_query( 'SELECT * FROM profile_submission_profiles WHERE submission_id=? ORDER BY index',
+	my $fields = $options->{'fields'} // '*';
+	my $profiles = $self->run_query( "SELECT $fields FROM profile_submission_profiles WHERE submission_id=? ORDER BY index",
 		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_profile_submission::profiles' } );
 	$submission->{'profiles'} = [];
 	foreach my $profile (@$profiles) {

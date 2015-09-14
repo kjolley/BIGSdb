@@ -24,18 +24,16 @@ use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele designation routes
-get '/db/:db/isolates/:id/allele_designations'        => sub { _get_allele_designations() };
-get '/db/:db/isolates/:id/allele_designations/:locus' => sub { _get_allele_designation() };
-get '/db/:db/isolates/:id/allele_ids'                 => sub { _get_allele_ids() };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_ids' => sub { _get_scheme_allele_ids() };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' =>
-  sub { _get_scheme_allele_designations() };
+get '/db/:db/isolates/:id/allele_designations'                 => sub { _get_allele_designations() };
+get '/db/:db/isolates/:id/allele_designations/:locus'          => sub { _get_allele_designation() };
+get '/db/:db/isolates/:id/allele_ids'                          => sub { _get_allele_ids() };
+get '/db/:db/isolates/:id/schemes/:scheme/allele_ids'          => sub { _get_scheme_allele_ids() };
+get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub { _get_scheme_allele_designations() };
 
 sub _get_allele_designations {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
-	my $values = {};
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -45,23 +43,20 @@ sub _get_allele_designations {
 	my $designation_count =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
+	my $values = { records => int($designation_count) };
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $pages  = ceil( $designation_count / $self->{'page_size'} );
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
 	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-
-	if ( !@$loci ) {
-		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
-	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $designation_links = [];
+
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
-		push @$designation_links,
-		  request->uri_for("/db/$db/isolates/$isolate_id/allele_designations/$locus_name");
+		push @$designation_links, request->uri_for("/db/$db/isolates/$isolate_id/allele_designations/$locus_name");
 	}
 	$values->{'allele_designations'} = $designation_links;
 	return $values;
@@ -99,8 +94,7 @@ sub _get_allele_designation {
 				  ? int( $designation->{'allele_id'} )
 				  : $designation->{'allele_id'};
 			} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
-				$returned_designation->{$attribute} =
-				  request->uri_for("/db/$db/users/$designation->{$attribute}");
+				$returned_designation->{$attribute} = request->uri_for("/db/$db/users/$designation->{$attribute}");
 			} else {
 				$returned_designation->{$attribute} = $designation->{$attribute};
 			}
@@ -114,7 +108,6 @@ sub _get_allele_ids {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
-	my $values = {};
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -124,16 +117,13 @@ sub _get_allele_ids {
 	my $allele_count =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
+	my $values = { records => int($allele_count) };
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $pages  = ceil( $allele_count / $self->{'page_size'} );
 	my $offset = ( $page - 1 ) * $self->{'page_size'};
 	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-
-	if ( !@$loci ) {
-		send_error( "No more allele_designations for isolate id-$isolate_id defined.", 404 );
-	}
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $designations = [];
@@ -170,11 +160,10 @@ sub _get_scheme_allele_ids {
 	my $set_id = $self->get_set_id;
 	my $allele_designations =
 	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	if ( !$allele_designations ) {
-		send_error( "Isolate $isolate_id has no alleles defined for scheme $scheme_id.", 404 );
-	}
+	my $values       = { records => int($allele_designations) };
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $designations = [];
+
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -197,7 +186,8 @@ sub _get_scheme_allele_ids {
 			}
 		}
 	}
-	return $designations;
+	$values->{'allele_ids'} = $designations;
+	return $values;
 }
 
 sub _get_scheme_allele_designations {
@@ -205,14 +195,13 @@ sub _get_scheme_allele_designations {
 	my ( $db, $isolate_id, $scheme_id ) = ( params->{'db'}, params->{'id'}, params->{'scheme'} );
 	$self->check_isolate_is_valid($isolate_id);
 	$self->check_scheme($scheme_id);
-	my $values = [];
 	my $set_id = $self->get_set_id;
 	my $allele_designations =
 	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	if ( !$allele_designations ) {
-		send_error( "Isolate $isolate_id has no alleles defined for scheme $scheme_id.", 404 );
-	}
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $values       = { records => int( keys %$allele_designations ) };
+	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $designations = [];
+
 	foreach my $locus (@$loci) {
 		next if !$allele_designations->{$locus};
 		my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
@@ -236,12 +225,9 @@ sub _get_scheme_allele_designations {
 			}
 			push @$locus_values, $value;
 		}
-		if ( @$locus_values > 1 ) {
-			push @$values, { $locus_name => $locus_values };
-		} else {
-			push @$values, { $locus_name => $locus_values->[0] };
-		}
+		push @$designations, { $locus_name => $locus_values };
 	}
+	$values->{'allele_designations'} = $designations;
 	return $values;
 }
 1;

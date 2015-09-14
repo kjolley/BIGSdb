@@ -44,7 +44,7 @@ sub _get_loci {
 	my $qry         = "SELECT id FROM loci$set_clause ORDER BY id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	my $values = {};
+	my $values = { records => int($locus_count) };
 
 	if (@$loci) {
 		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page );

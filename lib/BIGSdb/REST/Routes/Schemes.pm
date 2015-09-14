@@ -29,18 +29,17 @@ get '/db/:db/schemes/:scheme'               => sub { _get_scheme() };
 get '/db/:db/schemes/:scheme/fields/:field' => sub { _get_scheme_field() };
 
 sub _get_schemes {
-	my $self    = setting('self');
-	my ($db)    = params->{'db'};
-	my $set_id  = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $values  = [];
+	my $self        = setting('self');
+	my ($db)        = params->{'db'};
+	my $set_id      = $self->get_set_id;
+	my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $values      = { records => int(@$schemes) };
+	my $scheme_list = [];
 	foreach my $scheme (@$schemes) {
-		push @$values,
-		  {
-			scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}"),
-			description => $scheme->{'description'}
-		  };
+		push @$scheme_list,
+		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'description'} };
 	}
+	$values->{'schemes'} = $scheme_list;
 	return $values;
 }
 
@@ -54,8 +53,7 @@ sub _get_scheme {
 	$values->{'id'}                    = int($scheme_id);
 	$values->{'description'}           = $scheme_info->{'description'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
-	$values->{'primary_key_field'} =
-	  request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
+	$values->{'primary_key_field'} = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
@@ -75,8 +73,6 @@ sub _get_scheme {
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $profile_view =
 		  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-		my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
-		$values->{'profile_count'} = int($profile_count);    #Force integer output (non-quoted)
 		$values->{'profiles'}     = request->uri_for("/db/$db/schemes/$scheme_id/profiles");
 		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv");
 

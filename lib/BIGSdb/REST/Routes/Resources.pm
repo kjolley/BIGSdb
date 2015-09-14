@@ -29,8 +29,8 @@ get qr{^/db/?+$}x => sub { redirect '/' };
 get '/db/:db'     => sub { _get_db() };
 
 sub _get_robots {
-	content_type 'text/plain';
-	return "User-agent: *\nDisallow: /";
+	send_file(\"User-agent: *\nDisallow: /\n", content_type => 'text/plain; charset=UTF-8');
+	return;
 }
 
 sub _get_root {
@@ -73,8 +73,6 @@ sub _get_db {
 	  if ( $self->{'system'}->{'submissions'} // '' ) eq 'yes';
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		$routes->{'records'}  = int($count);                            #Force integer output (non-quoted)
 		$routes->{'isolates'} = request->uri_for("/db/$db/isolates");
 		$routes->{'fields'}   = request->uri_for("/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
