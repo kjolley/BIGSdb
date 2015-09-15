@@ -92,6 +92,12 @@ sub _get_submission {
 				$values->{'scheme'}   = request->uri_for("/db/$db/schemes/$profile_submission->{'scheme_id'}");
 				$values->{'profiles'} = $profile_submission->{'profiles'};
 			}
+		},
+		isolates => sub {
+			my $isolate_submission = $self->{'datastore'}->get_isolate_submission( $submission->{'id'} );
+			if ($isolate_submission) {
+				$values->{'isolates'} = $isolate_submission->{'isolates'} if @{ $isolate_submission->{'isolates'} };
+			}
 		}
 	);
 	$type{ $submission->{'type'} }->() if $type{ $submission->{'type'} };
