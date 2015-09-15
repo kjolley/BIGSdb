@@ -30,7 +30,6 @@ sub _get_contigs {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
-	my $values = {};
 	my $contig_count =
 	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?', $isolate_id );
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -39,13 +38,11 @@ sub _get_contigs {
 	my $qry    = 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $contigs = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-
-	if ( !@$contigs ) {
-		send_error( "No contigs for isolate id-$isolate_id are defined.", 404 );
-	}
+	my $values = { records => int($contig_count) };
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $contig_links = [];
+
 	foreach my $contig_id (@$contigs) {
 		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id");
 	}

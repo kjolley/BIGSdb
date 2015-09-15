@@ -29,8 +29,8 @@ get qr{^/db/?+$}x => sub { redirect '/' };
 get '/db/:db'     => sub { _get_db() };
 
 sub _get_robots {
-	content_type 'text/plain';
-	return "User-agent: *\nDisallow: /";
+	send_file(\"User-agent: *\nDisallow: /\n", content_type => 'text/plain; charset=UTF-8');
+	return;
 }
 
 sub _get_root {
@@ -63,27 +63,22 @@ sub _get_db {
 	if ( !$self->{'system'}->{'db'} ) {
 		send_error( "Database '$db' does not exist", 404 );
 	}
-	my $set_id       = $self->get_set_id;
-	my $schemes      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $loci         = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $scheme_route = @$schemes ? request->uri_for("/db/$db/schemes") : undef;
-	my $loci_route   = @$loci ? request->uri_for("/db/$db/loci") : undef;
+	my $set_id  = $self->get_set_id;
+	my $routes  = {};
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	$routes->{'schemes'} = request->uri_for("/db/$db/schemes") if @$schemes;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	$routes->{'loci'} = request->uri_for("/db/$db/loci") if @$loci;
+	$routes->{'submissions'} = request->uri_for("/db/$db/submissions")
+	  if ( $self->{'system'}->{'submissions'} // '' ) eq 'yes';
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $count  = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		my $routes = {
-			records  => int($count),                                       #Force integer output (non-quoted)
-			isolates => request->uri_for("/db/$db/isolates"),
-			fields   => request->uri_for("/db/$db/fields")
-		};
-		$routes->{'schemes'} = $scheme_route if $scheme_route;
-		$routes->{'loci'}    = $loci_route   if $loci_route;
+		$routes->{'isolates'} = request->uri_for("/db/$db/isolates");
+		$routes->{'fields'}   = request->uri_for("/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
 		$routes->{'projects'} = request->uri_for("/db/$db/projects") if $projects;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $routes = {};
-		$routes->{'schemes'} = $scheme_route if $scheme_route;
-		$routes->{'loci'}    = $loci_route   if $loci_route;
 		return $routes;
 	} else {
 		return { title => 'Database configuration is invalid' };

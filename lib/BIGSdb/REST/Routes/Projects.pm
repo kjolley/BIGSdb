@@ -33,9 +33,6 @@ sub _get_projects {
 	$self->check_isolate_database;
 	my $projects = $self->{'datastore'}->run_query( 'SELECT id,short_description FROM projects ORDER BY id',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	if ( !@$projects ) {
-		send_error( 'No projects exist.', 404 );
-	}
 	my @project_list;
 	foreach my $project (@$projects) {
 		my $isolate_count = $self->{'datastore'}->run_query(
@@ -43,14 +40,16 @@ sub _get_projects {
 			  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
 			$project->{'id'}
 		);
+		next if !$isolate_count;
 		push @project_list,
 		  {
-			project       => request->uri_for("/db/$db/projects/$project->{'id'}"),
-			description   => $project->{'short_description'},
-			isolate_count => int($isolate_count)
+			project     => request->uri_for("/db/$db/projects/$project->{'id'}"),
+			description => $project->{'short_description'},
 		  };
 	}
-	return \@project_list;
+	my $values = { records => int(@project_list) };
+	$values->{'projects'} = \@project_list;
+	return $values;
 }
 
 sub _get_project {
@@ -70,10 +69,9 @@ sub _get_project {
 		$project_id
 	);
 	return {
-		id            => int($project_id),
-		description   => $desc,
-		isolate_count => int($isolate_count),
-		isolates      => request->uri_for("/db/$db/projects/$project_id/isolates"),
+		id          => int($project_id),
+		description => $desc,
+		isolates    => request->uri_for("/db/$db/projects/$project_id/isolates"),
 	};
 }
 
@@ -100,7 +98,7 @@ sub _get_project_isolates {
 	  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL) ORDER BY isolate_id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, $project_id, { fetch => 'col_arrayref' } );
-	my $values = {};
+	my $values = { records => int($isolate_count) };
 
 	if (@$ids) {
 		my $paging = $self->get_paging( "/db/$db/projects/$project_id/isolates", $pages, $page );

@@ -51,13 +51,11 @@ sub _get_alleles {
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
-	if ( !@$allele_ids ) {
-		send_error( "No alleles for locus $locus are defined.", 404 );
-	}
-	my $values = {};
+	my $values = { records => int($allele_count) };
 	my $paging = $self->get_paging( "/db/$db/loci/$locus_name/alleles", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
+
 	foreach my $allele_id (@$allele_ids) {
 		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id");
 	}
@@ -144,7 +142,7 @@ sub _get_alleles_fasta {
 	foreach my $allele (@$alleles) {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
 	}
-	send_file(\$buffer, content_type => 'text/plain; charset=UTF-8');
+	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
 	return;
 }
 1;

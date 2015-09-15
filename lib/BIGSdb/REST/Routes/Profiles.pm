@@ -58,14 +58,11 @@ sub _get_profiles {
 	  );
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-
-	if ( !@$profiles ) {
-		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
-	}
-	my $values = {};
+	my $values = { records => int($profile_count) };
 	my $paging = $self->get_paging( "/db/$db/schemes/$scheme_id/profiles", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
+
 	foreach my $profile_id (@$profiles) {
 		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id");
 	}
@@ -126,7 +123,7 @@ sub _get_profiles_csv {
 			$buffer .= "@$profile\n";
 		}
 	}
-	send_file(\$buffer, content_type => 'text/plain; charset=UTF-8');
+	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
 	return;
 }
 

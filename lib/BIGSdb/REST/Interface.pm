@@ -38,6 +38,7 @@ use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Projects;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
+use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
 use constant PAGE_SIZE       => 100;
@@ -123,16 +124,17 @@ sub _before {
 	$self->_initiate_view;
 	$self->{'page_size'} =
 	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
-	if (   ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates'
-		|| ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' )
-	{
+	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
+	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
+	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
+	my $submission_route = "/db/$self->{'instance'}/submissions";
 
-		if ( ( $self->{'system'}->{'read_access'} // '' ) ne 'public'
-			&& $request_uri !~ /^\/db\/$self->{'instance'}\/oauth\//x )
-		{
-			send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
-		}
+	#DEBUGGING - so submission routes can be checked without authentication handshake.
+	$submission_route = 'xxx';                   #TODO Remove
+	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
+		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
+	$self->{'username'} = 'keith';    #TODO remove DEBUGGING only.
 	return;
 }
 
@@ -215,6 +217,7 @@ sub _is_authorized {
 	if ( !$client_authorized ) {
 		send_error( 'Client is unauthorized to access this database.', 401 );
 	}
+	$self->{'username'} = $session_token->{'username'};
 	return 1;
 }
 
@@ -280,7 +283,7 @@ sub get_resources {
 sub get_paging {
 	my ( $self, $route, $pages, $page ) = @_;
 	my $paging = {};
-	return $paging if param('return_all');
+	return $paging if param('return_all') || !$pages;
 	if ( $page > 1 ) {
 		$paging->{'first'} = request->uri_base . "$route?page=1&page_size=$self->{'page_size'}";
 		$paging->{'previous'} = request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";
