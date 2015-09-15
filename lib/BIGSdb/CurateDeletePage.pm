@@ -168,8 +168,8 @@ sub _display_record {
 		} elsif ( $att->{'foreign_key'} && $att->{'labels'} ) {
 			my @fields_to_query;
 			my @values = split /\|/x, $att->{'labels'};
-			foreach (@values) {
-				if ( $att =~ /\$(.*)/x ) {
+			foreach my $value (@values) {
+				if ( $value =~ /\$(.*)/x ) {
 					push @fields_to_query, $1;
 				}
 			}
