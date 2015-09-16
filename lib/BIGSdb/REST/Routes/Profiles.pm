@@ -35,15 +35,8 @@ sub _get_profiles {
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
 	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $set_id = $self->get_set_id;
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		send_error( 'Scheme id must be an integer.', 400 );
-	}
+	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	if ( !$scheme_info ) {
-		send_error( "Scheme $scheme_id does not exist.", 404 );
-	} elsif ( !$scheme_info->{'primary_key'} ) {
-		send_error( "Scheme $scheme_id does not have a primary key field.", 404 );
-	}
 	my $profile_view =
 	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
@@ -75,10 +68,8 @@ sub _get_profiles_csv {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $set_id = $self->get_set_id;
-	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		send_error( 'Scheme id must be an integer.', 400 );
-	}
+	$self->check_scheme( $scheme_id, { pk => 1 } );
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$scheme_info ) {

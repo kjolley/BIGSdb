@@ -20,36 +20,72 @@ package BIGSdb::REST::Routes::Submissions;
 use strict;
 use warnings;
 use 5.010;
+use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
-get '/db/:db/submissions'             => sub { _get_submissions() };
-get '/db/:db/submissions/pending'     => sub { _get_submissions_by_status('pending') };
-get '/db/:db/submissions/closed'      => sub { _get_submissions_by_status('closed') };
-get '/db/:db/submissions/started'     => sub { _get_submissions_by_status('started') };
-get '/db/:db/submissions/:submission' => sub { _get_submission() };
+get '/db/:db/submissions'                  => sub { _get_submissions() };
+get '/db/:db/submissions/alleles'          => sub { };
+get '/db/:db/submissions/alleles/:locus'   => sub { };
+get '/db/:db/submissions/profiles'         => sub { _get_submissions_profiles() };
+get '/db/:db/submissions/profiles/:scheme' => sub { _get_submission_profiles_scheme_id() };
+get '/db/:db/submissions/pending'          => sub { _get_submissions_by_status('pending') };
+get '/db/:db/submissions/closed'           => sub { _get_submissions_by_status('closed') };
+get '/db/:db/submissions/started'          => sub { _get_submissions_by_status('started') };
+get '/db/:db/submissions/:submission'      => sub { _get_submission() };
+del '/db/:db/submissions/:submission'      => sub { _delete_submission() };
 
 sub _get_submissions {
-	my $self      = setting('self');
-	my $db        = params->{'db'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	send_error( 'Unrecognized user.', 401 ) if !$user_info;
-	my @submission_status = qw(closed started pending);
-	my $values            = {};
-	foreach my $status (@submission_status) {
-		$values->{$status} = request->uri_for("/db/$db/submissions/$status");
+	my $self = setting('self');
+	my $db   = params->{'db'};
+	send_error( 'Submissions are not enabled on this database.', 404 )
+	  if !( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' );
+	my $user_id = $self->get_user_id;
+	my $type    = {};
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$type->{'alleles'} = request->uri_for("/db/$db/submissions/alleles");
+		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
+			my $profile_links = [];
+			my $set_id        = $self->get_set_id;
+			my $schemes       = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+			$type->{'profiles'} = request->uri_for("/db/$db/submissions/profiles") if @$schemes;
+		}
+	} else {
+		$type->{'isolates'} = request->uri_for("/db/$db/submissions/isolates");
 	}
+	my $values = { type => $type };
+	$values->{'status'} = {
+		pending => request->uri_for("/db/$db/submissions/pending"),
+		started => request->uri_for("/db/$db/submissions/started"),
+		closed  => request->uri_for("/db/$db/submissions/closed"),
+	};
+	my $submission_count =
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM submissions WHERE submitter=?', $user_id );
+	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $pages  = ceil( $submission_count / $self->{'page_size'} );
+	my $offset = ( $page - 1 ) * $self->{'page_size'};
+	my $qry    = q(SELECT id FROM submissions WHERE submitter=? ORDER BY id);
+	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
+	my $submission_ids = $self->{'datastore'}->run_query( $qry, $user_id, { fetch => 'col_arrayref' } );
+	$values->{'records'} = int($submission_count);
+	my $paging = $self->get_paging( "/db/$db/submissions", $pages, $page );
+	$values->{'paging'} = $paging if %$paging;
+	my $submission_links = [];
+
+	foreach my $submission_id (@$submission_ids) {
+		push @$submission_links, request->uri_for("/db/$db/submissions/$submission_id");
+	}
+	$values->{'submissions'} = $submission_links;
 	return $values;
 }
 
 sub _get_submissions_by_status {
-	my ($status)  = @_;
-	my $self      = setting('self');
-	my $db        = params->{'db'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	send_error( 'Unrecognized user.', 401 ) if !$user_info;
+	my ($status)       = @_;
+	my $self           = setting('self');
+	my $db             = params->{'db'};
+	my $user_id        = $self->get_user_id;
 	my $submission_ids = $self->{'datastore'}->run_query(
 		'SELECT id FROM submissions WHERE (status,submitter)=(?,?) ORDER BY id',
-		[ $status, $user_info->{'id'} ],
+		[ $status, $user_id ],
 		{ fetch => 'col_arrayref' }
 	);
 	my $values = { records => int(@$submission_ids) };
@@ -114,5 +150,62 @@ sub _get_submission {
 		$values->{'correspondence'} = $correspondence;
 	}
 	return $values;
+}
+
+sub _get_submissions_profiles {
+	my ($status) = @_;
+	my $self     = setting('self');
+	my $db       = params->{'db'};
+	$self->check_seqdef_database;
+	my $scheme_links = [];
+	my $set_id       = $self->get_set_id;
+	my $schemes      = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+	foreach my $scheme (@$schemes) {
+		push @$scheme_links, request->uri_for("/db/$db/submissions/profiles/$scheme->{'id'}");
+	}
+	return { schemes => $scheme_links };
+}
+
+sub _get_submission_profiles_scheme_id {
+	my $self = setting('self');
+	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
+	$self->check_seqdef_database;
+	$self->check_scheme( $scheme_id, { pk => 1 } );
+	my $user_id = $self->get_user_id;
+	my $qry     = 'SELECT COUNT(*) FROM submissions RIGHT JOIN profile_submissions ON '
+	  . 'submissions.id=profile_submissions.submission_id WHERE (submitter,type,scheme_id)=(?,?,?)';
+	my $submission_count = $self->{'datastore'}->run_query( $qry, [ $user_id, 'profiles', $scheme_id ] );
+	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $pages  = ceil( $submission_count / $self->{'page_size'} );
+	my $offset = ( $page - 1 ) * $self->{'page_size'};
+	$qry = 'SELECT id FROM submissions RIGHT JOIN profile_submissions ON '
+	  . 'submissions.id=profile_submissions.submission_id WHERE (submitter,type,scheme_id)=(?,?,?) ORDER BY id';
+	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
+	my $submission_ids =
+	  $self->{'datastore'}->run_query( $qry, [ $user_id, 'profiles', $scheme_id ], { fetch => 'col_arrayref' } );
+	my $values = {};
+	$values->{'records'} = int($submission_count);
+	my $paging = $self->get_paging( "/db/$db/submissions/profiles/$scheme_id", $pages, $page );
+	$values->{'paging'} = $paging if %$paging;
+	my $submission_links = [];
+
+	foreach my $submission_id (@$submission_ids) {
+		push @$submission_links, request->uri_for("/db/$db/submissions/$submission_id");
+	}
+	$values->{'submissions'} = $submission_links;
+	return $values;
+}
+
+sub _delete_submission {
+	my $self = setting('self');
+	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
+	my $user_id    = $self->get_user_id;
+	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.',                404 ) if !$submission;
+	send_error( 'You are not the owner of this submission.', 403 ) if $user_id != $submission->{'submitter'};
+	send_error( 'You cannot delete a pending submission.',   403 ) if $submission->{'status'} eq 'pending';
+	$self->{'datastore'}->delete_submission($submission_id);
+	status(200);
+	return;
 }
 1;
