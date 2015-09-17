@@ -487,9 +487,7 @@ sub _check_data {
 				  if defined $file_header_pos{$field}
 				  or ( $field eq 'id' );
 			}
-			$header_complete = 1;
-			push @checked_buffer, $header_row if $first_record;
-			$first_record = 0;
+
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
@@ -524,6 +522,9 @@ sub _check_data {
 					  . "'$data[$file_header_pos{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
 				}
 			}
+			$header_complete = 1;
+			push @checked_buffer, $header_row if $first_record;
+			$first_record = 0;
 			$tablebuffer .= "</tr>\n";
 
 			#Check for various invalid combinations of fields
