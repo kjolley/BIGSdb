@@ -28,7 +28,7 @@ use BIGSdb::BIGSException;
 use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS RESET_BUTTON_CLASS);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
-use File::Path qw(make_path remove_tree);
+use File::Path qw(make_path);
 use POSIX;
 use constant COVERAGE                 => qw(<20x 20-49x 50-99x >100x);
 use constant READ_LENGTH              => qw(<100 100-199 200-299 300-499 >500);
@@ -263,20 +263,7 @@ sub _delete_old_closed_submissions {
 	  ->run_query( qq(SELECT id FROM submissions WHERE status=? AND datestamp<now()-interval '$days days'),
 		'closed', { fetch => 'col_arrayref' } );
 	foreach my $submission_id (@$submissions) {
-		$self->_delete_submission($submission_id);
-	}
-	return;
-}
-
-sub _delete_submission {
-	my ( $self, $submission_id ) = @_;
-	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_delete_submission_files($submission_id);
+		$self->{'datastore'}->delete_submission($submission_id);
 	}
 	return;
 }
@@ -617,16 +604,7 @@ sub _abort_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	my $submission =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM submissions WHERE (id,submitter)=(?,?)', [ $submission_id, $user_info->{'id'} ] );
-	$self->_delete_submission($submission_id) if $submission_id;
-	return;
-}
-
-sub _delete_submission_files {
-	my ( $self, $submission_id ) = @_;
-	my $dir = $self->_get_submission_dir($submission_id);
-	if ( $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ) {
-		remove_tree $1;
-	}
+	$self->{'datastore'}->delete_submission($submission_id) if $submission_id;
 	return;
 }
 
@@ -635,7 +613,7 @@ sub _delete_selected_submission_files {
 	my $q     = $self->{'cgi'};
 	my $files = $self->_get_submission_files($submission_id);
 	my $i     = 0;
-	my $dir   = $self->_get_submission_dir($submission_id) . '/supporting_files';
+	my $dir   = $self->{'datastore'}->get_submission_dir($submission_id) . '/supporting_files';
 	foreach my $file (@$files) {
 		if ( $q->param("file$i") ) {
 			if ( $file->{'filename'} =~ /^([^\/]+)$/x ) {
@@ -1911,7 +1889,7 @@ sub _print_sequence_table_fieldset {
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
 		say $q->end_form;
-		$q->param( page => $page );                                                                   #Restore value
+		$q->param( page => $page );    #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
@@ -2143,9 +2121,9 @@ sub _print_close_submission_fieldset {
 
 sub _append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
-	my $dir = $self->_get_submission_dir($submission_id);
+	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	make_path $dir;
+	$self->_make_path($dir);
 	my $filename = 'messages.txt';
 	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" )
 	  || $logger->error("Can't open $dir/$filename for appending");
@@ -2156,6 +2134,15 @@ sub _append_message {
 	say $fh $message;
 	say $fh '';
 	close $fh;
+	return;
+}
+
+sub _make_path {
+	my ( $self, $dir ) = @_;
+	my $save_u = umask();
+	umask(0);
+	make_path( $dir, { mode => 0775 } ) || $logger->error("Cannot create $dir directory.");
+	umask($save_u);
 	return;
 }
 
@@ -2192,7 +2179,7 @@ sub _print_submission_file_table {
 
 sub _get_submission_files {
 	my ( $self, $submission_id ) = @_;
-	my $dir = $self->_get_submission_dir($submission_id) . '/supporting_files';
+	my $dir = $self->{'datastore'}->get_submission_dir($submission_id) . '/supporting_files';
 	return [] if !-e $dir;
 	my @files;
 	opendir( my $dh, $dir ) || $logger->error("Can't open directory $dir");
@@ -2205,19 +2192,14 @@ sub _get_submission_files {
 	return \@files;
 }
 
-sub _get_submission_dir {
-	my ( $self, $submission_id ) = @_;
-	return "$self->{'config'}->{'submission_dir'}/$submission_id";
-}
-
 sub _upload_files {
 	my ( $self, $submission_id ) = @_;
 	my $q         = $self->{'cgi'};
 	my @filenames = $q->param('file_upload');
 	my $i         = 0;
-	my $dir       = $self->_get_submission_dir($submission_id) . '/supporting_files';
+	my $dir       = $self->{'datastore'}->get_submission_dir($submission_id) . '/supporting_files';
 	if ( !-e $dir ) {
-		make_path $dir || $logger->error("Cannot create $dir directory.");
+		$self->_make_path($dir);
 	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
 		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\)]+)/x ) {
@@ -2278,7 +2260,7 @@ sub _print_summary {
 		say qq(<dt>locus</dt><dd>$locus</dd>);
 		my $allele_count   = @{ $allele_submission->{'seqs'} };
 		my $fasta_icon     = $self->get_file_icon('FAS');
-		my $submission_dir = $self->_get_submission_dir($submission_id);
+		my $submission_dir = $self->{'datastore'}->get_submission_dir($submission_id);
 		if ( !-e "$submission_dir/sequences.fas" ) {
 			$self->_write_allele_FASTA($submission_id);
 			$logger->error("No submission FASTA file for allele submission $submission_id.");
@@ -2596,7 +2578,7 @@ sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
-	$self->_delete_submission($submission_id);
+	$self->{'datastore'}->delete_submission($submission_id);
 	return;
 }
 
@@ -2615,9 +2597,9 @@ sub _write_allele_FASTA {
 	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
 	my $seqs              = $allele_submission->{'seqs'};
 	return if !@$seqs;
-	my $dir = $self->_get_submission_dir($submission_id);
+	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	make_path $dir;
+	$self->_make_path($dir);
 	my $filename = 'sequences.fas';
 	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
 
@@ -2634,9 +2616,9 @@ sub _write_profile_csv {
 	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
 	my $profiles           = $profile_submission->{'profiles'};
 	return if !@$profiles;
-	my $dir = $self->_get_submission_dir($submission_id);
+	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	make_path $dir;
+	$self->_make_path($dir);
 	my $filename  = 'profiles.txt';
 	my $scheme_id = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
 	my $loci      = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
@@ -2675,9 +2657,9 @@ sub _get_populated_fields {
 sub _write_isolate_csv {
 	my ( $self, $submission_id, $isolates, $positions ) = @_;
 	my $fields = $self->_get_populated_fields( $isolates, $positions );
-	my $dir = $self->_get_submission_dir($submission_id);
+	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	make_path $dir;
+	$self->_make_path($dir);
 	my $filename = 'isolates.txt';
 	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
@@ -2699,7 +2681,7 @@ sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	return if !defined $submission_id || $submission_id !~ /BIGSdb_\d+/x;
 	my $submission = $self->{'datastore'}->get_submission($submission_id);
 	return if !$submission;
-	my $submission_dir = $self->_get_submission_dir($submission_id);
+	my $submission_dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$submission_dir =
 	  $submission_dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+)$/x ? $1 : undef;    #Untaint
 	binmode STDOUT;

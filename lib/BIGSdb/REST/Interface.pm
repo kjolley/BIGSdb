@@ -65,8 +65,8 @@ sub new {
 	bless( $self, $class );
 	$self->_initiate;
 	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
-	set serializer => 'JSON';
-	set self       => $self;
+	set serializer   => 'JSON';
+	set self         => $self;
 	return $self;
 }
 
@@ -134,7 +134,7 @@ sub _before {
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
-	$self->{'username'} = 'keith';    #TODO remove DEBUGGING only.
+	$self->{'username'} = 'keith';               #TODO remove DEBUGGING only.
 	return;
 }
 
@@ -348,15 +348,32 @@ sub check_seqdef_database {
 }
 
 sub check_scheme {
-	my ( $self, $scheme_id ) = @_;
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $set_id = $self->get_set_id;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		send_error( 'Scheme id must be an integer.', 400 );
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	my $scheme_info =
+	  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => $options->{'pk'} } );
 	if ( !$scheme_info ) {
 		send_error( "Scheme $scheme_id does not exist.", 404 );
 	}
+	if ( $options->{'pk'} ) {
+		my $primary_key = $scheme_info->{'primary_key'};
+		if ( !$scheme_info ) {
+			send_error( "Scheme $scheme_id does not exist.", 404 );
+		} elsif ( !$primary_key ) {
+			send_error( "Scheme $scheme_id does not have a primary key field.", 404 );
+		}
+	}
 	return;
+}
+
+sub get_user_id {
+	my $self      = setting('self');
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	send_error( 'Unrecognized user.', 401 ) if !$user_info;
+	return $user_info->{'id'};
 }
 1;

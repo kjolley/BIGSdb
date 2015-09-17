@@ -25,11 +25,11 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
+use File::Path qw(make_path remove_tree);
 use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use File::Path qw(make_path);
 use IO::Handle;
 use Bio::SeqIO;
 use Memoize;
@@ -2341,9 +2341,11 @@ sub get_profile_submission {
 		$submission_id, { fetch => 'row_hashref', cache => 'get_profile_submission' } );
 	return if !$submission;
 	my $fields = $options->{'fields'} // '*';
-	my $profiles = $self->run_query( "SELECT $fields FROM profile_submission_profiles WHERE submission_id=? ORDER BY index",
+	my $profiles =
+	  $self->run_query( "SELECT $fields FROM profile_submission_profiles WHERE submission_id=? ORDER BY index",
 		$submission_id, { fetch => 'all_arrayref', slice => {}, cache => 'get_profile_submission::profiles' } );
 	$submission->{'profiles'} = [];
+
 	foreach my $profile (@$profiles) {
 		my $designations = $self->run_query(
 			'SELECT locus,allele_id FROM '
@@ -2382,5 +2384,42 @@ sub get_isolate_submission {
 	}
 	my $submission = { order => $order, isolates => \@isolates };
 	return $submission;
+}
+
+sub get_submission_dir {
+	my ( $self, $submission_id ) = @_;
+	return "$self->{'config'}->{'submission_dir'}/$submission_id";
+}
+
+sub delete_submission {
+	my ( $self, $submission_id ) = @_;
+	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->_delete_submission_files($submission_id);
+	}
+	return;
+}
+
+sub _delete_submission_files {
+	my ( $self, $submission_id ) = @_;
+	my $dir = $self->get_submission_dir($submission_id);
+	if ( $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ) {
+		remove_tree( $1, { error => \my $err } );
+		if (@$err) {
+			for my $diag (@$err) {
+				my ( $file, $message ) = %$diag;
+				if ( $file eq '' ) {
+					$logger->error("general error: $message");
+				} else {
+					$logger->error("problem unlinking $file: $message");
+				}
+			}
+		}
+	}
+	return;
 }
 1;
