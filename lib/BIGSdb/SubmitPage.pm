@@ -2141,7 +2141,18 @@ sub _make_path {
 	my ( $self, $dir ) = @_;
 	my $save_u = umask();
 	umask(0);
-	make_path( $dir, { mode => 0775 } ) || $logger->error("Cannot create $dir directory.");
+	##no critic (ProhibitLeadingZeros)
+	make_path( $dir, { mode => 0775, error => \my $err } );
+	if (@$err) {
+		for my $diag (@$err) {
+			my ( $path, $message ) = %$diag;
+			if ( $path eq '' ) {
+				$logger->error("general error: $message");
+			} else {
+				$logger->error("problem with $path: $message");
+			}
+		}
+	}
 	umask($save_u);
 	return;
 }
