@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.5',
+		version     => '1.7.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -2091,7 +2091,7 @@ sub _align {
 		$names{$id} = $name;
 		if ( $seqs->{$id} ) {
 			$seq_count++;
-			say $fasta_fh ">$name";
+			say $fasta_fh ">$id";
 			say $fasta_fh "$seqs->{$id}";
 		}
 	}
@@ -2199,10 +2199,10 @@ sub _run_alignment {
 		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		foreach my $seq ( $align->each_seq ) {
 			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
-			$xmfa_buffer .= '>' . $seq->id . ":$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
+			my $id = $seq->id;
+			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
 			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
 			$xmfa_buffer .= "$sequence\n";
-			my ($id) = split /\|/x, $seq->id;
 			$id_has_seq{$id} = 1;
 			$seq_length = $seq->length if !$seq_length;
 		}
