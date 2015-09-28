@@ -33,7 +33,7 @@ sub get_help_url {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $buffer = << "END";
 \$(function () {
   if (!Modernizr.inputtypes.date){
@@ -375,11 +375,12 @@ sub print_provenance_form_elements {
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
 				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-				my $title_attribute = $title ? " title=\"$title\"" : '';
+				my $field_id = "field_$field";    #Prefix ids or they may conflict, e.g. with sample field.
+				my $title_attribute = $title ? qq( title="$title") : q();
 				my $for =
 				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
-				  ? " for=\"$field\""
-				  : '';
+				  ? qq( for="field_$field")
+				  : q();
 				print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
 				print $label;
 				print ':';
@@ -393,7 +394,7 @@ sub print_provenance_form_elements {
 					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					say $q->popup_menu(
 						-name    => $field,
-						-id      => $field,
+						-id      => $field_id,
 						-values  => [ '', @$optlist ],
 						-labels  => { '' => ' ' },
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
@@ -402,7 +403,7 @@ sub print_provenance_form_elements {
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
 					say $q->popup_menu(
 						-name   => $field,
-						-id     => $field,
+						-id     => $field_id,
 						-values => [ '', 'true', 'false' ],
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
@@ -425,7 +426,7 @@ sub print_provenance_form_elements {
 				{
 					say $q->popup_menu(
 						-name    => $field,
-						-id      => $field,
+						-id      => $field_id,
 						-values  => [ '', @users ],
 						-labels  => \%usernames,
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
@@ -435,7 +436,7 @@ sub print_provenance_form_elements {
 					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
 						say $q->textarea(
 							-name    => $field,
-							-id      => $field,
+							-id      => $field_id,
 							-rows    => 3,
 							-cols    => 40,
 							-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
@@ -444,7 +445,7 @@ sub print_provenance_form_elements {
 					} else {
 						say $self->textfield(
 							name      => $field,
-							id        => $field,
+							id        => $field_id,
 							size      => $thisfield->{'length'},
 							maxlength => $thisfield->{'length'},
 							value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
