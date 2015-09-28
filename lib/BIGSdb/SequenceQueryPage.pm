@@ -31,6 +31,7 @@ use Bio::SeqIO;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
+use constant INF             => 9**99;
 
 sub get_title {
 	my ($self) = @_;
@@ -106,18 +107,28 @@ sub _print_interface {
 		say q(<fieldset><legend>Please select locus/scheme</legend>);
 		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		foreach ( reverse @$scheme_list ) {
-			unshift @$display_loci, "SCHEME_$_->{'id'}";
-			$cleaned->{"SCHEME_$_->{'id'}"} = $_->{'description'};
+		my %order;
+		my @schemes_and_groups;
+		foreach my $scheme ( reverse @$scheme_list ) {
+			my $value = "SCHEME_$scheme->{'id'}";
+			push @schemes_and_groups, $value;
+			$order{$value} = $scheme->{'display_order'} if $scheme->{'display_order'};
+			$cleaned->{$value} = $scheme->{'description'};
 		}
 		my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
-		foreach ( reverse @$group_list ) {
-			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $_->{'id'}, { set_id => $set_id } );
+		foreach my $group ( reverse @$group_list ) {
+			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group->{'id'}, { set_id => $set_id } );
 			if (@$group_schemes) {
-				unshift @$display_loci, "GROUP_$_->{'id'}";
-				$cleaned->{"GROUP_$_->{'id'}"} = $_->{'name'};
+				my $value = "GROUP_$group->{'id'}";
+				push @schemes_and_groups, $value;
+				$order{$value} = $group->{'display_order'} if $group->{'display_order'};
+				$cleaned->{$value} = $group->{'name'};
 			}
 		}
+		@schemes_and_groups =
+		  sort { ( $order{$a} // INF ) <=> ( $order{$b} // INF ) || $cleaned->{$a} cmp $cleaned->{$b} }
+		  @schemes_and_groups;
+		unshift @$display_loci, @schemes_and_groups;
 		unshift @$display_loci, 0;
 		$cleaned->{0} = 'All loci';
 		say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
@@ -126,7 +137,7 @@ sub _print_interface {
 		say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
 		say q(</fieldset>);
 	} else {
-		$q->param( 'order', 'locus' );
+		$q->param( order => 'locus' );
 		say $q->hidden($_) foreach qw(locus order simple);
 	}
 	say q(<div style="clear:both">);
@@ -883,7 +894,8 @@ sub _output_batch_query_nonexact {
 			}
 		}
 	} else {
-		$buffer .= q(There are insertions/deletions between these sequences.  Try single sequence query to get more details.);
+		$buffer .=
+		  q(There are insertions/deletions between these sequences.  Try single sequence query to get more details.);
 		$text_buffer .= q(Insertions/deletions present.);
 	}
 	my ( $allele, $text_allele, $cleaned_locus, $text_locus );
