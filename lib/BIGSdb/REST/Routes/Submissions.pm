@@ -185,6 +185,6 @@ sub _delete_submission {
 	send_error( 'You cannot delete a pending submission.',   403 ) if $submission->{'status'} eq 'pending';
 	$self->{'datastore'}->delete_submission($submission_id);
 	status(200);
-	return;
+	return { message => 'Submission deleted.' };
 }
 1;
