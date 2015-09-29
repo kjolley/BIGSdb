@@ -129,12 +129,9 @@ sub _before {
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
 	my $submission_route = "/db/$self->{'instance'}/submissions";
 
-	#DEBUGGING - so submission routes can be checked without authentication handshake.
-#	$submission_route = 'xxx';                   #TODO Remove
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
-#	$self->{'username'} = 'keith';               #TODO remove DEBUGGING only.
 	return;
 }
 
