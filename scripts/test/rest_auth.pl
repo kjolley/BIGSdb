@@ -8,7 +8,7 @@ use Net::OAuth 0.20;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use HTTP::Request::Common;
 use LWP::UserAgent;
-use JSON qw( decode_json );
+use JSON qw(decode_json);
 use Data::Random qw(rand_chars);
 use Data::Dumper;
 use Config::Tiny;
@@ -22,26 +22,19 @@ use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
 use constant TEST_REST_URL   => 'http://dev.pubmlst.org:3000/db/pubmlst_neisseria_seqdef';
 use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_neisseria_seqdef';
 ###
-
 my %opts;
-GetOptions(
-	'm|method=s' => \$opts{'m'},
-	'r|route=s'         => \$opts{'r'},
-	'h|help'               => \$opts{'h'},
-) or die("Error in command line arguments\n");
-
+GetOptions( 'm|method=s' => \$opts{'m'}, 'r|route=s' => \$opts{'r'}, 'h|help' => \$opts{'h'}, )
+  or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
-
-my $ua = LWP::UserAgent->new;
+my $ua      = LWP::UserAgent->new;
 my @methods = qw(GET POST PUT DELETE);
-my %methods = map {$_ => 1} @methods;
+my %methods = map { $_ => 1 } @methods;
 $opts{'m'} //= 'GET';
 local $" = q(, );
-die "Invalid route - allowed values are: @methods.\n" if !$methods{$opts{'m'}};
-
+die "Invalid route - allowed values are: @methods.\n" if !$methods{ $opts{'m'} };
 main();
 
 #Access and session tokens are stored within current directory.
@@ -219,8 +212,8 @@ sub _get_route {
 
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
-	my $method = lc($opts{'m'});
-	my $res = $ua->$method( $request->to_url, Content_Type => 'application/json' );
+	my $method       = lc( $opts{'m'} );
+	my $res          = $ua->$method( $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	say Dumper($decoded_json);
 	if ( ( $decoded_json->{'status'} // q() ) eq '401' ) {
@@ -278,4 +271,3 @@ ${bold}-r, --route$norm ${under}ROUTE$norm
 HELP
 	return;
 }
-

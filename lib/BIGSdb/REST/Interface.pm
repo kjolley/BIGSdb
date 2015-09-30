@@ -166,7 +166,7 @@ sub _is_authorized {
 		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
-		send_error( 'Invalid session token.  Generate new request token (/get_access_token).', 401 );
+		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
