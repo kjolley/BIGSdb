@@ -168,6 +168,13 @@ sub _is_authorized {
 	if ( !$session_token->{'secret'} ) {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
+	my $query_params = params('query');
+	my $body_params = params('body');
+	my $extra_params = {};
+	foreach my $param ( keys %$query_params, keys %$body_params ) {
+		next if $param =~ /^oauth_/x;
+		$extra_params->{$param} = $query_params->{$param};
+	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
 	  oauth_consumer_key
@@ -185,6 +192,7 @@ sub _is_authorized {
 			request_url     => request->uri_base . request->path,
 			consumer_secret => $client->{'client_secret'},
 			token_secret    => $session_token->{'secret'},
+			extra_params    => $extra_params
 		);
 	};
 
