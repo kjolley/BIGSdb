@@ -26,7 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(uniq any);
-use BIGSdb::Page qw(BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 use constant MAX_INSTANT_RUN => 10000;
 use constant MAX_TABLE       => 2000;
 

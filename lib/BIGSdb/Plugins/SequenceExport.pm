@@ -33,7 +33,7 @@ use Bio::AlignIO;
 use BIGSdb::Utils;
 use constant DEFAULT_ALIGN_LIMIT => 200;
 use constant DEFAULT_SEQ_LIMIT   => 1_000_000;
-use BIGSdb::Page qw(LOCUS_PATTERN);
+use BIGSdb::Constants qw(LOCUS_PATTERN);
 use BIGSdb::Plugin qw(SEQ_SOURCE);
 
 sub get_attributes {

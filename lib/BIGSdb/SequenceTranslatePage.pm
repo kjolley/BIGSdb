@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Page qw(BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_SEQ_LENGTH => 10000;
 

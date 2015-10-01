@@ -29,7 +29,7 @@ use Bio::SeqIO;
 use Digest::MD5;
 use constant SUCCESS => 1;
 use constant FAILURE => 2;
-use BIGSdb::Page qw(SEQ_STATUS HAPLOID DIPLOID);
+use BIGSdb::Constants qw(SEQ_STATUS HAPLOID DIPLOID);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {

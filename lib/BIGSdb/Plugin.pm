@@ -24,9 +24,8 @@ use parent qw(BIGSdb::TreeViewPage);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
-use BIGSdb::Page qw(FLANKING LOCUS_PATTERN BUTTON_CLASS RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_TREE_NODES => 1000;
 use constant SEQ_SOURCE     => 'seqbin id + position';
 our @EXPORT_OK = qw(SEQ_SOURCE);
 

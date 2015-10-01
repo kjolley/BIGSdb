@@ -24,10 +24,8 @@ use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Page qw(DATABANKS LOCUS_PATTERN ALLELE_FLAGS DIPLOID HAPLOID);
-use constant SUCCESS           => 1;
-use constant MAX_POSTGRES_COLS => 1664;
-our @EXPORT_OK = qw(MAX_POSTGRES_COLS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID MAX_POSTGRES_COLS DATABANKS);
+use constant SUCCESS => 1;
 
 sub initiate {
 	my ($self) = @_;
@@ -88,7 +86,7 @@ sub print_content {
 	} elsif ( $table eq 'allele_sequences' ) {
 		say q(<div class="box" id="statusbad"><p>Tag allele sequences using the scan interface.</p></div>);
 		return;
-	} elsif ($table eq 'sequence_bin'){
+	} elsif ( $table eq 'sequence_bin' ) {
 		say q(<div class="box" id="statusbad"><p>Add contigs using the batch add page.</p></div>);
 		return;
 	}

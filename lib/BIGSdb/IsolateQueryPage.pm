@@ -24,8 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
-use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
-use BIGSdb::Page qw(LOCUS_PATTERN SEQ_FLAGS);
+use BIGSdb::Constants qw(SEQ_FLAGS LOCUS_PATTERN OPERATORS MAX_ROWS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 
 sub _ajax_content {

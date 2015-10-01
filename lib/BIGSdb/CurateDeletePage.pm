@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(DATABANKS);
+use BIGSdb::Constants qw(DATABANKS);
 
 sub print_content {
 	my ($self) = @_;

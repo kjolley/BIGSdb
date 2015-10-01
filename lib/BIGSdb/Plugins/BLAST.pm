@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(SEQ_METHODS FLANKING);
+use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
 	no warnings 'qw';
 	use constant BLASTN_SCORES => qw(

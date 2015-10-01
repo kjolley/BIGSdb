@@ -28,7 +28,7 @@ use List::MoreUtils qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
 use constant MAX_ISOLATES => 1000;
-use BIGSdb::Page qw(SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub get_attributes {
 	my ($self) = @_;

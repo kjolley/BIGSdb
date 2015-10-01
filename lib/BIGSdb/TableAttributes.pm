@@ -20,7 +20,7 @@ package BIGSdb::TableAttributes;
 use strict;
 use warnings;
 use List::MoreUtils qw(any);
-use BIGSdb::Page qw(SEQ_METHODS DATABANKS SEQ_FLAGS SEQ_STATUS);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS);
 
 #Attributes
 #hide => 'yes': Do not display in results table and do not return field values in query

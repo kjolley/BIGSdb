@@ -24,7 +24,7 @@ use parent qw(BIGSdb::ResultsTablePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(LOCUS_PATTERN);
+use BIGSdb::Constants qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;

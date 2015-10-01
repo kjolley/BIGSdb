@@ -20,56 +20,13 @@ package BIGSdb::Page;
 use strict;
 use warnings;
 use 5.010;
+use parent 'Exporter'; #TODO remove once all exported constants moved to Constant.pm.
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
+use BIGSdb::Constants qw(:interface SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
-use parent 'Exporter';
-use constant SEQ_METHODS =>
-  ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other' );
-use constant SEQ_FLAGS => (
-	'ambiguous read',
-	'apparent misassembly',
-	'atypical',
-	'contains IS element',
-	'downstream fusion',
-	'frameshift',
-	'internal stop codon',
-	'no start codon',
-	'phase variable: off',
-	'truncated',
-	'upstream fusion'
-);
-use constant ALLELE_FLAGS => (
-	'atypical',
-	'contains IS element',
-	'downstream fusion',
-	'frameshift',
-	'internal stop codon',
-	'no start codon',
-	'phase variable: off',
-	'truncated',
-	'upstream fusion'
-);
-use constant SEQ_STATUS => (
-	'Sanger trace checked',
-	'WGS: manual extract (BIGSdb)',
-	'WGS: automated extract (BIGSdb)',
-	'WGS: visually checked',
-	'WGS: automatically checked',
-	'unchecked'
-);
-use constant DIPLOID                       => qw(A C G T R Y W S M K);
-use constant HAPLOID                       => qw(A C G T);
-use constant DATABANKS                     => qw(ENA Genbank);
-use constant FLANKING                      => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant LOCUS_PATTERN                 => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
-use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
-use constant BUTTON_CLASS                  => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
-use constant RESET_BUTTON_CLASS            => 'resetbutton ui-button ui-widget ui-state-default ui-corner-all';
-our @EXPORT_OK = qw(SEQ_METHODS SEQ_FLAGS ALLELE_FLAGS SEQ_STATUS DIPLOID HAPLOID DATABANKS FLANKING LOCUS_PATTERN
-  SUBMITTER_ALLOWED_PERMISSIONS BUTTON_CLASS RESET_BUTTON_CLASS);
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;

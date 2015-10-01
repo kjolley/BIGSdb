@@ -24,7 +24,7 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
+use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
 sub initiate {
 	my ($self) = @_;

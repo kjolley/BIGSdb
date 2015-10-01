@@ -25,17 +25,11 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
-use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS RESET_BUTTON_CLASS);
-use BIGSdb::Constants qw(:limits :submissions);
+use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS :submissions :interface);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
 use File::Path qw(make_path);
 use POSIX;
-use constant FACE_STYLE => (
-	good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
-	mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
-	bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
-);
 
 sub get_help_url {
 	my ($self) = @_;

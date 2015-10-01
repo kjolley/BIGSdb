@@ -24,9 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(none any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_ROWS => 20;
-use BIGSdb::Page qw(SEQ_FLAGS ALLELE_FLAGS BUTTON_CLASS);
-use BIGSdb::QueryPage qw(OPERATORS);
+use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS OPERATORS :interface);
 
 sub initiate {
 	my ($self) = @_;

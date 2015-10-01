@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(FLANKING BUTTON_CLASS RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 
 sub initiate {
 	my ($self) = @_;

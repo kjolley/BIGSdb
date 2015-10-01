@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Scan');
 use List::MoreUtils qw( any none);
 use Error qw(:try);
 use Fcntl qw(:flock);
-use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 
 sub blast {
 	my ( $self, $params, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;

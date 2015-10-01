@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
-use BIGSdb::QueryPage qw(MAX_ROWS OPERATORS);
+use BIGSdb::Constants qw(OPERATORS MAX_ROWS);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');

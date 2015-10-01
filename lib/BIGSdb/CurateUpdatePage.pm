@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any none);
-use BIGSdb::Page qw(DATABANKS ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS);
+use BIGSdb::Constants qw(ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant FAILURE => 2;

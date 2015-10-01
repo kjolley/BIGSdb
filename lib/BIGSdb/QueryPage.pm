@@ -23,11 +23,9 @@ use 5.010;
 use parent qw(BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Constants qw(OPERATORS MAX_ROWS);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_ROWS  => 20;
 use constant MAX_INT   => 2147483647;
-use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '<', 'NOT', 'NOT contain' );
-our @EXPORT_OK = qw(OPERATORS MAX_ROWS);
 
 sub initiate {
 	my ($self) = @_;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014, University of Oxford
+#Copyright (c) 2014-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Page qw(SUBMITTER_ALLOWED_PERMISSIONS);
+use BIGSdb::Constants qw(SUBMITTER_ALLOWED_PERMISSIONS);
 
 sub get_help_url {
 	my ($self) = @_;

@@ -23,8 +23,7 @@ use 5.010;
 use POSIX qw(ceil strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
-use BIGSdb::Page qw(SEQ_METHODS);
-use BIGSdb::Constants qw(:submissions);
+use BIGSdb::Constants qw(SEQ_METHODS :submissions);
 get '/db/:db/submissions' => sub { _get_submissions() };
 
 foreach my $type (qw (alleles profiles isolates)) {

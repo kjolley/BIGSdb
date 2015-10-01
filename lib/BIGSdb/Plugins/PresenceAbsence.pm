@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
-use constant MAX_SPLITS_TAXA => 200;
+use BIGSdb::Constants qw(MAX_SPLITS_TAXA);
 use constant MAX_DISMAT_TAXA => 1000;
 my $logger = get_logger('BIGSdb.Plugins');
 

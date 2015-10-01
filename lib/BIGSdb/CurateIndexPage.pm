@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Page qw(RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 

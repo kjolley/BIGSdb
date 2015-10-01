@@ -24,7 +24,7 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 use BIGSdb::BIGSException;
-use BIGSdb::Page qw(BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 use Bio::DB::GenBank;
 use IO::String;
 use Bio::SeqIO;

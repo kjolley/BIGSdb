@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use Error qw(:try);
-use BIGSdb::Page qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY       = 70;

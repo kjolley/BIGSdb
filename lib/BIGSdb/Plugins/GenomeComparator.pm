@@ -33,13 +33,10 @@ use Bio::AlignIO;
 use List::MoreUtils qw(uniq any none);
 use Digest::MD5;
 use Excel::Writer::XLSX;
-use BIGSdb::Page qw(SEQ_METHODS LOCUS_PATTERN);
-use constant MAX_UPLOAD_SIZE  => 32 * 1024 * 1024;    #32MB
-use constant MAX_SPLITS_TAXA  => 200;
+use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
 use constant MAX_DISPLAY_TAXA => 150;
 use constant MAX_GENOMES      => 1000;
 use constant MAX_REF_LOCI     => 10000;
-use constant MAX_MUSCLE_MB    => 4 * 1024;            #4GB
 
 sub get_attributes {
 	my ($self) = @_;

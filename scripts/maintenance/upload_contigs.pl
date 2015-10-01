@@ -35,7 +35,7 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Utils;
-use BIGSdb::Page qw(SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS);
 use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;

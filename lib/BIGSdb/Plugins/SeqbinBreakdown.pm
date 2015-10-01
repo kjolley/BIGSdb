@@ -26,7 +26,7 @@ use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
-use BIGSdb::Page qw(SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS);
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN => 100;
 use constant MAX_HTML_OUTPUT => 2000;

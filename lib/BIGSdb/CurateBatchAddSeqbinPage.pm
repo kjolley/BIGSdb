@@ -22,11 +22,10 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
-use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 my $logger = get_logger('BIGSdb.Page');
 use Bio::DB::GenBank;
 use Error qw(:try);
-use BIGSdb::Page 'SEQ_METHODS';
+use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS);
 
 sub print_content {
 	my ($self) = @_;
