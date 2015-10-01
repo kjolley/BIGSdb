@@ -206,7 +206,7 @@ sub _get_route {
 		request_method   => $opts{'m'},
 		signature_method => 'HMAC-SHA1',
 		timestamp        => time,
-		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) ),
+		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) )
 	);
 	$request->sign;
 
@@ -216,6 +216,10 @@ sub _get_route {
 	my $res          = $ua->$method( $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	say Dumper($decoded_json);
+	if ( ( $decoded_json->{'message'} // q() ) =~ /Client\ is\ unauthorized/x ) {
+		say 'Access denied - client is unauthorized.';
+		return;
+	}
 	if ( ( $decoded_json->{'status'} // q() ) eq '401' ) {
 		say 'Invalid session token, requesting new one...';
 		my $session_response = _get_session_token();
@@ -266,8 +270,7 @@ ${bold}-m, --method$norm ${under}GET|PUT|POST|DELETE$norm
     Set HTTP method (default GET).
 
 ${bold}-r, --route$norm ${under}ROUTE$norm
-    Minimum size of seqbin (bp) - limit search to isolates with at least this
-    much sequence.
+    Relative path of route, e.g. 'submissions'.
 HELP
 	return;
 }

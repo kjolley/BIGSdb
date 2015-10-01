@@ -27,7 +27,7 @@ use List::MoreUtils qw(uniq none);
 use autouse 'Data::Dumper' => qw(Dumper);
 use parent 'Exporter';
 use constant SEQ_METHODS =>
-  ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown' );
+  ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other' );
 use constant SEQ_FLAGS => (
 	'ambiguous read',
 	'apparent misassembly',

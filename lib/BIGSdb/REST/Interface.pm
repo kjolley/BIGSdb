@@ -169,7 +169,7 @@ sub _is_authorized {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
 	my $query_params = params('query');
-	my $body_params = params('body');
+	my $body_params  = params('body');
 	my $extra_params = {};
 	foreach my $param ( keys %$query_params, keys %$body_params ) {
 		next if $param =~ /^oauth_/x;

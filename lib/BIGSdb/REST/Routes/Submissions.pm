@@ -20,9 +20,11 @@ package BIGSdb::REST::Routes::Submissions;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
+use POSIX qw(ceil strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
+use BIGSdb::Page qw(SEQ_METHODS);
+use BIGSdb::Constants qw(:submissions);
 get '/db/:db/submissions' => sub { _get_submissions() };
 
 foreach my $type (qw (alleles profiles isolates)) {
@@ -34,6 +36,18 @@ get '/db/:db/submissions/pending'     => sub { _get_submissions_by_status('pendi
 get '/db/:db/submissions/closed'      => sub { _get_submissions_by_status('closed') };
 get '/db/:db/submissions/:submission' => sub { _get_submission() };
 del '/db/:db/submissions/:submission' => sub { _delete_submission() };
+post '/db/:db/submissions'            => sub { _create_submission() };
+
+sub _check_db_type {
+	my ($type) = @_;
+	my $self = setting('self');
+	send_error( 'Submission type not selected', 400 ) if !$type;
+	my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1 } };
+	if ( !$db_types->{ $self->{'system'}->{'dbtype'} }->{$type} ) {
+		send_error( qq(Submissions of type "$type" are not supported by this database), 404 );
+	}
+	return;
+}
 
 sub _get_submissions {
 	my ($options) = @_;
@@ -59,10 +73,7 @@ sub _get_submissions {
 		}
 		$values->{'type'} = $type;
 	} else {
-		my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1 } };
-		if ( !$db_types->{ $self->{'system'}->{'dbtype'} }->{ $options->{'type'} } ) {
-			send_error( "Submissions of type \'$options->{'type'}\' are not supported by this database", 404 );
-		}
+		_check_db_type( $options->{'type'} );
 	}
 	my $type = $options->{'type'} ? "/$options->{'type'}" : '';
 	if ( !$options->{'status'} ) {
@@ -186,5 +197,86 @@ sub _delete_submission {
 	$self->{'datastore'}->delete_submission($submission_id);
 	status(200);
 	return { message => 'Submission deleted.' };
+}
+
+sub _create_submission {
+	my $self = setting('self');
+	my ( $db, $type ) = ( params->{'db'}, params->{'type'} );
+	_check_db_type($type);
+	my $submitter     = $self->get_user_id;
+	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
+	my %method        = ( alleles => sub { _prepare_allele_submission($submission_id) } );
+	my $sql           = [];
+	$sql = $method{$type}->() if $method{$type};
+	eval {
+		$self->{'db'}
+		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
+			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending' );
+
+		foreach my $sql (@$sql) {
+			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
+		}
+	};
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	status(201);
+	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
+}
+
+sub _prepare_allele_submission {
+	my ($submission_id) = @_;
+	my $self            = setting('self');
+	my $params          = params;
+	my ( $db, $locus, $technology, $read_length, $coverage, $assembly, $software ) =
+	  @{$params}{qw(db locus technology read_length coverage assembly software)};
+	my %required = map { $_ => 1 } qw(locus technology assembly software);
+	my @missing;
+	foreach my $field ( sort keys %required ) {
+		push @missing, $field if !defined $params->{$field};
+	}
+	local $" = q(, );
+	if (@missing) {
+		send_error( "Required field(s) missing: @missing", 400 );
+	}
+	my $set_id = $self->get_set_id;
+	send_error( "Invalid value for locus: $locus", 400 )
+	  if !$self->{'datastore'}->is_locus( $locus, { set_id => $set_id } );
+	my @methods = SEQ_METHODS;
+	my %methods = map { $_ => 1 } @methods;
+	if ( !$methods{$technology} ) {
+		send_error( "Invalid value for technology: $technology. Allowed values are: @methods", 400 );
+	}
+	my %field_requires = ( read_length => [REQUIRES_READ_LENGTH], coverage => [REQUIRES_COVERAGE] );
+	my %allowed        = ( read_length => [READ_LENGTH],          coverage => [COVERAGE] );
+	foreach my $field (qw (read_length coverage)) {
+		my %requires = map { $_ => 1 } @{ $field_requires{$field} };
+		if ( !defined $params->{$field} && $requires{$technology} ) {
+			send_error( "$field must be provided for $technology sequences.", 400 );
+		}
+		next if !defined $params->{$field};
+		my %allowed_values = map { $_ => 1 } @{ $allowed{$field} };
+		if (!(   $allowed_values{ $params->{$field} }
+			|| (BIGSdb::Utils::is_int( $params->{$field} ) && $params->{$field} > 0 )))
+		{
+			send_error(
+				"Invalid value for $field: $params->{$field}. "
+				  . "Allowed values are: @{$allowed{$field}} or any positive integer.",
+				400
+			);
+		}
+	}
+	my $qry = 'INSERT INTO allele_submissions (submission_id,locus,technology,read_length,'
+	  . 'coverage,assembly,software) VALUES (?,?,?,?,?,?,?)';
+	my $sql = [
+		{
+			statement => $qry,
+			arguments => [ $submission_id, $locus, $technology, $read_length, $coverage, $assembly, $software ]
+		}
+	];
+	return $sql;
 }
 1;

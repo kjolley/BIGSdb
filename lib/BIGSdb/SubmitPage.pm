@@ -26,16 +26,12 @@ my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use BIGSdb::Page qw(SEQ_METHODS BUTTON_CLASS RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(:limits :submissions);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
 use File::Path qw(make_path);
 use POSIX;
-use constant COVERAGE                 => qw(<20x 20-49x 50-99x >100x);
-use constant READ_LENGTH              => qw(<100 100-199 200-299 300-499 >500);
-use constant ASSEMBLY                 => ( 'de novo', 'mapped' );
-use constant MAX_UPLOAD_SIZE          => 32 * 1024 * 1024;                        #32Mb
-use constant SUBMISSIONS_DELETED_DAYS => 90;
-use constant FACE_STYLE               => (
+use constant FACE_STYLE => (
 	good  => q(class="fa fa-lg fa-smile-o" style="color:green"),
 	mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
 	bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
