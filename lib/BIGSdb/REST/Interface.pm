@@ -159,6 +159,9 @@ sub _is_authorized {
 	if ( !$client->{'client_secret'} ) {
 		send_error( 'Unrecognized client', 403 );
 	}
+	my $client_name = $client->{'application'};
+	$client_name .= " version $client->{'version'}" if $client->{'version'};
+	$self->{'client_name'} = $client_name;
 	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
 		'SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)',
@@ -166,7 +169,14 @@ sub _is_authorized {
 		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
-		send_error( 'Invalid session token.  Generate new request token (/get_access_token).', 401 );
+		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
+	}
+	my $query_params = params('query');
+	my $body_params  = params('body');
+	my $extra_params = {};
+	foreach my $param ( keys %$query_params, keys %$body_params ) {
+		next if $param =~ /^oauth_/x;
+		$extra_params->{$param} = $query_params->{$param};
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
@@ -185,6 +195,7 @@ sub _is_authorized {
 			request_url     => request->uri_base . request->path,
 			consumer_secret => $client->{'client_secret'},
 			token_secret    => $session_token->{'secret'},
+			extra_params    => $extra_params
 		);
 	};
 
