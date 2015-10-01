@@ -23,8 +23,12 @@ use constant TEST_REST_URL   => 'http://dev.pubmlst.org:3000/db/pubmlst_neisseri
 use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_neisseria_seqdef';
 ###
 my %opts;
-GetOptions( 'm|method=s' => \$opts{'m'}, 'r|route=s' => \$opts{'r'}, 'h|help' => \$opts{'h'}, )
-  or die("Error in command line arguments\n");
+GetOptions(
+	'm|method=s'        => \$opts{'m'},
+	'r|route=s'         => \$opts{'r'},
+	's|sequence_file=s' => \$opts{'sequence_file'},
+	'h|help'            => \$opts{'h'},
+) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
@@ -195,6 +199,12 @@ sub _get_route {
 	if ($route) {
 		$route = "/$route" if $route !~ /^\//x;
 	}
+	my $extra_params = {};
+	if ( $opts{'sequence_file'} ) {
+		die "Sequence file $opts{'sequence_file'} does not exist.\n" if !-e $opts{'sequence_file'};
+		my $seqs = _slurp( $opts{'sequence_file'} );
+		$extra_params->{'sequences'} = $$seqs;
+	}
 	my $url = TEST_REST_URL . "$route";
 	say "\nAccessing authenticated resource ($url)...";
 	my $request = Net::OAuth->request('protected resource')->new(
@@ -206,7 +216,8 @@ sub _get_route {
 		request_method   => $opts{'m'},
 		signature_method => 'HMAC-SHA1',
 		timestamp        => time,
-		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) )
+		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) ),
+		extra_params     => $extra_params
 	);
 	$request->sign;
 
@@ -248,6 +259,14 @@ sub _write_token {
 	return;
 }
 
+sub _slurp {
+	my ($file_path) = @_;
+	open( my $fh, '<:encoding(utf8)', $file_path )
+	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
+	my $contents = do { local $/ = undef; <$fh> };
+	return \$contents;
+}
+
 sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
@@ -271,6 +290,9 @@ ${bold}-m, --method$norm ${under}GET|PUT|POST|DELETE$norm
 
 ${bold}-r, --route$norm ${under}ROUTE$norm
     Relative path of route, e.g. 'submissions'.
+    
+${bold}-s, --sequence_file$norm ${under}FILE$norm
+    Relative path of FASTA or single sequence file to upload.
 HELP
 	return;
 }

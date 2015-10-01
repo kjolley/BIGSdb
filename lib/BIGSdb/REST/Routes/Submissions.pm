@@ -216,6 +216,9 @@ sub _create_submission {
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
 		}
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef,
+			$submission_id, 'now', $submitter, "Submission via REST interface (client: $self->{'client_name'})." );
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
@@ -231,9 +234,9 @@ sub _prepare_allele_submission {
 	my ($submission_id) = @_;
 	my $self            = setting('self');
 	my $params          = params;
-	my ( $db, $locus, $technology, $read_length, $coverage, $assembly, $software ) =
-	  @{$params}{qw(db locus technology read_length coverage assembly software)};
-	my %required = map { $_ => 1 } qw(locus technology assembly software);
+	my ( $db, $locus, $technology, $read_length, $coverage, $assembly, $software, $sequences ) =
+	  @{$params}{qw(db locus technology read_length coverage assembly software sequences)};
+	my %required = map { $_ => 1 } qw(locus technology assembly software sequences);
 	my @missing;
 	foreach my $field ( sort keys %required ) {
 		push @missing, $field if !defined $params->{$field};
@@ -259,8 +262,12 @@ sub _prepare_allele_submission {
 		}
 		next if !defined $params->{$field};
 		my %allowed_values = map { $_ => 1 } @{ $allowed{$field} };
-		if (!(   $allowed_values{ $params->{$field} }
-			|| (BIGSdb::Utils::is_int( $params->{$field} ) && $params->{$field} > 0 )))
+		if (
+			!(
+				$allowed_values{ $params->{$field} }
+				|| ( BIGSdb::Utils::is_int( $params->{$field} ) && $params->{$field} > 0 )
+			)
+		  )
 		{
 			send_error(
 				"Invalid value for $field: $params->{$field}. "
@@ -277,6 +284,36 @@ sub _prepare_allele_submission {
 			arguments => [ $submission_id, $locus, $technology, $read_length, $coverage, $assembly, $software ]
 		}
 	];
+	my $checked_allele_sql = _check_submitted_alleles( $submission_id, $locus );
+	push @$sql, @$checked_allele_sql;
+	return $sql;
+}
+
+sub _check_submitted_alleles {
+	my ( $submission_id, $locus ) = @_;
+	my $self         = setting('self');
+	my $params       = params;
+	my $fasta_string = $params->{'sequences'};
+	$fasta_string =~ s/^\s*//x;
+	$fasta_string =~ s/\n\s*/\n/xg;
+	$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
+	my $check = $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
+
+	if ( $check->{'err'} ) {
+		local $" = q( );
+		my $err = "@{ $check->{'err'} }";
+		send_error( $err, 400 );
+	}
+	my $sql   = [];
+	my $index = 1;
+	foreach my $seq ( @{ $check->{'seqs'} } ) {
+		push @$sql, {
+			statement => 'INSERT INTO allele_submission_sequences (submission_id,seq_id,index,sequence,status) '
+			  . 'VALUES (?,?,?,?,?)',
+			arguments => [ $submission_id, $seq->{'seq_id'}, $index, $seq->{'sequence'}, 'pending' ]
+		};
+		$index++;
+	}
 	return $sql;
 }
 1;

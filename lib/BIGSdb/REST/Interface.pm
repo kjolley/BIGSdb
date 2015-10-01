@@ -159,6 +159,9 @@ sub _is_authorized {
 	if ( !$client->{'client_secret'} ) {
 		send_error( 'Unrecognized client', 403 );
 	}
+	my $client_name = $client->{'application'};
+	$client_name .= " version $client->{'version'}" if $client->{'version'};
+	$self->{'client_name'} = $client_name;
 	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
 		'SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)',
