@@ -120,21 +120,22 @@ sub print_page {
 		update             => 'CurateUpdatePage'
 	);
 	my %page_attributes = (
-		system           => $self->{'system'},
-		dbase_config_dir => $self->{'dbase_config_dir'},
-		config_dir       => $self->{'config_dir'},
-		lib_dir          => $self->{'lib_dir'},
-		cgi              => $self->{'cgi'},
-		instance         => $self->{'instance'},
-		prefs            => $self->{'prefs'},
-		prefstore        => $self->{'prefstore'},
-		config           => $self->{'config'},
-		datastore        => $self->{'datastore'},
-		db               => $self->{'db'},
-		xmlHandler       => $self->{'xmlHandler'},
-		dataConnector    => $self->{'dataConnector'},
-		mod_perl_request => $self->{'mod_perl_request'},
-		curate           => 1
+		system            => $self->{'system'},
+		dbase_config_dir  => $self->{'dbase_config_dir'},
+		config_dir        => $self->{'config_dir'},
+		lib_dir           => $self->{'lib_dir'},
+		cgi               => $self->{'cgi'},
+		instance          => $self->{'instance'},
+		prefs             => $self->{'prefs'},
+		prefstore         => $self->{'prefstore'},
+		config            => $self->{'config'},
+		datastore         => $self->{'datastore'},
+		db                => $self->{'db'},
+		xmlHandler        => $self->{'xmlHandler'},
+		submissionHandler => $self->{'submissionHandler'},
+		dataConnector     => $self->{'dataConnector'},
+		mod_perl_request  => $self->{'mod_perl_request'},
+		curate            => 1
 	);
 	my $page;
 	my $continue = 1;

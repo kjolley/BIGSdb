@@ -486,7 +486,7 @@ sub _upload {
 	$self->{'db'}->commit
 	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
 	if ( $q->param('submission_id') ) {
-		my $submission = $self->{'datastore'}->get_submission( $q->param('submission_id') );
+		my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
 		if ($submission) {
 			say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
 			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">Return to )
@@ -562,9 +562,9 @@ sub _is_integer_primary_key {
 
 sub _set_submission_params {
 	my ( $self, $submission_id ) = @_;
-	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
-	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
+	my $profile_submission = $self->{'submissionHandler'}->get_profile_submission($submission_id);
 	return if !$profile_submission;
 	my $q    = $self->{'cgi'};
 	my $loci = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );

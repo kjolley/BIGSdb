@@ -1786,7 +1786,7 @@ sub _convert_query {
 
 sub _set_submission_params {
 	my ( $self, $submission_id ) = @_;
-	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
 	my $q = $self->{'cgi'};
 	$q->param( sender => $submission->{'submitter'} );

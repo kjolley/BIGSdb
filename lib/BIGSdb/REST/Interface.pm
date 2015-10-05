@@ -54,6 +54,7 @@ sub new {
 	$self->{'xmlHandler'}       = undef;
 	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
 	$self->{'datastore'}        = undef;
+	$self->{'submissionHandler'} = undef;
 	$self->{'db'}               = undef;
 	$self->{'config_dir'}       = $options->{'config_dir'};
 	$self->{'lib_dir'}          = $options->{'lib_dir'};
@@ -128,6 +129,10 @@ sub _before {
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
 	my $submission_route = "/db/$self->{'instance'}/submissions";
+	
+	if ($request_uri =~ /$submission_route/x){
+		$self->setup_submission_handler;
+	}
 
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;

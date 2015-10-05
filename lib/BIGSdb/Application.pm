@@ -58,6 +58,7 @@ use BIGSdb::SeqbinPage;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SequenceQueryPage;
 use BIGSdb::SequenceTranslatePage;
+use BIGSdb::SubmissionHandler;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::VersionPage;
@@ -67,8 +68,9 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword submit);
-use constant PAGES_NEEDING_JOB_MANAGER    => qw (plugin job jobs index logout options);
+use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
+use constant PAGES_NEEDING_JOB_MANAGER        => qw (plugin job jobs index logout options);
+use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileBatchAdd batchAdd);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
@@ -115,6 +117,8 @@ sub new {
 			  if !$self->{'curate'}
 			  && $job_manager_pages{ $q->param('page') }
 			  && $self->{'config'}->{'jobs_db'};
+			my %pages_needing_submission_handler = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
+			$self->setup_submission_handler if $pages_needing_submission_handler{ $q->param('page') };
 		}
 	}
 	$self->initiate_plugins($lib_dir);
@@ -180,7 +184,7 @@ sub _initiate {
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( page => 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
-	$self->{'system'}->{'read_access'} //= 'public';               #everyone can view by default
+	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
 	$self->{'system'}->{'host'}        //= 'localhost';
 	$self->{'system'}->{'port'}        //= 5432;
 	$self->{'system'}->{'user'}        //= 'apache';
@@ -372,6 +376,17 @@ sub setup_datastore {
 	return;
 }
 
+sub setup_submission_handler {
+	my ($self) = @_;
+	$self->{'submissionHandler'} = BIGSdb::SubmissionHandler->new(
+		db        => $self->{'db'},
+		system    => $self->{'system'},
+		config    => $self->{'config'},
+		datastore => $self->{'datastore'}
+	);
+	return;
+}
+
 sub db_connect {
 	my ($self) = @_;
 	my %att = (
@@ -457,6 +472,7 @@ sub print_page {
 		datastore            => $self->{'datastore'},
 		db                   => $self->{'db'},
 		xmlHandler           => $self->{'xmlHandler'},
+		submissionHandler    => $self->{'submissionHandler'},
 		dataConnector        => $self->{'dataConnector'},
 		pluginManager        => $self->{'pluginManager'},
 		mod_perl_request     => $self->{'mod_perl_request'},

@@ -339,7 +339,7 @@ sub _upload {
 	  $self->{'db'}
 	  ->prepare("INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)");
 	my $submission_id = $q->param('submission_id');
-	my $allele_submission = $submission_id ? $self->{'datastore'}->get_allele_submission($submission_id) : undef;
+	my $allele_submission = $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $sql_submission =
 	  $self->{'db'}->prepare("UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)");
 	eval {

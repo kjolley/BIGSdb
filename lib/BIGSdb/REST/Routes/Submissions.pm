@@ -145,7 +145,7 @@ sub _get_submission {
 	my %type = (
 		alleles => sub {
 			my $allele_submission =
-			  $self->{'datastore'}
+			  $self->{'submissionHandler'}
 			  ->get_allele_submission( $submission->{'id'}, { fields => 'seq_id,sequence,status,assigned_id' } );
 			if ($allele_submission) {
 				foreach my $field (qw (locus technology read_length coverage assembly_method software comments seqs)) {
@@ -155,7 +155,7 @@ sub _get_submission {
 		},
 		profiles => sub {
 			my $profile_submission =
-			  $self->{'datastore'}
+			  $self->{'submissionHandler'}
 			  ->get_profile_submission( $submission->{'id'}, { fields => 'profile_id,status,assigned_id' } );
 			if ($profile_submission) {
 				$values->{'scheme'}   = request->uri_for("/db/$db/schemes/$profile_submission->{'scheme_id'}");
@@ -163,7 +163,7 @@ sub _get_submission {
 			}
 		},
 		isolates => sub {
-			my $isolate_submission = $self->{'datastore'}->get_isolate_submission( $submission->{'id'} );
+			my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 			if ($isolate_submission) {
 				$values->{'isolates'} = $isolate_submission->{'isolates'} if @{ $isolate_submission->{'isolates'} };
 			}
@@ -189,11 +189,11 @@ sub _delete_submission {
 	my $self = setting('self');
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
 	my $user_id    = $self->get_user_id;
-	my $submission = $self->{'datastore'}->get_submission($submission_id);
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.',                404 ) if !$submission;
 	send_error( 'You are not the owner of this submission.', 403 ) if $user_id != $submission->{'submitter'};
 	send_error( 'You cannot delete a pending submission.',   403 ) if $submission->{'status'} eq 'pending';
-	$self->{'datastore'}->delete_submission($submission_id);
+	$self->{'submissionHandler'}->delete_submission($submission_id);
 	status(200);
 	return { message => 'Submission deleted.' };
 }
@@ -229,7 +229,7 @@ sub _create_submission {
 		$self->{'db'}->commit;
 	}
 	my %write_file = (
-		alleles => sub {$self->{'datastore'}->write_submission_allele_FASTA($submission_id)}
+		alleles => sub {$self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id)}
 	);
 	$write_file{$type}->() if $write_file{$type};
 	status(201);
@@ -303,7 +303,7 @@ sub _check_submitted_alleles {
 	$fasta_string =~ s/^\s*//x;
 	$fasta_string =~ s/\n\s*/\n/xg;
 	$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
-	my $check = $self->{'datastore'}->check_new_alleles_fasta( $locus, \$fasta_string );
+	my $check = $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string );
 
 	if ( $check->{'err'} ) {
 		local $" = q( );
