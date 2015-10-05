@@ -28,7 +28,6 @@ use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS :submissions :interface);
 use List::Util qw(max);
 use List::MoreUtils qw(none uniq);
-use File::Path qw(make_path);
 use POSIX;
 
 sub get_help_url {
@@ -1314,7 +1313,7 @@ sub _start_allele_submission {
 			}
 			$index++;
 		}
-		$self->_write_allele_FASTA($submission_id);
+		$self->{'datastore'}->write_submission_allele_FASTA($submission_id);
 	}
 	$self->{'db'}->commit;
 	return;
@@ -2113,7 +2112,7 @@ sub _append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->_make_path($dir);
+	$self->{'datastore'}->mkpath($dir);
 	my $filename = 'messages.txt';
 	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" )
 	  || $logger->error("Can't open $dir/$filename for appending");
@@ -2124,26 +2123,6 @@ sub _append_message {
 	say $fh $message;
 	say $fh '';
 	close $fh;
-	return;
-}
-
-sub _make_path {
-	my ( $self, $dir ) = @_;
-	my $save_u = umask();
-	umask(0);
-	##no critic (ProhibitLeadingZeros)
-	make_path( $dir, { mode => 0775, error => \my $err } );
-	if (@$err) {
-		for my $diag (@$err) {
-			my ( $path, $message ) = %$diag;
-			if ( $path eq '' ) {
-				$logger->error("general error: $message");
-			} else {
-				$logger->error("problem with $path: $message");
-			}
-		}
-	}
-	umask($save_u);
 	return;
 }
 
@@ -2200,7 +2179,7 @@ sub _upload_files {
 	my $i         = 0;
 	my $dir       = $self->{'datastore'}->get_submission_dir($submission_id) . '/supporting_files';
 	if ( !-e $dir ) {
-		$self->_make_path($dir);
+		$self->{'datastore'}->mkpath($dir);
 	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
 		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\)]+)/x ) {
@@ -2263,7 +2242,7 @@ sub _print_summary {
 		my $fasta_icon     = $self->get_file_icon('FAS');
 		my $submission_dir = $self->{'datastore'}->get_submission_dir($submission_id);
 		if ( !-e "$submission_dir/sequences.fas" ) {
-			$self->_write_allele_FASTA($submission_id);
+			$self->{'datastore'}->write_submission_allele_FASTA($submission_id);
 			$logger->error("No submission FASTA file for allele submission $submission_id.");
 		}
 		say q(<dt>sequences</dt>)
@@ -2593,25 +2572,6 @@ sub _get_fasta_string {
 	return $buffer;
 }
 
-sub _write_allele_FASTA {
-	my ( $self, $submission_id ) = @_;
-	my $allele_submission = $self->{'datastore'}->get_allele_submission($submission_id);
-	my $seqs              = $allele_submission->{'seqs'};
-	return if !@$seqs;
-	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
-	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->_make_path($dir);
-	my $filename = 'sequences.fas';
-	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
-
-	foreach my $seq (@$seqs) {
-		say $fh ">$seq->{'seq_id'}";
-		say $fh $seq->{'sequence'};
-	}
-	close $fh;
-	return $filename;
-}
-
 sub _write_profile_csv {
 	my ( $self, $submission_id ) = @_;
 	my $profile_submission = $self->{'datastore'}->get_profile_submission($submission_id);
@@ -2619,7 +2579,7 @@ sub _write_profile_csv {
 	return if !@$profiles;
 	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->_make_path($dir);
+	$self->{'datastore'}->mkpath($dir);
 	my $filename  = 'profiles.txt';
 	my $scheme_id = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
 	my $loci      = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
@@ -2660,7 +2620,7 @@ sub _write_isolate_csv {
 	my $fields = $self->_get_populated_fields( $isolates, $positions );
 	my $dir = $self->{'datastore'}->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->_make_path($dir);
+	$self->{'datastore'}->mkpath($dir);
 	my $filename = 'isolates.txt';
 	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");

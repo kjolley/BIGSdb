@@ -204,14 +204,17 @@ sub _create_submission {
 	_check_db_type($type);
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
-	my %method        = ( alleles => sub { _prepare_allele_submission($submission_id) } );
-	my $sql           = [];
+	my %method        = (
+		alleles => sub {
+			_prepare_allele_submission($submission_id);
+		}
+	);
+	my $sql = [];
 	$sql = $method{$type}->() if $method{$type};
 	eval {
 		$self->{'db'}
 		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
 			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending' );
-
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
 		}
@@ -225,6 +228,10 @@ sub _create_submission {
 	} else {
 		$self->{'db'}->commit;
 	}
+	my %write_file = (
+		alleles => sub {$self->{'datastore'}->write_submission_allele_FASTA($submission_id)}
+	);
+	$write_file{$type}->() if $write_file{$type};
 	status(201);
 	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
 }
@@ -283,7 +290,7 @@ sub _prepare_allele_submission {
 			arguments => [ $submission_id, $locus, $technology, $read_length, $coverage, $assembly, $software ]
 		}
 	];
-	my $checked_allele_sql = _check_submitted_alleles( $submission_id, $locus );
+	my ( $checked_allele_sql, $seqs ) = _check_submitted_alleles( $submission_id, $locus );
 	push @$sql, @$checked_allele_sql;
 	return $sql;
 }
@@ -306,13 +313,14 @@ sub _check_submitted_alleles {
 	my $sql   = [];
 	my $index = 1;
 	foreach my $seq ( @{ $check->{'seqs'} } ) {
-		push @$sql, {
+		push @$sql,
+		  {
 			statement => 'INSERT INTO allele_submission_sequences (submission_id,seq_id,index,sequence,status) '
 			  . 'VALUES (?,?,?,?,?)',
 			arguments => [ $submission_id, $seq->{'seq_id'}, $index, $seq->{'sequence'}, 'pending' ]
-		};
+		  };
 		$index++;
 	}
-	return $sql;
+	return ( $sql, $check->{'seqs'} );
 }
 1;

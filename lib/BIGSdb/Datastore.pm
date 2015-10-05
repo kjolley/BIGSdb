@@ -2422,4 +2422,43 @@ sub _delete_submission_files {
 	}
 	return;
 }
+
+sub mkpath {
+	my ( $self, $dir ) = @_;
+	my $save_u = umask();
+	umask(0);
+	##no critic (ProhibitLeadingZeros)
+	make_path( $dir, { mode => 0775, error => \my $err } );
+	if (@$err) {
+		for my $diag (@$err) {
+			my ( $path, $message ) = %$diag;
+			if ( $path eq '' ) {
+				$logger->error("general error: $message");
+			} else {
+				$logger->error("problem with $path: $message");
+			}
+		}
+	}
+	umask($save_u);
+	return;
+}
+
+sub write_submission_allele_FASTA {
+	my ( $self, $submission_id ) = @_;
+	my $allele_submission = $self->get_allele_submission($submission_id);
+	my $seqs              = $allele_submission->{'seqs'};
+	return if !@$seqs;
+	my $dir = $self->get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	$self->mkpath($dir);
+	my $filename = 'sequences.fas';
+	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+
+	foreach my $seq (@$seqs) {
+		say $fh ">$seq->{'seq_id'}";
+		say $fh $seq->{'sequence'};
+	}
+	close $fh;
+	return $filename;
+}
 1;
