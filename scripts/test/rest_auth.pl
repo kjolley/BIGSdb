@@ -15,6 +15,7 @@ use Config::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
+use MIME::Base64;
 
 #Modify the following values to your local system.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
@@ -24,6 +25,7 @@ use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl
 ###
 my %opts;
 GetOptions(
+	'f|file=s' => \$opts{'f'},
 	'm|method=s'        => \$opts{'m'},
 	'r|route=s'         => \$opts{'r'},
 	's|sequence_file=s' => \$opts{'sequence_file'},
@@ -205,6 +207,14 @@ sub _get_route {
 		my $seqs = _slurp( $opts{'sequence_file'} );
 		$extra_params->{'sequences'} = $$seqs;
 	}
+	if ( $opts{'f'} ) {
+		die "File $opts{'f'} does not exist.\n" if !-e $opts{'f'};
+		open (my $fh, '<', $opts{'f'}) || die "Cannot open file $opts{'f'} for reading.\n";
+		binmode $fh;
+		my $contents = do { local $/ = undef; <$fh> };
+		close $fh; 
+		$extra_params->{'upload'} = encode_base64($contents);
+	}
 	my $url = TEST_REST_URL . "$route";
 	say "\nAccessing authenticated resource ($url)...";
 	my $request = Net::OAuth->request('protected resource')->new(
@@ -282,6 +292,9 @@ ${bold}SYNOPSIS$norm
     ${bold}rest_auth.pl --route$norm ${under}ROUTE$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
+
+${bold}-f, --file$norm ${under}FILENAME$norm
+    Name of file to upload.
 
 ${bold}-h, --help$norm
     This help page.

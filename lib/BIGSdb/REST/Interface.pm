@@ -129,7 +129,6 @@ sub _before {
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
 	my $submission_route = "/db/$self->{'instance'}/submissions";
-
 	if ( $request_uri =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}

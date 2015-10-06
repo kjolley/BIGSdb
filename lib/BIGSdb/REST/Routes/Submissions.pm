@@ -22,22 +22,27 @@ use warnings;
 use 5.010;
 use POSIX qw(ceil strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
+use MIME::Base64;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions);
-get '/db/:db/submissions' => sub { _get_submissions() };
+get '/db/:db/submissions'  => sub { _get_submissions() };
+post '/db/:db/submissions' => sub { _create_submission() };
 
 foreach my $type (qw (alleles profiles isolates)) {
 	get "/db/:db/submissions/$type"         => sub { _get_submissions( { type => $type } ) };
 	get "/db/:db/submissions/$type/pending" => sub { _get_submissions( { type => $type, status => 'pending' } ) };
 	get "/db/:db/submissions/$type/closed"  => sub { _get_submissions( { type => $type, status => 'closed' } ) };
 }
-get '/db/:db/submissions/pending'               => sub { _get_submissions_by_status('pending') };
-get '/db/:db/submissions/closed'                => sub { _get_submissions_by_status('closed') };
-get '/db/:db/submissions/:submission'           => sub { _get_submission() };
-del '/db/:db/submissions/:submission'           => sub { _delete_submission() };
-get '/db/:db/submissions/:submission/messages'  => sub { _get_messages() };
-post '/db/:db/submissions/:submission/messages' => sub { _add_message() };
-post '/db/:db/submissions'                      => sub { _create_submission() };
+get '/db/:db/submissions/pending'                 => sub { _get_submissions_by_status('pending') };
+get '/db/:db/submissions/closed'                  => sub { _get_submissions_by_status('closed') };
+get '/db/:db/submissions/:submission'             => sub { _get_submission() };
+del '/db/:db/submissions/:submission'             => sub { _delete_submission() };
+get '/db/:db/submissions/:submission/messages'    => sub { _get_messages() };
+post '/db/:db/submissions/:submission/messages'   => sub { _add_message() };
+get '/db/:db/submissions/:submission/files'       => sub { _get_files() };
+post '/db/:db/submissions/:submission/files'      => sub { _upload_file() };
+get '/db/:db/submissions/:submission/files/:file' => sub { _get_file() };
+del '/db/:db/submissions/:submission/files/:file' => sub { _delete_file() };
 
 sub _check_db_type {
 	my ($type) = @_;
@@ -224,7 +229,7 @@ sub _create_submission {
 		$msg .= "\n$message" if $message;
 		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
 			undef, $submission_id, 'now', $submitter, $msg );
-		$self->{'submissionHandler'}->append_message($submission_id, $submitter, $msg)
+		$self->{'submissionHandler'}->append_message( $submission_id, $submitter, $msg );
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
@@ -368,9 +373,93 @@ sub _add_message {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
-		$self->{'submissionHandler'}->append_message($submission_id, $user_id, $message);
+		$self->{'submissionHandler'}->append_message( $submission_id, $user_id, $message );
 	}
 	status(201);
 	return { message => 'Message added.' };
+}
+
+sub _upload_file {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $submission_id, $filename, $upload ) = @{$params}{qw(db submission filename upload)};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	send_error( 'Filename is required.',      400 ) if !$filename;
+	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	$self->{'submissionHandler'}->mkpath($dir);
+	my $full_path = "$dir/$filename";
+
+	if ( -e $full_path ) {
+		send_error( "File $filename is already uploaded.", 400 );
+	}
+	if ( !length $upload ) {
+		send_error( 'No data in upload.', 400 );
+	}
+	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Can't open $full_path for writing");
+	print $fh decode_base64($upload);
+	binmode $fh;
+	close $fh;
+	status(201);
+	return { message => 'File uploaded.' };
+}
+
+sub _get_files {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $submission_id ) = @{$params}{qw(db submission)};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my @files;
+	opendir( my $dh, $dir ) || $self->{'logger'}->error("Directory $dir can't be read.");
+
+	while ( defined( my $filename = readdir($dh) ) ) {
+		push @files, $filename;
+	}
+	closedir $dh;
+	my $values = [];
+	foreach my $file ( sort @files ) {
+		next if $file =~ /^\.\.?/x;
+		push @$values, request->uri_for("/db/$db/submissions/$submission_id/files/$file");
+	}
+	return $values;
+}
+
+sub _get_file {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $submission_id, $filename ) = @{$params}{qw(db submission file)};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $full_path = "$dir/$filename";
+	if ( !-e $full_path ) {
+		send_error( 'File does not exist.', 404 );
+	}
+	send_file( $full_path, system_path => 1 );
+	return;
+}
+
+sub _delete_file {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $submission_id, $filename ) = @{$params}{qw(db submission file)};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $user_id = $self->get_user_id;
+	send_error( 'You are not the owner of this submission.', 403 ) if $user_id != $submission->{'submitter'};
+	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $full_path = "$dir/$filename";
+
+	if ( !-e $full_path ) {
+		send_error( 'File does not exist.', 404 );
+	}
+	if ( $filename =~ /\//x || $filename =~ /\.\./x ) {
+		send_error( 'Filename contains invalid characters.', 400 );
+	}
+	unlink $full_path || $self->{'logger'}->error("Cannot delete $full_path.");
+	status(200);
+	return { message => 'File deleted.' };
 }
 1;
