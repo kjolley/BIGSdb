@@ -2014,7 +2014,7 @@ sub _print_message_fieldset {
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			$self->_append_message( $submission_id, $user->{'id'}, $q->param('message') );
+			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, $q->param('message') );
 			$q->delete('message');
 			$self->_update_submission_datestamp($submission_id);
 		}
@@ -2110,23 +2110,7 @@ sub _print_close_submission_fieldset {
 	return;
 }
 
-sub _append_message {
-	my ( $self, $submission_id, $user_id, $message ) = @_;
-	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id);
-	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->{'submissionHandler'}->mkpath($dir);
-	my $filename = 'messages.txt';
-	open( my $fh, '>>:encoding(utf8)', "$dir/$filename" )
-	  || $logger->error("Can't open $dir/$filename for appending");
-	my $user_string = $self->{'datastore'}->get_user_string($user_id);
-	say $fh $user_string;
-	my $timestamp = localtime(time);
-	say $fh $timestamp;
-	say $fh $message;
-	say $fh '';
-	close $fh;
-	return;
-}
+
 
 sub _print_submission_file_table {
 	my ( $self, $submission_id, $options ) = @_;

@@ -48,21 +48,21 @@ hook after  => sub { _after() };
 sub new {
 	my ( $class, $options ) = @_;
 	my $self = {};
-	$self->{'system'}           = {};
-	$self->{'config'}           = {};
-	$self->{'instance'}         = undef;
-	$self->{'xmlHandler'}       = undef;
-	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
-	$self->{'datastore'}        = undef;
+	$self->{'system'}            = {};
+	$self->{'config'}            = {};
+	$self->{'instance'}          = undef;
+	$self->{'xmlHandler'}        = undef;
+	$self->{'dataConnector'}     = BIGSdb::Dataconnector->new;
+	$self->{'datastore'}         = undef;
 	$self->{'submissionHandler'} = undef;
-	$self->{'db'}               = undef;
-	$self->{'config_dir'}       = $options->{'config_dir'};
-	$self->{'lib_dir'}          = $options->{'lib_dir'};
-	$self->{'dbase_config_dir'} = $options->{'dbase_config_dir'};
-	$self->{'host'}             = $options->{'host'};
-	$self->{'port'}             = $options->{'port'};
-	$self->{'user'}             = $options->{'user'};
-	$self->{'password'}         = $options->{'password'};
+	$self->{'db'}                = undef;
+	$self->{'config_dir'}        = $options->{'config_dir'};
+	$self->{'lib_dir'}           = $options->{'lib_dir'};
+	$self->{'dbase_config_dir'}  = $options->{'dbase_config_dir'};
+	$self->{'host'}              = $options->{'host'};
+	$self->{'port'}              = $options->{'port'};
+	$self->{'user'}              = $options->{'user'};
+	$self->{'password'}          = $options->{'password'};
 	bless( $self, $class );
 	$self->_initiate;
 	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
@@ -129,11 +129,10 @@ sub _before {
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
 	my $submission_route = "/db/$self->{'instance'}/submissions";
-	
-	if ($request_uri =~ /$submission_route/x){
+
+	if ( $request_uri =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
-
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}

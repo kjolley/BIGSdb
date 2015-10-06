@@ -174,6 +174,26 @@ sub write_submission_allele_FASTA {
 	return $filename;
 }
 
+sub append_message {
+	my ( $self, $submission_id, $user_id, $message ) = @_;
+	my $dir = $self->get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	$self->mkpath($dir);
+	my $filename = 'messages.txt';
+	my $full_path = "$dir/$filename";
+	open( my $fh, '>>:encoding(utf8)', $full_path )
+	  || $logger->error("Can't open $full_path for appending");
+	my $user_string = $self->{'datastore'}->get_user_string($user_id);
+	say $fh $user_string;
+	my $timestamp = localtime(time);
+	say $fh $timestamp;
+	say $fh $message;
+	say $fh '';
+	close $fh;
+	chmod 0664, $full_path;
+	return;
+}
+
 sub mkpath {
 	my ( $self, $dir ) = @_;
 	my $save_u = umask();

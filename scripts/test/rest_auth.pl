@@ -38,7 +38,7 @@ my @methods = qw(GET POST PUT DELETE);
 my %methods = map { $_ => 1 } @methods;
 $opts{'m'} //= 'GET';
 local $" = q(, );
-die "Invalid route - allowed values are: @methods.\n" if !$methods{ $opts{'m'} };
+die "Invalid method - allowed values are: @methods.\n" if !$methods{ $opts{'m'} };
 main();
 
 #Access and session tokens are stored within current directory.
@@ -227,6 +227,7 @@ sub _get_route {
 	my $res          = $ua->$method( $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	say Dumper($decoded_json);
+	return if ref $decoded_json ne 'HASH';
 	if ( ( $decoded_json->{'message'} // q() ) =~ /Client\ is\ unauthorized/x ) {
 		say 'Access denied - client is unauthorized.';
 		return;

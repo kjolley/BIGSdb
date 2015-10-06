@@ -31,7 +31,6 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
 use IO::Handle;
-use Bio::SeqIO;
 use Memoize;
 memoize('get_locus_info');
 

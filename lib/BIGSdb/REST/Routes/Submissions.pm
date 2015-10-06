@@ -31,11 +31,13 @@ foreach my $type (qw (alleles profiles isolates)) {
 	get "/db/:db/submissions/$type/pending" => sub { _get_submissions( { type => $type, status => 'pending' } ) };
 	get "/db/:db/submissions/$type/closed"  => sub { _get_submissions( { type => $type, status => 'closed' } ) };
 }
-get '/db/:db/submissions/pending'     => sub { _get_submissions_by_status('pending') };
-get '/db/:db/submissions/closed'      => sub { _get_submissions_by_status('closed') };
-get '/db/:db/submissions/:submission' => sub { _get_submission() };
-del '/db/:db/submissions/:submission' => sub { _delete_submission() };
-post '/db/:db/submissions'            => sub { _create_submission() };
+get '/db/:db/submissions/pending'               => sub { _get_submissions_by_status('pending') };
+get '/db/:db/submissions/closed'                => sub { _get_submissions_by_status('closed') };
+get '/db/:db/submissions/:submission'           => sub { _get_submission() };
+del '/db/:db/submissions/:submission'           => sub { _delete_submission() };
+get '/db/:db/submissions/:submission/messages'  => sub { _get_messages() };
+post '/db/:db/submissions/:submission/messages' => sub { _add_message() };
+post '/db/:db/submissions'                      => sub { _create_submission() };
 
 sub _check_db_type {
 	my ($type) = @_;
@@ -131,8 +133,7 @@ sub _get_submissions_by_status {
 sub _get_submission {
 	my $self = setting('self');
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
-	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
-		$submission_id, { fetch => 'row_hashref', cache => 'REST::Submissions::get_submission' } );
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
 	my $values = {};
 	foreach my $field (qw (id type date_submitted datestamp status outcome)) {
@@ -199,8 +200,9 @@ sub _delete_submission {
 }
 
 sub _create_submission {
-	my $self = setting('self');
-	my ( $db, $type ) = ( params->{'db'}, params->{'type'} );
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $type, $message ) = @{$params}{qw(db type message)};
 	_check_db_type($type);
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
@@ -218,9 +220,11 @@ sub _create_submission {
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
 		}
+		my $msg = "Submission via REST interface (client: $self->{'client_name'}).";
+		$msg .= "\n$message" if $message;
 		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
-			undef,
-			$submission_id, 'now', $submitter, "Submission via REST interface (client: $self->{'client_name'})." );
+			undef, $submission_id, 'now', $submitter, $msg );
+		$self->{'submissionHandler'}->append_message($submission_id, $submitter, $msg)
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
@@ -228,9 +232,7 @@ sub _create_submission {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my %write_file = (
-		alleles => sub {$self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id)}
-	);
+	my %write_file = ( alleles => sub { $self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id) } );
 	$write_file{$type}->() if $write_file{$type};
 	status(201);
 	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
@@ -322,5 +324,53 @@ sub _check_submitted_alleles {
 		$index++;
 	}
 	return ( $sql, $check->{'seqs'} );
+}
+
+sub _get_messages {
+	my $self = setting('self');
+	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
+	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
+		$submission_id, { fetch => 'row_hashref', cache => 'REST::Submissions::get_submission' } );
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $messages = $self->{'datastore'}->run_query(
+		q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,)
+		  . q(message FROM messages WHERE submission_id=? ORDER BY timestamp),
+		$submission_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'REST::Submissions::get_messages' }
+	);
+	my $values = [];
+	foreach my $message (@$messages) {
+		push @$values,
+		  {
+			user      => request->uri_for("/db/$db/users/$message->{'user_id'}"),
+			message   => $message->{'message'},
+			timestamp => $message->{'timestamp'}
+		  };
+	}
+	return $values;
+}
+
+sub _add_message {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $submission_id, $message ) = @{$params}{qw(db submission message)};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	send_error( 'No message included.',       400 ) if !$message;
+	my $user_id = $self->get_user_id;
+	eval {
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef, $submission_id, 'now', $user_id, $message );
+	};
+
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->{'submissionHandler'}->append_message($submission_id, $user_id, $message);
+	}
+	status(201);
+	return { message => 'Message added.' };
 }
 1;
