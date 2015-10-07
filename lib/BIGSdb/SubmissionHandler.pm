@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use Bio::SeqIO;
 use File::Path qw(make_path remove_tree);
+use List::Util qw(max);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Submissions');
 
@@ -174,12 +175,39 @@ sub write_submission_allele_FASTA {
 	return $filename;
 }
 
+sub write_profile_csv {
+	my ( $self, $submission_id ) = @_;
+	my $profile_submission = $self->get_profile_submission($submission_id);
+	my $profiles           = $profile_submission->{'profiles'};
+	return if !@$profiles;
+	my $dir = $self->get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	$self->mkpath($dir);
+	my $filename  = 'profiles.txt';
+	my $scheme_id = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
+	my $loci      = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
+	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+	local $" = qq(\t);
+	say $fh qq(id\t@$loci);
+
+	foreach my $profile (@$profiles) {
+		print $fh $profile->{'profile_id'};
+		foreach my $locus (@$loci) {
+			$profile->{'designations'}->{$locus} //= q();
+			print $fh qq(\t$profile->{'designations'}->{$locus});
+		}
+		print $fh qq(\n);
+	}
+	close $fh;
+	return $filename;
+}
+
 sub append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
 	$self->mkpath($dir);
-	my $filename = 'messages.txt';
+	my $filename  = 'messages.txt';
 	my $full_path = "$dir/$filename";
 	open( my $fh, '>>:encoding(utf8)', $full_path )
 	  || $logger->error("Can't open $full_path for appending");
@@ -286,6 +314,100 @@ sub check_new_alleles_fasta {
 	$ret->{'err'}  = \@err  if @err;
 	$ret->{'info'} = \@info if @info;
 	$ret->{'seqs'} = \@seqs if @seqs;
+	return $ret;
+}
+
+sub check_new_profiles {
+	my ( $self, $scheme_id, $set_id, $profiles_csv_ref ) = @_;
+	my @err;
+	my @profiles;
+	my @rows = split /\n/x, $$profiles_csv_ref;
+	my $header_row = shift @rows;
+	$header_row //= q();
+	my $header_status = $self->_get_profile_header_positions( $header_row, $scheme_id, $set_id );
+	my $positions     = $header_status->{'positions'};
+	my %field_by_pos  = reverse %$positions;
+	my %err_message =
+	  ( missing => 'The header is missing a column for', duplicates => 'The header has a duplicate column for' );
+	my $max_col_index = max keys %field_by_pos;
+
+	foreach my $status (qw(missing duplicates)) {
+		if ( $header_status->{$status} ) {
+			my $list = $header_status->{$status};
+			my $plural = @$list == 1 ? 'us' : 'i';
+			local $" = q(, );
+			push @err, "$err_message{$status} loc$plural: @$list.";
+		}
+	}
+	if ( !@err ) {
+		my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $row_number  = 1;
+		my %id_exists;
+		foreach my $row (@rows) {
+			$row =~ s/\s*$//x;
+			next if !$row;
+			my @values = split /\t/x, $row;
+			my $row_id =
+			  defined $positions->{'id'} ? ( $values[ $positions->{'id'} ] || "Row $row_number" ) : "Row $row_number";
+			$id_exists{$row_id}++;
+			push @err, "$row_id: Identifier exists more than once in submission." if $id_exists{$row_id} == 2;
+			my $locus_count  = @$loci;
+			my $value_count  = @values;
+			my $plural       = $value_count == 1 ? '' : 's';
+			my $designations = {};
+
+			for my $i ( 0 .. $max_col_index ) {
+				$values[$i] //= '';
+				$values[$i] =~ s/^\s*//x;
+				$values[$i] =~ s/\s*$//x;
+				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
+				if ( $values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'} ) {
+					push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
+				} elsif ( $values[$i] eq q() ) {
+					push @err, "$row_id: No value for locus $field_by_pos{$i}.";
+				} else {
+					my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
+					push @err, "$row_id: $field_by_pos{$i}:$values[$i] has not been defined." if !$allele_exists;
+					$designations->{ $field_by_pos{$i} } = $values[$i];
+				}
+			}
+			my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
+			push @err, "$row_id: $profile_status->{'msg'}" if $profile_status->{'exists'};
+			push @profiles, { id => $row_id, %$designations };
+			$row_number++;
+		}
+	}
+	my $ret = { profiles => \@profiles };
+	$ret->{'err'} = \@err if @err;
+	return $ret;
+}
+
+sub _get_profile_header_positions {
+	my ( $self, $header_row, $scheme_id, $set_id ) = @_;
+	$header_row =~ s/\s*$//x;
+	my ( @missing, @duplicates, %positions );
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my @header = split /\t/x, $header_row;
+	foreach my $locus (@$loci) {
+		for my $i ( 0 .. @header - 1 ) {
+			$header[$i] =~ s/\s//gx;
+			$header[$i] = $self->{'datastore'}->get_set_locus_real_id( $header[$i], $set_id ) if $set_id;
+			if ( $locus eq $header[$i] ) {
+				push @duplicates, $locus if defined $positions{$locus};
+				$positions{$locus} = $i;
+			}
+		}
+	}
+	for my $i ( 0 .. @header - 1 ) {
+		$positions{'id'} = $i if $header[$i] eq 'id';
+	}
+	foreach my $locus (@$loci) {
+		push @missing, $locus if !defined $positions{$locus};
+	}
+	my $ret = { positions => \%positions };
+	$ret->{'missing'}    = \@missing    if @missing;
+	$ret->{'duplicates'} = \@duplicates if @duplicates;
 	return $ret;
 }
 1;

@@ -25,8 +25,9 @@ use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl
 ###
 my %opts;
 GetOptions(
-	'f|file=s' => \$opts{'f'},
+	'f|file=s'          => \$opts{'f'},
 	'm|method=s'        => \$opts{'m'},
+	'p|profiles_file=s' => \$opts{'p'},
 	'r|route=s'         => \$opts{'r'},
 	's|sequence_file=s' => \$opts{'sequence_file'},
 	'h|help'            => \$opts{'h'},
@@ -207,12 +208,17 @@ sub _get_route {
 		my $seqs = _slurp( $opts{'sequence_file'} );
 		$extra_params->{'sequences'} = $$seqs;
 	}
+	if ( $opts{'p'} ) {
+		die "Profiles file $opts{'p'} does not exist.\n" if !-e $opts{'p'};
+		my $profiles = _slurp( $opts{'p'} );
+		$extra_params->{'profiles'} = $$profiles;
+	}
 	if ( $opts{'f'} ) {
 		die "File $opts{'f'} does not exist.\n" if !-e $opts{'f'};
-		open (my $fh, '<', $opts{'f'}) || die "Cannot open file $opts{'f'} for reading.\n";
+		open( my $fh, '<', $opts{'f'} ) || die "Cannot open file $opts{'f'} for reading.\n";
 		binmode $fh;
 		my $contents = do { local $/ = undef; <$fh> };
-		close $fh; 
+		close $fh;
 		$extra_params->{'upload'} = encode_base64($contents);
 	}
 	my $url = TEST_REST_URL . "$route";
@@ -301,6 +307,9 @@ ${bold}-h, --help$norm
    
 ${bold}-m, --method$norm ${under}GET|PUT|POST|DELETE$norm
     Set HTTP method (default GET).
+    
+${bold}-p, --profiles_file$norm ${under}FILE$norm
+    Relative path of tab-delimited file of allelic profiles to upload.
 
 ${bold}-r, --route$norm ${under}ROUTE$norm
     Relative path of route, e.g. 'submissions'.

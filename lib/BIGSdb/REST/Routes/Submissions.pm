@@ -25,9 +25,10 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions);
+
+#TODO E-mail notification to curator.
 get '/db/:db/submissions'  => sub { _get_submissions() };
 post '/db/:db/submissions' => sub { _create_submission() };
-
 foreach my $type (qw (alleles profiles isolates)) {
 	get "/db/:db/submissions/$type"         => sub { _get_submissions( { type => $type } ) };
 	get "/db/:db/submissions/$type/pending" => sub { _get_submissions( { type => $type, status => 'pending' } ) };
@@ -51,6 +52,9 @@ sub _check_db_type {
 	my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1 } };
 	if ( !$db_types->{ $self->{'system'}->{'dbtype'} }->{$type} ) {
 		send_error( qq(Submissions of type "$type" are not supported by this database), 404 );
+	}
+	if ( $type eq 'profiles' && ( $self->{'system'}->{'profile_submissions'} // '' ) ne 'yes' ) {
+		send_error( 'Profile submissions are not enabled on this database', 404 );
 	}
 	return;
 }
@@ -212,9 +216,8 @@ sub _create_submission {
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my %method        = (
-		alleles => sub {
-			_prepare_allele_submission($submission_id);
-		}
+		alleles  => sub { _prepare_allele_submission($submission_id) },
+		profiles => sub { _prepare_profile_submission($submission_id) }
 	);
 	my $sql = [];
 	$sql = $method{$type}->() if $method{$type};
@@ -222,6 +225,7 @@ sub _create_submission {
 		$self->{'db'}
 		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
 			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending' );
+
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
 		}
@@ -237,7 +241,10 @@ sub _create_submission {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my %write_file = ( alleles => sub { $self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id) } );
+	my %write_file = (
+		alleles  => sub { $self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id) },
+		profiles => sub { $self->{'submissionHandler'}->write_profile_csv($submission_id) }
+	);
 	$write_file{$type}->() if $write_file{$type};
 	status(201);
 	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
@@ -329,6 +336,64 @@ sub _check_submitted_alleles {
 		$index++;
 	}
 	return ( $sql, $check->{'seqs'} );
+}
+
+sub _prepare_profile_submission {
+	my ($submission_id) = @_;
+	my $self            = setting('self');
+	my $params          = params;
+	my ( $db, $scheme_id, $profiles ) = @{$params}{qw(db scheme_id profiles)};
+	my @missing;
+	foreach my $field (qw (scheme_id profiles)) {
+		push @missing, $field if !defined $params->{$field};
+	}
+	local $" = q(, );
+	if (@missing) {
+		send_error( "Required field(s) missing: @missing", 400 );
+	}
+	send_error( 'Scheme id must be an integer', 400 ) if !BIGSdb::Utils::is_int($scheme_id);
+	my $scheme_exists =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key)', $scheme_id );
+	send_error( 'Scheme does not exist (or it does not contain a primary key field).', 400 ) if !$scheme_exists;
+	my $set_id = $self->get_set_id;
+	send_error( 'Scheme is not available.', 400 )
+	  if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+	my $check = $self->{'submissionHandler'}->check_new_profiles( $scheme_id, $set_id, \$profiles );
+	if ( $check->{'err'} ) {
+		local $" = q( );
+		my $err = "@{ $check->{'err'} }";
+		send_error( $err, 400 );
+	}
+	if ( !@{ $check->{'profiles'} } ) {
+		send_error( 'No profiles in upload.', 400 );
+	}
+	my $sql = [
+		{
+			statement => 'INSERT INTO profile_submissions (submission_id,scheme_id) VALUES (?,?)',
+			arguments => [ $submission_id, $scheme_id ]
+		}
+	];
+	my $loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $index = 1;
+	foreach my $profile ( @{ $check->{'profiles'} } ) {
+		push @$sql,
+		  {
+			statement => 'INSERT INTO profile_submission_profiles '
+			  . '(index,submission_id,profile_id,status) VALUES (?,?,?,?)',
+			arguments => [ $index, $submission_id, $profile->{'id'}, 'pending' ]
+		  };
+		foreach my $locus (@$loci) {
+			push @$sql,
+			  {
+				statement => 'INSERT INTO profile_submission_designations (submission_id,profile_id,locus,'
+				  . 'allele_id) VALUES (?,?,?,?)',
+				arguments => [ $submission_id, $profile->{'id'}, $locus, $profile->{$locus} ]
+			  };
+		}
+		$index++;
+	}
+	return $sql;
 }
 
 sub _get_messages {
