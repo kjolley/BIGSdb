@@ -193,6 +193,7 @@ sub _modify_authorization {
 		return;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<span class="warning_icon fa fa-ban fa-5x pull-left"></span>);
 	say q(<p>You have authorized the following applications to access resources on your behalf.  )
 	  . q(Select any whose permissions you would like to revoke.</p>);
 	say $q->start_form;

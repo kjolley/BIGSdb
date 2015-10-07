@@ -211,7 +211,7 @@ sub _delete_submission {
 sub _create_submission {
 	my $self   = setting('self');
 	my $params = params;
-	my ( $db, $type, $message ) = @{$params}{qw(db type message)};
+	my ( $db, $type, $message, $email ) = @{$params}{qw(db type message email)};
 	_check_db_type($type);
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
@@ -223,8 +223,8 @@ sub _create_submission {
 	$sql = $method{$type}->() if $method{$type};
 	eval {
 		$self->{'db'}
-		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
-			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending' );
+		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,email) VALUES (?,?,?,?,?,?,?)',
+			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending', $email ? 'true' : 'false' );
 
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );

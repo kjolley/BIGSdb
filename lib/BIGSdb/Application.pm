@@ -471,6 +471,7 @@ sub print_page {
 		config               => $self->{'config'},
 		datastore            => $self->{'datastore'},
 		db                   => $self->{'db'},
+		auth_db              => $self->{'auth_db'},
 		xmlHandler           => $self->{'xmlHandler'},
 		submissionHandler    => $self->{'submissionHandler'},
 		dataConnector        => $self->{'dataConnector'},
@@ -482,7 +483,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

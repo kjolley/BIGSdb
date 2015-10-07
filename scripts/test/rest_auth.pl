@@ -20,8 +20,8 @@ use MIME::Base64;
 #Modify the following values to your local system.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
 use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
-use constant TEST_REST_URL   => 'http://dev.pubmlst.org:3000/db/pubmlst_neisseria_seqdef';
-use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_neisseria_seqdef';
+use constant TEST_REST_URL   => 'http://dev.pubmlst.org:3000/db/pubmlst_neisseria_isolates';
+use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_neisseria_isolates';
 ###
 my %opts;
 GetOptions(
