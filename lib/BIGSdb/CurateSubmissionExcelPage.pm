@@ -51,12 +51,16 @@ sub print_content {
 	if ( $table eq 'profiles' ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && BIGSdb::Utils::is_int($scheme_id) ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $set_id = $self->get_set_id;
 			if ($scheme_info) {
 				push @$headers, 'id' if $q->param('id_field');
 				push @$headers, $scheme_info->{'primary_key'}
 				  if $scheme_info->{'primary_key'} && !$q->param('no_fields');
 				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-				push @$headers, @$loci;
+				foreach my $locus (@$loci) {
+					my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+					push @$headers, $label // $locus;
+				}
 				my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 				foreach my $field (@$fields) {
 					push @$headers, $field if $field ne $scheme_info->{'primary_key'} && !$q->param('no_fields');
