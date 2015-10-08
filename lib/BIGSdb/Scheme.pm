@@ -77,9 +77,8 @@ sub get_field_values_by_designations {
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $designations ) = @_;
 	my ( @allele_count, @allele_ids );
-	my $loci       = $self->{'loci'};
-	my $fields     = $self->{'fields'};
-	my $field_data = [];
+	my $loci   = $self->{'loci'};
+	my $fields = $self->{'fields'};
 	foreach my $locus (@$loci) {
 		if ( !defined $designations->{$locus} ) {
 
@@ -125,14 +124,10 @@ sub get_field_values_by_designations {
 	if ($@) {
 		$logger->warn( qq(Can't execute 'field_values_$query_key' query handle. )
 			  . q(Check database attributes in the scheme_fields table for )
-			  . qq(scheme#$self->{'id'} ($self->{'description'})! Statement was ')
-			  . $self->{'sql'}->{"field_values_$query_key"}->{'Statement'} . q('. )
-			  . $self->{'db'}->errstr );
+			  . qq(scheme#$self->{'id'} ($self->{'description'})! $@ ) );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	}
-	while ( my $data = $self->{'sql'}->{"field_values_$query_key"}->fetchrow_hashref ) {
-		push @$field_data, $data;
-	}
+	my $field_data = $self->{'sql'}->{"field_values_$query_key"}->fetchall_arrayref( {} );
 	$self->{'db'}->commit;    #Prevent IDLE in transaction locks in long-running REST process.
 	return $field_data;
 }
