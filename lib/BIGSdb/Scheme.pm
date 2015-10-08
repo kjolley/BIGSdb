@@ -124,7 +124,7 @@ sub get_field_values_by_designations {
 	}
 	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
 	if ($@) {
-		$logger->warn( q(Can't execute 'field_values_$query_key' query handle. )
+		$logger->warn( qq(Can't execute 'field_values_$query_key' query handle. )
 			  . q(Check database attributes in the scheme_fields table for )
 			  . qq(scheme#$self->{'id'} ($self->{'description'})! Statement was ')
 			  . $self->{'sql'}->{"field_values_$query_key"}->{'Statement'} . q('. )
@@ -147,23 +147,21 @@ sub get_distinct_fields {
 	#If database name contains term 'bigsdb', then assume it has the usual BIGSdb seqdef structure.
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
 	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^scheme_(\d+)$/x ) {
+	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^(?:mv_scheme|scheme)_(\d+)$/x ) {
 		my $scheme_id = $1;
-		$qry = q(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
-		  . q(AND scheme_id=$scheme_id ORDER BY value);
+		$qry = qq(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
+		  . qq(AND scheme_id=$scheme_id ORDER BY value);
 	} else {
-		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} WHERE $field <> '-999' ORDER BY $field);
+		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} ORDER BY $field);
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared.");
 	eval { $sql->execute };
 	if ($@) {
-		$logger->warn(
-			    q(Can't execute query handle. Check database attributes in the scheme_fields table )
+		$logger->warn( q(Can't execute query handle. Check database attributes in the scheme_fields table )
 			  . qq(for scheme#$self->{'id'} ($self->{'description'})! Statement was )
 			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. )
-			  . $self->{'db'}->errstr
-		);
+			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 		return [];
 	} else {
