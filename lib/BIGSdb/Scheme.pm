@@ -66,7 +66,6 @@ sub get_profile_by_primary_keys {
 			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. $@)
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
-		return;
 	} else {
 		my @profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
 		return \@profile;
@@ -142,34 +141,26 @@ sub get_distinct_fields {
 	my ( $self, $field ) = @_;
 	$logger->error("Scheme#$self->{'id'} database is not configured.") if !defined $self->{'dbase_name'};
 	return [] if !defined $self->{'dbase_name'} || !defined $self->{'dbase_table'};
-	my @values;
 
 	#If database name contains term 'bigsdb', then assume it has the usual BIGSdb seqdef structure.
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
+	#If scheme uses a materialized view (prefixed with mv_) then it will be quicker to check this.
 	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^(?:mv_scheme|scheme)_(\d+)$/x ) {
+	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^scheme_(\d+)$/x ) {
 		my $scheme_id = $1;
 		$qry = qq(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
 		  . qq(AND scheme_id=$scheme_id ORDER BY value);
 	} else {
 		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} ORDER BY $field);
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared.");
-	eval { $sql->execute };
+	my $values = [];
+	eval { $values = $self->{'db'}->selectcol_arrayref($qry) };
 	if ($@) {
 		$logger->warn( q(Can't execute query handle. Check database attributes in the scheme_fields table )
-			  . qq(for scheme#$self->{'id'} ($self->{'description'})! Statement was )
-			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. )
-			  . $self->{'db'}->errstr );
+			  . qq(for scheme#$self->{'id'} $@) );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
-		return [];
-	} else {
-		while ( my ($value) = $sql->fetchrow_array ) {
-			push @values, $value;
-		}
 	}
-	return \@values;
+	return $values;
 }
 
 sub get_db {
