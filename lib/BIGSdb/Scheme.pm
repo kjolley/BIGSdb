@@ -46,13 +46,10 @@ sub DESTROY {
 
 sub get_profile_by_primary_keys {
 	my ( $self, $values ) = @_;
-	if ( !$self->{'db'} ) {
-		$logger->debug("No connection to scheme database");
-		return;
-	}
+	return if !$self->{'db'};
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
-		s/'/_PRIME_/g foreach @$loci;
+		s/'/_PRIME_/gx foreach @$loci;
 		local $" = ',';
 		my $qry = "SELECT @$loci FROM $self->{'dbase_table'} WHERE ";
 		local $" = '=? AND ';
@@ -63,11 +60,12 @@ sub get_profile_by_primary_keys {
 	}
 	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values) };
 	if ($@) {
-		$logger->warn( "Can't execute 'scheme_profiles' query handle. Check database attributes in the scheme_fields and scheme_members "
-			  . "tables for scheme#$self->{'id'} ($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. $@"
+		$logger->warn( q(Can't execute 'scheme_profiles' query handle. )
+			  . q(Check database attributes in the scheme_fields and scheme_members )
+			  . qq(tables for scheme#$self->{'id'} ($self->{'description'})! Statement was )
+			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. $@)
 			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return;
+		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	} else {
 		my @profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
 		return \@profile;
@@ -75,11 +73,12 @@ sub get_profile_by_primary_keys {
 }
 
 sub get_field_values_by_designations {
-	my ( $self, $designations ) = @_;    #$designations is a hashref containing arrayref of allele_designations for each locus
+
+	#$designations is a hashref containing arrayref of allele_designations for each locus
+	my ( $self, $designations ) = @_;
 	my ( @allele_count, @allele_ids );
-	my $loci       = $self->{'loci'};
-	my $fields     = $self->{'fields'};
-	my $field_data = [];
+	my $loci   = $self->{'loci'};
+	my $fields = $self->{'fields'};
 	foreach my $locus (@$loci) {
 		if ( !defined $designations->{$locus} ) {
 
@@ -89,7 +88,9 @@ sub get_field_values_by_designations {
 			push @allele_ids,   '-999';
 			push @allele_count, 1;
 		} else {
-			push @allele_count, scalar @{ $designations->{$locus} }; #We need a different query depending on number of designations at loci.
+			push @allele_count,
+			  scalar
+			  @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
 			foreach my $designation ( @{ $designations->{$locus} } ) {
 				push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
 			}
@@ -102,8 +103,8 @@ sub get_field_values_by_designations {
 		my @locus_list;
 		my $i = 0;
 		foreach my $locus (@$loci) {
-			my $locus_name = $locus;                                 #Don't nobble $locus - make a copy and use that.
-			$locus_name =~ s/'/_PRIME_/g;
+			my $locus_name = $locus;    #Don't nobble $locus - make a copy and use that.
+			$locus_name =~ s/'/_PRIME_/gx;
 			push @locus_list, $locus_name;
 			my @temp_terms;
 			push @temp_terms, ("$locus_name=?") x $allele_count[$i];
@@ -121,47 +122,40 @@ sub get_field_values_by_designations {
 	}
 	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
 	if ($@) {
-		$logger->warn( "Can't execute 'field_values_$query_key' query handle. Check database attributes in the scheme_fields table for "
-			  . "scheme#$self->{'id'} ($self->{'description'})! Statement was '"
-			  . $self->{'sql'}->{"field_values_$query_key"}->{'Statement'} . "'. "
-			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
+		$logger->warn( qq(Can't execute 'field_values_$query_key' query handle. )
+			  . q(Check database attributes in the scheme_fields table for )
+			  . qq(scheme#$self->{'id'} ($self->{'description'})! $@ ) );
+		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	}
-	while ( my $data = $self->{'sql'}->{"field_values_$query_key"}->fetchrow_hashref ) {
-		push @$field_data, $data;
-	}
-	$self->{'db'}->commit;	#Prevent IDLE in transaction locks in long-running REST process.
+	my $field_data = $self->{'sql'}->{"field_values_$query_key"}->fetchall_arrayref( {} );
+	$self->{'db'}->commit;    #Prevent IDLE in transaction locks in long-running REST process.
 	return $field_data;
 }
 
 sub get_distinct_fields {
 	my ( $self, $field ) = @_;
-	my @values;
+	$logger->error("Scheme#$self->{'id'} database is not configured.") if !defined $self->{'dbase_name'};
+	return [] if !defined $self->{'dbase_name'} || !defined $self->{'dbase_table'};
 
 	#If database name contains term 'bigsdb', then assume it has the usual BIGSdb seqdef structure.
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
+	#If scheme uses a materialized view (prefixed with mv_) then it will be quicker to check this.
 	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/ && $self->{'dbase_table'} =~ /^scheme_(\d+)$/ ) {
+	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^scheme_(\d+)$/x ) {
 		my $scheme_id = $1;
-		$qry = "SELECT distinct value FROM profile_fields WHERE scheme_field='$field' AND scheme_id=$scheme_id ORDER BY value";
+		$qry = qq(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
+		  . qq(AND scheme_id=$scheme_id ORDER BY value);
 	} else {
-		$qry = "SELECT distinct $field FROM $self->{'dbase_table'} WHERE $field <> '-999' ORDER BY $field";
+		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} ORDER BY $field);
 	}
-	my $sql = $self->{'db'}->prepare($qry);
-	$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'distinct_fields' prepared.");
-	eval { $sql->execute };
+	my $values = [];
+	eval { $values = $self->{'db'}->selectcol_arrayref($qry) };
 	if ($@) {
-		$logger->warn( "Can't execute query handle. Check database attributes in the scheme_fields table for scheme#$self->{'id'} "
-			  . "($self->{'description'})! Statement was '$self->{'sql'}->{scheme_fields}->{Statement}'. "
-			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException("Scheme configuration error");
-		return \@;;
-	} else {
-		while ( my ($value) = $sql->fetchrow_array ) {
-			push @values, $value;
-		}
+		$logger->warn( q(Can't execute query handle. Check database attributes in the scheme_fields table )
+			  . qq(for scheme#$self->{'id'} $@) );
+		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	}
-	return \@values;
+	return $values;
 }
 
 sub get_db {
