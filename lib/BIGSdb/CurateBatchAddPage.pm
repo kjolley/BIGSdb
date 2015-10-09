@@ -26,6 +26,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS);
 use BIGSdb::Offline::UpdateSchemeCaches;
+use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -462,7 +463,8 @@ sub _check_data {
 				}
 				my $problem;
 				if ( !( $table eq 'sequences' && $field eq 'allele_id' && defined $problems{$pk_combination} ) ) {
-					$problem = $self->is_field_bad( $table, $field, $value, 'insert' );
+					my $set_id = $self->get_set_id;
+					$problem = $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 				}
 				$display_value =~ s/&/&amp;/gx if defined $display_value;
 				if ( !( $problem || $special_problem ) ) {
@@ -486,7 +488,6 @@ sub _check_data {
 				  if defined $file_header_pos{$field}
 				  or ( $field eq 'id' );
 			}
-
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
@@ -662,7 +663,7 @@ sub _extract_value {
 		$value = $arg_ref->{'id'};
 	}
 	if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-		$value = $self->get_datestamp;
+		$value = BIGSdb::Utils::get_datestamp();
 	} elsif ( $field eq 'sender' ) {
 		if ( defined $file_header_pos{$field} ) {
 			$value = $data[ $file_header_pos{$field} ];
@@ -733,7 +734,8 @@ sub _check_data_isolate_record_locus_fields {
 	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
 
 		if ( !$self->{'field_name_cache'}->{$field} ) {
-			$self->{'field_name_cache'}->{$field} = $self->map_locus_name($field) // $field;
+			$self->{'field_name_cache'}->{$field} = $self->{'submissionHandler'}->map_locus_name( $field, $set_id )
+			  // $field;
 		}
 		if ( $self->{'datastore'}->is_locus( $self->{'field_name_cache'}->{$field}, { set_id => $set_id } ) ) {
 			${ $arg_ref->{'header_row'} } .= "$self->{'field_name_cache'}->{$field}\t" if $first_record;
@@ -1390,8 +1392,6 @@ sub _upload_data {
 				} elsif ( defined $fieldorder{$field}
 					&& defined $data[ $fieldorder{$field} ] )
 				{
-					$data[ $fieldorder{$field} ] = $self->map_locus_name( $data[ $fieldorder{$field} ] )
-					  if $field eq 'locus';
 					push @value_list, $data[ $fieldorder{$field} ];
 					if ( $field eq 'sender' ) {
 						$sender = $data[ $fieldorder{$field} ];

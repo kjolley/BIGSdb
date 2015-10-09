@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -171,7 +172,8 @@ sub print_content {
 		$add_buffer .= $q->submit( -name => 'new_scheme_field', -label => 'Add new scheme field', -class => 'smallbutton' );
 		my $curator_name = $self->get_curator_name;
 		$add_buffer .= qq(</td></tr>\n<tr><td style="text-align:right"><b>curator: </b></td><td><b>$curator_name</b></td></tr>\n);
-		$add_buffer .= qq(<tr><td style="text-align:right"><b>datestamp: </b></td><td><b>) . ( $self->get_datestamp ) . "</b></td></tr>\n";
+		my $datestamp = BIGSdb::Utils::get_datestamp();
+		$add_buffer .= qq(<tr><td style="text-align:right"><b>datestamp: </b></td><td><b>$datestamp</b></td></tr>);
 		$add_buffer .= "</table>\n";
 		$add_buffer .= $q->hidden($_) foreach qw (db page id);
 		$add_buffer .= $q->end_form;
@@ -412,7 +414,7 @@ sub _edit_field {
 		$buffer .= qq(<tr><td style="text-align:right"><b>Curator: </b></td><td><b>) . ( $self->get_curator_name() ) . "</b></td></tr>\n";
 		$buffer .=
 		    qq(<tr><td style="text-align:right"><b>Datestamp: </b></td><td><b>)
-		  . ( $self->get_datestamp() )
+		  . ( BIGSdb::Utils::get_datestamp() )
 		  . qq(</b></td><td style="text-align:right">\n);
 		$buffer .= $q->submit( -name => 'update_field', -label => 'Update', -class => 'submit' );
 	}

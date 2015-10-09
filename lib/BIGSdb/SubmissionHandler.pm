@@ -23,7 +23,9 @@ use 5.010;
 use Bio::SeqIO;
 use File::Path qw(make_path remove_tree);
 use List::Util qw(max);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Utils;
 my $logger = get_logger('BIGSdb.Submissions');
 
 sub new {
@@ -410,4 +412,415 @@ sub _get_profile_header_positions {
 	$ret->{'duplicates'} = \@duplicates if @duplicates;
 	return $ret;
 }
+
+sub check_new_isolates {
+	my ( $self, $set_id, $data_ref ) = @_;
+	my @isolates;
+	my @err;
+	my @rows          = split /\n/x, $$data_ref;
+	my $header_row    = shift @rows;
+	my $header_status = $self->_get_isolate_header_positions($header_row, $set_id);
+	my $positions     = $header_status->{'positions'};
+	my %err_message   = (
+		unrecognized => 'The header contains an unrecognized column for',
+		missing      => 'The header is missing a column for',
+		duplicates   => 'The header has duplicate columns for'
+	);
+
+	foreach my $status (qw(unrecognized missing duplicates)) {
+		if ( $header_status->{$status} ) {
+			my $list = $header_status->{$status};
+			local $" = q(, );
+			push @err, "$err_message{$status}: @$list.";
+		}
+	}
+	my $row_number = 0;
+	if ( !@err ) {
+		foreach my $row (@rows) {
+			$row =~ s/\s*$//x;
+			next if !$row;
+			$row_number++;
+			my @values = split /\t/x, $row;
+			my $row_id =
+			  defined $positions->{ $self->{'system'}->{'labelfield'} }
+			  ? ( $values[ $positions->{ $self->{'system'}->{'labelfield'} } ] || "Row $row_number" )
+			  : "Row $row_number";
+			my $status = $self->_check_isolate_record( $set_id,$positions, \@values );
+			local $" = q(, );
+			if ( $status->{'missing'} ) {
+				my @missing = @{ $status->{'missing'} };
+				push @err, "$row_id is missing required fields: @missing";
+			}
+			if ( $status->{'error'} ) {
+				my @error = @{ $status->{'error'} };
+				local $" = '; ';
+				( my $msg = "$row_id has problems - @error" ) =~ s/\.;/;/gx;
+				push @err, $msg;
+			}
+			push @isolates, $status->{'isolate'};
+		}
+	}
+	my $ret = { isolates => \@isolates, positions => $positions };
+	$ret->{'err'} = \@err if @err;
+	return $ret;
+}
+
+sub _get_isolate_header_positions {
+	my ( $self, $header_row, $set_id ) = @_;
+	$header_row =~ s/\s*$//x;
+	my ( @unrecognized, @missing, @duplicates, %positions );
+	my @header = split /\t/x, $header_row;
+	my %not_accounted_for = map { $_ => 1 } @header;
+	for my $i ( 0 .. @header - 1 ) {
+		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
+		$positions{ $header[$i] } = $i;
+	}
+	my $ret    = { positions => \%positions };
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	if ($set_id) {
+		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
+		push @$fields, @$meta_fields;
+	}
+	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
+	foreach my $field (@$fields) {
+		next if $do_not_include{$field};
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		push @missing, $field if !( ( $att->{'required'} // '' ) eq 'no' ) && !defined $positions{$field};
+		delete $not_accounted_for{$field};
+	}
+	foreach my $heading (@header) {
+		next if $self->{'datastore'}->is_locus($heading);
+		next if $heading eq 'references';
+		next if $heading eq 'aliases';
+		push @unrecognized, $heading if $not_accounted_for{$heading};
+	}
+	$ret->{'missing'}      = \@missing            if @missing;
+	$ret->{'duplicates'}   = [ uniq @duplicates ] if @duplicates;
+	$ret->{'unrecognized'} = \@unrecognized       if @unrecognized;
+	return $ret;
+}
+
+sub _check_isolate_record {
+	my ( $self, $set_id, $positions, $values ) = @_;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
+	my ( @missing, @error );
+	my $isolate = {};
+	foreach my $field (@$fields) {
+		next if $do_not_include{$field};
+		next if !defined $positions->{$field};
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if (  !( ( $att->{'required'} // '' ) eq 'no' )
+			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
+		{
+			push @missing, $field;
+		} else {
+			my $value = $values->[ $positions->{$field} ] // '';
+			my $status = $self->is_field_bad( 'isolates', $field, $value, undef, $set_id );
+			push @error, "$field: $status" if $status;
+		}
+	}
+	foreach my $heading ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
+		my $value = $values->[ $positions->{$heading} ];
+		next if !defined $value || $value eq q();
+		$isolate->{$heading} = $value;
+		next if !$self->{'datastore'}->is_locus($heading);
+		my $locus_info = $self->{'datastore'}->get_locus_info($heading);
+		if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+			push @error, "locus $heading: must be an integer";
+		} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/x ) {
+			push @error, "locus $heading: doesn't match the required format";
+		}
+	}
+	if ( defined $positions->{'references'} && $values->[ $positions->{'references'} ] ) {
+		my @pmids = split /;/x, $values->[ $positions->{'references'} ];
+		foreach my $pmid (@pmids) {
+			if ( !BIGSdb::Utils::is_int($pmid) ) {
+				push @error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
+				last;
+			}
+		}
+	}
+	my $ret = { isolate => $isolate };
+	$ret->{'missing'} = \@missing if @missing;
+	$ret->{'error'}   = \@error   if @error;
+	return $ret;
+}
+
+sub is_field_bad {
+	my ( $self, $table, $fieldname, $value, $flag, $set_id ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		return $self->_is_field_bad_isolates( $fieldname, $value, $flag, $set_id );
+	} else {
+		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag, $set_id );
+	}
+}
+
+sub _is_field_bad_isolates {
+	my ( $self, $fieldname, $value, $flag, $set_id ) = @_;
+	$value = '' if !defined $value;
+	$value =~ s/<blank>//x;
+	$value =~ s/null//;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
+	$thisfield->{'type'} ||= 'text';
+
+	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
+	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
+	if ( $value eq '' ) {
+		if ( $fieldname eq 'aliases' || $fieldname eq 'references' || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
+			return 0;
+		} else {
+			return 'is a required field and cannot be left blank.';
+		}
+	}
+
+	#Make sure int fields really are integers and obey min/max values if set
+	if ( $thisfield->{'type'} eq 'int' ) {
+		if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
+		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+			return "must be equal to or larger than $thisfield->{'min'}.";
+		} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+			return "must be equal to or smaller than $thisfield->{'max'}.";
+		}
+	}
+
+	#Make sure sender is in database
+	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
+		my $sender_exists = $self->_user_exists($value);
+		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>)
+		  if !$sender_exists;
+	}
+
+	#If a regex pattern exists, make sure data conforms to it
+	if ( $thisfield->{'regex'} ) {
+		if ( $value !~ /^$thisfield->{'regex'}$/x ) {
+			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
+				return 'does not conform to the required formatting.';
+			}
+		}
+	}
+
+	#Make sure floats fields really are floats
+	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+		return 'must be a floating point number';
+	}
+
+	#Make sure the datestamp is today
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( $fieldname eq 'datestamp' && ( $value ne $datestamp ) ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
+	}
+	if ( $flag && $flag eq 'insert' ) {
+
+		#Make sure the date_entered is today
+		if ( $fieldname eq 'date_entered'
+			&& ( $value ne $datestamp ) )
+		{
+			return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
+		}
+	}
+
+	#make sure date fields really are dates in correct format
+	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
+		return 'must be a valid date in yyyy-mm-dd format';
+	}
+
+	#Make sure id number has not been used previously
+	if ( $flag && $flag eq 'insert' && ( $fieldname eq 'id' ) ) {
+		my $exists =
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+			$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
+		if ($exists) {
+			return "$value is already in database";
+		}
+	}
+
+	#Make sure options list fields only use a listed option (or null if optional)
+	if ( $thisfield->{'optlist'} ) {
+		my $options = $self->{'xmlHandler'}->get_field_option_list($fieldname);
+		foreach (@$options) {
+			if ( $value eq $_ ) {
+				return 0;
+			}
+		}
+		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
+			return 0 if ( $value eq '' );
+		}
+		return "'$value' is not on the list of allowed values for this field.";
+	}
+
+	#Make sure field is not too long
+	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
+		return "field is too long (maximum length $thisfield->{'length'})";
+	}
+	return 0;
+}
+
+sub _is_field_bad_other {
+	my ( $self, $table, $fieldname, $value, $flag, $set_id ) = @_;
+	my $q          = $self->{'cgi'};
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my $thisfield;
+	foreach my $att (@$attributes) {
+		if ( $att->{'name'} eq $fieldname ) {
+			$thisfield = $att;
+			last;
+		}
+	}
+	$thisfield->{'type'} ||= 'text';
+
+	#If field is null make sure it's not a required field
+	if ( !defined $value || $value eq '' ) {
+		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
+			return 0;
+		} else {
+			my $msg = 'is a required field and cannot be left blank.';
+			if ( $thisfield->{'optlist'} ) {
+				my @optlist = split /;/x, $thisfield->{'optlist'};
+				local $" = q(', ');
+				$msg .= " Allowed values are '@optlist'.";
+			}
+			return $msg;
+		}
+	}
+
+	#Make sure curator is set right
+	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
+		return 'must be set to the currently logged in curator id (' . $self->get_curator_id . ').';
+	}
+
+	#Make sure int fields really are integers
+	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+		return 'must be an integer';
+	}
+
+	#Make sure sender is in database
+	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
+		my $qry = 'SELECT DISTINCT id FROM users';
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute };
+		$logger->error($@) if $@;
+		while ( my ($senderid) = $sql->fetchrow_array ) {
+			if ( $value == $senderid ) {
+				return 0;
+			}
+		}
+		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>);
+	}
+
+	#If a regex pattern exists, make sure data conforms to it
+	if ( $thisfield->{'regex'} ) {
+		if ( $value !~ /^$thisfield->{regex}$/x ) {
+			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
+				return 'does not conform to the required formatting';
+			}
+		}
+	}
+
+	#Make sure floats fields really are floats
+	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+		return 'must be a floating point number';
+	}
+
+	#Make sure the datestamp is today
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( $fieldname eq 'datestamp' && ( $value ne $datestamp ) ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
+	}
+	if ( $flag eq 'insert' ) {
+
+		#Make sure the date_entered is today
+		if ( $fieldname eq 'date_entered'
+			&& ( $value ne $datestamp ) )
+		{
+			return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
+		}
+	}
+	if ( $flag eq 'insert'
+		&& ( $thisfield->{'unique'} ) )
+	{
+		#Make sure unique field values have not been used previously
+		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
+		my $sql = $self->{'db'}->prepare($qry);
+		eval { $sql->execute };
+		$logger->error($@) if $@;
+		while ( my ($id) = $sql->fetchrow_array ) {
+			if ( $value eq $id ) {
+				if ( $thisfield->{'name'} =~ /sequence/ ) {
+					$value = q(<span class="seq">) . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . q(</span>);
+				}
+				return qq('$value' is already in database);
+			}
+		}
+	}
+
+	#Make sure options list fields only use a listed option (or null if optional)
+	if ( $thisfield->{'optlist'} ) {
+		my @options = split /;/x, $thisfield->{'optlist'};
+		foreach (@options) {
+			if ( $value eq $_ ) {
+				return 0;
+			}
+		}
+		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
+			return 0 if ( $value eq '' );
+		}
+		return qq('$value' is not on the list of allowed values for this field.);
+	}
+
+	#Make sure field is not too long
+	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
+		return "field is too long (maximum length $thisfield->{'length'})";
+	}
+
+	#Make sure a foreign key value exists in foreign table
+	if ( $thisfield->{'foreign_key'} ) {
+		my $qry;
+		if ( $fieldname eq 'isolate_id' ) {
+			$qry = "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)";
+		} else {
+			$qry = "SELECT EXISTS(SELECT * FROM $thisfield->{'foreign_key'} WHERE id=?)";
+		}
+		$value = $self->map_locus_name($value, $set_id) if $fieldname eq 'locus';
+		my $exists =
+		  $self->{'datastore'}->run_query( $qry, $value, { cache => "SubmissionHandler::is_field_bad_other:$fieldname" } );
+		if ( !$exists ) {
+			if ( $thisfield->{'foreign_key'} eq 'isolates' && $self->{'system'}->{'view'} ne 'isolates' ) {
+				return "value '$value' does not exist in isolates table or is not accessible to your account";
+			}
+			return "value '$value' does not exist in $thisfield->{'foreign_key'} table";
+		}
+	}
+	return 0;
+}
+
+sub map_locus_name {
+	my ( $self, $locus, $set_id ) = @_;
+	return $locus if !$set_id;
+	my $locus_list = $self->{'datastore'}->run_query(
+		'SELECT locus FROM set_loci WHERE (set_id,set_name)=(?,?)',
+		[ $set_id, $locus ],
+		{ fetch => 'col_arrayref' }
+	);
+	return $locus if @$locus_list != 1;
+	return $locus_list->[0];
+}
+
+sub _user_exists {
+	my ( $self, $user_id ) = @_;
+	if ( !$self->{'cache'}->{'users'} ) {
+		my $users = $self->{'datastore'}->run_query( 'SELECT id FROM users', undef, { fetch => 'col_arrayref' } );
+		%{ $self->{'cache'}->{'users'} } = map { $_ => 1 } @$users;
+	}
+	return 1 if $self->{'cache'}->{'users'}->{$user_id};
+	return;
+}
+
+
+
+
 1;

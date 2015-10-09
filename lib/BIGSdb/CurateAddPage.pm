@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
@@ -123,7 +124,7 @@ sub print_content {
 		$self->_copy_locus_config( \%newdata );
 	}
 	$buffer .= $self->create_record_table( $table, \%newdata );
-	$newdata{'datestamp'} = $newdata{'date_entered'} = $self->get_datestamp;
+	$newdata{'datestamp'} = $newdata{'date_entered'} = BIGSdb::Utils::get_datestamp();
 	$newdata{'curator'} = $self->get_curator_id;
 	my $retval;
 	if ( $q->param('sent') ) {

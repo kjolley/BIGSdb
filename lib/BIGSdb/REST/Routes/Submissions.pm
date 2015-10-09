@@ -48,6 +48,9 @@ del '/db/:db/submissions/:submission/files/:file' => sub { _delete_file() };
 sub _check_db_type {
 	my ($type) = @_;
 	my $self = setting('self');
+	if (($self->{'system'}->{'submissions'} // '') ne 'yes'){
+		send_error( 'Submissions are not enabled on this database', 404 );
+	}
 	send_error( 'Submission type not selected', 400 ) if !$type;
 	my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1 } };
 	if ( !$db_types->{ $self->{'system'}->{'dbtype'} }->{$type} ) {
@@ -217,7 +220,8 @@ sub _create_submission {
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my %method        = (
 		alleles  => sub { _prepare_allele_submission($submission_id) },
-		profiles => sub { _prepare_profile_submission($submission_id) }
+		profiles => sub { _prepare_profile_submission($submission_id) },
+		isolates => sub { _prepare_isolate_submission($submission_id)}
 	);
 	my $sql = [];
 	$sql = $method{$type}->() if $method{$type};
@@ -394,6 +398,14 @@ sub _prepare_profile_submission {
 		$index++;
 	}
 	return $sql;
+}
+
+sub _prepare_isolate_submission {
+	my $self            = setting('self');
+	my $params          = params;
+	my ( $db, $isolates ) = @{$params}{qw(db isolates)};
+	send_error( 'Required field(s) missing: isolates', 400 ) if !defined $isolates;
+	my $check = $self->{'submissionHandler'}->check_new_isolates( \$isolates );
 }
 
 sub _get_messages {

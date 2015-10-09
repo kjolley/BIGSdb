@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage BIGSdb::CurateAddPage);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant ERROR => 1;
@@ -164,7 +165,7 @@ sub _create_new_version {
 	my $curator_id = $self->get_curator_id;
 	foreach my $field (@$fields) {
 		$field_values->{$field} = $new_id if $field eq 'id';
-		$field_values->{$field} = $self->get_datestamp if $field eq 'date_entered' || $field eq 'datestamp';
+		$field_values->{$field} = BIGSdb::Utils::get_datestamp() if $field eq 'date_entered' || $field eq 'datestamp';
 		$field_values->{$field} = $curator_id if $field eq 'curator';
 		push @values, $field_values->{ lc($field) };
 	}

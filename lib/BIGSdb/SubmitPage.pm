@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS :submissions :interface);
-use List::MoreUtils qw(none uniq);
+use List::MoreUtils qw(none);
 use POSIX;
 
 sub get_help_url {
@@ -810,7 +810,8 @@ sub _submit_isolates {
 		$self->_presubmit_isolates( $submission_id, undef );
 		return;
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
-		my $ret = $self->_check_new_isolates( \$q->param('data') );
+		my $set_id = $self->get_set_id;
+		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$q->param('data') );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
@@ -1022,145 +1023,13 @@ sub _check_new_alleles {
 
 
 
-sub _check_new_isolates {
-	my ( $self, $data_ref ) = @_;
-	my @isolates;
-	my @err;
-	my @rows          = split /\n/x, $$data_ref;
-	my $header_row    = shift @rows;
-	my $header_status = $self->_get_isolate_header_positions($header_row);
-	my $positions     = $header_status->{'positions'};
-	my %err_message   = (
-		unrecognized => 'The header contains an unrecognized column for',
-		missing      => 'The header is missing a column for',
-		duplicates   => 'The header has duplicate columns for'
-	);
-
-	foreach my $status (qw(unrecognized missing duplicates)) {
-		if ( $header_status->{$status} ) {
-			my $list = $header_status->{$status};
-			local $" = q(, );
-			push @err, "$err_message{$status}: @$list.";
-		}
-	}
-	my $row_number = 0;
-	if ( !@err ) {
-		foreach my $row (@rows) {
-			$row =~ s/\s*$//x;
-			next if !$row;
-			$row_number++;
-			my @values = split /\t/x, $row;
-			my $row_id =
-			  defined $positions->{ $self->{'system'}->{'labelfield'} }
-			  ? ( $values[ $positions->{ $self->{'system'}->{'labelfield'} } ] || "Row $row_number" )
-			  : "Row $row_number";
-			my $status = $self->_check_isolate_record( $positions, \@values );
-			local $" = q(, );
-			if ( $status->{'missing'} ) {
-				my @missing = @{ $status->{'missing'} };
-				push @err, "$row_id is missing required fields: @missing";
-			}
-			if ( $status->{'error'} ) {
-				my @error = @{ $status->{'error'} };
-				local $" = '; ';
-				( my $msg = "$row_id has problems - @error" ) =~ s/\.;/;/gx;
-				push @err, $msg;
-			}
-			push @isolates, $status->{'isolate'};
-		}
-	}
-	my $ret = { isolates => \@isolates, positions => $positions };
-	$ret->{'err'} = \@err if @err;
-	return $ret;
-}
-
-sub _check_isolate_record {
-	my ( $self, $positions, $values ) = @_;
-	my $set_id         = $self->get_set_id;
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
-	my ( @missing, @error );
-	my $isolate = {};
-	foreach my $field (@$fields) {
-		next if $do_not_include{$field};
-		next if !defined $positions->{$field};
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		if (  !( ( $att->{'required'} // '' ) eq 'no' )
-			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
-		{
-			push @missing, $field;
-		} else {
-			my $value = $values->[ $positions->{$field} ] // '';
-			my $status = $self->is_field_bad( 'isolates', $field, $value );
-			push @error, "$field: $status" if $status;
-		}
-	}
-	foreach my $heading ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
-		my $value = $values->[ $positions->{$heading} ];
-		next if !defined $value || $value eq q();
-		$isolate->{$heading} = $value;
-		next if !$self->{'datastore'}->is_locus($heading);
-		my $locus_info = $self->{'datastore'}->get_locus_info($heading);
-		if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
-			push @error, "locus $heading: must be an integer";
-		} elsif ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/x ) {
-			push @error, "locus $heading: doesn't match the required format";
-		}
-	}
-	if ( defined $positions->{'references'} && $values->[ $positions->{'references'} ] ) {
-		my @pmids = split /;/x, $values->[ $positions->{'references'} ];
-		foreach my $pmid (@pmids) {
-			if ( !BIGSdb::Utils::is_int($pmid) ) {
-				push @error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
-				last;
-			}
-		}
-	}
-	my $ret = { isolate => $isolate };
-	$ret->{'missing'} = \@missing if @missing;
-	$ret->{'error'}   = \@error   if @error;
-	return $ret;
-}
 
 
 
-sub _get_isolate_header_positions {
-	my ( $self, $header_row, $scheme_id ) = @_;
-	$header_row =~ s/\s*$//x;
-	my ( @unrecognized, @missing, @duplicates, %positions );
-	my @header = split /\t/x, $header_row;
-	my %not_accounted_for = map { $_ => 1 } @header;
-	for my $i ( 0 .. @header - 1 ) {
-		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
-		$positions{ $header[$i] } = $i;
-	}
-	my $ret    = { positions => \%positions };
-	my $set_id = $self->get_set_id;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	if ($set_id) {
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
-		push @$fields, @$meta_fields;
-	}
-	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
-	foreach my $field (@$fields) {
-		next if $do_not_include{$field};
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		push @missing, $field if !( ( $att->{'required'} // '' ) eq 'no' ) && !defined $positions{$field};
-		delete $not_accounted_for{$field};
-	}
-	foreach my $heading (@header) {
-		next if $self->{'datastore'}->is_locus($heading);
-		next if $heading eq 'references';
-		next if $heading eq 'aliases';
-		push @unrecognized, $heading if $not_accounted_for{$heading};
-	}
-	$ret->{'missing'}      = \@missing            if @missing;
-	$ret->{'duplicates'}   = [ uniq @duplicates ] if @duplicates;
-	$ret->{'unrecognized'} = \@unrecognized       if @unrecognized;
-	return $ret;
-}
+
+
+
+
 
 sub _start_submission {
 	my ( $self, $type ) = @_;

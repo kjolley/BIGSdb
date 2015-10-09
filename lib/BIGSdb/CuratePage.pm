@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 my $logger = get_logger('BIGSdb.Page');
@@ -322,12 +323,12 @@ sub _get_form_fields {
 						%html5_args
 					);
 				} elsif ( $att->{'name'} eq 'datestamp' ) {
-					$buffer .= '<b>' . $self->get_datestamp . "</b>\n";
+					$buffer .= '<b>' . BIGSdb::Utils::get_datestamp() . "</b>\n";
 				} elsif ( $att->{'name'} eq 'date_entered' ) {
 					if ( $q->param('page') eq 'update' or $q->param('page') eq 'alleleUpdate' ) {
 						$buffer .= '<b>' . $newdata{ $att->{'name'} } . "</b>\n";
 					} else {
-						$buffer .= '<b>' . $self->get_datestamp . "</b>\n";
+						$buffer .= '<b>' . BIGSdb::Utils::get_datestamp() . "</b>\n";
 					}
 				} elsif ( $att->{'name'} eq 'curator' ) {
 					$buffer .= '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
@@ -911,278 +912,6 @@ sub check_record {
 	return @problems;
 }
 
-sub get_datestamp {
-	my @date = localtime;
-	my $year = 1900 + $date[5];
-	my $mon  = $date[4] + 1;
-	my $day  = $date[3];
-	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
-}
-
-sub is_field_bad {
-	my ( $self, $table, $fieldname, $value, $flag ) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		return $self->_is_field_bad_isolates( $fieldname, $value, $flag );
-	} else {
-		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag );
-	}
-}
-
-sub _user_exists {
-	my ( $self, $user_id ) = @_;
-	if ( !$self->{'cache'}->{'users'} ) {
-		my $users = $self->{'datastore'}->run_query( 'SELECT id FROM users', undef, { fetch => 'col_arrayref' } );
-		%{ $self->{'cache'}->{'users'} } = map { $_ => 1 } @$users;
-	}
-	return 1 if $self->{'cache'}->{'users'}->{$user_id};
-	return;
-}
-
-sub _is_field_bad_isolates {
-	my ( $self, $fieldname, $value, $flag ) = @_;
-	my $q = $self->{'cgi'};
-	$value = '' if !defined $value;
-	$value =~ s/<blank>//x;
-	$value =~ s/null//;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
-	$thisfield->{'type'} ||= 'text';
-	my $set_id = $self->get_set_id;
-
-	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
-	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
-	if ( $value eq '' ) {
-		if ( $fieldname eq 'aliases' || $fieldname eq 'references' || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
-			return 0;
-		} else {
-			return 'is a required field and cannot be left blank.';
-		}
-	}
-
-	#Make sure curator is set right
-	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
-		return 'must be set to the currently logged in curator id (' . $self->get_curator_id . ').';
-	}
-
-	#Make sure int fields really are integers and obey min/max values if set
-	if ( $thisfield->{'type'} eq 'int' ) {
-		if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
-		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-			return "must be equal to or larger than $thisfield->{'min'}.";
-		} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-			return "must be equal to or smaller than $thisfield->{'max'}.";
-		}
-	}
-
-	#Make sure sender is in database
-	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
-		my $sender_exists = $self->_user_exists($value);
-		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>)
-		  if !$sender_exists;
-	}
-
-	#If a regex pattern exists, make sure data conforms to it
-	if ( $thisfield->{'regex'} ) {
-		if ( $value !~ /^$thisfield->{'regex'}$/x ) {
-			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
-				return 'does not conform to the required formatting.';
-			}
-		}
-	}
-
-	#Make sure floats fields really are floats
-	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
-	}
-
-	#Make sure the datestamp is today
-	if ( $fieldname eq 'datestamp' && ( $value ne $self->get_datestamp ) ) {
-		return q[must be today's date in yyyy-mm-dd format (] . $self->get_datestamp . q[) or use 'today'];
-	}
-	if ( $flag && $flag eq 'insert' ) {
-
-		#Make sure the date_entered is today
-		if ( $fieldname eq 'date_entered'
-			&& ( $value ne $self->get_datestamp ) )
-		{
-			return q[must be today's date in yyyy-mm-dd format (] . $self->get_datestamp . q[) or use 'today'];
-		}
-	}
-
-	#make sure date fields really are dates in correct format
-	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
-		return 'must be a valid date in yyyy-mm-dd format';
-	}
-
-	#Make sure id number has not been used previously
-	if ( $flag && $flag eq 'insert' && ( $fieldname eq 'id' ) ) {
-		my $exists =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
-			$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
-		if ($exists) {
-			return "$value is already in database";
-		}
-	}
-
-	#Make sure options list fields only use a listed option (or null if optional)
-	if ( $thisfield->{'optlist'} ) {
-		my $options = $self->{'xmlHandler'}->get_field_option_list($fieldname);
-		foreach (@$options) {
-			if ( $value eq $_ ) {
-				return 0;
-			}
-		}
-		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
-			return 0 if ( $value eq '' );
-		}
-		return "'$value' is not on the list of allowed values for this field.";
-	}
-
-	#Make sure field is not too long
-	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
-		return "field is too long (maximum length $thisfield->{'length'})";
-	}
-	return 0;
-}
-
-sub _is_field_bad_other {
-	my ( $self, $table, $fieldname, $value, $flag ) = @_;
-	my $q          = $self->{'cgi'};
-	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my $thisfield;
-	foreach my $att (@$attributes) {
-		if ( $att->{'name'} eq $fieldname ) {
-			$thisfield = $att;
-			last;
-		}
-	}
-	$thisfield->{'type'} ||= 'text';
-
-	#If field is null make sure it's not a required field
-	if ( !defined $value || $value eq '' ) {
-		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
-			return 0;
-		} else {
-			my $msg = 'is a required field and cannot be left blank.';
-			if ( $thisfield->{'optlist'} ) {
-				my @optlist = split /;/x, $thisfield->{'optlist'};
-				local $" = q(', ');
-				$msg .= " Allowed values are '@optlist'.";
-			}
-			return $msg;
-		}
-	}
-
-	#Make sure curator is set right
-	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
-		return 'must be set to the currently logged in curator id (' . $self->get_curator_id . ').';
-	}
-
-	#Make sure int fields really are integers
-	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
-		return 'must be an integer';
-	}
-
-	#Make sure sender is in database
-	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
-		my $qry = 'SELECT DISTINCT id FROM users';
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my ($senderid) = $sql->fetchrow_array ) {
-			if ( $value == $senderid ) {
-				return 0;
-			}
-		}
-		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>);
-	}
-
-	#If a regex pattern exists, make sure data conforms to it
-	if ( $thisfield->{'regex'} ) {
-		if ( $value !~ /^$thisfield->{regex}$/x ) {
-			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
-				return 'does not conform to the required formatting';
-			}
-		}
-	}
-
-	#Make sure floats fields really are floats
-	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
-	}
-
-	#Make sure the datestamp is today
-	if ( $fieldname eq 'datestamp' && ( $value ne $self->get_datestamp ) ) {
-		return q[must be today's date in yyyy-mm-dd format (] . $self->get_datestamp . q[) or use 'today'];
-	}
-	if ( $flag eq 'insert' ) {
-
-		#Make sure the date_entered is today
-		if ( $fieldname eq 'date_entered'
-			&& ( $value ne $self->get_datestamp ) )
-		{
-			return q[must be today's date in yyyy-mm-dd format (] . $self->get_datestamp . q[) or use 'today'];
-		}
-	}
-	if ( $flag eq 'insert'
-		&& ( $thisfield->{'unique'} ) )
-	{
-		#Make sure unique field values have not been used previously
-		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my ($id) = $sql->fetchrow_array ) {
-			if ( $value eq $id ) {
-				if ( $thisfield->{'name'} =~ /sequence/ ) {
-					$value = q(<span class="seq">) . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . q(</span>);
-				}
-				return qq('$value' is already in database);
-			}
-		}
-	}
-
-	#Make sure options list fields only use a listed option (or null if optional)
-	if ( $thisfield->{'optlist'} ) {
-		my @options = split /;/x, $thisfield->{'optlist'};
-		foreach (@options) {
-			if ( $value eq $_ ) {
-				return 0;
-			}
-		}
-		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
-			return 0 if ( $value eq '' );
-		}
-		return qq('$value' is not on the list of allowed values for this field.);
-	}
-
-	#Make sure field is not too long
-	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
-		return "field is too long (maximum length $thisfield->{'length'})";
-	}
-
-	#Make sure a foreign key value exists in foreign table
-	if ( $thisfield->{'foreign_key'} ) {
-		my $qry;
-		if ( $fieldname eq 'isolate_id' ) {
-			$qry = "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)";
-		} else {
-			$qry = "SELECT EXISTS(SELECT * FROM $thisfield->{'foreign_key'} WHERE id=?)";
-		}
-		$value = $self->map_locus_name($value) if $fieldname eq 'locus';
-		my $exists =
-		  $self->{'datastore'}->run_query( $qry, $value, { cache => "CuratePage::is_field_bad_other:$fieldname" } );
-		if ( !$exists ) {
-			if ( $thisfield->{'foreign_key'} eq 'isolates' && $self->{'system'}->{'view'} ne 'isolates' ) {
-				return "value '$value' does not exist in isolates table or is not accessible to your account";
-			}
-			return "value '$value' does not exist in $thisfield->{'foreign_key'} table";
-		}
-	}
-	return 0;
-}
-
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1192,19 +921,6 @@ sub clean_value {
 	$value =~ s/^\s*//x;
 	$value =~ s/\s*$//x;
 	return $value;
-}
-
-sub map_locus_name {
-	my ( $self, $locus ) = @_;
-	my $set_id = $self->get_set_id;
-	return $locus if !$set_id;
-	my $locus_list = $self->{'datastore'}->run_query(
-		'SELECT locus FROM set_loci WHERE (set_id,set_name)=(?,?)',
-		[ $set_id, $locus ],
-		{ fetch => 'col_arrayref' }
-	);
-	return $locus if @$locus_list != 1;
-	return $locus_list->[0];
 }
 
 sub update_history {

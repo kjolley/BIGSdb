@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none any uniq);
 my $logger = get_logger('BIGSdb.Page');
@@ -441,10 +442,10 @@ sub _print_interface {
 	  . $self->{'username'}
 	  . q[)</b></li>];
 	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>)
-	  . $self->get_datestamp
+	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
 	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>)
-	  . $self->get_datestamp
+	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );

@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -303,7 +304,7 @@ sub _check {
 					{
 						$old_value = "&lt;blank&gt;"
 						  if !defined $old_value || $old_value eq '';
-						my $problem = $self->is_field_bad( 'isolates', $field[$i], $value[$i], 'update' );
+						my $problem = $self->{'submissionHandler'}->is_field_bad( 'isolates', $field[$i], $value[$i], 'update', $set_id );
 						if ($is_locus) {
 							my $locus_info = $self->{'datastore'}->get_locus_info( $field[$i] );
 							if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
@@ -404,7 +405,7 @@ sub _update {
 	my $curator_id   = $self->get_curator_id;
 	my $curator_name = $self->get_curator_name;
 	say "User: $curator_name<br />";
-	my $datestamp = $self->get_datestamp;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
 	say "Datestamp: $datestamp<br />";
 	my $tablebuffer = '';
 	my $td          = 1;

@@ -551,4 +551,12 @@ sub remove_trailing_spaces_from_list {
 	}
 	return;
 }
+
+sub get_datestamp {
+	my @date = localtime;
+	my $year = 1900 + $date[5];
+	my $mon  = $date[4] + 1;
+	my $day  = $date[3];
+	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
+}
 1;

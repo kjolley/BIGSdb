@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -98,11 +99,11 @@ sub _check {
 				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 					$newdata->{$field} = $self->get_curator_id;
 				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-					$newdata->{$field} = $self->get_datestamp;
+					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
 					$newdata->{$field} = $q->param($field);
 				}
-				my $bad_field = $self->is_field_bad( 'isolates', $field, $newdata->{$field} );
+				my $bad_field = $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
 				if ($bad_field) {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field);
 				}
@@ -408,13 +409,13 @@ sub print_provenance_form_elements {
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
 					);
 				} elsif ( lc($field) eq 'datestamp' ) {
-					say '<b>' . $self->get_datestamp . '</b>';
+					say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
 				} elsif ( lc($field) eq 'date_entered' ) {
 					if ( $options->{'update'} ) {
 						say "<b>$newdata->{'date_entered'}</b>";
 						say $q->hidden( 'date_entered', $newdata->{'date_entered'} );
 					} else {
-						say '<b>' . $self->get_datestamp . '</b>';
+						say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
 					}
 				} elsif ( lc($field) eq 'curator' ) {
 					say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ')</b>';

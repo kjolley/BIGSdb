@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Utils;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -94,7 +95,7 @@ sub print_content {
 	} elsif ( $q->param('sent2') ) {
 		$right_buffer .= $self->_delete( $isolate_id, $locus );
 	}
-	my $datestamp = $self->get_datestamp;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
 	if ($update) {
 		$right_buffer .= qq(<h3>Update allele designation</h3>\n);
 		my $designation =
@@ -210,9 +211,9 @@ sub _update {
 			$newdata->{ $_->{'name'} } = $q->param($param);
 		}
 	}
-	$newdata->{'datestamp'}    = $self->get_datestamp;
+	$newdata->{'datestamp'}    = BIGSdb::Utils::get_datestamp();
 	$newdata->{'curator'}      = $self->get_curator_id;
-	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : $self->get_datestamp;
+	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : BIGSdb::Utils::get_datestamp();
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
 
 	#TODO Use placeholders for all SQL values.

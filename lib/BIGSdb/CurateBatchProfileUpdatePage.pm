@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileUpdatePage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(none any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -297,7 +298,7 @@ sub _update {
 	my $curator_id   = $self->get_curator_id;
 	my $curator_name = $self->get_curator_name;
 	say "User: $curator_name<br />";
-	my $datestamp = $self->get_datestamp;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
 	say "Datestamp: $datestamp<br />";
 	my $tablebuffer;
 	my $td           = 1;

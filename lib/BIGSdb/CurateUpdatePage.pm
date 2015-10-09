@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(any none);
 use BIGSdb::Constants qw(ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS);
 use Log::Log4perl qw(get_logger);
@@ -105,7 +106,7 @@ sub print_content {
 			$newdata{ $_->{'name'} } = $q->param( $_->{'name'} );
 		}
 	}
-	$newdata{'datestamp'}    = $self->get_datestamp;
+	$newdata{'datestamp'}    = BIGSdb::Utils::get_datestamp();
 	$newdata{'curator'}      = $self->get_curator_id();
 	$newdata{'date_entered'} = $data->{'date_entered'};
 	my @problems;

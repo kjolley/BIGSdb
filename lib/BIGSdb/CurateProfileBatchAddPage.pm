@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
@@ -174,9 +175,10 @@ sub _check {
 	my %fileheaderPos;
 	my $i = 0;
 	my $pk_included;
+	my $set_id = $self->get_set_id;
 
 	foreach my $field (@fileheaderFields) {
-		my $mapped = $self->map_locus_name($field);
+		my $mapped = $self->{'submissionHandler'}->map_locus_name($field, $set_id);
 		$fileheaderPos{$mapped} = $i;
 		$i++;
 		$pk_included = 1 if $field eq $primary_key;
@@ -222,7 +224,7 @@ sub _check {
 			}
 			my $problem;
 			if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-				$value = $self->get_datestamp;
+				$value = BIGSdb::Utils::get_datestamp();
 			} elsif ( $field eq 'sender' ) {
 				if ( defined $fileheaderPos{$field} ) {
 					$value = $data[ $fileheaderPos{$field} ];
@@ -441,12 +443,11 @@ sub _upload {
 		  };
 		push @profile_ids, $profile_id;
 		foreach my $locus (@$loci) {
-			my $mapped_locus = $self->map_locus_name($locus);
 			push @inserts,
 			  {
 				statement => 'INSERT INTO profile_members (scheme_id,locus,profile_id,allele_id,curator,'
 				  . 'datestamp) VALUES (?,?,?,?,?,?)',
-				arguments => [ $scheme_id, $mapped_locus, $profile_id, $data[ $fieldorder{$locus} ], $curator, 'now' ]
+				arguments => [ $scheme_id, $locus, $profile_id, $data[ $fieldorder{$locus} ], $curator, 'now' ]
 			  };
 		}
 		foreach my $field (@$scheme_fields) {

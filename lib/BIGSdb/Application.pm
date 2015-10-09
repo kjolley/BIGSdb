@@ -70,7 +70,8 @@ use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw (plugin job jobs index logout options);
-use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileBatchAdd batchAdd index);
+use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileBatchAdd batchAdd batchIsolateUpdate 
+ isolateAdd isolateUpdate index);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
@@ -379,10 +380,11 @@ sub setup_datastore {
 sub setup_submission_handler {
 	my ($self) = @_;
 	$self->{'submissionHandler'} = BIGSdb::SubmissionHandler->new(
-		db        => $self->{'db'},
-		system    => $self->{'system'},
-		config    => $self->{'config'},
-		datastore => $self->{'datastore'}
+		db         => $self->{'db'},
+		system     => $self->{'system'},
+		config     => $self->{'config'},
+		datastore  => $self->{'datastore'},
+		xmlHandler => $self->{'xmlHandler'}
 	);
 	return;
 }
@@ -483,6 +485,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

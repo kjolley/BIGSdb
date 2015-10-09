@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS);
@@ -144,7 +145,7 @@ sub print_content {
 	say "<dt>locus</dt><dd>$cleaned_locus</dd>";
 	my $curator_name = $self->get_curator_name;
 	say "<dt>curator</dt><dd>$curator_name</dd>";
-	my $datestamp = $self->get_datestamp;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
 	say "<dt>datestamp</dt><dd>$datestamp</dd>";
 	say "<dt>start</dt><dd>";
 	say $q->textfield( -name => 'new_start', default => $start, -size => 10 );

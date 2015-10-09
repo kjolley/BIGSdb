@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateIsolateAddPage BIGSdb::TreeViewPage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -121,11 +122,11 @@ sub _check {
 				if ( $field eq 'curator' ) {
 					$newdata{$field} = $self->get_curator_id;
 				} elsif ( $field eq 'datestamp' ) {
-					$newdata{$field} = $self->get_datestamp;
+					$newdata{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
 					$newdata{$field} = $q->param($field);
 				}
-				my $bad_field = $self->is_field_bad( 'isolates', $field, $newdata{$field} );
+				my $bad_field = $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata{$field}, undef, $set_id );
 				if ($bad_field) {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field.);
 				}

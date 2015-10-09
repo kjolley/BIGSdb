@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
+use BIGSdb::Utils;
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -373,7 +374,7 @@ sub _print_interface {
 	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>);
 	say "$profile_data->{'date_entered'}</b></li>";
 	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>);
-	say $self->get_datestamp . "</b></li>";
+	say BIGSdb::Utils::get_datestamp() . "</b></li>";
 	my $pubmed_list = $self->{'datastore'}->run_query(
 		"SELECT pubmed_id FROM profile_refs WHERE scheme_id=? AND profile_id=? ORDER BY pubmed_id",
 		[ $scheme_id, $profile_id ],
