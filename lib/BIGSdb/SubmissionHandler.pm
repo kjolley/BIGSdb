@@ -728,11 +728,6 @@ sub _is_field_bad_other {
 		}
 	}
 
-	#Make sure curator is set right
-	if ( $fieldname eq 'curator' && $value ne $self->get_curator_id ) {
-		return 'must be set to the currently logged in curator id (' . $self->get_curator_id . ').';
-	}
-
 	#Make sure int fields really are integers
 	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer';
