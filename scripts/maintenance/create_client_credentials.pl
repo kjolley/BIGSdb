@@ -44,7 +44,7 @@ if ( $opts{'h'} ) {
 }
 if ( !$opts{'a'} ) {
 	say "\nUsage: create_client_credentials.pl --application <NAME>\n";
-	say "Help: create_client_credentials.pl --help";
+	say 'Help: create_client_credentials.pl --help';
 	exit;
 }
 if ( $opts{'i'} && $opts{'u'} ) {
@@ -62,12 +62,13 @@ sub main {
 	say "Client id: $client_id";
 	say "Client secret: $client_secret";
 	if ( $opts{'i'} || $opts{'u'} ) {
-		my $db = DBI->connect( "DBI:Pg:dbname=" . DBASE, 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-		  || croak "couldn't open database";
-		my $sql = $db->prepare("SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))");
+		my $db = DBI->connect( 'DBI:Pg:dbname=' . DBASE,
+			'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+		  || croak q(couldn't open database);
+		my $sql = $db->prepare('SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))');
 		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
 		my $exists = $sql->fetchrow_array;
-		die $@ if $@;
+		croak $@ if $@;
 		my $permission = $opts{'d'} ? 'deny' : 'allow';
 		if ( $opts{'i'} && $exists ) {
 			say "\nCredentials for this application/version already exist\n(use --update option to update).";
@@ -76,28 +77,28 @@ sub main {
 		} elsif ( $opts{'i'} ) {
 			eval {
 				$db->do(
-					"INSERT INTO clients (application,version,client_id,client_secret,default_permission,datestamp) VALUES "
-					  . "(?,?,?,?,?,?)",
+					'INSERT INTO clients (application,version,client_id,client_secret,'
+					  . 'default_permission,datestamp) VALUES (?,?,?,?,?,?)',
 					undef, $opts{'a'}, $opts{'v'}, $client_id, $client_secret, $permission, 'now'
 				);
 			};
 			if ($@) {
 				$db->rollback;
-				die $@;
+				croak $@;
 			}
 			$db->commit;
 			say "\nCredentials added to authentication database.";
 		} elsif ( $opts{'u'} ) {
 			eval {
 				$db->do(
-					"UPDATE clients SET (client_id,client_secret,default_permission,datestamp)=(?,?,?,?) WHERE (application,version)=(?,?)"
-					,
+					'UPDATE clients SET (client_id,client_secret,default_permission,'
+					  . 'datestamp)=(?,?,?,?) WHERE (application,version)=(?,?)',
 					undef, $client_id, $client_secret, $permission, 'now', $opts{'a'}, $opts{'v'}
 				);
 			};
 			if ($@) {
 				$db->rollback;
-				die $@;
+				croak $@;
 			}
 			$db->commit;
 			say "\nCredentials updated in authentication database.";
