@@ -1168,7 +1168,7 @@ sub _start_isolate_submission {
 		return;
 	}
 	$self->{'db'}->commit;
-	$self->_write_isolate_csv( $submission_id, $isolates, $positions );
+	$self->{'submissionHandler'}->write_isolate_csv( $submission_id );
 	return;
 }
 
@@ -1593,7 +1593,7 @@ sub _print_isolate_table {
 	my $submission         = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission($submission_id);
 	my $isolates           = $isolate_submission->{'isolates'};
-	my $fields = $self->_get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
+	my $fields = $self->{'submissionHandler'}->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
 	say q(<table class="resultstable"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(</tr>);
@@ -2339,43 +2339,9 @@ sub _get_fasta_string {
 	return $buffer;
 }
 
-sub _get_populated_fields {
-	my ( $self, $isolates, $positions ) = @_;
-	my @fields;
-	foreach my $field ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
-		my $populated = 0;
-		foreach my $isolate (@$isolates) {
-			if ( defined $isolate->{$field} && $isolate->{$field} ne q() ) {
-				$populated = 1;
-				last;
-			}
-		}
-		push @fields, $field if $populated;
-	}
-	return \@fields;
-}
 
-sub _write_isolate_csv {
-	my ( $self, $submission_id, $isolates, $positions ) = @_;
-	my $fields = $self->_get_populated_fields( $isolates, $positions );
-	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id);
-	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
-	$self->{'submissionHandler'}->mkpath($dir);
-	my $filename = 'isolates.txt';
-	local $" = qq(\t);
-	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
-	say $fh "@$fields";
 
-	foreach my $isolate (@$isolates) {
-		my @values;
-		foreach my $field (@$fields) {
-			push @values, $isolate->{$field} // '';
-		}
-		say $fh "@values";
-	}
-	close $fh;
-	return $filename;
-}
+
 
 sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;

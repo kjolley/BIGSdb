@@ -26,6 +26,7 @@ use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl
 my %opts;
 GetOptions(
 	'f|file=s'          => \$opts{'f'},
+	'i|isolates_file=s' => \$opts{'i'},
 	'm|method=s'        => \$opts{'m'},
 	'p|profiles_file=s' => \$opts{'p'},
 	'r|route=s'         => \$opts{'r'},
@@ -213,6 +214,11 @@ sub _get_route {
 		my $profiles = _slurp( $opts{'p'} );
 		$extra_params->{'profiles'} = $$profiles;
 	}
+	if ( $opts{'i'} ) {
+		die "Isolates file $opts{'i'} does not exist.\n" if !-e $opts{'i'};
+		my $isolates = _slurp( $opts{'i'} );
+		$extra_params->{'isolates'} = $$isolates;
+	}
 	if ( $opts{'f'} ) {
 		die "File $opts{'f'} does not exist.\n" if !-e $opts{'f'};
 		open( my $fh, '<', $opts{'f'} ) || die "Cannot open file $opts{'f'} for reading.\n";
@@ -304,6 +310,9 @@ ${bold}-f, --file$norm ${under}FILENAME$norm
 
 ${bold}-h, --help$norm
     This help page.
+    
+${bold}-i, --isolates_file$norm ${under}FILE$norm
+    Relative path of tab-delimited file of isolate data to upload.
    
 ${bold}-m, --method$norm ${under}GET|PUT|POST|DELETE$norm
     Set HTTP method (default GET).

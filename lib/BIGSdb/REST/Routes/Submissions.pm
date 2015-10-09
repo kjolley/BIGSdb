@@ -48,7 +48,7 @@ del '/db/:db/submissions/:submission/files/:file' => sub { _delete_file() };
 sub _check_db_type {
 	my ($type) = @_;
 	my $self = setting('self');
-	if (($self->{'system'}->{'submissions'} // '') ne 'yes'){
+	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' ) {
 		send_error( 'Submissions are not enabled on this database', 404 );
 	}
 	send_error( 'Submission type not selected', 400 ) if !$type;
@@ -221,14 +221,15 @@ sub _create_submission {
 	my %method        = (
 		alleles  => sub { _prepare_allele_submission($submission_id) },
 		profiles => sub { _prepare_profile_submission($submission_id) },
-		isolates => sub { _prepare_isolate_submission($submission_id)}
+		isolates => sub { _prepare_isolate_submission($submission_id) }
 	);
 	my $sql = [];
 	$sql = $method{$type}->() if $method{$type};
 	eval {
-		$self->{'db'}
-		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,email) VALUES (?,?,?,?,?,?,?)',
-			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending', $email ? 'true' : 'false' );
+		$self->{'db'}->do(
+			'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,email) VALUES (?,?,?,?,?,?,?)',
+			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending', $email ? 'true' : 'false'
+		);
 
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
@@ -247,7 +248,8 @@ sub _create_submission {
 	}
 	my %write_file = (
 		alleles  => sub { $self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id) },
-		profiles => sub { $self->{'submissionHandler'}->write_profile_csv($submission_id) }
+		profiles => sub { $self->{'submissionHandler'}->write_profile_csv($submission_id) },
+		isolates => sub { $self->{'submissionHandler'}->write_isolate_csv($submission_id) }
 	);
 	$write_file{$type}->() if $write_file{$type};
 	status(201);
@@ -401,11 +403,40 @@ sub _prepare_profile_submission {
 }
 
 sub _prepare_isolate_submission {
+	my ($submission_id) = @_;
 	my $self            = setting('self');
 	my $params          = params;
 	my ( $db, $isolates ) = @{$params}{qw(db isolates)};
 	send_error( 'Required field(s) missing: isolates', 400 ) if !defined $isolates;
-	my $check = $self->{'submissionHandler'}->check_new_isolates( \$isolates );
+	my $set_id = $self->get_set_id;
+	my $check = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates );
+	if ( $check->{'err'} ) {
+		local $" = q( );
+		my $err = "@{ $check->{'err'} }";
+		send_error( $err, 400 );
+	}
+	my $sql = [];
+	foreach my $field ( keys %{ $check->{'positions'} } ) {
+		push @$sql,
+		  {
+			statement => 'INSERT INTO isolate_submission_field_order (submission_id,field,index) VALUES (?,?,?)',
+			arguments => [ $submission_id, $field, $check->{'positions'}->{$field} ]
+		  };
+	}
+	my $i = 1;
+	foreach my $isolate ( @{ $check->{'isolates'} } ) {
+		foreach my $field ( keys %$isolate ) {
+			next if !defined $isolate->{$field} || $isolate->{$field} eq '';
+			push @$sql,
+			  {
+				statement =>
+				  'INSERT INTO isolate_submission_isolates (submission_id,index,field,value) VALUES (?,?,?,?)',
+				arguments => [ $submission_id, $i, $field, $isolate->{$field} ]
+			  };
+		}
+		$i++;
+	}
+	return $sql;
 }
 
 sub _get_messages {

@@ -204,6 +204,47 @@ sub write_profile_csv {
 	return $filename;
 }
 
+sub write_isolate_csv {
+	my ( $self, $submission_id ) = @_;
+	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $isolates =  $isolate_submission->{'isolates'};
+	return if !@$isolates;
+	my $fields = $self->get_populated_fields( $isolates, $isolate_submission->{'order'} );
+	my $dir = $self->get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	$self->mkpath($dir);
+	my $filename = 'isolates.txt';
+	local $" = qq(\t);
+	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
+	say $fh "@$fields";
+
+	foreach my $isolate (@$isolates) {
+		my @values;
+		foreach my $field (@$fields) {
+			push @values, $isolate->{$field} // '';
+		}
+		say $fh "@values";
+	}
+	close $fh;
+	return $filename;
+}
+
+sub get_populated_fields {
+	my ( $self, $isolates, $positions ) = @_;
+	my @fields;
+	foreach my $field ( sort { $positions->{$a} <=> $positions->{$b} } keys %$positions ) {
+		my $populated = 0;
+		foreach my $isolate (@$isolates) {
+			if ( defined $isolate->{$field} && $isolate->{$field} ne q() ) {
+				$populated = 1;
+				last;
+			}
+		}
+		push @fields, $field if $populated;
+	}
+	return \@fields;
+}
+
 sub append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->get_submission_dir($submission_id);
@@ -419,7 +460,7 @@ sub check_new_isolates {
 	my @err;
 	my @rows          = split /\n/x, $$data_ref;
 	my $header_row    = shift @rows;
-	my $header_status = $self->_get_isolate_header_positions($header_row, $set_id);
+	my $header_status = $self->_get_isolate_header_positions( $header_row, $set_id );
 	my $positions     = $header_status->{'positions'};
 	my %err_message   = (
 		unrecognized => 'The header contains an unrecognized column for',
@@ -445,7 +486,7 @@ sub check_new_isolates {
 			  defined $positions->{ $self->{'system'}->{'labelfield'} }
 			  ? ( $values[ $positions->{ $self->{'system'}->{'labelfield'} } ] || "Row $row_number" )
 			  : "Row $row_number";
-			my $status = $self->_check_isolate_record( $set_id,$positions, \@values );
+			my $status = $self->_check_isolate_record( $set_id, $positions, \@values );
 			local $" = q(, );
 			if ( $status->{'missing'} ) {
 				my @missing = @{ $status->{'missing'} };
@@ -475,7 +516,7 @@ sub _get_isolate_header_positions {
 		push @duplicates, $header[$i] if defined $positions{ $header[$i] };
 		$positions{ $header[$i] } = $i;
 	}
-	my $ret    = { positions => \%positions };
+	my $ret = { positions => \%positions };
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	if ($set_id) {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
@@ -649,7 +690,7 @@ sub _is_field_bad_isolates {
 		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
 			return 0 if ( $value eq '' );
 		}
-		return "'$value' is not on the list of allowed values for this field.";
+		return qq("$value" is not on the list of allowed values for this field.);
 	}
 
 	#Make sure field is not too long
@@ -785,9 +826,10 @@ sub _is_field_bad_other {
 		} else {
 			$qry = "SELECT EXISTS(SELECT * FROM $thisfield->{'foreign_key'} WHERE id=?)";
 		}
-		$value = $self->map_locus_name($value, $set_id) if $fieldname eq 'locus';
+		$value = $self->map_locus_name( $value, $set_id ) if $fieldname eq 'locus';
 		my $exists =
-		  $self->{'datastore'}->run_query( $qry, $value, { cache => "SubmissionHandler::is_field_bad_other:$fieldname" } );
+		  $self->{'datastore'}
+		  ->run_query( $qry, $value, { cache => "SubmissionHandler::is_field_bad_other:$fieldname" } );
 		if ( !$exists ) {
 			if ( $thisfield->{'foreign_key'} eq 'isolates' && $self->{'system'}->{'view'} ne 'isolates' ) {
 				return "value '$value' does not exist in isolates table or is not accessible to your account";
@@ -819,8 +861,4 @@ sub _user_exists {
 	return 1 if $self->{'cache'}->{'users'}->{$user_id};
 	return;
 }
-
-
-
-
 1;
