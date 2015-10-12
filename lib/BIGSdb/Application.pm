@@ -70,8 +70,8 @@ use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw (plugin job jobs index logout options);
-use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileBatchAdd batchAdd batchIsolateUpdate 
- isolateAdd isolateUpdate index);
+use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd 
+  batchIsolateUpdate isolateAdd isolateUpdate index);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
