@@ -31,13 +31,19 @@ use constant DBASE => 'bigsdb_auth';
 my %opts;
 GetOptions(
 	'a|application=s' => \$opts{'a'},
-	'd|deny'          => \$opts{'d'},
+	'access=s'        => \$opts{'access'},
 	'h|help'          => \$opts{'h'},
 	'i|insert'        => \$opts{'i'},
+	'permission=s'    => \$opts{'permission'},
 	'u|update'        => \$opts{'u'},
 	'v|version=s'     => \$opts{'v'}
 ) or die("Error in command line arguments\n");
-
+if ( $opts{'permission'} && $opts{'permission'} ne 'allow' && $opts{'permission'} ne 'deny' ) {
+	die("Allowed permissions are 'allow' or 'deny'.\n");
+}
+if ( $opts{'access'} && $opts{'access'} ne 'R' && $opts{'access'} ne 'RW' ) {
+	die("Allowed access values are 'R' or 'RW'.\n");
+}
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
@@ -69,7 +75,8 @@ sub main {
 		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
 		my $exists = $sql->fetchrow_array;
 		croak $@ if $@;
-		my $permission = $opts{'d'} ? 'deny' : 'allow';
+		$opts{'permission'} //= 'allow';
+		$opts{'access'}     //= 'R';
 		if ( $opts{'i'} && $exists ) {
 			say "\nCredentials for this application/version already exist\n(use --update option to update).";
 		} elsif ( $opts{'u'} && !$exists ) {
@@ -78,8 +85,15 @@ sub main {
 			eval {
 				$db->do(
 					'INSERT INTO clients (application,version,client_id,client_secret,'
-					  . 'default_permission,datestamp) VALUES (?,?,?,?,?,?)',
-					undef, $opts{'a'}, $opts{'v'}, $client_id, $client_secret, $permission, 'now'
+					  . 'default_permission,default_access,datestamp) VALUES (?,?,?,?,?,?,?)',
+					undef,
+					$opts{'a'},
+					$opts{'v'},
+					$client_id,
+					$client_secret,
+					$opts{'permission'},
+					$opts{'access'},
+					'now'
 				);
 			};
 			if ($@) {
@@ -91,9 +105,16 @@ sub main {
 		} elsif ( $opts{'u'} ) {
 			eval {
 				$db->do(
-					'UPDATE clients SET (client_id,client_secret,default_permission,'
-					  . 'datestamp)=(?,?,?,?) WHERE (application,version)=(?,?)',
-					undef, $client_id, $client_secret, $permission, 'now', $opts{'a'}, $opts{'v'}
+					'UPDATE clients SET (client_id,client_secret,default_permission,default_access,'
+					  . 'datestamp)=(?,?,?,?,?) WHERE (application,version)=(?,?)',
+					undef,
+					$client_id,
+					$client_secret,
+					$opts{'permission'},
+					$opts{'access'},
+					'now',
+					$opts{'a'},
+					$opts{'v'}
 				);
 			};
 			if ($@) {
@@ -140,11 +161,9 @@ ${bold}OPTIONS$norm
 ${bold}-a, --application ${under}NAME$norm  
     Name of application.
     
-${bold}-d, --deny$norm
-    Set default permission to 'deny'.  Permissions for access to specific 
-    database configurations will have to be set.  If not included, the default
-    permission will allow access to all resources by the client.
-    
+${bold}--access$norm
+    Set default access (default is 'R').  Allowed values are 'R' or 'RW'.
+      
 ${bold}-h, --help$norm
     This help page.
     
@@ -152,12 +171,17 @@ ${bold}-i, --insert$norm
     Add credentials to authentication database.  This will fail if a matching
     application version already exists (use --update in this case to overwrite
     existing credentials).
+   
+${bold}--permission$norm
+    Set default permission (default is 'allow').  Allowed values are 'allow' 
+    or 'deny'.
     
 ${bold}-u, --update$norm
     Update exisitng credentials in the authentication database.
     
 ${bold}-v, --version ${under}VERSION$norm  
     Version of application (optional).
+    
 HELP
 	return;
 }

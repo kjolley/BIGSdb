@@ -30,9 +30,11 @@ version text NOT NULL,
 client_id text NOT NULL UNIQUE,
 client_secret text NOT NULL,
 default_permission text NOT NULL,
+default_access text NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (application,version),
-CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
+CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny')),
+CONSTRAINT c_default_access CHECK (default_access IN ('R', 'RW'))
 );
 
 GRANT SELECT ON clients TO apache;
