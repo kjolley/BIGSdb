@@ -30,8 +30,9 @@ GetOptions(
 	'm|method=s'        => \$opts{'m'},
 	'p|profiles_file=s' => \$opts{'p'},
 	'r|route=s'         => \$opts{'r'},
-	's|sequence_file=s' => \$opts{'sequence_file'},
+	's|sequence_file=s' => \$opts{'s'},
 	'h|help'            => \$opts{'h'},
+	'prompt'            => \$opts{'prompt'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
@@ -75,6 +76,7 @@ sub _get_request_token {
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	say 'Getting request token...';
+	_prompt();
 	my $res = $ua->request( GET $request->to_url, Content_Type => 'application/json', );
 	my $decoded_json = decode_json( $res->content );
 	my $request_response;
@@ -154,6 +156,7 @@ sub _get_session_token {
 		}
 	}
 	say "\nNow requesting session token using access token...";
+	_prompt();
 	my $request = Net::OAuth->request('protected resource')->new(
 		consumer_key     => CONSUMER_KEY,
 		consumer_secret  => CONSUMER_SECRET,
@@ -204,9 +207,9 @@ sub _get_route {
 		$route = "/$route" if $route !~ /^\//x;
 	}
 	my $extra_params = {};
-	if ( $opts{'sequence_file'} ) {
-		die "Sequence file $opts{'sequence_file'} does not exist.\n" if !-e $opts{'sequence_file'};
-		my $seqs = _slurp( $opts{'sequence_file'} );
+	if ( $opts{'s'} ) {
+		die "Sequence file $opts{'s'} does not exist.\n" if !-e $opts{'s'};
+		my $seqs = _slurp( $opts{'s'} );
 		$extra_params->{'sequences'} = $$seqs;
 	}
 	if ( $opts{'p'} ) {
@@ -282,6 +285,13 @@ sub _write_token {
 	return;
 }
 
+sub _prompt {
+	return if !$opts{'prompt'};
+	say 'Press any key to continue...';
+	<STDIN>;
+	return;
+}
+
 sub _slurp {
 	my ($file_path) = @_;
 	open( my $fh, '<:encoding(utf8)', $file_path )
@@ -319,6 +329,9 @@ ${bold}-m, --method$norm ${under}GET|PUT|POST|DELETE$norm
     
 ${bold}-p, --profiles_file$norm ${under}FILE$norm
     Relative path of tab-delimited file of allelic profiles to upload.
+    
+${bold}--prompt$norm
+    Prompt before connection requests (used for demonstration purposes).
 
 ${bold}-r, --route$norm ${under}ROUTE$norm
     Relative path of route, e.g. 'submissions'.
