@@ -215,24 +215,43 @@ sub _is_authorized {
 		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 		send_error( 'Signature verification failed.', 401 );
 	}
-	my ( $authorize, $access ) = $self->{'datastore'}->run_query(
-		'SELECT authorize,access FROM client_permissions WHERE (client_id,dbase)=(?,?)',
+	my ( $db_authorize, $db_submission, $db_curation ) = $self->{'datastore'}->run_query(
+		'SELECT authorize,submission,curation FROM client_permissions WHERE (client_id,dbase)=(?,?)',
 		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
 		{ db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::client_permissions' }
 	);
 	my $client_authorized;
 	if ( $client->{'default_permission'} eq 'allow' ) {
-		$client_authorized = ( !$authorize || $authorize eq 'allow' ) ? 1 : 0;
-	} else {                  #default deny
-		$client_authorized = ( !$authorize || $authorize eq 'deny' ) ? 0 : 1;
+		$client_authorized = ( !$db_authorize || $db_authorize eq 'allow' ) ? 1 : 0;
+	} else {    #default deny
+		$client_authorized = ( !$db_authorize || $db_authorize eq 'deny' ) ? 0 : 1;
 	}
 	if ( !$client_authorized ) {
 		send_error( 'Client is unauthorized to access this database.', 401 );
 	}
-	my $client_access = $access // $client->{'default_access'};
 	my $method = uc( request->method );
-	if ( $client_access eq 'R' && $method ne 'GET' ) {
-		send_error( "Client is unauthorized to use $method method.", 401 );
+	if ( $method ne 'GET' ) {
+		my $client_submission;
+		if ( $client->{'default_submission'} ) {
+			$client_submission = ( !defined $db_submission || $db_submission ) ? 1 : 0;
+		} else {    #default deny
+			$client_submission = ( !defined $db_submission || !$db_submission ) ? 0 : 1;
+		}
+		my $client_curation;
+		if ( $client->{'default_curation'} ) {
+			$client_curation = ( !defined $db_curation || $db_curation ) ? 1 : 0;
+		} else {    #default deny
+			$client_curation = ( !defined $db_curation || !$db_curation ) ? 0 : 1;
+		}
+		my $submission_route = "/db/$self->{'instance'}/submissions";
+		my $request_uri      = request->uri();
+		if ( $request_uri =~ /$submission_route/x ) {
+			if ( !$client_submission ) {
+				send_error( 'Client is unauthorized to make submissions.', 401 );
+			}
+		} elsif ( !$client_curation ) {
+			send_error( "Client is unauthorized to use $method method.", 401 );
+		}
 	}
 	$self->{'username'} = $session_token->{'username'};
 	return 1;

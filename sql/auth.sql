@@ -30,11 +30,11 @@ version text NOT NULL,
 client_id text NOT NULL UNIQUE,
 client_secret text NOT NULL,
 default_permission text NOT NULL,
-default_access text NOT NULL,
+default_submission bool NOT NULL,
+default_curation bool NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (application,version),
-CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny')),
-CONSTRAINT c_default_access CHECK (default_access IN ('R', 'RW'))
+CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
 );
 
 GRANT SELECT ON clients TO apache;
@@ -43,13 +43,13 @@ CREATE TABLE client_permissions (
 client_id text NOT NULL,
 dbase text NOT NULL,
 authorize text NOT NULL,
-access text NOT NULL,
+submission bool NOT NULL,
+curation bool NOT NULL,
 PRIMARY KEY (client_id,dbase),
 CONSTRAINT cp_client_id FOREIGN KEY (client_id) REFERENCES clients(client_id)
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT cp_authorize CHECK (authorize IN ( 'allow', 'deny')),
-CONSTRAINT cp_access CHECK (access IN ('R', 'RW'))
+CONSTRAINT cp_authorize CHECK (authorize IN ( 'allow', 'deny'))
 );
 
 GRANT SELECT ON client_permissions TO apache;

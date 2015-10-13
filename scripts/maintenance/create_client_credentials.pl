@@ -31,18 +31,16 @@ use constant DBASE => 'bigsdb_auth';
 my %opts;
 GetOptions(
 	'a|application=s' => \$opts{'a'},
-	'access=s'        => \$opts{'access'},
+	'c|curate'        => \$opts{'c'},
 	'h|help'          => \$opts{'h'},
 	'i|insert'        => \$opts{'i'},
-	'permission=s'    => \$opts{'permission'},
+	's|submit'        => \$opts{'s'},
 	'u|update'        => \$opts{'u'},
 	'v|version=s'     => \$opts{'v'}
 ) or die("Error in command line arguments\n");
+
 if ( $opts{'permission'} && $opts{'permission'} ne 'allow' && $opts{'permission'} ne 'deny' ) {
 	die("Allowed permissions are 'allow' or 'deny'.\n");
-}
-if ( $opts{'access'} && $opts{'access'} ne 'R' && $opts{'access'} ne 'RW' ) {
-	die("Allowed access values are 'R' or 'RW'.\n");
 }
 if ( $opts{'h'} ) {
 	show_help();
@@ -65,8 +63,10 @@ sub main {
 	my $client_secret = random_string( 42, { extended_chars => 1 } );
 	say "Application: $opts{'a'}";
 	say "Version: $opts{'v'}";
-	say "Client id: $client_id";
-	say "Client secret: $client_secret";
+	if ( !$opts{'u'} ) {
+		say "Client id: $client_id";
+		say "Client secret: $client_secret";
+	}
 	if ( $opts{'i'} || $opts{'u'} ) {
 		my $db = DBI->connect( 'DBI:Pg:dbname=' . DBASE,
 			'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
@@ -76,23 +76,29 @@ sub main {
 		my $exists = $sql->fetchrow_array;
 		croak $@ if $@;
 		$opts{'permission'} //= 'allow';
-		$opts{'access'}     //= 'R';
 		if ( $opts{'i'} && $exists ) {
-			say "\nCredentials for this application/version already exist\n(use --update option to update).";
-		} elsif ( $opts{'u'} && !$exists ) {
-			say "\nCredentials for this application/version do not already exist\n(use --insert option to add).";
-		} elsif ( $opts{'i'} ) {
+			$sql->finish;
+			$db->disconnect;
+			die "\nCredentials for this application/version already exist\n(use --update option to update).\n";
+		}
+		if ( $opts{'u'} && !$exists ) {
+			$sql->finish;
+			$db->disconnect;
+			die "\nCredentials for this application/version do not already exist\n(use --insert option to add).\n";
+		}
+		if ( $opts{'i'} ) {
 			eval {
 				$db->do(
-					'INSERT INTO clients (application,version,client_id,client_secret,'
-					  . 'default_permission,default_access,datestamp) VALUES (?,?,?,?,?,?,?)',
+					'INSERT INTO clients (application,version,client_id,client_secret,default_permission,'
+					  . 'default_submission,default_curation,datestamp) VALUES (?,?,?,?,?,?,?,?)',
 					undef,
 					$opts{'a'},
 					$opts{'v'},
 					$client_id,
 					$client_secret,
 					$opts{'permission'},
-					$opts{'access'},
+					$opts{'s'} ? 'true' : 'false',
+					$opts{'c'} ? 'true' : 'false',
 					'now'
 				);
 			};
@@ -103,15 +109,23 @@ sub main {
 			$db->commit;
 			say "\nCredentials added to authentication database.";
 		} elsif ( $opts{'u'} ) {
+			$sql = $db->prepare('SELECT client_id,client_secret FROM clients WHERE (application,version)=(?,?)');
+			eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
+			if ($@) {
+				$db->rollback;
+				croak $@;
+			}
+			( $client_id, $client_secret ) = $sql->fetchrow_array;
+			say "Client id: $client_id";
+			say "Client secret: $client_secret";
 			eval {
 				$db->do(
-					'UPDATE clients SET (client_id,client_secret,default_permission,default_access,'
-					  . 'datestamp)=(?,?,?,?,?) WHERE (application,version)=(?,?)',
+					'UPDATE clients SET (default_permission,default_submission,'
+					  . 'default_curation,datestamp)=(?,?,?,?) WHERE (application,version)=(?,?)',
 					undef,
-					$client_id,
-					$client_secret,
 					$opts{'permission'},
-					$opts{'access'},
+					$opts{'s'} ? 'true' : 'false',
+					$opts{'c'} ? 'true' : 'false',
 					'now',
 					$opts{'a'},
 					$opts{'v'}
@@ -161,20 +175,23 @@ ${bold}OPTIONS$norm
 ${bold}-a, --application ${under}NAME$norm  
     Name of application.
     
-${bold}--access$norm
-    Set default access (default is 'R').  Allowed values are 'R' or 'RW'.
-      
+${bold}-c, --curate$norm
+    Set to allow curation by default. The default condition is to not allow.
+  
 ${bold}-h, --help$norm
     This help page.
     
 ${bold}-i, --insert$norm
-    Add credentials to authentication database.  This will fail if a matching
+    Add credentials to authentication database. This will fail if a matching
     application version already exists (use --update in this case to overwrite
     existing credentials).
    
-${bold}--permission$norm
-    Set default permission (default is 'allow').  Allowed values are 'allow' 
+${bold}-p, --permission$norm
+    Set default permission (default is 'allow'). Allowed values are 'allow' 
     or 'deny'.
+    
+${bold}-s, --submit$norm
+    Set to allow submission by default. The default condition is to not allow.
     
 ${bold}-u, --update$norm
     Update exisitng credentials in the authentication database.
