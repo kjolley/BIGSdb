@@ -207,7 +207,7 @@ sub write_profile_csv {
 sub write_isolate_csv {
 	my ( $self, $submission_id ) = @_;
 	my $isolate_submission = $self->get_isolate_submission($submission_id);
-	my $isolates =  $isolate_submission->{'isolates'};
+	my $isolates           = $isolate_submission->{'isolates'};
 	return if !@$isolates;
 	my $fields = $self->get_populated_fields( $isolates, $isolate_submission->{'order'} );
 	my $dir = $self->get_submission_dir($submission_id);
@@ -667,6 +667,11 @@ sub _is_field_bad_isolates {
 	#make sure date fields really are dates in correct format
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return 'must be a valid date in yyyy-mm-dd format';
+	}
+
+	#make sure boolean fields are true/false
+	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
+		return 'must be a valid boolean value - true, false, 1, or 0.';
 	}
 
 	#Make sure id number has not been used previously
