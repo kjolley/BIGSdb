@@ -252,6 +252,7 @@ sub _create_submission {
 		isolates => sub { $self->{'submissionHandler'}->write_isolate_csv($submission_id) }
 	);
 	$write_file{$type}->() if $write_file{$type};
+	$self->{'submissionHandler'}->notify_curators($submission_id);
 	status(201);
 	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
 }
