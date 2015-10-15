@@ -105,7 +105,6 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache);
-
 	return;
 }
 
@@ -330,7 +329,6 @@ sub _get_own_submissions {
 			my $details = '';
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
-							
 				my $allele_count      = @{ $allele_submission->{'seqs'} };
 				my $plural            = $allele_count == 1 ? '' : 's';
 				next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
@@ -655,7 +653,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return if !$guid;
 	$self->{'prefstore'}
 	  ->set_general( $guid, $self->{'system'}->{'db'}, 'submit_email', $q->param('email') ? 'on' : 'off' );
-	$self->_notify_curators($submission_id);
+	$self->{'submissionHandler'}->notify_curators($submission_id);
 	return;
 }
 
@@ -673,7 +671,8 @@ sub _submit_alleles {
 			$fasta_string .= "$seq->{'sequence'}\n";
 		}
 		if ( !$q->param('no_check') ) {
-			$ret = $self->{'submissionHandler'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
+			$ret =
+			  $self->{'submissionHandler'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
 			$self->_print_allele_warnings( $ret->{'info'} );
 		}
 		$self->_presubmit_alleles( $submission_id, undef );
@@ -754,14 +753,14 @@ sub _submit_profiles {
 		return;
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $scheme_id = $q->param('scheme_id');
-		my $set_id = $self->get_set_id;
+		my $set_id    = $self->get_set_id;
 		$ret = $self->{'submissionHandler'}->check_new_profiles( $scheme_id, $set_id, \$q->param('data') );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
-		} elsif (!@{$ret->{'profiles'}}){
+		} elsif ( !@{ $ret->{'profiles'} } ) {
 			say q(<div class="box" id="statusbad"><h2>Error:</h2><p>No profiles in upload.</p></div>);
 		} else {
 			$self->_presubmit_profiles( undef, $ret->{'profiles'} );
@@ -855,7 +854,8 @@ sub _print_sequence_details_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Sequence details</legend>);
 	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
-	my $allele_submission = $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
+	my $allele_submission =
+	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
 	say $q->popup_menu(
 		-name     => 'technology',
@@ -1021,16 +1021,6 @@ sub _check_new_alleles {
 	return;
 }
 
-
-
-
-
-
-
-
-
-
-
 sub _start_submission {
 	my ( $self, $type ) = @_;
 	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates);
@@ -1168,7 +1158,7 @@ sub _start_isolate_submission {
 		return;
 	}
 	$self->{'db'}->commit;
-	$self->{'submissionHandler'}->write_isolate_csv( $submission_id );
+	$self->{'submissionHandler'}->write_isolate_csv($submission_id);
 	return;
 }
 
@@ -1593,7 +1583,9 @@ sub _print_isolate_table {
 	my $submission         = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission($submission_id);
 	my $isolates           = $isolate_submission->{'isolates'};
-	my $fields = $self->{'submissionHandler'}->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
+	my $fields =
+	  $self->{'submissionHandler'}
+	  ->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
 	say q(<table class="resultstable"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(</tr>);
@@ -1802,13 +1794,13 @@ sub _print_message_fieldset {
 		if ( $q->param('append_and_send') ) {
 			my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
 			my $subject = "$desc submission comment added - $submission_id";
-			my $message = $self->_get_text_summary( $submission_id, { messages => 1 } );
+			my $message = $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 			if ( $user->{'id'} == $submission->{'submitter'} ) {
 
 				#Message from submitter
-				my $curators = $self->_get_curators($submission_id);
+				my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
 				foreach my $curator_id (@$curators) {
-					$self->_email(
+					$self->{'submissionHandler'}->email(
 						$submission_id,
 						{
 							recipient => $curator_id,
@@ -1821,7 +1813,7 @@ sub _print_message_fieldset {
 			} else {
 
 				#Message to submitter
-				$self->_email(
+				$self->{'submissionHandler'}->email(
 					$submission_id,
 					{
 						recipient => $submission->{'submitter'},
@@ -1890,8 +1882,6 @@ sub _print_close_submission_fieldset {
 	say $q->end_form;
 	return;
 }
-
-
 
 sub _print_submission_file_table {
 	my ( $self, $submission_id, $options ) = @_;
@@ -2109,17 +2099,6 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return;
 }
 
-sub _translate_outcome {
-	my ( $self, $outcome_value ) = @_;
-	return if !$outcome_value;
-	my %outcome = (
-		good  => 'accepted - data uploaded',
-		bad   => 'rejected - data not uploaded',
-		mixed => 'mixed - submission partially accepted'
-	);
-	return $outcome{$outcome_value} // $outcome_value;
-}
-
 sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1, no_message => 1 } );
@@ -2139,187 +2118,18 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	$submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( $submission->{'email'} ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-		$self->_email(
+		$self->{'submissionHandler'}->email(
 			$submission_id,
 			{
 				recipient => $submission->{'submitter'},
 				sender    => $curator_id,
 				subject   => "$desc submission closed - $submission_id",
-				message   => $self->_get_text_summary( $submission_id, { messages => 1 } ),
+				message   => $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } ),
 				cc_sender => 1
 			}
 		);
 	}
 	return;
-}
-
-sub _get_curators {
-	my ( $self, $submission_id ) = @_;
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return [] if !$submission;
-	my $curators =
-	  $self->{'datastore'}
-	  ->run_query( q[SELECT id,status FROM users WHERE status IN ('curator','admin') AND submission_emails],
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my @filtered_curators;
-	if ( $submission->{'type'} eq 'alleles' ) {
-		my $allele_submission = $self->{'submissionHandler'}->get_allele_submission($submission_id);
-		return if !$allele_submission;
-		my $locus_curators = $self->{'datastore'}->run_query(
-			'SELECT curator_id FROM locus_curators WHERE locus=?',
-			$allele_submission->{'locus'},
-			{ fetch => 'col_arrayref' }
-		);
-		my %is_locus_curator = map { $_ => 1 } @$locus_curators;
-		foreach my $curator (@$curators) {
-			push @filtered_curators, $curator->{'id'}
-			  if ( $is_locus_curator{ $curator->{'id'} } || $curator->{'status'} eq 'admin' );
-		}
-	} elsif ( $submission->{'type'} eq 'profiles' ) {
-		my $profile_submission = $self->{'submissionHandler'}->get_profile_submission($submission_id);
-		return if !$profile_submission;
-		my $scheme_curators = $self->{'datastore'}->run_query(
-			'SELECT curator_id FROM scheme_curators WHERE scheme_id=?',
-			$profile_submission->{'scheme_id'},
-			{ fetch => 'col_arrayref' }
-		);
-		my %is_scheme_curator = map { $_ => 1 } @$scheme_curators;
-		foreach my $curator (@$curators) {
-			push @filtered_curators, $curator->{'id'}
-			  if ( $is_scheme_curator{ $curator->{'id'} } || $curator->{'status'} eq 'admin' );
-		}
-	} else {
-		push @filtered_curators, $_->{'id'} foreach @$curators;
-	}
-	return \@filtered_curators;
-}
-
-sub _notify_curators {
-	my ( $self, $submission_id ) = @_;
-	return if !$self->{'config'}->{'smtp_server'};
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	my $curators   = $self->_get_curators($submission_id);
-	foreach my $curator_id (@$curators) {
-		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
-		  . qq(required to curate this submission.\n\n);
-		$message .= qq(Please log in to the curator's interface to handle this submission.\n\n);
-		$message .= $self->_get_text_summary( $submission_id, { messages => 1 } );
-		my $subject = "New $submission->{'type'} submission ($desc) - $submission_id";
-		$self->_email(
-			$submission_id,
-			{
-				recipient => $curator_id,
-				sender    => $submission->{'submitter'},
-				subject   => $subject,
-				message   => $message
-			}
-		);
-	}
-	return;
-}
-
-sub _get_text_heading {
-	my ( $self, $heading, $options ) = @_;
-	my $msg;
-
-	#The tab before newline prevents Outlook removing 'extra line breaks'.
-	$msg .= "\t\n" if $options->{'blank_line_before'};
-	$msg .= "$heading\t\n";
-	$msg .= ( '=' x length $heading ) . "\t\n";
-	return $msg;
-}
-
-sub _get_text_summary {
-	my ( $self, $submission_id, $options ) = @_;
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	my $outcome    = $self->_translate_outcome( $submission->{'outcome'} );
-	my %fields     = (
-		id             => 'ID',
-		type           => 'Data type',
-		date_submitted => 'Date submitted',
-		datestamp      => 'Last updated',
-		status         => 'Status',
-	);
-	my $msg = $self->_get_text_heading('Submission status');
-	foreach my $field (qw (id type date_submitted datestamp status)) {
-		$msg .= "$fields{$field}: $submission->{$field}\n";
-	}
-	my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { affiliation => 1 } );
-	$msg .= "Submitter: $submitter_string\n";
-	if ( $submission->{'curator'} ) {
-		my $curator_string = $self->{'datastore'}->get_user_string( $submission->{'curator'}, { affiliation => 1 } );
-		$msg .= "Curator: $curator_string\n";
-	}
-	$msg .= "Outcome: $outcome\n" if $outcome;
-	my %methods = ( alleles => '_get_allele_submission_summary', profiles => '_get_profile_submission_summary' );
-	if ( $methods{ $submission->{'type'} } ) {
-		my $method  = $methods{ $submission->{'type'} };
-		my $summary = $self->$method($submission_id);
-		$msg .= $summary if $summary;
-	}
-	if ( $options->{'messages'} ) {
-		my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
-		  . q(WHERE submission_id=? ORDER BY timestamp asc);
-		my $messages =
-		  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
-		if (@$messages) {
-			$msg .= $self->_get_text_heading( 'Correspondence', { blank_line_before => 1 } );
-			foreach my $message (@$messages) {
-				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
-				$msg .= "$user_string ($message->{'timestamp'}):\n";
-				$msg .= "$message->{'message'}\n\n";
-			}
-		}
-	}
-	return $msg;
-}
-
-sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $submission_id ) = @_;
-	my $allele_submission = $self->{'submissionHandler'}->get_allele_submission($submission_id);
-	return if !$allele_submission;
-	my $return_buffer = q();
-	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
-	$return_buffer .= "Locus: $allele_submission->{'locus'}\n";
-	$return_buffer .= 'Sequence count: ' . scalar @{ $allele_submission->{'seqs'} } . "\n";
-	my $buffer = q();
-
-	foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
-		next if $seq->{'status'} eq 'pending';
-		$buffer .= "$seq->{'seq_id'}: $seq->{'status'}";
-		$buffer .= " - $allele_submission->{'locus'}-$seq->{'assigned_id'}" if $seq->{'assigned_id'};
-		$buffer .= "\n";
-	}
-	if ($buffer) {
-		$return_buffer .= $self->_get_text_heading( 'Assignments', { blank_line_before => 1 } );
-		$return_buffer .= $buffer;
-	}
-	return $return_buffer;
-}
-
-sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $submission_id ) = @_;
-	my $profile_submission = $self->{'submissionHandler'}->get_profile_submission($submission_id);
-	return if !$profile_submission;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1 } );
-	my $return_buffer = q();
-	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
-	$return_buffer .= "Scheme: $scheme_info->{'description'}\n";
-	$return_buffer .= 'Profile count: ' . scalar @{ $profile_submission->{'profiles'} } . "\n";
-	my $buffer = q();
-
-	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
-		next if $profile->{'status'} eq 'pending';
-		$buffer .= "$profile->{'profile_id'}: $profile->{'status'}";
-		$buffer .= " - $scheme_info->{'primary_key'}-$profile->{'assigned_id'}" if $profile->{'assigned_id'};
-		$buffer .= "\n";
-	}
-	if ($buffer) {
-		$return_buffer .= $self->_get_text_heading( 'Assignments', { blank_line_before => 1 } );
-		$return_buffer .= $buffer;
-	}
-	return $return_buffer;
 }
 
 sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -2338,10 +2148,6 @@ sub _get_fasta_string {
 	}
 	return $buffer;
 }
-
-
-
-
 
 sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
@@ -2408,37 +2214,5 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return " Manage submissions - $desc ";
-}
-
-sub _email {
-	my ( $self, $submission_id, $params ) = @_;
-	return if !$self->{'config'}->{'smtp_server'};
-	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$logger->error('Mail::Sender is not installed.');
-		return;
-	}
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	my $subject = $params->{'subject'} // "Submission#$submission_id";
-	foreach (qw(sender recipient message)) {
-		$logger->logdie("No $_") if !$params->{$_};
-	}
-	my $sender    = $self->{'datastore'}->get_user_info( $params->{'sender'} );
-	my $recipient = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
-	foreach my $user ( $sender, $recipient ) {
-		if ( $user->{'email'} !~ /@/x ) {
-			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
-			return;
-		}
-	}
-	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
-	$args->{'cc'} = $sender->{'email'}
-	  if $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'};
-	my $mail_sender = Mail::Sender->new($args);
-	$mail_sender->MailMsg(
-		{ subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $params->{'message'} } );
-	no warnings 'once';
-	$logger->error($Mail::Sender::Error) if $sender->{'error'};
-	return;
 }
 1;
