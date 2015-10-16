@@ -423,7 +423,7 @@ sub _update {
 		if ($is_locus) {
 			my @id_args = ($id1);
 			push @id_args, $id2 if $id->{'field2'} ne '<none>';
-			$isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args );
+			$isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
 			my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
 			$qry = "INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,date_entered,datestamp) "
 			  . "VALUES (?,?,?,?,?,?,?,?,?)";
