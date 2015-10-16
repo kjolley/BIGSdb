@@ -827,8 +827,8 @@ sub _print_isolate_table_scheme {
 				} @field_values
 			  )
 			{
-				$value = defined $value ? $value : '';
-				$value = '' if $value eq '-999';
+				$value = defined $value ? $value : q();
+				next if $value eq q();
 				my $formatted_value;
 				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // q() ) eq 'provisional' ? 1 : 0;
 				$provisional = 0 if $value eq '';
@@ -844,7 +844,7 @@ sub _print_isolate_table_scheme {
 				$formatted_value .= q(</span>) if $provisional;
 				push @values, $formatted_value;
 			}
-			local $" = ', ';
+			local $" = ',';
 			print qq(<td>@values</td>);
 		}
 	}

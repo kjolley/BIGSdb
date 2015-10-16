@@ -796,25 +796,26 @@ sub _get_scheme_field_values {
 			  keys %{ $scheme_field_values->{ lc($field) } };
 			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			foreach my $value (@field_values) {
-				$value = defined $value ? $value : '';
-				$value = 'Not defined' if $value eq '-999' || $value eq '';
+				$value = defined $value ? $value : q();
+				next if $value eq q();
 				my $formatted_value;
 				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // '' ) eq 'provisional' ? 1 : 0;
-				$formatted_value .= qq(<span class="provisional">) if $provisional;
-				if ( $att->{'url'} && $value ne '' ) {
+				$formatted_value .= q(<span class="provisional">) if $provisional;
+				if ( $att->{'url'} && $value ne q() ) {
 					my $url = $att->{'url'};
-					$url =~ s/\[\?\]/$value/g;
-					$url =~ s/\&/\&amp;/g;
-					$formatted_value .= "<a href=\"$url\">$value</a>";
+					$url =~ s/\[\?\]/$value/gx;
+					$url =~ s/\&/\&amp;/gx;
+					$formatted_value .= qq(<a href="$url">$value</a>);
 				} else {
 					$formatted_value .= $value;
 				}
-				$formatted_value .= '</span>' if $provisional;
+				$formatted_value .= q(</span>) if $provisional;
 				push @{ $values{$field} }, $formatted_value;
 			}
+			$values{$field} = ['Not defined'] if ref $values{$field} ne 'ARRAY';
 		}
 	} else {
-		@{ $values{$_} } = ('Not defined') foreach @$scheme_fields;
+		$values{$_} = ['Not defined'] foreach @$scheme_fields;
 	}
 	return \%values;
 }
