@@ -320,18 +320,21 @@ sub get_paging {
 	my ( $self, $route, $pages, $page ) = @_;
 	my $paging = {};
 	return $paging if param('return_all') || !$pages;
+	my $first_separator = $route =~ /\?/x ? '&' : '?';
 	if ( $page > 1 ) {
-		$paging->{'first'} = request->uri_base . "$route?page=1&page_size=$self->{'page_size'}";
-		$paging->{'previous'} = request->uri_base . "$route?page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";
+		$paging->{'first'} = request->uri_base . "$route${first_separator}page=1&page_size=$self->{'page_size'}";
+		$paging->{'previous'} =
+		  request->uri_base . "$route${first_separator}page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";
 	}
 	if ( $page < $pages ) {
-		$paging->{'next'} = request->uri_base . "$route?page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}";
+		$paging->{'next'} =
+		  request->uri_base . "$route${first_separator}page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}";
 	}
 	if ( $page != $pages ) {
-		$paging->{'last'} = request->uri_base . "$route?page=$pages&page_size=$self->{'page_size'}";
+		$paging->{'last'} = request->uri_base . "$route${first_separator}page=$pages&page_size=$self->{'page_size'}";
 	}
 	if (%$paging) {
-		$paging->{'return_all'} = request->uri_base . "$route?return_all=1";
+		$paging->{'return_all'} = request->uri_base . "$route${first_separator}return_all=1";
 	}
 	return $paging;
 }

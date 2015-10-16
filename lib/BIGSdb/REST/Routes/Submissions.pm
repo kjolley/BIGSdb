@@ -25,17 +25,8 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions);
-
-#TODO E-mail notification to curator.
-get '/db/:db/submissions'  => sub { _get_submissions() };
-post '/db/:db/submissions' => sub { _create_submission() };
-foreach my $type (qw (alleles profiles isolates)) {
-	get "/db/:db/submissions/$type"         => sub { _get_submissions( { type => $type } ) };
-	get "/db/:db/submissions/$type/pending" => sub { _get_submissions( { type => $type, status => 'pending' } ) };
-	get "/db/:db/submissions/$type/closed"  => sub { _get_submissions( { type => $type, status => 'closed' } ) };
-}
-get '/db/:db/submissions/pending'                 => sub { _get_submissions_by_status('pending') };
-get '/db/:db/submissions/closed'                  => sub { _get_submissions_by_status('closed') };
+get '/db/:db/submissions'                         => sub { _get_submissions() };
+post '/db/:db/submissions'                        => sub { _create_submission() };
 get '/db/:db/submissions/:submission'             => sub { _get_submission() };
 del '/db/:db/submissions/:submission'             => sub { _delete_submission() };
 get '/db/:db/submissions/:submission/messages'    => sub { _get_messages() };
@@ -63,48 +54,32 @@ sub _check_db_type {
 }
 
 sub _get_submissions {
-	my ($options) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $self = setting('self');
-	my $db   = params->{'db'};
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $type, $status ) = @{$params}{qw(db type status)};
 	send_error( 'Submissions are not enabled on this database.', 404 )
 	  if !( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' );
 	my $user_id = $self->get_user_id;
 	my $values  = {};
-	if ( !$options->{'type'} ) {
-		my $type = {};
-		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$type->{'alleles'} = request->uri_for("/db/$db/submissions/alleles");
-			if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
-				my $profile_links = [];
-				my $set_id        = $self->get_set_id;
-				my $schemes       = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-				$type->{'profiles'} = request->uri_for("/db/$db/submissions/profiles") if @$schemes;
-			}
-		} else {
-			$type->{'isolates'} = request->uri_for("/db/$db/submissions/isolates");
-		}
-		$values->{'type'} = $type;
-	} else {
-		_check_db_type( $options->{'type'} );
+	if ($type) {
+		_check_db_type($type);
 	}
-	my $type = $options->{'type'} ? "/$options->{'type'}" : '';
-	if ( !$options->{'status'} ) {
-		$values->{'status'} = {
-			pending => request->uri_for("/db/$db/submissions${type}/pending"),
-			closed  => request->uri_for("/db/$db/submissions${type}/closed"),
-		};
-	}
-	my $status   = $options->{'status'} ? "/$options->{'status'}" : '';
-	my $part_qry = q(FROM submissions WHERE submitter=?);
-	my $args     = [$user_id];
-	if ( $options->{'type'} ) {
+	my $part_qry   = q(FROM submissions WHERE submitter=?);
+	my $args       = [$user_id];
+	my $paging_uri = "/db/$db/submissions";
+	if ($type) {
 		$part_qry .= ' AND type=?';
-		push @$args, $options->{'type'};
+		push @$args, $type;
+		$paging_uri .= "?type=$type";
 	}
-	if ( $options->{'status'} ) {
+	if ($status) {
+		if ( $status ne 'pending' && $status ne 'closed' ) {
+			send_error( 'Invalid status value - use either "pending" or "closed".', 400 );
+		}
 		$part_qry .= ' AND status=?';
-		push @$args, $options->{'status'};
+		push @$args, $status;
+		$paging_uri .= $type ? '&' : '?';
+		$paging_uri .= "status=$status";
 	}
 	my $submission_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) $part_qry", $args );
 	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
@@ -114,7 +89,7 @@ sub _get_submissions {
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $submission_ids = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'col_arrayref' } );
 	$values->{'records'} = int($submission_count);
-	my $paging = $self->get_paging( "/db/$db/submissions$type$status", $pages, $page );
+	my $paging = $self->get_paging( $paging_uri, $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $submission_links = [];
 
@@ -122,23 +97,6 @@ sub _get_submissions {
 		push @$submission_links, request->uri_for("/db/$db/submissions/$submission_id");
 	}
 	$values->{'submissions'} = $submission_links;
-	return $values;
-}
-
-sub _get_submissions_by_status {
-	my ($status)       = @_;
-	my $self           = setting('self');
-	my $db             = params->{'db'};
-	my $user_id        = $self->get_user_id;
-	my $submission_ids = $self->{'datastore'}->run_query(
-		'SELECT id FROM submissions WHERE (status,submitter)=(?,?) ORDER BY id',
-		[ $status, $user_id ],
-		{ fetch => 'col_arrayref' }
-	);
-	my $values = { records => int(@$submission_ids) };
-	my @submissions;
-	push @submissions, request->uri_for("/db/$db/submissions/$_") foreach @$submission_ids;
-	$values->{'submissions'} = \@submissions;
 	return $values;
 }
 
