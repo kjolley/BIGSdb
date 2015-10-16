@@ -75,6 +75,23 @@ sub _get_isolate {
 			}
 		}
 	}
+
+	#Extended provenance attributes
+	my $fields_with_extended_attributes =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes',
+		undef, { fetch => 'col_arrayref' } );
+	foreach my $field (@$fields_with_extended_attributes) {
+		next if !defined $provenance->{$field};
+		my $attribute_list = $self->{'datastore'}->run_query(
+			'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
+			[ $field, $provenance->{$field} ],
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+		foreach my $attribute (@$attribute_list) {
+			next if !defined $attribute->{'value'};
+			$provenance->{ $attribute->{'attribute'} } = $attribute->{'value'};
+		}
+	}
 	$values->{'provenance'} = $provenance;
 	my $pubmed_ids =
 	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id',
