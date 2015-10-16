@@ -85,7 +85,7 @@ sub _get_isolate {
 		my $attribute_list = $self->{'datastore'}->run_query(
 			'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
 			[ $field, $provenance->{$field} ],
-			{ fetch => 'all_arrayref', slice => {} }
+			{ fetch => 'all_arrayref', slice => {}, cache => 'Isolates::isolate_value_extended_attributes' }
 		);
 		foreach my $attribute (@$attribute_list) {
 			next if !defined $attribute->{'value'};
