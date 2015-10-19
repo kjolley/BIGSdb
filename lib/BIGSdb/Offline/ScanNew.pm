@@ -146,7 +146,7 @@ sub _define_allele {
 				dbase_name => $locus_info->{'dbase_name'}
 			}
 		);
-		$allele_id = $self->_get_next_id( $locus_db, $locus );
+		$allele_id = $self->{'datastore'}->get_next_allele_id( $locus, {db => $locus_db} );
 		eval {
 			$locus_db->do(
 				'INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,'
@@ -188,21 +188,6 @@ sub _define_allele {
 		$can_define = 0;
 	};
 	exit(1) if !$can_define;
-	return $allele_id;
-}
-
-sub _get_next_id {
-	my ( $self, $db, $locus ) = @_;
-	my $allele_id = 0;
-	my $exists;
-	do {
-		$allele_id++;
-		$exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT allele_id FROM sequences WHERE (locus,allele_id)=(?,?))',
-			[ $locus, $allele_id ],
-			{ db => $db, fetch => 'row_array', cache => 'ScanNew::get_next_id' }
-		);
-	} while ($exists);
 	return $allele_id;
 }
 

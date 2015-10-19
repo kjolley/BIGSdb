@@ -1554,13 +1554,14 @@ sub is_scheme_curator {
 #used for profile/sequence definitions databases
 #finds the lowest unused id.
 sub get_next_allele_id {
-	my ( $self, $locus ) = @_;
+	my ( $self, $locus, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $existing_alleles = $self->run_query(
 		q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
 		  . q[allele_id !='N' UNION SELECT CAST(allele_id AS int) FROM retired_allele_ids ]
 		  . q[WHERE locus=? ORDER BY allele_id],
 		[ $locus, $locus ],
-		{ fetch => 'col_arrayref', cache => 'get_next_allele_id' }
+		{ db => $options->{'db'} // $self->{'db'}, fetch => 'col_arrayref', cache => 'get_next_allele_id' }
 	);
 	my $test = 0;
 	my $next = 0;
