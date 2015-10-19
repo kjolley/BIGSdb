@@ -1,3 +1,6 @@
+ALTER TABLE sequences ADD validated boolean;
+ALTER TABLE sequences ADD exemplar boolean;
+
 CREATE TABLE retired_allele_ids (
 locus text NOT NULL,
 allele_id text NOT NULL,
