@@ -241,7 +241,8 @@ sub _get_form_fields {
 				} elsif ( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') ) {
 					my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						my $default = $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
+						my $default = $q->param('allele_id')
+						  // $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
 						$buffer .= $self->textfield(
 							name      => $name,
 							id        => $name,
@@ -844,8 +845,7 @@ sub check_record {
 				&& $newdata->{'status'} ne $user_status
 				&& $update )
 			{
-				push @problems,
-				  "You must have admin rights to change the status of a user.\n";
+				push @problems, "You must have admin rights to change the status of a user.\n";
 			}
 			if (   $status ne 'admin'
 				&& $newdata->{'status'} ne 'admin'
@@ -891,6 +891,13 @@ sub check_record {
 					$message .= "  Fields with this attribute defined are: @$fields.";
 				}
 				push @problems, $message;
+			}
+		} elsif ( $table eq 'retired_allele_ids' && $att->{'name'} eq 'allele_id' ) {
+			my $exists =
+			  $self->{'datastore'}->run_query( 'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+				[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+			if ($exists) {
+				push @problems, 'This allele has already been defined - delete it before you retire the identifier.';
 			}
 		}
 		if ( $att->{'primary_key'} ) {

@@ -70,7 +70,8 @@ sub print_content {
 			  . qq(to the $table table.</p></div>);
 		}
 		return;
-	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
+	} 
+	if ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
 		if (   !$self->is_admin
 			&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
@@ -80,14 +81,17 @@ sub print_content {
 			  . q( for this locus.</p></div>);
 			return;
 		}
-	} elsif ( $table eq 'allele_designations' ) {
+	} 
+	if ( $table eq 'allele_designations' ) {
 		say q(<div class="box" id="statusbad"><p>Please add allele designations using )
 		  . q(the isolate update interface.</p></div>);
 		return;
-	} elsif ( $table eq 'allele_sequences' ) {
+	} 
+	if ( $table eq 'allele_sequences' ) {
 		say q(<div class="box" id="statusbad"><p>Tag allele sequences using the scan interface.</p></div>);
 		return;
-	} elsif ( $table eq 'sequence_bin' ) {
+	} 
+	if ( $table eq 'sequence_bin' ) {
 		say q(<div class="box" id="statusbad"><p>Add contigs using the batch add page.</p></div>);
 		return;
 	}
@@ -360,6 +364,11 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 	my $units = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 	if ( !$length ) {
 		push @$problems, 'Sequence is a required field and can not be left blank.<br />';
+	}
+	my $retired = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+	[$newdata->{'locus'},$newdata->{'allele_id'}]);
+	if ($retired){
+		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
 	if ( !$q->param('ignore_length') ) {
 		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length )

@@ -638,6 +638,23 @@ sub get_locus_refs_table_attributes {
 	return $attributes;
 }
 
+sub get_retired_allele_ids_table_attributes {
+	my $attributes = [
+		{
+			name           => 'locus',
+			type           => 'text',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'loci',
+			dropdown_query => 'yes'
+		},
+		{ name => 'allele_id', type => 'string',  required => 'yes', primary_key    => 'yes' },
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
 sub get_locus_extended_attributes_table_attributes {
 	my $attributes = [
 		{

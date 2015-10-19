@@ -1503,6 +1503,15 @@ sub sequence_exists {
 	);
 }
 
+sub sequence_retired {
+	my ( $self, $locus, $allele_id ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+		[ $locus, $allele_id ],
+		cache => 'sequence_retired'
+	);
+}
+
 sub get_profile_allele_designation {
 	my ( $self, $scheme_id, $profile_id, $locus ) = @_;
 	return $self->run_query(
@@ -1548,8 +1557,9 @@ sub get_next_allele_id {
 	my ( $self, $locus ) = @_;
 	my $existing_alleles = $self->run_query(
 		q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
-		  . q[allele_id !='N' ORDER BY CAST(allele_id AS int)],
-		$locus,
+		  . q[allele_id !='N' UNION SELECT CAST(allele_id AS int) FROM retired_allele_ids ]
+		  . q[WHERE locus=? ORDER BY allele_id],
+		[ $locus, $locus ],
 		{ fetch => 'col_arrayref', cache => 'get_next_allele_id' }
 	);
 	my $test = 0;
@@ -2172,7 +2182,7 @@ sub get_tables {
 		  scheme_fields profiles profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history locus_aliases);
+		  profile_history locus_aliases retired_allele_ids);
 	}
 	return @tables;
 }

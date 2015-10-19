@@ -20,7 +20,7 @@ package BIGSdb::Page;
 use strict;
 use warnings;
 use 5.010;
-use parent 'Exporter'; #TODO remove once all exported constants moved to Constant.pm.
+use parent 'Exporter';    #TODO remove once all exported constants moved to Constant.pm.
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
@@ -28,7 +28,7 @@ use List::MoreUtils qw(uniq none);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
-sub new {    ## no critic (RequireArgUnpacking)
+sub new {                 ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -1342,7 +1342,8 @@ sub get_record_name {
 		set_view                          => 'database view linked to set',
 		history                           => 'update record',
 		profile_history                   => 'profile update record',
-		sequence_attributes               => 'sequence attribute'
+		sequence_attributes               => 'sequence attribute',
+		retired_allele_ids                => 'retired allele id'
 	);
 	return $names{$table};
 }

@@ -448,6 +448,9 @@ sub _check_data {
 					},
 					isolate_aliases => sub {
 						$self->_check_data_isolate_aliases($new_args);
+					},
+					retired_allele_ids => sub {
+						$self->_check_retired_allele_ids($new_args);
 					}
 				);
 				$further_checks{$table}->() if $further_checks{$table};
@@ -1118,6 +1121,13 @@ sub _check_data_sequences {
 			if ($exists) {
 				$buffer .= 'Allele id already exists.<br />';
 			}
+			my $retired =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+				[ $locus, $data[ $file_header_pos{'allele_id'} ] ] );
+			if ($retired) {
+				$buffer .= 'Allele id has been retired.<br />';
+			}
 		}
 	}
 
@@ -1304,6 +1314,26 @@ sub _check_data_sequences {
 	if ($buffer) {
 		$arg_ref->{'problems'}->{$pk_combination} .= $buffer;
 		${ $arg_ref->{'special_problem'} } = 1;
+	}
+	return;
+}
+
+sub _check_retired_allele_ids {
+	my ( $self, $arg_ref ) = @_;
+	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	if ( $field eq 'allele_id' ) {
+		my $exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+			[
+				$arg_ref->{'data'}->[ $file_header_pos->{'locus'} ],
+				$arg_ref->{'data'}->[ $file_header_pos->{'allele_id'} ]
+			]
+		);
+		if ($exists) {
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  'This allele has already been defined - delete it before you retire the identifier.';
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
 	}
 	return;
 }

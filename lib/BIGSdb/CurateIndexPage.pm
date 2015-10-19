@@ -117,7 +117,7 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences accession
+			qw (locus_descriptions scheme_curators locus_curators sequences retired_alleles accession
 			sequence_refs profiles profile_refs)
 		  )
 		{
@@ -289,8 +289,9 @@ sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutin
 
 sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	my $exists     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	my $query_cell = $exists
+	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
+	my $query_cell =
+	  $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
 	  . q(query/browse</a> | )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -513,6 +514,25 @@ HTML
 	return ( $buffer, $td );
 }
 
+sub _print_retired_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	if ( !$self->is_admin ) {
+		my $allowed =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
+		return if !$allowed;
+	}
+	return $self->_print_table(
+		'retired_allele_ids',
+		$td,
+		{
+			set_string => $set_string,
+			requires   => 'loci',
+			comments   => 'Allele ids defined here will be prevented from being used.'
+		}
+	);
+}
+
 sub _print_locus_descriptions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
@@ -521,7 +541,7 @@ sub _print_locus_descriptions {    ## no critic (ProhibitUnusedPrivateSubroutine
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
 		return if !$allowed;
 	}
-	return $self->_print_table( 'locus_descriptions', $td, set_string => $set_string );
+	return $self->_print_table( 'locus_descriptions', $td, { set_string => $set_string } );
 }
 
 sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

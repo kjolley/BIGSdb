@@ -47,7 +47,8 @@ sub print_content {
 	} elsif ( $q->param('submit') ) {
 		if ( !$self->can_modify_table('sequences') ) {
 			my $locus = $q->param('locus');
-			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add $locus alleles to the database.</p></div>";
+			say
+"<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to add $locus alleles to the database.</p></div>";
 			return;
 		}
 		my @missing;
@@ -56,7 +57,8 @@ sub print_content {
 		}
 		if (@missing) {
 			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>Please complete the form.  The following fields are missing: @missing</p></div>";
+			say
+"<div class=\"box\" id=\"statusbad\"><p>Please complete the form.  The following fields are missing: @missing</p></div>";
 			$self->_print_interface;
 			return;
 		}
@@ -76,11 +78,14 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	say qq(<div class="box" id="queryform">);
 	say qq(<div class="scrollable">);
-	say "<p>This page allows you to upload allele sequence data in FASTA format.  The identifiers in the FASTA file will be used unless "
+	say
+"<p>This page allows you to upload allele sequence data in FASTA format.  The identifiers in the FASTA file will be used unless "
 	  . "you select the option to use the next available id (loci with integer ids only).  Do not include the locus name in the "
 	  . "identifier in the FASTA file.</p>";
-	my $extended_attributes = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT locus FROM locus_extended_attributes)");
-	say "<p>Please note that you can not use this page to upload sequences for loci with extended attributes.</p>" if $extended_attributes;
+	my $extended_attributes =
+	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT locus FROM locus_extended_attributes)");
+	say "<p>Please note that you can not use this page to upload sequences for loci with extended attributes.</p>"
+	  if $extended_attributes;
 	say $q->start_form;
 	say qq(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
 	my ( $values, $desc ) = $self->{'datastore'}->get_locus_list(
@@ -92,10 +97,17 @@ sub _print_interface {
 		}
 	);
 	say qq(<li><label for="locus" class="form" style="width:5em">locus:!</label>);
-	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => [ '', @$values ], -labels => $desc, -required => 'required' );
+	say $q->popup_menu(
+		-name     => 'locus',
+		-id       => 'locus',
+		-values   => [ '', @$values ],
+		-labels   => $desc,
+		-required => 'required'
+	);
 	say qq(</li><li><label for="status" class="form" style="width:5em">status:!</label>);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
-	my $sender_data = $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname",
+	my $sender_data =
+	  $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname",
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my ( @users, %usernames );
 
@@ -104,19 +116,30 @@ sub _print_interface {
 		$usernames{ $sender->{'id'} } = "$sender->{'surname'}, $sender->{'first_name'} ($sender->{'user_name'})";
 	}
 	say qq(<li><label for="sender" class="form" style="width:5em">sender:!</label>);
-	say $q->popup_menu( -name => 'sender', -id => 'sender', -values => [ '', @users ], -labels => \%usernames, -required => 'required' );
+	say $q->popup_menu(
+		-name     => 'sender',
+		-id       => 'sender',
+		-values   => [ '', @users ],
+		-labels   => \%usernames,
+		-required => 'required'
+	);
 	say qq(<li><label for="sequence" class="form" style="width:5em">sequence<br />(FASTA):!</label>);
 	say $q->textarea( -name => 'sequence', -id => 'sequence', -rows => 10, -cols => 60, -required => 'required' );
 	say "</li><li>";
 	say $q->checkbox(
-		-name  => 'complete_CDS',
-		-label => 'Reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon '
+		-name => 'complete_CDS',
+		-label =>
+		  'Reject all sequences that are not complete reading frames - these must have a start and in-frame stop codon '
 		  . 'at the ends and no internal stop codons. Existing sequences are also ignored.'
 	);
 	say "</li><li>";
 	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
 	say "</li><li>";
-	say $q->checkbox( -name => 'use_next_id', -label => 'Use next available id (only for loci with integer ids)', -checked => 'checked' );
+	say $q->checkbox(
+		-name    => 'use_next_id',
+		-label   => 'Use next available id (only for loci with integer ids)',
+		-checked => 'checked'
+	);
 	say "</li></ul></fieldset>";
 	$self->print_action_fieldset( { 'submit_label' => 'Check' } );
 	say $q->hidden($_) foreach qw(db page set_id submission_id);
@@ -158,7 +181,8 @@ sub _check {
 	say qq(<div class="box" id="resultstable">);
 	say "<h2>Sequence check</h2>";
 	say qq(<div class="scrollable">);
-	say qq(<table class="resultstable" style="float:left;margin-right:1em"><tr><th>Original designation</th><th>Allele id</th>)
+	say
+qq(<table class="resultstable" style="float:left;margin-right:1em"><tr><th>Original designation</th><th>Allele id</th>)
 	  . qq(<th>Status</th></tr>);
 	my $td      = 1;
 	my $temp    = BIGSdb::Utils::get_random();
@@ -210,11 +234,12 @@ sub _check_sequence {
 			$self->{'last_id'} = $allele_id;
 		} else {
 			$allele_id = $self->{'last_id'};
-			my $exists;
+			my ( $exists, $retired );
 			do {
 				$allele_id++;
-				$exists = $self->{'datastore'}->sequence_exists( $locus, $allele_id );
-			} while $exists;
+				my $exists = $self->{'datastore'}->sequence_exists( $locus, $allele_id );
+				my $retired = $self->{'datastore'}->sequence_retired( $locus, $allele_id );
+			} while $exists || $retired;
 			$self->{'last_id'} = $allele_id;
 		}
 	} else {
@@ -229,9 +254,12 @@ sub _check_sequence {
 		return ( FAILURE, $allele_id, "Allele id does not conform to required format." );
 	}
 
-	#Check id doesn't already exist
+	#Check id doesn't already exist and has not been retired.
 	if ( $self->{'datastore'}->sequence_exists( $locus, $allele_id ) ) {
 		return ( FAILURE, $allele_id, "Allele id already exists." );
+	}
+	if ( $self->{'datastore'}->sequence_retired( $locus, $allele_id ) ) {
+		return ( FAILURE, $allele_id, 'Allele id has been retired.' );
 	}
 
 	#Check id isn't already submitted in this submission
@@ -240,8 +268,12 @@ sub _check_sequence {
 	}
 
 	#Check invalid characters
-	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA'
-		&& !BIGSdb::Utils::is_valid_DNA( $data->{'seq'}, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) } ) )
+	if (
+		$self->{'locus_info'}->{'data_type'} eq 'DNA'
+		&& !BIGSdb::Utils::is_valid_DNA(
+			$data->{'seq'}, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+		)
+	  )
 	{
 		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
 		local $" = '|';
@@ -252,26 +284,29 @@ sub _check_sequence {
 
 	#Check length
 	my $length = length $data->{'seq'};
-	my $units = $self->{'locus_info'}->{'data_type'} && $self->{'locus_info'}->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+	my $units =
+	  $self->{'locus_info'}->{'data_type'} && $self->{'locus_info'}->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 	if (   !$self->{'locus_info'}->{'length_varies'}
 		&& defined $self->{'locus_info'}->{'length'}
 		&& $self->{'locus_info'}->{'length'} != $length )
 	{
 		return ( FAILURE, $allele_id,
-			"Sequence is $length $units long but this locus is set as a standard length of $self->{'locus_info'}->{'length'} $units." );
+"Sequence is $length $units long but this locus is set as a standard length of $self->{'locus_info'}->{'length'} $units."
+		);
 	} elsif ( $self->{'locus_info'}->{'min_length'} && $length < $self->{'locus_info'}->{'min_length'} ) {
 		return ( FAILURE, $allele_id,
-			"Sequence is $length $units long but this locus is set with a minimum length of $self->{'locus_info'}->{'min_length'} $units."
+"Sequence is $length $units long but this locus is set with a minimum length of $self->{'locus_info'}->{'min_length'} $units."
 		);
 	} elsif ( $self->{'locus_info'}->{'max_length'} && $length > $self->{'locus_info'}->{'max_length'} ) {
 		return ( FAILURE, $allele_id,
-			"Sequence is $length $units long but this locus is set with a maximum length of $self->{'locus_info'}->{'max_length'} $units."
+"Sequence is $length $units long but this locus is set with a maximum length of $self->{'locus_info'}->{'max_length'} $units."
 		);
 	}
 
 	#Check seq doesn't already exist
 	my $exists =
-	  $self->{'datastore'}->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", [ $locus, $data->{'seq'} ] );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND sequence=?", [ $locus, $data->{'seq'} ] );
 	if ( defined $exists ) {
 		return ( FAILURE, $allele_id, "Sequence has already been defined as $locus-$exists." );
 	}
@@ -336,17 +371,20 @@ sub _upload {
 	}
 	my $seqin = Bio::SeqIO->new( -file => $upload_file, -format => 'fasta' );
 	my $sql =
-	  $self->{'db'}
-	  ->prepare("INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)");
+	  $self->{'db'}->prepare(
+"INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,sender,curator) VALUES (?,?,?,?,?,?,?,?)"
+	  );
 	my $submission_id = $q->param('submission_id');
-	my $allele_submission = $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
+	my $allele_submission =
+	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $sql_submission =
-	  $self->{'db'}->prepare("UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)");
+	  $self->{'db'}
+	  ->prepare("UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)");
 	eval {
 		while ( my $seq_object = $seqin->next_seq )
 		{
-			$sql->execute( $q->param('locus'), $seq_object->id, $seq_object->seq, $q->param('status'), 'now', 'now', $q->param('sender'),
-				$self->get_curator_id );
+			$sql->execute( $q->param('locus'), $seq_object->id, $seq_object->seq, $q->param('status'), 'now', 'now',
+				$q->param('sender'), $self->get_curator_id );
 			if ( $allele_submission && $allele_submission->{'locus'} eq $q->param('locus') ) {
 				my $submission_seqs = $allele_submission->{'seqs'};
 				foreach my $seq (@$submission_seqs) {
@@ -364,7 +402,8 @@ sub _upload {
 	}
 	say "<div class=\"box\" id=\"resultsheader\"><p>Upload succeeded.</p><p>";
 	if ($allele_submission) {
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
+		say
+qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;submission_id=$submission_id&amp;)
 		  . qq(curate=1">Return to submission</a> | );
 	}
 	say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta\">Upload more</a>"
