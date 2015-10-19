@@ -555,12 +555,10 @@ sub _check_data {
 			} elsif ( $table eq 'loci' ) {
 				$self->_check_data_loci($new_args);
 			}
+			my %seq_table = map { $_ => 1 } qw (sequences retired_allele_ids sequence_refs accession);
 
 			#check that user is allowed to add sequences for this locus
-			if (   ( $table eq 'sequences' || $table eq 'sequence_refs' || $table eq 'accession' )
-				&& $self->{'system'}->{'dbtype'} eq 'sequences'
-				&& !$self->is_admin )
-			{
+			if ( $seq_table{$table} && $self->{'system'}->{'dbtype'} eq 'sequences' && !$self->is_admin ) {
 				if ( !defined $locus && defined $file_header_pos{'locus'} && $data[ $file_header_pos{'locus'} ] ) {
 					$locus = $data[ $file_header_pos{'locus'} ];
 				}

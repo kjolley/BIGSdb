@@ -149,9 +149,11 @@ sub _get_form_fields {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	$self->_populate_submission_params if $q->param('submission_id');
-	my %newdata = %{$newdata_ref};
-	my $buffer  = '';
+	my %newdata   = %{$newdata_ref};
+	my $buffer    = '';
+	my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions);
 	foreach my $required (qw(1 0)) {
+
 		foreach my $att (@$attributes) {
 			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 
@@ -261,17 +263,7 @@ sub _get_form_fields {
 							%html5_args
 						);
 					}
-				} elsif (
-					(
-						   $table eq 'sequences'
-						|| $table eq 'sequence_refs'
-						|| $table eq 'accession'
-						|| $table eq 'locus_descriptions'
-					)
-					&& $att->{'name'} eq 'locus'
-					&& !$self->is_admin
-				  )
-				{
+				} elsif ( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin ) {
 					my $set_id = $self->get_set_id;
 					my ( $values, $desc ) =
 					  $self->{'datastore'}->get_locus_list(

@@ -117,7 +117,7 @@ sub print_content {
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences retired_alleles accession
+			qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
 			sequence_refs profiles profile_refs)
 		  )
 		{
@@ -514,7 +514,7 @@ HTML
 	return ( $buffer, $td );
 }
 
-sub _print_retired_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_retired_allele_ids {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
 		my $allowed =

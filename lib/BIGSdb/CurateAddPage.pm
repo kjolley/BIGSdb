@@ -60,7 +60,8 @@ sub print_content {
 	}
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
-		if ( $table eq 'sequences' && $q->param('locus') || $table eq 'locus_descriptions' ) {
+		my %seq_table = map {$_ => 1} qw(sequences retired_allele_ids);
+		if ( $seq_table{$table} && $q->param('locus') || $table eq 'locus_descriptions' ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
 			say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add $locus $record_type)
