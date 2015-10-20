@@ -1040,7 +1040,7 @@ sub _get_record_table_info {
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			$extended_attributes =
 			  $self->{'datastore'}
-			  ->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
+			  ->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
 				$locus, { fetch => 'col_arrayref' } );
 			foreach (@$extended_attributes) {
 				( my $cleaned = $_ ) =~ tr/_/ /;

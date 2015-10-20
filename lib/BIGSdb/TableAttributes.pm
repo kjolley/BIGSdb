@@ -648,9 +648,9 @@ sub get_retired_allele_ids_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 'yes'
 		},
-		{ name => 'allele_id', type => 'string',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'allele_id', type => 'string', required => 'yes', primary_key    => 'yes' },
+		{ name => 'curator',   type => 'int',    required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date',   required => 'yes' }
 	];
 	return $attributes;
 }
@@ -693,9 +693,16 @@ sub get_locus_extended_attributes_table_attributes {
 			default  => 'false',
 			tooltip  => 'required - Specifies whether value is required for each sequence.'
 		},
-		{ name => 'field_order', type => 'int',  length   => 4 },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'field_order', type => 'int', length => 4 },
+		{
+			name     => 'main_display',
+			type     => 'bool',
+			required => 'yes',
+			default  => 'true',
+			tooltip  => 'main display - Specifies whether to display field in main results table.'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }

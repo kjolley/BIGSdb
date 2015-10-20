@@ -1,5 +1,8 @@
 ALTER TABLE sequences ADD validated boolean;
 ALTER TABLE sequences ADD exemplar boolean;
+ALTER TABLE locus_extended_attributes ADD main_display boolean;
+UPDATE locus_extended_attributes SET main_display=TRUE;
+ALTER TABLE locus_extended_attributes ALTER COLUMN main_display SET NOT NULL;
 
 CREATE TABLE retired_allele_ids (
 locus text NOT NULL,
