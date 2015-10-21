@@ -647,7 +647,7 @@ sub _get_scheme_table {
 		foreach my $field (@$scheme_fields) {
 			my $value = $values->{ lc($field) } // 'Not defined';
 			my $primary_key = $field eq $scheme_info->{'primary_key'} ? 1 : 0;
-			return if $primary_key && $value eq 'Not defined';
+			return q() if $primary_key && $value eq 'Not defined';
 			$field =~ tr/_/ /;
 			$buffer .= qq(<tr class="td$td"><th>$field</th><td>);
 			$buffer .=
