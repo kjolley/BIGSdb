@@ -415,8 +415,35 @@ sub _output_single_query_exact {
 		$buffer .= q(<p>Please note that as this is a DNA locus, the length corresponds to the matching )
 		  . q(nucleotide sequence that was translated to align against your peptide query sequence.</p>);
 	}
-	$buffer .= qq(<div class="scrollable">\n);
-	$buffer .=
+	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
+		my %locus_values;
+		foreach my $match (@$exact_matches) {
+			if ( $match->{'allele'} =~ /(.*):.*/x ) {
+				$locus_values{$match} = $1;
+			}
+		}
+		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
+	}
+	my $displayed;
+	if ($distinct_locus_selected) {
+		( my $locus_buffer, $displayed ) = $self->_get_distinct_locus_exact_results( $locus, $exact_matches, $data );
+		$buffer .= $locus_buffer;
+	} else {
+		( my $locus_buffer, $displayed ) = $self->_get_scheme_exact_results( $locus, $exact_matches, $data );
+		$buffer .= $locus_buffer;
+	}
+	say q(<div class="box" id="resultsheader"><p>);
+	say qq($displayed exact match) . ( $displayed > 1 ? 'es' : '' ) . q( found.</p>);
+	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
+	say q(</div>);
+	say $buffer;
+	say q(</div>);
+	return;
+}
+
+sub _get_table_header {
+	my ( $self, $data ) = @_;
+	my $buffer =
 	    q(<table class="resultstable"><tr><th>Allele</th><th>Length</th>)
 	  . q(<th>Start position</th><th>End position</th>)
 	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : q() )
@@ -424,128 +451,176 @@ sub _output_single_query_exact {
 	  . ( ( $self->{'system'}->{'allele_flags'}    // '' ) eq 'yes' ? q(<th>Flags</th>)    : q() )
 	  . ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ? q(<th>Comments</th>) : q() )
 	  . q(</tr>);
-	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
-		my %locus_values;
-		foreach (@$exact_matches) {
-			if ( $_->{'allele'} =~ /(.*):.*/x ) {
-				$locus_values{$_} = $1;
-			}
-		}
-		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
-	}
-	my $td = 1;
-	my %locus_matches;
-	my $displayed = 0;
-	foreach (@$exact_matches) {
+	return $buffer;
+}
+
+sub _get_distinct_locus_exact_results {
+	my ( $self, $locus, $exact_matches, $data ) = @_;
+	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
+	my $match_count = 0;
+	my $td          = 1;
+	my $buffer      = qq(<div class="scrollable">\n);
+	$buffer .= $self->_get_table_header($data);
+	foreach my $match (@$exact_matches) {
 		my $allele;
 		my ( $field_values, $attributes, $allele_info, $flags );
-		if ($distinct_locus_selected) {
-			$locus_matches{$locus}++;
-			next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
-			my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
-			$buffer .= qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$_->{'allele'}">);
-			$allele = "$cleaned: $_->{'allele'}";
+		$match_count++;
+		next if $locus_info->{'match_longest'} && $match_count > 1;
+		my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
+		$buffer .= qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$match->{'allele'}">);
+		$allele = "$cleaned: $match->{'allele'}";
+		$field_values =
+		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
+		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
+		$allele_info = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
+			[ $locus, $match->{'allele'} ],
+			{ fetch => 'row_hashref' }
+		);
+		$flags = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
+		$buffer .= qq($allele</a></td><td>$match->{'length'}</td><td>$match->{'start'}</td><td>$match->{'end'}</td>);
+		$buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>)
+		  if $data->{'linked_data'};
+		$buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
+		  if $data->{'extended_attributes'};
+
+		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+			local $" = q(</a> <a class="seqflag_tooltip">);
+			$buffer .=
+			  @$flags ? qq(<td style="text-align:left"><a class="seqflag_tooltip">@$flags</a></td>) : q(<td></td>);
+		}
+		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
+			$buffer .= $allele_info->{'comments'} ? qq(<td>$allele_info->{'comments'}</td>) : q(<td></td>);
+		}
+		$buffer .= qq(</tr>\n);
+		$td = $td == 1 ? 2 : 1;
+	}
+	$buffer .= qq(</table></div>\n);
+	return ( $buffer, $match_count );
+}
+
+sub _get_scheme_exact_results {
+	my ( $self, $scheme_param, $exact_matches, $data ) = @_;
+	my %locus_matches;
+	my $set_id = $self->get_set_id;
+	my @schemes;
+	if ( $scheme_param =~ /SCHEME_(\d+)/x ) {
+		push @schemes, $1;
+	} elsif ( $scheme_param =~ /GROUP_(\d+)/x ) {
+		my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id } );
+		push @schemes, @$group_schemes;
+	} else {
+		push @schemes, 0;
+	}
+	my $displayed = 0;
+	my %designations;
+	my $buffer = q();
+	foreach my $scheme_id (@schemes) {
+		my $scheme_buffer;
+		my $td = 1;
+		my $scheme_members;
+		if ($scheme_id) {
+			$scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		} else {
+			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+		}
+		my %locus_in_scheme = map { $_ => 1 } @$scheme_members;
+		foreach my $match (@$exact_matches) {
+			my $allele;
+			my ( $field_values, $attributes, $allele_info, $flags );
+			next if $match->{'allele'} !~ /(.*):(.*)/x;
+			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
+			next if !$locus_in_scheme{$extracted_locus};
+			$designations{$extracted_locus} = $allele_id;
+			my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
+			$locus_matches{$extracted_locus}++;
+			next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
+			my $cleaned = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
+			$allele = "$cleaned: $allele_id";
 			$field_values =
-			  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $_->{'allele'}, { table_format => 1 } );
-			$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $_->{'allele'} ] );
+			  $self->{'datastore'}
+			  ->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
+			$attributes = $self->{'datastore'}->get_allele_attributes( $extracted_locus, [$allele_id] );
 			$allele_info = $self->{'datastore'}->run_query(
 				'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
-				[ $locus, $_->{'allele'} ],
+				[ $extracted_locus, $allele_id ],
 				{ fetch => 'row_hashref' }
 			);
-			$flags = $self->{'datastore'}->get_allele_flags( $locus, $_->{'allele'} );
-		} else {    #either all loci or a scheme selected
-			my ( $extracted_locus, $allele_id );
-			if ( $_->{'allele'} =~ /(.*):(.*)/x ) {
-				( $extracted_locus, $allele_id ) = ( $1, $2 );
-				$designations{$extracted_locus} = $allele_id;
-				$locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
-				$locus_matches{$extracted_locus}++;
-				next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
-				my $cleaned = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
-				$allele = "$cleaned: $allele_id";
-				$field_values =
-				  $self->{'datastore'}
-				  ->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
-				$attributes = $self->{'datastore'}->get_allele_attributes( $extracted_locus, [$allele_id] );
-				$allele_info = $self->{'datastore'}->run_query(
-					'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
-					[ $extracted_locus, $allele_id ],
-					{ fetch => 'row_hashref' }
-				);
-				$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
+			$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
+
+			if ( !$scheme_buffer ) {
+				if ($scheme_id) {
+					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+					$scheme_buffer .= qq(<h2>$scheme_info->{'description'}</h2>);
+				}
+				$scheme_buffer .= qq(<div class="scrollable">\n);
+				$scheme_buffer .= $self->_get_table_header($data);
 			}
-			$buffer .=
+			$scheme_buffer .=
 			    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?)
 			  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$extracted_locus&amp;)
 			  . qq(allele_id=$allele_id">)
 			  if $extracted_locus && $allele_id;
+			$scheme_buffer .=
+			  qq($allele</a></td><td>$match->{'length'}</td><td>$match->{'start'}</td><td>$match->{'end'}</td>);
+			$scheme_buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>)
+			  if $data->{'linked_data'};
+			$scheme_buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
+			  if $data->{'extended_attributes'};
+			if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+				local $" = q(</a> <a class="seqflag_tooltip">);
+				$scheme_buffer .=
+				  @$flags ? qq(<td style="text-align:left"><a class="seqflag_tooltip">@$flags</a></td>) : q(<td></td>);
+			}
+			if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
+				$scheme_buffer .= $allele_info->{'comments'} ? qq(<td>$allele_info->{'comments'}</td>) : q(<td></td>);
+			}
+			$scheme_buffer .= qq(</tr>\n);
+			$displayed++;
+			$td = $td == 1 ? 2 : 1;
 		}
-		$buffer .= "$allele</a></td><td>$_->{'length'}</td><td>$_->{'start'}</td><td>$_->{'end'}</td>";
-		$buffer .= defined $field_values ? "<td style=\"text-align:left\">$field_values</td>" : '<td></td>'
-		  if $data->{'linked_data'};
-		$buffer .= defined $attributes ? "<td style=\"text-align:left\">$attributes</td>" : '<td></td>'
-		  if $data->{'extended_attributes'};
-		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-			local $" = '</a> <a class="seqflag_tooltip">';
-			$buffer .=
-			  @$flags ? "<td style=\"text-align:left\"><a class=\"seqflag_tooltip\">@$flags</a></td>" : '<td></td>';
+		if ($scheme_buffer) {
+			$buffer .= qq(<div class="scrollable">\n);
+			$buffer .= $scheme_buffer;
+			$buffer .= qq(</table></div>\n);
 		}
-		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
-			$buffer .= $allele_info->{'comments'} ? "<td>$allele_info->{'comments'}</td>" : '<td></td>';
-		}
-		$buffer .= qq(</tr>\n);
-		$displayed++;
-		$td = $td == 1 ? 2 : 1;
+		$buffer .= $self->_get_scheme_fields( $scheme_id, \%designations );
 	}
-	$buffer .= qq(</table></div>\n);
-	say q(<div class="box" id="resultsheader"><p>);
-	say qq($displayed exact match) . ( $displayed > 1 ? 'es' : '' ) . q( found.</p>);
-	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
-	say q(</div>);
-	say $buffer;
-	$self->_output_scheme_fields( $locus, \%designations );
-	say q(</div>);
-	return;
+	if ( !@schemes ) {
+		$buffer .= $self->_get_scheme_fields( 0, \%designations );
+	}
+	return ( $buffer, $displayed );
 }
 
-sub _output_scheme_fields {
-	my ( $self, $locus, $designations ) = @_;
+sub _get_scheme_fields {
+	my ( $self, $scheme_id, $designations ) = @_;
+	my $buffer = q();
 	my $set_id = $self->get_set_id;
-	if ( !$locus ) {    #all loci
+	if ( !$scheme_id ) {    #all loci
 		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 		foreach my $scheme (@$schemes) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
-				$self->_print_scheme_table( $scheme->{'id'}, $designations );
+				$buffer .= $self->_get_scheme_table( $scheme->{'id'}, $designations );
 			}
 		}
-	} elsif ( $locus =~ /SCHEME_\d+/x || $locus =~ /GROUP_\d+/x ) {    #Check for scheme fields
-		my @schemes;
-		if ( $locus =~ /SCHEME_(\d+)/x ) {
-			push @schemes, $1;
-		} elsif ( $locus =~ /GROUP_(\d+)/x ) {
-			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $1, { set_id => $set_id } );
-			push @schemes, @$group_schemes;
-		}
-		foreach my $scheme_id (@schemes) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			if ( @$scheme_fields && @$scheme_loci ) {
-				$self->_print_scheme_table( $scheme_id, $designations );
-			}
+	} else {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		if ( @$scheme_fields && @$scheme_loci ) {
+			$buffer .= $self->_get_scheme_table( $scheme_id, $designations );
 		}
 	}
-	return;
+	return $buffer;
 }
 
-sub _print_scheme_table {
+sub _get_scheme_table {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my ( @profile, @temp_qry );
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	return if !defined $scheme_info->{'primary_key'};
+	return q() if !defined $scheme_info->{'primary_key'};
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach (@$scheme_loci) {
@@ -564,8 +639,11 @@ sub _print_scheme_table {
 		my $values =
 		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)",
 			undef, { fetch => 'row_hashref' } );
-		my $buffer = qq(<h2>$scheme_info->{'description'}</h2><table>);
-		my $td     = 1;
+		my $buffer;
+		$buffer .= qq(<h2>$scheme_info->{'description'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
+		$buffer .= q(<table style="margin-top:1em">);
+		my $td = 1;
+
 		foreach my $field (@$scheme_fields) {
 			my $value = $values->{ lc($field) } // 'Not defined';
 			my $primary_key = $field eq $scheme_info->{'primary_key'} ? 1 : 0;
@@ -581,9 +659,9 @@ sub _print_scheme_table {
 			$td = $td == 1 ? 2 : 1;
 		}
 		$buffer .= q(</table>);
-		say $buffer;
+		return $buffer;
 	}
-	return;
+	return q();
 }
 
 sub _output_batch_query_exact {
