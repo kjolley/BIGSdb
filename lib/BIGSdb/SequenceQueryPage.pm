@@ -530,7 +530,7 @@ sub _get_scheme_exact_results {
 			my $allele;
 			my ( $field_values, $attributes, $allele_info, $flags );
 			next if $match->{'allele'} !~ /(.*):(.*)/x;
-			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
+			my ( $extracted_locus, $allele_id ) = ( $1, $2 );    ## no critic (ProhibitCaptureWithoutTest)
 			next if !$locus_in_scheme{$extracted_locus};
 			$designations{$extracted_locus} = $allele_id;
 			my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);

@@ -359,13 +359,13 @@ sub _print_interface {
 	my $primary_key = $scheme_info->{'primary_key'};
 	my $msg =
 	  $scheme_info->{'allow_missing_loci'}
-	  ? q[ This scheme allows profile definitions to contain missing alleles (designate]
+	  ? q[ This scheme allows profile definitions to contain missing alleles (designate ]
 	  . q[these as '0') or ignored alleles (designate these as 'N').]
-	  : q();
+	  : q[];
 	say q(<div class="box" id="queryform">);
 	say q(<div class="scrollable">);
-	say qq[<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>];
-	say q[<fieldset class="form" style="float:left"><legend>Record</legend>];
+	say qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>);
+	say q(<fieldset class="form" style="float:left"><legend>Record</legend>);
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $longest_name = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$fields ] );
