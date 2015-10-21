@@ -46,7 +46,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer);
+	$self->{$_} = 1 foreach qw(jQuery tooltips jQuery.jstree jQuery.columnizer);
 	return;
 }
 
@@ -886,6 +886,12 @@ sub _get_scheme_values {
 	foreach my $field (@$scheme_fields) {
 		next if !$self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$field};
 		( my $cleaned = $field ) =~ tr/_/ /;
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );			
+		if ( $scheme_field_info->{'description'} ) {
+			my $display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+			$cleaned .= qq( <a class="tooltip" title="$field - $scheme_field_info->{'description'}" )
+			. qq(style="display:$display"><span class="fa fa-info-circle" style="color:white"></span></a>);
+		}
 		$buffer .= "<dl class=\"profile\">";
 		$buffer .= "<dt>$cleaned</dt><dd>";
 		local $" = ', ';
@@ -1115,7 +1121,7 @@ sub get_refs {
 		  if $display eq 'none';
 		$buffer .= "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
-		$buffer .= "<ul id=\"$id\">\n";
+		$buffer .= qq(<ul id="$id" style="display:$display">\n);
 		my $citations =
 		  $self->{'datastore'}
 		  ->get_citation_hash( $pmids, { formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );

@@ -172,7 +172,7 @@ sub paged_display {
 		$bar_buffer .= $q->endform;
 	}
 	say q(<div class="box" id="resultsheader">);
-	if ($args->{'browse'}){
+	if ( $args->{'browse'} ) {
 		say q(<p>Browsing all records.</p>);
 	}
 	if ($records) {
@@ -704,19 +704,24 @@ sub _print_isolate_table_header {
 			$self->{'scheme_fields'}->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		}
 		if ( ref $self->{'scheme_fields'}->{$scheme_id} eq 'ARRAY' ) {
-			foreach ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
-				if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$_} ) {
-					my $field = $_;
-					$field =~ tr/_/ /;
-					push @scheme_header, $field;
+			foreach my $field_name ( @{ $self->{'scheme_fields'}->{$scheme_id} } ) {
+				next if !$self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field_name};
+				my $field = $field_name;
+				$field =~ tr/_/ /;
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_name );
+				if ( $scheme_field_info->{'description'} ) {
+					$field .=
+					    qq( <a class="tooltip" title="$field - $scheme_field_info->{'description'}">)
+					  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
 				}
+				push @scheme_header, $field;
 			}
 		}
 		my $scheme_cols = @scheme_header;
 		if ($scheme_cols) {
 			$fieldtype_header .= qq(<th colspan="$scheme_cols">$scheme->{'description'}</th>);
 		}
-		local $" = '</th><th>';
+		local $" = q(</th><th>);
 		$header_buffer .= qq(<th>@scheme_header</th>) if @scheme_header;
 	}
 	my @locus_header;
@@ -892,17 +897,28 @@ sub _print_profile_table {
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable"><tr>);
 	say q(<th>Delete</th><th>Update</th>) if $self->{'curate'};
-	say qq(<th>$primary_key</th>);
+	print qq(<th>$primary_key);
+	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	if ( $scheme_field_info->{'description'} ) {
+		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
+		  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+	}
+	say q(</th>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
 		my $cleaned = $self->clean_locus($_);
 		say qq(<th>$cleaned</th>);
 	}
-	foreach (@$scheme_fields) {
-		next if $primary_key eq $_;
-		my $cleaned = $_;
+	foreach my $field (@$scheme_fields) {
+		next if $primary_key eq $field;
+		my $cleaned = $field;
 		$cleaned =~ tr/_/ /;
+		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		if ( $scheme_field_info->{'description'} ) {
+			$cleaned .= qq( <a class="tooltip" title="$cleaned - $scheme_field_info->{'description'}">)
+			  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+		}
 		say qq(<th>$cleaned</th>);
 	}
 	say q(</tr>);
@@ -1039,8 +1055,8 @@ sub _get_record_table_info {
 		my $locus = $q->param('locus');
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			$extended_attributes =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
+			  $self->{'datastore'}->run_query(
+				'SELECT field FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
 				$locus, { fetch => 'col_arrayref' } );
 			foreach (@$extended_attributes) {
 				( my $cleaned = $_ ) =~ tr/_/ /;
@@ -1436,6 +1452,7 @@ sub _is_scheme_data_present {
 	$self->{'cache'}->{$qry}->{$scheme_id} = 0;
 	return 0;
 }
+
 sub _data_linked_to_locus {
 	my ( $self, $locus ) = @_;
 	return $self->{'datastore'}

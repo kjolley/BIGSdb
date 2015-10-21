@@ -377,7 +377,7 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
 	say q(<ul style="white-space:nowrap">);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
-	my $title_attribute = $title ? " title=\"$title\"" : '';
+	my $title_attribute = $title ? qq( title="$title") : q();
 	say qq(<li><label for="field:$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my %html5_args = ( required => 'required' );
@@ -389,8 +389,13 @@ sub _print_interface {
 		-value => $q->param("field:$primary_key") // $newdata->{$primary_key},
 		%html5_args
 	);
-	say q(</li>);
+	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 
+	if ( $scheme_field_info->{'description'} ) {
+		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
+		  . q(<span class="fa fa-info-circle"></span></a>);
+	}
+	say q(</li>);
 	foreach my $locus (@$loci) {
 		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -412,17 +417,17 @@ sub _print_interface {
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
 	my ( $users, $user_names ) = $self->get_user_list_and_labels;
 	say $self->popup_menu(
-		-name    => 'field:sender',
-		-id      => 'field:sender',
-		-values  => [ '', @$users ],
-		-labels  => $user_names,
-		-default => $newdata->{'field:sender'},
+		-name     => 'field:sender',
+		-id       => 'field:sender',
+		-values   => [ '', @$users ],
+		-labels   => $user_names,
+		-default  => $newdata->{'field:sender'},
 		-required => 'required'
 	);
 	say q(</li>);
 	foreach my $field (@$fields) {
 		next if $field eq $primary_key;
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		%html5_args = ();
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
@@ -435,6 +440,11 @@ sub _print_interface {
 			-value => $newdata->{"field:$field"},
 			%html5_args
 		);
+
+		if ( $scheme_field_info->{'description'} ) {
+			print qq( <a class="tooltip" title="$label - $scheme_field_info->{'description'}">)
+			  . q(<span class="fa fa-info-circle"></span></a>);
+		}
 		say q(</li>);
 	}
 	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>)

@@ -1204,7 +1204,7 @@ sub get_scheme_fields_table_attributes {
 			tooltip  => 'primary key - Sets whether this field defines a profile '
 			  . '(you can only have one primary key field).'
 		},
-		{ name => 'description', type => 'text', required => 'no', length => 30, },
+		{ name => 'description', type => 'text', required => 'no', length => 64, },
 		{ name => 'field_order', type => 'int',  required => 'no' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
