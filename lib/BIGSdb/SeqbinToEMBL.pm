@@ -39,12 +39,13 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	my $isolate_id;
 	my $seqbin_ids = [];
-	if ( ( $q->param('seqbin_id') // '' ) =~ /^(\d+)$/ ) {
+	if ( ( $q->param('seqbin_id') // '' ) =~ /^(\d+)$/x ) {
 		push @$seqbin_ids, $1;
-	} elsif ( ( $q->param('isolate_id') // '' ) =~ /^(\d+)$/ ) {
+	} elsif ( ( $q->param('isolate_id') // '' ) =~ /^(\d+)$/x ) {
 		$isolate_id = $1;
 		$seqbin_ids =
-		  $self->{'datastore'}->run_query( "SELECT id FROM sequence_bin WHERE isolate_id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
 	} else {
 		print "Invalid isolate or sequence bin id.\n";
 		return;
@@ -58,15 +59,16 @@ sub write_embl {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq = $self->{'datastore'}->run_query( "SELECT sequence,comments FROM sequence_bin WHERE id=?",
+		my $seq = $self->{'datastore'}->run_query( 'SELECT sequence,comments FROM sequence_bin WHERE id=?',
 			$seqbin_id, { fetch => 'row_arrayref', cache => 'SeqbinToEMBL::write_embl::seq' } );
 		my $seq_length   = length $seq->[0];
 		my $fasta_string = ">$seqbin_id\n" . $seq->[0] . "\n";
-		open( my $stringfh_in, "<:encoding(utf8)", \$fasta_string ) or die "Could not open string for reading: $!";
+		open( my $stringfh_in, '<:encoding(utf8)', \$fasta_string )
+		  || $logger->error("Could not open string for reading: $!");
 		$stringfh_in->untaint;
 		my $seqin      = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 		my $seq_object = $seqin->next_seq;
-		my $accessions = $self->{'datastore'}->run_query( "SELECT databank_id FROM accession WHERE seqbin_id=?",
+		my $accessions = $self->{'datastore'}->run_query( 'SELECT databank_id FROM accession WHERE seqbin_id=?',
 			$seqbin_id, { fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::databank' } );
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
@@ -75,13 +77,13 @@ sub write_embl {
 		my $set_id = $self->get_set_id;
 		my $set_clause =
 		  $set_id
-		  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+		  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 		  : '';
 		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos";
 		my $allele_sequences =
-		  $self->{'datastore'}
-		  ->run_query( $qry, $seqbin_id, { fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_embl::allele_sequences' } );
+		  $self->{'datastore'}->run_query( $qry, $seqbin_id,
+			{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_embl::allele_sequences' } );
 
 		foreach my $allele_sequence (@$allele_sequences) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
