@@ -134,9 +134,17 @@ sub print_content {
 							order                 => 'id',
 							submit                => 1
 						);
-						$q->param( $_, $params{$_} ) foreach keys %params;
+						my @action_params;
+						foreach ( keys %params ) {
+							$q->param( $_, $params{$_} );
+							push @action_params, "$_=$params{$_}";
+						}
+						local $" = '&';
+
+						#We have to pass the parameters in the action clause as
+						#mod_rewrite can strip out post params.
 						$buffer .= $q->start_form(
-							-action => $client_info->{'url'},
+							-action => "$client_info->{'url'}?@action_params",
 							-method => 'post',
 							-style  => 'display:inline'
 						);
