@@ -53,11 +53,8 @@ sub get_javascript {
 });			
 END
 	}
+	$buffer .= $self->get_list_javascript;
 	$buffer .= << "END";
-function listbox_selectall(listID, isSelect) {
-	\$("#" + listID + " option").prop("selected",isSelect);
-}
-
 function use_defaults() {
 	\$("#identity").val($MIN_IDENTITY);
 	\$("#alignment").val($MIN_ALIGNMENT);
@@ -104,6 +101,9 @@ sub initiate {
 	if ( $q->param('submit') ) {
 		my $loci = $self->_get_selected_loci;
 		my @isolate_ids = split( "\0", ( $q->param('isolate_id') // '' ) );
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @isolate_ids, @$pasted_cleaned_ids;
+		@isolate_ids = uniq @isolate_ids;
 		return if !@$loci || !@isolate_ids;
 	}
 	if ( $q->param('submit') || $q->param('results') ) {
@@ -140,10 +140,9 @@ sub initiate {
 			my $params = $temp_q->Vars;
 			foreach my $key ( keys %$params ) {
 				next if any { $key eq $_ } qw (submit);
-				$q->param( $key, $temp_q->param($key) );
+				$q->param( $key => $temp_q->param($key) );
 			}
 		}
-		my @ids = $q->param('isolate_id');
 	}
 	return;
 }
@@ -174,7 +173,6 @@ sub _print_interface {
 	  . q(defined in schemes by selecting the appropriate scheme description. By default, loci are only scanned )
 	  . q(for an isolate when no allele designation has been made or sequence tagged. You can choose to rescan loci )
 	  . q(with existing designations or tags by selecting the appropriate options.</p>);
-	my ( $loci, $locus_labels ) = $self->get_field_selection_list( { loci => 1, query_pref => 0, sort_labels => 1 } );
 	my $guid = $self->get_guid;
 	my $general_prefs;
 	if ($guid) {
@@ -195,36 +193,11 @@ sub _print_interface {
 		$selected_ids = [];
 	}
 	say $q->start_form;
-	say q(<div class="scrollable"><fieldset><legend>Isolates</legend>);
-	say $self->popup_menu(
-		-name     => 'isolate_id',
-		-id       => 'isolate_id',
-		-values   => $ids,
-		-labels   => $labels,
-		-size     => 11,
-		-multiple => 'true',
-		-default  => $selected_ids,
-		-required => 'required'
-	);
-	say q(<div style="text-align:center"><input type="button" onclick="listbox_selectall('isolate_id',true)" )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
-	say q(<input type="button" onclick="listbox_selectall('isolate_id',false)" value="None" )
-	  . q(style="margin-top:1em" class="smallbutton" /></div>);
-	say q(</fieldset>);
-	say q(<fieldset><legend>Loci</legend>);
-	say $self->popup_menu(
-		-name     => 'locus',
-		-id       => 'locus',
-		-values   => $loci,
-		-labels   => $locus_labels,
-		-size     => 11,
-		-multiple => 'true'
-	);
-	say q(<div style="text-align:center"><input type="button" onclick="listbox_selectall('locus',true)" )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
-	say q(<input type="button" onclick="listbox_selectall('locus',false)" value="None" )
-	  . q(style="margin-top:1em" class="smallbutton" /></div>);
-	say q(</fieldset>);
+	say q(<div class="scrollable">);
+	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, size => 11, isolate_paste_list => 1 } );
+	my @selected_loci = $q->param('locus');
+	$self->print_isolates_locus_fieldset(
+		{ selected_loci => \@selected_loci, locus_paste_list => 1, size => 11, analysis_pref => 0 } );
 	say q(<fieldset><legend>Schemes</legend>);
 	say q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>);
 	say q(<div id="tree" class="tree" style="height:180px; width:20em">);
@@ -436,6 +409,10 @@ sub _get_selected_loci {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my @loci   = $q->param('locus');
+	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
+	push @loci, "l_$_" foreach @$pasted_cleaned_loci;
+	@loci = uniq sort @loci;
+	$q->param( locus => @loci );
 	$self->_add_scheme_loci( \@loci );
 	return \@loci;
 }
@@ -446,6 +423,11 @@ sub _scan {
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my $loci       = $self->_get_selected_loci;
 	my @ids        = $q->param('isolate_id');
+	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list;
+	push @ids, @$pasted_cleaned_ids;
+	@ids = uniq sort @ids;
+	$q->param( isolate_id => @ids );
+
 	if ( !@ids ) {
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		$self->_print_interface;

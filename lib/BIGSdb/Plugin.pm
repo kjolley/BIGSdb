@@ -60,40 +60,8 @@ sub get_javascript {
 		$tree_js = q();
 		$logger->warn($message);
 	};
+	$js .= $self->get_list_javascript;
 	$js .= <<"JS";
-function listbox_selectall(listID, isSelect) {
-	var listbox = document.getElementById(listID);
-	for(var count=0; count < listbox.options.length; count++) {
-		listbox.options[count].selected = isSelect;
-	}
-}
-
-function isolate_list_show() {
-	\$("#isolate_paste_list_div").show(500);
-	\$("#isolate_list_show_button").hide(0);
-	\$("#isolate_list_hide_button").show(0);
-}
-
-function isolate_list_hide() {
-	\$("#isolate_paste_list_div").hide(500);
-	\$("#isolate_paste_list").val('');
-	\$("#isolate_list_show_button").show(0);
-	\$("#isolate_list_hide_button").hide(0);
-}
-
-function locus_list_show() {
-	\$("#locus_paste_list_div").show(500);
-	\$("#locus_list_show_button").hide(0);
-	\$("#locus_list_hide_button").show(0);
-}
-
-function locus_list_hide() {
-	\$("#locus_paste_list_div").hide(500);
-	\$("#locus_paste_list").val('');
-	\$("#locus_list_show_button").show(0);
-	\$("#locus_list_hide_button").hide(0);
-}
-
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']});       
@@ -532,57 +500,6 @@ sub get_selected_fields {
 	return \@fields_selected;
 }
 
-sub get_loci_from_pasted_list {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my ( @cleaned_loci, @invalid_loci );
-	if ( $q->param('locus_paste_list') ) {
-		my @list = split /\n/x, $q->param('locus_paste_list');
-		foreach my $locus (@list) {
-			next if $locus =~ /^\s*$/x;
-			$locus =~ s/^\s*//x;
-			$locus =~ s/\s*$//x;
-			my $real_name;
-			my $set_id = $self->get_set_id;
-			if ($set_id) {
-				$real_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
-			} else {
-				$real_name = $locus;
-			}
-			if ( $self->{'datastore'}->is_locus($real_name) ) {
-				push @cleaned_loci, $real_name;
-			} else {
-				push @invalid_loci, $locus;
-			}
-		}
-		$q->delete('locus_paste_list') if !@invalid_loci && !$options->{'dont_clear'};
-	}
-	return ( \@cleaned_loci, \@invalid_loci );
-}
-
-sub get_ids_from_pasted_list {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my ( @cleaned_ids, @invalid_ids );
-	if ( $q->param('isolate_paste_list') ) {
-		my @list = split /\n/x, $q->param('isolate_paste_list');
-		foreach my $id (@list) {
-			next if $id =~ /^\s*$/x;
-			$id =~ s/^\s*//x;
-			$id =~ s/\s*$//x;
-			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists($id) ) {
-				push @cleaned_ids, $id;
-			} else {
-				push @invalid_ids, $id;
-			}
-		}
-		$q->delete('isolate_paste_list') if !@invalid_ids && !$options->{'dont_clear'};
-	}
-	return ( \@cleaned_ids, \@invalid_ids );
-}
-
 sub print_sequence_export_form {
 	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
 	$logger->error('No primary key passed') if !defined $pk;
@@ -743,106 +660,6 @@ sub print_includes_fieldset {
 		);
 		say q(</fieldset>);
 	}
-	return;
-}
-
-sub print_seqbin_isolate_fieldset {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
-	say q(<fieldset style="float:left"><legend>Isolates</legend>);
-	if (@$ids) {
-		say q(<div style="float:left">);
-		say $self->popup_menu(
-			-name     => 'isolate_id',
-			-id       => 'isolate_id',
-			-values   => $ids,
-			-labels   => $labels,
-			-size     => 8,
-			-multiple => 'true',
-			-default  => $options->{'selected_ids'},
-		);
-		my $list_button = q();
-		if ( $options->{'isolate_paste_list'} ) {
-			my $show_button_display = $q->param('isolate_paste_list') ? 'none'    : 'display';
-			my $hide_button_display = $q->param('isolate_paste_list') ? 'display' : 'none';
-			$list_button =
-			    q(<input type="button" id="isolate_list_show_button" onclick='isolate_list_show()' value="Paste list" )
-			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
-			  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
-			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
-		}
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" />)
-		  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-		  . qq(style="margin-top:1em" class="smallbutton" />$list_button</div></div>);
-		if ( $options->{'isolate_paste_list'} ) {
-			my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
-			say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
-			say $q->textarea(
-				-name        => 'isolate_paste_list',
-				-id          => 'isolate_paste_list',
-				-cols        => 12,
-				-rows        => 7,
-				-placeholder => 'Paste list of isolate ids...'
-			);
-			say q(</div>);
-		}
-	} else {
-		say q(No isolates available<br />for analysis);
-	}
-	say q(</fieldset>);
-	return;
-}
-
-sub print_isolates_locus_fieldset {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	if (@$locus_list) {
-		say q(<div style="float:left">);
-		say $self->popup_menu(
-			-name     => 'locus',
-			-id       => 'locus',
-			-values   => $locus_list,
-			-labels   => $locus_labels,
-			-size     => 8,
-			-multiple => 'true'
-		);
-		my $list_button = q();
-		if ( $options->{'locus_paste_list'} ) {
-			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
-			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
-			$list_button =
-			    q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
-			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
-			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
-			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
-		}
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" />)
-		  . qq($list_button</div></div>);
-		if ( $options->{'locus_paste_list'} ) {
-			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
-			say qq(<div id="locus_paste_list_div" style="float:left; display:$display">);
-			say $q->textarea(
-				-name        => 'locus_paste_list',
-				-id          => 'locus_paste_list',
-				-cols        => 12,
-				-rows        => 7,
-				-placeholder => 'Paste list of locus primary names...'
-			);
-			say q(</div>);
-		}
-	} else {
-		say q(No loci available<br />for analysis);
-	}
-	say q(</fieldset>);
 	return;
 }
 
