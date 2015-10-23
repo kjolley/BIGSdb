@@ -37,84 +37,79 @@ sub print_content {
 		user       => $system->{'user'},
 		password   => $system->{'pass'}
 	);
-	say "<h1>Publications cited in the $system->{'description'} database</h1>";
+	say qq(<h1>Publications cited in the $system->{'description'} database</h1>);
 	my $dbr;
 	my $continue = 1;
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say qq(<div class="box" id="statusbad"><p>No connection to reference database</p></div>);
+		say q(<div class="box" id="statusbad"><p>No connection to reference database</p></div>);
 		$continue = 0;
 	};
 	return if !$continue;
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $refs_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM refs)");
+		my $refs_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM refs)');
 		if ( !$refs_exist ) {
-			say qq(<div class="box" id="statusbad"><p>No isolates have been linked to PubMed records.</p></div>);
+			say q(<div class="box" id="statusbad">) . q(<p>No isolates have been linked to PubMed records.</p></div>);
 			return;
 		}
 	} else {
-		my $refs_exist = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM profile_refs WHERE scheme_id=?)", $scheme_id );
+		my $refs_exist =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profile_refs WHERE scheme_id=?)', $scheme_id );
 		if ( !$refs_exist ) {
-			say qq(<div class="box" id="statusbad"><p>No profiles have been linked to PubMed records.</p></div>);
+			say q(<div class="box" id="statusbad"><p>No profiles have been linked to PubMed records.</p></div>);
 			return;
 		}
 	}
 	my $pmid = $q->param('pmid');
 	if ( !$pmid ) {
-		say qq(<div class="box" id="statusbad"><p>No pmid passed.</p>);
+		say q(<div class="box" id="statusbad"><p>No pmid passed.</p>);
 		return;
 	}
+	say qq(<h2>Citation query (PubMed id: $pmid)</h2>);
+	say q(<div class="box" id="abstract">);
+	$logger->error($@) if $@;
+	my ( $year, $journal, $volume, $pages, $title, $abstract ) =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?', $pmid, { db => $dbr } );
+	my $author_ids = $self->{'datastore'}->run_query( 'SELECT author FROM refauthors WHERE pmid=? ORDER BY position',
+		$pmid, { db => $dbr, fetch => 'col_arrayref' } );
+	my @author_list;
+	foreach my $author_id (@$author_ids) {
+		my ( $surname, $initials ) = $self->{'datastore'}->run_query( 'SELECT surname,initials FROM authors WHERE id=?',
+			$author_id, { db => $dbr, cache => 'PubQueryPage::author' } );
+		push @author_list, "$surname $initials";
+	}
+	$abstract = q(No abstract available) if !$abstract;
+	say q(<p>);
+	local $" = q(, );
+	say qq(@author_list)                                 if @author_list;
+	say qq( ($year))                                     if $year;
+	say qq( <i>$journal</i> <b>$volume:</b>$pages<br />) if $journal && $volume && $pages;
+	if ($title) {
+		say qq(<b>$title</b><br />);
+		say $abstract;
+	} else {
+		say q(No details available for this publication.);
+	}
+	say q(</p></div>);
+	$q->param( curate => 1 ) if $self->{'curate'};
+	my $table = $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
 	my $qry;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$qry = "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id=$self->{'system'}->{'view'}.id "
-		  . "WHERE pubmed_id=$pmid ORDER BY $self->{'system'}->{'view'}.id;";
+		$qry =
+		    "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on "
+		  . "refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=$pmid "
+		  . "ORDER BY $self->{'system'}->{'view'}.id;";
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
-		$qry = "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on profile_refs.profile_id=scheme_$scheme_id\.$primary_key "
-		  . "WHERE pubmed_id=$pmid AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
+		$qry =
+		    "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on "
+		  . "profile_refs.profile_id=scheme_$scheme_id\.$primary_key WHERE pubmed_id=$pmid "
+		  . "AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
 	}
-	say "<h2>Citation query (PubMed id: $pmid)</h2>";
-	say "<div class=\"box\" id=\"abstract\">";
-	my $sql  = $dbr->prepare("SELECT year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?");
-	my $sql2 = $dbr->prepare("SELECT surname,initials FROM authors WHERE id=?");
-	my $sql3 = $dbr->prepare("SELECT author FROM refauthors WHERE pmid=? ORDER BY position");
-	eval { $sql->execute($pmid) };
-	$logger->error($@) if $@;
-	my ( $year, $journal, $volume, $pages, $title, $abstract ) = $sql->fetchrow_array;
-	eval { $sql3->execute($pmid) };
-	$logger->error($@) if $@;
-	my @authors;
-
-	while ( my ($authorid) = $sql3->fetchrow_array ) {
-		push @authors, $authorid;
-	}
-	my $temp;
-	foreach my $author (@authors) {
-		eval { $sql2->execute($author) };
-		$logger->error($@) if $@;
-		my ( $surname, $initials ) = $sql2->fetchrow_array;
-		$temp .= "$surname $initials, ";
-	}
-	$temp =~ s/, $// if $temp;
-	$abstract = "No abstract available" if !$abstract;
-	say "<p>";
-	say "$temp"                                        if $temp;
-	say " ($year)"                                     if $year;
-	say " <i>$journal</i> <b>$volume:</b>$pages<br />" if $journal && $volume && $pages;
-	if ($title) {
-		say "<b>$title</b><br />";
-		say "$abstract</p>";
-	} else {
-		say "No details available for this publication.</p>";
-	}
-	say "</div>";
-	$sql->finish;
-	$sql2->finish;
-	$q->param( curate => 1 ) if $self->{'curate'};
-	my $table = $system->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
 	my $args = { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 	$self->paged_display($args);
@@ -124,6 +119,6 @@ sub print_content {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Publication query - $desc";
+	return qq(Publication query - $desc);
 }
 1;
