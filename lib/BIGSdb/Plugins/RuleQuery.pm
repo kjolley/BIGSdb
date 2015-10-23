@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2014, University of Oxford
+#Copyright (c) 2012-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.3',
+		version          => '1.0.4',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -57,8 +57,8 @@ sub _get_defined_rules {
 	opendir( my $dir, $rule_dir ) || $logger->error("Can't open $rule_dir for reading");
 	my $rulesets;
 	while ( my $file = readdir($dir) ) {
-		next if $file !~ /\.rule$/;
-		( my $id = $file ) =~ s/\.rule$//;
+		next if $file !~ /\.rule$/x;
+		( my $id = $file ) =~ s/\.rule$//x;
 		$id =~ tr/ /_/;
 		( my $desc = $id ) =~ tr/_/ /;
 		my %ruleset = ( path => "$rule_dir/$file", description => $desc );
@@ -73,27 +73,28 @@ sub run {
 	my $q        = $self->{'cgi'};
 	my $rulesets = $self->_get_defined_rules;
 	if ( !$rulesets ) {
-		print "<div class=\"box\" id=\"statusbad\">No rulesets have been defined for this database.</p></div>\n";
+		say q(<div class="box" id="statusbad">No rulesets have been defined for this database.</p></div>);
 		return;
 	}
 	my $ruleset_id = $q->param('ruleset');
 	if ( defined $ruleset_id ) {
 		if ( !defined $rulesets->{$ruleset_id} ) {
-			print "<div class=\"box\" id=\"statusbad\"><p>Ruleset is not defined.</p></div>\n";
+			say q(<div class="box" id="statusbad"><p>Ruleset is not defined.</p></div>);
 			return;
 		}
 	}
-	print $ruleset_id ? "<h1>$rulesets->{$ruleset_id}->{'description'}</h1>\n" : "<h1>Sequence query</h1>\n" if !$q->param('data');
+	say $ruleset_id ? qq(<h1>$rulesets->{$ruleset_id}->{'description'}</h1>) : q(<h1>Sequence query</h1>)
+	  if !$q->param('data');
 	my $sequence = $q->param('sequence');
 	$q->delete('sequence');
 	$self->remove_all_identifier_lines( \$sequence ) if $sequence;
 	my $valid_DNA = 1;
 	if ($sequence) {
 		if ( !defined $ruleset_id ) {
-			print "<div class=\"box statusbad\"><p>Please select a ruleset</p></div>\n";
+			say q(<div class="box statusbad"><p>Please select a ruleset</p></div>);
 		} else {
 			if ( !BIGSdb::Utils::is_valid_DNA( \$sequence, { allow_ambiguous => 1 } ) ) {
-				print "<div class=\"box statusbad\"><p>The sequence is not valid DNA.</p></div>\n";
+				say q(<div class="box statusbad"><p>The sequence is not valid DNA.</p></div>);
 				$valid_DNA = 0;
 			}
 		}
@@ -121,13 +122,9 @@ sub run {
 				email        => $user_info->{'email'},
 			}
 		);
-		print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+		say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
+		  . q(Follow the progress of this job and view the output.</a></p></div>);
 		return;
 	}
 	$self->_print_interface( $rulesets, $ruleset_id );
@@ -137,7 +134,7 @@ HTML
 sub _upload_fasta_file {
 	my ($self)   = @_;
 	my $temp     = BIGSdb::Utils::get_random();
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_upload.fas";
+	my $filename = "$self->{'config'}->{'tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
@@ -146,51 +143,52 @@ sub _upload_fasta_file {
 	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
 	print $fh $buffer;
 	close $fh;
-	return "$temp\_upload.fas";
+	return "${temp}_upload.fas";
 }
 
 sub _print_interface {
 	my ( $self, $rulesets, $ruleset_id ) = @_;
 	my $q = $self->{'cgi'};
-	print "<div class=\"box queryform\">\n";
+	say q(<div class="box queryform">);
 	print $q->start_form;
 	if ( defined $ruleset_id ) {
-		my $rule_description = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/rules/$ruleset_id/description.html";
+		my $rule_description =
+		  "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/rules/$ruleset_id/description.html";
 		if ( -e $rule_description ) {
 			$self->print_file($rule_description);
 		}
 	} else {
 		$self->_select_ruleset($rulesets);
 	}
-	print
-	  "<div><fieldset style=\"float:left\"><legend>Enter query sequence (single or multiple contigs up to whole genome in size)</legend>\n";
-	print $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
-	print "</fieldset>\n";
-	print "<fieldset style=\"float:left\">\n<legend>Alternatively upload FASTA file</legend>\n";
-	print "Select FASTA file:<br />";
-	print $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
-	print "</fieldset>\n";
+	say q(<div><fieldset style="float:left"><legend>Enter query sequence )
+	  . q((single or multiple contigs up to whole genome in size)</legend>);
+	say $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
+	say q(Select FASTA file:<br />);
+	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload', -size => 10, -maxlength => 512 );
+	say q(</fieldset>);
 	$self->print_action_fieldset( { name => 'RuleQuery', ruleset => $ruleset_id } );
-	say "</div>";
-	print $q->hidden($_) foreach qw(db page name ruleset);
-	print $q->end_form;
-	print "</div>\n";
+	say q(</div>);
+	say $q->hidden($_) foreach qw(db page name ruleset);
+	say $q->end_form;
+	say q(</div>);
 	return;
 }
 
 sub _select_ruleset {
 	my ( $self, $rulesets ) = @_;
 	my $q = $self->{'cgi'};
-	print "<fieldset><legend>Please select ruleset</legend>";
+	say q(<fieldset><legend>Please select ruleset</legend>);
 	my ( @ids, %labels );
 	foreach my $ruleset_id ( sort { $a cmp $b } keys %$rulesets ) {
 		my $ruleset = $rulesets->{$ruleset_id};
 		push @ids, $ruleset_id;
 		$labels{$ruleset_id} = $ruleset->{'description'};
 	}
-	print "<label for=\"ruleset\">Ruleset: </label>\n";
-	print $q->popup_menu( -name => 'ruleset', -id => 'ruleset', -values => [ '', @ids ], -labels => \%labels );
-	print "</fieldset>\n";
+	say q(<label for="ruleset">Ruleset: </label>);
+	say $q->popup_menu( -name => 'ruleset', -id => 'ruleset', -values => [ '', @ids ], -labels => \%labels );
+	say q(</fieldset>);
 	return;
 }
 
@@ -200,18 +198,16 @@ sub run_job {
 	if ( $params->{'sequence'} ) {
 		$sequence = $params->{'sequence'};
 	} elsif ( $params->{'upload_file'} ) {
-		my $file = "$self->{'config'}->{'tmp_dir'}/$params->{'upload_file'}";
-		if ( -e $file ) {
-			open( my $fh, '<', $file ) or $logger->error("Can't open sequence file $file");
-			$sequence = do { local $/; <$fh> };    #slurp
-		}
+		my $file    = "$self->{'config'}->{'tmp_dir'}/$params->{'upload_file'}";
+		my $seq_ref = BIGSdb::Utils::slurp($file);
+		$sequence = $$seq_ref;
 	}
 	$self->remove_all_identifier_lines( \$sequence );
 	$self->{'sequence'} = \$sequence;
 	$self->{'job_id'}   = $job_id;
 	my $code_ref = $self->_read_code( $params->{'rule_path'} );
 	if ( ref $code_ref eq 'SCALAR' ) {
-		eval "$$code_ref";                         ## no critic (ProhibitStringyEval)
+		eval "$$code_ref";    ## no critic (ProhibitStringyEval)
 	}
 	$logger->error($@) if $@;
 	return;
@@ -224,19 +220,24 @@ sub _read_code {
 	my $line_number;
 	while ( my $line = <$fh> ) {
 		$line_number++;
-		if ( $line =~ /^([\w_\-&\.,;:\|\$\@\%#'"\/\\\(\){}\[\]=<>\*\+\s\?~]*)$/ && $line !~ /system/ && $line !~ /[\W\s]+db[\W\s]+/ )
-		{ #prevent system calls (inc. backticks) and direct access to db (need to stop $self->{'db'}, $self->{"db"}, $self->{qw ( db )} etc.)
+
+		#Prevent system calls (inc. backticks) and direct access to db
+		#(need to stop $self->{'db'}, $self->{"db"}, $self->{qw ( db )} etc.)
+		if (   $line =~ /^([\w_\-&\.,;:\|\$\@\%#'"\/\\\(\){}\[\]=<>\*\+\s\?~]*)$/x
+			&& $line !~ /system/x
+			&& $line !~ /[\W\s]+db[\W\s]+/x )
+		{
 			$line = $1;
 			foreach my $command (
 				qw(scan_locus scan_scheme scan_group append_html get_scheme_html get_client_field update_status
 				get_locus_info)
 			  )
 			{
-				$line =~ s/$command/\$self->_$command/g;
+				$line =~ s/$command/\$self->_$command/gx;
 			}
-			$line =~ s/\$results/\$self->{'results'}/g;
-			$line =~ s/<h1>/<h3 style=\\"border-bottom:none\\">/g;
-			$line =~ s/<\/h1>/<\/h3>/g;
+			$line =~ s/\$results/\$self->{'results'}/gx;
+			$line =~ s/<h1>/<h3 style=\\"border-bottom:none\\">/gx;
+			$line =~ s/<\/h1>/<\/h3>/gx;
 			$code .= $line;
 		} else {
 			$logger->error("Line $line_number: \"$line\" rejected.  Script terminated.");
@@ -247,23 +248,30 @@ sub _read_code {
 	return \$code;
 }
 
-sub _get_locus_info {
+sub _get_locus_info {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $locus ) = @_;
 	return $self->{'datastore'}->get_locus_info($locus);
 }
 
-sub _scan_locus {
+sub _scan_locus {        ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $locus ) = @_;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$logger->error("Invalid locus $locus");
 		return;
 	}
 	my $set_id = $self->get_set_id;
-	( my $blast_file, undef ) =
-	  $self->{'datastore'}->run_blast(
-		{ locus => $locus, seq_ref => $self->{'sequence'}, qry_type => 'DNA', num_results => 5, cache => 0, set_id => $set_id } );
+	( my $blast_file, undef ) = $self->{'datastore'}->run_blast(
+		{
+			locus       => $locus,
+			seq_ref     => $self->{'sequence'},
+			qry_type    => 'DNA',
+			num_results => 5,
+			cache       => 0,
+			set_id      => $set_id
+		}
+	);
 	my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
-	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->[0]->{'allele'} if @$exact_matches;    #only use first match
+	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->[0]->{'allele'} if @$exact_matches;  #only use first match
 	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	return;
 }
@@ -296,9 +304,9 @@ sub _scan_scheme {
 			} else {
 				$regex = $locus_info->{'allele_id_format'} eq 'integer' ? '\d+' : '.+';
 			}
-			if ( $match->{'allele'} =~ /^$locus:(.+)/ ) {
+			if ( $match->{'allele'} =~ /^$locus:(.+)/x ) {
 				my $allele_id = $1;
-				if ( $allele_id =~ /$regex/ ) {
+				if ( $allele_id =~ /$regex/x ) {
 					$match->{'allele'}                      = $allele_id;
 					$allele{$locus}                         = $allele_id;
 					$self->{'results'}->{'locus'}->{$locus} = $allele_id;
@@ -326,7 +334,8 @@ sub _scan_scheme {
 		if ( @$scheme_fields && $scheme_loci ) {
 			local $" = ',';
 			my $field_values =
-			  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
+			  $self->{'datastore'}
+			  ->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
 				\@profiles, { fetch => 'row_hashref' } );
 			foreach my $field (@$scheme_fields) {
 				$self->{'results'}->{'scheme'}->{$scheme_id}->{$field} = $field_values->{ lc($field) }
@@ -337,14 +346,14 @@ sub _scan_scheme {
 	return;
 }
 
-sub _scan_group {
+sub _scan_group {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $group_id ) = @_;
 	my @groups = $group_id;
 	push @groups, @{ $self->_get_child_groups($group_id) };
 	foreach my $group (@groups) {
 		my $group_schemes =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?", $group, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?',
+			$group, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$group_schemes) {
 			$self->_scan_scheme( $scheme_id, $self->{'sequence'} );
 		}
@@ -361,7 +370,8 @@ sub _get_child_groups {
 		foreach my $group (@groups_to_test) {
 			my $groups =
 			  $self->{'datastore'}
-			  ->run_query( "SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?", $group, { fetch => 'col_arrayref' } );
+			  ->run_query( 'SELECT group_id FROM scheme_group_group_members WHERE parent_group_id=?',
+				$group, { fetch => 'col_arrayref' } );
 			push @temp_groups, @$groups;
 		}
 		last if !@temp_groups;
@@ -372,65 +382,65 @@ sub _get_child_groups {
 	return \@child_groups;
 }
 
-sub _append_html {
+sub _append_html {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $text ) = @_;
 	$self->{'html'} .= "$text\n";
 	$self->{'jobManager'}->update_job_status( $self->{'job_id'}, { 'message_html' => $self->{'html'} } );
 	return;
 }
 
-sub _update_status {
+sub _update_status {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $status_hash ) = @_;
 	return if ref $status_hash ne 'HASH';
 	$self->{'jobManager'}->update_job_status( $self->{'job_id'}, $status_hash );
 	return;
 }
 
-sub _get_scheme_html {
+sub _get_scheme_html {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = { table => 1, fields => 1, loci => 1 } if ref $options ne 'HASH';
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $buffer = '';
 	if ( $options->{'table'} ) {
-		local $" = "</th><th>";
-		$buffer .= "<table class=\"resultstable\"><tr>";
-		$buffer .= "<th>@$loci</th>" if @$loci && $options->{'loci'};
-		$buffer .= "<th>@$fields</th>" if @$fields && $options->{'fields'};
-		$buffer .= "</tr>\n<tr class=\"td1\">";
+		local $" = q(</th><th>);
+		$buffer .= q(<table class="resultstable"><tr>);
+		$buffer .= qq(<th>@$loci</th>) if @$loci && $options->{'loci'};
+		$buffer .= qq(<th>@$fields</th>) if @$fields && $options->{'fields'};
+		$buffer .= q(</tr><tr class="td1">);
 		if ( $options->{'loci'} ) {
 			foreach my $locus (@$loci) {
 				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
-				$buffer .= "<td>$value</td>";
+				$buffer .= qq(<td>$value</td>);
 			}
 		}
 		if ( $options->{'fields'} ) {
 			foreach my $field (@$fields) {
 				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
-				$buffer .= "<td>$value</td>";
+				$buffer .= qq(<td>$value</td>);
 			}
 		}
-		$buffer .= "</tr></table>\n";
+		$buffer .= qq(</tr></table>\n);
 	} else {
-		$buffer .= "<ul>" if $options->{'loci'} || $options->{'fields'};
+		$buffer .= q(<ul>) if $options->{'loci'} || $options->{'fields'};
 		if ( @$loci && $options->{'loci'} ) {
 			foreach my $locus (@$loci) {
 				my $value = $self->{'results'}->{'locus'}->{$locus} // '-';
-				$buffer .= "<li>$locus: $value</li>\n";
+				$buffer .= qq(<li>$locus: $value</li>\n);
 			}
 		}
 		if ( @$fields && $options->{'fields'} ) {
 			foreach my $field (@$fields) {
 				my $value = $self->{'results'}->{'scheme'}->{$scheme_id}->{$field} // '-';
-				$buffer .= "<li>$field: $value</li>";
+				$buffer .= qq(<li>$field: $value</li>);
 			}
 		}
-		$buffer .= "</ul>" if $options->{'loci'} || $options->{'fields'};
+		$buffer .= q(</ul>) if $options->{'loci'} || $options->{'fields'};
 	}
 	return $buffer;
 }
 
-sub _get_client_field {
+sub _get_client_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can be called by rule file.
 	my ( $self, $client_db_id, $locus, $field, $options ) = @_;
 	return if !BIGSdb::Utils::is_int( $client_db_id // '' );
 	$options = {} if ref $options ne 'HASH';
