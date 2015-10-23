@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2014, University of Oxford
+#Copyright (c) 2011-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -144,14 +144,15 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Codon usage analysis</h1>";
+	say q(<h1>Codon usage analysis</h1>);
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -160,14 +161,15 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
-			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+			local $" = q(, );
+			say q(<div class="box" id="statusbad"><p>The following loci in your pasted )
+			  . qq(list are invalid: @$invalid_loci.</p></div>);
 		} elsif ( !@$loci_selected ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
+			say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			my @list = split /[\r\n]+/, $q->param('list');
+			my @list = split /[\r\n]+/x, $q->param('list');
 			@list = uniq @list;
 			if ( !@list ) {
 				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
@@ -189,39 +191,33 @@ sub run {
 					loci         => $loci_selected
 				}
 			);
-			print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take some time depending on the number of sequences to analyse
-and how busy the server is.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+			say q(<div class="box" id="resultstable"><p>This analysis has been submitted to )
+			  . q(the job queue.</p><p>Please be aware that this job may take some time depending )
+			  . q(on the number of sequences to analyse and how busy the server is.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
 			return;
 		}
 	}
-	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>This plugin will analyse the codon usage for individual loci and overall for an isolate.  Only loci that 
-have a corresponding database containing sequences, or with sequences tagged,  
-can be included.  It is important to note that correct identification of codons can only be achieved for loci
-for which the correct ORF has been set (if they are not in reading frame 1).  Partial sequnces from the sequence
-bin will not be analysed. Please check the loci that you 
-would like to include. Output is limited to $limit records.</p>
-HTML
-	my $options    = { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
+	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	say q[<div class="box" id="queryform"><p>This plugin will analyse the codon usage for individual loci ]
+	  . q[and overall for an isolate.  Only loci that have a corresponding database containing sequences, ]
+	  . q[or with sequences tagged, can be included.  It is important to note that correct identification ]
+	  . q[of codons can only be achieved for loci for which the correct ORF has been set (if they are not ]
+	  . q[in reading frame 1).  Partial sequnces from the sequence bin will not be analysed. Please check ]
+	  . qq[the loci that you would like to include. Output is limited to $limit records.</p>];
+	my $options =
+	  { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
 	my $query_file = $q->param('query_file');
-	my $list       = $self->get_id_list( 'id', $query_file );
+	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
 sub print_extra_form_elements {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Codons</legend>);
 	say q(<p>Select codon order:</p>);
 	say $q->radio_group(
@@ -244,7 +240,7 @@ sub run_job {
 	my @includes;
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
-		@includes = split /$separator/, $params->{'includes'};
+		@includes = split /$separator/x, $params->{'includes'};
 	}
 	my $ignore_seqflag;
 	if ( $params->{'ignore_seqflags'} ) {
@@ -260,7 +256,8 @@ sub run_job {
 	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
 
 	if ( @$list > $limit ) {
-		my $message_html = "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
+		my $message_html =
+		  q(<p class="statusbad">Please note that output ) . qq(is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my %includes;
@@ -284,19 +281,22 @@ sub run_job {
 			last if $count == $limit;
 			$count++;
 			my @include_values;
-			my $buffer;
 			next if $bad_ids{$id};
-			if (   !BIGSdb::Utils::is_int($id)
-				|| !$self->{'datastore'}
-				->run_query( "SELECT EXISTS(SELECT * FROM $view WHERE id=?)", $id, { cache => 'CodonUsage::run_job_id_exists' } ) )
+			if (
+				!BIGSdb::Utils::is_int($id)
+				|| !$self->{'datastore'}->run_query(
+					"SELECT EXISTS(SELECT * FROM $view WHERE id=?)",
+					$id,
+					{ cache => 'CodonUsage::run_job_id_exists' }
+				)
+			  )
 			{
 				$bad_ids{$id} = 1;
 				next;
 			}
 			if (@includes) {
-				my $include_data =
-				  $self->{'datastore'}
-				  ->run_query( "SELECT * FROM $view WHERE id=?", $id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
+				my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $view WHERE id=?",
+					$id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
 				foreach my $field (@includes) {
 					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 					my $value;
@@ -324,9 +324,10 @@ sub run_job {
 			}
 			my $seqbin_seq;
 			my $data = $self->{'datastore'}->run_query(
-				"SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-allele_sequences."
-				  . "start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN "
-				  . "sequence_flags ON allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? "
+				'SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-'
+				  . 'allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON '
+				  . 'allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id='
+				  . 'sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? '
 				  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1",
 				[ $id, $locus_name ],
 				{ fetch => 'all_arrayref', cache => 'CodonUsage::run_job_seqbin' }
@@ -351,12 +352,13 @@ sub run_job {
 			open( my $fh_cusp_in, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 			print $fh_cusp_in ">$id\n$seq\n";
 			close $fh_cusp_in;
-			system("$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file -outfile $cusp_file -warning false 2>/dev/null");
+			system( "$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file "
+				  . "-outfile $cusp_file -warning false 2>/dev/null" );
 			if ( -e $cusp_file ) {
 				open( my $fh_cusp, '<', $cusp_file ) || $logger->error("Can't open $cusp_file for reading");
 				while (<$fh_cusp>) {
-					next if $_ =~ /^#/ || $_ eq '';
-					my ( $codon, $aa, undef, undef, $number ) = split /\s+/, $_;
+					next if $_ =~ /^\#/x || $_ eq q();
+					my ( $codon, $aa, undef, undef, $number ) = split /\s+/x, $_;
 					$number ||= 0;
 					$locus_codon_count->{$locus_name}->{$codon} += $number;
 					$locus_aa_count->{$locus_name}->{$aa}       += $number;
@@ -444,19 +446,40 @@ sub run_job {
 	if ( keys %bad_ids ) {
 		local $" = ', ';
 		my @bad_ids = sort keys %bad_ids;
-		$message_html = "<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n";
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n);
 	}
 	if ($no_output) {
-		$message_html .= "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .= q(<p>No output generated.  Please ensure that your )
+		  . qq(sequences have been defined for these isolates.</p>\n);
 	} else {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ 'filename' => "$job_id\_rscu_by_isolate.txt", 'description' => 'Relative synonymous codon usage (RSCU) by isolate' } );
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ 'filename' => "$job_id\_number_by_isolate.txt", 'description' => 'Absolute frequency of codon usage by isolate' } );
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ 'filename' => "$job_id\_rscu_by_locus.txt", 'description' => 'Relative synonymous codon usage (RSCU) by locus' } );
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ 'filename' => "$job_id\_number_by_locus.txt", 'description' => 'Absolute frequency of codon usage by locus' } );
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$job_id\_rscu_by_isolate.txt",
+				description => 'Relative synonymous codon usage (RSCU) by isolate'
+			}
+		);
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$job_id\_number_by_isolate.txt",
+				description => 'Absolute frequency of codon usage by isolate'
+			}
+		);
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$job_id\_rscu_by_locus.txt",
+				description => 'Relative synonymous codon usage (RSCU) by locus'
+			}
+		);
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "$job_id\_number_by_locus.txt",
+				description => 'Absolute frequency of codon usage by locus'
+			}
+		);
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
 	return;
