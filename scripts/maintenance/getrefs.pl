@@ -2,7 +2,7 @@
 #
 #bigsdb_getrefs.pl
 #Written by Keith Jolley
-#Copyright (c) 2003, 2009, 2012, 2014 University of Oxford
+#Copyright (c) 2003, 2009, 2012, 2014-2015 University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #Find out which references are cited in the databases
@@ -35,7 +35,6 @@
 #
 #Please note that Bio::Biblio is no longer a part of BioPerl (since version 1.6.920).
 #This can be installed from CPAN if a package isn't available with your Linux distribution.
-
 use strict;
 use warnings;
 use 5.010;
@@ -45,135 +44,145 @@ use XML::Parser;
 use Bio::Biblio::IO;
 use List::MoreUtils qw(uniq);
 use Carp;
-binmode( STDOUT, ":encoding(UTF-8)" );
+binmode( STDOUT, ':encoding(UTF-8)' );
 my $refs_db = 'bigsdb_refs';
 my %tablelist;
-my @refs;
 my $conflist = $ARGV[0];
 
 if ( !$ARGV[0] ) {
-	say "Usage getrefs.pl <conf file>";
+	say 'Usage getrefs.pl <conf file>';
 	exit(1);
 }
+my $dbr = DBI->connect( "DBI:Pg:dbname=$refs_db", undef, undef, { Username => 'postgres', pg_enable_utf8 => 1 } )
+  or croak 'could not open db' . DBI->errstr;
+main();
 
-#Read in database list from getrefs.conf
-if ( -e $conflist ) {
-	open( my $fh, '<', $conflist ) || croak "Can't open $conflist for reading";
-	while ( my $line = <$fh> ) {
-		next if !$line || $line =~ /^#/;
-		my ( $dbase, $list ) = split /\s+/, $line;
-		$list =~ s/\n//g;
-		$tablelist{$dbase} = $list;
-	}
-	close $fh;
-} else {
-	say "Configuration file '$conflist' does not exist!";
-	exit(1);
-}
+sub main {
+	my $refs = get_pmids();
 
-#Find all PubMed references in reference tables
-foreach my $dbase ( keys %tablelist ) {
-	my @tables = split /,/, $tablelist{$dbase};
-	foreach (@tables) {
-		$_ =~ s/\s//g;
-		my $db = DBI->connect( "DBI:Pg:dbname=$dbase", 'postgres' ) or croak "couldn't open db" . DBI->errstr;
-		my $sql;
-		my $qry = "SELECT DISTINCT pubmed_id FROM $_;";
-		$sql = $db->prepare($qry) or croak "couldn't prepare";
-		$sql->execute;
-		while ( my ($ref) = $sql->fetchrow_array ) {
-			if ( length $ref < 4 ) {
-				say "$dbase: Unlikely PMID $ref.";
-				exit;
-			}
-			push @refs, $ref;
-		}
-		$sql->finish;
-		$db->disconnect;
-	}
-}
-@refs = uniq @refs;
-my $db = DBI->connect( "DBI:Pg:dbname=$refs_db", 'postgres', undef, { pg_enable_utf8 => 1 } )
-  or croak "couldn't open db" . DBI->errstr;
+	#Here we query website and extract reference data
+	foreach my $pmid (@$refs) {
 
-#Here we query website and extract reference data
-foreach my $refid (@refs) {
-
-	#Check whether the reference is already in the database
-	my $retval = ( runquery( "SELECT pmid FROM refs WHERE pmid=?", $refid ) );
-	if ( !$retval ) {
-		my $url = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=PubMed&id=$refid&report=medline&retmode=xml";
+		#Check whether the reference is already in the database
+		my $retval = ( runquery( 'SELECT pmid FROM refs WHERE pmid=?', $pmid ) );
+		next if $retval;
+		my $url =
+		  'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?' . "db=PubMed&id=$pmid&report=medline&retmode=xml";
 		if ( my $citationxml = get $url) {
-			if ( $citationxml !~ /\*\*\* No Documents Found \*\*\*/ ) {
-				my $io = Bio::Biblio::IO->new( -data => $citationxml, -format => 'pubmedxml' );
-				sleep 10;    #Let's be nice to the remote server.
-				my $bibref = $io->next_bibref;
-				next if !$bibref;
-				my $pmid    = $bibref->pmid;
-				my $title   = $bibref->title;
-				my @authors = getauthors($bibref);
-				my @authorlist;
+			next if $citationxml =~ /\*\*\*\ No\ Documents\ Found\ \*\*\*/x;
+			my $io = Bio::Biblio::IO->new( -data => $citationxml, -format => 'pubmedxml' );
+			sleep 5;    #Let's be nice to the remote server.
+			my $bibref = $io->next_bibref;
+			next if !$bibref;
+			my $pmid    = $bibref->pmid;
+			my $title   = $bibref->title;
+			my @authors = getauthors($bibref);
+			my @authorlist;
 
-				foreach my $author (@authors) {
-					my ( $surname, $initials );
-					if ( $author =~ /([\w\s'-]+),(\w+)/ ) {
-						$surname  = $1;
-						$initials = $2;
-					}
-					my $qry = "SELECT id FROM authors WHERE surname=? AND initials=?";
-					my ($authorid) = runquery( $qry, $surname, $initials );
-					if ( !$authorid ) {
-						print "surname: $surname; initials: $initials\n";
-						$db->do( "INSERT INTO authors (surname,initials) VALUES (?,?)", undef, $surname, $initials );
-						($authorid) = runquery( $qry, $surname, $initials );
-					}
-					push @authorlist, $authorid;
+			foreach my $author (@authors) {
+				my ( $surname, $initials );
+				if ( $author =~ /([\w\s'-]+),(\w+)/x ) {
+					$surname  = $1;
+					$initials = $2;
 				}
-				my $journal = $bibref->journal->medline_ta;
-				$journal = ' ' if !$journal;
-				my $volume = $bibref->volume;
-				$volume = '[Epub ahead of print]' if !$volume;
-				my $pages = $bibref->medline_page;
-				$pages = ' ' if !$pages;
-				my $year;
-
-				if ( $bibref->date =~ /^(\d\d\d\d)/ ) {
-					$year = $1;
-				} else {
-					$year = 0;
+				my $qry = 'SELECT id FROM authors WHERE (surname,initials)=(?,?)';
+				my ($authorid) = runquery( $qry, $surname, $initials );
+				if ( !$authorid ) {
+					print "surname: $surname; initials: $initials\n";
+					$dbr->do( 'INSERT INTO authors (surname,initials) VALUES (?,?)', undef, $surname, $initials );
+					($authorid) = runquery( $qry, $surname, $initials );
 				}
-				my $abstract = $bibref->abstract;
-				$abstract //= '';
-				my $qry = "SELECT pmid FROM refs WHERE pmid=?";
-				my $indb = runquery( $qry, $pmid );
-				if ( !$indb ) {
-					local $" = '; ';
-					say "pmid : $pmid";
-					say "authors: @authors";
-					say "@authorlist";
-					say "year: $year";
-					say "journal: $journal";
-					say "volume: $volume";
-					say "pages: $pages";
-					say "title: $title";
-					say "abstract: $abstract";
-					say "\n";
-					$db->do( "INSERT INTO refs (pmid,year,journal,volume,pages,title,abstract) VALUES (?,?,?,?,?,?,?)",
-						undef, $pmid, $year, $journal, $volume, $pages, $title, $abstract )
-					  or say "Failed to insert id: $pmid!";
-					my $pos = 1;
+				push @authorlist, $authorid;
+			}
+			my $journal = $bibref->journal->medline_ta;
+			$journal = ' ' if !$journal;
+			my $volume = $bibref->volume;
+			$volume = '[Epub ahead of print]' if !$volume;
+			my $pages = $bibref->medline_page;
+			$pages = ' ' if !$pages;
+			my $year;
 
-					foreach my $authorid (@authorlist) {
-						$db->do( "INSERT INTO refauthors (pmid,author,position) VALUES (?,?,?)", undef, $pmid, $authorid, $pos )
-						  or say "Failed to insert ref author: $pmid - $authorid!";
-						$pos++;
-					}
+			if ( $bibref->date =~ /^(\d\d\d\d)/x ) {
+				$year = $1;
+			} else {
+				$year = 0;
+			}
+			my $abstract = $bibref->abstract;
+			$abstract //= '';
+			my $qry = 'SELECT pmid FROM refs WHERE pmid=?';
+			my $indb = runquery( $qry, $pmid );
+			if ( !$indb ) {
+				local $" = '; ';
+				say "pmid : $pmid";
+				say "authors: @authors";
+				say "year: $year";
+				say "journal: $journal";
+				say "volume: $volume";
+				say "pages: $pages";
+				say "title: $title";
+				say "abstract: $abstract";
+				say "\n";
+				$dbr->do( 'INSERT INTO refs (pmid,year,journal,volume,pages,title,abstract) VALUES (?,?,?,?,?,?,?)',
+					undef, $pmid, $year, $journal, $volume, $pages, $title, $abstract )
+				  or say "Failed to insert id: $pmid!";
+				my $pos = 1;
+
+				foreach my $authorid (@authorlist) {
+					$dbr->do( 'INSERT INTO refauthors (pmid,author,position) VALUES (?,?,?)',
+						undef, $pmid, $authorid, $pos )
+					  or say "Failed to insert ref author: $pmid - $authorid!";
+					$pos++;
 				}
 			}
 		} else {
-			say "Ref $refid could not be retrieved.";
+			say "Ref $pmid could not be retrieved.";
 		}
 	}
+	return;
+}
+
+sub get_pmids {
+
+	#Read in database list from getrefs.conf
+	if ( -e $conflist ) {
+		open( my $fh, '<', $conflist ) || croak "Can't open $conflist for reading";
+		while ( my $line = <$fh> ) {
+			next if !$line || $line =~ /^\#/x;
+			my ( $dbase, $list ) = split /\s+/x, $line;
+			$list =~ s/\n//gx;
+			$tablelist{$dbase} = $list;
+		}
+		close $fh;
+	} else {
+		say "Configuration file '$conflist' does not exist!";
+		exit(1);
+	}
+
+	#Find all PubMed references in reference tables
+	my @refs;
+	foreach my $dbase ( keys %tablelist ) {
+		my @tables = split /,/x, $tablelist{$dbase};
+		foreach my $table (@tables) {
+			$table =~ s/\s//gx;
+			my $db = DBI->connect( "DBI:Pg:dbname=$dbase", undef, undef, { Username => 'postgres' } )
+			  or croak 'could not open db' . DBI->errstr;
+			my $sql;
+			my $qry = "SELECT DISTINCT pubmed_id FROM $table;";
+			$sql = $db->prepare($qry) or croak 'could not prepare';
+			$sql->execute;
+			while ( my ($ref) = $sql->fetchrow_array ) {
+				if ( length $ref < 4 ) {
+					say "$dbase: Unlikely PMID $ref.";
+					exit;
+				}
+				push @refs, $ref;
+			}
+			$sql->finish;
+			$db->disconnect;
+		}
+	}
+	@refs = uniq @refs;
+	return \@refs;
 }
 
 sub getauthors {
@@ -192,7 +201,7 @@ sub getauthors {
 
 sub runquery {
 	my ( $qry, @args ) = @_;
-	my $sql = $db->prepare($qry) or croak "couldn't prepare" . $db->errstr;
+	my $sql = $dbr->prepare($qry) or croak 'could not prepare' . $dbr->errstr;
 	$sql->execute(@args);
 	return $sql->fetchrow_array;
 }
