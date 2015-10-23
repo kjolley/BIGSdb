@@ -1,5 +1,9 @@
 ALTER TABLE sequences ADD validated boolean;
 ALTER TABLE sequences ADD exemplar boolean;
+ALTER TABLE sequences ADD inferred_allele_id text;
+ALTER TABLE sequences ADD CONSTRAINT seq_inferred_allele_id FOREIGN KEY (locus,inferred_allele_id) REFERENCES sequences(locus,allele_id) 
+ON DELETE NO ACTION
+ON UPDATE CASCADE;
 ALTER TABLE locus_extended_attributes ADD main_display boolean;
 UPDATE locus_extended_attributes SET main_display=TRUE;
 ALTER TABLE locus_extended_attributes ALTER COLUMN main_display SET NOT NULL;

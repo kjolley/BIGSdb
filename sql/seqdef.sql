@@ -277,6 +277,7 @@ status text NOT NULL,
 comments text,
 validated boolean,
 exemplar boolean,
+inferred_allele_id text,
 sender int NOT NULL,
 curator int NOT NULL,
 date_entered date NOT NULL,
@@ -284,6 +285,9 @@ datestamp date NOT NULL,
 PRIMARY KEY (locus,allele_id),
 CONSTRAINT seq_loci FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT seq_inferred_allele_id FOREIGN KEY (locus,inferred_allele_id) REFERENCES sequences(locus,allele_id) 
+ON DELETE NO ACTION
 ON UPDATE CASCADE,
 CONSTRAINT seq_sender FOREIGN KEY (sender) REFERENCES users
 ON DELETE NO ACTION
