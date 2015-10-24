@@ -89,8 +89,8 @@ sub _print_plugins {
 	my $etd = 1;
 	my $dtd = 1;
 	foreach my $plugin ( sort { $a cmp $b } keys %{$plugins} ) {
-		my $attr                   = $plugins->{$plugin};
-		$disabled_reason{$plugin} =$self->_reason_plugin_disabled($attr);
+		my $attr = $plugins->{$plugin};
+		$disabled_reason{$plugin} = $self->_reason_plugin_disabled($attr);
 		my $comments = '';
 		if ( defined $attr->{'min'} && defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with between $attr->{'min'} and $attr->{'max'} results.";
@@ -153,6 +153,9 @@ sub _reason_plugin_disabled {
 		  && !$self->{'config'}->{'mafft_path'}
 		  && $attr->{'requires'} =~ /aligner/x;
 	}
+	my $dbtype = $self->{'system'}->{'dbtype'};
+	return 'Only for ' . ( $dbtype eq 'isolates' ? 'seqdef' : 'isolate' ) . ' databases.'
+	  if $attr->{'dbtype'} !~ /$dbtype/x;
 	return 'Not specifically enabled for this database.'
 	  if (
 		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
@@ -160,9 +163,6 @@ sub _reason_plugin_disabled {
 		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 	  );
-	my $dbtype = $self->{'system'}->{'dbtype'};
-	return 'Only for ' . ( $dbtype eq 'isolates' ? 'seqdef' : 'isolate' ) . ' databases.'
-	  if $attr->{'dbtype'} !~ /$dbtype/x;
 	return;
 }
 
