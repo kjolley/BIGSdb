@@ -67,7 +67,7 @@ http://bigsdb.readthedocs.org/</a>.</li></ul>
 HTML
 	$self->_print_plugins;
 	$self->_print_software_versions;
-	say '</div>';
+	say q(</div>);
 	return;
 }
 
@@ -169,14 +169,14 @@ sub _reason_plugin_disabled {
 sub _print_software_versions {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say '<h2>Software versions</h2>';
+	say q(<h2>Software versions</h2>);
 	my $pg_version = $self->{'datastore'}->run_query('SELECT version()');
-	say '<ul>';
-	say "<li>Perl $]</li>";
-	say "<li>$pg_version</li>";
+	say q(<ul>);
+	say qq(<li>Perl $]</li>);
+	say qq(<li>$pg_version</li>);
 	my $apache = $q->server_software;
-	say "<li>$apache</li>";
-	say '</ul>';
+	say qq(<li>$apache</li>);
+	say q(</ul>);
 	return;
 }
 1;

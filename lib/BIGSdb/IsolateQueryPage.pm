@@ -33,22 +33,28 @@ sub _ajax_content {
 	my $q      = $self->{'cgi'};
 	my $row    = $q->param('row');
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
-	if ( $q->param('fields') eq 'provenance' ) {
-		my ( $select_items, $labels ) = $self->_get_select_items;
-		$self->_print_provenance_fields( $row, 0, $select_items, $labels );
-	} elsif ( $q->param('fields') eq 'loci' ) {
-		my ( $locus_list, $locus_labels ) =
-		  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
-		$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
-	} elsif ( $q->param('fields') eq 'allele_status' ) {
-		my ( $locus_list, $locus_labels ) =
-		  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
-		$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
-	} elsif ( $q->param('fields') eq 'tags' ) {
-		my ( $locus_list, $locus_labels ) =
-		  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
-		$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
-	}
+	my %method = (
+		provenance => sub {
+			my ( $select_items, $labels ) = $self->_get_select_items;
+			$self->_print_provenance_fields( $row, 0, $select_items, $labels );
+		},
+		loci => sub {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
+			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		allele_status => sub {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		tags => sub {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
+		}
+	);
+	$method{ $q->param('fields') }->() if $method{ $q->param('fields') };
 	return;
 }
 
@@ -336,7 +342,7 @@ sub _get_list_attribute_data {
 	my ( $self, $attribute ) = @_;
 	my $pattern = LOCUS_PATTERN;
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field );
-	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {
+	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
 		$scheme_id  = $1;
 		$field      = $2;
 		$field_type = 'scheme_field';
@@ -865,7 +871,6 @@ sub _generate_query_for_provenance_fields {
 						{ text => $text, operator => $operator, modifier => $modifier }, $errors_ref );
 					next;
 				}
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				if ( !$extended_isolate_field ) {
 					if ( !$self->{'xmlHandler'}->is_field($field) ) {
 						push @$errors_ref, "$field is an invalid field.";
@@ -879,52 +884,43 @@ sub _generate_query_for_provenance_fields {
 					text                   => $text,
 					modifier               => $modifier,
 					type                   => $thisfield->{'type'},
-					parent_field_type      => $parent_field_type
+					parent_field_type      => $parent_field_type,
+					operator               => $operator,
+					errors                 => $errors_ref
 				};
-				if ( $operator eq 'NOT' ) {
-					$args->{'not'} = 1;
-					$qry .= $self->_provenance_equals_type_operator($args);
-				} elsif ( $operator eq 'contains' ) {
-					$args->{'behaviour'} = '%text%';
-					$qry .= $self->_provenance_like_type_operator($args);
-				} elsif ( $operator eq 'starts with' ) {
-					$args->{'behaviour'} = 'text%';
-					$qry .= $self->_provenance_like_type_operator($args);
-				} elsif ( $operator eq 'ends with' ) {
-					$args->{'behaviour'} = '%text';
-					$qry .= $self->_provenance_like_type_operator($args);
-				} elsif ( $operator eq 'NOT contain' ) {
-					$args->{'behaviour'} = '%text%';
-					$args->{'not'}       = 1;
-					$qry .= $self->_provenance_like_type_operator($args);
-				} elsif ( $operator eq '=' ) {
-					$qry .= $self->_provenance_equals_type_operator($args);
-				} else {
-					my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
-					$qry .= $modifier;
-					if ($extended_isolate_field) {
-						$qry .=
-						  $parent_field_type eq 'int'
-						  ? "CAST($view.$extended_isolate_field AS text) "
-						  : "$view.$extended_isolate_field ";
-						$qry .= 'IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='
-						  . "'$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
-					} elsif ( $field eq $labelfield ) {
-						$qry .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
-						  . "WHERE alias $operator E'$text'))";
-					} else {
-						if ( $text eq 'null' ) {
-							push @$errors_ref, "$operator is not a valid operator for comparing null values.";
-							next;
-						}
-						if ( defined $metaset ) {
-							$qry .= "$view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield "
-							  . "$operator E'$text')";
-						} else {
-							$qry .= "$field $operator E'$text'";
-						}
+				my %method = (
+					'NOT' => sub {
+						$args->{'not'} = 1;
+						$qry .= $self->_provenance_equals_type_operator($args);
+					},
+					'contains' => sub {
+						$args->{'behaviour'} = '%text%';
+						$qry .= $self->_provenance_like_type_operator($args);
+					},
+					'starts with' => sub {
+						$args->{'behaviour'} = 'text%';
+						$qry .= $self->_provenance_like_type_operator($args);
+					},
+					'ends with' => sub {
+						$args->{'behaviour'} = '%text';
+						$qry .= $self->_provenance_like_type_operator($args);
+					},
+					'NOT contain' => sub {
+						$args->{'behaviour'} = '%text%';
+						$args->{'not'}       = 1;
+						$qry .= $self->_provenance_like_type_operator($args);
+					},
+					'=' => sub {
+						$qry .= $self->_provenance_equals_type_operator($args);
+					},
+					'>' => sub {
+						$qry .= $self->_provenance_ltmt_type_operator($args);
+					},
+					'<' => sub {
+						$qry .= $self->_provenance_ltmt_type_operator($args);
 					}
-				}
+				);
+				$method{$operator}->();
 			}
 		}
 	}
@@ -938,84 +934,91 @@ sub _grouped_field_query {
 	my $operator = $data->{'operator'} // '=';
 	my $view     = $self->{'system'}->{'view'};
 	my $buffer   = "$data->{'modifier'} (";
-	if ( $operator eq 'NOT' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			if ( $text eq 'null' ) {
-				$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-				$buffer .= "($view.$_ IS NOT NULL)";
-			} else {
-				$buffer .= ' AND ' if $_ ne $groupedfields->[0];
-				if ( $thisfield->{'type'} ne 'text' ) {
-					$buffer .= "(NOT CAST($view.$_ AS text) = E'$text' OR $view.$_ IS NULL)";
+	my %methods  = (
+		'NOT' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				if ( $text eq 'null' ) {
+					$buffer .= ' OR ' if $field ne $groupedfields->[0];
+					$buffer .= "($view.$field IS NOT NULL)";
 				} else {
-					$buffer .= "(NOT upper($view.$_) = upper(E'$text') OR $view.$_ IS NULL)";
+					$buffer .= ' AND ' if $field ne $groupedfields->[0];
+					$buffer .=
+					  $thisfield->{'type'} eq 'text'
+					  ? "(NOT UPPER($view.$field) = UPPER(E'$text') OR $view.$field IS NULL)"
+					  : "(NOT CAST($view.$field AS text) = E'$text' OR $view.$field IS NULL)";
+				}
+			}
+		},
+		'contains' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				$buffer .= ' OR ' if $field ne $groupedfields->[0];
+				$buffer .=
+				  $thisfield->{'type'} eq 'text'
+				  ? "UPPER($view.$field) LIKE UPPER(E'\%$text\%')"
+				  : "CAST($view.$field AS text) LIKE E'\%$text\%'";
+			}
+		},
+		'starts with' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				$buffer .= ' OR ' if $field ne $groupedfields->[0];
+				$buffer .=
+				  $thisfield->{'type'} eq 'text'
+				  ? "UPPER($view.$field) LIKE UPPER(E'$text\%')"
+				  : "CAST($view.$field AS text) LIKE E'$text\%'";
+			}
+		},
+		'ends with' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				$buffer .= ' OR ' if $field ne $groupedfields->[0];
+				$buffer .=
+				  $thisfield->{'type'} eq 'text'
+				  ? "UPPER($view.$field) LIKE UPPER(E'\%$text')"
+				  : "CAST($view.$field AS text) LIKE E'\%$text'";
+			}
+		},
+		'NOT contain' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				$buffer .= ' AND ' if $field ne $groupedfields->[0];
+				$buffer .=
+				  $thisfield->{'type'} eq 'text'
+				  ? "(NOT UPPER($view.$field) LIKE UPPER(E'\%$text\%') OR $view.$field IS NULL)"
+				  : "(NOT CAST($view.$field AS text) LIKE E'\%$text\%' OR $view.$field IS NULL)";
+			}
+		},
+		'=' => sub {
+			foreach my $field (@$groupedfields) {
+				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+				$buffer .= ' OR ' if $field ne $groupedfields->[0];
+				if ( $text eq 'null' ) {
+					$buffer .= "$view.$field IS NULL";
+				} else {
+					$buffer .=
+					  $thisfield->{'type'} eq 'text'
+					  ? "UPPER($view.$field) = UPPER(E'$text')"
+					  : "CAST($view.$field AS text) = E'$text'";
 				}
 			}
 		}
-	} elsif ( $operator eq 'contains' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text\%'";
-			} else {
-				$buffer .= "upper($view.$_) LIKE upper(E'\%$text\%')";
-			}
-		}
-	} elsif ( $operator eq 'starts with' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= "CAST($view.$_ AS text) LIKE E'$text\%'";
-			} else {
-				$buffer .= "upper($view.$_) LIKE upper(E'$text\%')";
-			}
-		}
-	} elsif ( $operator eq 'ends with' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= "CAST($view.$_ AS text) LIKE E'\%$text'";
-			} else {
-				$buffer .= "upper($view.$_) LIKE upper(E'\%$text')";
-			}
-		}
-	} elsif ( $operator eq 'NOT contain' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			$buffer .= ' AND ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= "(NOT CAST($view.$_ AS text) LIKE E'\%$text\%' OR $view.$_ IS NULL)";
-			} else {
-				$buffer .= "(NOT upper($view.$_) LIKE upper(E'\%$text\%') OR $view.$_ IS NULL)";
-			}
-		}
-	} elsif ( $operator eq '=' ) {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
-			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "CAST($view.$_ AS text) = E'$text'";
-			} else {
-				$buffer .= $text eq 'null' ? "$view.$_ IS NULL" : "upper($view.$_) = upper(E'$text')";
-			}
-		}
-	} else {
-		foreach (@$groupedfields) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($_);
+	);
+	if ( $methods{$operator} ) {
+		$methods{$operator}->();
+	} else {    # less than or greater than
+		foreach my $field (@$groupedfields) {
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			return
 			  if $self->check_format(
-				{ field => $_, text => $text, type => $thisfield->{'type'}, operator => $data->{'operator'} },
+				{ field => $field, text => $text, type => $thisfield->{'type'}, operator => $data->{'operator'} },
 				$errors_ref );
-			$buffer .= ' OR ' if $_ ne $groupedfields->[0];
-			if ( $thisfield->{'type'} ne 'text' ) {
-				$buffer .= "(CAST($view.$_ AS text) $operator E'$text' AND $view.$_ is not null)";
-			} else {
-				$buffer .= "($view.$_ $operator E'$text' AND $view.$_ is not null)";
-			}
+			$buffer .= ' OR ' if $field ne $groupedfields->[0];
+			$buffer .=
+			  $thisfield->{'type'} eq 'text'
+			  ? "($view.$field $operator E'$text' AND $view.$field IS NOT NULL)"
+			  : "(CAST($view.$field AS text) $operator E'$text' AND $view.$field IS NOT NULL)";
 		}
 	}
 	$buffer .= ')';
@@ -1024,58 +1027,53 @@ sub _grouped_field_query {
 
 sub _provenance_equals_type_operator {
 	my ( $self, $values ) = @_;
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $type ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type type)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	my $inv_not    = $values->{'not'} ? '' : 'NOT';
-	if ( $values->{'extended_isolate_field'} ) {
+	if ($extended_isolate_field) {
 		$buffer .=
-		  $values->{'parent_field_type'} eq 'int'
-		  ? "CAST($view.$values->{'extended_isolate_field'} AS text) "
-		  : "$view.$values->{'extended_isolate_field'} ";
-		if ( $values->{'text'} eq 'null' ) {
+		  $parent_field_type eq 'int'
+		  ? "CAST($view.$extended_isolate_field AS text) "
+		  : "$view.$extended_isolate_field ";
+		if ( $text eq 'null' ) {
 			$buffer .= "$inv_not IN (SELECT field_value FROM isolate_value_extended_attributes "
-			  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}')";
+			  . "WHERE isolate_field='$extended_isolate_field' AND attribute='$field')";
 		} else {
 			$buffer .= "$not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
-			  . "'$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' AND upper(value) = upper(E'$values->{'text'}'))";
+			  . "'$extended_isolate_field' AND attribute='$field' AND UPPER(value) = UPPER(E'$text'))";
 		}
-	} elsif ( $values->{'field'} eq $labelfield ) {
+	} elsif ( $field eq $labelfield ) {
 		$buffer .=
-		    "($not upper($values->{'field'}) = upper(E'$values->{'text'}') "
+		    "($not UPPER($field) = UPPER(E'$text') "
 		  . ( $values->{'not'} ? ' AND ' : ' OR ' )
 		  . "$view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
-		  . "upper(alias) = upper(E'$values->{'text'}')))";
+		  . "UPPER(alias) = UPPER(E'$text')))";
 	} else {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( defined $metaset ) {
 			my $andor = $not ? 'AND' : 'OR';
-			if ( $values->{'text'} eq 'null' ) {
+			if ( $text eq 'null' ) {
 				$buffer .=
 				    "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id "
 				  . "$inv_not IN (SELECT isolate_id FROM meta_$metaset)";
 			} else {
 				$buffer .=
-				  lc( $values->{'type'} ) eq 'text'
-				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE upper($metafield) = "
-				  . "upper(E'$values->{'text'}') )"
-				  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$values->{'text'}' )";
+				  lc($type) eq 'text'
+				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE UPPER($metafield) = "
+				  . "UPPER(E'$text') )"
+				  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$text' )";
 			}
 		} else {
-			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
-			if ( lc( $values->{'type'} ) eq 'text' ) {
-				$buffer .= (
-					$values->{'text'} eq 'null'
-					? "$values->{'field'} is $not null"
-					: "($not upper($values->{'field'}) = upper(E'$values->{'text'}') $null_clause)"
-				);
+			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
+			if ( lc($type) eq 'text' ) {
+				$buffer .=
+				  ( $text eq 'null' ? "$field IS $not null" : "($not UPPER($field) = UPPER(E'$text') $null_clause)" );
 			} else {
-				$buffer .= (
-					$values->{'text'} eq 'null'
-					? "$values->{'field'} is $not null"
-					: "$not ($values->{'field'} = E'$values->{'text'}' $null_clause)"
-				);
+				$buffer .= ( $text eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
 			}
 		}
 	}
@@ -1084,47 +1082,79 @@ sub _provenance_equals_type_operator {
 
 sub _provenance_like_type_operator {
 	my ( $self, $values ) = @_;
+	my ( $field, $extended_isolate_field, $parent_field_type, $type ) =
+	  @$values{qw(field extended_isolate_field parent_field_type type)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
 	my $not        = $values->{'not'} ? 'NOT' : '';
 	( my $text = $values->{'behaviour'} ) =~ s/text/$values->{'text'}/;
-	if ( $values->{'extended_isolate_field'} ) {
+	if ($extended_isolate_field) {
 		$buffer .=
-		  $values->{'parent_field_type'} eq 'int'
-		  ? "CAST($view.$values->{'extended_isolate_field'} AS text) "
-		  : "$view.$values->{'extended_isolate_field'} ";
+		  $parent_field_type eq 'int'
+		  ? "CAST($view.$extended_isolate_field AS text) "
+		  : "$view.$extended_isolate_field ";
 		$buffer .=
 		    "$not IN (SELECT field_value FROM isolate_value_extended_attributes "
-		  . "WHERE isolate_field='$values->{'extended_isolate_field'}' AND attribute='$values->{'field'}' "
+		  . "WHERE isolate_field='$extended_isolate_field' AND attribute='$field' "
 		  . "AND value ILIKE E'$text')";
-	} elsif ( $values->{'field'} eq $labelfield ) {
+	} elsif ( $field eq $labelfield ) {
 		my $andor = $values->{'not'} ? 'AND' : 'OR';
-		$buffer .= "($not $values->{'field'} ILIKE E'$text' $andor $view.id $not IN "
+		$buffer .= "($not $field ILIKE E'$text' $andor $view.id $not IN "
 		  . "(SELECT isolate_id FROM isolate_aliases WHERE alias ILIKE E'$text'))";
 	} else {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( defined $metaset ) {
 			$buffer .=
-			  lc( $values->{'type'} ) eq 'text'
+			  lc($type) eq 'text'
 			  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield ILIKE E'$text')"
 			  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE CAST($metafield AS text) LIKE E'$text')";
 		} else {
-			my $null_clause = $values->{'not'} ? "OR $values->{'field'} IS NULL" : '';
-			if ( $values->{'type'} ne 'text' ) {
-				$buffer .= "($not CAST($values->{'field'} AS text) LIKE E'$text' $null_clause)";
+			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
+			if ( $type ne 'text' ) {
+				$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
 			} else {
-				$buffer .= "($not $values->{'field'} ILIKE E'$text' $null_clause)";
+				$buffer .= "($not $field ILIKE E'$text' $null_clause)";
 			}
 		}
 	}
 	return $buffer;
 }
 
-sub _modify_query_for_filters {
-	my ( $self, $qry, $extended ) = @_;
+sub _provenance_ltmt_type_operator {
+	my ( $self, $values ) = @_;
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type operator errors)};
+	my $buffer     = $values->{'modifier'};
+	my $view       = $self->{'system'}->{'view'};
+	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
+	if ($extended_isolate_field) {
+		$buffer .=
+		  $parent_field_type eq 'int'
+		  ? "CAST($view.$extended_isolate_field AS text) "
+		  : "$view.$extended_isolate_field ";
+		$buffer .= 'IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field='
+		  . "'$extended_isolate_field' AND attribute='$field' AND value $operator E'$text')";
+	} elsif ( $field eq $labelfield ) {
+		$buffer .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
+		  . "WHERE alias $operator E'$text'))";
+	} else {
+		if ( $text eq 'null' ) {
+			push @$errors, "$operator is not a valid operator for comparing null values.";
+			next;
+		}
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
+		if ( defined $metaset ) {
+			$buffer .= "$view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield $operator E'$text')";
+		} else {
+			$buffer .= "$field $operator E'$text'";
+		}
+	}
+	return $buffer;
+}
 
-	#extended: extended attributes hashref;
+sub _modify_query_for_filters {
+	my ( $self, $qry, $extended ) = @_;    #extended: extended attributes hashref
 	my $q             = $self->{'cgi'};
 	my $view          = $self->{'system'}->{'view'};
 	my $set_id        = $self->get_set_id;
@@ -1330,43 +1360,57 @@ sub _modify_query_for_designations {
 					push @$errors_ref, "$operator is not a valid operator.";
 					next;
 				}
-				if ( $operator eq 'NOT' ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .= (
-						( $text eq 'null' )
-						? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
-						: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id)="
-						  . "upper(E'$text'))"
-					);
-				} elsif ( $operator eq 'contains' ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
-					  . "LIKE upper(E'\%$text\%'))";
-				} elsif ( $operator eq 'starts with' ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
-					  . "LIKE upper(E'$text\%'))";
-				} elsif ( $operator eq 'ends with' ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
-					  . "LIKE upper(E'\%$text'))";
-				} elsif ( $operator eq 'NOT contain' ) {
-					$lqry{$locus} .= $andor if $lqry{$locus};
-					$lqry{$locus} .=
-					    "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) "
-					  . "LIKE upper(E'\%$text\%'))";
-				} elsif ( $operator eq '=' ) {
-					if ( $text eq 'null' ) {
-						push @lqry_blank,
-						  "($view.id NOT IN (SELECT isolate_id FROM allele_designations " . "WHERE locus=E'$locus'))";
-					} else {
+				my %methods = (
+					'NOT' => sub {
+						$lqry{$locus} .= $andor if $lqry{$locus};
+						$lqry{$locus} .= (
+							( $text eq 'null' )
+							? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
+							: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id)="
+							  . "upper(E'$text'))"
+						);
+					},
+					'contains' => sub {
 						$lqry{$locus} .= $andor if $lqry{$locus};
 						$lqry{$locus} .=
-						  $locus_info->{'allele_id_format'} eq 'text'
-						  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id)="
-						  . "upper(E'$text'))"
-						  : "(allele_designations.locus=E'$locus' AND allele_designations.allele_id = E'$text')";
+						    "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						  . "LIKE upper(E'\%$text\%'))";
+					},
+					'starts with' => sub {
+						$lqry{$locus} .= $andor if $lqry{$locus};
+						$lqry{$locus} .=
+						    "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						  . "LIKE upper(E'$text\%'))";
+					},
+					'ends with' => sub {
+						$lqry{$locus} .= $andor if $lqry{$locus};
+						$lqry{$locus} .=
+						    "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						  . "LIKE upper(E'\%$text'))";
+					},
+					'NOT contain' => sub {
+						$lqry{$locus} .= $andor if $lqry{$locus};
+						$lqry{$locus} .=
+						    "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) "
+						  . "LIKE upper(E'\%$text\%'))";
+					},
+					'=' => sub {
+						if ( $text eq 'null' ) {
+							push @lqry_blank,
+							  "($view.id NOT IN (SELECT isolate_id FROM allele_designations "
+							  . "WHERE locus=E'$locus'))";
+						} else {
+							$lqry{$locus} .= $andor if $lqry{$locus};
+							$lqry{$locus} .=
+							  $locus_info->{'allele_id_format'} eq 'text'
+							  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id)="
+							  . "upper(E'$text'))"
+							  : "(allele_designations.locus=E'$locus' AND allele_designations.allele_id = E'$text')";
+						}
 					}
+				);
+				if ( $methods{$operator} ) {
+					$methods{$operator}->();
 				} else {
 					if ( $text eq 'null' ) {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
@@ -1410,47 +1454,58 @@ sub _modify_query_for_designations {
 				my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				my $temp_qry    = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
 				$text =~ s/'/\\'/gx;
-				if ( $operator eq 'NOT' ) {
-					if ( $text eq 'null' ) {
-						push @sqry, "($view.id NOT IN ($temp_qry WHERE $field IS NULL) AND $view.id IN ($temp_qry))";
-					} else {
+				my %methods = (
+					'NOT' => sub {
+						if ( $text eq 'null' ) {
+							push @sqry,
+							  "($view.id NOT IN ($temp_qry WHERE $field IS NULL) AND $view.id IN ($temp_qry))";
+						} else {
+							push @sqry,
+							  $scheme_field_info->{'type'} eq 'integer'
+							  ? "($view.id NOT IN ($temp_qry WHERE CAST($field AS text)= E'$text' AND "
+							  . "$view.id IN ($temp_qry)))"
+							  : "($view.id NOT IN ($temp_qry WHERE upper($field)=upper(E'$text') AND "
+							  . "$view.id IN ($temp_qry)))";
+						}
+					},
+					'contains' => sub {
 						push @sqry,
 						  $scheme_field_info->{'type'} eq 'integer'
-						  ? "($view.id NOT IN ($temp_qry WHERE CAST($field AS text)= E'$text' AND "
-						  . "$view.id IN ($temp_qry)))"
-						  : "($view.id NOT IN ($temp_qry WHERE upper($field)=upper(E'$text') AND "
-						  . "$view.id IN ($temp_qry)))";
-					}
-				} elsif ( $operator eq 'contains' ) {
-					push @sqry,
-					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) ~* E'$text'))"
-					  : "($view.id IN ($temp_qry WHERE $field ~* E'$text'))";
-				} elsif ( $operator eq 'starts with' ) {
-					push @sqry,
-					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'$text\%'))"
-					  : "($view.id IN ($temp_qry WHERE $field ILIKE E'$text\%'))";
-				} elsif ( $operator eq 'ends with' ) {
-					push @sqry,
-					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'\%$text'))"
-					  : "($view.id IN ($temp_qry WHERE $field ILIKE E'\%$text'))";
-				} elsif ( $operator eq 'NOT contain' ) {
-					push @sqry,
-					  $scheme_field_info->{'type'} eq 'integer'
-					  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) !~* E'$text'))"
-					  : "($view.id IN ($temp_qry WHERE $field !~* E'$text'))";
-				} elsif ( $operator eq '=' ) {
-					if ( $text eq 'null' ) {
-						push @lqry_blank,
-						  "($view.id IN ($temp_qry WHERE $field IS NULL) OR " . "$view.id NOT IN ($temp_qry))";
-					} else {
+						  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) ~* E'$text'))"
+						  : "($view.id IN ($temp_qry WHERE $field ~* E'$text'))";
+					},
+					'starts with' => sub {
 						push @sqry,
-						  $scheme_field_info->{'type'} eq 'text'
-						  ? "($view.id IN ($temp_qry WHERE upper($field)=upper(E'$text')))"
-						  : "($view.id IN ($temp_qry WHERE $field=E'$text'))";
+						  $scheme_field_info->{'type'} eq 'integer'
+						  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'$text\%'))"
+						  : "($view.id IN ($temp_qry WHERE $field ILIKE E'$text\%'))";
+					},
+					'ends with' => sub {
+						push @sqry,
+						  $scheme_field_info->{'type'} eq 'integer'
+						  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) LIKE E'\%$text'))"
+						  : "($view.id IN ($temp_qry WHERE $field ILIKE E'\%$text'))";
+					},
+					'NOT contain' => sub {
+						push @sqry,
+						  $scheme_field_info->{'type'} eq 'integer'
+						  ? "($view.id IN ($temp_qry WHERE CAST($field AS text) !~* E'$text'))"
+						  : "($view.id IN ($temp_qry WHERE $field !~* E'$text'))";
+					},
+					'=' => sub {
+						if ( $text eq 'null' ) {
+							push @lqry_blank,
+							  "($view.id IN ($temp_qry WHERE $field IS NULL) OR " . "$view.id NOT IN ($temp_qry))";
+						} else {
+							push @sqry,
+							  $scheme_field_info->{'type'} eq 'text'
+							  ? "($view.id IN ($temp_qry WHERE upper($field)=upper(E'$text')))"
+							  : "($view.id IN ($temp_qry WHERE $field=E'$text'))";
+						}
 					}
+				);
+				if ( $methods{$operator} ) {
+					$methods{$operator}->();
 				} else {
 					if ( $text eq 'null' ) {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
@@ -1538,15 +1593,16 @@ sub _modify_query_for_tags {
 			my $temp_qry;
 			my $locus_clause =
 			  $locus eq 'any locus' ? "(locus IS NOT NULL $set_clause)" : "(locus=E'$locus' $set_clause)";
-			if ( $action eq 'untagged' ) {
-				$temp_qry = "$view.id NOT IN (SELECT DISTINCT isolate_id FROM allele_sequences WHERE $locus_clause)";
-			} elsif ( $action eq 'tagged' ) {
-				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause)";
-			} elsif ( $action eq 'complete' ) {
-				$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND complete)";
-			} elsif ( $action eq 'incomplete' ) {
-				$temp_qry =
-				  "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND NOT complete)";
+			my %methods = (
+				untagged => "$view.id NOT IN (SELECT DISTINCT isolate_id FROM allele_sequences WHERE $locus_clause)",
+				tagged   => "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause)",
+				complete => "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND complete)",
+				incomplete =>
+				  "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause AND NOT complete)"
+			);
+			if ( $methods{$action} ) {
+				$temp_qry = $methods{$action};
+
 			} elsif ( $action =~ /^flagged:\ ([\w\s:]+)$/x ) {
 				my $flag = $1;
 				my $flag_joined_table =
