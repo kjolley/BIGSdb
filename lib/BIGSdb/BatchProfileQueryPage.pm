@@ -51,11 +51,12 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id');
 	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		say "<h1>Batch profile query - $desc</h1>";
-		say qq(<div class="box" id="statusbad"><p>This function is only available for sequence definition databases.</p></div>);
+		say qq(<h1>Batch profile query - $desc</h1>);
+		say q(<div class="box" id="statusbad"><p>This function is only available )
+		  . q(for sequence definition databases.</p></div>);
 		return;
 	}
-	say "<h1>Batch profile query - $desc</h1>";
+	say qq(<h1>Batch profile query - $desc</h1>);
 	if ( !$q->param('profiles') ) {
 		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
 		$self->print_scheme_section( { with_pk => 1 } );
@@ -66,43 +67,44 @@ sub print_content {
 	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
-		my @rows = split /\n/, $profiles;
-		local $" = '</th><th>';
-		say qq(<div class="box" id="resultstable">);
-		say qq(<div class="scrollable">);
+		my @rows = split /\n/x, $profiles;
+		local $" = q(</th><th>);
+		say q(<div class="box" id="resultstable">);
+		say q(<div class="scrollable">);
 		say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $field (@$scheme_fields) {
 			my $cleaned = $field;
 			$cleaned =~ tr/_/ /;
-			print "<th>$cleaned</th>";
+			print qq(<th>$cleaned</th>);
 		}
 		local $" = ',';
-		my $scheme_view     = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+		my $scheme_view =
+		  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 		my $qry             = "SELECT @$scheme_fields FROM $scheme_view WHERE ";
 		my @cleaned_loci_db = @$loci;
-		$_ =~ s/'/_PRIME_/g foreach @cleaned_loci_db;
+		$_ =~ s/'/_PRIME_/gx foreach @cleaned_loci_db;
 		my $set_id = $self->get_set_id;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		local $" = $scheme_info->{'allow_missing_loci'} ? " IN (?, 'N')) AND (" : '=?) AND (';
-		$qry .= $scheme_info->{'allow_missing_loci'} ? "(@cleaned_loci_db IN (?, 'N'))" : "(@cleaned_loci_db=?)";
-		say "</tr>";
+		local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
+		$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
+		say q(</tr>);
 		my $td = 1;
 		local $| = 1;
 
 		foreach my $row (@rows) {
-			my @profile = split /\t/, $row;
+			my @profile = split /\t/x, $row;
 			my $isolate = shift @profile;
 			foreach my $allele (@profile) {
-				$allele =~ s/^\s+//g;
-				$allele =~ s/\s+$//g;
+				$allele =~ s/^\s+//gx;
+				$allele =~ s/\s+$//gx;
 			}
 			say qq(<tr class="td$td"><td>$isolate</td>);
 			for my $i ( 0 .. @$loci - 1 ) {
 				if ( $profile[$i] ) {
-					print "<td>$profile[$i]</td>";
+					print qq(<td>$profile[$i]</td>);
 				} else {
-					print qq(<td class="statusbad" style="font-size:2em">-</td>);
+					print q(<td class="statusbad" style="font-size:2em">-</td>);
 				}
 			}
 			my $incomplete;
@@ -111,44 +113,48 @@ sub print_content {
 				while ( @profile > @$loci ) {
 					pop @profile;
 				}
-				@field_data = $self->{'datastore'}->run_query( $qry, \@profile, { catch => 'BatchProfileQueryPage::print_content' } );
+				@field_data =
+				  $self->{'datastore'}
+				  ->run_query( $qry, \@profile, { cache => 'BatchProfileQueryPage::print_content' } );
 			} else {
 				$incomplete = 1;
 			}
 			my $i = 0;
 			foreach (@$scheme_fields) {
 				if ( exists $field_data[$i] ) {
-					print defined $field_data[$i] ? "<td>$field_data[$i]</td>" : '<td></td>';
+					print defined $field_data[$i] ? qq(<td>$field_data[$i]</td>) : q(<td></td>);
 				} else {
-					print qq(<td class="statusbad" style="font-size:2em">-</td>);
+					print q(<td class="statusbad" style="font-size:2em">-</td>);
 				}
 				$i++;
 			}
-			say "</tr>";
+			say q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 		}
-		say "</table>\n</div></div>";
+		say q(</table></div></div>);
 		return;
 	}
-	say qq(<div class="box" id="queryform">);
+	say q(<div class="box" id="queryform">);
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page scheme_id);
 	local $" = ', ';
-	say qq[<p>Enter allelic profiles below in tab-delimited text format using copy and paste (for example directly from a spreadsheet).]
-	  . qq[Columns can be separated by any amount of whitespace.  The first column should be an isolate identifier and the remaining ]
+	say q[<p>Enter allelic profiles below in tab-delimited text format using copy and paste ]
+	  . q[(for example directly from a spreadsheet). Columns can be separated by any amount of whitespace. ]
+	  . q[The first column should be an isolate identifier and the remaining ]
 	  . qq[columns should comprise the allele numbers (order: @cleaned_loci). Click here for ]
-	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;function=examples&amp;]
-	  . qq[scheme_id=$scheme_id">example data</a>.  Non-numerical characters will be stripped out of the query.</p>];
-	say qq(<fieldset style="float:left"><legend>Paste in profiles</legend>);
+	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;]
+	  . qq[function=examples&amp;scheme_id=$scheme_id">example data</a>. Non-numerical characters will be ]
+	  . q[stripped out of the query.</p>];
+	say q(<fieldset style="float:left"><legend>Paste in profiles</legend>);
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
-	say "</fieldset>";
+	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->endform;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -163,7 +169,7 @@ sub _print_examples {
 		$scheme_id = -1;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		print "This function is only available for sequence definition databases.\n";
+		say q(This function is only available for sequence definition databases.);
 		return;
 	}
 	my $scheme_info = $scheme_id > 0 ? $self->{'datastore'}->get_scheme_info($scheme_id) : undef;
@@ -173,17 +179,17 @@ sub _print_examples {
 	}
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my @cleaned_loci = @$loci;
-	$_ =~ s/'/_PRIME_/g foreach @cleaned_loci;
+	$_ =~ s/'/_PRIME_/gx foreach @cleaned_loci;
 	local $" = ',';
-	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $data =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15", undef, { fetch => 'all_arrayref' } );
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $data = $self->{'datastore'}->run_query( "SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15",
+		undef, { fetch => 'all_arrayref' } );
 	local $" = "\t";
 	my $i = 1;
 
 	foreach my $profile (@$data) {
-		say "isolate_$i\t@$profile";
+		say qq(isolate_$i\t@$profile);
 		$i++;
 	}
 	return;
