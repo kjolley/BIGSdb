@@ -1330,14 +1330,66 @@ sub _modify_query_by_membership {
 
 sub _modify_query_for_designations {
 	my ( $self, $qry, $errors_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	my ( %lqry, @lqry_blank, %combo );
-	my $pattern     = LOCUS_PATTERN;
+	my $q           = $self->{'cgi'};
+	my $view        = $self->{'system'}->{'view'};
 	my $andor       = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
 	my $qry_started = $qry =~ /\(\)$/x ? 0 : 1;
-	foreach my $i ( 1 .. MAX_ROWS ) {
+	my ( $lqry_ref, $lqry_blank_ref ) = $self->_get_allele_designations( $errors_ref, $andor );
+	my %lqry       = %$lqry_ref;
+	my @lqry_blank = @$lqry_blank_ref;
+	my ( $sqry_ref, $sqry_blank_ref ) = $self->_get_scheme_designations($errors_ref);
+	my @sqry = @$sqry_ref;
+	push @lqry_blank, @$sqry_blank_ref;
+	my $brace = @sqry ? '(' : '';
 
+	if ( keys %lqry ) {
+		local $" = ' OR ';
+		my $modify = '';
+		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
+			$modify = "GROUP BY $view.id HAVING count($view.id)=" . scalar keys %lqry;
+		}
+		my @lqry = values %lqry;
+		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="
+		  . "allele_designations.isolate_id WHERE @lqry $modify)";
+		if ( $qry =~ /\(\)$/x ) {
+			$qry = "SELECT * FROM $view WHERE $brace$lqry";
+		} else {
+			$qry .= " AND $brace($lqry)";
+		}
+	}
+	if (@lqry_blank) {
+		local $" = ' ' . $q->param('designation_andor') . ' ';
+		my $modify = scalar keys %lqry ? $q->param('designation_andor') : 'AND';
+		if ( $qry =~ /\(\)$/x ) {
+			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
+		} else {
+			$qry .= keys %lqry ? " $modify" : ' AND';
+			$qry .= " $brace(@lqry_blank)";
+		}
+	}
+	if (@sqry) {
+		local $" = " $andor ";
+		my $sqry = "@sqry";
+		if ( $qry =~ /\(\)$/x ) {
+			$qry = "SELECT * FROM $view WHERE $sqry";
+		} else {
+			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
+			$qry .= " ($sqry)";
+			$qry .= ')' if keys %lqry;
+			$qry .= ')' if @lqry_blank;
+		}
+	}
+	return $qry;
+}
+
+sub _get_allele_designations {
+	my ( $self, $errors_ref, $andor ) = @_;
+	my $q       = $self->{'cgi'};
+	my $pattern = LOCUS_PATTERN;
+	my ( %lqry, @lqry_blank );
+	my $view = $self->{'system'}->{'view'};
+	my %combo;
+	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
 			if ( $q->param("designation_field$i") =~ /$pattern/x ) {
 				my $locus            = $1;
@@ -1428,7 +1480,14 @@ sub _modify_query_for_designations {
 			}
 		}
 	}
-	my @sqry;
+	return ( \%lqry, \@lqry_blank );
+}
+
+sub _get_scheme_designations {
+	my ( $self, $errors_ref ) = @_;
+	my $q = $self->{'cgi'};
+	my ( @sqry, @sqry_blank );
+	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
 			if ( $q->param("designation_field$i") =~ /^s_(\d+)_(.*)/x ) {
@@ -1494,8 +1553,8 @@ sub _modify_query_for_designations {
 					},
 					'=' => sub {
 						if ( $text eq 'null' ) {
-							push @lqry_blank,
-							  "($view.id IN ($temp_qry WHERE $field IS NULL) OR " . "$view.id NOT IN ($temp_qry))";
+							push @sqry_blank,
+							  "($view.id IN ($temp_qry WHERE $field IS NULL) OR $view.id NOT IN ($temp_qry))";
 						} else {
 							push @sqry,
 							  $scheme_field_info->{'type'} eq 'text'
@@ -1520,45 +1579,7 @@ sub _modify_query_for_designations {
 			}
 		}
 	}
-	my $brace = @sqry ? '(' : '';
-	if ( keys %lqry ) {
-		local $" = ' OR ';
-		my $modify = '';
-		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
-			$modify = "GROUP BY $view.id HAVING count($view.id)=" . scalar keys %lqry;
-		}
-		my @lqry = values %lqry;
-		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="
-		  . "allele_designations.isolate_id WHERE @lqry $modify)";
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $brace$lqry";
-		} else {
-			$qry .= " AND $brace($lqry)";
-		}
-	}
-	if (@lqry_blank) {
-		local $" = ' ' . $q->param('designation_andor') . ' ';
-		my $modify = scalar keys %lqry ? $q->param('designation_andor') : 'AND';
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
-		} else {
-			$qry .= keys %lqry ? " $modify" : ' AND';
-			$qry .= " $brace(@lqry_blank)";
-		}
-	}
-	if (@sqry) {
-		local $" = " $andor ";
-		my $sqry = "@sqry";
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $sqry";
-		} else {
-			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
-			$qry .= " ($sqry)";
-			$qry .= ')' if keys %lqry;
-			$qry .= ')' if @lqry_blank;
-		}
-	}
-	return $qry;
+	return ( \@sqry, \@sqry_blank );
 }
 
 sub _modify_query_for_tags {
@@ -1602,7 +1623,6 @@ sub _modify_query_for_tags {
 			);
 			if ( $methods{$action} ) {
 				$temp_qry = $methods{$action};
-
 			} elsif ( $action =~ /^flagged:\ ([\w\s:]+)$/x ) {
 				my $flag = $1;
 				my $flag_joined_table =
