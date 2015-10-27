@@ -31,25 +31,33 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $set_id    = $self->get_set_id;
 	my $scheme_id = $q->param('scheme_id');
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say q(<div class="box" id="statusbad"><p>You can only update profiles in a sequence/profile database - )
+		  . q(this is an isolate database.</p></div>);
+		return;
+	}
 	if ( !$scheme_id ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No scheme_id passed.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);
 		return;
-	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Scheme_id must be an integer.</p></div>";
+	}
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		say q(<div class="box" id="statusbad"><p>Scheme_id must be an integer.</p></div>);
 		return;
-	} elsif ( !$self->can_modify_table('profiles') ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update profiles.</p></div>";
+	}
+	if ( !$self->can_modify_table('profiles') ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed ) . q(to update profiles.</p></div>);
 		return;
-	} elsif ($set_id) {
+	}
+	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme is inaccessible.</p></div>";
+			say q(<div class="box" id="statusbad"><p>The selected scheme is inaccessible.</p></div>);
 			return;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	say "<h1>Batch profile update ($scheme_info->{'description'})</h1>";
+	say qq(<h1>Batch profile update ($scheme_info->{'description'})</h1>);
 	if ( !defined $scheme_info->{'primary_key'} ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>The selected scheme has no primary key.</p></div>";
+		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -57,33 +65,32 @@ sub print_content {
 	} elsif ( $q->param('data') ) {
 		$self->_check;
 	} else {
-		print <<"HTML";
-<div class="box" id="queryform">
-<p>This page allows you to batch update allelic combinations or associated fields for multiple profiles.</p>
-<ul><li>The first line, containing column headings, will be ignored.</li>
-<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>
-<li>The next column should contain the field/locus name and then the final column should contain the value to be entered, e.g.<br />
-<pre style="font-size:1.2em">
-ST  field   value
-5   abcZ    7
-5   adk     3
-</pre>
-</li>
-<li>The columns should be separated by tabs. Any other columns will be ignored.</li>
-<li>If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>
-HTML
+		say q(<div class="box" id="queryform"><p>This page allows you to batch update allelic combinations )
+		  . q(or associated fields for multiple profiles.</p>)
+		  . q(<ul><li>The first line, containing column headings, will be ignored.</li>)
+		  . qq(<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>)
+		  . q(<li>The next column should contain the field/locus name and then the final column should )
+		  . q(contain the value to be entered, e.g.<br />);
+		say qq(<pre style="font-size:1.2em">\n)
+		  . qq(ST  field   value\n)
+		  . qq(5   abcZ    7\n)
+		  . qq(5   adk     3\n)
+		  . q(</pre>);
+		say q(</li><li>The columns should be separated by tabs. Any other columns will be ignored.</li>)
+		  . q(<li>If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (db page scheme_id);
-		say "<fieldset style=\"float:left\"><legend>Please paste in your data below:</legend>";
+		say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
 		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		say "</fieldset>";
-		say "<fieldset style=\"float:left\"><legend>Options</legend>";
-		say "<ul><li>";
+		say q(</fieldset>);
+		say q(<fieldset style="float:left"><legend>Options</legend>);
+		say q(<ul><li>);
 		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
-		say "</li></ul></fieldset>";
+		say q(</li></ul></fieldset>);
 		$self->print_action_fieldset( { scheme_id => $scheme_id } );
 		say $q->endform;
-		say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}\">Back to main page</a></p></div>";
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+		  . q(Back to main page</a></p></div>);
 	}
 	return;
 }
@@ -93,10 +100,10 @@ sub _check {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $data      = $q->param('data');
-	my @rows = split /\n/, $data;
+	my @rows = split /\n/x, $data;
 	if ( @rows < 2 ) {
-		say qq(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
+		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
+		say q(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
 		  . qq(scheme_id=$scheme_id">Back</a></p></div>);
 		return;
 	}
@@ -105,19 +112,19 @@ sub _check {
 	my $pk          = $scheme_info->{'primary_key'};
 	if ( !defined $pk ) {
 		$logger->error("No primary key defined for scheme $scheme_id");
-		say qq(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
+		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
 		return;
 	}
 	my $buffer = qq(<div class="box" id="resultstable"><div class="scrollable">\n);
-	$buffer .= "<p>The following changes will be made to the database.  Please check that this is what you intend and "
-	  . "then press 'Submit'.  If you do not wish to make these changes, press your browser's back button.</p>\n";
-	$buffer .= qq(<fieldset style="float:left"><legend>Updates</legend>);
-	$buffer .= qq(<table class="resultstable"><tr><th>Transaction</th><th>$scheme_info->{'primary_key'}</th><th>Field</th>)
-	  . qq(<th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n);
+	$buffer .=
+	    q(<p>The following changes will be made to the database.  Please check that this is what )
+	  . q(you intend and then press 'Submit'.  If you do not wish to make these changes, press your )
+	  . qq(browser's back button.</p><fieldset style="float:left"><legend>Updates</legend>\n);
+	$buffer .= qq(<table class="resultstable"><tr><th>Transaction</th><th>$scheme_info->{'primary_key'}</th>)
+	  . qq(<th>Field</th><th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n);
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my ( %mapped, %reverse_mapped );
-
 	foreach my $locus (@$scheme_loci) {
 		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		$mapped{$locus}          = $mapped;
@@ -133,13 +140,13 @@ sub _check {
 	my %locus_changes_for_pk;
 
 	foreach my $row (@rows) {
-		my @cols = split /\t/, $row;
+		my @cols = split /\t/x, $row;
 		next if @cols < 3;
-		( $id[$i], $field[$i], $value[$i] ) = split /\t/, $row;
-		$id[$i] =~ s/%20/ /g;
+		( $id[$i], $field[$i], $value[$i] ) = split /\t/x, $row;
+		$id[$i] =~ s/%20/ /gx;
 		if ( defined $value[$i] ) {
-			$value[$i] =~ s/\s*$//;
-			$value[$i] =~ s/^\s*//;
+			$value[$i] =~ s/\s*$//x;
+			$value[$i] =~ s/^\s*//x;
 		}
 		my $displayvalue = $value[$i];
 		my $bad_field    = 0;
@@ -166,29 +173,31 @@ sub _check {
 				my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM scheme_$scheme_id WHERE $pk=?",
 					$id[$i], { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::check::select' } );
 				if ( !$profile_data ) {
-					$old_value = "<span class=\"statusbad\">no editable record with $pk='$id[$i]'";
-					$old_value .= "</span>";
-					$action = "<span class=\"statusbad\">no action</span>";
+					$old_value = qq(<span class="statusbad">no editable record with $pk='$id[$i]');
+					$old_value .= q(</span>);
+					$action = q(<span class="statusbad">no action</span>);
 				} else {
 					$old_value = $profile_data->{ lc( $reverse_mapped{ $field[$i] } ) };
 					if (   !defined $old_value
 						|| $old_value eq ''
 						|| $q->param('overwrite') )
 					{
-						$old_value = "&lt;blank&gt;"
+						$old_value = q(&lt;blank&gt;)
 						  if !defined $old_value || $old_value eq '';
 						my $problem;
 						if ( $field_type eq 'locus' ) {
 							my $locus_info = $self->{'datastore'}->get_locus_info( $reverse_mapped{ $field[$i] } );
 							if ( $value[$i] eq '<blank>' ) {
-								$problem = "this is a required field and cannot be left blank";
+								$problem = q(this is a required field and cannot be left blank);
 							} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
 								&& !BIGSdb::Utils::is_int( $value[$i] )
 								&& !( $scheme_info->{'allow_missing_loci'} && $value[$i] eq 'N' ) )
 							{
-								$problem = "invalid allele id (must be an integer)";
-							} elsif ( !$self->{'datastore'}->sequence_exists( $reverse_mapped{ $field[$i] }, $value[$i] ) ) {
-								$problem = "allele has not been defined";
+								$problem = q(invalid allele id (must be an integer));
+							} elsif (
+								!$self->{'datastore'}->sequence_exists( $reverse_mapped{ $field[$i] }, $value[$i] ) )
+							{
+								$problem = q(allele has not been defined);
 							} elsif ( $value[$i] ne $old_value ) {
 								my %new_profile;
 								foreach my $locus (@$scheme_loci) {
@@ -198,61 +207,65 @@ sub _check {
 								$new_profile{"field:$pk"}                         = $id[$i];
 								my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $pk, \%new_profile );
 								if ($exists) {
-									$problem = "would result in duplicate profile. $msg";
+									$problem = qq(would result in duplicate profile. $msg);
 								}
 							}
 							$locus_changes_for_pk{ $id[$i] }++;
 							if ( $locus_changes_for_pk{ $id[$i] } > 1 ) {
-								$problem = "profile updates are limited to one locus change"
-								  ;    #too difficult to check if new profile already exists otherwise
+
+								#too difficult to check if new profile already exists otherwise
+								$problem = q(profile updates are limited to one locus change);
 							}
 						} elsif ( $field_type eq 'field' ) {
 							my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field[$i] );
 							if ( $value[$i] eq '<blank>' && $field[$i] eq $pk ) {
-								$problem = "this is a required field and cannot be left blank";
+								$problem = q(this is a required field and cannot be left blank);
 							} elsif ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
-								$problem = "invalid field value (must be an integer)";
+								$problem = q(invalid field value (must be an integer));
 							} elsif ( $field[$i] eq $pk && $value[$i] ne $old_value ) {
 								my $new_pk_exists =
-								  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT $pk FROM scheme_$scheme_id WHERE $pk=?)",
+								  $self->{'datastore'}
+								  ->run_query( "SELECT EXISTS(SELECT $pk FROM scheme_$scheme_id WHERE $pk=?)",
 									$value[$i], { cache => 'CurateBatchProfileUpdatePage::check::pkexists' } );
-								$problem = "new $pk already exists" if $new_pk_exists;
+								$problem = qq(new $pk already exists) if $new_pk_exists;
 							}
 						}
 						if ($problem) {
 							$action = qq(<span class="statusbad">no action - $problem</span>);
 						} else {
-							if ( $value[$i] eq $old_value || ( $value[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) ) {
-								$action = qq(<span class="statusbad">no action - new value unchanged</span>);
+							if ( $value[$i] eq $old_value
+								|| ( $value[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
+							{
+								$action = q(<span class="statusbad">no action - new value unchanged</span>);
 								$update[$i] = 0;
 							} else {
-								$action = qq(<span class="statusgood">update field with new value</span>);
+								$action = q(<span class="statusgood">update field with new value</span>);
 								$update[$i] = 1;
 							}
 						}
 					} else {
-						$action = "<span class=\"statusbad\">no action - value already in db</span>";
+						$action = q(<span class="statusbad">no action - value already in db</span>);
 					}
 				}
 			} else {
-				$old_value = qq(<span class="statusbad">field not recognised</span>);
-				$action    = qq(<span class="statusbad">no action</span>);
+				$old_value = q(<span class="statusbad">field not recognised</span>);
+				$action    = q(<span class="statusbad">no action</span>);
 			}
-			$displayvalue =~ s/<blank>/&lt;blank&gt;/;
+			$displayvalue =~ s/<blank>/&lt;blank&gt;/x;
 			$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$field[$i]</td><td>$displayvalue</td>)
 			  . qq(<td>$old_value</td><td>$action</td></tr>);
 			$table_rows++;
 			$td = $td == 1 ? 2 : 1;
 		}
-		$value[$i] =~ s/(<blank>|null)// if defined $value[$i];
+		$value[$i] =~ s/(<blank>|null)//x if defined $value[$i];
 		$i++;
 	}
 	if ($table_rows) {
 		say $buffer;
-		say "</table></fieldset>";
+		say q(</table></fieldset>);
 		open( my $fh, '>', $file ) or $logger->error("Can't open temp file $file for writing");
 		foreach my $i ( 0 .. @rows - 1 ) {
-			say $fh "$id[$i]\t$reverse_mapped{$field[$i]}\t$value[$i]" if $update[$i];
+			say $fh qq($id[$i]\t$reverse_mapped{$field[$i]}\t$value[$i]) if $update[$i];
 		}
 		close $fh;
 		say $q->start_form;
@@ -262,9 +275,10 @@ sub _check {
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
 		say $q->endform;
 	} else {
-		say qq(<div class="box" id="statusbad"><p>No valid values to update.</p>);
+		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div></div>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+	  . q(Back to main page</a></p></div></div>);
 	return;
 }
 
@@ -275,10 +289,11 @@ sub _update {
 	my $file      = $q->param('file');
 	my $transaction;
 	my $i = 1;
-	open( my $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$file" ) or $logger->error("Can't open $file for reading");
+	open( my $fh, '<', "$self->{'config'}->{'secure_tmp_dir'}/$file" )
+	  or $logger->error("Can't open $file for reading");
 	while ( my $line = <$fh> ) {
 		chomp $line;
-		my @record = split /\t/, $line;
+		my @record = split /\t/x, $line;
 		$transaction->{$i}->{'id'}    = $record[0];
 		$transaction->{$i}->{'field'} = $record[1];
 		$transaction->{$i}->{'value'} = $record[2];
@@ -293,13 +308,13 @@ sub _update {
 		$mapped{$locus} = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 	}
 	map { $mapped{$_} = $_ } @$scheme_fields;
-	say qq(<div class="box" id="resultsheader">);
-	say "<h2>Updating database ...</h2>";
+	say q(<div class="box" id="resultsheader">);
+	say q(<h2>Updating database ...</h2>);
 	my $curator_id   = $self->get_curator_id;
 	my $curator_name = $self->get_curator_name;
-	say "User: $curator_name<br />";
+	say qq(User: $curator_name<br />);
 	my $datestamp = BIGSdb::Utils::get_datestamp();
-	say "Datestamp: $datestamp<br />";
+	say qq(Datestamp: $datestamp<br />);
 	my $tablebuffer;
 	my $td           = 1;
 	my $changes      = 0;
@@ -307,8 +322,10 @@ sub _update {
 	my @history_updates;
 
 	foreach my $i ( sort { $a <=> $b } keys %$transaction ) {
-		my ( $id, $field, $value ) = ( $transaction->{$i}->{'id'}, $transaction->{$i}->{'field'}, $transaction->{$i}->{'value'} );
-		my $old_record = $self->{'datastore'}->run_query( "SELECT * FROM scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?",
+		my ( $id, $field, $value ) =
+		  ( $transaction->{$i}->{'id'}, $transaction->{$i}->{'field'}, $transaction->{$i}->{'value'} );
+		my $old_record =
+		  $self->{'datastore'}->run_query( "SELECT * FROM scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?",
 			$id, { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::update::select' } );
 		my $old_value = $old_record->{ lc($field) };
 		my $is_locus  = $self->{'datastore'}->is_locus($field);
@@ -316,48 +333,51 @@ sub _update {
 		if ($is_locus) {
 			push @updates,
 			  {
-				statement => "UPDATE profile_members SET (allele_id,curator,datestamp)=(?,?,?) WHERE (scheme_id,locus,profile_id)=(?,?,?)",
+				statement => 'UPDATE profile_members SET (allele_id,curator,datestamp)=(?,?,?) '
+				  . 'WHERE (scheme_id,locus,profile_id)=(?,?,?)',
 				arguments => [ $value, $curator_id, 'now', $scheme_id, $field, $id ]
 			  };
 		} else {
-			my $field_exists =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT EXISTS(SELECT * FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?))",
-				[$scheme_id, $field, $id],{cache=>'CurateBatchProfileUpdatePage::update::fieldexists'} );
+			my $field_exists = $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?))',
+				[ $scheme_id, $field, $id ],
+				{ cache => 'CurateBatchProfileUpdatePage::update::fieldexists' }
+			);
 			if ($field_exists) {
 				if ( !defined $value ) {
 					push @updates,
 					  {
-						statement => "DELETE FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)",
+						statement => 'DELETE FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
 						arguments => [ $scheme_id, $field, $id ]
 					  };
 				} else {
 					push @updates,
 					  {
-						statement => "UPDATE profile_fields SET (value,curator,datestamp)=(?,?,?) WHERE "
-						  . "(scheme_id,scheme_field,profile_id)=(?,?,?)",
+						statement => 'UPDATE profile_fields SET (value,curator,datestamp)=(?,?,?) WHERE '
+						  . '(scheme_id,scheme_field,profile_id)=(?,?,?)',
 						arguments => [ $value, $curator_id, 'now', $scheme_id, $field, $id ]
 					  };
 				}
 			} else {
-				push @updates, {
-					statement => "INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) "
-					  . "VALUES (?,?,?,?,?,?)",
-					arguments => [ $scheme_id, $field, $id, $value, $curator_id, 'now' ]
-				};
-			}
-			if ( $field eq $scheme_info->{'primary_key'} ) {
 				push @updates,
 				  {
-					statement => "UPDATE profiles SET (profile_id,curator,datestamp)=(?,?,?) WHERE (scheme_id,profile_id)=(?,?)",
-					arguments => [ $value, $curator_id, 'now', $scheme_id, $id ]
+					statement => 'INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,'
+					  . 'curator,datestamp) VALUES (?,?,?,?,?,?)',
+					arguments => [ $scheme_id, $field, $id, $value, $curator_id, 'now' ]
 				  };
+			}
+			if ( $field eq $scheme_info->{'primary_key'} ) {
+				push @updates, {
+					statement => 'UPDATE profiles SET (profile_id,curator,datestamp)=(?,?,?) WHERE '
+					  . '(scheme_id,profile_id)=(?,?)',
+					arguments => [ $value, $curator_id, 'now', $scheme_id, $id ]
+				};
 			}
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id</td>);
-		$value     //= '&lt;blank&gt;';
-		$old_value //= '&lt;blank&gt;';
-		$tablebuffer .= "<td>$mapped{$field}</td><td>$old_value</td><td>$value</td>";
+		$value     //= q(&lt;blank&gt;);
+		$old_value //= q(&lt;blank&gt;);
+		$tablebuffer .= qq(<td>$mapped{$field}</td><td>$old_value</td><td>$value</td>);
 		$changes = 1 if @updates;
 		eval { $self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } ) foreach @updates };
 		if ($@) {
@@ -366,31 +386,31 @@ sub _update {
 			$update_error = 1;
 		} else {
 			$tablebuffer .= qq(<td class="statusgood">OK</td></tr>\n);
-			$old_value //= '';
-			$old_value = ''     if $old_value eq '&lt;blank&gt;';
-			$value     = ''     if $value     eq '&lt;blank&gt;';
+			$old_value //= q();
+			$old_value = q()     if $old_value eq '&lt;blank&gt;';
+			$value     = q()     if $value     eq '&lt;blank&gt;';
 			$id        = $value if $field     eq $scheme_info->{'primary_key'};
-			push @history_updates, { id => $id, action => "$field: '$old_value' -> '$value'" };
+			push @history_updates, { id => $id, action => qq($field: '$old_value' -> '$value') };
 		}
 		$td = $td == 1 ? 2 : 1;
 		last if $update_error;
 	}
 	if ( !$changes ) {
-		say "<p>No changes to be made.</p>";
+		say q(<p>No changes to be made.</p>);
 	} else {
 		say qq(<table class="resultstable"><tr><th>$scheme_info->{'primary_key'}</th><th>Field</th><th>Old value</th>)
 		  . qq(<th>New value</th><th>Status</th></tr>$tablebuffer</table>);
 		if ($update_error) {
 			$self->{'db'}->rollback;
-			say "<p>Transaction failed - no changes made.</p>";
+			say q(<p>Transaction failed - no changes made.</p>);
 		} else {
 			$self->{'db'}->commit;
 			$self->refresh_material_view($scheme_id);
 			$self->update_profile_history( $scheme_id, $_->{'id'}, $_->{'action'} ) foreach @history_updates;
-			say "<p>Transaction complete - database updated.</p>";
+			say q(<p>Transaction complete - database updated.</p>);
 		}
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div>);
+	say q(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 	return;
 }
 
