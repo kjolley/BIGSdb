@@ -1764,7 +1764,7 @@ sub _scan_by_locus {
 			if ( $allele_id ne '0' ) {
 				try {
 					my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-					my $db_allele_seq = $$seq_ref if ref $seq_ref eq 'SCALAR';
+					my $db_allele_seq = ref $seq_ref eq 'SCALAR' ? $$seq_ref : undef;
 					if ( $locus_info->{'data_type'} eq 'DNA' ) {
 						$seqs_ref->{$isolate_id}       .= $db_allele_seq;
 						$allele_seqs_ref->{$allele_id} .= $db_allele_seq;

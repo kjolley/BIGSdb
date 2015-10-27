@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2011, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,20 +34,20 @@ sub piechart {
 	my ( @grouped_labels, @grouped_data );
 	my $explode;
 	if ( $num_labels != 0 ) {
-		if ( scalar @$labels > $num_labels ) {
+		if ( @$labels > $num_labels ) {
 			my $i;
 			for ( $i = 0 ; $i < $num_labels ; $i++ ) {
 				push @grouped_labels, $$labels[$i];
 				push @grouped_data,   $$data[$i];
 			}
 			my $allothers = 0;
-			while ( $i < scalar @$labels ) {
+			while ( $i < @$labels ) {
 				$allothers += $$data[$i];
 				$i++;
 			}
-			my $num_others = scalar @$labels - $num_labels;
+			my $num_others = @$labels - $num_labels;
 			push @grouped_labels, "all others ($num_others values)";
-			$explode = scalar @grouped_labels - 1;
+			$explode = @grouped_labels - 1;
 			push @grouped_data, $allothers;
 		} else {
 			@grouped_labels = @$labels;
@@ -73,7 +73,7 @@ sub piechart {
 			$chart->setPieSize( 450, 200, 170 );
 		}
 	}
-	$chart->setLabelFormat("{label} ({value} - {percent}%)");
+	$chart->setLabelFormat('{label} ({value} - {percent}%)');
 	{
 		no warnings 'once';
 		$chart->setColors($perlchartdir::transparentPalette) if $prefs->{'transparent'};
@@ -194,18 +194,17 @@ sub linechart {
 	$layer = $chart->addLineLayer2();
 	{
 		no warnings 'once';
-		$layer->addDataSet($data, 0x00000080)->setDataSymbol($perlchartdir::CircleSymbol,5);
+		$layer->addDataSet( $data, 0x00000080 )->setDataSymbol( $perlchartdir::CircleSymbol, 5 );
 	}
 	$chart->setBackground(0x00FFFFFF);
 	$chart->setTransparentColor(0x00FFFFFF) if !$options->{'no_transparent'};
 	$layer->setBorderColor( -1, 1 );
 	my $angle = $max_label_length > 12 ? 90 : 45;
 	$chart->xAxis()->setLabels($display_labels)->setFontAngle($angle);
-	
 	$chart->xAxis->setTitle( $prefs->{'x-title'} ) if $prefs->{'x-title'};
 	$chart->yAxis->setTitle( $prefs->{'y-title'} ) if $prefs->{'y-title'};
 	$chart->makeChart($filename);
-	return;	
+	return;
 }
 
 sub _find_length_of_largest_label {
