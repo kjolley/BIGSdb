@@ -248,11 +248,15 @@ sub _get_route {
 
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
-	my $method       = lc( $opts{'m'} );
-	my $res          = $ua->$method( $request->to_url, Content_Type => 'application/json' );
-	my $decoded_json = decode_json( $res->content );
-	say Dumper($decoded_json);
-	return if ref $decoded_json ne 'HASH';
+	my $method = lc( $opts{'m'} );
+	my $res = $ua->$method( $request->to_url, Content_Type => 'application/json' );
+	my $decoded_json;
+	eval { $decoded_json = decode_json( $res->content ) };
+	if ($@) {
+		say $res->content;
+		return;
+	}
+	say Dumper ($decoded_json);
 	if ( ( $decoded_json->{'message'} // q() ) =~ /Client\ is\ unauthorized/x ) {
 		say 'Access denied - client is unauthorized.';
 		return;
