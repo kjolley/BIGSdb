@@ -43,6 +43,11 @@ sub _ajax_content {
 			  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
 		},
+		allele_count => sub {
+			my ( $locus_list, $locus_labels ) =
+			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			$self->_print_allele_count_fields( $row, 0, $locus_list, $locus_labels );
+		},
 		allele_status => sub {
 			my ( $locus_list, $locus_labels ) =
 			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
@@ -72,9 +77,9 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (provenance allele_designations allele_status tags list filters)) {
+	foreach my $attribute (qw (provenance allele_designations allele_count allele_status tags list filters)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
-		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset", $value );
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset", $value );
 	}
 	return;
 }
@@ -123,6 +128,7 @@ sub _print_interface {
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_designations_fieldset;
+	$self->_print_allele_count_fieldset;
 	$self->_print_allele_status_fieldset;
 	$self->_print_tags_fieldset;
 	$self->_print_list_fieldset;
@@ -201,6 +207,31 @@ sub _print_designations_fieldset {
 		}
 		say q(</ul></div></fieldset>);
 	}
+	return;
+}
+
+sub _print_allele_count_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	return if !@$locus_list;
+	my $display = $q->param('no_js') ? 'block' : 'none';
+	say qq(<fieldset id="allele_count_fieldset" style="float:left;display:$display">);
+	say q(<legend>Allele designation counts</legend><div>);
+	my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_count') || 1 );
+	my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="allele_count_field_heading" style="display:$heading_display">)
+	  . q(<label for="count_andor">Combine with: </label>);
+	say $q->popup_menu( -name => 'count_andor', -id => 'count_andor', -values => [qw (AND OR)] );
+	say q(</span><ul id="allele_count">);
+
+	for ( 1 .. $locus_fields ) {
+		say q(<li>);
+		$self->_print_allele_count_fields( $_, $locus_fields, $locus_list, $locus_labels );
+		say q(</li>);
+	}
+	say q(</ul></div></fieldset>);
 	return;
 }
 
@@ -520,10 +551,14 @@ sub _print_modify_search_fieldset {
 	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
+	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
+	  || $self->_highest_entered_fields('allele_count') ? 'Hide' : 'Show';
+	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
+	say q(Allele counts</li>);
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
-	say q(Allele designation status</li>);
+	say q(Allele status</li>);
 
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
@@ -658,6 +693,48 @@ sub _print_allele_status_fields {
 			say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
 			  . q(class="button">+</a> <a class="tooltip" id="allele_status_tooltip" title="">)
+			  . q(<span class="fa fa-info-circle"></span></a>);
+		}
+	}
+	say q(</span>);
+	return;
+}
+
+sub _print_allele_count_fields {
+	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
+	unshift @$locus_list, 'any locus';
+	unshift @$locus_list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
+	my $q = $self->{'cgi'};
+	say q(<span style="white-space:nowrap">);
+	say q(Count of );
+	say $self->popup_menu(
+		-name   => "allele_count_field$row",
+		-id     => "allele_count_field$row",
+		-values => $locus_list,
+		-labels => $locus_labels,
+		-class  => 'fieldlist'
+	);
+	my $values = [ '', '>', '<', '=' ];
+	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
+	say $q->popup_menu(
+		-name   => "allele_count_operator$row",
+		-id     => "allele_count_operator$row",
+		-values => $values,
+		-labels => \%labels
+	);
+	say $q->textfield(
+		-name        => "allele_count_value$row",
+		-id          => "allele_count_value$row",
+		-class       => 'int_entry',
+		-placeholder => 'Enter...'
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		if ( !$q->param('no_js') ) {
+			say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;fields=allele_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+			  . q(class="button">+</a> <a class="tooltip" id="allele_count_tooltip" title="">)
 			  . q(<span class="fa fa-info-circle"></span></a>);
 		}
 	}
@@ -1718,6 +1795,8 @@ sub get_javascript {
 	my ($self) = @_;
 	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
 	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
+	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
+	  || $self->_highest_entered_fields('allele_count') ? 'inline' : 'none';
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
 	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
 	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
@@ -1725,20 +1804,25 @@ sub get_javascript {
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
-	my $panel_js = $self->get_javascript_panel(qw(provenance allele_designations allele_status tags list filters));
+	my $panel_js = $self->get_javascript_panel(
+		qw(provenance allele_designations allele_count allele_status
+		  tags list filters)
+	);
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
    	\$('#allele_designations_fieldset').css({display:"$allele_designations_fieldset_display"});
+   	\$('#allele_count_fieldset').css({display:"$allele_count_fieldset_display"});
    	\$('#allele_status_fieldset').css({display:"$allele_status_fieldset_display"});
    	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
    	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
   	\$('#prov_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
-  		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
-  		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
-  		+ "</p>" });
-  	\$('#tag_tooltip,#allele_status_tooltip').tooltip({ content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' "
-  		+ "button.</p>" });	
+  		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more "
+  	    + "fields by clicking the '+' button."
+  		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
+  		+ "'OR' to match ANY of these terms.</p>" });
+  	\$('#tag_tooltip,#allele_count_tooltip,#allele_status_tooltip').tooltip({ content: "<h3>Number of "
+  		+ "fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
   	if (! Modernizr.touch){
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
@@ -1747,11 +1831,13 @@ $panel_js
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|loci|allele_status|table_fields|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|loci|allele_count|allele_status|table_fields|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'loci'){
 		add_rows(url,fields,'locus',row,'loci_field_heading','add_loci');
+	} else if (fields == 'allele_count'){
+		add_rows(url,fields,'allele_count',row,'allele_count_field_heading','add_allele_count');	
 	} else if (fields == 'allele_status'){
 		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');		
 	} else if (fields == 'table_fields'){
@@ -1763,7 +1849,6 @@ function loadContent(url) {
 END
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $autocomplete_js;
-
 	if (@$fields) {
 		my $first = 1;
 		foreach my $field (@$fields) {
@@ -1882,10 +1967,10 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (allele_designations allele_status tags list filters)) {
+		foreach my $attribute (qw (allele_designations allele_count allele_status tags list filters)) {
 			my $value =
-			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "$attribute\_fieldset" );
-			$self->{'prefs'}->{"$attribute\_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
+			$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
 		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
