@@ -671,8 +671,8 @@ sub _print_allele_status_fields {
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say $self->popup_menu(
-		-name   => "allele_sequence_field$row",
-		-id     => "allele_sequence_field$row",
+		-name   => "allele_status_field$row",
+		-id     => "allele_status_field$row",
 		-values => $locus_list,
 		-labels => $locus_labels,
 		-class  => 'fieldlist'
@@ -681,8 +681,8 @@ sub _print_allele_status_fields {
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
 	say $q->popup_menu(
-		-name   => "allele_sequence_value$row",
-		-id     => "allele_sequence_value$row",
+		-name   => "allele_status_value$row",
+		-id     => "allele_status_value$row",
 		-values => $values,
 		-labels => \%labels
 	);
@@ -703,8 +703,7 @@ sub _print_allele_status_fields {
 sub _print_allele_count_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, '';
-	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
+	unshift @$locus_list, 'total designations';
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
@@ -715,18 +714,14 @@ sub _print_allele_count_fields {
 		-labels => $locus_labels,
 		-class  => 'fieldlist'
 	);
-	my $values = [ '', '>', '<', '=' ];
-	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
-	say $q->popup_menu(
-		-name   => "allele_count_operator$row",
-		-id     => "allele_count_operator$row",
-		-values => $values,
-		-labels => \%labels
-	);
-	say $q->textfield(
+	my $values = [ '>', '<', '=' ];
+	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values, );
+	say $self->textfield(
 		-name        => "allele_count_value$row",
 		-id          => "allele_count_value$row",
 		-class       => 'int_entry',
+		-type        => 'number',
+		-min         => 0,
 		-placeholder => 'Enter...'
 	);
 	if ( $row == 1 ) {
@@ -820,9 +815,11 @@ sub _run_query {
 		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_query_for_designations( $qry, \@errors );
+		$qry = $self->_modify_query_for_designation_counts( $qry, \@errors );
 		$qry = $self->_modify_query_for_tags( $qry, \@errors );
 		$qry = $self->_modify_query_for_designation_status( $qry, \@errors );
 		$qry .= ' ORDER BY ';
+
 		if ( defined $q->param('order')
 			&& ( $q->param('order') =~ /^la_(.+)\|\|/x || $q->param('order') =~ /^cn_(.+)/x ) )
 		{
@@ -851,17 +848,19 @@ sub _run_query {
 	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
-		for ( 1 .. MAX_ROWS ) {
-			push @hidden_attributes, "prov_field$_", "prov_value$_", "prov_operator$_", "designation_field$_",
-			  "designation_operator$_", "designation_value$_", "tag_field$_", "tag_value$_", "allele_sequence_field$_",
-			  "allele_sequence_value$_";
+		for my $row ( 1 .. MAX_ROWS ) {
+			push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "designation_field$row",
+			  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
+			  "allele_status_field$row",
+			  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
+			  "allele_count_value$row";
 		}
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
-			push @hidden_attributes, "$_\_list";
-			my $extatt = $extended->{$_};
+		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+			push @hidden_attributes, "${field}_list";
+			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					push @hidden_attributes, "$_\..$extended_attribute\_list";
+					push @hidden_attributes, "${field}..$extended_attribute\_list";
 				}
 			}
 		}
@@ -1735,6 +1734,76 @@ sub _modify_query_for_tags {
 	return $qry;
 }
 
+sub _modify_query_for_designation_counts {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @count_queries;
+	my $pattern        = LOCUS_PATTERN;
+	my $set_id         = $self->get_set_id;
+	my %valid_operator = map { $_ => 1 } ( '=', '<', '>' );
+	my $set_clause =
+	  $set_id
+	  ? ' (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
+  ROW: foreach my $i ( 1 .. MAX_ROWS ) {
+
+		foreach my $param (qw(field operator value)) {
+			next ROW if !defined $q->param("allele_count_$param$i");
+			next ROW if $q->param("allele_count_$param$i") eq q();
+		}
+		my $action = $q->param("allele_count_field$i");
+		my %valid_non_locus = map { $_ => 1 } ( 'any locus', 'total designations' );
+		my $locus;
+		if ( !$valid_non_locus{ $q->param("allele_count_field$i") } ) {
+			if ( $q->param("allele_count_field$i") =~ /$pattern/x ) {
+				$locus = $1;
+			}
+			if ( !$self->{'datastore'}->is_locus($locus) ) {
+				push @$errors_ref, 'Invalid locus selected.';
+				next;
+			}
+		} else {
+			$locus = $q->param("allele_count_field$i");
+		}
+		my $count = $q->param("allele_count_value$i");
+		if ( !BIGSdb::Utils::is_int($count) || $count < 0 ) {
+			push @$errors_ref, 'Allele count value must be 0 or a positive integer.';
+			next;
+		}
+		my $operator = $q->param("allele_count_operator$i");
+		if ( !$valid_operator{$operator} ) {
+			push @$errors_ref, "$operator is not a valid operator.";
+			next;
+		}
+		$locus =~ s/'/\\'/gx;
+		if ( $locus eq 'total designations' ) {
+			$set_clause = " WHERE$set_clause" if $set_clause;
+			push @count_queries, "$view.id IN (SELECT isolate_id FROM allele_designations$set_clause GROUP BY "
+			  . "isolate_id HAVING COUNT(isolate_id)$operator$count)";
+		} elsif ( $locus eq 'any locus' ) {
+			$set_clause = " WHERE$set_clause" if $set_clause;
+			push @count_queries, "$view.id IN (SELECT isolate_id FROM allele_designations$set_clause GROUP BY "
+			  . "isolate_id,locus HAVING COUNT(*)$operator$count)";
+		} else {
+			$set_clause = " AND$set_clause" if $set_clause;
+			push @count_queries, "$view.id IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'"
+			  . "$set_clause GROUP BY isolate_id HAVING COUNT(isolate_id)$operator$count)";
+		}
+	}
+	if (@count_queries) {
+		my $andor = ( any { $q->param('count_andor') eq $_ } qw (AND OR) ) ? $q->param('count_andor') : '';
+		local $" = " $andor ";
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@count_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@count_queries)";
+		}
+	}
+	return $qry;
+}
+
 sub _modify_query_for_designation_status {
 	my ( $self, $qry, $errors_ref ) = @_;
 	my $q    = $self->{'cgi'};
@@ -1744,20 +1813,20 @@ sub _modify_query_for_designation_status {
 	my $set_id  = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  ? ' AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	foreach my $i ( 1 .. MAX_ROWS ) {
 
-		if (   defined $q->param("allele_sequence_field$i")
-			&& $q->param("allele_sequence_field$i") ne ''
-			&& defined $q->param("allele_sequence_value$i")
-			&& $q->param("allele_sequence_value$i") ne '' )
+		if (   defined $q->param("allele_status_field$i")
+			&& $q->param("allele_status_field$i") ne ''
+			&& defined $q->param("allele_status_value$i")
+			&& $q->param("allele_status_value$i") ne '' )
 		{
-			my $action = $q->param("allele_sequence_field$i");
+			my $action = $q->param("allele_status_field$i");
 			my $locus;
-			if ( $q->param("allele_sequence_field$i") ne 'any locus' ) {
-				if ( $q->param("allele_sequence_field$i") =~ /$pattern/x ) {
+			if ( $q->param("allele_status_field$i") ne 'any locus' ) {
+				if ( $q->param("allele_status_field$i") =~ /$pattern/x ) {
 					$locus = $1;
 				}
 				if ( !$self->{'datastore'}->is_locus($locus) ) {
@@ -1767,16 +1836,15 @@ sub _modify_query_for_designation_status {
 			} else {
 				$locus = 'any locus';
 			}
-			my $status = $q->param("allele_sequence_value$i");
+			my $status = $q->param("allele_status_value$i");
 			if ( none { $status eq $_ } qw (provisional confirmed) ) {
 				push @$errors_ref, 'Invalid status selected.';
 				next;
 			}
 			$locus =~ s/'/\\'/gx;
-			my $temp_qry;
-			my $locus_clause = $locus eq 'any locus' ? 'locus IS NOT NULL' : "locus=E'$locus'";
+			my $locus_clause = $locus eq 'any locus' ? '' : "allele_designations.locus=E'$locus' AND ";
 			push @status_queries, "$view.id IN (SELECT isolate_id FROM allele_designations WHERE "
-			  . "(allele_designations.$locus_clause AND status='$status' $set_clause))";
+			  . "(${locus_clause}status='$status'$set_clause))";
 		}
 	}
 	if (@status_queries) {
@@ -1947,7 +2015,8 @@ sub _highest_entered_fields {
 	my %param_name = (
 		provenance    => 'prov_value',
 		loci          => 'designation_value',
-		allele_status => 'allele_sequence_value',
+		allele_count  => 'allele_count_value',
+		allele_status => 'allele_status_value',
 		tags          => 'tag_value'
 	);
 	my $q = $self->{'cgi'};
