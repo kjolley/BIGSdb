@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(OPERATORS MAX_ROWS);
+use BIGSdb::Constants qw(:interface OPERATORS);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_INT   => 2147483647;
 
@@ -60,15 +60,16 @@ sub get_javascript_panel {
 		allele_status       => q[$('[id^="allele_sequence"]').val('')],
 		tags                => q[$('[id^="tag"]').val('')]
 	);
+	my ($show,$hide) = (SHOW,HIDE);
 	foreach my $fieldset (@fieldsets) {
-		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").text() == 'Show' ? 0 : 1;\n);
+		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == '$show' ? 0 : 1;\n);
 		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
 		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function() {\n];
-		$button_toggle_js .= qq[       if(\$(this).text() == 'Hide'){\n];
+		$button_toggle_js .= qq[       if(\$(this).html() == '$hide'){\n];
 		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
 		$button_toggle_js .= qq[       }\n];
 		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
-		$button_toggle_js .= qq[       \$(this).text(\$(this).text() == 'Show' ? 'Hide' : 'Show');\n];
+		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == '$show' ? '$hide' : '$show');\n];
 		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
 		$button_toggle_js .= qq[       return false;\n];
 		$button_toggle_js .= qq[    });\n];

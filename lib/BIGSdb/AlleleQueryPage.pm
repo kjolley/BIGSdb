@@ -24,7 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS OPERATORS MAX_ROWS);
+use BIGSdb::Constants qw(:interface SEQ_STATUS ALLELE_FLAGS OPERATORS);
 
 sub initiate {
 	my ($self) = @_;
@@ -308,15 +308,15 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
-	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele">$allele_fieldset_display</a>);
 	say q(Allele fields</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
-	  || $q->param('list') ? 'Hide' : 'Show';
+	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Allele id list box</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
-	  || $self->filters_selected ? 'Hide' : 'Show';
+	  || $self->filters_selected ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);

@@ -24,7 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
-use BIGSdb::Constants qw(SEQ_FLAGS LOCUS_PATTERN OPERATORS MAX_ROWS);
+use BIGSdb::Constants qw(:interface SEQ_FLAGS LOCUS_PATTERN OPERATORS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 
 sub _ajax_content {
@@ -581,39 +581,39 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
 	my $provenance_fieldset_display = $self->{'prefs'}->{'provenance_fieldset'}
-	  || $self->_highest_entered_fields('provenance') ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields('provenance') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
 	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
-	  || $self->_highest_entered_fields('loci') ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields('loci') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
 	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
-	  || $self->_highest_entered_fields('allele_count') ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields('allele_count') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
 	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
-	  || $self->_highest_entered_fields('allele_status') ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields('allele_status') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tag_count_fieldset_display = $self->{'prefs'}->{'tag_count_fieldset'}
-		  || $self->_highest_entered_fields('tag_count') ? 'Hide' : 'Show';
+		  || $self->_highest_entered_fields('tag_count') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
 		say q(Tagged sequence counts</li>);
 		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
-		  || $self->_highest_entered_fields('tags') ? 'Hide' : 'Show';
+		  || $self->_highest_entered_fields('tags') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? 'Hide' : 'Show';
+	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 	if ( $self->{'filters_fieldset_exists'} ) {
 		my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-		  || $self->filters_selected ? 'Hide' : 'Show';
+		  || $self->filters_selected ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
 		say q(Filters</li>);
 	}

@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
-use BIGSdb::Constants qw(OPERATORS MAX_ROWS);
+use BIGSdb::Constants qw(:interface OPERATORS);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -588,15 +588,15 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
-	  || $self->_highest_entered_fields ? 'Hide' : 'Show';
+	  || $self->_highest_entered_fields ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);
 	say q(Locus/scheme field values</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? 'Hide' : 'Show';
+	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 	my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? 'Hide' : 'Show';
+	  || $self->filters_selected ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
