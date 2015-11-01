@@ -60,7 +60,7 @@ sub get_javascript_panel {
 		allele_status       => q[$('[id^="allele_sequence"]').val('')],
 		tags                => q[$('[id^="tag"]').val('')]
 	);
-	my ($show,$hide) = (SHOW,HIDE);
+	my ($show,$hide,$save,$saving) = (SHOW,HIDE,SAVE,SAVING);
 	foreach my $fieldset (@fieldsets) {
 		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == '$show' ? 0 : 1;\n);
 		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
@@ -86,13 +86,15 @@ sub get_javascript_panel {
 		event.preventDefault();
 		$button_text_js
 	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").text('Saving ...');
+	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100).animate({backgroundColor: "#f0f0f0"},100);
+	  		\$("span#saving").text('Saving...');
 	  		var new_url = $new_url;
 		  		\$.ajax({
 	  			url : new_url,
 	  			success: function () {	  				
 	  				\$("a#save_options").hide();
-	  				\$("a#save_options").text('Save options');
+	  				\$("span#saving").text('');
+	  				\$("a#save_options").html('$save');
 	  			}
 	  		});
 	   	});

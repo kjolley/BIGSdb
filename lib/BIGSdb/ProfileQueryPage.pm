@@ -600,8 +600,9 @@ sub _print_modify_search_fieldset {
 	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
+	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . q(page=query&amp;save_options=1" style="display:none">Save options</a><br />);
+	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
 	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
 	return;
