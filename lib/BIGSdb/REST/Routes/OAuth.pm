@@ -34,6 +34,9 @@ sub _get_request_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
+	if (!param('oauth_consumer_key')){
+		send_error( 'No consumer key submitted', 403 );
+	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
 		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
@@ -107,6 +110,9 @@ sub _get_access_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
+	if (!param('oauth_consumer_key')){
+		send_error( 'No consumer key submitted', 403 );
+	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
 		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
@@ -197,6 +203,9 @@ sub _get_session_token {
 	my $self            = setting('self');
 	my $params          = params;
 	my $db              = param('db');
+	if (!param('oauth_consumer_key')){
+		send_error( 'No consumer key submitted', 403 );
+	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
 		'SELECT client_secret FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
