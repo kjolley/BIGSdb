@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant MAX_FIELDS => 100;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -45,7 +46,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#unique-combinations",
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -70,6 +71,13 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>No fields have been selected!</p></div>);
 		$self->_print_interface;
 		return;
+	} elsif (@$selected_fields > MAX_FIELDS){
+		my $limit = MAX_FIELDS;
+		my $selected_count = @$selected_fields;
+		say qq(<div class="box" id="statusbad"><p>This analysis is limited to $limit fields. )
+		  . qq(You have selected $selected_count!</p></div>);
+		$self->_print_interface;
+		return;
 	}
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
@@ -81,9 +89,12 @@ sub run {
 	my $field_string = "$view.@$fields";
 	$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
 	$self->rewrite_query_ref_order_by($qry_ref);
+	
 	local $| = 1;
 	my @header;
 	my %schemes;
+	
+
 
 	foreach (@$selected_fields) {
 		my $field = $_;
