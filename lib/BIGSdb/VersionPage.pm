@@ -31,11 +31,12 @@ sub set_pref_requirements {
 
 sub print_content {
 	my ($self) = @_;
+	(my $version = $BIGSdb::main::VERSION) =~ s/^v//x;
 	print <<"HTML";
 
 <h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>
 <div class="box" id="resultstable">
-<h2>Version $BIGSdb::main::VERSION</h2>
+<h2>Version $version</h2>
 <span class="main_icon fa fa-copyright fa-3x pull-left"></span>
 <ul style="margin-left:1em">
 <li>Written by Keith Jolley</li>
