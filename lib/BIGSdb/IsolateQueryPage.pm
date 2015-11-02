@@ -757,16 +757,17 @@ sub _print_allele_count_fields {
 		-class  => 'fieldlist'
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values, );
-	say $self->textfield(
+	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
+	my %args = (
 		-name        => "allele_count_value$row",
 		-id          => "allele_count_value$row",
 		-class       => 'int_entry',
 		-type        => 'number',
 		-min         => 0,
 		-placeholder => 'Enter...',
-		-value       => $q->param("allele_count_value$row")
 	);
+	$args{'-value'} = $q->param("allele_count_value$row") if defined $q->param("allele_count_value$row");
+	say $self->textfield(%args);
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -862,16 +863,17 @@ sub _print_tag_count_fields {
 		-class  => 'fieldlist'
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values, );
-	say $self->textfield(
+	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
+	my %args = (
 		-name        => "tag_count_value$row",
 		-id          => "tag_count_value$row",
 		-class       => 'int_entry',
 		-type        => 'number',
 		-min         => 0,
 		-placeholder => 'Enter...',
-		-value       => $q->param("tag_count_value$row")
 	);
+	$args{'-value'} = $q->param("tag_count_value$row") if defined $q->param("tag_count_value$row");
+	say $self->textfield(%args);
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -1814,23 +1816,26 @@ sub _modify_query_for_tags {
 	return $qry;
 }
 
-sub _modify_query_for_designation_counts {
-	my ( $self, $qry, $errors_ref ) = @_;
+sub _modify_query_for_counts {
+	my ( $self, $qry, $errors_ref, $args ) = @_;
+	my ( $table, $param_prefix, $andor_param, $total_label, $field_label, $field_plural ) =
+	  @{$args}{qw(table param_prefix andor_param total_label field_label field_plural)};
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my @count_queries;
 	my $pattern    = LOCUS_PATTERN;
-	my $set_clause = $self->_get_set_locus_clause;
+	my $set_clause = $self->_get_set_locus_clause({prepend => 'AND'});
   ROW: foreach my $i ( 1 .. MAX_ROWS ) {
+
 		foreach my $param (qw(field operator value)) {
-			next ROW if !defined $q->param("allele_count_$param$i");
-			next ROW if $q->param("allele_count_$param$i") eq q();
+			next ROW if !defined $q->param("${param_prefix}_$param$i");
+			next ROW if $q->param("${param_prefix}_$param$i") eq q();
 		}
-		my $action = $q->param("allele_count_field$i");
-		my %valid_non_locus = map { $_ => 1 } ( 'any locus', 'total designations' );
+		my $action = $q->param("${param_prefix}_field$i");
+		my %valid_non_locus = map { $_ => 1 } ( 'any locus', $total_label );
 		my $locus;
-		if ( !$valid_non_locus{ $q->param("allele_count_field$i") } ) {
-			if ( $q->param("allele_count_field$i") =~ /$pattern/x ) {
+		if ( !$valid_non_locus{ $q->param("${param_prefix}_field$i") } ) {
+			if ( $q->param("${param_prefix}_field$i") =~ /$pattern/x ) {
 				$locus = $1;
 			}
 			if ( !$self->{'datastore'}->is_locus($locus) ) {
@@ -1838,14 +1843,14 @@ sub _modify_query_for_designation_counts {
 				next;
 			}
 		} else {
-			$locus = $q->param("allele_count_field$i");
+			$locus = $q->param("${param_prefix}_field$i");
 		}
-		my $count = $q->param("allele_count_value$i");
+		my $count = $q->param("${param_prefix}_value$i");
 		if ( !BIGSdb::Utils::is_int($count) || $count < 0 ) {
-			push @$errors_ref, 'Allele count value must be 0 or a positive integer.';
+			push @$errors_ref, "$field_label value must be 0 or a positive integer.";
 			next;
 		}
-		my $operator = $q->param("allele_count_operator$i");
+		my $operator = $q->param("${param_prefix}_operator$i");
 		my $err = $self->_invalid_count( $operator, $count );
 		if ($err) {
 			push @$errors_ref, $err;
@@ -1853,24 +1858,22 @@ sub _modify_query_for_designation_counts {
 		}
 		$locus =~ s/'/\\'/gx;
 		my $search_for_zero = $self->_searching_for_zero( $operator, $count );
-		if ( $locus eq 'total designations' ) {
+		if ( $locus eq $total_label ) {
 			my $search_for_zero_qry;
 			if ($set_clause) {
-				my $local_set_clause = " AND$set_clause";
 				$search_for_zero_qry =
 				    "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 FROM "
-				  . "allele_designations WHERE isolate_id=$view.id$local_set_clause)) OR $view.id IN (SELECT id FROM "
-				  . "$view WHERE NOT EXISTS(SELECT 1 FROM allele_designations WHERE isolate_id=$view.id))";
+				  . "$table WHERE isolate_id=$view.id$set_clause)) OR $view.id IN (SELECT id FROM "
+				  . "$view WHERE NOT EXISTS(SELECT 1 FROM $table WHERE isolate_id=$view.id))";
 			} else {
 				$search_for_zero_qry = "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 FROM "
-				  . "allele_designations WHERE isolate_id=$view.id))";
+				  . "$table WHERE isolate_id=$view.id))";
 			}
 			if ($search_for_zero) {
 				push @count_queries, $search_for_zero_qry;
 			} else {
-				$set_clause = " WHERE$set_clause" if $set_clause;
-				my $temp_qry = "$view.id IN (SELECT isolate_id FROM allele_designations$set_clause GROUP BY "
-				  . "isolate_id HAVING COUNT(isolate_id)$operator$count)";
+				my $temp_qry = "EXISTS (SELECT isolate_id FROM $table WHERE isolate_id=$view.id "
+				  . "$set_clause GROUP BY isolate_id HAVING COUNT(isolate_id)$operator$count)";
 				if ( $operator eq '<' ) {
 					$temp_qry .= " OR $search_for_zero_qry";
 				}
@@ -1878,20 +1881,24 @@ sub _modify_query_for_designation_counts {
 			}
 		} elsif ( $locus eq 'any locus' ) {
 			if ($search_for_zero) {
-				push @$errors_ref, q(Searching for zero designations of 'any locus' is not supported.);
+				push @$errors_ref, qq(Searching for zero $field_plural of 'any locus' is not supported.);
 				next;
 			}
-			$set_clause = " WHERE$set_clause" if $set_clause;
-			push @count_queries, "$view.id IN (SELECT isolate_id FROM allele_designations$set_clause GROUP BY "
-			  . "isolate_id,locus HAVING COUNT(*)$operator$count)";
+			if ($operator eq '<'){
+				push @$errors_ref, qq(Searching for fewer than a specified number of $field_plural of )
+				  . q('any locus' is not supported.);
+				next;
+			}
+			push @count_queries, "EXISTS (SELECT isolate_id FROM $table WHERE isolate_id=$view.id$set_clause "
+			  . "GROUP BY isolate_id,locus HAVING COUNT(*)$operator$count)";
 		} else {
 			my $search_for_zero_qry = "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 "
-			  . "FROM allele_designations WHERE isolate_id=$view.id AND locus=E'$locus'))";
+			  . "FROM $table WHERE isolate_id=$view.id AND locus=E'$locus'))";
 			if ($search_for_zero) {
 				push @count_queries, $search_for_zero_qry;
 			} else {
-				my $temp_qry = "$view.id IN (SELECT isolate_id FROM allele_designations WHERE locus=E'$locus'"
-				  . " GROUP BY isolate_id HAVING COUNT(*)$operator$count)";
+				my $temp_qry = "$view.id IN (SELECT isolate_id FROM $table WHERE locus=E'$locus' "
+				  . "GROUP BY isolate_id HAVING COUNT(*)$operator$count)";
 				if ( $operator eq '<' ) {
 					$temp_qry .= " OR $search_for_zero_qry";
 				}
@@ -1900,15 +1907,47 @@ sub _modify_query_for_designation_counts {
 		}
 	}
 	if (@count_queries) {
-		my $andor = ( any { $q->param('count_andor') eq $_ } qw (AND OR) ) ? $q->param('count_andor') : '';
+		my $andor = ( any { $q->param($andor_param) eq $_ } qw (AND OR) ) ? $q->param($andor_param) : '';
 		local $" = ") $andor (";
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-			$qry .= " AND (@count_queries)";
+			$qry .= " AND ((@count_queries))";
 		} else {
-			$qry = "SELECT * FROM $view WHERE (@count_queries)";
+			$qry = "SELECT * FROM $view WHERE ((@count_queries))";
 		}
 	}
 	return $qry;
+}
+
+sub _modify_query_for_designation_counts {
+	my ( $self, $qry, $errors_ref ) = @_;
+	return $self->_modify_query_for_counts(
+		$qry,
+		$errors_ref,
+		{
+			field_plural => 'designations',
+			table        => 'allele_designations',
+			param_prefix => 'allele_count',
+			andor_param  => 'count_andor',
+			total_label  => 'total designations',
+			field_label  => 'Allele count'
+		}
+	);
+}
+
+sub _modify_query_for_tag_counts {
+	my ( $self, $qry, $errors_ref ) = @_;
+	return $self->_modify_query_for_counts(
+		$qry,
+		$errors_ref,
+		{
+			field_plural => 'tags',
+			table        => 'allele_sequences',
+			param_prefix => 'tag_count',
+			andor_param  => 'tag_count_andor',
+			total_label  => 'total tags',
+			field_label  => 'Tag count'
+		}
+	);
 }
 
 sub _get_set_locus_clause {
@@ -1920,7 +1959,7 @@ sub _get_set_locus_clause {
 	  ? ' (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	$clause = "$options->{'prepend'}$clause" if $clause && $options->{'prepend'};
+	$clause = " $options->{'prepend'}$clause" if $clause && $options->{'prepend'};
 	return $clause;
 }
 
@@ -1940,103 +1979,6 @@ sub _invalid_count {
 		return 'It is meaningless to search for count < 0.';
 	}
 	return;
-}
-
-sub _modify_query_for_tag_counts {
-	my ( $self, $qry, $errors_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	my @count_queries;
-	my $pattern    = LOCUS_PATTERN;
-	my $set_clause = $self->_get_set_locus_clause;
-  ROW: foreach my $i ( 1 .. MAX_ROWS ) {
-		foreach my $param (qw(field operator value)) {
-			next ROW if !defined $q->param("tag_count_$param$i");
-			next ROW if $q->param("tag_count_$param$i") eq q();
-		}
-		my $action = $q->param("tag_count_field$i");
-		my %valid_non_locus = map { $_ => 1 } ( 'any locus', 'total tags' );
-		my $locus;
-		if ( !$valid_non_locus{ $q->param("tag_count_field$i") } ) {
-			if ( $q->param("tag_count_field$i") =~ /$pattern/x ) {
-				$locus = $1;
-			}
-			if ( !$self->{'datastore'}->is_locus($locus) ) {
-				push @$errors_ref, 'Invalid locus selected.';
-				next;
-			}
-		} else {
-			$locus = $q->param("tag_count_field$i");
-		}
-		my $count = $q->param("tag_count_value$i");
-		if ( !BIGSdb::Utils::is_int($count) || $count < 0 ) {
-			push @$errors_ref, 'Tag count value must be 0 or a positive integer.';
-			next;
-		}
-		my $operator = $q->param("tag_count_operator$i");
-		my $err = $self->_invalid_count( $operator, $count );
-		if ($err) {
-			push @$errors_ref, $err;
-			next;
-		}
-		$locus =~ s/'/\\'/gx;
-		my $search_for_zero = $self->_searching_for_zero( $operator, $count );
-		if ( $locus eq 'total tags' ) {
-			my $search_for_zero_qry;
-			if ($set_clause) {
-				my $local_set_clause = " AND$set_clause";
-				$search_for_zero_qry =
-				    "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 FROM "
-				  . "allele_sequences WHERE isolate_id=$view.id$local_set_clause)) OR $view.id IN (SELECT id FROM "
-				  . "$view WHERE NOT EXISTS(SELECT 1 FROM allele_sequences WHERE isolate_id=$view.id))";
-			} else {
-				$search_for_zero_qry = "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 FROM "
-				  . "allele_sequences WHERE isolate_id=$view.id))";
-			}
-			if ($search_for_zero) {
-				push @count_queries, $search_for_zero_qry;
-			} else {
-				$set_clause = " WHERE$set_clause" if $set_clause;
-				my $temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences$set_clause GROUP BY "
-				  . "isolate_id HAVING COUNT(isolate_id)$operator$count)";
-				if ( $operator eq '<' ) {
-					$temp_qry .= " OR $search_for_zero_qry";
-				}
-				push @count_queries, $temp_qry;
-			}
-		} elsif ( $locus eq 'any locus' ) {
-			if ($search_for_zero) {
-				push @$errors_ref, q(Searching for zero tags of 'any locus' is not supported.);
-				next;
-			}
-			$set_clause = " WHERE$set_clause" if $set_clause;
-			push @count_queries, "$view.id IN (SELECT isolate_id FROM allele_sequences$set_clause GROUP BY "
-			  . "isolate_id,locus HAVING COUNT(*)$operator$count)";
-		} else {
-			my $search_for_zero_qry = "$view.id IN (SELECT id FROM $view WHERE NOT EXISTS(SELECT 1 "
-			  . "FROM allele_sequences WHERE isolate_id=$view.id AND locus=E'$locus'))";
-			if ($search_for_zero) {
-				push @count_queries, $search_for_zero_qry;
-			} else {
-				my $temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE locus=E'$locus'"
-				  . " GROUP BY isolate_id HAVING COUNT(isolate_id)$operator$count)";
-				if ( $operator eq '<' ) {
-					$temp_qry .= " OR $search_for_zero_qry";
-				}
-				push @count_queries, $temp_qry;
-			}
-		}
-	}
-	if (@count_queries) {
-		my $andor = ( any { $q->param('tag_count_andor') eq $_ } qw (AND OR) ) ? $q->param('tag_count_andor') : '';
-		local $" = ") $andor (";
-		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-			$qry .= " AND (@count_queries)";
-		} else {
-			$qry = "SELECT * FROM $view WHERE (@count_queries)";
-		}
-	}
-	return $qry;
 }
 
 sub _modify_query_for_designation_status {
