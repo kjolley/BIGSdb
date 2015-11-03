@@ -17,6 +17,7 @@ Version 1.11: Change of authentication database structure.
               New md5.js Javascript file required.  
               New Perl modules: Net::Oauth and Crypt::Eksblowfish::Bcrypt 
               required.
+Version 1.12: Change of authentication and seqdef database structures.
 
 Details can be found below.
 
@@ -260,4 +261,15 @@ There is a new script, upload_contigs.pl, to upload contigs directly to the
 sequence bin via the command line.  This can be found in the 
 scripts/maintenance directory.
 
+Version 1.12
+------------
+There are changes to the sequence definition database structure to support
+allele retirement. Additional fields have also been added to the sequences
+table in preparation for future functionality. Please run the 
+seqdefdb_v1.12.sql script, found in the sql/upgrade directory, against your
+seqdef databases.
 
+The authentication database has also been modified to more flexibly support
+client software permissions when accessing authenticated resources via the
+RESTful API. Please run auth_v1.12.sql against your authentication database
+(bigsdb_auth by default).

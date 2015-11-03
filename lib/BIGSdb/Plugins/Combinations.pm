@@ -93,8 +93,6 @@ sub run {
 	local $| = 1;
 	my @header;
 	my %schemes;
-	
-
 
 	foreach (@$selected_fields) {
 		my $field = $_;
