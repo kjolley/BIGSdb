@@ -70,7 +70,7 @@ use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw (plugin job jobs index logout options);
-use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd 
+use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index);
 
 sub new {
@@ -460,6 +460,7 @@ sub print_page {
 		tableQuery         => 'TableQueryPage',
 		version            => 'VersionPage'
 	);
+	$self->{'page'} //= 'index';
 	my $page;
 	my %page_attributes = (
 		system               => $self->{'system'},
