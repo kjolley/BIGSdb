@@ -29,9 +29,10 @@ sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $accession = $q->param('accession');
-	say "<h1>Scan EMBL/Genbank record for loci</h1>";
+	say q(<h1>Scan EMBL/Genbank record for loci</h1>);
 	if ( !$self->can_modify_table('loci') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add records to the loci table.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
+		  . q(to add records to the loci table.</p></div>);
 		return;
 	}
 	$self->_print_interface;
@@ -44,22 +45,27 @@ sub print_content {
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say qq(<div class="box" id="queryform">);
-	say "<p>This function allows you to scan an EMBL or Genbank (whole genome) file in order to create a batch upload file for "
-	  . "setting up new loci.</p>";
+	say q(<div class="box" id="queryform">);
+	say q(<p>This function allows you to scan an EMBL or Genbank (whole genome) )
+	  . q(file in order to create a batch upload file for setting up new loci.</p>);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Please enter accession number</legend>);
-	say qq(<label for="accession">Accession: </label>);
+	say q(<fieldset style="float:left"><legend>Please enter accession number</legend>);
+	say q(<label for="accession">Accession: </label>);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 20, -required => 'required' );
-	say "</fieldset>";
-	say qq(<fieldset style="float:left"><legend>Primary identifier</legend>);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Primary identifier</legend>);
 	my %labels = ( gene => 'gene name', locus_tag => 'locus tag' );
-	say $q->radio_group( -name => 'identifier', -values => [qw(locus_tag gene)], -labels => \%labels, -linebreak => 'true' );
-	say "</fieldset>";
+	say $q->radio_group(
+		-name      => 'identifier',
+		-values    => [qw(locus_tag gene)],
+		-labels    => \%labels,
+		-linebreak => 'true'
+	);
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
-	say "</div>\n";
+	say q(</div>);
 	return;
 }
 
@@ -76,21 +82,22 @@ sub _print_results {
 		$logger->debug($err);
 	};
 	if ( !$seq_obj ) {
-		say qq(<div class="box" id="statusbad"><p>No data returned.</p></div>);
+		say q(<div class="box" id="statusbad"><p>No data returned.</p></div>);
 		return;
 	}
 	my $prefix      = BIGSdb::Utils::get_random();
 	my $table_file  = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
 	my $allele_file = "$self->{'config'}->{'tmp_dir'}/def_$prefix.txt";
-	say qq(<div class="box" id="resultsheader" style="display:none">);
-	say qq(<p>Download table: <a href="/tmp/$prefix.txt">tab-delimited text</a> | <a href="/tmp/$prefix.xlsx">Excel format</a> )
-	  . qq[(suitable for batch upload of loci).</p>];
-	say qq(<p>Download alleles: <a href="/tmp/def_$prefix.txt">tab-delimited text</a> | <a href="/tmp/def_$prefix.xlsx">Excel format</a> )
-	  . qq[(suitable for defining the first allele in the seqdef database).</p>];
-	say "</div>";
-	say qq(<div class="box" id="resultstable">);
-	say "<h2>Annotation information</h2>";
-	say qq(<dl class="data">);
+	say q(<div class="box" id="resultsheader" style="display:none">);
+	say qq(<p>Download table: <a href="/tmp/$prefix.txt">tab-delimited text</a> | )
+	  . qq(<a href="/tmp/$prefix.xlsx">Excel format</a> (suitable for batch upload of loci).</p>);
+	say qq(<p>Download alleles: <a href="/tmp/def_$prefix.txt">tab-delimited text</a> | )
+	  . qq(<a href="/tmp/def_$prefix.xlsx">Excel format</a> )
+	  . q((suitable for defining the first allele in the seqdef database).</p>);
+	say q(</div>);
+	say q(<div class="box" id="resultstable">);
+	say q(<h2>Annotation information</h2>);
+	say q(<dl class="data">);
 	my $td = 1;
 	my @cds;
 
@@ -106,24 +113,25 @@ sub _print_results {
 		cds         => scalar @cds
 	);
 	my %abb = ( cds => 'coding regions' );
-	foreach (qw (accession version type length description cds)) {
-		if ( $att{$_} ) {
-			say "<dt>" . ( $abb{$_} || $_ ) . "</dt><dd>$att{$_}</dd>";
+	foreach my $field (qw (accession version type length description cds)) {
+		if ( $att{$field} ) {
+			my $field_name = $abb{$field} || $field;
+			say qq(<dt>$field_name</dt><dd>$att{$field}</dd>);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	say "</dl>";
-	say "<h2>Coding sequences</h2>";
-	say "<table class=\"resultstable\"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>";
+	say q(</dl>);
+	say q(<h2>Coding sequences</h2>);
+	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
 	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
-	say $fh "id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\tflag_table\tmain_display\t"
-	  . "isolate_display\tquery_field\tanalysis\treference_sequence";
+	say $fh qq(id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\t)
+	  . qq(flag_table\tmain_display\tisolate_display\tquery_field\tanalysis\treference_sequence);
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
-	say $fh_allele "locus\tallele_id\tsequence\tstatus";
+	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
 
 	foreach my $cds (@cds) {
-		local $" = '; ';
+		local $" = q(; );
 		my @aliases;
 		my $locus;
 		my @tags =
@@ -147,15 +155,16 @@ sub _print_results {
 		}
 		$tags{'product'} //= '';
 		print qq(<tr class="td$td"><td>$locus</td><td>@aliases</td><td>$tags{'product'} );
-		print qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>) if $tags{'note'};
-		say "</td><td>" . ( $cds->length ) . "</td></tr>";
+		print qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>)
+		  if $tags{'note'};
+		my $length  = $cds->length;
+		say qq(</td><td>$length</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
 		my $sequence = $cds->seq->seq;
-		say $fh "$locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t"
-		  . ( $cds->length )
-		  . "\tTRUE\tTRUE\tTRUE\tFALSE\tallele only\tTRUE\tTRUE\t$sequence";
-		say $fh_allele "$locus\t1\t$sequence\tunchecked";
+		say $fh qq($locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
+		  . qq(TRUE\tFALSE\tallele only\tTRUE\tTRUE\t$sequence);
+		say $fh_allele qq($locus\t1\t$sequence\tunchecked);
 
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -165,7 +174,7 @@ sub _print_results {
 	print $fh_allele "\n";    #Seems to be needed for Excel conversion.
 	close $fh;
 	close $fh_allele;
-	say "</table></div>";
+	say q(</table></div>);
 	BIGSdb::Utils::text2excel( $table_file,  { max_width => 30 } );
 	BIGSdb::Utils::text2excel( $allele_file, { max_width => 30 } );
 	return;
@@ -184,6 +193,6 @@ END
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Scan EMBL/Genbank record - $desc";
+	return qq(Scan EMBL/Genbank record - $desc);
 }
 1;
