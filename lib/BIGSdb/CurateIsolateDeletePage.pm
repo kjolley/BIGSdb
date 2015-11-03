@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,25 +35,27 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	my $buffer;
-	say "<h1>Delete isolate</h1>";
+	say q(<h1>Delete isolate</h1>);
 	if ( !$id ) {
-		say qq(<div class="box" id="statusbad"><p>No id passed.</p></div>);
+		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($id) ) {
-		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
 		return;
 	}
 	my $data = $self->{'datastore'}->get_isolate_field_values($id);
 	if ( !$data ) {
-		say qq(<div class="box" id="statusbad"><p>No record with id-$id exists or your account is not allowed to delete it.</p></div>);
+		say qq(<div class="box" id="statusbad"><p>No record with id-$id exists or your )
+		  . q(account is not allowed to delete it.</p></div>);
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to delete records in the isolates table.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
+		  . q(delete records in the isolates table.</p></div>);
 		return;
-	} 
+	}
 	$buffer .= qq(<div class="box" id="resultstable">\n);
-	$buffer .= "<p>You have selected to delete the following record:</p>";
+	$buffer .= q(<p>You have chosen to delete the following record:</p>);
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);
 	$buffer .= $q->end_form;
@@ -96,9 +98,14 @@ sub _delete {
 		$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
 	my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
 	my $new_version  = $field_values->{'new_version'};
-	if ( $new_version && $old_version ) {    #Deleting intermediate version - update old version to point to newer version
-		push @actions, { statement => 'UPDATE isolates SET new_version=? WHERE id=?', arguments => [ $new_version, $old_version ] };
-	} elsif ($old_version) {                 #Deleting latest version - remove link to this version in old version
+	if ( $new_version && $old_version ) {
+
+		#Deleting intermediate version - update old version to point to newer version
+		push @actions,
+		  { statement => 'UPDATE isolates SET new_version=? WHERE id=?', arguments => [ $new_version, $old_version ] };
+	} elsif ($old_version) {
+
+		#Deleting latest version - remove link to this version in old version
 		push @actions, { statement => 'UPDATE isolates SET new_version=NULL WHERE id=?', arguments => [$old_version] };
 	}
 	push @actions, { statement => 'DELETE FROM isolates WHERE id=?', arguments => [$isolate_id] };
@@ -109,9 +116,10 @@ sub _delete {
 		}
 	};
 	if ($@) {
-		say qq(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - no records have been touched.</p>);
-		say "<p>Failed SQL: $_</p>";
-		say "<p>Error message: $@</p></div>";
+		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
+		  . q(no records have been touched.</p>);
+		say qq(<p>Failed SQL: $_</p>);
+		say qq(<p>Error message: $@</p></div>);
 		$logger->error("Delete failed: $_ $@");
 		$self->{'db'}->rollback;
 		return;
@@ -125,6 +133,6 @@ sub _delete {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Delete isolate - $desc";
+	return qq(Delete isolate - $desc);
 }
 1;
