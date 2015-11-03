@@ -44,14 +44,23 @@ use constant FACE_STYLE         => (
 	mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
 	bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
 );
-use constant SHOW => q(<span class="fa fa-lg fa-plus-circle" style="color:green"></span>);
-use constant HIDE => q(<span class="fa fa-lg fa-minus-circle" style="color:red"></span>);
-use constant SAVE => q(<span class="fa fa-lg fa-save" style="color:green"></span>);
-use constant SAVING => q(<span class="fa fa-lg fa-save" style="color:blue"></span>);
+use constant SHOW     => q(<span class="fa fa-lg fa-plus-circle" style="color:green"></span>);
+use constant HIDE     => q(<span class="fa fa-lg fa-minus-circle" style="color:red"></span>);
+use constant SAVE     => q(<span class="fa fa-lg fa-save" style="color:green"></span>);
+use constant SAVING   => q(<span class="fa fa-lg fa-save" style="color:blue"></span>);
+use constant UP       => q(<span class="fa fa-lg fa-arrow-up" style="color:blue"></span>);
+use constant DOWN     => q(<span class="fa fa-lg fa-arrow-down" style="color:blue"></span>);
+use constant EDIT     => q(<span class="fa fa-lg fa-edit" style="color:green"></span>);
+use constant DELETE   => q(<span class="fa fa-lg fa-times" style="color:red"></span>);
+use constant ADD      => q(<span class="fa fa-lg fa-plus" style="color:green"></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
-push @EXPORT_OK, qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING FLANKING MAX_ROWS);
-$EXPORT_TAGS{'interface'} = [qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING FLANKING MAX_ROWS)];
+push @EXPORT_OK, qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN EDIT DELETE
+  ADD FLANKING MAX_ROWS);
+$EXPORT_TAGS{'interface'} = [
+	qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN EDIT DELETE
+	  ADD FLANKING MAX_ROWS)
+];
 
 #Queries
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
