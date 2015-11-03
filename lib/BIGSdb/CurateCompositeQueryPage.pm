@@ -27,65 +27,88 @@ my $logger = get_logger('BIGSdb.Page');
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Update or delete composite field - $desc";
+	return qq(Update or delete composite field - $desc);
 }
 
 sub print_content {
 	my ($self) = @_;
-	print "<h1>Update or delete composite field</h1>\n";
+	say q(<h1>Update or delete composite field</h1>);
 	$self->_create_query_table;
 	return;
 }
 
 sub _create_query_table {
-	my ($self)      = @_;
-	my $field_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM composite_fields");
+	my ($self) = @_;
+	my $field_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM composite_fields');
 	if ($field_count) {
-		my $plural = $field_count > 1 ? 's' : '';
+		my $plural = $field_count > 1 ? q(s) : q();
 		say qq(<div class="box" id="resultsheader">$field_count composite field$plural defined.</div>);
 	} else {
-		say qq(<div class="box" id="statusbad">No composite fields have been defined.</div>);
+		say q(<div class="box" id="statusbad">No composite fields have been defined.</div>);
 		return;
 	}
-	print qq(<div class="box" id="resultstable">);
-	say qq(<table class="resultstable"><tr><th>Delete</th><th>Update</th><th>field name</th><th>position after</th><th>main display</th>)
-	  . qq(<th>definition</th><th>missing data</th></tr>);
-	my $td = 1;
-	my $composite_fields =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM composite_fields ORDER BY position_after", undef, { fetch => 'all_arrayref', slice => {} } );
+	say q(<div class="box" id="resultstable">);
+	say q(<table class="resultstable"><tr><th>Delete</th><th>Update</th><th>field name</th>)
+	  . q(<th>position after</th><th>main display</th><th>definition</th><th>missing data</th></tr>);
+	my $td               = 1;
+	my $composite_fields = $self->{'datastore'}->run_query( 'SELECT * FROM composite_fields ORDER BY position_after',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $data (@$composite_fields) {
-		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=delete&amp;&amp;)
-		  . qq(table=composite_fields&amp;id=$data->{'id'}">Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=compositeUpdate&amp;id=$data->{'id'}">Update</a></td>);
-		say qq(<td>$data->{'id'}</td><td>$data->{'position_after'}</td><td>) . ( $data->{'main_display'} ? 'true' : 'false' ) . "</td>";
+		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=delete&amp;&amp;table=composite_fields&amp;id=$data->{'id'}">Delete</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;)
+		  . qq(id=$data->{'id'}">Update</a></td>);
+		say qq(<td>$data->{'id'}</td><td>$data->{'position_after'}</td><td>)
+		  . ( $data->{'main_display'} ? q(true) : q(false) )
+		  . q(</td>);
 		my ( $value, $missing );
 		my $values =
-		  $self->{'datastore'}->run_query( "SELECT * FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order",
-			$data->{'id'}, { fetch => 'all_arrayref', slice => {}, cache => 'CurateCompositeQueryPage::create_query_table_values' } );
-
-		#TODO check for invalid values
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM composite_field_values WHERE composite_field_id=? ORDER BY field_order',
+			$data->{'id'},
+			{ fetch => 'all_arrayref', slice => {}, cache => 'CurateCompositeQueryPage::create_query_table_values' } );
 		foreach my $field_value (@$values) {
-			if ( $field_value->{'field'} =~ /^f_(.+)/ ) {
-				$value .= "<span class=\"field\">[$1]</span>";
-				$missing .= "<span class=\"field\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
-			} elsif ( $field_value->{'field'} =~ /^l_(.+)/ ) {
-				$value .= "<span class=\"locus\">[$1]</span>";
-				$missing .= "<span class=\"locus\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
-			} elsif ( $field_value->{'field'} =~ /^s_(\d+)_(.+)/ ) {
-				$value .= "<span class=\"scheme\">[scheme $1:$2]</span>";
-				$missing .= "<span class=\"scheme\">$field_value->{'empty_value'}</span>" if defined $field_value->{'empty_value'};
-			} elsif ( $field_value->{'field'} =~ /^t_(.+)/ ) {
-				$value   .= "<span class=\"text\">$1</span>";
-				$missing .= "<span class=\"text\">$1</span>";
+			if ( $field_value->{'field'} =~ /^f_(.+)/x ) {
+				my $field = $1;
+				if ( !$self->{'xmlHandler'}->is_field($field) ) {
+					$field .= q( (INVALID VALUE));
+				}
+				$value   .= qq(<span class="field">[$field]</span>);
+				$missing .= qq(<span class="field">$field_value->{'empty_value'}</span>)
+				  if defined $field_value->{'empty_value'};
+				next;
+			}
+			if ( $field_value->{'field'} =~ /^l_(.+)/x ) {
+				my $locus = $1;
+				if ( !$self->{'datastore'}->is_locus($locus) ) {
+					$locus .= q( (INVALID VALUE));
+				}
+				$value   .= qq(<span class="locus">[$locus]</span>);
+				$missing .= qq(<span class="locus">$field_value->{'empty_value'}</span>)
+				  if defined $field_value->{'empty_value'};
+				next;
+			}
+			if ( $field_value->{'field'} =~ /^s_(\d+)_(.+)/x ) {
+				my ( $scheme_id, $field ) = ( $1, $2 );
+				if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
+					$field .= q( (INVALID VALUE));
+				}
+				$value   .= qq(<span class="scheme">[scheme $scheme_id:$field]</span>);
+				$missing .= qq(<span class="scheme">$field_value->{'empty_value'}</span>)
+				  if defined $field_value->{'empty_value'};
+				next;
+			}
+			if ( $field_value->{'field'} =~ /^t_(.+)/x ) {
+				$value   .= qq(<span class=\"text\">$1</span>);
+				$missing .= qq(<span class=\"text\">$1</span>);
 			}
 		}
-		say defined $value   ? "<td>$value</td>"   : "<td></td>";
-		say defined $missing ? "<td>$missing</td>" : "<td></td>";
-		say "</tr>";
+		say defined $value   ? qq(<td>$value</td>)   : q(<td></td>);
+		say defined $missing ? qq(<td>$missing</td>) : q(<td></td>);
+		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;    #row stripes
 	}
-	say "</table></div>";
+	say q(</table></div>);
 	return;
 }
 1;
