@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
-use List::MoreUtils qw(none);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -30,30 +30,26 @@ sub get_title {
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
 	my $type  = $self->get_record_name($table) // 'record';
-	return "Batch update $type" . "s - $desc";
+	return qq(Batch update ${type}s - $desc);
 }
 
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
+	my %valid_table = map { $_ => 1 } qw (user_group_members locus_curators scheme_curators);
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
 		return;
-	} elsif (
-		none {
-			$table eq $_;
-		}
-		qw (user_group_members locus_curators scheme_curators)
-	  )
-	{
-		say qq(<div class="box" id="statusbad"><p>Invalid table selected!</p></div>);
+	} elsif ( !$valid_table{$table} ) {
+		say q(<div class="box" id="statusbad"><p>Invalid table selected!</p></div>);
 		return;
 	}
 	my $type = $self->get_record_name($table) // 'record';
-	say "<h1>Batch update $type" . "s </h1>";
+	say qq(<h1>Batch update ${type}s </h1>);
 	if ( !$self->can_modify_table($table) ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account does not have permission to modify this table.<p></div>);
+		say q(<div class="box" id="statusbad"><p>Your user account does not have )
+		  . q(permission to modify this table.<p></div>);
 		return;
 	}
 	$self->_print_interface;
@@ -69,46 +65,49 @@ sub _print_interface {
 		$self->_perform_action($table);
 		my $user_info = $self->{'datastore'}->get_user_info($user_id);
 		if ( !$user_info ) {
-			say qq(<div class="box" id="statusbad"><p>Invalid user selected.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Invalid user selected.</p></div>);
 			return;
 		}
-		say qq(<div class="box" id="queryform">);
-		say "<b>User: $user_info->{'first_name'} $user_info->{'surname'}</b>";
-		say "<p>Select values to enable or disable and then click the appropriate arrow button.</p>";
+		say q(<div class="box" id="queryform">);
+		say qq(<b>User: $user_info->{'first_name'} $user_info->{'surname'}</b>);
+		say q(<p>Select values to enable or disable and then click the appropriate arrow button.</p>);
 		my $table_data = $self->_get_table_data($table);
-		say "<fieldset><legend>Select $table_data->{'plural'}</legend>";
+		say qq(<fieldset><legend>Select $table_data->{'plural'}</legend>);
 		my $set_clause = '';
 		my $set_id     = $self->get_set_id;
 
 		if ($set_id) {
 			if ( $table eq 'locus_curators' ) {
 
-				#make sure 'id IN' has a space before it - used in the substitution a few lines on (also matches scheme_id otherwise).
-				$set_clause = "AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM "
-				  . "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))";
+				#make sure 'id IN' has a space before it - used in the substitution
+				#a few lines on (also matches scheme_id otherwise).
+				$set_clause =
+				    'AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN '
+				  . "(SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) OR id IN (SELECT "
+				  . "locus FROM set_loci WHERE set_id=$set_id))";
 			} elsif ( $table eq 'scheme_curators' ) {
 				$set_clause = "AND ( id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
 			}
 		}
 		my $available = $self->{'datastore'}->run_query(
-			"SELECT id FROM $table_data->{'parent'} WHERE id NOT IN (SELECT $table_data->{'foreign'} FROM $table WHERE "
-			  . "$table_data->{'user_field'}=?) $set_clause ORDER BY $table_data->{'order'}",
+			"SELECT id FROM $table_data->{'parent'} WHERE id NOT IN (SELECT $table_data->{'foreign'} FROM $table "
+			  . "WHERE $table_data->{'user_field'}=?) $set_clause ORDER BY $table_data->{'order'}",
 			$user_id,
 			{ fetch => 'col_arrayref' }
 		);
-		push @$available, '' if !@$available;
-		$set_clause =~ s/id IN/$table_data->{'foreign'} IN/;
+		push @$available, q() if !@$available;
+		$set_clause =~ s/id\ IN/$table_data->{'foreign'} IN/x;
 		my $selected = $self->{'datastore'}->run_query(
-			"SELECT $table_data->{'foreign'} FROM $table LEFT JOIN $table_data->{'parent'} ON $table_data->{'foreign'} = "
-			  . "$table_data->{'id'} WHERE $table_data->{'user_field'}=? $set_clause ORDER BY $table_data->{'parent'}."
-			  . "$table_data->{'order'}",
+			"SELECT $table_data->{'foreign'} FROM $table LEFT JOIN $table_data->{'parent'} ON "
+			  . "$table_data->{'foreign'}=$table_data->{'id'} WHERE $table_data->{'user_field'}=? "
+			  . "$set_clause ORDER BY $table_data->{'parent'}.$table_data->{'order'}",
 			$user_id,
 			{ fetch => 'col_arrayref' }
 		);
-		push @$selected, '' if !@$selected;
+		push @$selected, q() if !@$selected;
 		my $labels = $self->_get_labels($table);
 		say $q->start_form;
-		say "<table><tr><th>Available</th><td></td><th>Selected</th></tr>\n<tr><td>";
+		say qq(<table><tr><th>Available</th><td></td><th>Selected</th></tr>\n<tr><td>);
 		say $q->popup_menu(
 			-name     => 'available',
 			-id       => 'available',
@@ -117,11 +116,12 @@ sub _print_interface {
 			-labels   => $labels,
 			-style    => 'min-width:10em; min-height:15em'
 		);
-		say "</td><td>";
-		say $q->submit( -name => 'add', -label => '>', -class => 'submit' );
-		say "<br />";
-		say $q->submit( -name => 'remove', -label => '<', -class => 'submit' );
-		say "</td><td>";
+		say q(</td><td>);
+		my ( $add, $remove ) = ( RIGHT, LEFT );
+		say qq(<button type="submit" name="add" value="add" class="smallbutton">$add</button>);
+		say q(<br />);
+		say qq(<button type="submit" name="remove" value="remove" class="smallbutton">$remove</button>);
+		say q(</td><td>);
 		say $q->popup_menu(
 			-name     => 'selected',
 			-id       => 'selected',
@@ -130,32 +130,36 @@ sub _print_interface {
 			-labels   => $labels,
 			-style    => 'min-width:10em; min-height:15em'
 		);
-		say "</td></tr>";
-		say qq(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-		  . qq(value="All" style="margin-top:1em" class="smallbutton" />);
-		say qq(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-		  . qq(style="margin-top:1em" class="smallbutton" /></td><td></td>);
-		say qq(<td style="text-align:center"><input type="button" onclick='listbox_selectall("selected",true)' )
-		  . qq(value="All" style="margin-top:1em" class="smallbutton" />);
-		say qq(<input type="button" onclick='listbox_selectall("selected",false)' value="None" )
-		  . qq(style="margin-top:1em" class="smallbutton" />);
-		say "</td></tr>";
+		say q(</td></tr>);
+		say q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
+		  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+		say q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
+		  . q(style="margin-top:1em" class="smallbutton" /></td><td></td>);
+		say q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("selected",true)' )
+		  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+		say q(<input type="button" onclick='listbox_selectall("selected",false)' value="None" )
+		  . q(style="margin-top:1em" class="smallbutton" />);
+		say q(</td></tr>);
 
 		if ( $table eq 'locus_curators' ) {
-			say qq(<tr><td colspan="3">);
-			say $q->checkbox( -name => 'hide_public', -label => 'Hide curator name from public view', -checked => 'checked' );
-			say "</td></tr>";
+			say q(<tr><td colspan="3">);
+			say $q->checkbox(
+				-name    => 'hide_public',
+				-label   => 'Hide curator name from public view',
+				-checked => 'checked'
+			);
+			say q(</td></tr>);
 		}
-		say "</table>";
+		say q(</table>);
 		say $q->hidden($_) foreach qw(db page table users_list);
 		say $q->end_form;
-		say "</fieldset>";
+		say q(</fieldset>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main</a></p>);
 	} else {
-		say qq(<div class="box" id="queryform">);
+		say q(<div class="box" id="queryform">);
 		say $self->_print_user_form;
 	}
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -164,25 +168,25 @@ sub _perform_action {
 	my $q          = $self->{'cgi'};
 	my $user_id    = $q->param('users_list');
 	my $table_data = $self->_get_table_data($table);
-	my $qry;
 	if ( $q->param('add') ) {
-		if    ( $table eq 'locus_curators' )  { $qry = "INSERT INTO locus_curators(locus,curator_id,hide_public) VALUES (?,?,?)" }
-		elsif ( $table eq 'scheme_curators' ) { $qry = "INSERT INTO scheme_curators(scheme_id,curator_id) VALUES (?,?)" }
-		elsif ( $table eq 'user_group_members' ) {
-			$qry = "INSERT INTO user_group_members(user_group,user_id,curator,datestamp) VALUES (?,?,?,?)";
-		}
-		my $sql_add = $self->{'db'}->prepare($qry);
+		my %qry = (
+			locus_curators  => 'INSERT INTO locus_curators(locus,curator_id,hide_public) VALUES (?,?,?)',
+			scheme_curators => 'INSERT INTO scheme_curators(scheme_id,curator_id) VALUES (?,?)',
+			user_group_members =>
+			  'INSERT INTO user_group_members(user_group,user_id,curator,datestamp) VALUES (?,?,?,?)'
+		);
+		my $sql_add = $self->{'db'}->prepare( $qry{$table} );
 		eval {
 			foreach my $record ( $q->param('available') )
 			{
 				next if $record eq '';
-				if ( $table eq 'locus_curators' ) {
-					$sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ) );
-				} elsif ( $table eq 'scheme_curators' ) {
-					$sql_add->execute( $record, $user_id );
-				} elsif ( $table eq 'user_group_members' ) {
-					$sql_add->execute( $record, $user_id, $self->get_curator_id, 'now' );
-				}
+				my %method = (
+					locus_curators =>
+					  sub { $sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ) ) },
+					scheme_curators    => sub { $sql_add->execute( $record, $user_id ) },
+					user_group_members => sub { $sql_add->execute( $record, $user_id, $self->get_curator_id, 'now' ) }
+				);
+				$method{$table}->();
 			}
 		};
 		if ($@) {
@@ -192,7 +196,7 @@ sub _perform_action {
 			$self->{'db'}->commit;
 		}
 	} elsif ( $q->param('remove') ) {
-		$qry = "DELETE FROM $table WHERE $table_data->{'foreign'}=? AND  $table_data->{'user_field'}=?";
+		my $qry        = "DELETE FROM $table WHERE $table_data->{'foreign'}=? AND  $table_data->{'user_field'}=?";
 		my $sql_remove = $self->{'db'}->prepare($qry);
 		eval {
 			foreach my $record ( $q->param('selected') )
@@ -215,23 +219,24 @@ sub _print_user_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $list =
-	  $self->{'datastore'}->run_query( "SELECT id,user_name,first_name,surname from users WHERE id>0 AND status != 'user' order by surname",
+	  $self->{'datastore'}
+	  ->run_query( q(SELECT id,user_name,first_name,surname from users WHERE id>0 AND status!='user' ORDER BY surname),
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my ( @users, %usernames );
 	foreach (@$list) {
 		push @users, $_->{'id'};
 		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
 	}
-	say "<fieldset><legend>Select user</legend>";
+	say q(<fieldset><legend>Select user</legend>);
 	say qq(<p>The user status must also be <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=tableQuery&amp;table=users">set to curator</a> for permissions to work.</p>)
-	  if $q->param('table') =~ /_curators$/;
+	  . q(page=tableQuery&amp;table=users">set to curator</a> for permissions to work.</p>)
+	  if $q->param('table') =~ /_curators$/x;
 	say $q->start_form;
 	say $self->get_filter( 'users', \@users, { class => 'display', labels => \%usernames } );
-	say $q->submit( -name => 'Select', -class => 'submit' );
+	say $q->submit( -name => 'Select', -class => BUTTON_CLASS );
 	say $q->hidden($_) foreach qw(db page table);
 	say $q->end_form;
-	say "</fieldset>";
+	say q(</fieldset>);
 	return;
 }
 
@@ -248,7 +253,14 @@ sub _get_table_data {
 			user_field => 'user_id'
 		);
 	} elsif ( $table eq 'locus_curators' ) {
-		%values = ( parent => 'loci', plural => 'loci', id => 'id', foreign => 'locus', order => 'id', user_field => 'curator_id' );
+		%values = (
+			parent     => 'loci',
+			plural     => 'loci',
+			id         => 'id',
+			foreign    => 'locus',
+			order      => 'id',
+			user_field => 'curator_id'
+		);
 	} elsif ( $table eq 'scheme_curators' ) {
 		%values = (
 			parent     => 'schemes',
@@ -267,9 +279,8 @@ sub _get_labels {
 	my %labels;
 	my $table_data = $self->_get_table_data($table);
 	if ( $table ne 'locus_curators' ) {
-		my $data =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id, description FROM $table_data->{'parent'}", undef, { fetch => 'all_arrayref', slice => {} } );
+		my $data = $self->{'datastore'}->run_query( "SELECT id, description FROM $table_data->{'parent'}",
+			undef, { fetch => 'all_arrayref', slice => {} } );
 		$labels{ $_->{'id'} } = $_->{'description'} foreach @$data;
 	}
 	return \%labels;

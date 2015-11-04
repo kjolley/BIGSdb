@@ -29,63 +29,67 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $query      = $self->get_query_from_temp_file($query_file);
-	say "<h1>Link sequences to experiment</h1>";
+	say q(<h1>Link sequences to experiment</h1>);
 	if ( !$query ) {
-		say qq(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
+		say q(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
 		return;
-	} elsif ( $query !~ /SELECT \* FROM sequence_bin/ ) {
+	} elsif ( $query !~ /SELECT\ \*\ FROM\ sequence_bin/x ) {
 		$logger->error("Query:$query");
-		say qq(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
+		say q(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
-		say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to link sequences to experiments.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
+		  . q(to link sequences to experiments.</p></div>);
 		return;
 	}
-	$query =~ s/SELECT \*/SELECT id/;
+	$query =~ s/SELECT\ \*/SELECT id/x;
 	my $ids = $self->{'datastore'}->run_query( $query, undef, { fetch => 'col_arrayref' } );
 	if ( $q->param('Link') ) {
 		my $experiment = $q->param('experiment');
 		if ( !$experiment ) {
-			say qq(<div class="box" id="statusbad"><p>No experiment selected.</p></div>);
+			say q(<div class="box" id="statusbad"><p>No experiment selected.</p></div>);
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($experiment) ) {
-			say qq(<div class="box" id="statusbad"><p>Invalid experiment selected.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Invalid experiment selected.</p></div>);
 			return;
 		}
-		my $qry = "SELECT COUNT(*) FROM experiment_sequences WHERE experiment_id=? AND seqbin_id=?";
-		my $sql = $self->{'db'}->prepare($qry);
-		$qry = "INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)";
+		my $qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
 		my $sql_insert = $self->{'db'}->prepare($qry);
 		my $curator_id = $self->get_curator_id;
 		eval {
-			foreach (@$ids)
+			foreach my $id (@$ids)
 			{
-				$sql->execute( $experiment, $_ );
-				my ($exists) = $sql->fetchrow_array;
+				my $exists = $self->{'datastore'}->run_query(
+					'SELECT EXISTS(SELECT * FROM experiment_sequences WHERE (experiment_id,seqbin_id)=(?,?))',
+					[ $experiment, $id ],
+					{ cache => 'CurateLinkToExperimentPage::exists' }
+				);
 				if ( !$exists ) {
-					$sql_insert->execute( $experiment, $_, $curator_id, 'now' );
+					$sql_insert->execute( $experiment, $id, $curator_id, 'now' );
 				}
 			}
 		};
 		if ($@) {
 			$logger->error("Can't execute $@");
-			say qq(<div class="box" id="statusbad"><p>Error encountered linking experiments. There should be more details of )
-			  . qq(this error in the server log.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Error encountered linking experiments. )
+			  . q(There should be more details of this error in the server log.</p></div>);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say qq(<div class="box" id="resultsheader"><p>Sequences linked!</p></div>);
+			say q(<div class="box" id="resultsheader"><p>Sequences linked!</p></div>);
 		}
 		return;
 	}
-	say qq(<div class="box" id="queryform">);
-	say "<p>" . @$ids . " sequence" . ( @$ids == 1 ? '' : 's' ) . " selected.</p>";
-	say "<p>Please select the experiment to link these sequences to:</p>";
-	my $exp_data =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT id,description FROM experiments ORDER BY description", undef, { fetch => 'all_arrayref', slice => {} } );
+	say q(<div class="box" id="queryform">);
+	my $count = @$ids;
+	my $plural = @$ids == 1 ? q() : q(s);
+	say qq(<p>$count sequence$plural selected.</p>);
+	say q(<p>Please select the experiment to link these sequences to:</p>);
+	my $exp_data = $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @ids = (0);
-	my %desc = ( 0 => '' );
+	my %desc = ( 0 => q() );
+
 	foreach my $data (@$exp_data) {
 		push @ids, $data->{'id'};
 		$desc{ $data->{'id'} } = $data->{'description'};
@@ -95,13 +99,13 @@ sub print_content {
 	say $q->submit( -name => 'Link', -class => 'button' );
 	say $q->hidden($_) foreach qw (db page query_file);
 	say $q->end_form;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Link sequences to experiment - $desc";
+	return qq(Link sequences to experiment - $desc);
 }
 1;
