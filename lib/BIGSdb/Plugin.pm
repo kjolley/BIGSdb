@@ -20,7 +20,7 @@ package BIGSdb::Plugin;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage);
+use parent qw(BIGSdb::TreeViewPage Exporter);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);

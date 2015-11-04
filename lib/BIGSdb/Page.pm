@@ -20,7 +20,6 @@ package BIGSdb::Page;
 use strict;
 use warnings;
 use 5.010;
-use parent 'Exporter';    #TODO remove once all exported constants moved to Constant.pm.
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);

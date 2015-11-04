@@ -46,7 +46,7 @@ use strict;
 use warnings;
 use 5.010;
 use Log::Log4perl qw(get_logger);
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::Page Exporter);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 use constant UNIQUE_STRING => 'bigsdbJolley';
