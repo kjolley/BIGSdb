@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,79 +45,85 @@ JS
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Renumber locus genome positions - $desc";
+	return qq(Renumber locus genome positions - $desc);
 }
 
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Your user account does not have permission to modify loci.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Your user account does not )
+		  . q(have permission to modify loci.</p></div>);
 		return;
 	}
-	say "<h1>Renumber locus genome positions based on tagged sequences</h1>";
+	say q(<h1>Renumber locus genome positions based on tagged sequences</h1>);
 	my $seqbin_id = $q->param('seqbin_id');
 	if ( !$seqbin_id || !BIGSdb::Utils::is_int($seqbin_id) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Invalid sequence bin id.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Invalid sequence bin id.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"resultstable\">";
-	say "<p>You have selected to renumber the genome positions set in the locus table based on the tagged sequences in "
-	  . "sequence id#$seqbin_id.</p>";
-	my $sql = $self->{'db'}->prepare("SELECT locus,start_pos FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos");
-	eval { $sql->execute($seqbin_id) };
-	$logger->error($@) if $@;
 	if ( $q->param('renumber') ) {
 		if ( $q->param('blank') ) {
-			eval { $self->{'db'}->do("UPDATE loci SET genome_position = null"); };
+			eval { $self->{'db'}->do('UPDATE loci SET genome_position=null') };
 			if ($@) {
-				$logger->error("Can't remove genome positions");
-				say qq(<p class="statusbad">Can't remove existing genome positions</p>);
+				$logger->error($@);
+				say q(<p class="statusbad">Cannot remove existing genome positions</p>);
 				$self->{'db'}->rollback;
 				return;
 			}
 		}
-		my $update_sql = $self->{'db'}->prepare("UPDATE loci SET genome_position=?,datestamp='today' WHERE id=?");
-		while ( my ( $locus, $pos ) = $sql->fetchrow_array ) {
+		my $update_sql = $self->{'db'}->prepare(q(UPDATE loci SET genome_position=?,datestamp='now' WHERE id=?));
+		my $locus_starts =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT locus,start_pos FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
+			$seqbin_id, { fetch => 'all_arrayref', cache => 'CurateRenumber::get_locus_starts' } );
+		foreach my $data (@$locus_starts) {
+			my ( $locus, $pos ) = @$data;
 			eval { $update_sql->execute( $pos, $locus ) };
 			if ($@) {
-				$logger->error("Can't update genome positions $@");
+				$logger->error($@);
 				$self->{'db'}->rollback;
-				say qq(<p class="statusbad">Can't update genome positions</p>);
+				say q(<p class="statusbad">Cannot update genome positions</p>);
 				return;
 			}
 		}
 		$self->{'db'}->commit;
-		say "<p class=\"statusgood\">Done!</p>";
-		say "</div>";
+		say q(<div class="box" id="resultsheader">Database updated!</p></div>);
 		return;
 	}
+	say q(<div class="box" id="resultstable">);
+	say q(<p>You have selected to renumber the genome positions set in the locus table based )
+	  . qq(on the tagged sequences in sequence id#$seqbin_id.</p>);
 	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Option</legend>);
+	say q(<fieldset style="float:left"><legend>Option</legend>);
 	say $q->checkbox( -name => 'blank', -label => 'Remove positions for loci not tagged in this sequence' );
-	say qq(</fieldset><fieldset style="float:left"><legend>Action</legend>);
-	say $q->submit( -name => 'renumber', -label => 'Renumber', -class => 'submit' );
-	say "</fieldset>";
+	say q(</fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Renumber', no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page seqbin_id);
+	say $q->hidden( renumber => 1 );
 	say $q->end_form;
-	say qq(<div style="clear:both">);
-	say "<p>The following designations will be made:</p>";
-	say qq(<table class="tablesorter" id="sortTable">);
-	say "<thead><tr><th>Locus</th><th>Existing genome position<th>New genome position</th></tr></thead>\n<tbody>";
-	my $td           = 1;
-	my $existing_sql = $self->{'db'}->prepare("SELECT genome_position FROM loci WHERE id=?");
+	say q(<p>The following designations will be made:</p>);
+	say q(<div class="scrollable">);
+	say q(<table class="tablesorter" id="sortTable">);
+	say q(<thead><tr><th>Locus</th><th>Existing genome position<th>New genome position</th></tr></thead><tbody>);
+	my $td = 1;
+	my $locus_starts =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT locus,start_pos FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
+		$seqbin_id, { fetch => 'all_arrayref', cache => 'CurateRenumber::get_locus_starts' } );
 
-	while ( my ( $locus, $pos ) = $sql->fetchrow_array ) {
-		eval { $existing_sql->execute($locus) };
-		$logger->error($@) if $@;
-		my ($existing) = $existing_sql->fetchrow_array;
+	foreach my $data (@$locus_starts) {
+		my ( $locus, $pos ) = @$data;
+		my $existing =
+		  $self->{'datastore'}->run_query( 'SELECT genome_position FROM loci WHERE id=?', $locus,
+			{ cache => 'CurateRenumber:pos_exists' } );
 		print qq(<tr class="td$td"><td>$locus</td>);
-		print defined $existing ? "<td>$existing</td>" : '<td></td>';
-		say "<td>$pos</td></tr>";
+		print defined $existing ? qq(<td>$existing</td>) : q(<td></td>);
+		say qq(<td>$pos</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</tbody></table>";
-	say "</div></div>";
+	say q(</tbody></table>);
+	say q(</div></div>);
 	return;
 }
 1;
