@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -44,7 +44,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
@@ -52,13 +53,14 @@ sub run {
 	my ($self) = @_;
 	say q(<h1>Description of database fields</h1>);
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
-	say qq(<p>Order columns by clicking their headings. <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=plugin&amp;name=DatabaseFields">Reset default order</a>.</p>);
-	say qq(<table class="tablesorter" id="sortTable">\n<thead>);
-	say qq(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">allowed values</th><th>required</th></tr>)
-	  . qq(</thead>\n<tbody>);
+	say q(<p>Order columns by clicking their headings. )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+	  . q(name=DatabaseFields">Reset default order</a>.</p>);
+	say q(<table class="tablesorter" id="sortTable"><thead>);
+	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
+	  . q(allowed values</th><th>required</th></tr></thead><tbody>);
 	$self->_print_fields;
-	say qq(</tbody></table>\n</div></div>);
+	say q(</tbody></table></div></div>);
 	return;
 }
 
@@ -73,38 +75,51 @@ sub _print_fields {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'comments'} //= '';
-		print "<tr class=\"td$td\"><td>"
+		say qq(<tr class="td$td"><td>)
 		  . ( $metafield // $field )
-		  . "</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td><td>";
-		if ( $thisfield->{'optlist'} ) {
-			my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
-			foreach my $option (@$option_list) {
-				$option =~ s/</&lt;/g;
-				$option =~ s/>/&gt;/g;
-				say "$option<br />";
-			}
-		} elsif ( defined $thisfield->{'min'} || defined $thisfield->{'max'} ) {
-			print "min: $thisfield->{'min'}" if defined $thisfield->{'min'};
-			print "; "                       if defined $thisfield->{'min'} && defined $thisfield->{'max'};
-			say "max: $thisfield->{'max'}"   if defined $thisfield->{'max'};
-		} elsif ( $field eq 'sender' || $field eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
-			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender\" "
-			  . "target=\"_blank\">Click for list of sender ids</a>";
-		} elsif ( $field eq 'curator' ) {
-			say "<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_curator\" "
-			  . "target=\"_blank\">Click for list of curator ids</a>";
+		  . qq(</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td>);
+		say q(<td>);
+		$self->_print_allowed_values($field);
+		say q(</td>);
+		if ( ( $thisfield->{'required'} // '' ) eq 'no' ) {
+			say q(<td>no</td>);
 		} else {
-			print '-';
+			say q(<td>yes</td>);
 		}
-		if ( $thisfield->{'composite'} ) {
-			say "</td><td>n/a (composite field)</td></tr>";
-		} elsif ( ( $thisfield->{'required'} // '' ) eq 'no' ) {
-			say "</td><td>no</td></tr>";
-		} else {
-			say "</td><td>yes</td></tr>";
-		}
+		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
+	return;
+}
+
+sub _print_allowed_values {
+	my ( $self, $field ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( $thisfield->{'optlist'} ) {
+		my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
+		foreach my $option (@$option_list) {
+			$option = BIGSdb::Utils::escape_html($option);
+			say qq($option<br />);
+		}
+		return;
+	}
+	if ( defined $thisfield->{'min'} || defined $thisfield->{'max'} ) {
+		print qq(min: $thisfield->{'min'}) if defined $thisfield->{'min'};
+		print q(; )                        if defined $thisfield->{'min'} && defined $thisfield->{'max'};
+		say qq(max: $thisfield->{'max'})   if defined $thisfield->{'max'};
+		return;
+	}
+	if ( $field eq 'sender' || $field eq 'sequenced_by' || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;)
+		  . q(field=f_sender" target="_blank">Click for list of sender ids</a>);
+		return;
+	}
+	if ( $field eq 'curator' ) {
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=fieldValues&amp;)
+		  . q(field=f_curator" target="_blank">Click for list of curator ids</a>);
+		return;
+	}
+	print q(-);
 	return;
 }
 1;
