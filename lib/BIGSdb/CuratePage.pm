@@ -157,9 +157,10 @@ sub _get_form_fields {
 		foreach my $att (@$attributes) {
 			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 
+			#Removed by KJ, 2015-11-05.
 			#Project description can include HTML - don't escape.   We may need to exclude other tables too.
-			$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } )
-			  if $table ne 'projects';
+			#$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } )
+			#  if $table ne 'projects';
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
 			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
@@ -707,6 +708,7 @@ sub check_record {
 	my ( $self, $table, $newdata, $update, $allowed_values ) = @_;
 
 	#TODO prevent scheme group belonging to a child
+	#TODO check optlist values
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
 	my ( @problems, @missing );

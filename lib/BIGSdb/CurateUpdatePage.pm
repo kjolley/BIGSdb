@@ -34,69 +34,80 @@ sub initiate {
 	return;
 }
 
-sub print_content {
-	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my $table       = $q->param('table');
-	my $record_name = $self->get_record_name($table);
-	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Table $table does not exist!</p></div>";
-		return;
+#Sanity check table and user permissions
+sub _pre_check_failed {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	if (   !$self->{'datastore'}->is_table($table)
+		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
+	{
+		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		return 1;
 	}
-	print "<h1>Update $record_name</h1>\n";
 	if ( !$self->can_modify_table($table) ) {
-		if ( $table eq 'sequences' && $q->param('locus') ) {
-			my $locus = $q->param('locus');
-			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update $locus sequences in "
-			  . "the database.</p></div>";
-		} else {
-			say "<div class=\"box\" id=\"statusbad\"><p>Your user account is not allowed to update this record.</p></div>";
-		}
-		return;
+		say q(<div class="box" id="statusbad"><p>Your user account is not )
+		  . q(allowed to update this record.</p></div>);
+		return 1;
 	}
 	if ( $table eq 'allele_sequences' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Sequence tags cannot be updated using this function.</p></div>";
-		return;
+		say q(<div class="box" id="statusbad"><p>Sequence tags cannot be updated ) . q(using this function.</p></div>);
+		return 1;
 	}
 	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
-		say "<div class=\"box\" id=\"warning\"><p>Please be aware that any changes to the structure of a scheme will "
-		  . " result in all data being removed from it.  This will happen if you modify the type or change whether "
-		  . " the field is a primary key.  All other changes are ok.</p>";
+		say q(<div class="box" id="warning"><p>Please be aware that any changes to the )
+		  . q(structure of a scheme will result in all data being removed from it. This )
+		  . q(will happen if you modify the type or change whether the field is a primary key. )
+		  . q(All other changes are ok.</p>);
 		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			say "<p>If you change the index status of a field you will also need to rebuild the scheme table to reflect this change. "
-			  . "This can be done by selecting 'Configuration repair' on the main curation page.</p>";
+			say q(<p>If you change the index status of a field you will also need to rebuild the )
+			  . q(scheme table to reflect this change. This can be done by selecting 'Configuration )
+			  . q(repair' on the main curation page.</p>);
 		}
-		say "</div>";
+		say q(</div>);
 	}
+	return;
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
+	my $record_name = $self->get_record_name($table) // 'record';
+	say qq(<h1>Update $record_name</h1>);
+	return if $self->_pre_check_failed($table);
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my @query_values;
-	foreach (@$attributes) {
-		my $value = $q->param( $_->{'name'} );
+	my ( @query_terms, @query_values );
+
+	foreach my $att (@$attributes) {
+		my $value = $q->param( $att->{'name'} );
 		next if !defined $value;
-		$value =~ s/'/\\'/g;
-		if ( $_->{'primary_key'} ) {
-			push @query_values, "$_->{name} = E'$value'";
+		if ( $att->{'primary_key'} ) {
+			push @query_terms,  qq($att->{name}=?);
+			push @query_values, $value;
 		}
 	}
 	if ( !@query_values ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
+		say q(<div class="box" id="statusbad"><p>No identifying attributes sent.</p>);
 		return;
 	}
-	local $" = ' AND ';
-	my $sql = $self->{'db'}->prepare("SELECT * FROM $table WHERE @query_values");
-	eval { $sql->execute };
-	if ($@) {
-		$logger->error($@);
-		say "<div class=\"box\" id=\"statusbad\"><p>No identifying attributes sent.</p>";
+	local $" = q( AND );
+	my $record_count =
+	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE @query_terms", \@query_values );
+	if ( $record_count != 1 ) {
+		say q(<div class="box" id="statusbad"><p>The search terms did not unique identify a single record.</p></div>);
 		return;
 	}
-	my $data = $sql->fetchrow_hashref;
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM $table WHERE @query_terms", \@query_values, { fetch => 'row_hashref' } );
 	if ( $table eq 'sequences' ) {
-		$sql = $self->{'db'}->prepare("SELECT field,value FROM sequence_extended_attributes WHERE locus=? AND allele_id=?");
-		eval { $sql->execute( $data->{'locus'}, $data->{'allele_id'} ) };
-		$logger->error($@) if $@;
-		while ( my ( $field, $value ) = $sql->fetchrow_array ) {
-			$data->{$field} = $value;
+		my $ext_dataset = $self->{'datastore'}->run_query(
+			'SELECT field,value FROM sequence_extended_attributes WHERE (locus,allele_id)=(?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'} ],
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+		foreach my $ext_data (@$ext_dataset) {
+			$data->{ $ext_data->{'field'} } = $ext_data->{'value'};
 		}
 	}
 	my $buffer = $self->create_record_table( $table, $data, { update => 1 } );
@@ -109,136 +120,147 @@ sub print_content {
 	$newdata{'datestamp'}    = BIGSdb::Utils::get_datestamp();
 	$newdata{'curator'}      = $self->get_curator_id();
 	$newdata{'date_entered'} = $data->{'date_entered'};
-	my @problems;
-	my $extra_inserts = [];
 	if ( $q->param('sent') ) {
-		@problems = $self->check_record( $table, \%newdata, 1, $data );
-		if (@problems) {
-			local $" = "<br />\n";
-			say "<div class=\"box\" id=\"statusbad\"><p>@problems</p></div>";
-		} else {
-			my $status;
-			if ( $table eq 'users' ) {
-				$status = $self->_check_users( \%newdata );
-				$self->_prepare_extra_inserts_for_users( \%newdata, $extra_inserts );
-			} elsif ( $table eq 'scheme_fields' ) {
-				$status = $self->_check_scheme_fields( \%newdata );
-			} elsif ( $table eq 'sequences' ) {
-				$status = $self->_check_allele_data( \%newdata, $extra_inserts );
-			} elsif ( $table eq 'locus_descriptions' ) {
-				$status = $self->_check_locus_descriptions( \%newdata, $extra_inserts );
-			} elsif ( $table eq 'loci' ) {
-				$status = $self->_check_loci( \%newdata );
+		my $retval = $self->_upload( $table, \%newdata, $data, \@query_terms, \@query_values );
+		say $buffer if $retval;
+		return;
+	}
+	say $buffer;
+	return;
+}
+
+sub _has_scheme_structure_changed {
+	my ( $self, $data, $newdata, $attribute ) = @_;
+	if ( any { $attribute->{'name'} eq $_ } qw(type primary_key) ) {
+		if (
+			   ( $newdata->{ $attribute->{'name'} } eq 'true' && !$data->{ $attribute->{'name'} } )
+			|| ( $newdata->{ $attribute->{'name'} } eq 'false' && $data->{ $attribute->{'name'} } )
+			|| (   $attribute->{'type'} ne 'bool'
+				&& $newdata->{ $attribute->{'name'} } ne $data->{ $attribute->{'name'} } )
+		  )
+		{
+			return 1;
+		}
+	}
+	return;
+}
+
+sub _upload {
+	my ( $self, $table, $newdata, $data, $query_terms, $query_values ) = @_;
+	my $attributes    = $self->{'datastore'}->get_table_field_attributes($table);
+	my $extra_inserts = [];
+	my @problems      = $self->check_record( $table, $newdata, 1, $data );
+	my $status;
+	if (@problems) {
+		local $" = qq(<br />\n);
+		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
+	} else {
+		my %methods = (
+			users => sub {
+				$status = $self->_check_users($newdata);
+				$self->_prepare_extra_inserts_for_users( $newdata, $extra_inserts );
+			},
+			scheme_fields => sub {
+				$status = $self->_check_scheme_fields($newdata);
+			},
+			sequences => sub {
+				$status = $self->_check_allele_data( $newdata, $extra_inserts );
+			},
+			locus_descriptions => sub {
+				$status = $self->_check_locus_descriptions( $newdata, $extra_inserts );
+			},
+			loci => sub {
+				$status = $self->_check_loci($newdata);
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-					$newdata{'locus'} = $newdata{'id'};
-					my $desc_status = $self->_prepare_extra_inserts_for_loci( \%newdata, $extra_inserts );
+					$newdata->{'locus'} = $newdata->{'id'};
+					my $desc_status = $self->_prepare_extra_inserts_for_loci( $newdata, $extra_inserts );
 					$status = $desc_status if !$status;
 				}
-				$self->_check_locus_aliases_when_updating_other_table( $newdata{'id'}, \%newdata, $extra_inserts );
-			} elsif ( $table eq 'sequence_bin' ) {
-				$status = $self->_prepare_extra_inserts_for_seqbin( \%newdata, $extra_inserts );
-			} elsif ( ( $table eq 'allele_designations' || $table eq 'sequence_bin' )
-				&& !$self->is_allowed_to_view_isolate( $newdata{'isolate_id'} ) )
-			{
-				my $record_type = $self->get_record_name($table);
-				print <<"HTML";
-<div class="box" id="statusbad"><p>Your user account is not allowed to update $record_type for isolate $newdata{'isolate_id'}.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
-				$status = FAILURE;
+				$self->_check_locus_aliases_when_updating_other_table( $newdata->{'id'}, $newdata, $extra_inserts );
+			},
+			allele_designations => sub {
+				$status = $self->_check_allele_designations($newdata);
+			},
+			sequence_bin => sub {
+				$status = $self->_prepare_extra_inserts_for_seqbin( $newdata, $extra_inserts );
 			}
-			if ( ( $status // 0 ) != FAILURE ) {
-				my ( @table_fields, @placeholders, @values );
-				my %new_value;
-				my $scheme_structure_changed = 0;
-				foreach my $att (@$attributes) {
-					next if $att->{'user_update'} && $att->{'user_update'} eq 'no';
-					push @table_fields, $att->{'name'};
-					push @placeholders, '?';
-					if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' && any { $att->{'name'} eq $_ }
-						qw(type primary_key) )
-					{
-						if (   ( $newdata{ $att->{'name'} } eq 'true' && !$data->{ $att->{'name'} } )
-							|| ( $newdata{ $att->{'name'} } eq 'false' && $data->{ $att->{'name'} } )
-							|| ( $att->{'type'} ne 'bool' && $newdata{ $att->{'name'} } ne $data->{ $att->{'name'} } ) )
-						{
-							$scheme_structure_changed = 1;
-						}
-					}
-					if ( $att->{'name'} =~ /sequence$/ && $newdata{ $att->{'name'} } ) {
-						$newdata{ $att->{'name'} } = uc( $newdata{ $att->{'name'} } );
-						$newdata{ $att->{'name'} } =~ s/\s//g;
-					}
-					if ( ( $newdata{ $att->{'name'} } // '' ) ne '' ) {
-						push @values, $newdata{ $att->{'name'} };
-						$new_value{ $att->{'name'} } = $newdata{ $att->{'name'} };
-					} else {
-						push @values, undef;
-					}
+		);
+		$methods{$table}->() if $methods{$table};
+		if ( ( $status // 0 ) != FAILURE ) {
+			my ( @table_fields, @placeholders, @values );
+			my %new_value;
+			my $scheme_structure_changed = 0;
+			foreach my $att (@$attributes) {
+				next if $att->{'user_update'} && $att->{'user_update'} eq 'no';
+				push @table_fields, $att->{'name'};
+				push @placeholders, '?';
+				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' ) {
+					$scheme_structure_changed = 1 if $self->_has_scheme_structure_changed( $data, $newdata, $att );
 				}
-				local $" = ',';
-				my $qry = "UPDATE $table SET (@table_fields) = (@placeholders) WHERE ";
-				local $" = ' AND ';
-				$qry .= "@query_values";
-				eval {
-					$self->{'db'}->do( $qry, undef, @values );
-					foreach (@$extra_inserts) {
-						$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
-					}
-					if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && $scheme_structure_changed ) {
-						$self->remove_profile_data( $data->{'scheme_id'} );
-						$self->drop_scheme_view( $data->{'scheme_id'} );
-						$self->create_scheme_view( $data->{'scheme_id'} );
-					}
-				};
-				if ($@) {
-					say qq(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - no records have been touched.</p>);
-					if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-						say qq(<p>Data entry would have resulted in records with either duplicate ids or another unique field with )
-						  . qq(duplicate values.</p></div>);
-					} else {
-						say "<p>Error message: $@</p></div>";
-					}
-					$self->{'db'}->rollback;
+				if ( $att->{'name'} =~ /sequence$/x && $newdata->{ $att->{'name'} } ) {
+					$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } );
+					$newdata->{ $att->{'name'} } =~ s/\s//gx;
+				}
+				if ( ( $newdata->{ $att->{'name'} } // q() ) ne q() ) {
+					push @values, $newdata->{ $att->{'name'} };
+					$new_value{ $att->{'name'} } = $newdata->{ $att->{'name'} };
 				} else {
-					$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
-					say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table">)
-					  . qq(Update another</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
-					  . qq(</p></div>);
-					if ( $table eq 'allele_designations' ) {
-						$self->update_history( $data->{'isolate_id'}, "$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
-					}
-					return;
+					push @values, undef;
+				}
+			}
+			local $" = q(,);
+			my $qry = "UPDATE $table SET (@table_fields)=(@placeholders) WHERE ";
+			local $" = ' AND ';
+			$qry .= "@$query_terms";
+			eval {
+				$self->{'db'}->do( $qry, undef, @values, @$query_values );
+				foreach (@$extra_inserts) {
+					$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
+				}
+				if ($scheme_structure_changed) {
+					$self->remove_profile_data( $data->{'scheme_id'} );
+					$self->drop_scheme_view( $data->{'scheme_id'} );
+					$self->create_scheme_view( $data->{'scheme_id'} );
+				}
+			};
+			if ($@) {
+				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
+				  . q(no records have been touched.</p>);
+				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+					say q(<p>Data entry would have resulted in records with either duplicate ids or )
+					  . q(another unique field with duplicate values.</p></div>);
+				} else {
+					say qq(<p>Error message: $@</p></div>);
+				}
+				$self->{'db'}->rollback;
+			} else {
+				my $record_name = $self->get_record_name($table);
+				$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=tableQuery&amp;table=$table">Update another</a> | )
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
+				  . q(</p></div>);
+				if ( $table eq 'allele_designations' ) {
+					$self->update_history( $data->{'isolate_id'},
+						"$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
 				}
 			}
 		}
 	}
-	print $buffer;
-	return;
+	return $status;
 }
 
 sub _check_users {
 	my ( $self, $newdata ) = @_;
-	if (   $newdata->{'id'} == $self->get_curator_id
-		&& $newdata->{'status'} eq 'user' )
-	{
-		print <<"HTML";
-<div class="box" id="statusbad"><p>It's not a good idea to remove curator status from yourself 
-as you will lock yourself out!  If you really wish to do this, you'll need to do 
-it from another curator account.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
-		return FAILURE;
-	} elsif ( $self->is_admin
+	if (   $self->is_admin
 		&& $newdata->{'id'} == $self->get_curator_id
 		&& $newdata->{'status'} ne 'admin' )
 	{
-		print <<"HTML";
-<div class="box" id="statusbad"><p>It's not a good idea to remove admin status from yourself 
-as you will lock yourself out!  If you really wish to do this, you'll need to do 
-it from another admin account.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+		say q(<div class="box" id="statusbad"><p>It is not a good idea to remove admin status from )
+		  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
+		  . q(to do it from another admin account.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+		  . q(Back to main page</a></p></div>);
 		return FAILURE;
 	}
 	return;
@@ -252,11 +274,25 @@ sub _check_scheme_fields {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
-			say qq(<div class="box" id="statusbad"><p>This scheme already has a primary key field set ($primary_key).</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+			say q(<div class="box" id="statusbad"><p>This scheme already has a primary key field )
+			  . qq(set ($primary_key).</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 			return FAILURE;
 		}
 	}
+}
+
+sub _check_allele_designations {
+	my ( $self, $newdata ) = @_;
+	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
+		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+		  . q(Back to main page</a></p></div>);
+		return FAILURE;
+	}
+	return;
 }
 
 sub _check_loci {
@@ -266,9 +302,8 @@ sub _check_loci {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $non_int;
 		if ( $newdata->{'allele_id_format'} eq 'integer' ) {
-			my $ids =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT allele_id FROM sequences WHERE locus=?", $newdata->{'id'}, { fetch => 'col_arrayref' } );
+			my $ids = $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE locus=?',
+				$newdata->{'id'}, { fetch => 'col_arrayref' } );
 			foreach (@$ids) {
 				if ( !BIGSdb::Utils::is_int($_) && $_ ne 'N' ) {
 					$non_int = 1;
@@ -277,19 +312,18 @@ sub _check_loci {
 			}
 		}
 		if ($non_int) {
-			print <<"HTML";
-<div class="box" id="statusbad"><p>The sequence table already contains data with non-integer allele ids.  You will need to remove
-these before you can change the allele_id_format to 'integer'.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+			say q(<div class="box" id="statusbad"><p>The sequence table already contains data with )
+			  . q(non-integer allele ids. You will need to remove these before you can change the )
+			  . q(allele_id_format to 'integer'.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 			return FAILURE;
 
 			#special case to ensure that a locus length is set if it is not marked as variable length
 		} elsif ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
-			print <<"HTML";
-<div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+			say q(<div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 			return FAILURE;
 		}
 	}
@@ -300,117 +334,61 @@ sub _check_allele_data {
 	#check extended attributes if they exist
 	#Prepare extra inserts for PubMed/Genbank records and sequence flags.
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	my $q   = $self->{'cgi'};
-	my $sql = $self->{'db'}->prepare("SELECT field,required,value_format,value_regex FROM locus_extended_attributes WHERE locus=?");
-	eval { $sql->execute( $newdata->{'locus'} ) };
-	$logger->error($@) if $@;
+	my $q = $self->{'cgi'};
+	my $ext_dataset =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT field,required,value_format,value_regex FROM locus_extended_attributes WHERE locus=?',
+		$newdata->{'locus'}, { fetch => 'all_arrayref' } );
 	my @missing_field;
-	while ( my ( $field, $required, $format, $regex ) = $sql->fetchrow_array ) {
+	foreach my $ext_data (@$ext_dataset) {
+		my ( $field, $required, $format, $regex ) = @$ext_data;
 		$newdata->{$field} = $q->param($field);
 		if ( $required && $newdata->{$field} eq '' ) {
 			push @missing_field, $field;
 		} elsif ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
-			print <<"HTML";
-<div class="box" id="statusbad"><p>$field must be an integer.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+			say qq(<div class="box" id="statusbad"><p>$field must be an integer.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 			return FAILURE;
-		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/ ) {
-			print <<"HTML";
-<div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/x ) {
+			say qq(<div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+			  . q(Back to main page</a></p></div>);
 			return FAILURE;
 		} else {
-			if ( $newdata->{$field} ne '' ) {
-				if (
-					$self->{'datastore'}->run_query(
-						"SELECT EXISTS(SELECT * FROM sequence_extended_attributes WHERE locus=? AND field=? AND allele_id=?)",
-						[ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ],
-						{ cache => 'CurateUpdatePage::check_allele_data' }
-					)
-				  )
-				{
-					push @$extra_inserts,
-					  {
-						statement => 'UPDATE sequence_extended_attributes SET (value,datestamp,curator) = (?,?,?) WHERE '
-						  . '(locus,field,allele_id) = (?,?,?)',
-						arguments =>
-						  [ $newdata->{$field}, 'now', $newdata->{'curator'}, $newdata->{'locus'}, $field, $newdata->{'allele_id'} ]
-					  };
-				} else {
-					push @$extra_inserts,
-					  {
-						statement => 'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES '
-						  . '(?,?,?,?,?,?)',
-						arguments =>
-						  [ $newdata->{'locus'}, $field, $newdata->{'allele_id'}, $newdata->{$field}, 'now', $newdata->{'curator'} ]
-					  };
-				}
-			} else {
-				push @$extra_inserts,
-				  {
-					statement => 'DELETE FROM sequence_extended_attributes WHERE (locus,field,allele_id) = (?,?,?)',
-					arguments => [ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ]
-				  };
-			}
+			$self->_get_allele_extended_attribute_inserts( $newdata, $field, $extra_inserts );
 		}
 	}
 	if (@missing_field) {
 		local $" = ', ';
-		print <<"HTML";
-<div class="box" id="statusbad"><p>Please fill in all extended attribute fields.  The following extended attribute fields are missing: @missing_field.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+		say q(<div class="box" id="statusbad"><p>Please fill in all extended attribute fields. )
+		  . qq( The following extended attribute fields are missing: @missing_field.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
 		return FAILURE;
 	}
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		my $existing_flags = $self->{'datastore'}->run_query(
-			"SELECT flag FROM allele_flags WHERE locus=? AND allele_id=?",
-			[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
-			{ fetch => 'col_arrayref' }
-		);
-		my @new_flags = $q->param('flags');
-		foreach my $new (@new_flags) {
-			next if none { $new eq $_ } ALLELE_FLAGS;
-			if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {
-				push @$extra_inserts,
-				  {
-					statement => 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
-					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'today' ]
-				  };
-			}
-		}
-		foreach my $existing (@$existing_flags) {
-			if ( !@new_flags || none { $existing eq $_ } @new_flags ) {
-				push @$extra_inserts,
-				  {
-					statement => 'DELETE FROM allele_flags WHERE (locus,allele_id,flag) = (?,?,?)',
-					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $existing ]
-				  };
-			}
-		}
+		$self->_get_allele_flag_inserts( $newdata, $extra_inserts );
 	}
 	my $existing_pubmeds = $self->{'datastore'}->run_query(
-		"SELECT pubmed_id FROM sequence_refs WHERE locus=? AND allele_id=?",
+		'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?)',
 		[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
 		{ fetch => 'col_arrayref' }
 	);
-	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				print <<"HTML";
-<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
 				return FAILURE;
 			}
 			push @$extra_inserts,
 			  {
-				statement => 'INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?,?)',
+				statement => 'INSERT INTO sequence_refs (locus,allele_id,pubmed_id,curator,datestamp) '
+				  . 'VALUES (?,?,?,?,?)',
 				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'now' ]
 			  };
 		}
@@ -427,19 +405,21 @@ HTML
 	my @databanks = DATABANKS;
 	foreach my $databank (@databanks) {
 		my $existing_accessions = $self->{'datastore'}->run_query(
-			"SELECT databank_id FROM accession WHERE locus=? AND allele_id=? AND databank=?",
+			'SELECT databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?)',
 			[ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank ],
 			{ fetch => 'col_arrayref' }
 		);
-		my @new_accessions = split /\r?\n/, $q->param("databank_$databank");
+		my @new_accessions = split /\r?\n/x, $q->param("databank_$databank");
 		foreach my $new (@new_accessions) {
 			chomp $new;
 			next if $new eq '';
 			if ( !@$existing_accessions || none { $new eq $_ } @$existing_accessions ) {
 				push @$extra_inserts,
 				  {
-					statement => 'INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) VALUES (?,?,?,?,?,?)',
-					arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $new, $newdata->{'curator'}, 'now' ]
+					statement => 'INSERT INTO accession (locus,allele_id,databank,databank_id,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?,?)',
+					arguments =>
+					  [ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank, $new, $newdata->{'curator'}, 'now' ]
 				  };
 			}
 		}
@@ -456,12 +436,86 @@ HTML
 	return;
 }
 
+sub _get_allele_flag_inserts {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my $q              = $self->{'cgi'};
+	my $existing_flags = $self->{'datastore'}->run_query(
+		'SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?)',
+		[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
+		{ fetch => 'col_arrayref' }
+	);
+	my @new_flags = $q->param('flags');
+	foreach my $new (@new_flags) {
+		next if none { $new eq $_ } ALLELE_FLAGS;
+		if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $new, $newdata->{'curator'}, 'today' ]
+			  };
+		}
+	}
+	foreach my $existing (@$existing_flags) {
+		if ( !@new_flags || none { $existing eq $_ } @new_flags ) {
+			push @$extra_inserts,
+			  {
+				statement => 'DELETE FROM allele_flags WHERE (locus,allele_id,flag) = (?,?,?)',
+				arguments => [ $newdata->{'locus'}, $newdata->{'allele_id'}, $existing ]
+			  };
+		}
+	}
+	return;
+}
+
+sub _get_allele_extended_attribute_inserts {
+	my ( $self, $newdata, $field, $extra_inserts ) = @_;
+	if ( $newdata->{$field} ne '' ) {
+		if (
+			$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?))',
+				[ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ],
+				{ cache => 'CurateUpdatePage::check_allele_data' }
+			)
+		  )
+		{
+			push @$extra_inserts,
+			  {
+				statement => 'UPDATE sequence_extended_attributes SET (value,datestamp,curator) = (?,?,?) WHERE '
+				  . '(locus,field,allele_id) = (?,?,?)',
+				arguments => [
+					$newdata->{$field},  'now',  $newdata->{'curator'},
+					$newdata->{'locus'}, $field, $newdata->{'allele_id'}
+				]
+			  };
+		} else {
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,'
+				  . 'datestamp,curator) VALUES (?,?,?,?,?,?)',
+				arguments => [
+					$newdata->{'locus'}, $field, $newdata->{'allele_id'},
+					$newdata->{$field},  'now',  $newdata->{'curator'}
+				]
+			  };
+		}
+	} else {
+		push @$extra_inserts,
+		  {
+			statement => 'DELETE FROM sequence_extended_attributes WHERE (locus,field,allele_id) = (?,?,?)',
+			arguments => [ $newdata->{'locus'}, $field, $newdata->{'allele_id'} ]
+		  };
+	}
+	return;
+}
+
 sub _prepare_extra_inserts_for_loci {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
 	my $existing_desc =
-	  $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $newdata->{'locus'}, { fetch => 'row_hashref' } );
-	my ( $full_name, $product, $description ) = ( $q->param('full_name'), $q->param('product'), $q->param('description') );
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $newdata->{'locus'}, { fetch => 'row_hashref' } );
+	my ( $full_name, $product, $description ) =
+	  ( $q->param('full_name'), $q->param('product'), $q->param('description') );
 	if ($existing_desc) {
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
 			|| $product ne ( $existing_desc->{'product'} // '' )
@@ -469,14 +523,16 @@ sub _prepare_extra_inserts_for_loci {
 		{
 			push @$extra_inserts,
 			  {
-				statement => 'UPDATE locus_descriptions SET (full_name,product,description,curator,datestamp) = (?,?,?,?,?) WHERE locus=?',
+				statement => 'UPDATE locus_descriptions SET (full_name,product,description,curator,datestamp)='
+				  . '(?,?,?,?,?) WHERE locus=?',
 				arguments => [ $full_name, $product, $description, $newdata->{'curator'}, 'now', $newdata->{'locus'} ]
 			  };
 		}
 	} else {
 		push @$extra_inserts,
 		  {
-			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) '
+			  . 'VALUES (?,?,?,?,?,?)',
 			arguments => [ $newdata->{'locus'}, $full_name, $product, $description, $newdata->{'curator'}, 'now' ]
 		  };
 	}
@@ -487,8 +543,9 @@ sub _check_locus_aliases_when_updating_other_table {
 	my ( $self, $locus, $newdata, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
 	my $existing_aliases =
-	  $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
-	my @new_aliases = split /\r?\n/, $q->param('aliases');
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT alias FROM locus_aliases WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
+	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		chomp $new;
 		next if $new eq '';
@@ -497,7 +554,8 @@ sub _check_locus_aliases_when_updating_other_table {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 				push @$extra_inserts,
 				  {
-					statement => 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)',
+					statement => 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?)',
 					arguments => [ $locus, $new, 'true', $newdata->{'curator'}, 'now' ]
 				  };
 			} else {
@@ -512,7 +570,10 @@ sub _check_locus_aliases_when_updating_other_table {
 	foreach my $existing (@$existing_aliases) {
 		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
 			push @$extra_inserts,
-			  { statement => 'DELETE FROM locus_aliases WHERE (locus,alias) = (?,?)', arguments => [ $locus, $existing ] };
+			  {
+				statement => 'DELETE FROM locus_aliases WHERE (locus,alias) = (?,?)',
+				arguments => [ $locus, $existing ]
+			  };
 		}
 	}
 	return;
@@ -524,17 +585,17 @@ sub _check_locus_descriptions {
 	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'locus'}, $newdata, $extra_inserts )
 	  if $q->param('table') eq 'locus_descriptions';
 	my $existing_pubmeds =
-	  $self->{'datastore'}->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $newdata->{'locus'}, { fetch => 'col_arrayref' } );
-	my @new_pubmeds = split /\r?\n/, $q->param('pubmed');
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=?', $newdata->{'locus'}, { fetch => 'col_arrayref' } );
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				print <<"HTML";
-<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -547,29 +608,36 @@ HTML
 	foreach my $existing (@$existing_pubmeds) {
 		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
 			push @$extra_inserts,
-			  { statement => 'DELETE FROM locus_refs WHERE (locus,pubmed_id) = (?,?)', arguments => [ $newdata->{'locus'}, $existing ] };
+			  {
+				statement => 'DELETE FROM locus_refs WHERE (locus,pubmed_id) = (?,?)',
+				arguments => [ $newdata->{'locus'}, $existing ]
+			  };
 		}
 	}
 	my @new_links;
 	my $i = 1;
-	foreach ( split /\r?\n/, $q->param('links') ) {
+	foreach ( split /\r?\n/x, $q->param('links') ) {
 		next if $_ eq '';
 		push @new_links, "$i|$_";
 		$i++;
 	}
 	my @existing_links;
-	my $sql = $self->{'db'}->prepare("SELECT link_order,url,description FROM locus_links WHERE locus=? ORDER BY link_order");
-	eval { $sql->execute( $newdata->{'locus'} ) };
-	$logger->error($@) if $@;
-	while ( my ( $order, $url, $desc ) = $sql->fetchrow_array ) {
-		push @existing_links, "$order|$url|$desc";
+	my $link_dataset =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT link_order,url,description FROM locus_links WHERE locus=? ORDER BY link_order',
+		$newdata->{'locus'}, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $link_data (@$link_dataset) {
+		push @existing_links, "$link_data->{'link_order'}|$link_data->{'url'}|$link_data->{'description'}";
 	}
 	foreach my $existing (@existing_links) {
 		if ( !@new_links || none { $existing eq $_ } @new_links ) {
-			if ( $existing =~ /^\d+\|(.+?)\|.+$/ ) {
+			if ( $existing =~ /^\d+\|(.+?)\|.+$/x ) {
 				my $url = $1;
 				push @$extra_inserts,
-				  { statement => 'DELETE FROM locus_links WHERE (locus,url) = (?,?)', arguments => [ $newdata->{'locus'}, $url ] };
+				  {
+					statement => 'DELETE FROM locus_links WHERE (locus,url) = (?,?)',
+					arguments => [ $newdata->{'locus'}, $url ]
+				  };
 			}
 		}
 	}
@@ -577,17 +645,18 @@ HTML
 		chomp $new;
 		next if $new eq '';
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
-			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/ ) {
-				print <<"HTML";
-	<div class="box" id="statusbad"><p>Links must have an associated description separated from the URL by a '|'.</p>
-	<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>
-HTML
+			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
+				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
+				  . q(from the URL by a '|'.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
 				push @$extra_inserts,
 				  {
-					statement => 'INSERT INTO locus_links (locus,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+					statement => 'INSERT INTO locus_links (locus,url,description,link_order,'
+					  . 'curator,datestamp) VALUES (?,?,?,?,?,?)',
 					arguments => [ $newdata->{'locus'}, $url, $desc, $field_order, $newdata->{'curator'}, 'now' ]
 				  };
 			}
@@ -596,12 +665,11 @@ HTML
 	return;
 }
 
+#Remove additional permissions for submitter if downgraded from curator.
 sub _prepare_extra_inserts_for_users {
-
-	#Remove additional permissions for submitter if downgraded from curator.
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	if ( $newdata->{'status'} eq 'submitter' ) {
-		local $" = "','";
+		local $" = q(',');
 		my @permissions = SUBMITTER_ALLOWED_PERMISSIONS;
 		push @$extra_inserts,
 		  {
@@ -611,20 +679,26 @@ sub _prepare_extra_inserts_for_users {
 	}
 	return;
 }
-
 sub _prepare_extra_inserts_for_seqbin {
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	my $q = $self->{'cgi'};
-	my $seq_attributes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT key,type FROM sequence_attributes ORDER BY key", undef, { fetch => 'all_arrayref', slice => {} } );
-	my $existing_values = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?",
+	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
+		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p>)
+		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+		  . q(Back to main page</a></p></div>);
+		return FAILURE;
+	}
+	my $q              = $self->{'cgi'};
+	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $existing_values =
+	  $self->{'datastore'}->run_query( 'SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?',
 		$newdata->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	my %existing_value = map { $_->{'key'} => $_->{'value'} } @$existing_values;
 	my @type_errors;
 	foreach my $attribute (@$seq_attributes) {
 		next if !defined $q->param( $attribute->{'key'} );
-		( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/g;
+		my $value = $q->param( $attribute->{'key'} );
 		if ( $value ne '' ) {
 			if ( $attribute->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 				push @type_errors, "$attribute->{'key'} must be an integer.";
@@ -645,8 +719,8 @@ sub _prepare_extra_inserts_for_seqbin {
 				if ( $value ne $existing_value{ $attribute->{'key'} } ) {
 					push @$extra_inserts,
 					  {
-						statement =>
-						  'UPDATE sequence_attribute_values SET (value,curator,datestamp) = (?,?,?) WHERE (seqbin_id,key) = (?,?)',
+						statement => 'UPDATE sequence_attribute_values SET (value,curator,datestamp) = (?,?,?) '
+						  . 'WHERE (seqbin_id,key) = (?,?)',
 						arguments => [ $value, $newdata->{'curator'}, 'now', $newdata->{'id'}, $attribute->{'key'} ]
 					  };
 				}
@@ -655,14 +729,15 @@ sub _prepare_extra_inserts_for_seqbin {
 			if ( $value ne '' ) {
 				push @$extra_inserts,
 				  {
-					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES (?,?,?,?,?)',
+					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) ',
+					'VALUES (?,?,?,?,?)',
 					arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
 				  };
 			}
 		}
 	}
 	if (@type_errors) {
-		local $" = '<br />';
+		local $" = q(<br />);
 		say qq(<div class="box" id="statusbad"><p>@type_errors</p></div>);
 		return FAILURE;
 	}
@@ -684,7 +759,7 @@ sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
-	return "Update $type - $desc";
+	my $type  = $self->get_record_name($table) // 'record';
+	return qq(Update $type - $desc);
 }
 1;
