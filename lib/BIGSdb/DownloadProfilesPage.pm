@@ -37,50 +37,52 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id');
 	my $set_id    = $self->get_set_id;
 	if ( !$scheme_id ) {
-		say "No scheme id passed.";
+		say q(No scheme id passed.);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say "Scheme id must be an integer.";
+		say q(Scheme id must be an integer.);
 		return;
 	} elsif ( $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-		say "Scheme $scheme_id is not available.";
+		say qq(Scheme $scheme_id is not available.);
 		return;
 	}
+	$scheme_id =~ s/^0*//x;    #In case scheme_id has preceeding zeros.
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if ( !$scheme_info ) {
-		say "Scheme does not exist.";
+		say q(Scheme does not exist.);
 		return;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say "This scheme has no primary key set.";
+		say q(This scheme has no primary key set.);
 		return;
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	print "$primary_key";
+	print $primary_key;
 	my @fields = ($primary_key);
 	foreach my $locus (@$loci) {
-		print "\t";
+		print qq(\t);
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
 		print $header_value;
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/g;
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
 		push @fields, $cleaned;
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
-		print "\t$field";
+		print qq(\t$field);
 		push @fields, $field;
 	}
-	print "\n";
-	local $" = ',';
-	my $scheme_view = $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	print qq(\n);
+	local $" = q(,);
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? qq(mv_scheme_$scheme_id) : qq(scheme_$scheme_id);
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry =
-	  "SELECT @fields FROM $scheme_view ORDER BY " . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	my $qry = "SELECT @fields FROM $scheme_view ORDER BY "
+	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
-	local $" = "\t";
+	local $" = qq(\t);
 	{
 		no warnings 'uninitialized';    #scheme field values may be undefined
 		foreach my $profile (@$data) {
