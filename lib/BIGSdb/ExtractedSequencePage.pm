@@ -37,53 +37,69 @@ sub print_content {
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
-		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>Sequence bin id must be an integer.</p></div>);
+		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
+		  . q(<p>Sequence bin id must be an integer.</p></div>);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($start) || !BIGSdb::Utils::is_int($end) ) {
-		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>Start and end values must be integers.</p></div>);
+		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
+		  . q(<p>Start and end values must be integers.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM sequence_bin WHERE id=?)", $seqbin_id );
+	if ( $orf && ( !BIGSdb::Utils::is_int($orf) || $orf < 1 || $orf > 6 ) ) {
+		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
+		  . q(<p>Orf must be an integer between 1-6.</p></div>);
+		return;
+	}
+	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_bin WHERE id=?)', $seqbin_id );
 	if ( !$exists ) {
-		say qq(<h1>Extracted sequence</h1><div class="box" id="statusbad"><p>There is no sequence with sequence bin )
-		  . qq(id#$seqbin_id.</p></div>);
+		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
+		  . qq(<p>There is no sequence with sequence bin id#$seqbin_id.</p></div>);
 		return;
 	}
-	say "<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>";
+	say qq(<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>);
 	my $length  = abs( $end - $start + 1 );
-	my $method  = $self->{'datastore'}->run_query( "SELECT method FROM sequence_bin WHERE id=?", $seqbin_id );
+	my $method  = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
 	my $display = $self->format_seqbin_sequence(
-		{ seqbin_id => $seqbin_id, reverse => $reverse, start => $start, end => $end, translate => $translate, orf => $orf } );
+		{
+			seqbin_id => $seqbin_id,
+			reverse   => $reverse,
+			start     => $start,
+			end       => $end,
+			translate => $translate,
+			orf       => $orf
+		}
+	);
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
-	print << "HTML";
-<div class="box" id="resultstable">
-<div class="scrollable">
-<table class="resultstable">
-<tr><th colspan="3">sequence bin id#$seqbin_id</th></tr>
-<tr class="td1"><th>sequence method</th><td>$method</td><td rowspan="5" class="seq" style="text-align:left">
-$display->{'seq'}
-</td></tr>
-<tr class="td1"><th>start</th><td>$start</td></tr>
-<tr class="td1"><th>end</th><td>$end</td></tr>
-<tr class="td1"><th>length</th><td>$length</td></tr>
-<tr class="td1"><th>orientation</th><td style="font-size:2em">$orientation</td></tr>
-HTML
+	say q(<div class="box" id="resultspanel"><dl class="data">);
+	say q(<h2>Sequence position</h2>);
+	say qq(<dt>sequence bin id</dt><dd>$seqbin_id</dd>);
+	say qq(<dt>sequence method</dt><dd>$method</dd>);
+	say qq(<dt>start</dt><dd>$start</dd>);
+	say qq(<dt>end</dt><dd>$end</dd>);
+	say qq(<dt>length</dt><dd>$length</dd>);
+	say qq(<dt>orientation</dt><dd><span style="font-size:2em">$orientation</span></dd>);
+	say q(<h2>Sequence</h2>);
+	say q(<div class="seq" style="padding-left:5em">);
+	say $display->{'seq'};
+	say q(</div>);
+
 	if ($translate) {
-		print "<tr class=\"td1\"><th>translation</th><td colspan=\"2\" style=\"text-align:left\">";
+		say q(<h2>Translation</h2>);
 		my @stops = @{ $display->{'internal_stop'} };
 		if ( @stops && !$no_highlight ) {
 			local $" = ', ';
-			my $plural = @stops == 1 ? '' : 's';
-			say "<span class=\"highlight\">Internal stop codon$plural at position$plural: @stops (numbering includes upstream flanking "
-			  . "sequence).</span>";
+			my $plural = @stops == 1 ? q() : q(s);
+			say qq(<span class="highlight">Internal stop codon$plural at position$plural: @stops )
+			  . q((numbering includes upstream flanking sequence).</span>);
 		}
-		say "<pre class=\"sixpack\">";
-		print $display->{'sixpack'};
-		say "</pre>";
-		say "</td></tr>";
+		say q(<div class="scrollable">);
+		say q(<pre class="sixpack">);
+		say $display->{'sixpack'};
+		say q(</pre>);
+		say q(</div>);
 	}
-	say "</table>\n</div></div>";
+	say q(</div>);
 	return;
 }
 
@@ -91,32 +107,29 @@ sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
 	my $contig_length =
-	  $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE id=?", $args->{'seqbin_id'} );
+	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $args->{'seqbin_id'} );
 	$args->{'end'} = $contig_length if $args->{'end'} > $contig_length;
 	my $flanking = $self->{'cgi'}->param('flanking') || $self->{'prefs'}->{'flanking'};
 	$flanking = ( BIGSdb::Utils::is_int($flanking) && $flanking >= 0 ) ? $flanking : 100;
 	my $length = abs( $args->{'end'} - $args->{'start'} + 1 );
-	my $qry    = "SELECT substring(sequence from $args->{'start'} for $length) AS seq,substring(sequence from ($args->{'start'}-$flanking) "
-	  . "for $flanking) AS upstream,substring(sequence from ($args->{'end'}+1) for $flanking) AS downstream FROM sequence_bin WHERE id=?";
+	my $qry =
+	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
+	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
+	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
 	my $seq_ref = $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
 	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $args->{'reverse'};
 	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $args->{'reverse'};
 	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $args->{'reverse'};
 	return $self->format_sequence( $seq_ref,
-		{ translate => $args->{'translate'}, reverse => $args->{'reverse'}, length => $length, orf => $args->{'orf'} } );
+		{ translate => $args->{'translate'}, reverse => $args->{'reverse'}, length => $length, orf => $args->{'orf'} }
+	);
 }
 
-sub format_sequence {
-
-	#$seq_ref is a hashref containing seq, and optionally, upstream and downstream keys
+sub _get_subseqs_and_offsets {
 	my ( $self, $seq_ref, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	$seq_ref->{'downstream'} //= '';
-	$seq_ref->{'upstream'}   //= '';
-	my $sixpack;
-	my @internal_stop_codons;
+	$seq_ref->{'downstream'} //= q();
+	$seq_ref->{'upstream'}   //= q();
 	my $length = $options->{'length'} // length $seq_ref->{'seq'};
-	my $orf    = $options->{'orf'}    // 1;
 	my $upstream_offset =
 	  $options->{'reverse'}
 	  ? ( 10 - substr( length( $seq_ref->{'downstream'} ), -1 ) )
@@ -126,26 +139,55 @@ sub format_sequence {
 	  ? ( 10 - substr( $length + length( $seq_ref->{'downstream'} ), -1 ) )
 	  : ( 10 - substr( $length + length( $seq_ref->{'upstream'} ), -1 ) );
 	my $seq1 = substr( $seq_ref->{'seq'}, 0, $upstream_offset );
-	my $seq2 = ( $upstream_offset < length $seq_ref->{'seq'} ) ? substr( $seq_ref->{'seq'}, $upstream_offset ) : '';
+	my $seq2 = ( $upstream_offset < length $seq_ref->{'seq'} ) ? substr( $seq_ref->{'seq'}, $upstream_offset ) : q();
 	my $downstream = $options->{'reverse'} ? $seq_ref->{'upstream'} : $seq_ref->{'downstream'};
 	my $downstream1 = substr( $downstream, 0, $downstream_offset );
-	my $downstream2 = ( length($downstream) >= $downstream_offset ) ? substr( $downstream, $downstream_offset ) : '';
+	my $downstream2 = ( length($downstream) >= $downstream_offset ) ? substr( $downstream, $downstream_offset ) : q();
+	my $length_start_flanking = length( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} );
+	my $highlight_start = 0;
 
-	if ( $options->{'translate'} && $self->{'config'}->{'emboss_path'} && -e "$self->{'config'}->{'emboss_path'}/sixpack" ) {
+	if ( $length_start_flanking =~ /(\d+)/x ) {
+		$highlight_start = $1 + 1;
+	}
+	my $highlight_end = 0;
+	if ( $length =~ /(\d+)/x ) {
+		$highlight_end = $1 - 1 + $highlight_start;
+	}
+	return {
+		length            => $length,
+		downstream1       => $downstream1,
+		downstream2       => $downstream2,
+		seq1              => $seq1,
+		seq2              => $seq2,
+		downstream_offset => $downstream_offset,
+		highlight_start   => $highlight_start,
+		highlight_end     => $highlight_end
+	};
+}
+
+sub format_sequence {
+	my ( $self, $seq_ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $sixpack;
+	my @internal_stop_codons;
+	my $orf = $options->{'orf'} // 1;
+	my $seq_data = $self->_get_subseqs_and_offsets( $seq_ref, $options );
+	my ( $length, $downstream1, $downstream2, $seq1, $seq2, $downstream_offset, $highlight_start, $highlight_end ) =
+	  @{$seq_data}{qw(length downstream1 downstream2 seq1 seq2 downstream_offset highlight_start highlight_end)};
+	if (   $options->{'translate'}
+		&& $self->{'config'}->{'emboss_path'}
+		&& -e "$self->{'config'}->{'emboss_path'}/sixpack" )
+	{
 		my $temp       = BIGSdb::Utils::get_random();
-		my $seq_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_infile.txt";
-		my $outfile    = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_sixpack.txt";
-		my $outseq     = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_outseq.txt";
+		my $seq_infile = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_infile.txt";
+		my $outfile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_sixpack.txt";
+		my $outseq     = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_outseq.txt";
 		open( my $seq_fh, '>', $seq_infile ) || $logger->("Can't open $seq_infile for writing");
-		say $seq_fh ">seq";
-		say $seq_fh ( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} ) . "$seq1$seq2$downstream1$downstream2";
+		say $seq_fh q(>seq);
+		say $seq_fh ( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} )
+		  . qq($seq1$seq2$downstream1$downstream2);
 		close $seq_fh;
-		my $upstream_length = length( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} );
 		my @highlights;
-		my $highlight_start =
-		  ( length( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} ) =~ /(\d+)/ ) ? ( $1 + 1 ) : 0;
-		my $highlight_end = ( $length =~ /(\d+)/ ) ? ( $1 - 1 + $highlight_start ) : 0;
-		$orf = 1 if !$orf;
 		my $first_codon = substr( $seq_ref->{'seq'}, $orf - 1, 3 );
 		my $end_codon_pos = $orf - 1 + 3 * int( ( length( $seq_ref->{'seq'} ) - $orf + 1 - 3 ) / 3 );
 		my $last_codon = substr( $seq_ref->{'seq'}, $end_codon_pos, 3 );
@@ -155,66 +197,71 @@ sub format_sequence {
 
 		#5' of start codon
 		if ( $orf > 1 && $start_offset ) {
-			push @highlights, ($highlight_start) . '-' . ( $highlight_start + $orf - 2 ) . " coding"
+			push @highlights, ($highlight_start) . q(-) . ( $highlight_start + $orf - 2 ) . q( coding)
 			  if ( $highlight_start + $orf - 2 ) > $highlight_start;
 		}
 
 		#start codon
 		if ($start_offset) {
-			push @highlights, ( $highlight_start + $orf - 1 ) . '-' . ( $highlight_start + $orf + 1 ) . " startcodon";
+			push @highlights, ( $highlight_start + $orf - 1 ) . q(-) . ( $highlight_start + $orf + 1 ) . q( startcodon);
 		}
 
 		#Coding sequence between start and end codons
-		push @highlights, ( $highlight_start + $start_offset ) . '-' . ( $highlight_end - $end_offset ) . " coding"
-		  if $highlight_start && $highlight_end && ( ( $highlight_end - $end_offset ) > ( $highlight_start + $start_offset ) );
+		push @highlights, ( $highlight_start + $start_offset ) . q(-) . ( $highlight_end - $end_offset ) . q( coding)
+		  if $highlight_start
+		  && $highlight_end
+		  && ( ( $highlight_end - $end_offset ) > ( $highlight_start + $start_offset ) );
 
 		#end codon
 		if ($end_offset) {
-			push @highlights, ( $highlight_end - 2 ) . "-$highlight_end stopcodon";
+			push @highlights, ( $highlight_end - 2 ) . qq(-$highlight_end stopcodon);
 		}
 
 		#3' of end codon
-		local $" = ' ';
+		local $" = q( );
 		my $highlight;
 		if (@highlights) {
-			$highlight = "-highlight \"@highlights\"";
+			$highlight = qq(-highlight "@highlights");
 		}
-		if ( $highlight =~ /(\-highlight.*)/ ) {
+		if ( $highlight =~ /(\-highlight.*)/x ) {
 			$highlight = $1;
 		}
-		system( "$self->{'config'}->{'emboss_path'}/sixpack -sequence $seq_infile -outfile $outfile -outseq $outseq -width "
-			  . "$self->{'prefs'}->{'alignwidth'} -noreverse -noname -html $highlight 2>/dev/null" );
+		system(
+			    "$self->{'config'}->{'emboss_path'}/sixpack -sequence $seq_infile -outfile $outfile -outseq $outseq "
+			  . "-width $self->{'prefs'}->{'alignwidth'} -noreverse -noname -html $highlight 2>/dev/null" );
 		open( my $sixpack_fh, '<', $outfile ) || $logger->error("Can't open $outfile for reading");
 		while ( my $line = <$sixpack_fh> ) {
-			last if $line =~ /^########/;
-			$line =~ s/<H3><\/H3>//;
-			$line =~ s/<PRE>//;
-			$line =~ s/<font color=(\w+?)>/<span class=\"$1\">/g;
-			$line =~ s/<\/font>/<\/span>/g;
-			$line =~ s/\*/<span class=\"stopcodon\">\*<\/span>/g;
+			last if $line =~ /^\#\#\#\#\#\#\#\#/x;
+			$line =~ s/<H3><\/H3>//x;
+			$line =~ s/<PRE>//x;
+			$line =~ s/<font\ color=(\w+?)>/<span class="$1">/gx;
+			$line =~ s/<\/font>/<\/span>/gx;
+			$line =~ s/\*/<span class="stopcodon">*<\/span>/gx;
 			$sixpack .= $line;
 		}
 		close $sixpack_fh;
 		unlink $seq_infile, $outfile, $outseq;
 		$orf = $orf - 3 if $orf > 3;    #reverse reading frames
-		foreach ( my $i = ( $orf || 1 ) - 1 ; $i < length( $seq_ref->{'seq'} ) - 3 ; $i += 3 ) {
+		foreach ( my $i = $orf - 1 ; $i < length( $seq_ref->{'seq'} ) - 3 ; $i += 3 ) {
 			my $codon = substr( $seq_ref->{'seq'}, $i, 3 );
 			if ( any { $codon eq $_ } qw (TAA TAG TGA) ) {
 				push @internal_stop_codons,
-				  $i + 1 + ( $options->{'reverse'} ? length( $seq_ref->{'downstream'} ) : length( $seq_ref->{'upstream'} ) );
+				  $i + 1 +
+				  ( $options->{'reverse'} ? length( $seq_ref->{'downstream'} ) : length( $seq_ref->{'upstream'} ) );
 			}
 		}
 	}
-	my $upstream = ( BIGSdb::Utils::split_line( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} ) ) || '';
+	my $upstream =
+	  ( BIGSdb::Utils::split_line( $options->{'reverse'} ? $seq_ref->{'downstream'} : $seq_ref->{'upstream'} ) ) // '';
 	my $seq_display =
-	    "<span class=\"flanking\">$upstream</span>"
-	  . ( $downstream_offset ? '' : ' ' )
-	  . "$seq1 "
-	  . ( BIGSdb::Utils::split_line($seq2) || '' )
-	  . ( $downstream_offset ? '' : ' ' )
-	  . "<span class=\"flanking\">$downstream1 "
-	  . ( BIGSdb::Utils::split_line($downstream2) || '' )
-	  . "</span>";
+	    qq(<span class="flanking">$upstream</span>)
+	  . ( $downstream_offset ? q() : q( ) )
+	  . qq($seq1 )
+	  . ( BIGSdb::Utils::split_line($seq2) // q() )
+	  . ( $downstream_offset ? q() : q( ) )
+	  . qq(<span class="flanking">$downstream1 )
+	  . ( BIGSdb::Utils::split_line($downstream2) // q() )
+	  . q(</span>);
 	return { seq => $seq_display, sixpack => $sixpack, internal_stop => \@internal_stop_codons };
 }
 
@@ -224,7 +271,7 @@ sub get_title {
 	my $seqbin_id = $q->param('seqbin_id');
 	my $start     = $q->param('start');
 	my $end       = $q->param('end');
-	my $title     = "Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'}";
+	my $title     = qq(Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'});
 	return $title;
 }
 1;
