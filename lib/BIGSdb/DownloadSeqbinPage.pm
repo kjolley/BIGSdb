@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2012, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::DownloadSeqbinPage;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -26,7 +27,10 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{'attachment'} = BIGSdb::Utils::is_int( $q->param('isolate_id') ) ? ( 'id-' . $q->param('isolate_id') . '.fas' ) : 'isolate.fas';
+	$self->{'attachment'} =
+	  BIGSdb::Utils::is_int( $q->param('isolate_id') )
+	  ? ( 'id-' . $q->param('isolate_id') . '.fas' )
+	  : 'isolate.fas';
 	$self->{'type'} = 'text';
 	return;
 }
@@ -35,35 +39,31 @@ sub print_content {
 	my ($self) = @_;
 	my $isolate_id = $self->{'cgi'}->param('isolate_id');
 	if ( !$isolate_id ) {
-		print "No isolate id passed.\n";
+		say q(No isolate id passed.);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		print "Isolate id must be an integer.\n";
+		say q(Isolate id must be an integer.);
 		return;
 	}
 	local $| = 1;
-	my $sql = $self->{'db'}->prepare("SELECT id,original_designation,sequence FROM sequence_bin WHERE isolate_id=? ORDER BY id");
-	eval { $sql->execute($isolate_id) };
-	if ($@) {
-		$logger->error($@);
-		print "Can't retrieve sequences.\n";
-		return;
-	}
-	my $no_seqs = 1;
-	while ( my ( $id, $orig, $seq ) = $sql->fetchrow_array ) {
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,original_designation,sequence FROM sequence_bin WHERE isolate_id=? ORDER BY id',
+		$isolate_id, { fetch => 'all_arrayref' } );
+	foreach my $contig (@$data) {
+		my ( $id, $orig, $seq ) = @$contig;
 		print ">$id";
 		print "|$orig" if $orig;
 		print "\n";
 		my $seq_ref = BIGSdb::Utils::break_line( \$seq, 60 );
-		print "$$seq_ref\n";
+		say $$seq_ref;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
-		$no_seqs = 0;
 	}
-	if ($no_seqs) {
-		print "No sequences deposited for isolate id#$isolate_id.\n";
+	if ( !@$data ) {
+		say qq(No sequences deposited for isolate id#$isolate_id.);
 	}
 	return;
 }
