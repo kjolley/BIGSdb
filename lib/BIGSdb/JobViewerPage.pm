@@ -21,9 +21,21 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Constants qw(RESET_BUTTON_CLASS);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+
+sub _get_refresh_time {
+	my ( $self, $job ) = @_;
+	my $complete = $job->{'percent_complete'};
+	my $elapsed = $job->{'elapsed'} // 0;
+	return ( int( $elapsed / $complete ) || 1 ) * 5 if $complete > 0;
+	return 60 if $elapsed > 300;
+	return 20 if $elapsed > 120;
+	return 10 if $elapsed > 60;
+	return 5;    #update page frequently for the first minute
+}
 
 sub initiate {
 	my ($self) = @_;
@@ -40,24 +52,11 @@ sub initiate {
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
-	return if any { $job->{'status'} =~ /^$_/ } qw (finished failed terminated cancelled rejected);
-	my $complete = $job->{'percent_complete'};
-	my $elapsed = $job->{'elapsed'} // 0;
+	return if any { $job->{'status'} =~ /^$_/x } qw (finished failed terminated cancelled rejected);
 	if ( $job->{'status'} eq 'started' ) {
-
-		if ( $complete > 0 ) {
-			$self->{'refresh'} = ( int( $elapsed / $complete ) || 1 ) * 5;
-		} elsif ( $elapsed > 300 ) {
-			$self->{'refresh'} = 60;
-		} elsif ( $elapsed > 120 ) {
-			$self->{'refresh'} = 20;
-		} elsif ( $elapsed > 60 ) {
-			$self->{'refresh'} = 10;
-		} else {
-			$self->{'refresh'} = 5;    #update page frequently for the first minute
-		}
+		$self->{'refresh'} = $self->_get_refresh_time($job);
 	} else {
-		$self->{'refresh'} = 5;        #not started
+		$self->{'refresh'} = 5;    #not started
 	}
 	if ( $q->param('cancel') ) {
 		$self->{'refresh'} = 1;
@@ -94,79 +93,44 @@ END
 	return $buffer;
 }
 
-sub print_content {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $id     = $q->param('id');
-	if ( ( $q->param('output') // '' ) eq 'archive' ) {
-		$self->_tar_archive($id);
-		return;
-	}
-	print "<h1>Job status viewer</h1>";
-	if ( !defined $id || $id !~ /BIGSdb_\d+/ ) {
-		say qq(<div class="box" id="statusbad">);
-		say qq(<p>The submitted job id is invalid.</p>);
-		print "</div>";
-		return;
-	}
-	my $job = $self->{'jobManager'}->get_job($id);
-	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
-		say qq(<div class="box" id="statusbad">);
-		say qq(<p>The submitted job does not exist.</p>);
-		say "</div>";
-		return;
-	}
-	if ( $q->param('cancel') ) {
-		if ( $self->_can_user_cancel_job($job) ) {
-			$self->{'jobManager'}->cancel_job( $job->{'id'} );
-		}
-	}
-	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//;    #remove fractions of second
-	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : '' ) =~ s/\.\d+$//;
-	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : '' ) =~ s/\.\d+$//;
+sub _print_status {
+	my ( $self, $job ) = @_;
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//x;    #remove fractions of second
+	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : q() ) =~ s/\.\d+$//x;
+	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : q() ) =~ s/\.\d+$//x;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
 	if ( $job->{'status'} eq 'submitted' ) {
-		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue($id);
+		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue( $job->{'id'} );
 		if ($jobs_in_queue) {
 			my $plural = $jobs_in_queue == 1 ? '' : 's';
-			$job->{'status'} .= " ($jobs_in_queue unstarted job$plural ahead in queue)";
+			$job->{'status'} .= qq( ($jobs_in_queue unstarted job$plural ahead in queue));
 		} else {
-			$job->{'status'} .= " (first in queue)";
+			$job->{'status'} .= q( (first in queue));
 		}
-	} elsif ( $job->{'status'} =~ /^rejected/ ) {
-		$job->{'status'} =~
-		  s/(BIGSdb_\d+_\d+_\d+)/<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/;
+	} elsif ( $job->{'status'} =~ /^rejected/x ) {
+		$job->{'status'} =~ s/(BIGSdb_\d+_\d+_\d+)/
+		<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/x;
 	}
-	print << "HTML";
-<div class="box" id="resultstable">
-<h2>Status</h2>
-<div class="scrollable"><table class="resultstable">
-<tr class="td1"><th style="text-align:right">Job id: </th><td style="text-align:left">$id</td></tr>
-<tr class="td2"><th style="text-align:right">Submit time: </th><td style="text-align:left">$submit_time</td></tr>
-<tr class="td1"><th style="text-align:right">Status: </th><td style="text-align:left">$job->{'status'}</td></tr>
-<tr class="td2"><th style="text-align:right">Start time: </th><td style="text-align:left">$start_time</td></tr>
-<tr class="td1"><th style="text-align:right">Progress: </th><td style="text-align:left">
-<noscript>$job->{'percent_complete'}%</noscript>
-<div id="progressbar"></div></td></tr>
-HTML
-	my $td = 2;
-	if ( $job->{'stage'} ) {
-		say qq(<tr class="td$td"><th style="text-align:right">Stage: </th><td style="text-align:left">$job->{'stage'}</td></tr>);
-		$td = $td == 1 ? 2 : 1;
-	}
-	if ($stop_time) {
-		say qq(<tr class="td$td"><th style="text-align:right">Stop time: </th><td style="text-align:left">$stop_time</td></tr>);
-		$td = $td == 1 ? 2 : 1;
-	}
-	my ( $field, $value, $refresh );
-	eval "use Time::Duration;";    ## no critic (ProhibitStringyEval)
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<h2>Status</h2>);
+	say q(<dl class="data">);
+	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
+	say qq(<dt>Submit time</dt><dd>$submit_time</dd>);
+	say qq(<dt>Status</dt><dd>$job->{'status'}</dd>);
+	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
+	say
+qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript><div id="progressbar" style="width:18em"></div></dd>);
+	say qq(<dt>Stage</dt><dd>$job->{'stage'}</dd>) if $job->{'stage'};
+	say qq(<dt>Stop time</dt><dd>$stop_time</dd>)  if $stop_time;
+	my ( $field, $value );
+	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
+
 	if ($@) {
 		if ( $job->{'total_time'} ) {
-			( $field, $value ) = ( 'Total time', int( $job->{'total_time'} ) . ' s' );
+			( $field, $value ) = ( 'Total time', int( $job->{'total_time'} ) . q( s) );
 		} elsif ( $job->{'elapsed'} ) {
-			( $field, $value ) = ( 'Elapsed time', int( $job->{'elapsed'} ) . ' s' );
+			( $field, $value ) = ( 'Elapsed time', int( $job->{'elapsed'} ) . q( s) );
 		}
-		$refresh = $self->{'refresh'} . ' seconds';
 	} else {
 		if ( $job->{'total_time'} ) {
 			( $field, $value ) = ( 'Total time', duration( $job->{'total_time'} ) );
@@ -175,74 +139,131 @@ HTML
 			( $field, $value ) = ( 'Elapsed time', duration( $job->{'elapsed'} ) );
 			$value = '<1 second' if $value eq 'just now';
 		}
+	}
+	say qq(<dt>$field</dt><dd>$value</dd>) if $value;
+	say q(</dl>);
+	say q(</div></div>);
+	return;
+}
+
+sub _get_nice_refresh_time {
+	my ( $self, $job ) = @_;
+	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
+	my $refresh;
+	if ($@) {
+		$refresh = $self->{'refresh'} . ' seconds';
+	} else {
 		$refresh = duration( $self->{'refresh'} );
 	}
-	say qq(<tr class="td$td"><th style="text-align:right">$field: </th><td style="text-align:left">$value</td></tr>)
-	  if $field && $value;
-	say "</table></div><h2>Output</h2>";
-	my $output = $self->{'jobManager'}->get_job_output($id);
-	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
-		print "<p>No output yet.</p>\n";
-	} else {
-		print "$job->{'message_html'}" if $job->{'message_html'};
-		my @buffer;
-		if ( ref $output eq 'HASH' ) {
-			my $include_in_tar = 0;
-			foreach ( sort keys(%$output) ) {
-				my ( $link_text, $comments ) = split /\|/, $_;
-				$link_text =~ s/^\d{2}_//;    #Descriptions can start with 2 digit number for ordering
-				my $text = "<li><a href=\"/tmp/$output->{$_}\">$link_text</a>";
-				$text .= " - $comments" if $comments;
-				my $size = -s "$self->{'config'}->{'tmp_dir'}/$output->{$_}" // 0;
-				if ( $size > ( 1024 * 1024 ) ) {    #1Mb
-					my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
-					$text .= " ($size_in_MB MB)";
-				}
-				$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
-				if ( $output->{$_} =~ /\.png$/ ) {
-					my $title = $link_text . ( $comments ? " - $comments" : '' );
-					$text .=
-					    "<br /><a href=\"/tmp/$output->{$_}\" data-rel=\"lightbox-1\" class=\"lightbox\" title=\"$title\">"
-					  . "<img src=\"/tmp/$output->{$_}\" alt=\"\" style=\"max-width:200px;border:1px dashed black\" /></a>"
-					  . " (click to enlarge)";
-				}
-				$text .= "</li>";
-				push @buffer, $text;
-			}
-			my $tar_msg = $include_in_tar < ( keys %$output ) ? ' (only files <10MB included - download larger files separately)' : '';
-			push @buffer,
-			  "<li><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$id&amp;"
-			  . "output=archive\">Tar file containing output files</a>$tar_msg</li>"
-			  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
-		}
-		if (@buffer) {
-			local $" = "\n";
-			say "<ul>\n@buffer</ul>";
+	return $refresh;
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $id     = $q->param('id');
+	if ( ( $q->param('output') // '' ) eq 'archive' ) {
+		$self->_tar_archive($id);
+		return;
+	}
+	print q(<h1>Job status viewer</h1>);
+	if ( !defined $id || $id !~ /BIGSdb_\d+/x ) {
+		say q(<div class="box" id="statusbad">);
+		say q(<p>The submitted job id is invalid.</p>);
+		say q(</div>);
+		return;
+	}
+	my $job = $self->{'jobManager'}->get_job($id);
+	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
+		say q(<div class="box" id="statusbad">);
+		say q(<p>The submitted job does not exist.</p>);
+		say q(</div>);
+		return;
+	}
+	if ( $q->param('cancel') ) {
+		if ( $self->_can_user_cancel_job($job) ) {
+			$self->{'jobManager'}->cancel_job( $job->{'id'} );
 		}
 	}
-	say qq(</div><div class="box" id="resultsfooter">);
+	$self->_print_status($job);
+	$self->_print_output($job);
+	say q(<div class="box" id="resultsfooter">);
 	if ( $job->{'status'} eq 'started' ) {
-		say "<p>Progress: $job->{'percent_complete'}%";
-		say "<br />Stage: $job->{'stage'}" if $job->{'stage'};
-		say "</p>";
+		say qq(<p>Progress: $job->{'percent_complete'}%);
+		say qq(<br />Stage: $job->{'stage'}) if $job->{'stage'};
+		say q(</p>);
 	}
-	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/;
-	say "<p>This page will reload in $refresh. You can refresh it any time, or bookmark it and close your browser if you wish.</p>"
+	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
+	my $refresh = $self->_get_nice_refresh_time($job);
+	say qq(<p>This page will reload in $refresh. You can refresh it any time, )
+	  . q(or bookmark it and close your browser if you wish.</p>)
 	  if $self->{'refresh'};
-	if ( $self->{'config'}->{'results_deleted_days'} && BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
-		say "<p>Please note that job results will remain on the server for $self->{'config'}->{'results_deleted_days'} days.</p></div>";
+	if ( $self->{'config'}->{'results_deleted_days'}
+		&& BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) )
+	{
+		say q(<p>Please note that job results will remain on the server for )
+		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
 	} else {
-		say "<p>Please note that job results will not be stored on the server indefinitely.</p></div>";
+		say q(<p>Please note that job results will not be stored on the server indefinitely.</p></div>);
 	}
+	return;
+}
+
+sub _print_output {
+	my ( $self, $job ) = @_;
+	my $output = $self->{'jobManager'}->get_job_output( $job->{'id'} );
+	return if !( $job->{'message_html'} || ref $output eq 'HASH' );
+	say q(<div class="box" id="resultstable">);
+	say q(<h2>Output</h2>);
+	say $job->{'message_html'} if $job->{'message_html'};
+	my @buffer;
+	my $include_in_tar = 0;
+
+	foreach my $description ( sort keys(%$output) ) {
+		my ( $link_text, $comments ) = split /\|/x, $description;
+		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
+		my $text = qq(<li><a href="/tmp/$output->{$description}">$link_text</a>);
+		$text .= qq( - $comments) if $comments;
+		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
+		if ( $size > ( 1024 * 1024 ) ) {    #1Mb
+			my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
+			$text .= qq( ($size_in_MB MB));
+		}
+		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
+		if ( $output->{$description} =~ /\.png$/x ) {
+			my $title = $link_text . ( $comments ? qq( - $comments) : q() );
+			$text .=
+			    qq(<br /><a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
+			  . qq(title="$title"><img src="/tmp/$output->{$description}" alt="" )
+			  . q(style="max-width:200px;border:1px dashed black" /></a> (click to enlarge));
+		}
+		$text .= q(</li>);
+		push @buffer, $text;
+	}
+	my $tar_msg =
+	  $include_in_tar < ( keys %$output )
+	  ? q( (only files <10MB included - download larger files separately))
+	  : q();
+	push @buffer,
+	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=job&amp;id=$job->{'id'}&amp;output=archive">Tar file containing output files</a>$tar_msg</li>)
+	  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
+	if (@buffer) {
+		local $" = qq(\n);
+		say qq(<ul>@buffer</ul>);
+	}
+	say q(</div>);
 	return;
 }
 
 sub _print_cancel_button {
 	my ( $self, $job ) = @_;
 	return if !$self->_can_user_cancel_job($job);
-	say "<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job->{'id'}&amp;"
-	  . "cancel=1\" class=\"resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only \">"
-	  . "<span class=\"ui-button-text\">Cancel job!</span></a> Clicking this will request that the job is cancelled.</p>";
+	my $button_class = RESET_BUTTON_CLASS;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
+	  . qq(id=$job->{'id'}&amp;cancel=1" class="$button_class ui-button-text-only ">)
+	  . q(<span class="ui-button-text">Cancel job!</span></a> Clicking this will request that the )
+	  . q(job is cancelled.</p>);
 	return;
 }
 
@@ -264,7 +285,7 @@ sub get_title {
 
 sub _tar_archive {
 	my ( $self, $id ) = @_;
-	return if !defined $id || $id !~ /BIGSdb_\d+/;
+	return if !defined $id || $id !~ /BIGSdb_\d+/x;
 	my $job    = $self->{'jobManager'}->get_job($id);
 	my $output = $self->{'jobManager'}->get_job_output($id);
 	if ( ref $output eq 'HASH' ) {
