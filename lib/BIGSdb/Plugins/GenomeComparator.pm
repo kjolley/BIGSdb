@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.6',
+		version     => '1.7.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -883,18 +883,18 @@ sub _analyse_by_reference {
 		throw BIGSdb::PluginException('Invalid data in reference genome.');
 	}
 	my %abb = ( cds => 'coding regions' );
-	$self->{'html_buffer'} .= q(<table class="resultstable">);
+	$self->{'html_buffer'} .= q(<dl class="data">);
 	my $td = 1;
 	$self->{'file_buffer'} = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
-	foreach (qw (accession version type length description cds)) {
-		if ( $att{$_} ) {
-			$self->{'html_buffer'} .=
-			  qq(<tr class="td$td"><th>) . ( $abb{$_} || $_ ) . qq(</th><td style="text-align:left">$att{$_}</td></tr>);
-			$self->{'file_buffer'} .= ( $abb{$_} || $_ ) . ": $att{$_}\n";
+	foreach my $field (qw (accession version type length description cds)) {
+		if ( $att{$field} ) {
+			my $field_name = $abb{$field} // $field;
+			$self->{'html_buffer'} .= qq(<dt>$field_name</dt><dd>$att{$field}</dd>\n);
+			$self->{'file_buffer'} .= qq($field_name: $att{$field}\n);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	$self->{'html_buffer'} .= q(</table>);
+	$self->{'html_buffer'} .= q(</dl>);
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
 	my $max_ref_loci =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_max_ref_loci'} )
