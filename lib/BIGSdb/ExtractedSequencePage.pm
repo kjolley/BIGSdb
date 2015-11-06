@@ -71,14 +71,16 @@ sub print_content {
 		}
 	);
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
-	say q(<div class="box" id="resultspanel"><dl class="data">);
+	say q(<div class="box" id="resultspanel">);
 	say q(<h2>Sequence position</h2>);
+	say q(<dl class="data">);
 	say qq(<dt>sequence bin id</dt><dd>$seqbin_id</dd>);
 	say qq(<dt>sequence method</dt><dd>$method</dd>);
 	say qq(<dt>start</dt><dd>$start</dd>);
 	say qq(<dt>end</dt><dd>$end</dd>);
 	say qq(<dt>length</dt><dd>$length</dd>);
 	say qq(<dt>orientation</dt><dd><span style="font-size:2em">$orientation</span></dd>);
+	say q(</dl>);
 	say q(<h2>Sequence</h2>);
 	say q(<div class="seq" style="padding-left:5em">);
 	say $display->{'seq'};
