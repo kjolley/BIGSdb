@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version     => '1.1.4',
+		version     => '1.1.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -56,7 +56,7 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $desc   = $self->get_db_description;
-	say "<h1>Export presence/absence status of loci - $desc</h1>";
+	say qq(<h1>Export presence/absence status of loci - $desc</h1>);
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -65,13 +65,14 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
-			local $" = ', ';
-			say "<div class=\"box\" id=\"statusbad\"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>";
+			local $" = q(, );
+			say q(<div class="box" id="statusbad"><p>The following loci in your pasted )
+			  . qq(list are invalid: @$invalid_loci.</p></div>);
 		} elsif ( !@$loci_selected ) {
-			say "<div class=\"box\" id=\"statusbad\"><p>You must select one or more loci or schemes.</p></div>";
+			say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
 		} else {
 			my $params = $q->Vars;
-			my @list = split /[\r\n]+/, $q->param('list');
+			my @list = split /[\r\n]+/x, $q->param('list');
 			@list = uniq @list;
 			if ( !@list ) {
 				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
@@ -93,26 +94,22 @@ sub run {
 					loci         => $loci_selected
 				}
 			);
-			print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+			say q(<div class="box" id="resultstable">)
+			  . q(<p>This analysis has been submitted to the job queue.</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.)
+			  . q(</a></p></div>);
 			return;
 		}
 	}
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>This script will export data showing whether a locus has had an allele designated, a sequence tagged, or both. 
-Please check the loci that you would like to include.  Alternatively select one or more schemes to include all loci 
-that are members of the scheme.</p>
-HTML
+	say q(<div class="box" id="queryform">)
+	  . q(<p>This script will export data showing whether a locus has had an allele designated, )
+	  . q(a sequence tagged, or both. Please check the loci that you would like to include.  )
+	  . q(Alternatively select one or more schemes to include all loci that are members of the scheme.</p>);
 	my $query_file = $q->param('query_file');
 	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, undef, { no_options => 1 } );
-	say "</div>";
+	say q(</div>);
 	return;
 }
 
@@ -121,27 +118,36 @@ sub run_job {
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	if ( !@$ids ) {
 		$self->{'jobManager'}->update_job_status( $job_id,
-			{ status => 'failed', message_html => "<p class=\"statusbad\">You must include one or more isolates.</p>" } );
+			{ status => 'failed', message_html => q(<p class="statusbad">You must include one or more isolates.</p>) }
+		);
 		return;
 	}
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
 	if ( !@$loci ) {
-		$self->{'jobManager'}->update_job_status( $job_id,
-			{ status => 'failed', message_html => "<p class=\"statusbad\">You must either select one or more loci or schemes.</p>" } );
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+				status       => q(failed),
+				message_html => q(<p class="statusbad">You must either select one or more loci or schemes.</p>)
+			}
+		);
 		return;
 	}
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my ( $problem_ids, $values ) = $self->_write_output( $job_id, $params, $ids, $selected_loci, $full_path );
-	$self->{'jobManager'}->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Main output file' } );
 	if (@$problem_ids) {
 		local $" = '; ';
 		$self->{'jobManager'}->update_job_status( $job_id,
-			{ message_html => "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>" } );
+			{ message_html => qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>) }
+		);
 	}
 	return if !$params->{'dismat'};
 	if ( keys %$values <= MAX_DISMAT_TAXA ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 50, stage => "Generating distance matrix" } );
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => 50, stage => 'Generating distance matrix' } );
 		my $dismat     = $self->_generate_distance_matrix($values);
 		my $nexus_file = $self->_make_nexus_file($dismat);
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$nexus_file" ) {
@@ -149,28 +155,32 @@ sub run_job {
 				$job_id,
 				{
 					filename    => "$nexus_file",
-					description => '20_Distance matrix (Nexus format)|Suitable for loading in to <a href="http://www.splitstree.org">'
-					  . 'SplitsTree</a>. Distances between taxa are calculated as the number of loci that are differentially present'
+					description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
+					  . '<a href="http://www.splitstree.org">SplitsTree</a>. Distances between taxa '
+					  . 'are calculated as the number of loci that are differentially present'
 				}
 			);
 		}
 		if ( keys %$values <= MAX_SPLITS_TAXA ) {
-			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 75, stage => "Generating NeighborNet" } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { percent_complete => 75, stage => 'Generating NeighborNet' } );
 			my $splits_img = "$job_id.png";
-			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+				"$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
 			if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-				$self->{'jobManager'}
-				  ->update_job_output( $job_id, { filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
 			}
 			$splits_img = "$job_id.svg";
-			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file", "$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+			$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+				"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
 			if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 				$self->{'jobManager'}->update_job_output(
 					$job_id,
 					{
 						filename    => $splits_img,
-						description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in <a href="http://inkscape.org">'
-						  . 'Inkscape</a> or other vector graphics editors'
+						description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in '
+						  . '<a href="http://inkscape.org">Inkscape</a> or other vector graphics editors'
 					}
 				);
 			}
@@ -182,21 +192,29 @@ sub run_job {
 sub print_extra_form_elements {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<fieldset style=\"float:left\">\n<legend>Options</legend>";
-	say "<ul><li style=\"padding-bottom:1em\">Mark present if :<br />";
-	my %labels =
-	  ( both => 'either designations or tags set', designations => 'allele designations defined', tags => 'sequence tags defined' );
-	say $q->radio_group( -name => 'presence', -value => [qw(both designations tags)], -labels => \%labels, -linebreak => 'true' );
-	say "</li><li><label for=\"present\" class=\"parameter\">Symbol for present: </label>";
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li style="padding-bottom:1em">Mark present if :<br />);
+	my %labels = (
+		both         => 'either designations or tags set',
+		designations => 'allele designations defined',
+		tags         => 'sequence tags defined'
+	);
+	say $q->radio_group(
+		-name      => 'presence',
+		-value     => [qw(both designations tags)],
+		-labels    => \%labels,
+		-linebreak => 'true'
+	);
+	say q(</li><li><label for="present" class="parameter">Symbol for present: </label>);
 	say $q->popup_menu( -name => 'present', -id => 'present', -value => [qw (O Y *)] );
-	say "</li><li><label for=\"absent\" class=\"parameter\">Symbol for absent: </label>";
+	say q(</li><li><label for="absent" class="parameter">Symbol for absent: </label>);
 	say $q->popup_menu( -name => 'absent', -id => 'absent', -value => [ qw (X N -), ' ' ], );
-	say "</li><li>";
+	say q(</li><li>);
 	say $q->checkbox( -name => 'dismat', -id => 'dismat', -label => 'Generate distance matrix' );
 	my $max = MAX_DISMAT_TAXA;
-	say qq( <a class="tooltip" title="Distance matrix - This is limited to $max isolates and is disabled if more are selected">)
-	  . qq(<span class="fa fa-info-circle"></span></a>);
-	say qq(</li></ul></fieldset>);
+	say qq( <a class="tooltip" title="Distance matrix - This is limited to $max isolates and is )
+	  . q(disabled if more are selected"><span class="fa fa-info-circle"></span></a>);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -205,7 +223,7 @@ sub _write_output {
 	my @problem_ids;
 	my $isolate_sql;
 	my @includes;
-	@includes = split /\|\|/, $params->{'includes'} if $params->{'includes'};
+	@includes = split /\|\|/x, $params->{'includes'} if $params->{'includes'};
 	if (@includes) {
 		$isolate_sql = $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?");
 	}
@@ -227,7 +245,7 @@ sub _write_output {
 	my $max_percent = ( $params->{'dismat'} && @$ids <= MAX_DISMAT_TAXA ) ? 50 : 100;
 	foreach my $id (@$ids) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Analysing id: $id" } );
-		$id =~ s/[\r\n]//g;
+		$id =~ s/[\r\n]//gx;
 		if ( !BIGSdb::Utils::is_int($id) ) {
 			push @problem_ids, $id;
 			next;
@@ -251,17 +269,19 @@ sub _write_output {
 				if ( defined $metaset ) {
 					$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 				} else {
-					$value = $include_data->{$field} // '';
+					$value = $include_data->{$field} // q();
 				}
-				print $fh defined $value ? "\t$value" : "\t";
+				print $fh defined $value ? qq(\t$value) : qq(\t);
 			}
 		}
-		my $present = $params->{'present'} || 'O';
-		my $absent  = $params->{'absent'}  || 'X';
+		my $present = $params->{'present'} // 'O';
+		my $absent  = $params->{'absent'}  // 'X';
 		foreach my $locus (@$loci) {
 			my $value = '';
 			my $designations_set =
-			  ( $allele_ids->{$locus} && !( @{ $allele_ids->{$locus} } == 1 && $allele_ids->{$locus}->[0] eq '0' ) ) ? 1 : 0;
+			  ( $allele_ids->{$locus} && !( @{ $allele_ids->{$locus} } == 1 && $allele_ids->{$locus}->[0] eq '0' ) )
+			  ? 1
+			  : 0;
 			if ( $params->{'presence'} eq 'designations' ) {
 				$value = $designations_set ? $present : $absent;
 			} elsif ( $params->{'presence'} eq 'tags' ) {
@@ -306,7 +326,8 @@ sub _make_nexus_file {
 	my $timestamp = scalar localtime;
 	my @ids = sort { $a <=> $b } keys %$dismat;
 	my %labels;
-	my $sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
+	my $sql =
+	  $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
 	foreach (@ids) {
 		eval { $sql->execute($_) };
 		$logger->error($@) if $@;
@@ -336,7 +357,8 @@ BEGIN distances;
 MATRIX
 NEXUS
 	my $prefix = BIGSdb::Utils::get_random();
-	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$prefix.nex" ) || $logger->error("Can't open $prefix.nex for writing");
+	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$prefix.nex" )
+	  || $logger->error("Can't open $prefix.nex for writing");
 	print $nexus_fh $header;
 	foreach my $i ( 0 .. @ids - 1 ) {
 		print $nexus_fh $labels{ $ids[$i] };
