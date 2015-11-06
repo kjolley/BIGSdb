@@ -28,127 +28,173 @@ my $logger = get_logger('BIGSdb.Page');
 sub get_title {
 	my ($self) = @_;
 	my $locus = $self->{'cgi'}->param('locus');
-	return "Invalid locus" if !$self->{'datastore'}->is_locus($locus);
+	return q(Invalid locus) if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
-	return "Locus information - $locus";
+	return qq(Locus information - $locus);
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $locus  = $q->param('locus');
-	$locus =~ s/%27/'/g;    #Web-escaped locus
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $locus      = $q->param('locus');
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $set_id = $self->get_set_id;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say "<h1>Locus information</h1>";
-		say qq(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		say q(<h1>Locus information</h1>);
+		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-		say "<h1>Locus information</h1>";
-		say qq(<div class="box" id="statusbad"><p>The selected locus is unavailable.</p></div>);
+		say q(<h1>Locus information</h1>);
+		say q(<div class="box" id="statusbad"><p>The selected locus is unavailable.</p></div>);
 		return;
 	}
-	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $cleaned_locus = $self->clean_locus($locus);
-	say "<h1>Locus information - $cleaned_locus</h1>";
-	my $desc = $self->{'datastore'}->run_query( "SELECT * FROM locus_descriptions WHERE locus=?", $locus, { fetch => 'row_hashref' } );
-	say qq(<div class="box" id="resultstable">);
-	say "<h2>Description</h2>";
-	say "<ul>";
+	say qq(<h1>Locus information - $cleaned_locus</h1>);
+	say q(<div class="box" id="resultstable">);
+	$self->_print_description($locus_info);
+	$self->_print_aliases($locus_info);
+	$self->_print_refs($locus_info);
+	$self->_print_links($locus_info);
+	$self->_print_curators($locus_info);
+	$self->_print_schemes($locus_info);
+	say q(</div>);
+	return;
+}
 
+sub _print_description {
+	my ( $self, $locus_info ) = @_;
+	my $desc =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $locus_info->{'id'}, { fetch => 'row_hashref' } );
+	say q(<h2>Description</h2>);
+	say q(<dl class="data">);
 	if ( $locus_info->{'formatted_common_name'} ) {
-		say "<li>Common name: $locus_info->{'formatted_common_name'}</li>";
+		say qq(<dt>Common name</dt><dd>$locus_info->{'formatted_common_name'}</dd>);
 	} elsif ( $locus_info->{'common_name'} ) {
-		say "<li>Common name: $locus_info->{'common_name'}</li>";
+		say qq(<dt>Common name</dt><dd>$locus_info->{'common_name'}</dd>);
 	}
-	say "<li>Full name: $desc->{'full_name'}</li>" if $desc->{'full_name'};
-	say "<li>Product: $desc->{'product'}</li>"     if $desc->{'product'};
-	say "<li>Data type: $locus_info->{'data_type'}</li>";
+	say qq(<dt>Full name</dt><dd>$desc->{'full_name'}</dd>) if $desc->{'full_name'};
+	say qq(<dt>Product</dt><dd>$desc->{'product'}</dd>)     if $desc->{'product'};
+	say qq(<dt>Data type</dt><dd>$locus_info->{'data_type'}</dd>);
 	if ( $locus_info->{'length_varies'} ) {
-		print "<li>Variable length: ";
+		print q(<dt>Variable length</dt><dd>);
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
-			print "(";
-			print "$locus_info->{'min_length'} min" if $locus_info->{'min_length'};
-			print "; "                              if $locus_info->{'min_length'} && $locus_info->{'max_length'};
-			print "$locus_info->{'max_length'} max" if $locus_info->{'max_length'};
-			print ")";
+			print qq($locus_info->{'min_length'} min) if $locus_info->{'min_length'};
+			print q(; )                               if $locus_info->{'min_length'} && $locus_info->{'max_length'};
+			print qq($locus_info->{'max_length'} max) if $locus_info->{'max_length'};
 		} else {
-			print "No limits set";
+			print q(No limits set);
 		}
-		say "</li>";
+		say q(</dd>);
 	} else {
-		say "<li>Fixed length: $locus_info->{'length'} " . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . "</li>";
+		say qq(<dt>Fixed length</dt><dd>$locus_info->{'length'} )
+		  . ( $locus_info->{'data_type'} eq 'DNA' ? q(bp) : q(aa) )
+		  . q(</dd>);
 	}
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
-		print "<li>" . ( $locus_info->{'coding_sequence'} ? 'Coding sequence' : 'Not coding sequence' );
-		say "</li>";
+		my $cds = $locus_info->{'coding_sequence'} ? 'yes' : 'no';
+		say qq(<dt>Coding sequence</dt><dd>$cds</dd>);
 	}
-	my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM sequences WHERE locus=?", $locus );
+	my $allele_count =
+	  $self->{'datastore'}->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')),
+		$locus_info->{'id'} );
 	if ($allele_count) {
-		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'allele' : 'variant';
-		my $plural = $allele_count > 1 ? 's' : '';
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleQuery&amp;)
-		  . qq(locus=$locus&amp;submit=1">$allele_count $seq_type$plural</a></li>);
+		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
+		say qq(<dt>$seq_type</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1">$allele_count</a></dd>);
 	}
-	say "</ul>";
+	say q(</dl>);
 	if ( $desc->{'description'} ) {
-		$desc->{'description'} =~ s/\n/<br \/>/g;
-		say "<p>$desc->{'description'}</p>";
+		$desc->{'description'} =~ s/\n/<br \/>/gx;
+		say qq(<p>$desc->{'description'}</p>);
 	}
-	my $aliases = $self->{'datastore'}->run_query( "SELECT alias FROM locus_aliases WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
+	return;
+}
+
+sub _print_aliases {
+	my ( $self, $locus_info ) = @_;
+	my $aliases =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT alias FROM locus_aliases WHERE locus=?', $locus_info->{'id'}, { fetch => 'col_arrayref' } );
 	if (@$aliases) {
-		say "<h2>Aliases</h2>";
-		say "<p>This locus is also known as:</p><ul>";
-		foreach (@$aliases) {
-			say "<li>$_</li>";
-		}
-		say "</ul>";
+		say q(<h2>Aliases</h2>);
+		say q(<p>This locus is also known as:</p><ul>);
+		say qq(<li>$_</li>) foreach @$aliases;
+		say q(</ul>);
 	}
-	my $refs = $self->{'datastore'}->run_query( "SELECT pubmed_id FROM locus_refs WHERE locus=?", $locus, { fetch => 'col_arrayref' } );
+	return;
+}
+
+sub _print_refs {
+	my ( $self, $locus_info ) = @_;
+	my $refs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=?', $locus_info->{'id'}, { fetch => 'col_arrayref' } );
 	if (@$refs) {
-		say "<h2>References</h2>\n<ul>";
-		my $citations = $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );
-		foreach (@$refs) {
-			say "<li>$citations->{$_}</li>";
-		}
-		say "</ul>";
+		say q(<h2>References</h2><ul>);
+		my $citations =
+		  $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );
+		say qq(<li>$citations->{$_}</li>) foreach @$refs;
+		say q(</ul>);
 	}
-	my $links = $self->{'datastore'}->run_query( "SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order",
-		$locus, { fetch => 'all_arrayref', slice => {} } );
+	return;
+}
+
+sub _print_links {
+	my ( $self, $locus_info ) = @_;
+	my $q = $self->{'cgi'};
+	my $links =
+	  $self->{'datastore'}->run_query( 'SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order',
+		$locus_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	if (@$links) {
-		say "<h2>Links</h2>\n<ul>";
-		foreach (@$links) {
-			$_->{'url'} =~ s/\&/&amp;/g;
+		say qq(<h2>Links</h2>\n<ul>);
+		foreach my $link (@$links) {
+			$link->{'url'} =~ s/\&/&amp;/gx;
 			my $domain;
-			if ( ( lc( $_->{'url'} ) =~ /http:\/\/(.*?)\/+/ ) ) {
+			if ( ( lc( $link->{'url'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
 				$domain = $1;
 			}
-			print "<li><a href=\"$_->{'url'}\">$_->{'description'}</a>";
+			print qq(<li><a href="$link->{'url'}">$link->{'description'}</a>);
 			if ( $domain && $domain ne $q->virtual_host ) {
-				say " <span class=\"link\"><span style=\"font-size:1.2em\">&rarr;</span> $domain</span>";
+				say qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
 			}
-			say "</li>";
+			say q(</li>);
 		}
-		say "</ul>";
+		say q(</ul>);
 	}
-	my $curators =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT curator_id FROM locus_curators WHERE locus=? AND (NOT hide_public OR hide_public IS NULL) ORDER BY curator_id",
-		$locus, { fetch => 'col_arrayref' } );
+	return;
+}
+
+sub _print_curators {
+	my ( $self, $locus_info ) = @_;
+	my $curators = $self->{'datastore'}->run_query(
+		'SELECT curator_id FROM locus_curators WHERE locus=? AND '
+		  . '(NOT hide_public OR hide_public IS NULL) ORDER BY curator_id',
+		$locus_info->{'id'},
+		{ fetch => 'col_arrayref' }
+	);
 	if (@$curators) {
-		my $plural = @$curators > 1 ? 's' : '';
-		say "<h2>Curator$plural</h2>";
-		say "<p>This locus is curated by:</p>";
-		say '<ul>';
+		my $plural = @$curators > 1 ? q(s) : q();
+		say qq(<h2>Curator$plural</h2>);
+		say q(<p>This locus is curated by:</p>);
+		say q(<ul>);
 		foreach my $user_id (@$curators) {
 			my $curator_info = $self->{'datastore'}->get_user_string( $user_id, { affiliation => 1, email => 1 } );
-			say "<li>$curator_info</li>";
+			say qq(<li>$curator_info</li>);
 		}
-		say '</ul>';
+		say q(</ul>);
 	}
-	my $schemes =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT scheme_id FROM scheme_members WHERE locus=? ORDER BY scheme_id", $locus, { fetch => 'col_arrayref' } );
+	return;
+}
+
+sub _print_schemes {
+	my ( $self, $locus_info ) = @_;
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->run_query(
+		'SELECT scheme_id FROM scheme_members WHERE locus=? ORDER BY scheme_id',
+		$locus_info->{'id'}, { fetch => 'col_arrayref' }
+	);
 	my @valid_schemes;
 	if ($set_id) {
 		foreach my $scheme_id (@$schemes) {
@@ -159,15 +205,14 @@ sub print_content {
 	}
 	if (@valid_schemes) {
 		my $plural = @valid_schemes > 1 ? 's' : '';
-		say "<h2>Scheme$plural</h2>";
-		say "<p>This locus is a member of the following scheme$plural:</p>";
-		$self->_print_schemes( \@valid_schemes );
+		say qq(<h2>Scheme$plural</h2>);
+		say qq(<p>This locus is a member of the following scheme$plural:</p>);
+		$self->_print_scheme_list( \@valid_schemes );
 	}
-	say "</div>";
 	return;
 }
 
-sub _print_schemes {    #TODO Display scheme list in hierarchical tree.
+sub _print_scheme_list {    #TODO Display scheme list in hierarchical tree.
 	my ( $self, $scheme_list ) = @_;
 	my $set_id = $self->get_set_id;
 	say '<ul>';
