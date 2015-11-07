@@ -1556,6 +1556,10 @@ sub _get_allele_designations {
 			if ( $q->param("designation_field$i") =~ /$pattern/x ) {
 				my $locus            = $1;
 				my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
+				if (!$locus_info){
+					push @$errors_ref, 'Invalid locus selected.';
+					next;
+				}
 				my $unmodified_locus = $locus;
 				$locus =~ s/'/\\'/gx;
 				my $operator = $q->param("designation_operator$i") // '=';
@@ -1657,6 +1661,10 @@ sub _get_scheme_designations {
 				my $operator          = $q->param("designation_operator$i") // '=';
 				my $text              = $q->param("designation_value$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				if (!$scheme_field_info){
+					push @$errors_ref, 'Invalid scheme field selected.';
+					next;
+				}
 				my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$self->process_value( \$text );
 				if (   $text ne 'null'
