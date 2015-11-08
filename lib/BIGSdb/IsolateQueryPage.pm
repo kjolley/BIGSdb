@@ -1004,6 +1004,10 @@ sub _generate_query_for_provenance_fields {
 					[ $extended_isolate_field, $field ],
 					{ fetch => 'row_hashref' }
 				);
+				if (!$att_info){
+					push @$errors_ref, 'Invalid field selected.';
+					next;
+				}
 				$parent_field_type =
 				  $self->{'xmlHandler'}->get_field_attributes( $att_info->{'isolate_field'} )->{'type'};
 				$thisfield->{'type'} = $att_info->{'value_format'};
