@@ -314,7 +314,7 @@ sub _make_artemis_jnlp {
 <?xml version="1.0" encoding="UTF-8"?>
 <jnlp
         spec="1.0+"
-        codebase="http://www.sanger.ac.uk/resources/software/artemis/java/"
+        codebase="http://www.genedb.org/artemis/"
         href="artemis.jnlp">
          <information>
            <title>Artemis</title>
