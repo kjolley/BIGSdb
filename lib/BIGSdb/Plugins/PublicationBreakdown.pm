@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -52,17 +52,18 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say "<h1>Publication breakdown of dataset</h1>";
+	say q(<h1>Publication breakdown of dataset</h1>);
 	return if $self->has_set_changed;
 	if ( !$self->{'config'}->{'ref_db'} ) {
-		say "<div class=\"box\" id=\"statusbad\">No reference database has been defined.</p></div>";
+		say q(<div class="box" id="statusbad">No reference database has been defined.</p></div>);
 		return;
 	}
 	my $query_file = $q->param('query_file');
@@ -73,49 +74,49 @@ sub run {
 	my $qry_ref = $self->get_query($query_file);
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
-	$qry =~ s/ORDER BY.*$//g;
+	$qry =~ s/ORDER\ BY.*$//gx;
 	my $isolate_qry = $qry;
-	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables( \$qry );
-	$qry =~ s/SELECT \* FROM $self->{'system'}->{'view'}/SELECT id FROM $self->{'system'}->{'view'}/;
+	$qry =~ s/SELECT\ \*\ FROM\ $self->{'system'}->{'view'}/
+	SELECT id FROM $self->{'system'}->{'view'}/x;
 	my $new_qry = "SELECT DISTINCT(refs.pubmed_id) FROM refs WHERE refs.isolate_id IN ($qry)";
-	my $sql     = $self->{'db'}->prepare($new_qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my @list;
+	my $list    = $self->{'datastore'}->run_query( $new_qry, undef, { fetch => 'col_arrayref' } );
+	my $guid    = $self->get_guid;
 
-	while ( my ($pmid) = $sql->fetchrow_array ) {
-		push @list, $pmid if $pmid;
-	}
-	my $guid = $self->get_guid;
-	if ( $self->{'datastore'}->create_temp_ref_table( \@list, \$isolate_qry ) ) {
-		say "<div class=\"box\" id=\"queryform\">";
+	if ( $self->{'datastore'}->create_temp_ref_table( $list, \$isolate_qry ) ) {
+		say q(<div class="box" id="queryform">);
 		say $q->startform;
-		$q->param( 'all_records', 1 ) if !$query_file;
+		$q->param( all_records => 1 ) if !$query_file;
 		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype);
-		say "<fieldset style=\"float:left\"><legend>Filter query by</legend>";
+		say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		my $author_list = $self->_get_author_list;
-		say "<ul><li><label for=\"author_list\" class=\"display\">Author:</label>";
+		say q(<ul><li><label for="author_list" class="display">Author:</label>);
 		say $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
-		say "</li>\n<li><label for=\"year_list\" class=\"display\">Year:</label>";
+		say q(</li><li><label for="year_list" class="display">Year:</label>);
 		my $year_list =
-		  $self->{'datastore'}->run_query( "SELECT DISTINCT year FROM temp_refs ORDER BY year", undef, { fetch => 'col_arrayref' } )
-		  ;
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT DISTINCT year FROM temp_refs ORDER BY year', undef, { fetch => 'col_arrayref' } );
 		unshift @$year_list, 'All years';
 		say $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
-		say "</li>\n</ul>\n</fieldset>";
-		say "<fieldset style=\"float:left\"><legend>Display</legend>";
-		say "<ul><li><label for=\"order\" class=\"display\">Order by: </label>";
+		say q(</li></ul></fieldset>);
+		say q(<fieldset style="float:left"><legend>Display</legend>);
+		say q(<ul><li><label for="order" class="display">Order by: </label>);
 		my %labels = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
 		my @order_list = qw(pmid authors year title isolates);
-		say $q->popup_menu( -name => 'order', -id => 'order', -values => \@order_list, -labels => \%labels, -default => 'isolates' );
+		say $q->popup_menu(
+			-name    => 'order',
+			-id      => 'order',
+			-values  => \@order_list,
+			-labels  => \%labels,
+			-default => 'isolates'
+		);
 		say $q->popup_menu(
 			-name    => 'direction',
 			-values  => [qw (asc desc)],
 			-labels  => { asc => 'ascending', desc => 'descending' },
 			-default => 'desc'
 		);
-		say "</li>\n<li><label for=\"displayrecs\" class=\"display\">Display: </label>";
+		say q(</li><li><label for="displayrecs" class="display">Display: </label>);
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
 		say $q->popup_menu(
 			-name    => 'displayrecs',
@@ -123,48 +124,57 @@ sub run {
 			-values  => [qw (10 25 50 100 200 500 all)],
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
-		say " records per page</li>\n</ul></fieldset>";
+		say q( records per page</li></ul></fieldset>);
 		$self->print_action_fieldset( { no_reset => 1 } );
 		say $q->endform;
-		say "</div>";
+		say q(</div>);
 		my @filters;
 		my $author =
 		  ( any { defined $q->param('author_list') && $q->param('author_list') eq $_ } @$author_list )
 		  ? $q->param('author_list')
 		  : 'All authors';
-		$author =~ s/'/\\'/g;
+		$author =~ s/'/\\'/gx;
 		push @filters, "authors LIKE E'%$author%'" if $author ne 'All authors';
-		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : '';
-		push @filters, "year=$year" if $year;
-		local $" = ' AND ';
-		my $filter_string = @filters ? " WHERE @filters" : '';
-		my $order = ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list ) ? $q->param('order') : 'isolates';
-		my $dir = ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) ) ? $q->param('direction') : 'desc';
-		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
+		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : q();
+		push @filters, qq(year=$year) if $year;
+		local $" = q( AND );
+		my $filter_string = @filters ? qq( WHERE @filters) : q();
+		my $order =
+		  ( any { defined $q->param('order') && $q->param('order') eq $_ } @order_list )
+		  ? $q->param('order')
+		  : 'isolates';
+		my $dir =
+		  ( any { defined $q->param('direction') && $q->param('direction') eq $_ } qw(desc asc) )
+		  ? $q->param('direction')
+		  : 'desc';
+		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir";
 		my @hidden_attributes = qw (name all_records author_list year_list list_file datatype);
 		$self->paged_display(
-			{ table => 'refs', query => $refquery, hidden_attributes => \@hidden_attributes, passed_qry_file => $query_file } );
+			{
+				table             => 'refs',
+				query             => $refquery,
+				hidden_attributes => \@hidden_attributes,
+				passed_qry_file   => $query_file
+			}
+		);
 		return;
 	}
 }
 
 sub _get_author_list {
 	my ($self) = @_;
-	my @authornames;
-	my $qry = "SELECT authors FROM temp_refs";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	while ( my ($authorstring) = $sql->fetchrow_array ) {
-		if ( defined $authorstring ) {
-			my @temp_list = split /, /, $authorstring;
-			foreach my $name (@temp_list) {
-				push @authornames, $name if $name !~ /^\s*$/;
-			}
+	my @author_names;
+	my $author_lists =
+	  $self->{'datastore'}->run_query( 'SELECT authors FROM temp_refs', undef, { fetch => 'col_arrayref' } );
+	foreach my $author_string (@$author_lists) {
+		next if !defined $author_string;
+		my @temp_list = split /, /x, $author_string;
+		foreach my $name (@temp_list) {
+			push @author_names, $name if $name !~ /^\s*$/x;
 		}
 	}
-	@authornames = sort { lc($a) cmp lc($b) } uniq @authornames;
-	unshift @authornames, 'All authors';
-	return \@authornames;
+	@author_names = sort { lc($a) cmp lc($b) } uniq @author_names;
+	unshift @author_names, 'All authors';
+	return \@author_names;
 }
 1;
