@@ -43,81 +43,93 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !defined $isolate_id ) {
-		say qq(<div class="box" id="statusbad"><p>Isolate id not specified.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Isolate id not specified.</p></div>);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say qq(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
 		return;
 	}
-	my $exists = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say qq(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
+		say q(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
 		return;
 	}
-	my @name = $self->get_name($isolate_id);
-	local $" = ' ';
-	if (@name) {
-		say "<h1>Sequence bin for @name</h1>";
+	my $name = $self->get_name($isolate_id);
+	if ($name) {
+		say qq(<h1>Sequence bin for $name</h1>);
 	} else {
-		say "<h1>Sequence bin for isolate id $isolate_id</h1>";
+		say qq(<h1>Sequence bin for isolate id $isolate_id</h1>);
 	}
-	my $qry = "SELECT id,length(sequence) AS length,original_designation,method,comments,sender,curator,date_entered,datestamp "
-	  . "FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc";
+	my $qry = 'SELECT id,length(sequence) AS length,original_designation,method,comments,sender,'
+	  . 'curator,date_entered,datestamp FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc';
 	my $length_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
 	my $count = @$length_data;
 	if ( !$count ) {
-		say qq(<div class="box statusbad"><p>This isolate has no sequence data attached.</p></div>);
+		say q(<div class="box statusbad"><p>This isolate has no sequence data attached.</p></div>);
 		return;
 	}
-	say qq(<div class="box" id="resultsheader">);
-	say qq(<div style="float:left">);
-	say "<h2>Contig summary statistics</h2>";
-	say "<ul>\n<li>Number of contigs: $count</li>";
+	$self->_print_stats( $isolate_id, $length_data );
+	$self->_print_contig_table( $isolate_id, $length_data );
+	return;
+}
+
+sub _print_stats {
+	my ( $self, $isolate_id, $length_data ) = @_;
+	my $count = @$length_data;
+	say q(<div class="box" id="resultsheader">);
+	say q(<div style="float:left">);
+	say q(<h2>Contig summary statistics</h2>);
+	say qq(<dl class="data"><dt>Contigs</dt><dd>$count</dd>);
 	my ( $data, $lengths, $n_stats );
 	if ( $count > 1 ) {
 		$data = $self->{'datastore'}->run_query(
-			"SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), "
-			  . "CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?",
+			'SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), '
+			  . 'CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?',
 			$isolate_id,
 			{ fetch => 'row_arrayref' }
 		);
 		$lengths =
-		  $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc",
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc',
 			$isolate_id, { fetch => 'col_arrayref' } );
 		$n_stats = BIGSdb::Utils::get_N_stats( $data->[0], $lengths );
 		my %stats_labels = (
 			N50 => 'N50 contig number',
-			L50 => 'N50 contig length (L50)',
+			L50 => 'N50 length (L50)',
 			N90 => 'N90 contig number',
-			L90 => 'N90 contig length (L90)',
+			L90 => 'N90 length (L90)',
 			N95 => 'N95 contig number',
-			L95 => 'N95 contig length (L95)',
+			L95 => 'N95 length (L95)',
 		);
-		say "<li>Total length: $data->[0]</li>";
-		say "<li>Minimum length: $data->[1]</li>";
-		say "<li>Maximum length: $data->[2]</li>";
-		say "<li>Mean length: $data->[3]</li>";
-		say "<li>&sigma; length: $data->[4]</li>";
-		say "<li>$stats_labels{$_}: $n_stats->{$_}</li>" foreach qw(N50 L50 N90 L90 N95 L95);
-		say "</ul>";
+		say qq(<dt>Total length</dt><dd>$data->[0]</dd>);
+		say qq(<dt>Minimum length</dt><dd>$data->[1]</dd>);
+		say qq(<dt>Maximum length</dt><dd>$data->[2]</dd>);
+		say qq(<dt>Mean length</dt><dd>$data->[3]</dd>);
+		say qq(<dt>&sigma; length</dt><dd>$data->[4]</dd>);
+		say qq(<dt>$stats_labels{$_}</dt><dd>$n_stats->{$_}</dd>) foreach qw(N50 L50 N90 L90 N95 L95);
+		say q(</dl>);
 	} else {
-		my $length = $self->{'datastore'}->run_query( "SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?", $isolate_id );
-		say "<li>Length: $length</li>\n</ul>";
+		my $length =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?', $isolate_id );
+		say qq(<dt>Length</dt><dd>$length</dd></dl>);
 	}
-	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadSeqbin&amp;)
-	  . qq(isolate_id=$isolate_id">Download sequences (FASTA format)</a></li>);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;isolate_id=$isolate_id">)
-	  . qq(Download sequences with annotations (EMBL format)</a></li></ul>);
-	say "</div>";
+	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id">Download sequences (FASTA format)</a></li>);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
+	  . qq(isolate_id=$isolate_id">Download sequences with annotations (EMBL format)</a></li></ul>);
+	say q(</div>);
 	if ( $count > 1 ) {
-		say qq(<div style="float:left;padding-left:2em">);
-		say "<h2>Contig size distribution</h2>";
+		say q(<div style="float:left;padding-left:2em">);
+		say q(<h2>Contig size distribution</h2>);
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
 		foreach my $length (@$lengths) {
-			print $fh_output "$length\n";
+			say $fh_output $length;
 		}
 		close $fh_output;
 		my $bins =
@@ -136,16 +148,16 @@ sub print_content {
 		}
 		if ( $self->{'config'}->{'chartdirector'} ) {
 			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
-			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_large_histogram.png",
+			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/${temp}_large_histogram.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say qq(<a href="/tmp/$temp\_large_histogram.png" data-rel="lightbox-1" class="lightbox" )
+			say qq(<a href="/tmp/${temp}_large_histogram.png" data-rel="lightbox-1" class="lightbox" )
 			  . qq(title="Contig size distribution"><img src="/tmp/$temp\_large_histogram.png" alt="Contig size distribution" )
-			  . qq(style="width:200px;border:1px dashed black" /></a><br />Click to enlarge);
+			  . q(style="width:200px;border:1px dashed black" /></a><br />Click to enlarge);
 		}
 		say qq(<ul><li><a href="/tmp/$temp.txt">Download lengths</a></li></ul></div>);
 		if ( $self->{'config'}->{'chartdirector'} ) {
-			say qq(<div style="float:left;padding-left:2em">);
-			say "<h2>Cumulative contig length</h2>";
+			say q(<div style="float:left;padding-left:2em">);
+			say q(<h2>Cumulative contig length</h2>);
 			my ( @contig_labels, @cumulative );
 			push @contig_labels, $_ foreach ( 1 .. $count );
 			my $total_length = 0;
@@ -153,118 +165,133 @@ sub print_content {
 				$total_length += $_->{'length'};
 				push @cumulative, $total_length;
 			}
-			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
-			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative, "$self->{'config'}->{'tmp_dir'}/$temp\_cumulative_length.png",
+			my %prefs = ( offset_label => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
+			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative,
+				"$self->{'config'}->{'tmp_dir'}/${temp}_cumulative_length.png",
 				'large', \%prefs, { no_transparent => 1 } );
-			say qq(<a href="/tmp/$temp\_cumulative_length.png" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="Cumulative contig length"><img src="/tmp/$temp\_cumulative_length.png" alt="Cumulative contig length" )
-			  . qq(style="width:200px;border:1px dashed black" /></a></div>);
+			say qq(<a href="/tmp/${temp}_cumulative_length.png" data-rel="lightbox-1" class="lightbox" )
+			  . qq(title="Cumulative contig length"><img src="/tmp/${temp}_cumulative_length.png" )
+			  . q(alt="Cumulative contig length" style="width:200px;border:1px dashed black" /></a></div>);
 		}
 	}
-	say qq(<div style="clear:both"></div>);
-	say qq(</div><div class="box" id="resultstable">);
-	say qq(<div class="scrollable">);
+	say q(<div style="clear:both"></div></div>);
+	return;
+}
+
+sub _print_contig_table {
+	my ( $self, $isolate_id, $length_data ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="resultstable">);
+	say q(<div class="scrollable">);
 	my $seq_attributes =
-	  $self->{'datastore'}->run_query( "SELECT key FROM sequence_attributes ORDER BY key", undef, { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
 	my @cleaned_attributes = @$seq_attributes;
 	s/_/ / foreach @cleaned_attributes;
-	local $" = '</th><th>';
-	my $att_headings = @cleaned_attributes ? "<th>@cleaned_attributes</th>" : '';
-	say qq(<table class="resultstable"><tr><th>Sequence</th><th>Sequencing method</th><th>Original designation</th><th>Length</th>)
-	  . qq(<th>Comments</th>$att_headings<th>Locus</th><th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
-	  . qq(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart.  The contig annotations should open within )
-	  . qq(Artemis but this may depend on your operating system and version of Java.  If the annotations do not open within Artemis, )
-	  . qq(download the EMBL file locally and load manually in to Artemis."><span class="fa fa-info-circle" style="color:white"></span>)
-	  . qq(</a></th>);
+	local $" = q(</th><th>);
+	my $att_headings = @cleaned_attributes ? qq(<th>@cleaned_attributes</th>) : q();
+	say q(<table class="resultstable"><tr><th>Sequence</th><th>Sequencing method</th>)
+	  . qq(<th>Original designation</th><th>Length</th><th>Comments</th>$att_headings<th>Locus</th>)
+	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
+	  . q(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart. )
+	  . q(The contig annotations should open within Artemis but this may depend on your operating system )
+	  . q(and version of Java.  If the annotations do not open within Artemis, download the EMBL file )
+	  . q(locally and load manually in to Artemis."><span class="fa fa-info-circle" style="color:white"></span>)
+	  . q(</a></th>);
 
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		say qq(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the sequence tags to automatically )
-		  . qq(set the genome order position for each locus. This will be used to order the sequences when exporting FASTA or XMFA )
-		  . qq(files."><span class="fa fa-info-circle" style="color:white"></span></a></th>);
+		say q(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the )
+		  . q(sequence tags to automatically set the genome order position for each locus. This will )
+		  . q(be used to order the sequences when exporting FASTA or XMFA files.">)
+		  . q(<span class="fa fa-info-circle" style="color:white"></span></a></th>);
 	}
-	say "</tr>";
+	say q(</tr>);
 	my $td     = 1;
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? "AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes "
+	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	local $| = 1;
 	foreach my $data (@$length_data) {
 		$logger->error($@) if $@;
-		my $allele_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause",
+		my $allele_count =
+		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause",
 			$data->{'id'}, { cache => 'SeqbinPage::print_content::count' } );
-		my $att_values = $self->{'datastore'}->run_query( "SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?",
+		my $att_values =
+		  $self->{'datastore'}->run_query( 'SELECT key,value FROM sequence_attribute_values WHERE seqbin_id=?',
 			$data->{'id'}, { fetch => 'all_hashref', key => 'key', cache => 'SeqbinPage::print_content::keyvalue' } );
 		my $first = 1;
 		if ($allele_count) {
-			print "<tr class=\"td$td\">";
-			my $open_td = "<td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
-			print "$open_td$data->{'id'}</td>";
-			print "$open_td$data->{'method'}</td>";
-			$data->{'original_designation'} ||= '';
-			print "$open_td$data->{'original_designation'}</td>";
-			print "$open_td$data->{'length'}</td>";
-			$data->{'comments'} ||= '';
-			print "$open_td$data->{'comments'}</td>";
+			print qq(<tr class="td$td">);
+			my $open_td = qq(<td rowspan="$allele_count" style="vertical-align:top">);
+			print qq($open_td$data->{'id'}</td>);
+			print qq($open_td$data->{'method'}</td>);
+			$data->{'original_designation'} //= q();
+			print qq($open_td$data->{'original_designation'}</td>);
+			print qq($open_td$data->{'length'}</td>);
+			$data->{'comments'} //= q();
+			print qq($open_td$data->{'comments'}</td>);
 
 			foreach my $att (@$seq_attributes) {
 				$att_values->{$att}->{'value'} //= '';
-				print "$open_td$att_values->{$att}->{'value'}</td>";
+				print qq($open_td$att_values->{$att}->{'value'}</td>);
 			}
 			my $allele_seqs =
-			  $self->{'datastore'}->run_query( "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos",
-				$data->{'id'}, { fetch => 'all_arrayref', slice => {}, cache => 'SeqbinPage::print_content::allele_sequences' } );
+			  $self->{'datastore'}
+			  ->run_query( "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos",
+				$data->{'id'},
+				{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinPage::print_content::allele_sequences' } );
 			foreach my $allele_seq (@$allele_seqs) {
 				print "<tr class=\"td$td\">" if !$first;
 				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
-				print "<td>$cleaned_locus "
+				say qq(<td>$cleaned_locus )
 				  . ( $allele_seq->{'complete'} ? '' : '*' )
-				  . "</td><td>$allele_seq->{'start_pos'}</td><td>$allele_seq->{'end_pos'}</td>";
-				print "<td style=\"font-size:2em\">" . ( $allele_seq->{'reverse'} ? '&larr;' : '&rarr;' ) . "</td>";
+				  . qq(</td><td>$allele_seq->{'start_pos'}</td><td>$allele_seq->{'end_pos'}</td>);
+				say q(<td style="font-size:2em">) . ( $allele_seq->{'reverse'} ? q(&larr;) : q(&rarr;) ) . q(</td>);
 				if ($first) {
-					print "<td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
-					print $q->start_form;
-					$q->param( 'page',      'embl' );
-					$q->param( 'seqbin_id', $data->{'id'} );
-					print $q->hidden($_) foreach qw (page db seqbin_id);
-					print $q->submit( -name => 'EMBL', -class => 'smallbutton' );
-					print $q->end_form;
-					print "</td><td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
+					say qq(<td rowspan="$allele_count" style="vertical-align:top">);
+					say $q->start_form;
+					$q->param( page      => 'embl' );
+					$q->param( seqbin_id => $data->{'id'} );
+					say $q->hidden($_) foreach qw (page db seqbin_id);
+					say $q->submit( -name => 'EMBL', -class => 'smallbutton' );
+					say $q->end_form;
+					say qq(</td><td rowspan="$allele_count" style="vertical-align:top">);
 					my $jnlp = $self->_make_artemis_jnlp( $data->{'id'} );
-					print $q->start_form( -method => 'get', -action => "/tmp/$jnlp" );
-					print $q->submit( -name => 'Artemis', -class => 'smallbutton' );
-					print $q->end_form;
-					print "</td>";
+					say $q->start_form( -method => 'get', -action => "/tmp/$jnlp" );
+					say $q->submit( -name => 'Artemis', -class => 'smallbutton' );
+					say $q->end_form;
+					say q(</td>);
 
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-						print "<td rowspan=\"$allele_count\" style=\"vertical-align:top\">";
-						print $q->start_form;
-						$q->param( 'page',      'renumber' );
-						$q->param( 'seqbin_id', $data->{'id'} );
-						print $q->hidden($_) foreach qw (page db seqbin_id);
-						print $q->submit( -name => 'Renumber', -class => 'smallbutton' );
-						print $q->end_form;
-						print "</td>";
+						say qq(<td rowspan="$allele_count" style="vertical-align:top">);
+						say $q->start_form;
+						$q->param( page      => 'renumber' );
+						$q->param( seqbin_id => $data->{'id'} );
+						say $q->hidden($_) foreach qw (page db seqbin_id);
+						say $q->submit( -name => 'Renumber', -class => 'smallbutton' );
+						say $q->end_form;
+						say q(</td>);
 					}
 				}
-				say "</tr>";
+				say q(</tr>);
 				$first = 0;
 			}
 		} else {
-			print "<tr class=\"td$td\"><td>$data->{'id'}</td>";
-			print defined $data->{'method'} ? "<td>$data->{'method'}</td>" : '<td></td>';
-			print defined $data->{'original_designation'} ? "<td>$data->{'original_designation'}</td>" : '<td></td>';
-			print "<td>$data->{'length'}</td>";
-			print defined $data->{'comments'} ? "<td>$data->{'comments'}</td>" : '<td></td>';
+			say qq(<tr class="td$td"><td>$data->{'id'}</td>);
+			say defined $data->{'method'} ? qq(<td>$data->{'method'}</td>) : q(<td /></td>);
+			say defined $data->{'original_designation'} ? qq(<td>$data->{'original_designation'}</td>) : q(<td></td>);
+			say qq(<td>$data->{'length'}</td>);
+			print defined $data->{'comments'} ? qq(<td>$data->{'comments'}</td>) : q(<td></td>);
 			foreach my $att (@$seq_attributes) {
-				$att_values->{$att}->{'value'} //= '';
-				print "<td>$att_values->{$att}->{'value'}</td>";
+				$att_values->{$att}->{'value'} //= q();
+				say qq(<td>$att_values->{$att}->{'value'}</td>);
 			}
-			print "<td></td><td></td><td></td><td></td><td></td><td></td>";
-			print "<td></td>" if $self->{'curate'};
-			say "</tr>";
+			say q(<td></td><td></td><td></td><td></td><td></td><td></td>);
+			say q(<td></td>) if $self->{'curate'};
+			say q(</tr>);
 		}
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
@@ -272,14 +299,14 @@ sub print_content {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	say "</table></div>\n</div>";
+	say q(</table></div></div>);
 	return;
 }
 
 sub _make_artemis_jnlp {
 	my ( $self, $seqbin_id ) = @_;
 	my $temp          = BIGSdb::Utils::get_random();
-	my $jnlp_filename = "$temp\_$seqbin_id.jnlp";
+	my $jnlp_filename = "${temp}_$seqbin_id.jnlp";
 
 	# if access is not public or access is via curation interface then
 	# EMBL files will need to be created and placed in a public location
@@ -301,12 +328,12 @@ sub _make_artemis_jnlp {
 		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
 		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { get_buffer => 1 } );
 		close $fh_embl;
-		$url = "http://" . $self->{'cgi'}->virtual_host . "/tmp/$embl_filename";
+		$url = q(http://) . $self->{'cgi'}->virtual_host . qq(/tmp/$embl_filename);
 	} else {
 		$url =
-		    'http://'
+		    q(http://)
 		  . $self->{'cgi'}->virtual_host
-		  . "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$seqbin_id";
+		  . qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$seqbin_id);
 	}
 	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$jnlp_filename" )
 	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
@@ -314,7 +341,7 @@ sub _make_artemis_jnlp {
 <?xml version="1.0" encoding="UTF-8"?>
 <jnlp
         spec="1.0+"
-        codebase="http://www.sanger.ac.uk/resources/software/artemis/java/"
+        codebase="http://www.genedb.org/artemis/"
         href="artemis.jnlp">
          <information>
            <title>Artemis</title>
@@ -348,13 +375,12 @@ JNLP
 sub get_title {
 	my ($self) = @_;
 	my $isolate_id = $self->{'cgi'}->param('isolate_id');
-	return " Invalid isolate id " if !BIGSdb::Utils::is_int($isolate_id);
+	return 'Invalid isolate id' if !BIGSdb::Utils::is_int($isolate_id);
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	if ($isolate_id) {
-		my @name = $self->get_name($isolate_id);
-		local $" = ' ';
-		return "Sequence bin: id-$isolate_id (@name)" if $name[1];
+		my $name = $self->get_name($isolate_id);
+		return qq(Sequence bin: id-$isolate_id ($name)) if $name;
 	}
-	return "Sequence bin - $desc";
+	return qq(Sequence bin - $desc);
 }
 1;
