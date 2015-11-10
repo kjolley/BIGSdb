@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#tag-status",
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -58,7 +58,8 @@ sub get_attributes {
 
 sub set_pref_requirements {
 	my ($self) = @_;
-	$self->{'pref_requirements'} = { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -69,24 +70,24 @@ sub run {
 	my $qry_ref    = $self->get_query($query_file);
 	my $ids        = $self->get_ids_from_query($qry_ref);
 	if ( ref $ids ne 'ARRAY' || !@$ids ) {
-		say "<div class=\"box statusbad\"><p>No isolates to analyse.</p></div>";
+		say q(<div class="box statusbad"><p>No isolates to analyse.</p></div>);
 		return;
 	}
 	if ( $q->param('isolate_id') && BIGSdb::Utils::is_int( $q->param('isolate_id') ) ) {
 		$self->_breakdown_isolate( $q->param('isolate_id') );
 		return;
 	} else {
-		say "<h1>Tag status</h1>";
+		say q(<h1>Tag status</h1>);
 		return if $self->has_set_changed;
-		say qq(<div class="box" id="queryform" style="display:none">);
+		say q(<div class="box" id="queryform" style="display:none"><div class="scrollable">);
 		$self->_print_tree;
-		print "</div>\n";
+		say q(</div></div>);
 		my $schemes =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM schemes ORDER BY display_order,description", undef, { fetch => 'col_arrayref' } );
+		  $self->{'datastore'}->run_query( 'SELECT id FROM schemes ORDER BY display_order,description', undef,
+			{ fetch => 'col_arrayref' } );
 		my @selected_schemes;
-		foreach ( @$schemes, 0 ) {
-			push @selected_schemes, $_ if $q->param("s_$_");
+		foreach my $scheme_id ( @$schemes, 0 ) {
+			push @selected_schemes, $scheme_id if $q->param("s_$scheme_id");
 		}
 		return if !@selected_schemes;
 		$self->_print_schematic( $ids, \@selected_schemes );
@@ -97,14 +98,15 @@ sub run {
 sub _breakdown_isolate {
 	my ( $self, $id ) = @_;
 	my $isolate =
-	  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$isolate ) {
-		say "<h1>Tag status</h1>";
-		say "<div class=\"box statusbad\"><p>Invalid isolate passed.</p></div>";
+		say q(<h1>Tag status</h1>);
+		say q(<div class="box statusbad"><p>Invalid isolate passed.</p></div>);
 		return;
 	}
-	say "<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>";
-	say "<div class=\"box\" id=\"resultstable\">";
+	say qq(<h1>Tag status: Isolate id#$id ($isolate->{$self->{'system'}->{'labelfield'}})</h1>);
+	say q(<div class="box" id="resultstable">);
 	my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
 	my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 	my $flags           = $self->_get_loci_with_sequence_flags($id);
@@ -112,79 +114,76 @@ sub _breakdown_isolate {
 	my $set_id          = $self->get_set_id;
 	my $scheme_data     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	say "<table class=\"resultstable\">\n<tr>";
-	say "<th>$_</th>" foreach ( 'Scheme', 'Locus', 'Allele designation(s)', 'Sequence tag' );
-	say "</tr>";
+	say q(<table class="resultstable"><tr>);
+	say qq(<th>$_</th>) foreach ( 'Scheme', 'Locus', 'Allele designation(s)', 'Sequence tag' );
+	say q(</tr>);
 	my $td       = 1;
-	my $tagged   = "background:#aaf; color:white";
-	my $untagged = "background:red";
+	my $tagged   = q(background:#aaf; color:white);
+	my $untagged = q(background:red);
 
 	foreach my $scheme_id (@$scheme_ids_ref) {
 		my $first = 1;
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
-		say "<tr class=\"td$td\"><th rowspan=\"" . @$scheme_loci . "\">$desc_ref->{$scheme_id}</th>";
+		my $scheme_loci =
+		  $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
+		my $locus_count = @$scheme_loci;
+		say qq(<tr class="td$td"><th rowspan="$locus_count">$desc_ref->{$scheme_id}</th>);
 		foreach my $locus (@$scheme_loci) {
-			print "<tr class=\"td$td\">" if !$first;
+			say qq(<tr class="td$td">) if !$first;
 			my $cleaned = $self->clean_locus($locus);
-			print "<td>$cleaned</td>";
-			local $" = ',';
-			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">@{$allele_ids->{$locus}}</td>" : "<td style=\"$untagged\" />";
-			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
+			say qq(<td>$cleaned</td>);
+			local $" = q(,);
+			say defined $allele_ids->{$locus}
+			  ? qq(<td style="$tagged">@{$allele_ids->{$locus}}</td>)
+			  : qq(<td style="$untagged" />);
+			say defined $tags->{$locus} ? qq(<td style="$tagged">) : qq(<td style="$untagged">);
 			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
-			say "</td></tr>";
+			say q(</td></tr>);
 			$first = 0;
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
 	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
 	if (@$no_scheme_loci) {
-		my $first = 1;
-		print "<tr class=\"td$td\"><th rowspan=\"" . @$no_scheme_loci . "\">Loci</th>";
+		my $first       = 1;
+		my $locus_count = @$no_scheme_loci;
+		say qq(<tr class="td$td"><th rowspan="$locus_count">Loci</th>);
 		foreach my $locus (@$no_scheme_loci) {
-			print "<tr class=\"td$td\">" if !$first;
+			say qq(<tr class="td$td">) if !$first;
 			my $cleaned = $self->clean_locus($locus);
-			print "<td>$cleaned</td>";
-			local $" = ',';
-			print defined $allele_ids->{$locus} ? "<td style=\"$tagged\">@{$allele_ids->{$locus}}</td>" : "<td style=\"$untagged\" />";
-			print defined $tags->{$locus} ? "<td style=\"$tagged\">" : "<td style=\"$untagged\">";
+			say qq(<td>$cleaned</td>);
+			local $" = q(,);
+			say defined $allele_ids->{$locus}
+			  ? qq(<td style="$tagged">@{$allele_ids->{$locus}}</td>)
+			  : qq(<td style="$untagged" />);
+			say defined $tags->{$locus} ? qq(<td style="$tagged">) : qq(<td style="$untagged">);
 			$self->_get_flags( $id, $locus ) if any { $locus eq $_ } @$loci_with_flags;
-			say "</td></tr>";
+			say q(</td></tr>);
 			$first = 0;
 		}
 	}
-	say "</table></div>";
+	say q(</table></div>);
 	return;
 }
 
 sub _get_loci_with_sequence_flags {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'all_sequence_flags'} ) {
-		$self->{'sql'}->{'all_sequence_flags'} =
-		  $self->{'db'}->prepare( "SELECT allele_sequences.locus FROM sequence_flags LEFT JOIN "
-			  . "allele_sequences ON sequence_flags.id = allele_sequences.id WHERE isolate_id=?" );
-		$logger->info("Statement handle 'all_sequence_flags' prepared.");
-	}
-	eval { $self->{'sql'}->{'all_sequence_flags'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my @loci;
-	while ( my ($locus) = $self->{'sql'}->{'all_sequence_flags'}->fetchrow_array ) {
-		push @loci, $locus;
-	}
-	return \@loci;
+	return $self->{'datastore'}->run_query(
+		'SELECT allele_sequences.locus FROM sequence_flags LEFT JOIN '
+		  . 'allele_sequences ON sequence_flags.id = allele_sequences.id WHERE isolate_id=?',
+		$isolate_id,
+		{ fetch => 'col_arrayref' }
+	);
 }
 
 sub _get_flags {
 	my ( $self, $isolate_id, $locus ) = @_;
-	if ( !$self->{'sql'}->{'flag'} ) {
-		$self->{'sql'}->{'flag'} =
-		  $self->{'db'}->prepare( "SELECT flag FROM sequence_flags LEFT JOIN allele_sequences ON sequence_flags.id=allele_sequences.id "
-			  . "WHERE isolate_id=? AND locus=? ORDER BY flag" );
-	}
-	eval { $self->{'sql'}->{'flag'}->execute( $isolate_id, $locus ) };
-	$logger->error($@) if $@;
-	while ( my ($flag) = $self->{'sql'}->{'flag'}->fetchrow_array ) {
-		print "<a class=\"seqflag_tooltip\">$flag</a>";
-	}
+	my $flags = $self->{'datastore'}->run_query(
+		'SELECT flag FROM sequence_flags LEFT JOIN allele_sequences ON '
+		  . 'sequence_flags.id=allele_sequences.id WHERE (isolate_id,locus)=(?,?) ORDER BY flag',
+		[ $isolate_id, $locus ],
+		{ fetch => 'col_arrayref' }
+	);
+	print qq(<a class="seqflag_tooltip">$_</a>) foreach @$flags;
 	return;
 }
 
@@ -204,47 +203,49 @@ sub _print_schematic {
 
 	foreach my $scheme_id (@$scheme_ids_ref) {
 		next if !$selected_schemes{$scheme_id};
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
+		my $scheme_loci =
+		  $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
 		push @loci, @$scheme_loci;
 		$scheme_loci{$scheme_id} = $scheme_loci;
 		my $j = $i + ( @$scheme_loci * $bar_width ) - 1;
-		push @image_map,
-		  "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"$desc_ref->{$scheme_id}\" alt=\"$desc_ref->{$scheme_id}\" />\n";
+		push @image_map, qq(<area shape="rect" coords="I=$i,0,J=$j,20" )
+		  . qq(title="$desc_ref->{$scheme_id}" alt="$desc_ref->{$scheme_id}" />\n);
 		$i = $j + 1;
 	}
 	my $no_scheme_loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
 	my $j = $i + ( @$no_scheme_loci * $bar_width ) - 1;
-	push @image_map, "<area shape=\"rect\" coords=\"I=$i,0,J=$j,20\" title=\"Loci not in scheme\" alt=\"Loci not in scheme\" />\n";
+	push @image_map,
+	  qq(<area shape="rect" coords="I=$i,0,J=$j,20" ) . qq(title="Loci not in scheme" alt="Loci not in scheme" />\n);
 	foreach (@image_map) {
-		if ( $_ =~ /I=(\d+)/ ) {
+		if ( $_ =~ /I=(\d+)/x ) {
 			my $new_value = int($1);
-			$_ =~ s/I=\d+/$new_value/;
+			$_ =~ s/I=\d+/$new_value/x;
 		}
-		if ( $_ =~ /J=(\d+)/ ) {
+		if ( $_ =~ /J=(\d+)/x ) {
 			my $new_value = int($1);
-			$_ =~ s/J=\d+/$new_value/;
+			$_ =~ s/J=\d+/$new_value/x;
 		}
 	}
 	push @loci, @$no_scheme_loci;
-	say "<div class=\"box\" id=\"resultstable\">";
-	say "<p>Bars represent loci by schemes arranged in alphabetical order.  If a locus appears in more than one scheme "
-	  . "it will appear more than once in this graphic.  Click on the id hyperlink for a detailed breakdown for an isolate.</p>";
+	say q(<div class="box" id="resultstable">);
+	say q(<p>Bars represent loci by schemes arranged in alphabetical order. If a locus appears in )
+	  . q(more than one scheme it will appear more than once in this graphic. Click on the id hyperlink )
+	  . q(for a detailed breakdown for an isolate.</p>);
 	my @colours = COLOURS;
-	say "<h2>Key</h2>";
+	say q(<h2>Key</h2>);
 	say qq(<p><span style="color: #$colours[1]; font-weight:600">Allele designated only</span> | )
 	  . qq(<span style="color: #$colours[2]; font-weight:600">Sequence tagged only</span> | )
 	  . qq(<span style="color: #$colours[3]; font-weight:600">Allele designated + sequence tagged</span> | )
 	  . qq(<span style="color: #$colours[4]; font-weight:600\">Flagged</span> )
-	  . qq(<a class="tooltip" title="Flags - Sequences may be flagged to indicate problems, e.g. ambiguous reads, internal stop )
-	  . qq(codons etc."><span class="fa fa-info-circle"></span></a></p>);
-	my $plural = $locus_count == 1 ? 'us' : 'i';
-	say "<p><b>$locus_count loc$plural selected:</b></p>";
-	say "<map id=\"schemes\" name=\"schemes\">\n@image_map</map>";
-	say "<div class=\"scrollable\">";
-	say "<table class=\"resultstable\"><tr><th>Id</th><th>Isolate</th><th>Designation status</th></tr>";
-	my $isolate_sql = $self->{'db'}->prepare("SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?");
-	my $td          = 1;
-	my $prefix      = BIGSdb::Utils::get_random();
+	  . q(<a class="tooltip" title="Flags - Sequences may be flagged to indicate problems, e.g. ambiguous )
+	  . q(reads, internal stop codons etc."><span class="fa fa-info-circle"></span></a></p>);
+	my $plural = $locus_count == 1 ? q(us) : q(i);
+	say qq(<p><b>$locus_count loc$plural selected:</b></p>);
+	say qq(<map id="schemes" name="schemes">\n@image_map</map>);
+	say q(<div class="scrollable">);
+	say q(<table class="resultstable"><tr><th>Id</th><th>Isolate</th><th>Designation status</th></tr>);
+	my $td     = 1;
+	my $prefix = BIGSdb::Utils::get_random();
 	local $| = 1;
 
 	foreach my $id (@$ids) {
@@ -253,15 +254,17 @@ sub _print_schematic {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my @designations;
-		eval { $isolate_sql->execute($id) };
-		$logger->error($@) if $@;
-		my ($isolate)       = $isolate_sql->fetchrow_array;
+		my $isolate =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+			$id, { cache => 'TagStatus::print_schematic::get_isolate_name' } );
 		my $allele_ids      = $self->{'datastore'}->get_all_allele_ids($id);
 		my $tags            = $self->{'datastore'}->get_all_allele_sequences($id);
 		my $loci_with_flags = $self->_get_loci_with_sequence_flags($id);
 		my %loci_with_flags = map { $_ => 1 } @$loci_with_flags;
-		my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=TagStatus&amp;isolate_id=$id";
-		print "<tr class=\"td$td\"><td><a href=\"$url\">$id</a></td><td>$isolate</td>";
+		my $url             = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . qq(name=TagStatus&amp;isolate_id=$id);
+		say qq(<tr class="td$td"><td><a href="$url">$id</a></td><td>$isolate</td>);
 
 		foreach my $scheme_id (@$scheme_ids_ref) {
 			next if !$selected_schemes{$scheme_id};
@@ -281,30 +284,22 @@ sub _print_schematic {
 		}
 		my $designation_filename = "$self->{'config'}->{'tmp_dir'}/$prefix\_$id\_designation.svg";
 		$self->_make_svg( $designation_filename, $bar_width, \@designations );
-		say "<td><img src=\"/tmp/$prefix\_$id\_designation.svg\" alt=\"\" usemap=\"#schemes\" style=\"border:1px solid #ddd\" /></td></tr>";
+		say qq(<td><img src="/tmp/${prefix}_${id}_designation.svg" alt="" usemap="#schemes" )
+		  . q(style="border:1px solid #ddd" /></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say "</table>\n</div></div>";
+	say q(</table></div></div>);
 	return;
 }
 
 sub _get_bar_width {
 	my ( $self, $locus_count ) = @_;
-	my $bar_width;
-	if ( $locus_count > 600 ) {
-		$bar_width = 1;
-	} elsif ( $locus_count > 300 ) {
-		$bar_width = 2;
-	} elsif ( $locus_count > 150 ) {
-		$bar_width = 4;
-	} elsif ( $locus_count > 100 ) {
-		$bar_width = 6;
-	} elsif ( $locus_count > 50 ) {
-		$bar_width = 12;
-	} else {
-		$bar_width = 20;
-	}
-	return $bar_width;
+	return 1  if $locus_count > 600;
+	return 2  if $locus_count > 300;
+	return 4  if $locus_count > 150;
+	return 6  if $locus_count > 100;
+	return 12 if $locus_count > 50;
+	return 20;
 }
 
 sub _get_locus_count {
@@ -316,7 +311,8 @@ sub _get_locus_count {
 	my $count = 0;
 	foreach my $scheme_id (@$scheme_ids_ref) {
 		next if !$selected_schemes{$scheme_id};
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
+		my $scheme_loci =
+		  $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 0, analysis_pref => 1 } );
 		$count += @$scheme_loci;
 	}
 	return $count if !$selected_schemes{0};
@@ -338,10 +334,11 @@ SVG
 	my $pos     = int( 0.5 * $bar_width );
 	my @colours = COLOURS;
 	foreach (@$values) {
-		say $fh "<line x1=\"$pos\" y1=\"0\" x2=\"$pos\" y2=\"20\" style=\"stroke-width: $bar_width; stroke: #$colours[$_];\" />";
+		say $fh qq(<line x1="$pos" y1="0" x2="$pos" y2="20" )
+		  . qq(style="stroke-width: $bar_width; stroke: #$colours[$_];" />);
 		$pos += $bar_width;
 	}
-	say $fh "</svg>";
+	say $fh q(</svg>);
 	close $fh;
 	return;
 }
@@ -349,20 +346,18 @@ SVG
 sub _print_tree {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print $q->start_form;
-	print << "HTML";
-<p>Select schemes or groups of schemes within the tree.  A breakdown of the individual loci belonging to 
-these schemes will then be performed.</p>
-<noscript>
-<p class="highlight">You need to enable Javascript in order to select schemes for analysis.</p>
-</noscript>
-<div id="tree" class="tree" style=\"height:10em; width:30em\">
-HTML
-	print $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
-	print "</div>\n";
-	print $q->submit( -name => 'selected', -label => 'Select', -class => 'submit' );
-	print $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
-	print $q->end_form;
+	say $q->start_form;
+	say q(<p>Select schemes or groups of schemes within the tree. A breakdown of the individual )
+	  . q(loci belonging to these schemes will then be performed.</p>);
+	say q(<noscript><p class="highlight">You need to enable Javascript in order to select schemes )
+	  . q(for analysis.</p></noscript>);
+	say q(<fieldset style="float:left"><legend>Select schemes</legend>);
+	say q(<div id="tree" class="tree" style="width:30em">);
+	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
+	say q(</div></fieldset>);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
+	say $q->end_form;
 	return;
 }
 
