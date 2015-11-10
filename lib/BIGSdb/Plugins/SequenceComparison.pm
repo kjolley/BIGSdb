@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2014, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.3',
+		version          => '1.0.4',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -54,89 +54,92 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $desc   = $self->get_db_description;
-	say "<h1>Allele sequence comparison - $desc</h1>";
+	say qq(<h1>Allele sequence comparison - $desc</h1>);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	if ( !@$display_loci ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>No loci have been defined for this database.</p></div>";
+		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"queryform\">";
-	say "<p>This tool allows you to select two alleles and highlight the nucleotide differences between them.</p>";
-	my $locus = $q->param('locus') || '';
-	if ( $locus =~ /^cn_(.+)/ ) {
+	say q(<div class="box" id="queryform">);
+	say q(<p>This tool allows you to select two alleles and highlight the nucleotide differences between them.</p>);
+	my $locus = $q->param('locus') // q();
+	if ( $locus =~ /^cn_(.+)/x ) {
 		$locus = $1;
-		$q->param( 'locus', $locus );
+		$q->param( locus => $locus );
 	}
 	say $q->start_form;
 	my $sent = $q->param('sent');
-	$q->param( 'sent', 1 );
+	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (db page name sent);
-	say "<fieldset style=\"float:left\"><legend>Select parameters</legend>";
-	say "<ul><li>";
-	say "<label for=\"locus\" class=\"display\">Locus: </label>";
+	say q(<fieldset style="float:left"><legend>Select parameters</legend>);
+	say q(<ul><li>);
+	say q(<label for="locus" class="display">Locus: </label>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', values => $display_loci, -labels => $cleaned );
-	say "</li>";
+	say q(</li>);
 
-	foreach (qw(1 2)) {
-		say "<li><label for=\"allele$_\" class=\"display\">Allele #$_: </label>";
-		say $q->textfield( -name => "allele$_", -id => "allele$_", -size => 8 );
-		say "</li>";
+	foreach my $num (qw(1 2)) {
+		say qq(<li><label for="allele$num" class="display">Allele #$num: </label>);
+		say $q->textfield( -name => "allele$num", -id => "allele$num", -size => 8 );
+		say q(</li>);
 	}
-	say "</ul></fieldset>";
+	say q(</ul></fieldset>);
 	$self->print_action_fieldset( { name => 'SequenceComparison', no_reset => 1 } );
 	say $q->endform;
-	say "</div>";
+	say q(</div>);
 	return if !$sent;
 	my $displaylocus = $self->clean_locus($locus);
 	my $allele1      = $q->param('allele1');
 	my $allele2      = $q->param('allele2');
 
 	if ( !defined $allele1 || !defined $allele2 ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two allele identifiers.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Please enter two allele identifiers.</p></div>);
 		return;
 	} elsif ( $allele1 eq $allele2 ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Please enter two <em>different</em> allele numbers.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Please enter two <em>different</em> allele numbers.</p></div>);
 		return;
 	} elsif ( $allele1 eq '0' || $allele2 eq '0' ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Allele 0 is not a valid identifier.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Allele 0 is not a valid identifier.</p></div>);
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	if ( $locus_info->{'allele_id_format'} eq 'integer' && ( !BIGSdb::Utils::is_int($allele1) || !BIGSdb::Utils::is_int($allele2) ) ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Both your allele identifiers should be integers.</p></div>";
+	if ( $locus_info->{'allele_id_format'} eq 'integer'
+		&& ( !BIGSdb::Utils::is_int($allele1) || !BIGSdb::Utils::is_int($allele2) ) )
+	{
+		say q(<div class="box" id="statusbad"><p>Both your allele identifiers should be integers.</p></div>);
 		return;
 	}
 	my $seq1_ref = $self->{'datastore'}->get_sequence( $locus, $allele1 );
 	my $seq2_ref = $self->{'datastore'}->get_sequence( $locus, $allele2 );
 	if ( !defined $$seq1_ref ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Allele #1 has not been defined.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Allele #1 has not been defined.</p></div>);
 		return;
 	} elsif ( !defined $$seq2_ref ) {
-		say "<div class=\"box\" id=\"statusbad\"><p>Allele #2 has not been defined.</p></div>";
+		say q(<div class="box" id="statusbad"><p>Allele #2 has not been defined.</p></div>);
 		return;
 	}
-	say "<div class=\"box\" id=\"resultsheader\">";
-	say "<h2>Nucleotide differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>";
+	say q(<div class="box" id="resultsheader">);
+	my $type = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
+	say qq(<h2>$type differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>);
 	my $temp    = &BIGSdb::Utils::get_random();
 	my $outfile = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	if ( $self->{'config'}->{'emboss_path'} ) {
-		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_1.txt";
-		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_2.txt";
+		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_1.txt";
+		my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_2.txt";
 		open( my $fh, '>', $seq1_infile )
-		  || $logger->error("Could not write temporary input file");
+		  || $logger->error('Could not write temporary input file');
 		say $fh ">$allele1";
 		print $fh $$seq1_ref;
 		close $fh;
 		open( $fh, '>', $seq2_infile )
-		  || $logger->error("Could not write temporary input file");
+		  || $logger->error('Could not write temporary input file');
 		say $fh ">$allele2";
 		print $fh $$seq2_ref;
 		close $fh;
 
 		#run EMBOSS stretcher
-		system( "$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth $self->{'prefs'}->{'alignwidth'} $seq1_infile "
-			  . "$seq2_infile $outfile 2> /dev/null" );
+		system( "$self->{'config'}->{'emboss_path'}/stretcher -aformat markx2 -awidth "
+			  . "$self->{'prefs'}->{'alignwidth'} $seq1_infile $seq2_infile $outfile 2> /dev/null" );
 		unlink $seq1_infile, $seq2_infile;
 	}
 	my $buffer;
@@ -147,26 +150,26 @@ sub run {
 			my $base2 = substr( $$seq2_ref, $i, 1 );
 			if ( $base1 ne $base2 ) {
 				my $pos = $i + 1;
-				push @results, "$pos: <span class=\"$base1\">$base1</span> &rarr; <span class=\"$base2\">$base2</span>";
+				push @results, qq($pos: <span class="$base1">$base1</span> &rarr; <span class="$base2">$base2</span>);
 			}
 		}
 		my $numdiffs = scalar @results;
 		my $ident = BIGSdb::Utils::decimal_place( 100 - ( ( $numdiffs / ( length $$seq1_ref ) ) * 100 ), 2 );
-		$buffer .= "<p>Identity: $ident %</p>\n";
+		$buffer .= qq(<p>Identity: $ident %</p>\n);
 		$buffer .= $self->get_alignment( $outfile, $temp );
-		$buffer .= "<p>Differences: $numdiffs<br />\n";
-		local $" = "<br />\n";
-		$buffer .= "@results</p>";
+		$buffer .= qq(<p>Differences: $numdiffs<br />\n);
+		local $" = qq(<br />\n);
+		$buffer .= qq(@results</p>);
 	} else {
-		say "<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>";
+		say q(<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>);
 	}
 	if ( length $$seq1_ref != length $$seq2_ref ) {
-		say "<pre style=\"font-size:1.2em\">";
+		say q(<pre style="font-size:1.2em">);
 		$self->print_file( $outfile, 1 );
-		say "</pre>";
+		say q(</pre>);
 	}
 	say $buffer if $buffer;
-	say "</div>";
+	say q(</div>);
 	return;
 }
 

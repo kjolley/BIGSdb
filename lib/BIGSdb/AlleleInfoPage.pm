@@ -253,8 +253,8 @@ sub _print_accessions {
 		  if $display eq 'none';
 		say "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
-		say "<div id=\"$id\">";
-		say $buffer .= "<dl class=\"data\">\n";
+		say qq(<div id="$id">);
+		say $buffer .= qq(<dl class="data">\n);
 		foreach my $accession (@$accession_list) {
 			say "<dt>$accession->{'databank'}</dt>";
 			if ( $accession->{'databank'} eq 'Genbank' ) {
@@ -280,14 +280,16 @@ sub _print_ref_links {
 		{ fetch => 'col_arrayref' }
 	);
 	if (@$pmids) {
-		say '<h2>Publication' . ( @$pmids > 1 ? 's' : '' ) . ' (' . @$pmids . ')';
+		my $count = @$pmids;
+		my $plural = $count > 1 ? q(s) : q();
+		say qq(<h2>Publication$plural ($count));
 		my $display = @$pmids > 4 ? 'none' : 'block';
 		say q(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
 		  . q(&nbsp;show/hide&nbsp;</a></span>)
 		  if $display eq 'none';
-		say "</h2>\n";
+		say q(</h2>);
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
-		say "<ul id=\"$id\">\n";
+		say qq(<ul id="$id">\n);
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
