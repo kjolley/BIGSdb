@@ -479,7 +479,7 @@ sub _check_data {
 					$rowbuffer .= defined $display_value ? qq(<td>$display_value</td>) : q(<td></td>);
 				} else {
 					$rowbuffer .=
-					  defined $display_value ? "<td><font color=\"red\">$display_value</font></td>" : '<td></td>';
+					  defined $display_value ? qq(<td><font color="red">$display_value</font></td>) : q(<td></td>);
 					if ($problem) {
 						my $problem_text = "$field $problem<br />";
 						$problems{$pk_combination} .= $problem_text

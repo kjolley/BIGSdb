@@ -278,9 +278,9 @@ sub _check {
 			}
 			my $display_value = $value;
 			if ( !$problem ) {
-				$row_buffer .= "<td>$display_value</td>";
+				$row_buffer .= qq(<td>$display_value</td>);
 			} else {
-				$row_buffer .= "<td><font color=\"red\">$display_value</font></td>";
+				$row_buffer .= qq(<td><font color="red">$display_value</font></td>);
 			}
 			$checked_record .= "$value\t"
 			  if defined $fileheaderPos{$field}

@@ -934,7 +934,7 @@ sub _print_table {
 	my $title = $values->{'title'} // $table;
 	$title =~ tr/_/ /;
 	my $comments = $values->{'comments'} // '';
-	my $buffer = "<tr class=\"td$td\"><td>$title</td>";
+	my $buffer = qq(<tr class="td$td"><td>$title</td>);
 	if ( !$values->{'no_add'} ) {
 		$buffer .=
 		    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)

@@ -246,8 +246,8 @@ sub _update {
 		push @problems, "Allele designation '$newdata->{'allele_id'}' already exists.\n";
 	}
 	if (@problems) {
-		local $" = "<br />\n";
-		$buffer .= "<div class=\"statusbad_no_resize\"><p>@problems</p></div>\n";
+		local $" = qq(<br />\n);
+		$buffer .= qq(<div class="statusbad_no_resize"><p>@problems</p></div>\n);
 	} else {
 		my ( @values, @add_values, @fields, @updated_field );
 		foreach my $attribute (@$attributes) {

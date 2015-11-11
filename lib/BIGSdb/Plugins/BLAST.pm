@@ -273,8 +273,8 @@ sub run {
 			close $fh_output_table;
 		}
 		if ( !@$matches ) {
-			say qq(<tr class="td$td"><td><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=info&amp;id=$id\">$id</a></td><td>$label</td>);
+			say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=info&amp;id=$id">$id</a></td><td>$label</td>);
 			say qq(<td>$_</td>) foreach @include_values;
 			say q(<td>0</td><td colspan="9" /></tr>);
 			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )

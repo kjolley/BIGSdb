@@ -248,7 +248,7 @@ sub _breakdown_field {
 			if ( $format eq 'text' ) {
 				say qq($allele_id\t$count\t$percentage);
 			} else {
-				say qq(<tr class=\"td$td\"><td>);
+				say qq(<tr class="td$td"><td>);
 				if ( $allele_id eq '' ) {
 					say q(No value);
 				} else {

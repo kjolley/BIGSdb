@@ -99,8 +99,8 @@ sub _create_query_table {
 				next;
 			}
 			if ( $field_value->{'field'} =~ /^t_(.+)/x ) {
-				$value   .= qq(<span class=\"text\">$1</span>);
-				$missing .= qq(<span class=\"text\">$1</span>);
+				$value   .= qq(<span class="text">$1</span>);
+				$missing .= qq(<span class="text">$1</span>);
 			}
 		}
 		say defined $value   ? qq(<td>$value</td>)   : q(<td></td>);

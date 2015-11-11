@@ -110,7 +110,7 @@ sub _check_locus_databases {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			next if !$locus_info->{'dbase_name'};
 			my $cleaned = $self->clean_locus($locus);
-			print "<tr class=\"td$td\"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>"
+			print qq(<tr class="td$td"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>)
 			  . ( $locus_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_port'} // $self->{'system'}->{'port'} )
@@ -178,7 +178,7 @@ sub _check_scheme_databases {
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			$scheme_info->{'description'} =~ s/&/&amp;/gx;
-			print "<tr class=\"td$td\"><td>$scheme_info->{'description'}</td><td>"
+			print qq(<tr class="td$td"><td>$scheme_info->{'description'}</td><td>)
 			  . ( $scheme_info->{'dbase_name'} // q() )
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_host'} // $self->{'system'}->{'host'} )

@@ -155,7 +155,7 @@ sub _display_record {
 				  . qq(characters (too long to display)</dd>\n);
 			} else {
 				$value = BIGSdb::Utils::split_line($value) || '';
-				$buffer .= "<dd class=\"seq\">$value</dd>\n";
+				$buffer .= qq(<dd class="seq">$value</dd>\n);
 			}
 		} elsif ( $att->{'name'} eq 'curator' or $att->{'name'} eq 'sender' ) {
 			my $user = $self->{'datastore'}->get_user_info($value);
@@ -382,8 +382,8 @@ sub _confirm {
 	my $record_name = $self->get_record_name($table);
 	$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name deleted!</p>);
 	if ( $table eq 'composite_fields' ) {
-		say qq(<p><a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=compositeQuery\">Query another</a>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=compositeQuery">Query another</a>);
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
 		$self->refresh_material_view($scheme_id);

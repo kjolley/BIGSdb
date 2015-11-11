@@ -181,8 +181,8 @@ sub _get_form_fields {
 				  && $att->{'type'} ne 'bool'
 				  && !(( $options->{'update'} && $att->{'primary_key'} )
 					|| ( $options->{'newdata_readonly'} && $newdata{ $att->{'name'} } ) )
-				  ? " for=\"$name\""
-				  : '';
+				  ? qq( for="$name")
+				  : q();
 				$buffer .= qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
 				$buffer .= qq($label:);
 				$buffer .= q(!) if $att->{'required'} eq 'yes';

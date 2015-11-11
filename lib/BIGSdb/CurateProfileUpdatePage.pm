@@ -362,7 +362,7 @@ sub _print_interface {
 	print $q->hidden($_) foreach qw (page db sent scheme_id profile_id);
 	say q(<ul>);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
-	my $title_attribute = $title ? " title=\"$title\"" : '';
+	my $title_attribute = $title ? qq( title="$title") : q();
 	say qq(<li><label class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 	say qq(<b>$profile_id</b></li>);
 
@@ -373,7 +373,7 @@ sub _print_interface {
 		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $mapped = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
-		$title_attribute = $title ? " title=\"$title\"" : '';
+		$title_attribute = $title ? qq( title="$title") : q();
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name => "locus:$locus",

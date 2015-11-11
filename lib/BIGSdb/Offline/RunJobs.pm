@@ -105,7 +105,7 @@ sub run_script {
 				status           => 'failed',
 				stop_time        => 'now',
 				percent_complete => 100,
-				message_html     => "<p class=\"statusbad\">$msg</p>",
+				message_html     => qq(<p class="statusbad">$msg</p>),
 				pid              => undef
 			}
 		);

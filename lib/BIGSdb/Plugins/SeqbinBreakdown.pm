@@ -89,7 +89,7 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			$error .= "<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n";
+			$error .= qq(<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n);
 		}
 		$self->add_scheme_loci($loci_selected);
 		if ($error) {
@@ -118,15 +118,11 @@ sub run {
 						loci         => $loci_selected
 					}
 				);
-				print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of comparisons
-and how busy the server is.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+				say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
+				  . q(<p>Please be aware that this job may take a long time depending on the number of comparisons )
+				  . q(and how busy the server is.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
+				  . qq(id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
 				return;
 			} else {
 				$self->_print_interface;
@@ -364,17 +360,14 @@ sub _get_html_table_header {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $gc         = $options->{'gc'} ? '<th>Mean %GC</th>' : '';
-	my $buffer     = << "HTML";
-<table class="tablesorter" id="sortTable">
-<thead>
-<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th>
-<th>N50 contig number</th><th>N50 contig length (L50)</th><th>N90 contig number</th><th>N90 contig length (L90)</th>
-<th>N95 contig number</th><th>N95 contig length (L95)</th>$gc
-<th>Alleles designated</th><th>% Alleles designated</th><th>Loci tagged</th><th>% Loci tagged</th><th>Sequence bin</th></tr>
-</thead>
-<tbody>
-HTML
+	my $gc = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
+	my $buffer =
+	    q(<table class="tablesorter" id="sortTable"><thead>)
+	  . q(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th>)
+	  . q(<th>Max</th><th>Mean</th><th>&sigma;</th><th>N50 contig number</th><th>N50 contig length (L50)</th>)
+	  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
+	  . qq(<th>N95 contig length (L95)</th>$gc<th>Alleles designated</th><th>% Alleles designated</th>)
+	  . q(<th>Loci tagged</th><th>% Loci tagged</th><th>Sequence bin</th></tr></thead><tbody>);
 	return $buffer;
 }
 
@@ -384,17 +377,16 @@ sub _get_html_table_row {
 	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
 		$percent_alleles, $tagged, $percent_tagged, $n_stats )
 	  = @{$contig_info}{
-		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations percent_alleles tagged percent_tagged n_stats)
+		qw(isolate_name contigs sum min max mean stddev lengths gc
+		  allele_designations percent_alleles tagged percent_tagged n_stats)
 	  };
-	my $q = $self->{'cgi'};
-	my $buffer =
-	    "<tr class=\"td$td\"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td><td>$min</td>"
-	  . "<td>$max</td><td>$mean</td>";
-	$buffer .= defined $stddev ? "<td>$stddev</td>" : '<td></td>';
-	$buffer .=
-	    "<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td><td>$n_stats->{'L90'}</td>"
-	  . "<td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>";
-	$buffer .= "<td>$gc</td>" if $options->{'gc'};
+	my $q      = $self->{'cgi'};
+	my $buffer = qq(<tr class="td$td"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td>)
+	  . qq(<td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>);
+	$buffer .= defined $stddev ? qq(<td>$stddev</td>) : q(<td></td>);
+	$buffer .= qq(<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td>)
+	  . qq(<td>$n_stats->{'L90'}</td><td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>);
+	$buffer .= qq(<td>$gc</td>) if $options->{'gc'};
 	$buffer .=
 	    qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;)
@@ -519,6 +511,16 @@ sub _initiate_statement_handles {
 	return;
 }
 
+sub _get_rounded_width {
+	my ( $self, $width );
+	return 5   if $width < 50;
+	return 10  if $width < 100;
+	return 50  if $width < 500;
+	return 100 if $width < 1000;
+	return 500 if $width < 5000;
+	return 1000;
+}
+
 sub _make_chart {
 	my ( $self, $data, $prefix, $type ) = @_;
 	my %title = (
@@ -535,24 +537,12 @@ sub _make_chart {
 		  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
 		$bins = 100 if $bins > 100;
 		$bins = 1   if !$bins;
-		my $width = ( $stats->{'max'} - $stats->{'min'} ) / $bins;
-		my $round_to_nearest;
-		if ( $width < 50 ) {
-			$round_to_nearest = 5;
-		} elsif ( $width < 100 ) {
-			$round_to_nearest = 10;
-		} elsif ( $width < 500 ) {
-			$round_to_nearest = 50;
-		} elsif ( $width < 1000 ) {
-			$round_to_nearest = 100;
-		} elsif ( $width < 5000 ) {
-			$round_to_nearest = 500;
-		} else {
-			$round_to_nearest = 1000;
-		}
+		my $width            = ( $stats->{'max'} - $stats->{'min'} ) / $bins;
+		my $round_to_nearest = $self->_get_rounded_width($width);
 		$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
 		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $data->{$type} );
 		my ( @labels, @values );
+
 		foreach my $i ( $min .. $max ) {
 			push @labels, $i * $width;
 			push @values, $histogram->{$i};

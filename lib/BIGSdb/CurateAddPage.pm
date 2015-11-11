@@ -275,7 +275,7 @@ sub _insert {
 			}
 			if ( $table eq 'composite_fields' ) {
 				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}\">)
+				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}">)
 				  . q(Add values and fully customize this composite field</a>.</p>);
 			}
 			say q(<p>);
@@ -299,7 +299,7 @@ sub _insert {
 					&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 				{
 					say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-					  . qq(page=setPassword&amp;user=$newdata->{'user_name'}\">Set password</a>);
+					  . qq(page=setPassword&amp;user=$newdata->{'user_name'}">Set password</a>);
 				}
 			}
 			if ( $q->param('submission_id') ) {

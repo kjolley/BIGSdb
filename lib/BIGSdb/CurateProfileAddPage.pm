@@ -283,7 +283,7 @@ sub _upload {
 					}
 				}
 				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
-				  . qq(scheme_id=$scheme_id\">Add another</a> | <a href="$self->{'system'}->{'script_name'}?)
+				  . qq(scheme_id=$scheme_id">Add another</a> | <a href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}">Back to main page</a></p></div>);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
@@ -403,7 +403,7 @@ sub _print_interface {
 		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
-		$title_attribute = $title ? " title=\"$title\"" : '';
+		$title_attribute = $title ? qq( title="$title") : q();
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name  => "locus:$locus",

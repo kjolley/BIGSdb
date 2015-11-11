@@ -150,7 +150,7 @@ sub _update_position {
 	my $q              = $self->{'cgi'};
 	my $position_after = $q->param('position_after');
 	if ( !$self->{'xmlHandler'}->is_field($position_after) ) {
-		print "<p><span class=\"statusbad\">'Position after' field '$position_after' is invalid.</span></p>\n";
+		say q(<p><span class="statusbad">'Position after' field '$position_after' is invalid.</span></p>);
 		$q->param( 'position_after', '' );
 	} else {
 		my $main_display = $q->param('main_display');
