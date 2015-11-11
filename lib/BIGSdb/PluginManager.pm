@@ -38,13 +38,13 @@ sub initiate {
 	my @plugins;
 	opendir( PLUGINDIR, "$self->{'pluginDir'}/BIGSdb/Plugins" );
 	foreach ( readdir PLUGINDIR ) {
-		push @plugins, $1 if /(.*)\.pm$/;
+		push @plugins, $1 if /(.*)\.pm$/x;
 	}
 	close PLUGINDIR;
 	foreach (@plugins) {
-		my $plugin_name = ~/^(\w*)$/ ? $1 : undef;    #untaint
+		my $plugin_name = ~/^(\w*)$/x ? $1 : undef;    #untaint
 		$plugin_name = "$plugin_name";
-		eval "use BIGSdb::Plugins::$plugin_name";     ## no critic (ProhibitStringyEval)
+		eval "use BIGSdb::Plugins::$plugin_name";      ## no critic (ProhibitStringyEval)
 		if ($@) {
 			$logger->warn("$plugin_name plugin not installed properly!  $@");
 		} else {
@@ -88,16 +88,23 @@ sub get_plugin_categories {
 	my ( $self, $section, $dbtype, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	return
-	  if ( $section !~ /tools/
-		&& $section !~ /postquery/
-		&& $section !~ /stats/
-		&& $section !~ /options/ );
+	  if ( $section !~ /tools/x
+		&& $section !~ /postquery/x
+		&& $section !~ /stats/x
+		&& $section !~ /options/x );
 	my ( @categories, %done );
-	foreach ( sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} } keys %{ $self->{'attributes'} } ) {
+	foreach (
+		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
+		keys %{ $self->{'attributes'} }
+	  )
+	{
 		my $attr = $self->{'attributes'}->{$_};
-		next if $attr->{'section'} !~ /$section/;
-		next if $attr->{'dbtype'} !~ /$dbtype/;
-		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ( $attr->{'seqdb_type'} // '' ) !~ /$options->{'seqdb_type'}/;
+		next if $attr->{'section'} !~ /$section/x;
+		next if $attr->{'dbtype'} !~ /$dbtype/x;
+		next
+		  if $dbtype eq 'sequences'
+		  && $options->{'seqdb_type'}
+		  && ( $attr->{'seqdb_type'} // q() ) !~ /$options->{'seqdb_type'}/x;
 		if ( $attr->{'category'} ) {
 			if ( !$done{ $attr->{'category'} } ) {
 				push @categories, $attr->{'category'};
@@ -117,67 +124,89 @@ sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	return if none { $section =~ /$_/ } qw (postquery breakdown analysis export miscellaneous);
+	return if none { $section =~ /$_/x } qw (postquery breakdown analysis export miscellaneous);
 	my @plugins;
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
-	foreach ( sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} } keys %{ $self->{'attributes'} } ) {
-		my $attr = $self->{'attributes'}->{$_};
-		if ( $attr->{'requires'} ) {
-			next
-			  if !$self->{'config'}->{'chartdirector'}
-			  && $attr->{'requires'} =~ /chartdirector/;
-			next
-			  if !$self->{'config'}->{'ref_db'}
-			  && $attr->{'requires'} =~ /ref_?db/;
-			next
-			  if !$self->{'config'}->{'emboss_path'}
-			  && $attr->{'requires'} =~ /emboss/;
-			next
-			  if !$self->{'config'}->{'muscle_path'}
-			  && $attr->{'requires'} =~ /muscle/;
-			next
-			  if !$self->{'config'}->{'aligner'}
-			  && $attr->{'requires'} =~ /aligner/;
-			next
-			  if !$self->{'config'}->{'mogrify_path'}
-			  && $attr->{'requires'} =~ /mogrify/;
-			next
-			  if !$self->{'config'}->{'jobs_db'}
-			  && $attr->{'requires'} =~ /offline_jobs/;
-			next if !@$pk_scheme_list && $attr->{'requires'} =~ /pk_scheme/;    #must be a scheme with primary key and loci defined
-		}
-		next if $self->{'system'}->{'dbtype'} eq 'sequences' && !@$pk_scheme_list && ( $attr->{'seqdb_type'} // '' ) eq 'schemes';
+	foreach my $plugin (
+		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
+		keys %{ $self->{'attributes'} }
+	  )
+	{
+		my $attr = $self->{'attributes'}->{$plugin};
+		next if !$self->_has_required_item( $attr->{'requires'} );
+
+		#must be a scheme with primary key and loci defined
+		next if !@$pk_scheme_list && ( $attr->{'requires'} // q() ) =~ /pk_scheme/;
+		next
+		  if $self->{'system'}->{'dbtype'} eq 'sequences'
+		  && !@$pk_scheme_list
+		  && ( $attr->{'seqdb_type'} // q() ) eq 'schemes';
 		next
 		  if (
-			   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
+			   !( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
 			&& $attr->{'system_flag'}
 			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
-		if (   $self->{'system'}->{'dbtype'} eq 'isolates'
-			&& ( !$q->param('page') || $q->param('page') eq 'index' )
-			&& ( $attr->{'max'} || $attr->{'min'} ) )
-		{
-			my $isolates = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'}",
-				undef, { cache => 'PluginManager::get_appropriate_plugin_names' } );
-			next if $attr->{'max'} && $isolates > $attr->{'max'};
-			next if $attr->{'min'} && $isolates < $attr->{'min'};
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			next if !$self->_is_isolate_count_ok($attr);
 		}
 		my $plugin_section = $attr->{'section'};
-		next if $plugin_section !~ /$section/;
-		next if $attr->{'dbtype'} !~ /$dbtype/;
-		next if $dbtype eq 'sequences' && $options->{'seqdb_type'} && ( $attr->{'seqdb_type'} // '' ) !~ /$options->{'seqdb_type'}/;
+		next if $plugin_section !~ /$section/x;
+		next if $attr->{'dbtype'} !~ /$dbtype/x;
+		next
+		  if $dbtype eq 'sequences'
+		  && $options->{'seqdb_type'}
+		  && ( $attr->{'seqdb_type'} // q() ) !~ /$options->{'seqdb_type'}/x;
+		my %possible_index_page = map { $_ => 1 } qw (index options logout);
 		if (  !$q->param('page')
-			|| $q->param('page') eq 'index'
-			|| $q->param('page') eq 'options'
-			|| $q->param('page') eq 'logout'
-			|| ( $category eq 'none' && !$attr->{'category'} )
-			|| $category eq $attr->{'category'} )
+			|| $possible_index_page{ $q->param('page') }
+			|| $self->_is_matching_category( $category, $attr->{'category'} ) )
 		{
-			push @plugins, $_;
+			push @plugins, $plugin;
 		}
 	}
 	return \@plugins;
+}
+
+sub _is_isolate_count_ok {
+	my ( $self, $attr ) = @_;
+	my $q = $self->{'cgi'};
+	if ( !$q->param('page') || $q->param('page') eq 'index' ) {
+		if ( !$self->{'cache'}->{'isolate_count'} ) {
+			$self->{'cache'}->{'isolate_count'} =
+			  $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+		}
+		return if $attr->{'max'} && $self->{'cache'}->{'isolate_count'} > $attr->{'max'};
+		return if $attr->{'min'} && $self->{'cache'}->{'isolate_count'} < $attr->{'min'};
+	}
+	return 1;
+}
+
+sub _has_required_item {
+	my ( $self, $required_attr ) = @_;
+	my %requires = (
+		chartdirector => 'chartdirector',
+		ref_db        => 'ref_?db',
+		emboss_path   => 'emboss',
+		muscle_path   => 'muscle',
+		aligner       => 'aligner',
+		mogrify_path  => 'mogrify',
+		jobs_db       => 'offline_jobs'
+	);
+	return 1 if !$required_attr;
+	foreach my $config_param ( keys %requires ) {
+		return
+		  if !$self->{'config'}->{$config_param} && $required_attr =~ /$requires{$config_param}/x;
+	}
+	return 1;
+}
+
+sub _is_matching_category {
+	my ( $self, $category, $plugin_category ) = @_;
+	return 1 if $category eq 'none' && !$plugin_category;
+	return 1 if $category eq $plugin_category;
+	return;
 }
 
 sub is_plugin {

@@ -218,7 +218,8 @@ sub _print_options_section {
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} ) {
 		my $clients_authorized = $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM access_tokens WHERE dbase=?)',
-			$self->{'system'}->{'db'}, { db => $self->{'auth_db'} }
+			$self->{'system'}->{'db'},
+			{ db => $self->{'auth_db'} }
 		);
 		if ($clients_authorized) {
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -320,8 +321,9 @@ sub _print_plugin_section {
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em">);
-			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
-			say q(<h2>) . ucfirst($section) . q(</h2><ul class="toplevel">);
+			say q(<span style="white-space:nowrap">)
+			  . qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
+			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2></span><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
 				my $menuitem = $att->{'menutext'};
