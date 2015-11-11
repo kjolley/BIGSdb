@@ -315,8 +315,15 @@ sub _create_chartdirector_chart {
 			push @labels, $key;
 			push @values, $value_frequency{$key};
 		}
-		BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
-			24, $size, \%prefs );
+		BIGSdb::Charts::piechart( {
+			labels => \@labels,
+			data => \@values,
+			filename => "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
+			num_labels => 24,
+			size => $size,
+			prefs => \%prefs
+
+		} );
 	}
 	return;
 }

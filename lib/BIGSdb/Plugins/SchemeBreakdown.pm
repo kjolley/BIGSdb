@@ -115,7 +115,6 @@ sub run {
 	my $ids = $self->get_ids_from_query($qry_ref);
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	say q(<div class="box" id="resultstable">);
-
 	foreach my $scheme_id (@selected_schemes) {
 		say q(<div class="scrollable">);
 		$self->_print_scheme_table( $list_table, $scheme_id );
@@ -170,9 +169,9 @@ sub _do_analysis {
 		my $allele_id_term = $field_type eq 'integer' ? 'CAST(allele_id AS integer)' : 'allele_id';
 		$locus =~ s/'/\\'/gx;
 		$qry =
-		    "SELECT DISTINCT($allele_id_term),COUNT(allele_id) FROM $list_table LEFT JOIN allele_designations ON "
-		  . "$list_table.value=allele_designations.isolate_id AND allele_designations.locus=E'$locus' "
-		  . 'GROUP BY allele_designations.allele_id';
+		    qq(SELECT DISTINCT($allele_id_term),COUNT(allele_id) FROM $list_table LEFT JOIN allele_designations ON )
+		  . qq($list_table.value=allele_designations.isolate_id AND allele_designations.locus=E'$locus' )
+		  . q(GROUP BY allele_designations.allele_id);
 	} else {
 		say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
 		$logger->error( q(Invalid field passed for analysis. Field type is set as ') . $q->param('type') . q('.) );
@@ -302,8 +301,17 @@ sub _breakdown_field {
 				$prefs{'style'} = 'doughnut';
 			};
 			my $temp = BIGSdb::Utils::get_random();
-			BIGSdb::Charts::piechart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/${temp}_pie.png",
-				24, 'small', \%prefs, { no_transparent => 1 } );
+			BIGSdb::Charts::piechart(
+				{
+					labels     => \@labels,
+					data       => \@values,
+					filename   => "$self->{'config'}->{'tmp_dir'}/${temp}_pie.png",
+					num_labels => 24,
+					size       => 'small',
+					prefs      => \%prefs,
+					options    => { no_transparent => 1 }
+				}
+			);
 			say q(<div class="box" id="chart"><div class="scrollable">);
 			say q(<h2>Charts</h2>);
 			say q(<p>Click to enlarge.</p>);
@@ -339,7 +347,7 @@ sub _print_scheme_table {
 		$loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, ( { profile_name => 0, analysis_pref => 1 } ) );
 	} else {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { analyse_pref => 1, set_id => $set_id } );
-		$fields = \@;;
+		$fields = [];
 	}
 	return if !@$loci && !@$fields;
 	my $rows = ( @$fields >= @$loci ? @$fields : @$loci ) || 1;
@@ -393,80 +401,95 @@ sub _print_scheme_table {
 	}
 	for my $i ( 0 .. $rows - 1 ) {
 		say qq(<tr class="td$td">) if $i;
-		my $display;
-		if (@$fields) {
-			$display = $fields->[$i] || '';
-			$display =~ tr/_/ /;
-			say qq(<td>$display</td>);
-			if ( $scheme_info->{'dbase_name'} && @$fields && $fields->[$i] ) {
-				my $value = keys %{ $field_values->{ $fields->[$i] } };
-				say qq(<td>$value</td><td>);
-				if ($value) {
-					say $q->start_form;
-					say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
-					$q->param( field           => "$scheme_id\_$fields->[$i]" );
-					$q->param( type            => 'field' );
-					$q->param( field_breakdown => 1 );
-					say $q->hidden($_)
-					  foreach qw (page name db query_file type field field_breakdown list_file datatype);
-					say $q->end_form;
-				}
-				say q(</td>);
-			} else {
-				say q(<td></td><td></td>);
-			}
-		}
-		$display = $self->clean_locus( $loci->[$i] );
-		my $locus_aliases = [];
-		if ( defined $loci->[$i] && $self->{'prefs'}->{'locus_alias'} ) {
-			$locus_aliases = $self->{'datastore'}->get_locus_aliases( $loci->[$i] );
-		}
-		if (@$locus_aliases) {
-			local $" = ', ';
-			$display .= qq( <span class="comment">(@$locus_aliases)</span>);
-			$display =~ tr/_/ /;
-		}
-		print defined $display ? qq(<td>$display</td>) : q(<td></td>);
-		if ( $loci->[$i] ) {
-			my $locus_query = "SELECT COUNT(DISTINCT(allele_id)) FROM $list_table INNER JOIN allele_designations ON "
-			  . "allele_designations.isolate_id=$list_table.value";
-			$locus_query .= ' WHERE locus=?';
-			$locus_query .= q( AND status != 'ignore');
-			my $value =
-			  $self->{'datastore'}
-			  ->run_query( $locus_query, $loci->[$i], { cache => 'SchemeBreakdown::print_scheme_table:loci' } );
-			say qq(<td>$value</td>);
-			if ($value) {
-				say q(<td>);
-				say $q->start_form;
-				say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
-				$q->param( field => $loci->[$i] );
-				$q->param( type  => 'locus' );
-				say $q->hidden( field_breakdown => 1 );
-				say $q->hidden($_) foreach qw (page name db query_file field type list_file datatype);
-				say $q->end_form;
-				say q(</td><td>);
-				say $q->start_form;
-				say q(<button type="submit" class="main fa fa-download smallbutton"></button>);
-				say $q->hidden( download => 1 );
-				$q->param( format => 'text' );
-				say $q->hidden($_) foreach qw (page name db query_file field type format list_file datatype);
-				say $q->end_form;
-				say q(</td>);
-			} else {
-				say q(<td></td><td></td>);
-			}
-		} else {
-			say q(<td></td><td></td><td></td>);
-		}
+		$self->_print_field_cells( $fields, $scheme_info, $fields->[$i], $field_values );
+		$self->_print_locus_cells( $list_table, $loci->[$i] );
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 		$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	}
-	print "</table>\n";
+	say q(</table>);
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush;
 		return if $self->{'mod_perl_request'}->connection->aborted;
+	}
+	return;
+}
+
+sub _print_field_cells {
+	my ( $self, $fields, $scheme_info, $field, $field_values ) = @_;
+	my $scheme_id = $scheme_info->{'id'};
+	my $q         = $self->{'cgi'};
+	my $display;
+	if (@$fields) {
+		$display = $field // q();
+		$display =~ tr/_/ /;
+		say qq(<td>$display</td>);
+		if ( $scheme_info->{'dbase_name'} && $field ) {
+			my $value = keys %{ $field_values->{$field} };
+			say qq(<td>$value</td><td>);
+			if ($value) {
+				say $q->start_form;
+				say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
+				$q->param( field           => "${scheme_id}_$field" );
+				$q->param( type            => 'field' );
+				$q->param( field_breakdown => 1 );
+				say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown list_file datatype);
+				say $q->end_form;
+			}
+			say q(</td>);
+		} else {
+			say q(<td></td><td></td>);
+		}
+	}
+	return;
+}
+
+sub _print_locus_cells {
+	my ( $self, $list_table, $locus ) = @_;
+	my $q             = $self->{'cgi'};
+	my $display       = $self->clean_locus($locus);
+	my $locus_aliases = [];
+	if ( defined $locus && $self->{'prefs'}->{'locus_alias'} ) {
+		$locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
+	}
+	if (@$locus_aliases) {
+		local $" = q(, );
+		$display .= qq( <span class="comment">(@$locus_aliases)</span>);
+		$display =~ tr/_/ /;
+	}
+	$display //= q();
+	print qq(<td>$display</td>);
+	if ($locus) {
+		my $locus_query = "SELECT COUNT(DISTINCT(allele_id)) FROM $list_table INNER JOIN allele_designations ON "
+		  . "allele_designations.isolate_id=$list_table.value AND allele_id !='0'";
+		$locus_query .= ' WHERE locus=?';
+		$locus_query .= q( AND status != 'ignore');
+		my $value =
+		  $self->{'datastore'}
+		  ->run_query( $locus_query, $locus, { cache => 'SchemeBreakdown::print_scheme_table:loci' } );
+		say qq(<td>$value</td>);
+		if ($value) {
+			say q(<td>);
+			say $q->start_form;
+			say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
+			$q->param( field => $locus );
+			$q->param( type  => 'locus' );
+			say $q->hidden( field_breakdown => 1 );
+			say $q->hidden($_) foreach qw (page name db query_file field type list_file datatype);
+			say $q->end_form;
+			say q(</td><td>);
+			say $q->start_form;
+			say q(<button type="submit" class="main fa fa-download smallbutton"></button>);
+			say $q->hidden( download => 1 );
+			$q->param( format => 'text' );
+			say $q->hidden($_) foreach qw (page name db query_file field type format list_file datatype);
+			say $q->end_form;
+			say q(</td>);
+		} else {
+			say q(<td></td><td></td>);
+		}
+	} else {
+		say q(<td></td><td></td><td></td>);
 	}
 	return;
 }
@@ -476,7 +499,9 @@ sub _download_alleles {
 	my $alleles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $locus_obj = $self->{'datastore'}->get_locus($locus);
 	foreach my $allele (@$alleles) {
-		next if !defined $allele->{'allele_id'};
+
+		#We don't want to display allele 0 so don't use !defined
+		next if !$allele->{'allele_id'};
 		try {
 			my $seq_ref = $locus_obj->get_allele_sequence( $allele->{'allele_id'} );
 			my $formatted_seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );

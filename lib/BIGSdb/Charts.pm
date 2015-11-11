@@ -26,7 +26,9 @@ my $logger = get_logger('BIGSdb.Charts');
 sub piechart {
 
 	#size = 'small' or 'large'
-	my ( $labels, $data, $filename, $num_labels, $size, $prefs, $options ) = @_;
+	my ($args) = @_;
+	my ( $labels, $data, $filename, $num_labels, $size, $prefs, $options ) =
+	  @{$args}{qw(labels data filename num_labels size prefs options)};
 	$options = {} if ref $options ne 'HASH';
 	$prefs->{'style'} = 'pie' if !$prefs->{'style'} || $prefs->{'style'} ne 'doughnut';
 
