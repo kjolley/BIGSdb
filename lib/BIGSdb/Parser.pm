@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2013, University of Oxford
+#Copyright (c) 2010-2015, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,7 +44,7 @@ sub get_field_list {
 	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
 	my @fields;
 	foreach my $field ( @{ $self->{'fields'} } ) {
-		if ( $field =~ /^(meta_[^:]+):.+/ ) {
+		if ( $field =~ /^(meta_[^:]+):.+/x ) {
 			foreach my $metadata (@$metadata_arrayref) {
 				push @fields, $field if $metadata eq $1;
 			}
@@ -91,7 +91,7 @@ sub get_grouped_fields {
 	my @list;
 	for my $i ( 1 .. 10 ) {
 		if ( $self->{'system'}->{"fieldgroup$i"} ) {
-			my $group = ( split /:/, $self->{'system'}->{"fieldgroup$i"} )[0];
+			my $group = ( split /:/x, $self->{'system'}->{"fieldgroup$i"} )[0];
 			push @list, $group;
 		}
 	}
@@ -111,9 +111,8 @@ sub new {    ## no critic (RequireArgUnpacking)
 sub characters {
 	my ( $self, $element ) = @_;
 	chomp( $element->{'Data'} );
-	$element->{'Data'} =~ s/^\s*//;
-	if ( $self->{'_in_system'} ) {
-	} elsif ( $self->{'_in_field'} ) {
+	$element->{'Data'} =~ s/^\s*//x;
+	if ( $self->{'_in_field'} ) {
 		$self->{'field_name'} = $element->{'Data'};
 		push @{ $self->{'fields'} }, $self->{'field_name'};
 		$self->_process_special_values( $self->{'these'} );
@@ -132,19 +131,25 @@ sub characters {
 
 sub start_element {
 	my ( $self, $element ) = @_;
-	if    ( $element->{'Name'} eq 'system' ) { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} }
-	elsif ( $element->{'Name'} eq 'field' )  { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} }
-	elsif ( $element->{'Name'} eq 'optlist' ) { $self->{'_in_optlist'} = 1 }
-	elsif ( $element->{'Name'} eq 'sample' ) { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
+	my %methods = (
+		system => sub { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} },
+		field  => sub { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} },
+		optlist => sub { $self->{'_in_optlist'} = 1 },
+		sample => sub { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
+	);
+	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
 	return;
 }
 
 sub end_element {
 	my ( $self, $element ) = @_;
-	if    ( $element->{'Name'} eq 'system' )  { $self->{'_in_system'}  = 0 }
-	elsif ( $element->{'Name'} eq 'field' )   { $self->{'_in_field'}   = 0 }
-	elsif ( $element->{'Name'} eq 'optlist' ) { $self->{'_in_optlist'} = 0 }
-	elsif ( $element->{'Name'} eq 'sample' )  { $self->{'_in_sample'}  = 0 }
+	my %methods = (
+		system  => sub { $self->{'_in_system'}  = 0 },
+		field   => sub { $self->{'_in_field'}   = 0 },
+		optlist => sub { $self->{'_in_optlist'} = 0 },
+		sample  => sub { $self->{'_in_sample'}  = 0 }
+	);
+	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
 	return;
 }
 
@@ -162,7 +167,7 @@ sub get_metadata_list {
 	my ($self) = @_;
 	my %list;
 	foreach my $field ( @{ $self->{'fields'} } ) {
-		$list{$1} = 1 if $field =~ /^(meta_[^:]+):/;
+		$list{$1} = 1 if $field =~ /^(meta_[^:]+):/x;
 	}
 	my @list = sort keys %list;
 	return \@list;
