@@ -1820,13 +1820,13 @@ sub initiate_prefs {
 
 			#default off
 			foreach (qw (hyperlink_loci )) {
-				$general_prefs->{$_} ||= 'off';
+				$general_prefs->{$_} //= 'off';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 			}
 
 			#default on
 			foreach (qw (tooltips submit_email)) {
-				$general_prefs->{$_} ||= 'on';
+				$general_prefs->{$_} //= 'on';
 				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
 			}
 		}
