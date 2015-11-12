@@ -127,12 +127,12 @@ sub initiate {
 		}
 		if ( $q->param('stop') ) {
 			$self->_request_stop($scan_job);
-			$self->{'refresh'} = 1;
+			$self->{'refresh'} = 1 if !$status->{'stop_time'};
 		}
 	}
 	if ( $q->param('parameters') ) {
 		my $scan_job = $q->param('parameters');
-		my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_parameters";
+		my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${scan_job}_parameters";
 		if ( -e $filename ) {
 			open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 			my $temp_q = CGI->new( \*$fh );    # Temp CGI object to read in parameters
