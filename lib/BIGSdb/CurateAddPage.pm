@@ -648,7 +648,7 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 		push @$extra_inserts,
 		  {
 			statement =>
-			  'INSERT INTO sequence_attribute_values(seqbin_id,key,value,curator,datestamp) VALUES (?,?,?,?,?)',
+			  'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES (?,?,?,?,?)',
 			arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
 		  };
 	}

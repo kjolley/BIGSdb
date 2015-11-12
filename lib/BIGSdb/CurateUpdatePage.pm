@@ -679,6 +679,7 @@ sub _prepare_extra_inserts_for_users {
 	}
 	return;
 }
+
 sub _prepare_extra_inserts_for_seqbin {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
@@ -727,12 +728,12 @@ sub _prepare_extra_inserts_for_seqbin {
 			}
 		} else {
 			if ( $value ne '' ) {
-				push @$extra_inserts,
-				  {
-					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) ',
-					'VALUES (?,?,?,?,?)',
+				push @$extra_inserts, {
+					statement =>
+					  'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?)',
 					arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
-				  };
+				};
 			}
 		}
 	}

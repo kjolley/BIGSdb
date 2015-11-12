@@ -180,9 +180,8 @@ sub _get_select_items {
 	return ( \@select_items, \%labels, \@order_by, $attributes );
 }
 
+#split so single row can be added by AJAX call
 sub _print_table_fields {
-
-	#split so single row can be added by AJAX call
 	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
@@ -424,7 +423,7 @@ sub _run_query {
 	my $table  = $q->param('table');
 	my $prefs  = $self->{'prefs'};
 	my ( $qry, $qry2 );
-	my @errors;
+	my $errors     = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
 	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
@@ -433,140 +432,7 @@ sub _run_query {
 	@$order_by;    #Sanitize to prevent SQL injection attempts.
 
 	if ( !defined $q->param('query_file') ) {
-		my $andor       = $q->param('c0');
-		my $first_value = 1;
-		foreach my $i ( 1 .. MAX_ROWS ) {
-			if ( defined $q->param("t$i") && $q->param("t$i") ne '' ) {
-				my $field    = $q->param("s$i");
-				my $operator = $q->param("y$i") // '=';
-				my $text     = $q->param("t$i");
-				if ( $field eq 'locus' && $set_id ) {
-					$text = $self->{'datastore'}->get_set_locus_real_id( $text, $set_id );
-				}
-				$self->process_value( \$text );
-				my $thisfield;
-				foreach (@$attributes) {
-					if ( $_->{'name'} eq $field ) {
-						$thisfield = $_;
-						last;
-					}
-				}
-				$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
-				my $clean_fieldname;
-				if ( $table eq 'sequence_bin' && $field =~ /^ext_(.*)/x ) {
-					$clean_fieldname = $1;
-					my $type =
-					  $self->{'datastore'}->run_query( 'SELECT type FROM sequence_attributes WHERE key=?', $1 );
-					$thisfield->{'type'} = $type ? $type : 'text';
-				}
-
-				#Timestamps are too awkward to search with so only search on date component
-				if ( $field =~ /\ \(date\)$/x ) {
-					$thisfield->{'type'} = 'date';
-				}
-
-				#Field may not actually exist in table (e.g. isolate_id in allele_sequences)
-				if ( $thisfield->{'type'} ) {
-					next
-					  if $self->check_format(
-						{
-							field           => $field,
-							text            => $text,
-							type            => lc( $thisfield->{'type'} ),
-							operator        => $operator,
-							clean_fieldname => $clean_fieldname
-						},
-						\@errors
-					  );
-				} elsif ( $field =~ /(.*)\ \(id\)$/x || $field eq 'isolate_id' ) {
-					next
-					  if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator },
-						\@errors );
-				}
-				my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : q();
-				$first_value = 0;
-				if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
-					$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
-				} elsif ( $table eq 'sequence_bin' && $field =~ /^ext_/x ) {
-					$qry .= $modifier
-					  . $self->_modify_search_by_sequence_attributes( $field, $thisfield->{'type'}, $operator, $text );
-				} elsif (
-					(
-						any {
-							$table eq $_;
-						}
-						qw (allele_sequences allele_designations experiment_sequences sequence_bin 
-						project_members isolate_aliases samples history)
-					)
-					&& $field eq $self->{'system'}->{'labelfield'}
-				  )
-				{
-					$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
-				} elsif (
-					any {
-						$field =~ /(.*)\ \($_\)$/x;
-					}
-					qw (id surname first_name affiliation)
-				  )
-				{
-					$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
-				} elsif ( $field =~ /(.*)\ \(date\)$/x ) {
-					$qry .= $modifier . $self->_search_timestamp_by_date( $1, $operator, $text, $table );
-				} else {
-					$qry .= $modifier;
-					if ( $operator eq 'NOT' ) {
-						if ( $text eq 'null' ) {
-							$qry .= "$table.$field is not null";
-						} else {
-							$qry .=
-							  $thisfield->{'type'} ne 'text'
-							  ? "(NOT CAST($table.$field AS text) = '$text'"
-							  : "(NOT upper($table.$field) = upper('$text')";
-							$qry .= " OR $table.$field IS NULL)";
-						}
-					} elsif ( $operator eq 'contains' ) {
-						$qry .=
-						  $thisfield->{'type'} ne 'text'
-						  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
-						  : "$table.$field ILIKE E'\%$text\%'";
-					} elsif ( $operator eq 'starts with' ) {
-						$qry .=
-						  $thisfield->{'type'} ne 'text'
-						  ? "CAST($table.$field AS text) LIKE '$text\%'"
-						  : "$table.$field ILIKE E'$text\%'";
-					} elsif ( $operator eq 'ends with' ) {
-						$qry .=
-						  $thisfield->{'type'} ne 'text'
-						  ? "CAST($table.$field AS text) LIKE '\%$text'"
-						  : "$table.$field ILIKE E'\%$text'";
-					} elsif ( $operator eq 'NOT contain' ) {
-						$qry .=
-						  $thisfield->{'type'} ne 'text'
-						  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
-						  : "(NOT $table.$field ILIKE E'\%$text\%'";
-						$qry .= " OR $table.$field IS NULL)";
-					} elsif ( $operator eq '=' ) {
-						if ( $thisfield->{'type'} eq 'text' ) {
-							$qry .=
-							  ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
-						} else {
-							$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
-						}
-					} else {
-						if ( ( $table eq 'sequences' || $table eq 'allele_designations' ) && $field eq 'allele_id' ) {
-							if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
-								$qry .= "CAST($table.$field AS integer)";
-							} else {
-								$qry .= "$table.$field";
-							}
-							$qry .= " $operator E'$text'";
-						} else {
-							$qry .= "$table.$field $operator E'$text'";
-						}
-					}
-				}
-			}
-		}
+		( $qry, $errors ) = $self->_generate_query($table);
 		if ( $table eq 'sequences' && $qry ) {
 			$qry =~ s/sequences.sequence_length/length(sequences.sequence)/gx;
 		}
@@ -581,11 +447,17 @@ sub _run_query {
 		{
 			my $scheme_id = $q->param('scheme_id_list');
 			my ( $identifier, $field );
-			if    ( $table eq 'loci' )                { ( $identifier, $field ) = ( 'id',        'locus' ) }
-			elsif ( $table eq 'allele_designations' ) { ( $identifier, $field ) = ( 'locus',     'locus' ) }
-			elsif ( $table eq 'allele_sequences' )    { ( $identifier, $field ) = ( 'locus',     'locus' ) }
-			elsif ( $table eq 'schemes' )             { ( $identifier, $field ) = ( 'id',        'scheme_id' ) }
-			else                                      { ( $identifier, $field ) = ( 'scheme_id', 'scheme_id' ) }
+			my %set_id_and_field = (
+				loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
+				allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
+				allele_sequences    => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
+				schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
+			);
+			if ( $set_id_and_field{$table} ) {
+				$set_id_and_field{$table}->();
+			} else {
+				( $identifier, $field ) = ( 'scheme_id', 'scheme_id' );
+			}
 			if ( $q->param('scheme_id_list') eq '0' ) {
 				my $set_clause =
 				  $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
@@ -668,10 +540,10 @@ sub _run_query {
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
 	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list scheme_id_list);
-	if (@errors) {
+	if (@$errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@errors</p></div>);
+		say qq(<p>@$errors</p></div>);
 	} elsif ( $qry2 !~ /\(\)/x ) {
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
@@ -702,13 +574,173 @@ sub _run_query {
 	return;
 }
 
+sub _get_field_attributes {
+	my ( $self, $table, $field ) = @_;
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my $thisfield  = {};
+	foreach my $att (@$attributes) {
+		if ( $att->{'name'} eq $field ) {
+			$thisfield = $att;
+			last;
+		}
+	}
+	$thisfield->{'type'} = 'int' if $field eq 'sequence_length';
+	my $clean_fieldname;
+	if ( $table eq 'sequence_bin' && $field =~ /^ext_(.*)/x ) {
+		$clean_fieldname = $1;
+		my $type =
+		  $self->{'datastore'}->run_query( 'SELECT type FROM sequence_attributes WHERE key=?', $clean_fieldname );
+		$thisfield->{'type'} = $type ? $type : 'text';
+	}
+
+	#Timestamps are too awkward to search with so only search on date component
+	if ( $field =~ /\ \(date\)$/x ) {
+		$thisfield->{'type'} = 'date';
+	}
+	return ( $thisfield, $clean_fieldname );
+}
+
+sub _generate_query {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	my $qry;
+	my @errors;
+	my $andor       = $q->param('c0');
+	my $first_value = 1;
+	my $set_id      = $self->get_set_id;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
+		my $field    = $q->param("s$i");
+		my $operator = $q->param("y$i") // '=';
+		my $text     = $q->param("t$i");
+		if ( $field eq 'locus' && $set_id ) {
+			$text = $self->{'datastore'}->get_set_locus_real_id( $text, $set_id );
+		}
+		$self->process_value( \$text );
+		my ( $thisfield, $clean_fieldname ) = $self->_get_field_attributes( $table, $field );
+
+		#Field may not actually exist in table (e.g. isolate_id in allele_sequences)
+		if ( $thisfield->{'type'} ) {
+			next
+			  if $self->check_format(
+				{
+					field           => $field,
+					text            => $text,
+					type            => lc( $thisfield->{'type'} ),
+					operator        => $operator,
+					clean_fieldname => $clean_fieldname
+				},
+				\@errors
+			  );
+		} elsif ( $field =~ /(.*)\ \(id\)$/x || $field eq 'isolate_id' ) {
+			next
+			  if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator },
+				\@errors );
+		}
+		my $modifier = ( $i > 1 && !$first_value ) ? qq( $andor ) : q();
+		$first_value = 0;
+		my %table_without_isolate_id = map { $_ => 1 } qw (allele_sequences experiment_sequences);
+		if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
+			$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
+			next;
+		}
+		if ( $table eq 'sequence_bin' && $field =~ /^ext_/x ) {
+			$qry .= $modifier
+			  . $self->_modify_search_by_sequence_attributes( $field, $thisfield->{'type'}, $operator, $text );
+			next;
+		}
+		my %table_linked_to_isolate = map { $_ => 1 }
+		  qw (allele_sequences allele_designations experiment_sequences sequence_bin
+		  project_members isolate_aliases samples history);
+		if ( $table_linked_to_isolate{$table} && $field eq $self->{'system'}->{'labelfield'} ) {
+			$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
+			next;
+		}
+		if (
+			any {
+				$field =~ /(.*)\ \($_\)$/x;
+			}
+			qw (id surname first_name affiliation)
+		  )
+		{
+			$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
+			next;
+		}
+		if ( $field =~ /(.*)\ \(date\)$/x ) {
+			$qry .= $modifier . $self->_search_timestamp_by_date( $1, $operator, $text, $table );
+			next;
+		}
+		$qry .= $modifier;
+		my %methods = (
+			'NOT' => sub {
+				if ( $text eq 'null' ) {
+					$qry .= "$table.$field is not null";
+				} else {
+					$qry .=
+					  $thisfield->{'type'} ne 'text'
+					  ? "(NOT CAST($table.$field AS text) = '$text'"
+					  : "(NOT upper($table.$field) = upper(E'$text')";
+					$qry .= " OR $table.$field IS NULL)";
+				}
+			},
+			'contains' => sub {
+				$qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
+				  : "$table.$field ILIKE E'\%$text\%'";
+			},
+			'starts with' => sub {
+				$qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '$text\%'"
+				  : "$table.$field ILIKE E'$text\%'";
+			},
+			'ends with' => sub {
+				$qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '\%$text'"
+				  : "$table.$field ILIKE E'\%$text'";
+			},
+			'NOT contain' => sub {
+				$qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
+				  : "(NOT $table.$field ILIKE E'\%$text\%'";
+				$qry .= " OR $table.$field IS NULL)";
+			},
+			'=' => sub {
+				if ( $thisfield->{'type'} eq 'text' ) {
+					$qry .= ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
+				} else {
+					$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
+				}
+			}
+		);
+		if ( $methods{$operator} ) {
+			$methods{$operator}->();
+		} else {
+			if ( ( $table eq 'sequences' || $table eq 'allele_designations' ) && $field eq 'allele_id' ) {
+				if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
+					$qry .= "CAST($table.$field AS integer)";
+				} else {
+					$qry .= "$table.$field";
+				}
+				$qry .= " $operator E'$text'";
+			} else {
+				$qry .= "$table.$field $operator E'$text'";
+			}
+		}
+	}
+	return ( $qry, \@errors );
+}
+
 sub _modify_isolates_for_view {
 	my ( $self, $table, $qry_ref ) = @_;
 	return if none { $table eq $_ } qw(allele_designations isolate_aliases project_members refs sequence_bin history);
 	my $view = $self->{'system'}->{'view'};
 	if ( $view ne 'isolates' ) {
-		$$qry_ref .= ' AND ' if $$qry_ref;
-		$$qry_ref .= " ($table.isolate_id IN (SELECT id FROM $view))";
+		$$qry_ref .= q[ AND] if $$qry_ref;
+		$$qry_ref .= qq[ ($table.isolate_id IN (SELECT id FROM $view))];
 	}
 	return;
 }
@@ -718,8 +750,9 @@ sub _modify_seqbin_for_view {
 	return if none { $table eq $_ } qw(allele_sequences experiment_sequences);
 	my $view = $self->{'system'}->{'view'};
 	if ( $view ne 'isolates' ) {
-		$$qry_ref .= ' AND ' if $$qry_ref;
-		$$qry_ref .= " ($table.seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id IN (SELECT id FROM $view)))";
+		$$qry_ref .= q[ AND] if $$qry_ref;
+		$$qry_ref .=
+		  qq[ ($table.seqbin_id IN (SELECT id FROM sequence_bin WHERE isolate_id IN (SELECT id FROM $view)))];
 	}
 	return;
 }
@@ -734,7 +767,7 @@ sub _modify_loci_for_sets {
 	elsif ( $table_with_locus{$table} ) { $identifier = 'locus' }
 	else                                { return }
 	if ($set_id) {
-		$$qry_ref .= q[ AND ] if $$qry_ref;
+		$$qry_ref .= q[ AND] if $$qry_ref;
 		$$qry_ref .=
 		    qq[ ($table.$identifier IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT ]
 		  . qq[scheme_id FROM set_schemes WHERE set_id=$set_id)) OR $table.$identifier IN (SELECT locus FROM ]
@@ -767,7 +800,7 @@ sub print_additional_headerbar_functions {
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
 	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => BUTTON_CLASS );
-	$q->param( page => 'customize' );
+	$q->param( page     => 'customize' );
 	$q->param( filename => $filename );
 	say $q->hidden($_) foreach qw (db filename table page);
 	say $q->end_form;
@@ -777,16 +810,20 @@ sub print_additional_headerbar_functions {
 
 sub _search_by_isolate_id {
 	my ( $self, $table, $operator, $text ) = @_;
-	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
-	  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	if    ( $operator eq 'NOT' )         { $qry .= "NOT $self->{'system'}->{'view'}.id = $text" }
-	elsif ( $operator eq 'contains' )    { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'" }
-	elsif ( $operator eq 'starts with' ) { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'" }
-	elsif ( $operator eq 'ends with' )   { $qry .= "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'" }
-	elsif ( $operator eq 'NOT contain' ) {
-		$qry .= "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'";
+	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN "
+	  . "$self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+	my %terms = (
+		'NOT'         => "NOT $self->{'system'}->{'view'}.id = $text",
+		'contains'    => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'",
+		'starts with' => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'",
+		'ends with'   => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'",
+		'NOT contain' => "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'"
+	);
+	if ( $terms{$operator} ) {
+		$qry .= $terms{$operator};
+	} else {
+		$qry .= "$self->{'system'}->{'view'}.id $operator $text";
 	}
-	else { $qry .= "$self->{'system'}->{'view'}.id $operator $text" }
 	$qry .= ')';
 	return $qry;
 }
@@ -794,18 +831,23 @@ sub _search_by_isolate_id {
 sub _modify_search_by_sequence_attributes {
 	my ( $self, $field, $type, $operator, $text ) = @_;
 	$field =~ s/^ext_//x;
-	$text  =~ s/'/\\'/gx;
 	if ( $text eq 'null' ) {
 		my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
 		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values)";
 	}
-	my $not = $operator =~ /NOT/x ? ' NOT' : '';
-	my $qry = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
-	if ( $operator =~ /contain/x ) { $qry .= "value ILIKE E'%$text%'" }
-	elsif ( $operator eq 'starts with' ) { $qry .= "value ILIKE E'$text%'" }
-	elsif ( $operator eq 'ends with' )   { $qry .= "value ILIKE E'%$text'" }
-	elsif ( $operator eq 'NOT' || $operator eq '=' ) { $qry .= "UPPER(value) = UPPER(E'$text')" }
-	else {
+	my $not   = $operator =~ /NOT/x ? ' NOT' : '';
+	my $qry   = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
+	my %terms = (
+		'contains'    => "value ILIKE E'%$text%'",
+		'NOT contain' => "value ILIKE E'%$text%'",
+		'starts with' => "value ILIKE E'$text%'",
+		'ends with'   => "value ILIKE E'%$text'",
+		'NOT'         => "UPPER(value) = UPPER(E'$text')",
+		'='           => "UPPER(value) = UPPER(E'$text')"
+	);
+	if ( $terms{$operator} ) {
+		$qry .= $terms{$operator};
+	} else {
 		if ( $type eq 'integer' ) { $qry .= "CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
 		elsif ( $type eq 'float' ) {
 			$qry .= "CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)";
@@ -840,59 +882,71 @@ sub _search_by_isolate {
 		$logger->error("Invalid table $table");
 		return;
 	}
-	if ( $operator eq 'NOT' ) {
-		if ( $text eq '<blank>' || $text eq 'null' ) {
-			$qry .= "$field is not null";
-		} else {
-			if ( $att->{'type'} eq 'int' ) {
-				$qry .= "NOT CAST($field AS text) = '$text'";
+	my %methods = (
+		NOT => sub {
+			if ( $text eq '<blank>' || $text eq 'null' ) {
+				$qry .= "$field is not null";
 			} else {
-				$qry .= "NOT upper($field) = upper('$text') AND $self->{'system'}->{'view'}.id NOT IN "
-				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))";
+				if ( $att->{'type'} eq 'int' ) {
+					$qry .= "NOT CAST($field AS text) = E'$text'";
+				} else {
+					$qry .= "NOT upper($field) = upper(E'$text') AND $self->{'system'}->{'view'}.id NOT IN "
+					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))";
+				}
+			}
+		},
+		contains => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$qry .= "CAST($field AS text) LIKE E'\%$text\%'";
+			} else {
+				$qry .=
+				  "upper($field) LIKE upper(E'\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
+			}
+		},
+		'starts with' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$qry .= "CAST($field AS text) LIKE E'$text\%'";
+			} else {
+				$qry .=
+				    "upper($field) LIKE upper(E'$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'$text\%'))";
+			}
+		},
+		'ends with' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$qry .= "CAST($field AS text) LIKE E'\%$text'";
+			} else {
+				$qry .=
+				    "upper($field) LIKE upper(E'\%$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text'))";
+			}
+		},
+		'NOT contain' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$qry .= "NOT CAST($field AS text) LIKE E'\%$text\%'";
+			} else {
+				$qry .= "NOT upper($field) LIKE upper(E'\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN "
+				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
+			}
+		},
+		'=' => sub {
+			if ( lc( $att->{'type'} ) eq 'text' ) {
+				$qry .= (
+					( $text eq '<blank>' || $text eq 'null' )
+					? "$field is null"
+					: "upper($field) = upper(E'$text') OR $self->{'system'}->{'view'}.id IN "
+					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))"
+				);
+			} else {
+				$qry .= ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = E'$text'" );
 			}
 		}
-	} elsif ( $operator eq 'contains' ) {
-		if ( $att->{'type'} eq 'int' ) {
-			$qry .= "CAST($field AS text) LIKE '\%$text\%'";
-		} else {
-			$qry .=
-			    "upper($field) LIKE upper('\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-			  . "isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
-		}
-	} elsif ( $operator eq 'starts with' ) {
-		if ( $att->{'type'} eq 'int' ) {
-			$qry .= "CAST($field AS text) LIKE '$text\%'";
-		} else {
-			$qry .= "upper($field) LIKE upper('$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-			  . "isolate_aliases WHERE upper(alias) LIKE upper('$text\%'))";
-		}
-	} elsif ( $operator eq 'ends with' ) {
-		if ( $att->{'type'} eq 'int' ) {
-			$qry .= "CAST($field AS text) LIKE '\%$text'";
-		} else {
-			$qry .= "upper($field) LIKE upper('\%$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-			  . "isolate_aliases WHERE upper(alias) LIKE upper('\%$text'))";
-		}
-	} elsif ( $operator eq 'NOT contain' ) {
-		if ( $att->{'type'} eq 'int' ) {
-			$qry .= "NOT CAST($field AS text) LIKE '\%$text\%'";
-		} else {
-			$qry .= "NOT upper($field) LIKE upper('\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN "
-			  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper('\%$text\%'))";
-		}
-	} elsif ( $operator eq '=' ) {
-		if ( lc( $att->{'type'} ) eq 'text' ) {
-			$qry .= (
-				( $text eq '<blank>' || $text eq 'null' )
-				? "$field is null"
-				: "upper($field) = upper('$text') OR $self->{'system'}->{'view'}.id IN "
-				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper('$text'))"
-			);
-		} else {
-			$qry .= ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = '$text'" );
-		}
+	);
+	if ( $methods{$operator} ) {
+		$methods{$operator}->();
 	} else {
-		$qry .= "$field $operator '$text'";
+		$qry .= "$field $operator E'$text'";
 	}
 	$qry .= ')';
 	return $qry;
