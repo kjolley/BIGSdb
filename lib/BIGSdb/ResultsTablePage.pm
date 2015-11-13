@@ -76,7 +76,6 @@ sub paged_display {
 	$qry =~ s/ORDER\ BY\ (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,$sub$2/x;
 	$qry =~ s/ORDER\ BY\ \S+\.allele_id(.*)/ORDER BY $sub$1/x;
 	my $totalpages = 1;
-	my $bar_buffer;
 	if ( $q->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') eq 'all' ? 0 : $q->param('displayrecs');
 	}
@@ -105,68 +104,52 @@ sub paged_display {
 		$totalpages = 1;
 		$self->{'prefs'}->{'displayrecs'} = 0;
 	}
-	$bar_buffer .= $q->start_form;
-	$q->param( table => $table );
-	$bar_buffer .= $q->hidden($_)
-	  foreach qw (query_file currentpage page db displayrecs order table direction sent records);
-	$bar_buffer .= $q->hidden( message => $message ) if $message;
-
-	#Make sure hidden_attributes don't duplicate the above
-	$bar_buffer .= $q->hidden($_) foreach @$hidden_attributes;
-	if ( $currentpage > 1 || $currentpage < $totalpages ) {
-		$bar_buffer .= q(<table><tr><td>Page:</td>);
-		if ( $currentpage > 1 ) {
-			$bar_buffer .= q(<td>);
-			$bar_buffer .= $q->submit( -name => 'First', -class => 'pagebar' );
-			$bar_buffer .= q(</td><td>);
-			$bar_buffer .=
-			  $q->submit( -name => $currentpage == 2 ? 'First' : '<', -label => ' < ', -class => 'pagebar' );
-			$bar_buffer .= q(</td>);
+	my $bar_buffer_ref = $self->_get_pagebar(
+		{
+			table             => $table,
+			currentpage       => $currentpage,
+			totalpages        => $totalpages,
+			message           => $message,
+			hidden_attributes => $hidden_attributes
 		}
-		if ( $currentpage > 1 || $currentpage < $totalpages ) {
-			my ( $first, $last );
-			if   ( $currentpage < 9 ) { $first = 1 }
-			else                      { $first = $currentpage - 8 }
-			if ( $totalpages > ( $currentpage + 8 ) ) {
-				$last = $currentpage + 8;
-			} else {
-				$last = $totalpages;
-			}
-			$bar_buffer .= q(<td>);
-			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {   #don't use range operator as $last may not be an integer.
-				if ( $i == $currentpage ) {
-					$bar_buffer .= qq(</td><th class="pagebar_selected">$i</th><td>);
-				} else {
-					$bar_buffer .= $q->submit(
-						-name => $i == 1 ? 'First' : 'pagejump',
-						-value => $i,
-						-label => $i,
-						-class => 'pagebar'
-					);
-				}
-			}
-			$bar_buffer .= q(</td>);
+	);
+	$self->_print_results_header(
+		{
+			table           => $table,
+			browse          => $args->{'browse'},
+			records         => $records,
+			message         => $message,
+			currentpage     => $currentpage,
+			totalpages      => $totalpages,
+			passed_qry_file => $passed_qry_file,
+			bar_buffer_ref  => $bar_buffer_ref
 		}
-		if ( $currentpage < $totalpages ) {
-			$bar_buffer .= q(<td>);
-			$bar_buffer .= $q->submit( -name => '>', -label => '>', -class => 'pagebar' );
-			$bar_buffer .= q(</td><td>);
-			my $lastpage;
-			if ( BIGSdb::Utils::is_int($totalpages) ) {
-				$lastpage = $totalpages;
-			} else {
-				$lastpage = int $totalpages + 1;
-			}
-			$q->param( lastpage => $lastpage );
-			$bar_buffer .= $q->hidden('lastpage');
-			$bar_buffer .= $q->submit( -name => 'Last', -class => 'pagebar' );
-			$bar_buffer .= q(</td>);
-		}
-		$bar_buffer .= qq(</tr></table>\n);
-		$bar_buffer .= $q->endform;
+	);
+	return if !$records;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
+	} elsif ( $table eq 'profiles' ) {
+		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
+	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
+		$self->_print_publication_table( \$qry, $currentpage );
+	} else {
+		$self->_print_record_table( $table, \$qry, $currentpage, $records );
 	}
+	if (   $self->{'prefs'}->{'displayrecs'}
+		&& $self->{'prefs'}->{'pagebar'} =~ /bottom/
+		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
+	{
+		say qq(<div class="box" id="resultsfooter">$$bar_buffer_ref</div>);
+	}
+	return;
+}
+
+sub _print_results_header {
+	my ( $self, $args ) = @_;
+	my ( $table, $browse, $records, $message, $currentpage, $totalpages, $passed_qry_file, $bar_buffer_ref ) =
+	  @{$args}{qw(table browse records message currentpage totalpages passed_qry_file bar_buffer_ref)};
 	say q(<div class="box" id="resultsheader">);
-	if ( $args->{'browse'} ) {
+	if ($browse) {
 		say q(<p>Browsing all records.</p>);
 	}
 	if ($records) {
@@ -196,26 +179,77 @@ sub paged_display {
 	if ( $self->{'prefs'}->{'pagebar'} =~ /top/
 		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
 	{
-		say $bar_buffer;
+		say $$bar_buffer_ref;
 	}
 	say q(</div>);
-	return if !$records;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
-	} elsif ( $table eq 'profiles' ) {
-		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
-	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
-		$self->_print_publication_table( \$qry, $currentpage );
-	} else {
-		$self->_print_record_table( $table, \$qry, $currentpage, $records );
-	}
-	if (   $self->{'prefs'}->{'displayrecs'}
-		&& $self->{'prefs'}->{'pagebar'} =~ /bottom/
-		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
-	{
-		say qq(<div class="box" id="resultsfooter">$bar_buffer</div>);
-	}
 	return;
+}
+
+sub _get_pagebar {
+	my ( $self, $args ) = @_;
+	my ( $table, $currentpage, $totalpages, $message, $hidden_attributes ) =
+	  @{$args}{qw(table currentpage totalpages message hidden_attributes)};
+	my $q      = $self->{'cgi'};
+	my $buffer = $q->start_form;
+	$q->param( table => $table );
+	$buffer .= $q->hidden($_)
+	  foreach qw (query_file currentpage page db displayrecs order table direction sent records);
+	$buffer .= $q->hidden( message => $message ) if $message;
+
+	#Make sure hidden_attributes don't duplicate the above
+	$buffer .= $q->hidden($_) foreach @$hidden_attributes;
+	if ( $currentpage > 1 || $currentpage < $totalpages ) {
+		$buffer .= q(<table><tr><td>Page:</td>);
+		if ( $currentpage > 1 ) {
+			$buffer .= q(<td>);
+			$buffer .= $q->submit( -name => 'First', -class => 'pagebar' );
+			$buffer .= q(</td><td>);
+			$buffer .= $q->submit( -name => $currentpage == 2 ? 'First' : '<', -label => ' < ', -class => 'pagebar' );
+			$buffer .= q(</td>);
+		}
+		if ( $currentpage > 1 || $currentpage < $totalpages ) {
+			my ( $first, $last );
+			if   ( $currentpage < 9 ) { $first = 1 }
+			else                      { $first = $currentpage - 8 }
+			if ( $totalpages > ( $currentpage + 8 ) ) {
+				$last = $currentpage + 8;
+			} else {
+				$last = $totalpages;
+			}
+			$buffer .= q(<td>);
+			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {   #don't use range operator as $last may not be an integer.
+				if ( $i == $currentpage ) {
+					$buffer .= qq(</td><th class="pagebar_selected">$i</th><td>);
+				} else {
+					$buffer .= $q->submit(
+						-name => $i == 1 ? 'First' : 'pagejump',
+						-value => $i,
+						-label => $i,
+						-class => 'pagebar'
+					);
+				}
+			}
+			$buffer .= q(</td>);
+		}
+		if ( $currentpage < $totalpages ) {
+			$buffer .= q(<td>);
+			$buffer .= $q->submit( -name => '>', -label => '>', -class => 'pagebar' );
+			$buffer .= q(</td><td>);
+			my $lastpage;
+			if ( BIGSdb::Utils::is_int($totalpages) ) {
+				$lastpage = $totalpages;
+			} else {
+				$lastpage = int $totalpages + 1;
+			}
+			$q->param( lastpage => $lastpage );
+			$buffer .= $q->hidden('lastpage');
+			$buffer .= $q->submit( -name => 'Last', -class => 'pagebar' );
+			$buffer .= q(</td>);
+		}
+		$buffer .= qq(</tr></table>\n);
+		$buffer .= $q->endform;
+	}
+	return \$buffer;
 }
 
 sub _get_current_page {
@@ -630,9 +664,7 @@ sub _print_isolate_table_header {
 	my ( $composites, $composite_display_pos ) = $self->_get_composite_positions;
 
 	foreach my $col (@$select_items) {
-		if (   $self->{'prefs'}->{'maindisplayfields'}->{$col}
-			|| $col eq 'id' )
-		{
+		if ( $self->{'prefs'}->{'maindisplayfields'}->{$col} || $col eq 'id' ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($col);
 			( my $display_col = $metafield // $col ) =~ tr/_/ /;
 			$header_buffer .= qq(<th>$display_col</th>);
@@ -731,10 +763,10 @@ sub _print_isolate_table_header {
 	}
 	my @locus_header;
 	my $loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-	foreach (@$loci) {
-		if ( $self->{'prefs'}->{'main_display_loci'}->{$_} ) {
-			my $aliases       = $self->{'datastore'}->get_locus_aliases($_);
-			my $cleaned_locus = $self->clean_locus($_);
+	foreach my $locus (@$loci) {
+		if ( $self->{'prefs'}->{'main_display_loci'}->{$locus} ) {
+			my $aliases       = $self->{'datastore'}->get_locus_aliases($locus);
+			my $cleaned_locus = $self->clean_locus($locus);
 			local $" = ', ';
 			push @locus_header, $cleaned_locus . ( @$aliases ? qq( <span class="comment">(@$aliases)</span>) : '' );
 		}
@@ -743,7 +775,7 @@ sub _print_isolate_table_header {
 	if (@locus_header) {
 		$fieldtype_header .= qq(<th colspan="$locus_cols">Loci</th>);
 	}
-	local $" = '</th><th>';
+	local $" = q(</th><th>);
 	$header_buffer .= qq(<th>@locus_header</th>) if @locus_header;
 	$fieldtype_header .= qq(</tr>\n);
 	$header_buffer    .= qq(</tr>\n);
