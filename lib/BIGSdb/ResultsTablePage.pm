@@ -621,15 +621,10 @@ sub _print_isolate_publications {
 	my ( $self, $isolate_id ) = @_;
 	if ( $self->{'prefs'}->{'display_publications'} ) {
 		my $pmids = $self->{'datastore'}->get_isolate_refs($isolate_id);
-		if ( !$self->{'citations_cached'} ) {
-			$self->{'cache'}->{'citations'} = $self->{'datastore'}->get_citation_hash( $pmids, { link_pubmed => 1 } );
-			$self->{'citations_cached'} = 1;
-		}
+		my $citations = $self->{'datastore'}->get_citation_hash( $pmids, { link_pubmed => 1 } );
 		my @formatted_list;
-		foreach
-		  my $pmid ( sort { $self->{'cache'}->{'citations'}->{$a} cmp $self->{'cache'}->{'citations'}->{$b} } @$pmids )
-		{
-			push @formatted_list, $self->{'cache'}->{'citations'}->{$pmid};
+		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
+			push @formatted_list, $citations->{$pmid};
 		}
 		local $" = '<br />';
 		print qq(<td>@formatted_list</td>);
@@ -709,9 +704,14 @@ sub _print_isolate_table_header {
 	  . q(that are displayed here by going to the options page.">)
 	  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
 	$fieldtype_header .= q(</th>);
-	$fieldtype_header .= q(<th rowspan="2">Seqbin size (bp)</th>) if $self->{'prefs'}->{'display_seqbin_main'};
-	$fieldtype_header .= q(<th rowspan="2">Contigs</th>) if $self->{'prefs'}->{'display_contig_count'};
-	$fieldtype_header .= q(<th rowspan="2">Publications</th>) if $self->{'prefs'}->{'display_publications'};
+	my %pref_fields = (
+		display_seqbin_main  => 'Seqbin size (bp)',
+		display_contig_count => 'Contigs',
+		display_publications => 'Publications'
+	);
+	foreach my $field ( keys %pref_fields ) {
+		$fieldtype_header .= qq(<th rowspan="2">$pref_fields{$field}</th>) if $self->{'prefs'}->{$field};
+	}
 	foreach my $scheme (@$schemes) {
 		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
