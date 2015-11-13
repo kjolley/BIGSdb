@@ -37,6 +37,11 @@ sub print_content {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $locus      = $q->param('locus');
+	if (!defined $locus){
+		say q(<h1>Locus information</h1>);
+		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
+		return;
+	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $set_id = $self->get_set_id;

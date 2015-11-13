@@ -35,6 +35,11 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
+	if (!defined $locus){
+		say q(<h1>Allele information</h1>);
+		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
+		return;
+	}
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $allele_id = $q->param('allele_id');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
@@ -225,7 +230,7 @@ sub _process_flags {
 
 sub get_title {
 	my ($self) = @_;
-	my $locus = $self->{'cgi'}->param('locus');
+	my $locus = $self->{'cgi'}->param('locus') // q();
 	$locus =~ s/%27/'/gx;                                    #Web-escaped locus
 	my $allele_id = $self->{'cgi'}->param('allele_id');
 	return 'Invalid locus' if !$self->{'datastore'}->is_locus($locus);
