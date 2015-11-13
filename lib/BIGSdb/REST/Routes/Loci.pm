@@ -84,56 +84,15 @@ sub _get_locus {
 			$values->{$field} = $locus_info->{$field} if defined $locus_info->{$field};
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-
-		#Extended attributes
-		my $extended_attributes =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field',
-			$locus_name, { fetch => 'all_arrayref', slice => {} } );
-		my @attributes;
-		foreach my $attribute (@$extended_attributes) {
-			my $attribute_list = {};
-			foreach (qw(field value_format value_regex description length)) {
-				$attribute_list->{$_} = $attribute->{$_} if defined $attribute->{$_};
-			}
-			$attribute_list->{'required'} = $attribute->{'required'} ? JSON::true : JSON::false;
-			if ( $attribute->{'option_list'} ) {
-				my @values = split /\|/x, $attribute->{'option_list'};
-				$attribute_list->{'allowed_values'} = \@values;
-			}
-			push @attributes, $attribute_list;
-		}
-		$values->{'extended_attributes'} = \@attributes if @attributes;
-	}
 
 	#Aliases
 	my $aliases = $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
 		$locus_name, { fetch => 'col_arrayref' } );
 	$values->{'aliases'} = $aliases if @$aliases;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-
-		#Description
-		my $description =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $locus_name, { fetch => 'row_hashref' } );
-		foreach (qw(full_name product description)) {
-			$values->{$_} = $description->{$_} if defined $description->{$_} && $description->{$_} ne '';
-		}
-		my $pubmed_ids =
-		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id',
-			$locus_name, { fetch => 'col_arrayref' } );
-		$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
-
-		#Curators
-		my $curators =
-		  $self->{'datastore'}->run_query( 'SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id',
-			$locus_name, { fetch => 'col_arrayref' } );
-		my @curator_links;
-		foreach my $user_id (@$curators) {
-			push @curator_links, request->uri_for("/db/$db/users/$user_id");
-		}
-		$values->{'curators'} = \@curator_links if @curator_links;
+		_get_extended_attributes( $values, $locus_name );
+		_get_description( $values, $locus_name );
+		_get_curators( $values, $locus_name );
 	} else {
 
 		#Isolate databases - attempt to link to seqdef definitions
@@ -179,5 +138,62 @@ sub _get_locus {
 		}
 	}
 	return $values;
+}
+
+sub _get_extended_attributes {
+	my ( $values, $locus_name ) = @_;
+	my $self = setting('self');
+	my $db   = params->{'db'};
+	my $extended_attributes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field',
+		$locus_name, { fetch => 'all_arrayref', slice => {} } );
+	my @attributes;
+	foreach my $attribute (@$extended_attributes) {
+		my $attribute_list = {};
+		foreach (qw(field value_format value_regex description length)) {
+			$attribute_list->{$_} = $attribute->{$_} if defined $attribute->{$_};
+		}
+		$attribute_list->{'required'} = $attribute->{'required'} ? JSON::true : JSON::false;
+		if ( $attribute->{'option_list'} ) {
+			my @values = split /\|/x, $attribute->{'option_list'};
+			$attribute_list->{'allowed_values'} = \@values;
+		}
+		push @attributes, $attribute_list;
+	}
+	$values->{'extended_attributes'} = \@attributes if @attributes;
+	return;
+}
+
+sub _get_description {
+	my ( $values, $locus_name ) = @_;
+	my $self = setting('self');
+	my $db   = params->{'db'};
+	my $description =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $locus_name, { fetch => 'row_hashref' } );
+	foreach (qw(full_name product description)) {
+		$values->{$_} = $description->{$_} if defined $description->{$_} && $description->{$_} ne '';
+	}
+	my $pubmed_ids =
+	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id',
+		$locus_name, { fetch => 'col_arrayref' } );
+	$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
+	return;
+}
+
+sub _get_curators {
+	my ( $values, $locus_name ) = @_;
+	my $self = setting('self');
+	my $db   = params->{'db'};
+	my $curators =
+	  $self->{'datastore'}->run_query( 'SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id',
+		$locus_name, { fetch => 'col_arrayref' } );
+	my @curator_links;
+	foreach my $user_id (@$curators) {
+		push @curator_links, request->uri_for("/db/$db/users/$user_id");
+	}
+	$values->{'curators'} = \@curator_links if @curator_links;
+	return;
 }
 1;

@@ -80,14 +80,8 @@ sub paged_display {
 	if ( $q->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') eq 'all' ? 0 : $q->param('displayrecs');
 	}
-	my $currentpage = $q->param('currentpage') ? $q->param('currentpage') : 1;
-	if    ( $q->param('>') )        { $currentpage++ }
-	elsif ( $q->param('<') )        { $currentpage-- }
-	elsif ( $q->param('pagejump') ) { $currentpage = $q->param('pagejump') }
-	elsif ( $q->param('Last') )     { $currentpage = $q->param('lastpage') }
-	elsif ( $q->param('First') )    { $currentpage = 1 }
+	my $currentpage = $self->_get_current_page;
 	my $records;
-
 	if ($count) {
 		$records = $count;
 	} else {
@@ -191,13 +185,12 @@ sub paged_display {
 		}
 		print '.';
 		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
-			print " Click the hyperlink$plural for detailed information.";
+			say qq( Click the hyperlink$plural for detailed information.);
 		}
-		print "</p>\n";
+		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
-		$logger->debug("Query: $qry");
 		say q(<p>No records found!</p>);
 	}
 	if ( $self->{'prefs'}->{'pagebar'} =~ /top/
@@ -223,6 +216,18 @@ sub paged_display {
 		say qq(<div class="box" id="resultsfooter">$bar_buffer</div>);
 	}
 	return;
+}
+
+sub _get_current_page {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $currentpage = $q->param('currentpage') ? $q->param('currentpage') : 1;
+	return $currentpage + 1      if $q->param('>');
+	return $currentpage - 1      if $q->param('<');
+	return $q->param('pagejump') if $q->param('pagejump');
+	return $q->param('lastpage') if $q->param('Last');
+	return 1                     if $q->param('First');
+	return $currentpage;
 }
 
 sub _print_curate_headerbar_functions {

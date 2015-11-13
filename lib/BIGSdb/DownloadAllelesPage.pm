@@ -117,20 +117,19 @@ sub print_content {
 			say 'This function is not available for isolate databases.';
 			return;
 		}
-		if (   $self->{'system'}->{'disable_seq_downloads'}
-			&& $self->{'system'}->{'disable_seq_downloads'} eq 'yes'
-			&& !$self->is_admin )
+		if (
+			( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
+			&& !$self->is_admin
+		  )
 		{
 			say 'Allele sequence downloads are disabled for this database.';
 			return;
 		}
-		$locus =~ s/%27/'/gx;    #Web-escaped locus
+		$locus =~ s/%27/'/gx;                                                   #Web-escaped locus
 		if ( $self->{'datastore'}->is_locus($locus) ) {
-			if ($set_id) {
-				if ( !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-					say "$locus is not available";
-					return;
-				}
+			if ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
+				say "$locus is not available";
+				return;
 			}
 			$self->_print_sequences($locus);
 		} else {

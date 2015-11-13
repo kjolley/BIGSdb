@@ -75,23 +75,7 @@ sub _get_isolate {
 			}
 		}
 	}
-
-	#Extended provenance attributes
-	my $fields_with_extended_attributes =
-	  $self->{'datastore'}->run_query( 'SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes',
-		undef, { fetch => 'col_arrayref' } );
-	foreach my $field (@$fields_with_extended_attributes) {
-		next if !defined $provenance->{$field};
-		my $attribute_list = $self->{'datastore'}->run_query(
-			'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
-			[ $field, $provenance->{$field} ],
-			{ fetch => 'all_arrayref', slice => {}, cache => 'Isolates::isolate_value_extended_attributes' }
-		);
-		foreach my $attribute (@$attribute_list) {
-			next if !defined $attribute->{'value'};
-			$provenance->{ $attribute->{'attribute'} } = $attribute->{'value'};
-		}
-	}
+	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
 	my $pubmed_ids =
 	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id',
@@ -162,8 +146,7 @@ sub _get_isolate {
 		push @$scheme_links, $scheme_object;
 	}
 	$values->{'schemes'} = $scheme_links if @$scheme_links;
-	my $projects = _get_isolate_projects($id);
-	$values->{'projects'} = $projects if @$projects;
+	_get_isolate_projects( $values, $id );
 	if ( BIGSdb::Utils::is_int( $field_values->{'new_version'} ) ) {
 		$values->{'new_version'} = request->uri_for("/db/$db/isolates/$field_values->{'new_version'}");
 	}
@@ -175,10 +158,31 @@ sub _get_isolate {
 	return $values;
 }
 
+sub _get_extended_attributes {
+	my ( $provenance, $isolate_id ) = @_;
+	my $self = setting('self');
+	my $fields_with_extended_attributes =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes',
+		undef, { fetch => 'col_arrayref' } );
+	foreach my $field (@$fields_with_extended_attributes) {
+		next if !defined $provenance->{$field};
+		my $attribute_list = $self->{'datastore'}->run_query(
+			'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
+			[ $field, $provenance->{$field} ],
+			{ fetch => 'all_arrayref', slice => {}, cache => 'Isolates::isolate_value_extended_attributes' }
+		);
+		foreach my $attribute (@$attribute_list) {
+			next if !defined $attribute->{'value'};
+			$provenance->{ $attribute->{'attribute'} } = $attribute->{'value'};
+		}
+	}
+	return;
+}
+
 sub _get_isolate_projects {
-	my ($isolate_id) = @_;
+	my ( $values, $isolate_id ) = @_;
 	my $self         = setting('self');
-	my ($db)         = params->{'db'};
+	my $db           = params->{'db'};
 	my $project_data = $self->{'datastore'}->run_query(
 		'SELECT id,short_description FROM projects JOIN project_members ON projects.id=project_members.project_id '
 		  . 'WHERE isolate_id=? AND isolate_display ORDER BY id',
@@ -189,11 +193,12 @@ sub _get_isolate_projects {
 	foreach my $project (@$project_data) {
 		push @projects,
 		  {
-			id => request->uri_for("/db/$db/projects/$project->{'id'}"),
-			, description => $project->{'short_description'}
+			id          => request->uri_for("/db/$db/projects/$project->{'id'}"),
+			description => $project->{'short_description'}
 		  };
 	}
-	return \@projects;
+	$values->{'projects'} = \@projects if @projects;
+	return;
 }
 
 sub _get_fields {

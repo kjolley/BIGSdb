@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.0',
+		version       => '1.2.1',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -155,12 +155,8 @@ sub run {
 		$self->_summary_table($qry);
 		return;
 	}
-	my %noshow;
-	if ( $self->{'system'}->{'noshow'} ) {
-		foreach ( split /,/x, $self->{'system'}->{'noshow'} ) {
-			$noshow{$_} = 1;
-		}
-	}
+	$self->{'system'}->{'noshow'} //= q();
+	my %noshow = map { $_ => 1 } split /,/x, $self->{'system'}->{'noshow'};
 	$noshow{$_} = 1 foreach qw (id isolate datestamp date_entered curator sender comments);
 	my $temp = BIGSdb::Utils::get_random();
 	my ( $num_records, $value_frequency ) = $self->_get_value_frequency_hash( \$qry );
@@ -243,7 +239,6 @@ sub run {
 	}
 	say qq(<div class="box" id="chart"><h2 id="field">$display_name</h2><div class="scrollable">)
 	  . qq(<img id="placeholder" src="$src" alt="breakdown chart" /></div></div>);
-	
 	my $query_clause    = defined $query_file ? qq(&amp;query_file=$query_file) : q();
 	my $list_file       = $q->param('list_file');
 	my $datatype        = $q->param('datatype');
@@ -315,21 +310,23 @@ sub _create_chartdirector_chart {
 			push @labels, $key;
 			push @values, $value_frequency{$key};
 		}
-		BIGSdb::Charts::piechart( {
-			labels => \@labels,
-			data => \@values,
-			filename => "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
-			num_labels => 24,
-			size => $size,
-			prefs => \%prefs
-
-		} );
+		BIGSdb::Charts::piechart(
+			{
+				labels     => \@labels,
+				data       => \@values,
+				filename   => "$self->{'config'}->{'tmp_dir'}/$temp\_$field.png",
+				num_labels => 24,
+				size       => $size,
+				prefs      => \%prefs
+			}
+		);
 	}
 	return;
 }
 
 sub _is_composite_field {
 	my ( $self, $field ) = @_;
+	$field //= q();
 	my $is_composite =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)', $field );
 	return $is_composite;
@@ -340,33 +337,26 @@ sub _summary_table {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('field');
 	my $format = $q->param('format') // 'html';
-	my $text_buffer;
+	my ( $html_buffer, $text_buffer );
 	if ( !$field ) {
-		if ( $format ne 'text' ) {
-			say q(<div class="box" id="statusbad"><p>No field selected.</p></div>);
-		} else {
-			$text_buffer .= qq(No field selected.\n);
-		}
-		return;
+		$html_buffer = q(<h1>Field breakdown</h1><div class="box" id="statusbad"><p>No field selected.</p></div>);
+		$text_buffer = qq(No field selected.\n);
 	}
-	my $isolate_field = $field;
+	my $isolate_field = $field // q();
 	$isolate_field =~ s/\.\..*$//x;    #Extended attributes separated from parent field by '..'
 	if (   !$self->{'xmlHandler'}->is_field($isolate_field)
 		&& !$self->_is_composite_field($field) )
 	{
-		if ( $format ne 'text' ) {
-			say q(<div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
-		} else {
-			$text_buffer .= qq(Invalid file selected.\n);
-		}
-		return;
+		$html_buffer = q(<h1>Field breakdown</h1><div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
+		$text_buffer = qq(Invalid file selected.\n);
 	}
 	if ( !$qry ) {
-		if ( $format ne 'text' ) {
-			say q(<div class="box" id="statusbad"><p>No query selected.</p></div>);
-		} else {
-			$text_buffer .= qq(No query selected.\n);
-		}
+		$html_buffer = q(<h1>Field breakdown</h1><div class="box" id="statusbad"><p>No query selected.</p></div>);
+		$text_buffer .= qq(No query selected.\n);
+		return;
+	}
+	if ($html_buffer) {                #Missing parameters so exit
+		say $format eq 'html' ? $html_buffer : $text_buffer;
 		return;
 	}
 	my $td = 1;
@@ -375,64 +365,51 @@ sub _summary_table {
 	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
 	$display_field =~ s/^.*\.\.//x;
-	if ( $format eq 'html' ) {
-		say qq(<h1>Breakdown by $display_field</h1>);
-	} else {
-		$text_buffer .= qq(Breakdown for $display_field\n) if $format eq 'text';
-	}
+	$html_buffer .= qq(<h1>Breakdown by $display_field</h1>);
+	$text_buffer .= qq(Breakdown for $display_field\n) if $format eq 'text';
 	$logger->debug("Breakdown query: $qry");
 	my ( $num_records, $frequency ) = $self->_get_value_frequency_hash( \$qry, $isolate_field );
 	my $value_frequency = $frequency->{$field};
 	my $num_values      = keys %{$value_frequency};
 	my $values_shown    = $num_values;
+
 	if ( $value_frequency->{'No value/unassigned'} ) {
 		$values_shown--;
 	}
 	my $plural = $num_values != 1 ? 's' : '';
-	if ( $format eq 'html' ) {
-		say q(<div class="box" id="resultstable">);
-		say qq(<p>$num_values value$plural.</p>);
-		say qq(<table class="tablesorter" id="sortTable"><thead><tr><th>$display_field</th>)
-		  . q(<th>Frequency</th><th>Percentage</th></tr></thead><tbody>);
-	} else {
-		$text_buffer .= "$num_values value$plural.\n\n" if $format eq 'text';
-		$text_buffer .= "$display_field\tfrequency\tpercentage\n";
-	}
+	$html_buffer .= q(<div class="box" id="resultstable">);
+	$html_buffer .= qq(<p>$num_values value$plural.</p>);
+	$html_buffer .= qq(<table class="tablesorter" id="sortTable"><thead><tr><th>$display_field</th>)
+	  . q(<th>Frequency</th><th>Percentage</th></tr></thead><tbody>);
+	$text_buffer .= "$num_values value$plural.\n\n" if $format eq 'text';
+	$text_buffer .= "$display_field\tfrequency\tpercentage\n";
 	if ( $field =~ /^(?:age_|age$|year_|year$)/x ) {
 
 		#sort keys numerically
 		no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 		foreach my $key ( sort { $a <=> $b } keys %$value_frequency ) {
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
-			if ( $format eq 'html' ) {
-				say qq(<tr class="td$td"><td>$key</td><td>$value_frequency->{$key}</td>)
-				  . qq(<td style="text-align:center">$percentage%</td></tr>);
-			} else {
-				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
-			}
+			$html_buffer .= qq(<tr class="td$td"><td>$key</td><td>$value_frequency->{$key}</td>)
+			  . qq(<td style="text-align:center">$percentage%</td></tr>);
+			$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	} else {
-		no warnings 'numeric';         #might complain about numeric comparison with non-numeric data
-		foreach my $key (
-			sort { $value_frequency->{$b} <=> $value_frequency->{$a} || ( $a <=> $b ) || ( $a cmp $b ) }
-			keys %$value_frequency
-		  )
-		{
+		my $sorted_keys = $self->_sort_hash_keys($value_frequency);
+		foreach my $key (@$sorted_keys) {
 			push @labels, $key;
 			push @values, $value_frequency->{$key};
 			my $percentage = BIGSdb::Utils::decimal_place( ( $value_frequency->{$key} / $num_records ) * 100, 2 );
-			if ( $format eq 'html' ) {
-				say qq(<tr class="td$td"><td>$key</td><td style="text-align:center">$value_frequency->{$key}</td>)
-				  . qq(<td style="text-align:center">$percentage%</td></tr>);
-			} else {
-				$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
-			}
+			$html_buffer .=
+			    qq(<tr class="td$td"><td>$key</td><td style="text-align:center">$value_frequency->{$key}</td>)
+			  . qq(<td style="text-align:center">$percentage%</td></tr>);
+			$text_buffer .= "$key\t$value_frequency->{$key}\t$percentage\n";
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 	}
 	if ( $format eq 'html' ) {
-		say q(</tbody></table></div>);
+		$html_buffer .= q(</tbody></table></div>);
+		say $html_buffer;
 	} else {
 		if ( $q->param('format') eq 'xlsx' ) {
 			my $temp_file = $self->make_temp_file($text_buffer);
@@ -445,6 +422,14 @@ sub _summary_table {
 		}
 	}
 	return;
+}
+
+#Sory by value, then by key (numerical followed by alphabetical)
+sub _sort_hash_keys {
+	my ( $self, $hash ) = @_;
+	no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+	my @keys = sort { $hash->{$b} <=> $hash->{$a} || ( $a <=> $b ) || ( $a cmp $b ) } keys %$hash;
+	return \@keys;
 }
 
 sub _get_value_frequency_hash {
@@ -513,18 +498,17 @@ sub _get_value_frequency_hash {
 	#Extended attributes
 	foreach my $field (@field_list) {
 		my $extatt = $self->{'extended'}->{$field};
-		if ( ref $extatt eq 'ARRAY' ) {
-			foreach my $extended_attribute (@$extatt) {
-				foreach ( keys %{ $value_frequency->{$field} } ) {
-					my $value = $self->{'datastore'}->run_query(
-						'SELECT value FROM isolate_value_extended_attributes WHERE '
-						  . '(isolate_field,attribute,field_value)=(?,?,?)',
-						[ $field, $extended_attribute, $_ ],
-						{ cache => 'FieldBreakdown::get_value_frequency_hash::ext' }
-					);
-					$value = 'No value/unassigned' if !defined $value || $value eq '';
-					$value_frequency->{"$field..$extended_attribute"}->{$value} += $value_frequency->{$field}->{$_};
-				}
+		next if ref $extatt ne 'ARRAY';
+		foreach my $extended_attribute (@$extatt) {
+			foreach ( keys %{ $value_frequency->{$field} } ) {
+				my $value = $self->{'datastore'}->run_query(
+					'SELECT value FROM isolate_value_extended_attributes WHERE '
+					  . '(isolate_field,attribute,field_value)=(?,?,?)',
+					[ $field, $extended_attribute, $_ ],
+					{ cache => 'FieldBreakdown::get_value_frequency_hash::ext' }
+				);
+				$value = 'No value/unassigned' if !defined $value || $value eq '';
+				$value_frequency->{"$field..$extended_attribute"}->{$value} += $value_frequency->{$field}->{$_};
 			}
 		}
 	}
@@ -536,10 +520,10 @@ sub _get_value_frequency_hash {
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		next if !defined $metaset;
-		my $meta_sql = $self->{'db'}->prepare("SELECT isolate_id,$metafield FROM meta_$metaset");
-		eval { $meta_sql->execute };
-		$logger->error($@) if $@;
-		my $meta_data = $meta_sql->fetchall_hashref('isolate_id');
+		my $meta_data = $self->{'datastore'}->run_query(
+			"SELECT isolate_id,$metafield FROM meta_$metaset",
+			undef, { fetch => 'all_hashref', key => 'isolate_id' }
+		);
 		foreach my $isolate_id ( keys %{ $value_frequency->{'id'} } ) {
 			my $value = $meta_data->{$isolate_id}->{$metafield};
 			$value = 'No value/unassigned' if !defined $value || $value eq '';
