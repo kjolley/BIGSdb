@@ -831,9 +831,10 @@ sub _search_by_isolate_id {
 sub _modify_search_by_sequence_attributes {
 	my ( $self, $field, $type, $operator, $text ) = @_;
 	$field =~ s/^ext_//x;
+	
 	if ( $text eq 'null' ) {
 		my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
-		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values)";
+		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
 	}
 	my $not   = $operator =~ /NOT/x ? ' NOT' : '';
 	my $qry   = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
