@@ -27,6 +27,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any);
+use constant MAX_INSTANT_RUN  => 10;
+use constant MAX_DISPLAY_TAXA => 2000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
 	no warnings 'qw';
@@ -105,14 +107,15 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.2.0',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
 		order       => 32,
 		help        => 'tooltips',
 		system_flag => 'BLAST',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#blast"
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#blast",
+		requires    => 'offline_jobs',
 	);
 	return \%att;
 }
@@ -132,157 +135,133 @@ END
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $view   = $self->{'system'}->{'view'};
+	my $q = $self->{'cgi'};
 	say q(<h1>BLAST</h1>);
-	$self->_print_interface;
 	return if !( $q->param('submit') && $q->param('sequence') );
 	my @ids = $q->param('isolate_id');
 	if ( !@ids ) {
+		$self->_print_interface;
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		return;
 	}
 	my @includes = $q->param('includes');
+	my $seq      = $q->param('sequence');
+	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
+		my $att       = $self->get_attributes;
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $params    = $q->Vars;
+		$params->{'script_name'} = $self->{'system'}->{'script_name'};
+		my $job_id = $self->{'jobManager'}->add_job(
+			{
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => $att->{'module'},
+				priority     => $att->{'priority'},
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'},
+				isolates     => \@ids
+			}
+		);
+		say q(<div class="box" id="resultspanel">);
+		say q(<p>This export job has been submitted to the job queue.</p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+		return;
+	}
+	$self->_print_interface;
+	my $prefix = BIGSdb::Utils::get_random();
+	$self->_run_now(
+		{
+			prefix         => $prefix,
+			ids            => \@ids,
+			includes       => \@includes,
+			seq_ref        => \$seq,
+			show_no_match  => ( $q->param('show_no_match') // 0 ),
+			flanking       => ( $q->param('flanking') // $self->{'prefs'}->{'flanking'} ),
+			include_seqbin => ( $q->param('include_seqbin') // 0 )
+		}
+	);
+	return;
+}
+
+sub _get_headers {
+	my ( $self, $includes ) = @_;
 	my %meta_labels;
-	foreach my $field (@includes) {
+	foreach my $field (@$includes) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		$meta_labels{$field} = $metafield;
 	}
-	my $seq = $q->param('sequence');
-	say q(<div class="box" id="resultstable">);
-	my $header_buffer = qq(<table class="resultstable">\n);
-	my $labelfield    = $self->{'system'}->{'labelfield'};
-	( my $display_label = ucfirst($labelfield) ) =~ tr/_/ /;
-	$header_buffer .= qq(<tr><th>Isolate id</th><th>$display_label</th>);
-	$header_buffer .= q(<th>) . ( $meta_labels{$_} // $_ ) . q(</th>) foreach @includes;
-	$header_buffer .= q(<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th>)
+	my $html_buffer   = qq(<table class="resultstable">\n);
+	my $display_label = ucfirst( $self->{'system'}->{'labelfield'} );
+	$html_buffer .= qq(<tr><th>Isolate id</th><th>$display_label</th>);
+	$html_buffer .= q(<th>) . ( $meta_labels{$_} // $_ ) . q(</th>) foreach @$includes;
+	$html_buffer .= q(<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th>)
 	  . qq(<th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n);
-	my $first                    = 1;
-	my $some_results             = 0;
-	my $td                       = 1;
-	my $prefix                   = BIGSdb::Utils::get_random();
+	my $text_buffer = "Isolate id\t$display_label\t";
+	$text_buffer .= ( $meta_labels{$_} // $_ ) . "\t" foreach @$includes;
+	$text_buffer .=
+	  "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score\n";
+	return ( $html_buffer, $text_buffer );
+}
+
+sub _run_now {
+	my ( $self, $args ) = @_;
+	my ( $prefix, $ids, $includes, $seq_ref, $show_no_match, $flanking, $include_seqbin ) =
+	  @{$args}{qw(prefix ids includes seq_ref show_no_match flanking include_seqbin)};
+	my ( $html_header, $text_header ) = $self->_get_headers($includes);
 	my $out_file                 = "$prefix.txt";
 	my $out_file_flanking        = "$prefix\_flanking.txt";
 	my $out_file_table           = "$prefix\_table.txt";
 	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
-	open( my $fh_output_table, '>', $out_file_table_full_path )
-	  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
-	print $fh_output_table "Isolate id\t$display_label\t";
-	print $fh_output_table ( $meta_labels{$_} // $_ ) . "\t" foreach @includes;
-	say $fh_output_table
-	  "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score";
-	close $fh_output_table;
+	my $file_buffer              = $text_header;
+	my $first                    = 1;
+	my $some_results             = 0;
+	my $td                       = 1;
+	my $params                   = $self->{'cgi'}->Vars;
+	say q(<div class="box" id="resultstable">);
 
-	foreach my $id (@ids) {
-		my $matches = $self->_blast( $id, \$seq );
-		next if !$q->param('show_no_match') && ( ref $matches ne 'ARRAY' || !@$matches );
-		print $header_buffer if $first;
-		my @include_values;
-		if (@includes) {
-			my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $view WHERE id=?",
-				$id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
-			foreach my $field (@includes) {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				my $value;
-				if ( defined $metaset ) {
-					$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-				} else {
-					$value = $include_data->{$field} // '';
-				}
-				push @include_values, $value;
-			}
-		}
+	foreach my $id (@$ids) {
+		my $matches = $self->_blast( $id, $seq_ref, $params );
+		next if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
+		print $html_header if $first;
+		my $include_values = $self->_get_include_values( \@$includes, $id );
 		$some_results = 1;
-		my $label =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT $labelfield FROM $view WHERE id=?", $id, { cache => 'BLAST::run_label' } );
 		my $rows        = @$matches;
 		my $first_match = 1;
-		my $flanking    = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 		foreach my $match (@$matches) {
-			my $file_buffer;
-			if ($first_match) {
-				print qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$id">)
-				  . qq($id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
-			} else {
-				print qq(<tr class="td$td">);
-			}
-			print qq(<td>$_</td>) foreach @include_values;
-			$file_buffer .= qq($id\t$label);
-			$file_buffer .= qq(\t$_) foreach @include_values;
-			foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
-				print qq(<td>$match->{$attribute});
-				if ( $attribute eq 'end' ) {
-					$match->{'reverse'} ||= 0;
-					print qq( <a target="_blank" class="extract_tooltip" href="$self->{'system'}->{'script_name'}?)
-					  . qq(db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;)
-					  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;)
-					  . qq(reverse=$match->{'reverse'}&amp;flanking=$flanking">extract&nbsp;&rarr;</a>);
+			say $self->_get_prov_html_cells(
+				{
+					isolate_id     => $id,
+					td             => $td,
+					include_values => $include_values,
+					is_match       => 1,
+					rows           => $rows,
+					first_match    => $first_match
 				}
-				print q(</td>);
-				$file_buffer .= qq(\t$match->{$attribute});
-			}
-			print q(<td style="font-size:2em">) . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . q(</td>);
-			$file_buffer .= $match->{'reverse'} ? qq(\tReverse) : qq(\tForward);
-			foreach (qw(e_value bit_score)) {
-				print qq(<td>$match->{$_}</td>);
-				$file_buffer .= qq(\t$match->{$_});
-			}
-			say q(</tr>);
+			);
+			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			say $self->_get_match_attribute_html_cells( $match, $flanking );
+			$file_buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );
+			$file_buffer .= qq(\n);
+			$self->_append_fasta(
+				{
+					isolate_id        => $id,
+					include_values    => $include_values,
+					match             => $match,
+					flanking          => $flanking,
+					out_file          => $out_file,
+					out_file_flanking => $out_file_flanking,
+					include_seqbin    => $include_seqbin
+				}
+			);
 			$first_match = 0;
-			my $start  = $match->{'start'};
-			my $end    = $match->{'end'};
-			my $length = abs( $end - $start + 1 );
-			my $qry =
-			    qq[SELECT substring(sequence FROM $start for $length) AS seq,substring(sequence ]
-			  . qq[FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM ($end+1) ]
-			  . qq[FOR $flanking) AS downstream FROM sequence_bin WHERE id=?];
-			my $seq_ref = $self->{'datastore'}->run_query( $qry, $match->{'seqbin_id'}, { fetch => 'row_hashref' } );
-			$seq_ref->{'seq'}      = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )      if $match->{'reverse'};
-			$seq_ref->{'upstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} ) if $match->{'reverse'};
-			$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} )
-			  if $match->{'reverse'};
-			my $fasta_id = ">$id|$label";
-			$fasta_id .= "|$match->{'seqbin_id'}|$start" if $q->param('include_seqbin');
-			$fasta_id .= "|$_" foreach @include_values;
-			my $seq_with_flanking;
-
-			if ( $match->{'reverse'} ) {
-				$seq_with_flanking =
-				  BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'},
-					60 );
-			} else {
-				$seq_with_flanking =
-				  BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'},
-					60 );
-			}
-			open( my $fh_output, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
-			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
-			open( my $fh_output_flanking, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
-			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
-			say $fh_output $fasta_id;
-			say $fh_output_flanking $fasta_id;
-			say $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 );
-			say $fh_output_flanking $seq_with_flanking;
-			close $fh_output;
-			close $fh_output_flanking;
-			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
-			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
-			say $fh_output_table $file_buffer;
-			close $fh_output_table;
 		}
 		if ( !@$matches ) {
-			say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=info&amp;id=$id">$id</a></td><td>$label</td>);
-			say qq(<td>$_</td>) foreach @include_values;
+			say $self->_get_prov_html_cells( { isolate_id => $id, td => $td, include_values => $include_values } );
 			say q(<td>0</td><td colspan="9" /></tr>);
-			open( my $fh_output_table, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_table" )
-			  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_table for writing");
-			print $fh_output_table qq($id\t$label);
-			print $fh_output_table qq(\t$_) foreach @include_values;
-			say $fh_output_table qq(\t0);
-			close $fh_output_table;
+			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			$file_buffer .= qq(\t0\n);
 		}
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
@@ -291,14 +270,19 @@ sub run {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
+	open( my $fh_output_table, '>', $out_file_table_full_path )
+	  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
+	say $fh_output_table $file_buffer;
+	close $fh_output_table;
 	if ($some_results) {
 		say q(</table>);
 		say q(<p style="margin-top:1em">Download );
 		say qq(<a href="/tmp/$out_file" target="_blank">FASTA</a> | ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file";
-		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a> | )
+		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a> )
 		  . q( <a class="tooltip" title="Flanking sequence - You can change the amount of flanking )
 		  . q(sequence exported by selecting the appropriate length in the options page.">)
-		  . q(<span class="fa fa-info-circle"></span></a> ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking";;
+		  . q(<span class="fa fa-info-circle"></span></a> | )
+		  if -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking";
 		say qq(<a href="/tmp/$out_file_table" target="_blank">Table (tab-delimited text)</a>);
 		my $excel =
 		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
@@ -310,6 +294,261 @@ sub run {
 	}
 	say q(</div>);
 	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	$self->{'exit'} = 0;
+
+	#Terminate cleanly on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
+	$self->{'system'}->{'script_name'} = $params->{'script_name'};
+	my @includes = split /\|\|/x, $params->{'includes'};
+	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
+	my $out_file                 = "$job_id.txt";
+	my $out_file_flanking        = "${job_id}_flanking.txt";
+	my $out_file_table           = "${job_id}_table.txt";
+	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
+	my $html_buffer;
+	my $file_buffer  = $text_header;
+	my $first        = 1;
+	my $some_results = 0;
+	my $td           = 1;
+	my $ids          = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $flanking     = BIGSdb::Utils::is_int( $params->{'flanking'} ) ? $params->{'flanking'} : 100;
+	my $progress     = 0;
+
+	if ( @$ids > MAX_DISPLAY_TAXA ) {
+		my $max_display_taxa = MAX_DISPLAY_TAXA;
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ message_html => "<p>Dynamically updated output disabled as >$max_display_taxa taxa selected.</p>" } );
+	}
+	foreach my $id (@$ids) {
+		my $matches = $self->_blast( $id, \$params->{'sequence'}, $params );
+		next if !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches );
+		$html_buffer .= $html_header if $first;
+		my $include_values = $self->_get_include_values( \@includes, $id );
+		$some_results = 1;
+		my $rows        = @$matches;
+		my $first_match = 1;
+		foreach my $match (@$matches) {
+			$html_buffer .= $self->_get_prov_html_cells(
+				{
+					isolate_id     => $id,
+					td             => $td,
+					include_values => $include_values,
+					is_match       => 1,
+					rows           => $rows,
+					first_match    => $first_match
+				}
+			);
+			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			$html_buffer .= $self->_get_match_attribute_html_cells( $match, $flanking );
+			$file_buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );    #
+			$file_buffer .= qq(\n);
+			$self->_append_fasta(
+				{
+					isolate_id        => $id,
+					include_values    => $include_values,
+					match             => $match,
+					flanking          => $flanking,
+					out_file          => $out_file,
+					out_file_flanking => $out_file_flanking,
+					include_seqbin    => $params->{'include_seqbin'} // 0
+				}
+			);
+			$first_match = 0;
+		}
+		if ( !@$matches ) {
+			$html_buffer .=
+			  $self->_get_prov_html_cells( { isolate_id => $id, td => $td, include_values => $include_values } );
+			$html_buffer .= q(<td>0</td><td colspan="9" /></tr>);
+			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			$file_buffer .= qq(\t0\n);
+		}
+		my $message = "$html_buffer</table>";
+		$progress++;
+		my $complete = int( 100 * $progress / @$ids );
+		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
+		}
+		$td = $td == 1 ? 2 : 1;
+		$first = 0;
+		return if $self->{'exit'};
+	}
+	if ($some_results) {
+		open( my $fh_output_table, '>', $out_file_table_full_path )
+		  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
+		say $fh_output_table $file_buffer;
+		close $fh_output_table;
+		$self->{'jobManager'}->update_job_output( $job_id, { filename => $out_file, description => '01_FASTA' } );
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => $out_file_flanking, description => '02_FASTA with flanking' } );
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename      => $out_file_table,
+				description   => '03_Table (tab-delimited text)',
+				compress      => 1,
+				keep_original => 1
+			}
+		);
+		my $excel =
+		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
+			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		if ( -e $excel ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}_table.xlsx", description => '04_Table (Excel format)', compress => 1 } );
+			unlink $out_file_table_full_path if -e "$out_file_table_full_path.gz";
+		}
+	} else {
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => 100, message_html => '<p>No matches found.</p>' } );
+	}
+	return;
+}
+
+sub _append_fasta {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $include_values, $match, $flanking, $out_file, $out_file_flanking, $include_seqbin ) =
+	  @{$args}{qw(isolate_id include_values match flanking out_file out_file_flanking include_seqbin)};
+	my $start  = $match->{'start'};
+	my $end    = $match->{'end'};
+	my $length = abs( $end - $start + 1 );
+	my $qry =
+	    qq[SELECT substring(sequence FROM $start for $length) AS seq,substring(sequence ]
+	  . qq[FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM ($end+1) ]
+	  . qq[FOR $flanking) AS downstream FROM sequence_bin WHERE id=?];
+	my $seq_ref = $self->{'datastore'}->run_query( $qry, $match->{'seqbin_id'}, { fetch => 'row_hashref' } );
+	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
+	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
+	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
+	my $label    = $self->_get_isolate_label($isolate_id);
+	my $fasta_id = ">$isolate_id|$label";
+	$fasta_id .= "|$match->{'seqbin_id'}|$start" if $include_seqbin;
+	$fasta_id .= "|$_" foreach @$include_values;
+	my $seq_with_flanking;
+
+	if ( $match->{'reverse'} ) {
+		$seq_with_flanking =
+		  BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'}, 60 );
+	} else {
+		$seq_with_flanking =
+		  BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'}, 60 );
+	}
+	open( my $fh_output, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
+	open( my $fh_output_flanking, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
+	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
+	say $fh_output $fasta_id;
+	say $fh_output_flanking $fasta_id;
+	say $fh_output BIGSdb::Utils::break_line( $seq_ref->{'seq'}, 60 );
+	say $fh_output_flanking $seq_with_flanking;
+	close $fh_output;
+	close $fh_output_flanking;
+	return;
+}
+
+sub _get_match_attribute_html_cells {
+	my ( $self, $match, $flanking ) = @_;
+	my $buffer;
+	foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
+		$buffer .= qq(<td>$match->{$attribute});
+		if ( $attribute eq 'end' ) {
+			$match->{'reverse'} ||= 0;
+			$buffer .=
+			    qq( <a target="_blank" class="extract_tooltip" href="$self->{'system'}->{'script_name'}?)
+			  . qq(db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;)
+			  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;)
+			  . qq(reverse=$match->{'reverse'}&amp;flanking=$flanking">extract&nbsp;&rarr;</a>);
+		}
+		$buffer .= q(</td>);
+	}
+	$buffer .= q(<td style="font-size:2em">) . ( $match->{'reverse'} ? '&larr;' : '&rarr;' ) . q(</td>);
+	foreach (qw(e_value bit_score)) {
+		$buffer .= qq(<td>$match->{$_}</td>);
+	}
+	$buffer .= q(</tr>);
+	return $buffer;
+}
+
+sub _get_match_attribute_text_cells {
+	my ( $self, $match, $flanking ) = @_;
+	my $buffer;
+	foreach my $attribute (qw(identity alignment mismatches gaps seqbin_id start end)) {
+		$buffer .= qq(\t$match->{$attribute});
+	}
+	$buffer .= $match->{'reverse'} ? qq(\tReverse) : qq(\tForward);
+	foreach (qw(e_value bit_score)) {
+		$buffer .= qq(\t$match->{$_});
+	}
+	return $buffer;
+}
+
+sub _get_isolate_label {
+	my ( $self, $isolate_id ) = @_;
+	if ( !$self->{'cache'}->{'label'}->{$isolate_id} ) {
+		$self->{'cache'}->{'label'}->{$isolate_id} =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+			$isolate_id, { cache => 'BLAST::get_isolate_label' } );
+	}
+	return $self->{'cache'}->{'label'}->{$isolate_id};
+}
+
+sub _get_prov_html_cells {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $td, $include_values, $is_match, $rows, $first_match ) =
+	  @{$args}{qw(isolate_id td include_values is_match rows first_match)};
+	my $html_buffer;
+	my $label = $self->_get_isolate_label($isolate_id);
+	if ($is_match) {
+		if ($first_match) {
+			$html_buffer =
+			    qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id">)
+			  . qq($isolate_id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
+			$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$_</td>)
+			  foreach @$include_values;
+		} else {
+			$html_buffer = qq(<tr class="td$td">);
+		}
+	} else {
+		$html_buffer = qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=info&amp;id=$isolate_id">$isolate_id</a></td><td>$label</td>);
+		$html_buffer .= qq(<td>$_</td>) foreach @$include_values;
+	}
+	return $html_buffer;
+}
+
+sub _get_prov_text_cells {
+	my ( $self,       $args )           = @_;
+	my ( $isolate_id, $include_values ) = @{$args}{qw(isolate_id include_values  )};
+	my $label  = $self->_get_isolate_label($isolate_id);
+	my $buffer = qq($isolate_id\t$label);
+	$buffer .= qq(\t$_) foreach @$include_values;
+	return $buffer;
+}
+
+sub _get_include_values {
+	my ( $self, $includes, $isolate_id ) = @_;
+	my @include_values;
+	if (@$includes) {
+		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+			$isolate_id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
+		foreach my $field (@$includes) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			my $value;
+			if ( defined $metaset ) {
+				$value = $self->{'datastore'}->get_metadata_value( $isolate_id, $metaset, $metafield );
+			} else {
+				$value = $include_data->{$field} // '';
+			}
+			push @include_values, $value;
+		}
+	}
+	return \@include_values;
 }
 
 sub _print_interface {
@@ -429,14 +668,13 @@ sub _print_interface {
 }
 
 sub _blast {
-	my ( $self, $isolate_id, $seq_ref ) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $isolate_id, $seq_ref, $form_params ) = @_;
 	$$seq_ref =~ s/>.+\n//gx;    #Remove BLAST identifier lines if present
 	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
 	$$seq_ref =~ s/\s//gx;
 	my $program;
 	if ( $seq_type eq 'DNA' ) {
-		$program = $q->param('tblastx') ? 'tblastx' : 'blastn';
+		$program = $form_params->{'tblastx'} ? 'tblastx' : 'blastn';
 	} else {
 		$program = 'tblastn';
 	}
@@ -458,7 +696,7 @@ sub _blast {
 	  . 'sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id '
 	  . 'WHERE sequence_bin.isolate_id=?';
 	my @criteria = ($isolate_id);
-	my $method   = $q->param('seq_method_list');
+	my $method   = $form_params->{'seq_method_list'};
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -467,7 +705,7 @@ sub _blast {
 		$qry .= ' AND method=?';
 		push @criteria, $method;
 	}
-	my $project = $q->param('project_list');
+	my $project = $form_params->{'project_list'};
 	if ($project) {
 		if ( !BIGSdb::Utils::is_int($project) ) {
 			$logger->error("Invalid project $project");
@@ -476,7 +714,7 @@ sub _blast {
 		$qry .= ' AND project_id=?';
 		push @criteria, $project;
 	}
-	my $experiment = $q->param('experiment_list');
+	my $experiment = $form_params->{'experiment_list'};
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
@@ -487,7 +725,7 @@ sub _blast {
 	}
 	my $data =
 	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
-	$self->{'db'}->commit; #Prevent idle in transaction table lock.
+	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	open( my $fastafile_fh, '>', $temp_fastafile )
 	  or $logger->error("Can't open temp file $temp_fastafile for writing");
 	foreach (@$data) {
@@ -496,8 +734,8 @@ sub _blast {
 	}
 	close $fastafile_fh;
 	return if -z $temp_fastafile;
-	my $blastn_word_size = $q->param('word_size') =~ /(\d+)/x ? $1 : 11;
-	my $hits             = $q->param('hits')      =~ /(\d+)/x ? $1 : 1;
+	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1 : 11;
+	my $hits             = $form_params->{'hits'}      =~ /(\d+)/x ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
@@ -514,8 +752,10 @@ sub _blast {
 		-$filter         => 'no'
 	);
 
-	if ( $program eq 'blastn' && $q->param('scores') ) {
-		if ( ( any { $q->param('scores') eq $_ } BLASTN_SCORES ) && $q->param('scores') =~ /^(\d,-\d,\d+,\d)$/x ) {
+	if ( $program eq 'blastn' && $form_params->{'scores'} ) {
+		if ( ( any { $form_params->{'scores'} eq $_ } BLASTN_SCORES )
+			&& $form_params->{'scores'} =~ /^(\d,-\d,\d+,\d)$/x )
+		{
 			( $params{'-reward'}, $params{'-penalty'}, $params{'-gapopen'}, $params{'-gapextend'} ) = split /,/x, $1;
 		}
 	}
