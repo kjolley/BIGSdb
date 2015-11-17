@@ -137,7 +137,10 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>BLAST</h1>);
-	return if !( $q->param('submit') && $q->param('sequence') );
+	if ( !( $q->param('submit') && $q->param('sequence') ) ) {
+		$self->_print_interface;
+		return;
+	}
 	my @ids = $q->param('isolate_id');
 	if ( !@ids ) {
 		$self->_print_interface;
@@ -509,8 +512,7 @@ sub _get_prov_html_cells {
 			    qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id">)
 			  . qq($isolate_id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
-			$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$_</td>)
-			  foreach @$include_values;
+			$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$_</td>) foreach @$include_values;
 		} else {
 			$html_buffer = qq(<tr class="td$td">);
 		}
