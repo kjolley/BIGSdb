@@ -102,7 +102,7 @@ sub add_job {
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'job_priority'} ) ? $self->{'system'}->{'job_priority'} : 5;
 
 	#Adjust for plugin level priority.
-	$priority += $params->{'priority'} if $params->{'priority'} && BIGSdb::Utils::is_int( $params->{'priority'} );
+	$priority += $params->{'priority'} if BIGSdb::Utils::is_int( $params->{'priority'} );
 
 	#If IP address already has jobs queued, i.e. not started, then lower the priority on any new
 	#jobs from them.  This will prevent a single user from flooding the queue and preventing other
