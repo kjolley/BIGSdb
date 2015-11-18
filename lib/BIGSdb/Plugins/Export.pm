@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.2',
+		version     => '1.3.3',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -265,7 +265,7 @@ sub run_job {
 			$job_id,
 			{
 				filename      => "$job_id.txt",
-				description   => '01_Output in tab-delimited text format',
+				description   => '01_Export table (text)',
 				compress      => 1,
 				keep_original => 1                                           #Original needed to generate Excel file
 			}
@@ -276,7 +276,7 @@ sub run_job {
 			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "$job_id.xlsx", description => '02_Output in Excel format', compress => 1 } );
+				{ filename => "$job_id.xlsx", description => '02_Export table (Excel)', compress => 1 } );
 		}
 		unlink $filename if -e "$filename.gz";
 	}
