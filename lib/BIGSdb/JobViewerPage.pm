@@ -222,16 +222,23 @@ sub _print_output {
 	foreach my $description ( sort keys(%$output) ) {
 		my ( $link_text, $comments ) = split /\|/x, $description;
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
-		$link_text =~ s/\(text\)/<span class="fa fa-file-text-o" style="color:black"><\/span>/x;
-		$link_text =~ s/\(Excel\)/<span class="fa fa-file-excel-o" style="color:green"><\/span>/x;
+		my %icons = (
+			text  => q(<span class="fa fa-file-text-o" style="color:black"></span>),
+			Excel => q(<span class="fa fa-file-excel-o" style="color:green"></span>)
+		);
+		my $icon = q();
+		if ( $link_text =~ s/\ \((text|Excel)\)//x ) {
+			$icon = $icons{$1};
+		}
 		my $text = qq(<li><a href="/tmp/$output->{$description}">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
-		if ( $size > ( 1024 * 1024 ) ) {                                                              #1Mb
+		if ( $size > ( 1024 * 1024 ) ) {                                             #1Mb
 			my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
 			$text .= qq( ($size_in_MB MB));
 		}
-		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );                                            #10MB
+		$text .= qq( $icon) if $icon;
+		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );                           #10MB
 		if ( $output->{$description} =~ /\.png$/x ) {
 			my $title = $link_text . ( $comments ? qq( - $comments) : q() );
 			$text .=
