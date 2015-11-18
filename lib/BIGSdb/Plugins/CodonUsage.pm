@@ -191,7 +191,7 @@ sub run {
 					loci         => $loci_selected
 				}
 			);
-			say q(<div class="box" id="resultstable"><p>This analysis has been submitted to )
+			say q(<div class="box" id="resultspanel"><p>This analysis has been submitted to )
 			  . q(the job queue.</p><p>Please be aware that this job may take some time depending )
 			  . q(on the number of sequences to analyse and how busy the server is.</p>)
 			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -233,37 +233,150 @@ sub print_extra_form_elements {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
-	my $rscu_by_isolate   = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_isolate.txt";
-	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_isolate.txt";
-	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/$job_id\_rscu_by_locus.txt";
-	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/$job_id\_number_by_locus.txt";
+	my $rscu_by_isolate   = "$self->{'config'}->{'tmp_dir'}/${job_id}_rscu_by_isolate.txt";
+	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_isolate.txt";
+	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/${job_id}_rscu_by_locus.txt";
+	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_locus.txt";
 	my @includes;
 	if ( $params->{'includes'} ) {
 		my $separator = '\|\|';
 		@includes = split /$separator/x, $params->{'includes'};
-	}
-	my $ignore_seqflag;
-	if ( $params->{'ignore_seqflags'} ) {
-		$ignore_seqflag = 'AND flag IS NULL';
 	}
 	my $start         = 1;
 	my $no_output     = 1;
 	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
-	my $progress      = 0;
-	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
-	my $limit = $self->{'system'}->{'codon_usage_limit'} || DEFAULT_LIMIT;
-
+	my $limit         = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
 	if ( @$list > $limit ) {
 		my $message_html =
-		  q(<p class="statusbad">Please note that output ) . qq(is limited to the first $limit records.</p>\n);
+		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
-	my %includes;
+	my $data = $self->_calculate( $job_id, $selected_loci, $list, \@includes, $params );
+	my ( $bad_ids, $includes_by_id, $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count ) =
+	  @{$data}{qw(bad_ids includes_by_id locus_codon_count locus_aa_count total_codon_count total_aa_count)};
+	my $message_html;
+	local $" = "\t";
+	my @codons = $self->_get_codons;
+	if ( $params->{'codonorder'} eq 'alphabetical' ) {
+		@codons = sort @codons;
+	}
+	open( my $fh_rscu_by_isolate, '>', $rscu_by_isolate )
+	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
+	open( my $fh_number_by_isolate, '>', $number_by_isolate )
+	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
+	open( my $fh_rscu_by_locus, '>', $rscu_by_locus )
+	  or $logger->error("Can't open output file $rscu_by_locus for writing");
+	open( my $fh_number_by_locus, '>', $number_by_locus )
+	  or $logger->error("Can't open output file $number_by_isolate for writing");
+	print $fh_rscu_by_isolate "Isolate\t@codons\n";
+	print $fh_number_by_isolate "Isolate\t@codons\n";
+	my $progress = 0;
+	my $count    = 0;
+
+	foreach my $id (@$list) {
+		last if $count == $limit;
+		$count++;
+		next if $bad_ids->{$id};
+		$no_output = 0;
+		$includes_by_id->{$id} ||= '';
+		print $fh_rscu_by_isolate "$id$includes_by_id->{$id}";
+		print $fh_number_by_isolate "$id$includes_by_id->{$id}";
+		foreach my $codon (@codons) {
+			$total_codon_count->{$id}->{$codon} ||= 0;
+			my $aa = $translate{$codon};
+			$total_aa_count->{$id}->{$aa} ||= 0;
+			my $expected = $total_aa_count->{$id}->{$aa} / $codons_per_aa{$aa};
+			my $rscu = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
+			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
+			print $fh_rscu_by_isolate "\t$rscu";
+			print $fh_number_by_isolate "\t$total_codon_count->{$id}->{$codon}";
+		}
+		print $fh_rscu_by_isolate "\n";
+		print $fh_number_by_isolate "\n";
+		$progress++;
+		my $complete = 90 + int( 5 * $progress / @$list );    #go up to 95%
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+	}
+	local $" = "\t";
+	print $fh_rscu_by_locus "Locus\t@codons\n";
+	print $fh_number_by_locus "Locus\t@codons\n";
+	$progress = 0;
+	my $set_id = $self->get_set_id;
+	foreach my $locus (@$selected_loci) {
+		my $display_locus = $self->clean_locus( $locus, { text_output => 1 } );
+		$no_output = 0;
+		print $fh_rscu_by_locus "$display_locus";
+		print $fh_number_by_locus "$display_locus";
+		foreach my $codon (@codons) {
+			my $aa       = $translate{$codon};
+			my $expected = ( $locus_aa_count->{$locus}->{$aa} // 0 ) / $codons_per_aa{$aa};
+			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;
+			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
+			print $fh_rscu_by_locus "\t$rscu";
+			print $fh_number_by_locus "\t" . ( $locus_codon_count->{$locus}->{$codon} // 0 );
+		}
+		print $fh_rscu_by_locus "\n";
+		print $fh_number_by_locus "\n";
+		$progress++;
+		my $complete = 95 + int( 5 * $progress / scalar @$selected_loci );    #go up to 100%
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+	}
+	close $fh_rscu_by_isolate;
+	close $fh_number_by_isolate;
+	close $fh_rscu_by_locus;
+	close $fh_number_by_locus;
+	if ( keys %$bad_ids ) {
+		local $" = ', ';
+		my @bad_ids = sort keys %$bad_ids;
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n);
+	}
+	if ($no_output) {
+		$message_html .= q(<p>No output generated.  Please ensure that your )
+		  . qq(sequences have been defined for these isolates.</p>\n);
+	} else {
+		my %file_desc = (
+			rscu_by_isolate   => 'Relative synonymous codon usage (RSCU) by isolate',
+			number_by_isolate => 'Absolute frequency of codon usage by isolate',
+			rscu_by_locus     => 'Relative synonymous codon usage (RSCU) by locus',
+			number_by_locus   => 'Absolute frequency of codon usage by locus'
+		);
+		my $i = 0;
+		foreach my $file ( sort keys %file_desc ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}_$file.txt", description => "0${i}_$file_desc{$file} (text)" } );
+			$i++;
+		}
+		foreach my $file ( sort keys %file_desc ) {
+			my $excel = BIGSdb::Utils::text2excel(
+				"$self->{'config'}->{'tmp_dir'}/${job_id}_$file.txt",
+				{ tmp_dir => $self->{'config'}->{'secure_tmp_dir'} }
+			);
+			if ( -e $excel ) {
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => "${job_id}_$file.xlsx",
+						description => "0${i}_$file_desc{$file} (Excel)"
+					}
+				);
+				$i++;
+			}
+		}
+	}
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
+	return;
+}
+
+sub _calculate {
+	my ( $self, $job_id, $loci, $ids, $includes, $params ) = @_;
+	my $progress = 0;
+	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
 	my %bad_ids;
-	my $view = $self->{'system'}->{'view'};
-	foreach my $locus_name (@$selected_loci) {
+	my %includes_by_id;
+	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
+	foreach my $locus_name (@$loci) {
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		try {
@@ -277,27 +390,23 @@ sub run_job {
 		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
 		local $" = '|';
 		my $count = 0;
-		foreach my $id (@$list) {
+		foreach my $id (@$ids) {
 			last if $count == $limit;
 			$count++;
 			my @include_values;
 			next if $bad_ids{$id};
-			if (
-				!BIGSdb::Utils::is_int($id)
-				|| !$self->{'datastore'}->run_query(
-					"SELECT EXISTS(SELECT * FROM $view WHERE id=?)",
-					$id,
-					{ cache => 'CodonUsage::run_job_id_exists' }
-				)
-			  )
-			{
+			my $id_exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+				$id, { cache => 'CodonUsage::run_job_id_exists' } );
+			if ( !$id_exists ) {
 				$bad_ids{$id} = 1;
 				next;
 			}
-			if (@includes) {
-				my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $view WHERE id=?",
+			if (@$includes) {
+				my $include_data =
+				  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 					$id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
-				foreach my $field (@includes) {
+				foreach my $field (@$includes) {
 					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 					my $value;
 					if ( defined $metaset ) {
@@ -307,7 +416,7 @@ sub run_job {
 					}
 					$value =~ tr/ /_/;
 					push @include_values, $value;
-					$includes{$id} = "|@include_values";
+					$includes_by_id{$id} = "|@include_values";
 				}
 			}
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
@@ -316,13 +425,17 @@ sub run_job {
 				foreach my $allele_id (@$allele_ids) {
 					try {
 						my $seq = $locus->get_allele_sequence($allele_id);
-						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} || 1 );
+						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} // 1 );
 					}
 					catch BIGSdb::DatabaseConnectionException with {    #do nothing
 					};
 				}
 			}
 			my $seqbin_seq;
+			my $ignore_seqflag;
+			if ( $params->{'ignore_seqflags'} ) {
+				$ignore_seqflag = 'AND flag IS NULL';
+			}
 			my $data = $self->{'datastore'}->run_query(
 				'SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-'
 				  . 'allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON '
@@ -370,119 +483,17 @@ sub run_job {
 			unlink $cusp_file, $temp_file;
 		}
 		$progress++;
-		my $complete = int( 90 * $progress / scalar @$selected_loci );    #go up to 90%
+		my $complete = int( 90 * $progress / @$loci );    #go up to 90%
 		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	my $message_html;
-	local $" = "\t";
-	my @codons = $self->_get_codons;
-	if ( $params->{'codonorder'} eq 'alphabetical' ) {
-		@codons = sort @codons;
-	}
-	open( my $fh_rscu_by_isolate, '>', $rscu_by_isolate )
-	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
-	open( my $fh_number_by_isolate, '>', $number_by_isolate )
-	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
-	open( my $fh_rscu_by_locus, '>', $rscu_by_locus )
-	  or $logger->error("Can't open output file $rscu_by_locus for writing");
-	open( my $fh_number_by_locus, '>', $number_by_locus )
-	  or $logger->error("Can't open output file $number_by_isolate for writing");
-	print $fh_rscu_by_isolate "Isolate\t@codons\n";
-	print $fh_number_by_isolate "Isolate\t@codons\n";
-	$progress = 0;
-	my $count = 0;
-
-	foreach my $id (@$list) {
-		last if $count == $limit;
-		$count++;
-		next if $bad_ids{$id};
-		$no_output = 0;
-		$includes{$id} ||= '';
-		print $fh_rscu_by_isolate "$id$includes{$id}";
-		print $fh_number_by_isolate "$id$includes{$id}";
-		foreach my $codon (@codons) {
-			$total_codon_count->{$id}->{$codon} ||= 0;
-			my $aa = $translate{$codon};
-			$total_aa_count->{$id}->{$aa} ||= 0;
-			my $expected = $total_aa_count->{$id}->{$aa} / $codons_per_aa{$aa};
-			my $rscu = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
-			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
-			print $fh_rscu_by_isolate "\t$rscu";
-			print $fh_number_by_isolate "\t$total_codon_count->{$id}->{$codon}";
-		}
-		print $fh_rscu_by_isolate "\n";
-		print $fh_number_by_isolate "\n";
-		$progress++;
-		my $complete = 90 + int( 5 * $progress / @$list );    #go up to 95%
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
-	}
-	local $" = "\t";
-	print $fh_rscu_by_locus "Locus\t@codons\n";
-	print $fh_number_by_locus "Locus\t@codons\n";
-	$progress = 0;
-	my $set_id = $self->get_set_id;
-	foreach my $locus (@$selected_loci) {
-		my $display_locus = $self->clean_locus( $locus, { text_output => 1 } );
-		$no_output = 0;
-		print $fh_rscu_by_locus "$display_locus";
-		print $fh_number_by_locus "$display_locus";
-		foreach my $codon (@codons) {
-			my $aa       = $translate{$codon};
-			my $expected = ( $locus_aa_count->{$locus}->{$aa} // 0 ) / $codons_per_aa{$aa};
-			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;
-			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
-			print $fh_rscu_by_locus "\t$rscu";
-			print $fh_number_by_locus "\t" . ( $locus_codon_count->{$locus}->{$codon} // 0 );
-		}
-		print $fh_rscu_by_locus "\n";
-		print $fh_number_by_locus "\n";
-		$progress++;
-		my $complete = 95 + int( 5 * $progress / scalar @$selected_loci );    #go up to 100%
-		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
-	}
-	foreach (qw ($fh_rscu_by_isolate $fh_number_by_isolate $fh_rscu_by_locus $fh_number_by_locus)) {
-		close $_;
-	}
-	if ( keys %bad_ids ) {
-		local $" = ', ';
-		my @bad_ids = sort keys %bad_ids;
-		$message_html = qq(<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n);
-	}
-	if ($no_output) {
-		$message_html .= q(<p>No output generated.  Please ensure that your )
-		  . qq(sequences have been defined for these isolates.</p>\n);
-	} else {
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => "$job_id\_rscu_by_isolate.txt",
-				description => 'Relative synonymous codon usage (RSCU) by isolate'
-			}
-		);
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => "$job_id\_number_by_isolate.txt",
-				description => 'Absolute frequency of codon usage by isolate'
-			}
-		);
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => "$job_id\_rscu_by_locus.txt",
-				description => 'Relative synonymous codon usage (RSCU) by locus'
-			}
-		);
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename    => "$job_id\_number_by_locus.txt",
-				description => 'Absolute frequency of codon usage by locus'
-			}
-		);
-	}
-	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
-	return;
+	return {
+		bad_ids           => \%bad_ids,
+		includes_by_ids   => \%includes_by_id,
+		locus_codon_count => $locus_codon_count,
+		locus_aa_count    => $locus_aa_count,
+		total_codon_count => $total_codon_count,
+		total_aa_count    => $total_aa_count
+	};
 }
 
 sub _get_codons {
