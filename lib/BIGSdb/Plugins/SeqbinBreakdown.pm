@@ -513,6 +513,7 @@ sub _initiate_statement_handles {
 
 sub _get_rounded_width {
 	my ( $self, $width );
+	$width //= 0;
 	return 5   if $width < 50;
 	return 10  if $width < 100;
 	return 50  if $width < 500;
