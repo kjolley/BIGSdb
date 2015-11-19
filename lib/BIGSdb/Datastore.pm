@@ -26,6 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
 use File::Path qw(make_path);
+use Fcntl qw(:flock);
 use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
@@ -1698,6 +1699,7 @@ sub run_blast {
 	}
 	foreach my $run (@runs) {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/gx;
+		my $run_already_generated = $already_generated;
 		my $temp_fastafile;
 		if ( !$options->{'locus'} ) {
 			my $set_id = $options->{'set_id'} // 'all';
@@ -1711,10 +1713,10 @@ sub run_blast {
 
 			#Create file and BLAST db of all sequences in a cache directory so can be reused.
 			$temp_fastafile =
-			  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/$cleaned_run\_fastafile.txt";
+			  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/${cleaned_run}_fastafile.txt";
 			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
 			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
-				$already_generated = 1;
+				$run_already_generated = 1;
 			} else {
 				my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id";
 				if ( -f $new_path ) {
@@ -1728,90 +1730,33 @@ sub run_blast {
 				}
 			}
 		} else {
-			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}\_$cleaned_run\_fastafile.txt";
+			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}_${cleaned_run}_fastafile.txt";
 		}
-		if ( !$already_generated ) {
-			my ( $qry, $sql );
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
-				$qry = 'SELECT locus,allele_id,sequence from sequences WHERE locus=?';
-			} else {
-				my $set_id = $options->{'set_id'};
-				if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
-					my $scheme_id = $1;
-					$qry =
-					    q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM ]
-					  . qq[scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE ]
-					  . q[data_type=?) AND allele_id != 'N'];
-				} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/x ) {
-					my $group_id = $1;
-					my $group_schemes = $self->get_schemes_in_group( $group_id, { set_id => $set_id } );
-					local $" = ',';
-					$qry =
-					    q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM ]
-					  . qq[scheme_members WHERE scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci ]
-					  . q[WHERE data_type=?) AND allele_id != 'N'];
-				} else {
-					$qry = q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci ]
-					  . q[WHERE data_type=?)];
-					if ($set_id) {
-						$qry .=
-						    q[ AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT ]
-						  . qq[scheme_id FROM set_schemes WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM ]
-						  . qq[set_loci WHERE set_id=$set_id)) AND allele_id != 'N'];
-					}
-				}
+		my $lock_just_removed = 0;
+		if ( !$options->{'locus'} ) {          #All loci
+			( my $dir = $temp_fastafile ) =~ s/\/[^\/]*$//x;
+			my $lock_file = "$dir/${run}_LOCK";
+			if ( -e $lock_file ) {
+
+				#Wait for lock to clear.
+				open( my $lock_fh, '<', $lock_file ) || $logger->error('Cannot read lock file.');
+				flock( $lock_fh, LOCK_SH ) or $logger->error("Can't flock $lock_file: $!");
+				close $lock_fh;
+				$lock_just_removed = 1;
 			}
-			$sql = $self->{'db'}->prepare($qry);
-			eval { $sql->execute($run) };
-			$logger->error($@) if $@;
-			open( my $fasta_fh, '>', $temp_fastafile ) || $logger->error("Can't open $temp_fastafile for writing");
-			my $seqs_ref = $sql->fetchall_arrayref;
-			foreach (@$seqs_ref) {
-				my ( $returned_locus, $id, $seq ) = @$_;
-				next if !length $seq;
-				print $fasta_fh ( $options->{'locus'}
-					  && $options->{'locus'} !~ /SCHEME_\d+/x
-					  && $options->{'locus'} !~ /GROUP_\d+/x )
-				  ? ">$id\n$seq\n"
-				  : ">$returned_locus:$id\n$seq\n";
-			}
-			close $fasta_fh;
-			if ( !-z $temp_fastafile ) {
-				my $dbtype;
-				if (   $options->{'locus'}
-					&& $options->{'locus'} !~ /SCHEME_\d+/x
-					&& $options->{'locus'} !~ /GROUP_\d+/x )
-				{
-					$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
-				} else {
-					$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
-				}
-				system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-					( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => $dbtype ) );
-			}
+		}
+		if ( !$run_already_generated && !$lock_just_removed ) {
+			$self->_create_blast_db( $options, $run, $temp_fastafile );
 		}
 		if ( !-z $temp_fastafile ) {
 
 			#create query fasta file
 			open( my $infile_fh, '>', $temp_infile ) || $logger->error("Can't open $temp_infile for writing");
-			print $infile_fh ">Query\n";
-			print $infile_fh "${$options->{'seq_ref'}}\n";
+			say $infile_fh '>Query';
+			say $infile_fh ${ $options->{'seq_ref'} };
 			close $infile_fh;
-			my $program;
-			if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
-				if ( $options->{'qry_type'} eq 'DNA' ) {
-					$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
-				} else {
-					$program = $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
-				}
-			} else {
-				if ( $run eq 'DNA' ) {
-					$program = $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
-				} else {
-					$program = $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
-				}
-			}
-			my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+			my $program = $self->_determine_blast_program( $locus_info, $run, $options );
+			my $blast_threads = $self->{'config'}->{'blast_threads'} // 1;
 			my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 			my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
 			my $format = $options->{'alignment'} ? 0 : 6;
@@ -1825,6 +1770,7 @@ sub run_blast {
 				-outfmt      => $format,
 				-$filter     => 'no'
 			);
+
 			if ( $options->{'alignment'} ) {
 				$params{'-num_alignments'} = $options->{'num_results'};
 			} else {
@@ -1852,6 +1798,104 @@ sub run_blast {
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x && !/outfile.txt/x }
 	}
 	return ( $outfile_url, $options->{'job'} );
+}
+
+sub _determine_blast_program {
+	my ( $self, $locus_info, $run, $options ) = @_;
+	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
+		if ( $options->{'qry_type'} eq 'DNA' ) {
+			return $locus_info->{'data_type'} eq 'DNA' ? 'blastn' : 'blastx';
+		} else {
+			return $locus_info->{'data_type'} eq 'DNA' ? 'tblastn' : 'blastp';
+		}
+	} else {
+		if ( $run eq 'DNA' ) {
+			return $options->{'qry_type'} eq 'DNA' ? 'blastn' : 'tblastn';
+		} else {
+			return $options->{'qry_type'} eq 'DNA' ? 'blastx' : 'blastp';
+		}
+	}
+}
+
+sub _create_blast_db {
+	my ( $self, $options, $run, $fasta_file ) = @_;
+	my ( $qry, $sql );
+	( my $dir = $fasta_file ) =~ s/\/[^\/]*$//x;
+	my $lock_file = "$dir/${run}_LOCK";
+	my $lock_fh;
+	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
+
+		#Specific locus selected
+		$qry = 'SELECT locus,allele_id,sequence from sequences WHERE locus=?';
+	} else {
+		my $set_id = $options->{'set_id'};
+		if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
+
+			#Single scheme
+			my $scheme_id = $1;
+			$qry =
+			    q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM ]
+			  . qq[scheme_members WHERE scheme_id=$scheme_id) AND locus IN (SELECT id FROM loci WHERE ]
+			  . q[data_type=?) AND allele_id NOT IN ('N','0')];
+		} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/x ) {
+
+			#Scheme group
+			my $group_id = $1;
+			my $group_schemes = $self->get_schemes_in_group( $group_id, { set_id => $set_id } );
+			local $" = ',';
+			$qry =
+			    q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM ]
+			  . qq[scheme_members WHERE scheme_id IN (@$group_schemes)) AND locus IN (SELECT id FROM loci ]
+			  . q[WHERE data_type=?) AND allele_id NOT IN ('N','0')];
+		} else {
+
+			#All loci
+			#Prevent two makeblastdb processes running in the same directory
+			open( $lock_fh, '>', $lock_file ) || $logger->error('Cannot create lock file.');
+			flock( $lock_fh, LOCK_EX ) or $logger->error("Can't flock $lock_file: $!");
+			$qry = q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci ]
+			  . q[WHERE data_type=?)];
+			if ($set_id) {
+				$qry .=
+				    q[ AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT ]
+				  . qq[scheme_id FROM set_schemes WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM ]
+				  . qq[set_loci WHERE set_id=$set_id))];
+			}
+			$qry .= q( AND allele_id NOT IN ('N','0'));
+		}
+	}
+	my $seqs_ref = $self->run_query( $qry, $run, { fetch => 'all_arrayref' } );
+	open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
+	flock( $fasta_fh, LOCK_EX ) or $logger->error("Can't flock $fasta_file: $!");
+	foreach (@$seqs_ref) {
+		my ( $returned_locus, $id, $seq ) = @$_;
+		next if !length $seq;
+		say $fasta_fh ( $options->{'locus'}
+			  && $options->{'locus'} !~ /SCHEME_\d+/x
+			  && $options->{'locus'} !~ /GROUP_\d+/x )
+		  ? ">$id\n$seq"
+		  : ">$returned_locus:$id\n$seq";
+	}
+	close $fasta_fh;
+	if ( !-z $fasta_file ) {
+		my $dbtype;
+		if (   $options->{'locus'}
+			&& $options->{'locus'} !~ /SCHEME_\d+/x
+			&& $options->{'locus'} !~ /GROUP_\d+/x )
+		{
+			my $locus_info = $self->get_locus_info( $options->{'locus'} );
+			$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
+		} else {
+			$dbtype = $run eq 'DNA' ? 'nucl' : 'prot';
+		}
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $dbtype ) );
+	}
+	if ($lock_fh) {
+		close $lock_fh;
+		unlink $lock_file;
+	}
+	return;
 }
 
 sub mark_cache_stale {
