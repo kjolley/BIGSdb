@@ -558,11 +558,11 @@ sub _make_chart {
 		  . '; &sigma;: '
 		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 );
 		if ( $type eq 'lengths' ) {
-			my $filename  = "$prefix\_lengths.txt";
+			my $filename  = "${prefix}_lengths.txt";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			if ( open( my $fh, '>', $full_path ) ) {
 				foreach my $length ( sort { $a <=> $b } @{ $data->{'lengths'} } ) {
-					print $fh "$length\n";
+					say $fh $length;
 				}
 				close $fh;
 				$chart_data->{'lengths_file'} = $filename;
