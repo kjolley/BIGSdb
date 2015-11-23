@@ -1794,12 +1794,18 @@ sub check_blast_cache {
 	if ( -e $temp_fastafile && !-e $stale_flag_file ) {
 		$run_already_generated = 1;
 	} else {
+		chmod 0774, "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 		my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset";
 		if ( -f $new_path ) {
 			$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
 		} else {
 			eval { make_path($new_path) };
 			$logger->error($@) if $@;
+
+			#This method may be called by apache during a web query or by the bigsdb user
+			#if called from external script. We need to make sure that files can be overwritten
+			#by both. bigsdb should be a member of the apache group and vice versa.
+			chmod 0774, $new_path;
 			unlink $stale_flag_file
 			  if $run eq $runs->[-1];    #only remove stale flag when creating last BLAST databases
 		}
@@ -1881,6 +1887,7 @@ sub create_blast_db {
 		}
 	}
 	my $seqs_ref = $self->run_query( $qry, $run, { fetch => 'all_arrayref' } );
+	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Can't open $fasta_file for writing");
 	flock( $fasta_fh, LOCK_EX ) or $logger->error("Can't flock $fasta_file: $!");
 	foreach (@$seqs_ref) {
