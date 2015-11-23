@@ -1689,7 +1689,7 @@ sub run_blast {
 
 	#create fasta index
 	my @runs;
-	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
+	if ( $self->_specific_locus_selected( $options->{'locus'} ) ) {
 		if ( $options->{'locus'} =~ /^((?:(?!\.\.).)*)$/x ) {    #untaint - check for directory traversal
 			$options->{'locus'} = $1;
 		}
@@ -1701,52 +1701,14 @@ sub run_blast {
 		( my $cleaned_run = $run ) =~ s/'/_prime_/gx;
 		my $run_already_generated = $already_generated;
 		my $temp_fastafile;
-		if ( !$options->{'locus'} ) {
-			my $set_id = $options->{'set_id'} // 'all';
-			$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';    # 'All loci'
-			if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
-				my $cache_age = $self->_get_cache_age($set_id);
-				if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
-					$self->mark_cache_stale;
-				}
-			}
-
-			#Create file and BLAST db of all sequences in a cache directory so can be reused.
-			$temp_fastafile =
-			  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/${cleaned_run}_fastafile.txt";
-			my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/stale";
-			if ( -e $temp_fastafile && !-e $stale_flag_file ) {
-				$run_already_generated = 1;
-			} else {
-				my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id";
-				if ( -f $new_path ) {
-					$logger->error(
-						"Can't create directory $new_path for cache files - a filename exists with this name.");
-				} else {
-					eval { make_path($new_path) };
-					$logger->error($@) if $@;
-					unlink $stale_flag_file
-					  if $run eq $runs[-1];    #only remove stale flag when creating last BLAST databases
-				}
-			}
+		if ( !$self->_specific_locus_selected( $options->{'locus'} ) ) {
+			my $check = $self->check_blast_cache( \@runs, $run, $options, $already_generated );
+			( $temp_fastafile, $run_already_generated ) = @{$check}{qw(temp_fastafile run_already_generated)};
 		} else {
 			$temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'job'}_${cleaned_run}_fastafile.txt";
 		}
-		my $lock_just_removed = 0;
-		if ( !$options->{'locus'} ) {          #All loci
-			( my $dir = $temp_fastafile ) =~ s/\/[^\/]*$//x;
-			my $lock_file = "$dir/${run}_LOCK";
-			if ( -e $lock_file ) {
-
-				#Wait for lock to clear.
-				open( my $lock_fh, '<', $lock_file ) || $logger->error('Cannot read lock file.');
-				flock( $lock_fh, LOCK_SH ) or $logger->error("Can't flock $lock_file: $!");
-				close $lock_fh;
-				$lock_just_removed = 1;
-			}
-		}
-		if ( !$run_already_generated && !$lock_just_removed ) {
-			$self->_create_blast_db( $options, $run, $temp_fastafile );
+		if ( !$run_already_generated ) {
+			$self->create_blast_db( $options, $run, $temp_fastafile );
 		}
 		if ( !-z $temp_fastafile ) {
 
@@ -1781,11 +1743,11 @@ sub run_blast {
 			  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
 			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
-				rename( $temp_outfile, "$temp_outfile\.1" );
+				rename( $temp_outfile, "${temp_outfile}.1" );
 			}
 		}
 	}
-	if ( !$options->{'locus'} || $options->{'locus'} =~ /SCHEME_\d+/x || $options->{'locus'} =~ /GROUP_\d+/x ) {
+	if ( !$self->_specific_locus_selected( $options->{'locus'} ) ) {
 		my $outfile1 = "$temp_outfile\.1";
 		BIGSdb::Utils::append( $outfile1, $temp_outfile ) if -e $outfile1;
 		unlink $outfile1 if -e $outfile1;
@@ -1798,6 +1760,61 @@ sub run_blast {
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x && !/outfile.txt/x }
 	}
 	return ( $outfile_url, $options->{'job'} );
+}
+
+#Is a specific locus selected rather then 'All loci' or a scheme or scheme group
+sub _specific_locus_selected {
+	my ( $self, $locus ) = @_;
+	if ( !$locus || $locus =~ /SCHEME_\d+/x || $locus =~ /GROUP_\d+/x ) {
+		return;
+	}
+	return 1;
+}
+
+sub check_blast_cache {
+	my ( $self, $runs, $run, $options, $already_generated, ) = @_;
+	my $dataset = $options->{'set_id'} ? "set_$options->{'set_id'}" : 'all';
+	if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
+		$dataset = "scheme_$1";
+	} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/x ) {
+		$dataset = "group_$1";
+	}
+	$dataset = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';    # 'All loci'
+	if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
+		my $cache_age = $self->_get_cache_age($dataset);
+		if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
+			$self->mark_cache_stale;
+		}
+	}
+	my $run_already_generated = $already_generated;
+	( my $cleaned_run = $run ) =~ s/'/_prime_/gx;
+	my $temp_fastafile =
+	  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset/${cleaned_run}_fastafile.txt";
+	my $stale_flag_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset/stale";
+	if ( -e $temp_fastafile && !-e $stale_flag_file ) {
+		$run_already_generated = 1;
+	} else {
+		my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset";
+		if ( -f $new_path ) {
+			$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
+		} else {
+			eval { make_path($new_path) };
+			$logger->error($@) if $@;
+			unlink $stale_flag_file
+			  if $run eq $runs->[-1];    #only remove stale flag when creating last BLAST databases
+		}
+	}
+	( my $dir = $temp_fastafile ) =~ s/\/[^\/]*$//x;
+	my $lock_file = "$dir/${run}_LOCK";
+	if ( -e $lock_file ) {
+
+		#Wait for lock to clear - database is being created by other process.
+		open( my $lock_fh, '<', $lock_file ) || $logger->error('Cannot read lock file.');
+		flock( $lock_fh, LOCK_SH ) or $logger->error("Can't flock $lock_file: $!");
+		close $lock_fh;
+		$run_already_generated = 1;
+	}
+	return { temp_fastafile => $temp_fastafile, run_already_generated => $run_already_generated };
 }
 
 sub _determine_blast_program {
@@ -1817,17 +1834,19 @@ sub _determine_blast_program {
 	}
 }
 
-sub _create_blast_db {
+sub create_blast_db {
 	my ( $self, $options, $run, $fasta_file ) = @_;
 	my ( $qry, $sql );
 	( my $dir = $fasta_file ) =~ s/\/[^\/]*$//x;
 	my $lock_file = "$dir/${run}_LOCK";
 	my $lock_fh;
-	if ( $options->{'locus'} && $options->{'locus'} !~ /SCHEME_\d+/x && $options->{'locus'} !~ /GROUP_\d+/x ) {
-
-		#Specific locus selected
+	if ( $self->_specific_locus_selected( $options->{'locus'} ) ) {
 		$qry = 'SELECT locus,allele_id,sequence from sequences WHERE locus=?';
 	} else {
+
+		#Prevent two makeblastdb processes running in the same directory
+		open( $lock_fh, '>', $lock_file ) || $logger->error('Cannot create lock file.');
+		flock( $lock_fh, LOCK_EX ) or $logger->error("Can't flock $lock_file: $!");
 		my $set_id = $options->{'set_id'};
 		if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
 
@@ -1850,9 +1869,6 @@ sub _create_blast_db {
 		} else {
 
 			#All loci
-			#Prevent two makeblastdb processes running in the same directory
-			open( $lock_fh, '>', $lock_file ) || $logger->error('Cannot create lock file.');
-			flock( $lock_fh, LOCK_EX ) or $logger->error("Can't flock $lock_file: $!");
 			$qry = q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT id FROM loci ]
 			  . q[WHERE data_type=?)];
 			if ($set_id) {
@@ -1905,8 +1921,8 @@ sub mark_cache_stale {
 	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 	if ( -d $dir ) {
 		foreach my $subdir ( glob "$dir/*" ) {
-			next if !-d $subdir;    #skip if not a dirctory
-			if ( $subdir =~ /\/(all|\d+)$/x ) {
+			next if !-d $subdir;    #skip if not a directory
+			if ( $subdir =~ /\/(all|set_\d+|scheme_\d+|group_\d+)$/x ) {
 				$subdir = $1;
 				my $stale_flag_file = "$dir/$subdir/stale";
 				open( my $fh, '>', $stale_flag_file ) || $logger->error('Cannot mark BLAST db stale.');
@@ -1918,10 +1934,10 @@ sub mark_cache_stale {
 }
 
 sub _get_cache_age {
-	my ( $self, $set_id ) = @_;
-	$set_id //= 'all';
-	$set_id = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
-	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$set_id/DNA_fastafile.txt";
+	my ( $self, $dataset ) = @_;
+	$dataset //= 'all';
+	$dataset = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';    # 'All loci'
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset/DNA_fastafile.txt";
 	return 0 if !-e $temp_fastafile;
 	return -M $temp_fastafile;
 }
