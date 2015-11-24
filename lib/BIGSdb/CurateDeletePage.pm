@@ -402,6 +402,7 @@ sub _confirm {
 			qq($data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" ) );
 	} elsif ( $table eq 'sequences' ) {
 		$self->{'datastore'}->mark_cache_stale;
+		$self->update_blast_caches;
 	}
 	return;
 }

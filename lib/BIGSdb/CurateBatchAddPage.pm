@@ -25,7 +25,6 @@ use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS);
-use BIGSdb::Offline::UpdateSchemeCaches;
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -1628,6 +1627,7 @@ sub _upload_data {
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
 		  . qq(ignore_similarity=$ignore_similarity">Add more</a>);
+		$self->update_blast_caches;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
 	}

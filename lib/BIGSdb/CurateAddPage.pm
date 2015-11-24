@@ -60,7 +60,7 @@ sub print_content {
 	}
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
-		my %seq_table = map {$_ => 1} qw(sequences retired_allele_ids);
+		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
 		if ( $seq_table{$table} && $q->param('locus') || $table eq 'locus_descriptions' ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
@@ -71,7 +71,7 @@ sub print_content {
 			  . qq(to the $table table.</p></div>);
 		}
 		return;
-	} 
+	}
 	if ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
 		my $locus = $q->param('locus');
 		if (   !$self->is_admin
@@ -82,16 +82,16 @@ sub print_content {
 			  . q( for this locus.</p></div>);
 			return;
 		}
-	} 
+	}
 	if ( $table eq 'allele_designations' ) {
 		say q(<div class="box" id="statusbad"><p>Please add allele designations using )
 		  . q(the isolate update interface.</p></div>);
 		return;
-	} 
+	}
 	if ( $table eq 'allele_sequences' ) {
 		say q(<div class="box" id="statusbad"><p>Tag allele sequences using the scan interface.</p></div>);
 		return;
-	} 
+	}
 	if ( $table eq 'sequence_bin' ) {
 		say q(<div class="box" id="statusbad"><p>Add contigs using the batch add page.</p></div>);
 		return;
@@ -269,6 +269,7 @@ sub _insert {
 				$cleaned_locus =~ s/\\'/'/gx;
 				say q(<div class="box" id="resultsheader">)
 				  . qq(<p>Sequence $cleaned_locus: $newdata->{'allele_id'} added!</p>);
+				$self->update_blast_caches;
 			} else {
 				my $record_name = $self->get_record_name($table);
 				say qq(<div class="box" id="resultsheader"><p>$record_name added!</p>);
@@ -366,9 +367,10 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 	if ( !$length ) {
 		push @$problems, 'Sequence is a required field and can not be left blank.<br />';
 	}
-	my $retired = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-	[$newdata->{'locus'},$newdata->{'allele_id'}]);
-	if ($retired){
+	my $retired =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
 	if ( !$q->param('ignore_length') ) {

@@ -389,6 +389,7 @@ sub _upload {
 	say q(</div>);
 	$self->{'db'}->commit;
 	$self->{'datastore'}->mark_cache_stale;
+	$self->update_blast_caches;
 	return;
 }
 

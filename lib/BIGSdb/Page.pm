@@ -27,7 +27,7 @@ use List::MoreUtils qw(uniq none);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
-sub new {                 ## no critic (RequireArgUnpacking)
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -840,11 +840,16 @@ sub _print_footer {
 
 sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
-	my $lociAdd = '';
-	my $loci;
-	my $set_id = $self->get_set_id;
+	my $lociAdd    = '';
+	my $loci       = [];
+	my $set_id     = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-	if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+
+	#If we're updating the BLAST caches, this is happening in a forked process
+	#and the database access has been closed, so we cannot check admin status or
+	#perform a database query.  This is likely to only be the case for the footer
+	#HTML file.
+	if ( $self->{'curate'} && !$self->{'update_blast_caches'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
 			my $qry = 'SELECT id FROM loci';
 			if ($set_id) {
@@ -2270,7 +2275,7 @@ sub print_seqbin_isolate_fieldset {
 				-name        => 'isolate_paste_list',
 				-id          => 'isolate_paste_list',
 				-cols        => 12,
-				-rows        => $options->{'size'} ? ($options->{'size'} - 1) : 7,
+				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
 				-placeholder => 'Paste list of isolate ids...'
 			);
 			say q(</div>);
@@ -2311,7 +2316,8 @@ sub print_isolates_locus_fieldset {
 	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		say q(<div style="float:left">);
 		say $self->popup_menu(
@@ -2344,7 +2350,7 @@ sub print_isolates_locus_fieldset {
 				-name        => 'locus_paste_list',
 				-id          => 'locus_paste_list',
 				-cols        => 12,
-				-rows        => $options->{'size'} ? ($options->{'size'} - 1) : 7,
+				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
 				-placeholder => 'Paste list of locus primary names...'
 			);
 			say q(</div>);

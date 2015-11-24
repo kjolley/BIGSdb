@@ -1064,4 +1064,36 @@ sub _create_mv_indexes {
 	}
 	return;
 }
+
+#This should only be called once all databases accesses have completed.
+sub update_blast_caches {
+	my ($self) = @_;
+	$self->{'update_blast_caches'} = 1;
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null' || $logger->error("Can't detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
+			BIGSdb::Offline::UpdateBlastCaches->new(
+				{
+					config_dir       => $self->{'config_dir'},
+					lib_dir          => $self->{'lib_dir'},
+					dbase_config_dir => $self->{'dbase_config_dir'},
+					instance         => $self->{'instance'},
+					options          => { q => 1 },
+				}
+			);
+			CORE::exit(0);
+		}
+	}
+	return;
+}
 1;
