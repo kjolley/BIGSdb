@@ -741,7 +741,8 @@ sub _print_isolate_table_header {
 
 sub _get_isolate_header_scheme_fields {
 	my ( $self, $schemes, $limit_qry ) = @_;
-	my ( $field_type_header, $header ) = q() x 2;
+	my $field_type_header = q();
+	my $header            = q();
 	foreach my $scheme (@$schemes) {
 		my $scheme_id = $scheme->{'id'};
 		next if !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};

@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.6',
+		version          => '1.5.7',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -172,7 +172,7 @@ sub run {
 			return;
 		}
 	}
-	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
+	my $limit = $self->_get_limit;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<div class="box" id="queryform">);
 		say q(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for )
@@ -219,43 +219,47 @@ sub run_job {
 	$self->set_offline_view($params);
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->_run_job_isolates( $job_id, $params );
+	} else {
+		$self->_run_job_profiles( $job_id, $params );
+	}
+	return;
+}
+
+sub _get_includes {
+	my ( $self, $params ) = @_;
+	my @includes;
+	if ( $params->{'includes'} ) {
+		my $separator = '\|\|';
+		@includes = split /$separator/x, $params->{'includes'};
+	}
+	return \@includes;
+}
+
+sub _get_limit {
+	my ($self) = @_;
+	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
+	return $limit;
+}
+
+sub _get_scheme_view {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_view =
+	  $self->{'datastore'}->materialized_view_exists($scheme_id)
+	  ? "mv_scheme_$scheme_id"
+	  : "scheme_$scheme_id";
+	return $scheme_view;
+}
+
+sub _run_job_profiles {
+	my ( $self, $job_id, $params ) = @_;
 	my $scheme_id = $params->{'scheme_id'};
 	my $pk        = $params->{'pk'};
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
-	my $isolate_sql =
-	    $self->{'system'}->{'dbtype'} eq 'isolates'
-	  ? $self->{'db'}->prepare("SELECT * FROM $self->{'system'}->{'view'} WHERE id=?")
-	  : undef;
-	my ( @includes, %field_included );
-
-	if ( $params->{'includes'} ) {
-		my $separator = '\|\|';
-		@includes = split /$separator/x, $params->{'includes'};
-		%field_included = map { $_ => 1 } @includes;
-	}
-	my $substring_query;
-	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
-
-		#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
-		if ( $params->{'translate'} ) {
-			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 );
-		}
-		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
-		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
-	} else {
-		$substring_query = 'substring(sequence from allele_sequences.start_pos for '
-		  . 'allele_sequences.end_pos-allele_sequences.start_pos+1)';
-	}
-	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
-	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
-	my $seqbin_qry =
-	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN "
-	  . 'sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON '
-	  . 'allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? '
-	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
-	  . 'complete,allele_sequences.datestamp LIMIT 1';
+	my $includes = $self->_get_includes($params);
 	my @problem_ids;
 	my %problem_id_checked;
 	my $start = 1;
@@ -263,17 +267,13 @@ sub run_job {
 	my $no_output     = 1;
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci( $loci, { scheme_id => $scheme_id } );
-	my $ids;
+	my $ids           = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
+	my $limit         = $self->_get_limit;
+	my $scheme_view   = $self->_get_scheme_view($scheme_id);
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	} else {
-		$ids = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
-	}
-	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // DEFAULT_ALIGN_LIMIT;
 	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html =
-		  "<p class=\"statusbad\">Please note that output is limited to the first $limit records.</p>\n";
+		  q(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $progress = 0;
@@ -298,175 +298,53 @@ sub run_job {
 		foreach my $id (@$ids) {
 			last if $count == $limit && $params->{'align'};
 			$count++;
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				my @include_values;
-				eval { $isolate_sql->execute($id) };
-				$logger->error($@) if $@;
-				my $isolate_data = $isolate_sql->fetchrow_hashref;
-				if (@includes) {
-					foreach my $field (@includes) {
-						next if $field eq SEQ_SOURCE;
-						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-						my $value;
-						if ( defined $metaset ) {
-							$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-						} else {
-							$value = $isolate_data->{ lc($field) } // '';
-						}
-						$value =~ tr/ /_/;
-						push @include_values, $value;
+			my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM $scheme_view WHERE $pk=?",
+				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_profiles::profile_data' } );
+			my $profile_id = $profile_data->{ lc($pk) };
+			my $header;
+			if ( defined $profile_id ) {
+				$header = ">$profile_id";
+				if (@$includes) {
+					foreach my $field (@$includes) {
+						my $value = $profile_data->{ lc($field) } // '';
+						$value =~ tr/[\(\):, ]/_/;
+						$header .= "|$value";
 					}
 				}
-				if ( !$isolate_data->{'id'} ) {
-					push @problem_ids, $id if !$problem_id_checked{$id};
-					$problem_id_checked{$id} = 1;
-					next;
-				}
-				my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
-				my $allele_seq;
-				if ( $locus_info->{'data_type'} eq 'DNA' ) {
-					try {
-						foreach my $allele_id ( sort @$allele_ids ) {
-							next if $allele_id eq '0';
-							$allele_seq .= ${ $locus->get_allele_sequence($allele_id) };
-						}
-					}
-					catch BIGSdb::DatabaseConnectionException with {
-
-						#do nothing
-					};
-				}
-				my $seqbin_seq;
-				my $seqbin_pos = '';
-				if ($@) {
-					$logger->error($@);
-				} else {
-					my ( $reverse, $seqbin_id, $start_pos );
-					( $seqbin_seq, $reverse, $seqbin_id, $start_pos ) =
-					  $self->{'datastore'}
-					  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
-					if ($reverse) {
-						$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
-					}
-					$seqbin_pos = "$seqbin_id\_$start_pos" if $seqbin_seq;
-				}
-				my $seq;
-				if ( $allele_seq && $seqbin_seq ) {
-					if ( $params->{'chooseseq'} eq 'seqbin' ) {
-						$seq = $seqbin_seq;
-						push @include_values, $seqbin_pos if $field_included{&SEQ_SOURCE};
-					} else {
-						$seq = $allele_seq;
-						push @include_values, 'defined_allele' if $field_included{&SEQ_SOURCE};
-					}
-				} elsif ( $allele_seq && !$seqbin_seq ) {
-					$seq = $allele_seq;
-					push @include_values, 'defined_allele' if $field_included{&SEQ_SOURCE};
-				} elsif ($seqbin_seq) {
-					$seq = $seqbin_seq;
-					push @include_values, $seqbin_pos if $field_included{&SEQ_SOURCE};
-				} else {
-					$seq = 'N';
+			}
+			if ($profile_id) {
+				my $allele_id =
+				  $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
+				my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
+				say $fh_unaligned $header;
+				if ( $allele_id eq '0' || $allele_id eq 'N' ) {
+					say $fh_unaligned 'N';
 					$no_seq{$id} = 1;
-					push @include_values, 'no_seq' if $field_included{&SEQ_SOURCE};
-				}
-				if ( $params->{'in_frame'} || $params->{'translate'} ) {
-					$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
-				}
-				print $fh_unaligned ">$id";
-				local $" = '|';
-				print $fh_unaligned "|@include_values" if @includes;
-				print $fh_unaligned "\n";
-				if ( $params->{'translate'} ) {
-					my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
-					say $fh_unaligned $peptide;
 				} else {
+					my $seq = $self->_translate_seq_if_required( $params, $locus_info, $$allele_seq_ref );
 					say $fh_unaligned $seq;
 				}
 			} else {
-				my $scheme_view =
-				  $self->{'datastore'}->materialized_view_exists($scheme_id)
-				  ? "mv_scheme_$scheme_id"
-				  : "scheme_$scheme_id";
-				my $profile_sql = $self->{'db'}->prepare("SELECT * FROM $scheme_view WHERE $pk=?");
-				eval { $profile_sql->execute($id) };
-				$logger->error($@) if $@;
-				my $profile_data = $profile_sql->fetchrow_hashref;
-				my $profile_id   = $profile_data->{ lc($pk) };
-				my $header;
-				if ( defined $profile_id ) {
-					$header = ">$profile_id";
-					if (@includes) {
-						foreach my $field (@includes) {
-							my $value = $profile_data->{ lc($field) } // '';
-							$value =~ tr/[\(\):, ]/_/;
-							$header .= "|$value";
-						}
-					}
-				}
-				if ($profile_id) {
-					my $allele_id =
-					  $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )
-					  ->{'allele_id'};
-					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
-					say $fh_unaligned $header;
-					if ( $allele_id eq '0' || $allele_id eq 'N' ) {
-						say $fh_unaligned 'N';
-						$no_seq{$id} = 1;
-					} else {
-						my $allele_seq = $$allele_seq_ref;
-						if ( ( $params->{'in_frame'} || $params->{'translate'} )
-							&& $locus_info->{'data_type'} eq 'DNA' )
-						{
-							$allele_seq = BIGSdb::Utils::chop_seq( $allele_seq, $locus_info->{'orf'} || 1 );
-						}
-						if ( $params->{'translate'} && $locus_info->{'data_type'} eq 'DNA' ) {
-							my $peptide = $allele_seq ? Bio::Perl::translate_as_string($allele_seq) : 'X';
-							say $fh_unaligned $peptide;
-						} else {
-							say $fh_unaligned $allele_seq;
-						}
-					}
-				} else {
-					push @problem_ids, $id if !$problem_id_checked{$id};
-					$problem_id_checked{$id} = 1;
-					next;
-				}
+				push @problem_ids, $id if !$problem_id_checked{$id};
+				$problem_id_checked{$id} = 1;
+				next;
 			}
 		}
 		close $fh_unaligned;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
-		my $output_file;
-		if ( $params->{'align'} && $params->{'aligner'} eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
-			my $threads =
-			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
-			system(
-				"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file"
-			);
-			$output_file = $aligned_file;
-		} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
-			system( $self->{'config'}->{'muscle_path'}, -in => $temp_file, -out => $aligned_file, '-quiet' );
-			$output_file = $aligned_file;
-		} else {
-			$output_file = $temp_file;
-		}
-		if ( -e $output_file ) {
-			$no_output = 0;
-			my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $output_file );
-			while ( my $seq = $seq_in->next_seq ) {
-				my $length = $seq->length;
-				$end = $start + $length - 1;
-				print $fh '>' . $seq->id . ":$start-$end + $output_locus_name\n";
-				my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-				( my $id = $seq->id ) =~ s/\|.*$//x;
-				$sequence =~ s/N/-/g if $no_seq{$id};
-				say $fh $sequence;
+		$self->_append_sequences(
+			{
+				fh                => $fh,
+				output_locus_name => $output_locus_name,
+				params            => $params,
+				aligned_file      => $aligned_file,
+				temp_file         => $temp_file,
+				start             => \$start,
+				end               => \$end,
+				no_output_ref     => \$no_output,
+				no_seq            => \%no_seq
 			}
-			$start = ( $end // 0 ) + 1;
-			print $fh "=\n";
-		}
-		unlink $output_file;
-		unlink $temp_file;
+		);
 		$progress++;
 		my $complete = int( 100 * $progress / scalar @$selected_loci );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
@@ -477,14 +355,197 @@ sub run_job {
 		unlink $filename;
 		return;
 	}
+	$self->_output( $job_id, $params, \@problem_ids, $no_output, $filename );
+	return;
+}
+
+sub _run_job_isolates {
+	my ( $self, $job_id, $params ) = @_;
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	open( my $fh, '>', $filename )
+	  or $logger->error("Can't open output file $filename for writing");
+	my $includes       = $self->_get_includes($params);
+	my %field_included = map { $_ => 1 } @$includes;
+	my $seqbin_qry     = $self->_get_seqbin_query($params);
+	my @problem_ids;
+	my %problem_id_checked;
+	my $start = 1;
+	my $end;
+	my $no_output     = 1;
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci = $self->order_loci($loci);
+	my $ids           = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $limit         = $self->_get_limit;
+
+	if ( $params->{'align'} && @$ids > $limit ) {
+		my $message_html =
+		  q(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+	}
+	my $progress = 0;
+	foreach my $locus_name (@$selected_loci) {
+		last if $self->{'exit'};
+		my $output_locus_name = $self->clean_locus( $locus_name, { text_output => 1, no_common_name => 1 } );
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Processing $output_locus_name" } );
+		my %no_seq;
+		my $locus;
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
+		try {
+			$locus = $self->{'datastore'}->get_locus($locus_name);
+		}
+		catch BIGSdb::DataException with {
+			$logger->warn("Invalid locus '$locus_name' passed.");
+		};
+		my $temp         = BIGSdb::Utils::get_random();
+		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
+		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
+		open( my $fh_unaligned, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
+		my $count = 0;
+		foreach my $id (@$ids) {
+			last if $count == $limit && $params->{'align'};
+			$count++;
+			my @include_values;
+			my $isolate_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
+			foreach my $field (@$includes) {
+				next if $field eq SEQ_SOURCE;
+				my $value = $self->_get_field_value( $isolate_data, $field );
+				push @include_values, $value;
+			}
+			if ( !$isolate_data->{'id'} ) {
+				push @problem_ids, $id if !$problem_id_checked{$id};
+				$problem_id_checked{$id} = 1;
+				next;
+			}
+			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
+			my $allele_seq;
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				try {
+					foreach my $allele_id ( sort @$allele_ids ) {
+						next if $allele_id eq '0';
+						$allele_seq .= ${ $locus->get_allele_sequence($allele_id) };
+					}
+				}
+				catch BIGSdb::DatabaseConnectionException with {};    #do nothing
+			}
+			my $seqbin_seq;
+			my $seqbin_pos = q();
+			my ( $reverse, $seqbin_id, $start_pos );
+			( $seqbin_seq, $reverse, $seqbin_id, $start_pos ) =
+			  $self->{'datastore'}
+			  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
+			if ($reverse) {
+				$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
+			}
+			$seqbin_pos = "${seqbin_id}_$start_pos" if $seqbin_seq;
+			my $seq;
+			my $pos_include_value;
+			if ( $allele_seq && $seqbin_seq ) {
+				if ( $params->{'chooseseq'} eq 'seqbin' ) {
+					$seq               = $seqbin_seq;
+					$pos_include_value = $seqbin_pos;
+				} else {
+					$seq               = $allele_seq;
+					$pos_include_value = 'defined_allele';
+				}
+			} elsif ($allele_seq) {
+				$seq               = $allele_seq;
+				$pos_include_value = 'defined_allele';
+			} elsif ($seqbin_seq) {
+				$seq               = $seqbin_seq;
+				$pos_include_value = $seqbin_pos;
+			} else {
+				$seq               = 'N';
+				$no_seq{$id}       = 1;
+				$pos_include_value = 'no_seq';
+			}
+			push @include_values, $pos_include_value if $field_included{&SEQ_SOURCE};
+			print $fh_unaligned ">$id";
+			local $" = '|';
+			print $fh_unaligned "|@include_values" if @$includes;
+			print $fh_unaligned "\n";
+			$seq = $self->_translate_seq_if_required( $params, $locus_info, $seq );
+			say $fh_unaligned $seq;
+		}
+		close $fh_unaligned;
+		$self->{'db'}->commit;    #prevent idle in transaction table locks
+		$self->_append_sequences(
+			{
+				fh                => $fh,
+				output_locus_name => $output_locus_name,
+				params            => $params,
+				aligned_file      => $aligned_file,
+				temp_file         => $temp_file,
+				start             => \$start,
+				end               => \$end,
+				no_output_ref     => \$no_output,
+				no_seq            => \%no_seq
+			}
+		);
+		$progress++;
+		my $complete = int( 100 * $progress / scalar @$selected_loci );
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
+	}
+	close $fh;
+	if ( $self->{'exit'} ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		unlink $filename;
+		return;
+	}
+	$self->_output( $job_id, $params, \@problem_ids, $no_output, $filename );
+	return;
+}
+
+sub _translate_seq_if_required {
+	my ( $self, $params, $locus_info, $seq ) = @_;
+	if ( $locus_info->{'data_type'} eq 'DNA' ) {
+		if ( $params->{'in_frame'} || $params->{'translate'} ) {
+			$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} // 1 );
+		}
+		if ( $params->{'translate'} ) {
+			my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
+			return $peptide;
+		}
+	}
+	return $seq;
+}
+
+sub _get_seqbin_query {
+	my ( $self, $params ) = @_;
+	my $substring_query;
+	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
+
+		#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
+		if ( $params->{'translate'} ) {
+			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 );
+		}
+		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
+		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
+	} else {
+		$substring_query = 'substring(sequence from allele_sequences.start_pos for '
+		  . 'allele_sequences.end_pos-allele_sequences.start_pos+1)';
+	}
+	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
+	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
+	my $qry =
+	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN "
+	  . 'sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON '
+	  . 'allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? '
+	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
+	  . 'complete,allele_sequences.datestamp LIMIT 1';
+	return $qry;
+}
+
+sub _output {
+	my ( $self, $job_id, $params, $problem_ids, $no_output, $filename ) = @_;
 	my $message_html;
-	if (@problem_ids) {
+	if (@$problem_ids) {
 		local $" = ', ';
-		$message_html = "<p>The following ids could not be processed (they do not exist): @problem_ids.</p>\n";
+		$message_html = "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n";
 	}
 	if ($no_output) {
-		$message_html .= '<p>No output generated.  Please ensure that your sequences '
-		  . "have been defined for these isolates.</p>\n";
+		$message_html .=
+		  '<p>No output generated.  Please ensure that your sequences ' . "have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
@@ -517,6 +578,55 @@ sub run_job {
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 	return;
+}
+
+sub _append_sequences {
+	my ( $self, $args ) = @_;
+	my ( $fh, $output_locus_name, $params, $aligned_file, $temp_file, $start, $end, $no_output_ref, $no_seq ) =
+	  @{$args}{qw(fh output_locus_name params aligned_file temp_file start end no_output_ref no_seq)};
+	my $output_file;
+	if ( $params->{'align'} && $params->{'aligner'} eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
+		my $threads =
+		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+		system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file");
+		$output_file = $aligned_file;
+	} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
+		system( $self->{'config'}->{'muscle_path'}, -in => $temp_file, -out => $aligned_file, '-quiet' );
+		$output_file = $aligned_file;
+	} else {
+		$output_file = $temp_file;
+	}
+	if ( -e $output_file ) {
+		$$no_output_ref = 0;
+		my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $output_file );
+		while ( my $seq = $seq_in->next_seq ) {
+			my $length = $seq->length;
+			$$end = $$start + $length - 1;
+			print $fh '>' . $seq->id . ":$$start-$$end + $output_locus_name\n";
+			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+			( my $id = $seq->id ) =~ s/\|.*$//x;
+			$sequence =~ s/N/-/g if $no_seq->{$id};
+			say $fh $sequence;
+		}
+		$$start = ( $$end // 0 ) + 1;
+		print $fh "=\n";
+	}
+	unlink $output_file;
+	unlink $temp_file;
+	return;
+}
+
+sub _get_field_value {
+	my ( $self, $isolate_data, $field ) = @_;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $value;
+	if ( defined $metaset ) {
+		$value = $self->{'datastore'}->get_metadata_value( $isolate_data->{'id'}, $metaset, $metafield );
+	} else {
+		$value = $isolate_data->{ lc($field) } // '';
+	}
+	$value =~ tr/ /_/;
+	return $value;
 }
 
 sub get_plugin_javascript {
