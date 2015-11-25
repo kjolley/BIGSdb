@@ -1773,13 +1773,13 @@ sub _specific_locus_selected {
 
 sub check_blast_cache {
 	my ( $self, $runs, $run, $options, $already_generated, ) = @_;
-	my $dataset = $options->{'set_id'} ? "set_$options->{'set_id'}" : 'all';
+	my $dataset =
+	  ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' && $options->{'set_id'} ) ? "set_$options->{'set_id'}" : 'all';
 	if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
 		$dataset = "scheme_$1";
 	} elsif ( $options->{'locus'} =~ /GROUP_(\d+)/x ) {
 		$dataset = "group_$1";
 	}
-	$dataset = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';    # 'All loci'
 	if ( $run eq 'DNA' && defined $self->{'config'}->{'cache_days'} ) {
 		my $cache_age = $self->_get_cache_age($dataset);
 		if ( $cache_age > $self->{'config'}->{'cache_days'} ) {
@@ -1867,6 +1867,11 @@ sub create_blast_db {
 			#Scheme group
 			my $group_id = $1;
 			my $group_schemes = $self->get_schemes_in_group( $group_id, { set_id => $set_id } );
+			if ( !@$group_schemes ) {
+				$logger->error("Group $group_id contains no schemes - remove seq_query flag from group definition.")
+				  ;
+				return;
+			}
 			local $" = ',';
 			$qry =
 			    q[SELECT locus,allele_id,sequence FROM sequences WHERE locus IN (SELECT locus FROM ]
