@@ -282,6 +282,14 @@ sub _filter_ids_by_project {
 	return \@filtered_list;
 }
 
+sub _skip_because_existing {
+	my ( $self, $isolate_id, $locus, $params ) = @_;
+	my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+	return 1 if !$params->{'rescan_alleles'} && @$existing_allele_ids;
+	return 1 if !$params->{'rescan_seqs'} && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
+	return;
+}
+
 sub run_script {
 	my ($self)  = @_;
 	my $params  = $self->{'params'};
@@ -336,15 +344,12 @@ sub run_script {
 			next if $locus_checked{$locus};
 			$locus_checked{$locus} = 1;
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
-			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
-			next if !$params->{'rescan_alleles'} && @$existing_allele_ids;
-			next if !$params->{'rescan_seqs'} && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
+			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $off_end;
 			my $i = 1;
 			my $new_designation;
-
 			if ( ref $exact_matches && @$exact_matches ) {
 				my %new_matches;
 				foreach my $match (@$exact_matches) {
@@ -627,12 +632,10 @@ sub _get_row {
 	$cleaned_locus =~ s/\\/\\\\/gx;
 	$exact = 0 if $warning;
 
-	if (
-		$exact
+	if (   $exact
 		&& ( !@$existing_alleles || ( none { $match->{'allele'} eq $_ } @$existing_alleles ) )
 		&& $match->{'allele'} ne 'ref'
-		&& !$params->{'tblastx'}
-	  )
+		&& !$params->{'tblastx'} )
 	{
 		$buffer .= $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
