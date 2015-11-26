@@ -254,12 +254,41 @@ sub _get_probe_matches {
 	return $probe_matches;
 }
 
+sub _reached_limit {
+	my ( $self, $isolate_id, $start_time, $match, $options ) = @_;
+	if ( $match >= $options->{'limit'} ) {
+		$self->_write_status( $options->{'scan_job'}, 'match_limit_reached:1' );
+		$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
+		return 1;
+	}
+	if ( time >= $start_time + $options->{'time_limit'} ) {
+		$self->_write_status( $options->{'scan_job'}, 'time_limit_reached:1' );
+		$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
+		return 1;
+	}
+	return;
+}
+
+sub _filter_ids_by_project {
+	my ( $self, $ids, $project_id ) = @_;
+	return $ids if !BIGSdb::Utils::is_int($project_id);
+	my $project_members = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM project_members WHERE project_id=?',
+		$project_id, { fetch => 'col_arrayref' } );
+	my %project_members = map { $_ => 1 } @$project_members;
+	my @filtered_list;
+	foreach my $id (@$ids) {
+		push @filtered_list, $id if $project_members{$id};
+	}
+	return \@filtered_list;
+}
+
 sub run_script {
 	my ($self)  = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
-	my @isolate_ids = split( "\0", $params->{'isolate_id'} );
-	throw BIGSdb::DataException('Invalid isolate_ids passed') if !@isolate_ids;
+	my @isolate_list = split( "\0", $params->{'isolate_id'} );
+	throw BIGSdb::DataException('Invalid isolate_ids passed') if !@isolate_list;
+	my $filtered_list = $self->_filter_ids_by_project( \@isolate_list, $options->{'project_id'} );
 	my $loci = $self->{'options'}->{'loci'};
 	throw BIGSdb::DataException('Invalid loci passed') if ref $loci ne 'ARRAY';
 	my $labels = $self->{'options'}->{'labels'};
@@ -271,20 +300,9 @@ sub run_script {
 	my $new_seqs_found;
 	my %isolates_to_tag;
 	my $last_id_checked;
-	my $match_limit_reached;
-	my $out_of_time;
 	my $start_time   = time;
 	my $locus_prefix = BIGSdb::Utils::get_random();
-	my $isolates_in_project;
-	my $file_prefix = BIGSdb::Utils::get_random();
-
-	if ( $options->{'project_id'} && BIGSdb::Utils::is_int( $options->{'project_id'} ) ) {
-		$isolates_in_project = $self->{'datastore'}->run_query(
-			'SELECT isolate_id FROM project_members WHERE project_id=?',
-			$options->{'project_id'},
-			{ fetch => 'col_arrayref' }
-		);
-	}
+	my $file_prefix  = BIGSdb::Utils::get_random();
 	my $match        = 0;
 	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
@@ -296,20 +314,8 @@ sub run_script {
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
 
-	foreach my $isolate_id (@isolate_ids) {
-		next if $options->{'project_id'} && none { $isolate_id == $_ } @$isolates_in_project;
-		if ( $match >= $options->{'limit'} ) {
-			$match_limit_reached = 1;
-			$self->_write_status( $options->{'scan_job'}, 'match_limit_reached:1' );
-			$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
-			last;
-		}
-		if ( time >= $start_time + $options->{'time_limit'} ) {
-			$out_of_time = 1;
-			$self->_write_status( $options->{'scan_job'}, 'time_limit_reached:1' );
-			$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
-			last;
-		}
+	foreach my $isolate_id (@$filtered_list) {
+		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 		my $status = $self->_read_status( $options->{'scan_job'} );
 		last if $status->{'request_stop'};
 		next if $isolate_id eq '' || $isolate_id eq 'all';
@@ -329,18 +335,7 @@ sub run_script {
 			#Prevent multiple checking when locus selected individually and as part of scheme.
 			next if $locus_checked{$locus};
 			$locus_checked{$locus} = 1;
-			if ( $match >= $options->{'limit'} ) {
-				$match_limit_reached = 1;
-				$self->_write_status( $options->{'scan_job'}, 'match_limit_reached:1' );
-				$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
-				last;
-			}
-			if ( time >= $start_time + $options->{'time_limit'} ) {
-				$out_of_time = 1;
-				$self->_write_status( $options->{'scan_job'}, 'time_limit_reached:1' );
-				$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
-				last;
-			}
+			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if !$params->{'rescan_alleles'} && @$existing_allele_ids;
 			next if !$params->{'rescan_seqs'} && $self->{'datastore'}->allele_sequence_exists( $isolate_id, $locus );
@@ -632,10 +627,12 @@ sub _get_row {
 	$cleaned_locus =~ s/\\/\\\\/gx;
 	$exact = 0 if $warning;
 
-	if (   $exact
+	if (
+		$exact
 		&& ( !@$existing_alleles || ( none { $match->{'allele'} eq $_ } @$existing_alleles ) )
 		&& $match->{'allele'} ne 'ref'
-		&& !$params->{'tblastx'} )
+		&& !$params->{'tblastx'}
+	  )
 	{
 		$buffer .= $q->checkbox(
 			-name    => "id_$isolate_id\_$locus\_allele_$id",
