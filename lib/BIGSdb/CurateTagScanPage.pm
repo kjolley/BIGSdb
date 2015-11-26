@@ -119,6 +119,8 @@ sub initiate {
 					my $elapsed = time - $status->{'start_time'};
 					$self->{'refresh'} = $self->_get_refresh_time($elapsed);
 				}
+			} elsif ($status->{'request_stop'}){
+				$self->{'refresh'} = 1;
 			} else {
 				$self->{'refresh'} = 5;
 			}
