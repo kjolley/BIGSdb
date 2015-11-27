@@ -120,6 +120,7 @@ sub _before {
 	}
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
+	send_error( 'No access to databases - undergoing maintenance.', 503 ) if !$self->{'db'};
 	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
 	$self->_initiate_view;
