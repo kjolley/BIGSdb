@@ -326,7 +326,6 @@ sub run_script {
 		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 		my $status = $self->_read_status( $options->{'scan_job'} );
 		last if $status->{'request_stop'};
-		next if $isolate_id eq '' || $isolate_id eq 'all';
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %locus_checked;
 		my $pattern = LOCUS_PATTERN;
