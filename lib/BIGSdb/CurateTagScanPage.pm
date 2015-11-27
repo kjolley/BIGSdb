@@ -119,10 +119,11 @@ sub initiate {
 					my $elapsed = time - $status->{'start_time'};
 					$self->{'refresh'} = $self->_get_refresh_time($elapsed);
 				}
-			} elsif ($status->{'request_stop'}){
-				$self->{'refresh'} = 1;
 			} else {
 				$self->{'refresh'} = 5;
+			}
+			if ($status->{'request_stop'}){
+				$self->{'refresh'} = 1;
 			}
 			$self->{'refresh_page'} = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 			  . "page=tagScan&amp;scan=$scan_job&amp;results=1";

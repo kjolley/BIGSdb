@@ -266,6 +266,8 @@ sub _reached_limit {
 		$self->_write_status( $options->{'scan_job'}, "last_isolate:$isolate_id" );
 		return 1;
 	}
+	my $status = $self->_read_status( $options->{'scan_job'} );
+	return 1 if $status->{'request_stop'};
 	return;
 }
 
@@ -324,14 +326,10 @@ sub run_script {
 
 	foreach my $isolate_id (@$filtered_list) {
 		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
-		my $status = $self->_read_status( $options->{'scan_job'} );
-		last if $status->{'request_stop'};
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my %locus_checked;
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus_id (@$loci) {
-			$status = $self->_read_status( $options->{'scan_job'} );
-			last if $status->{'request_stop'};
 			my $row_buffer;
 			my $locus = $locus_id =~ /$pattern/x ? $1 : undef;
 			if ( !defined $locus ) {
