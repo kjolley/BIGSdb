@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use Bio::Tools::SeqStats;
-use constant MAX_INSTANT_RUN => 1;
+use constant MAX_INSTANT_RUN => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
