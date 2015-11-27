@@ -1851,7 +1851,7 @@ sub create_blast_db {
 	} else {
 
 		#Prevent two makeblastdb processes running in the same directory
-		open( $lock_fh, '>', $lock_file ) || $logger->error('Cannot create lock file.');
+		open( $lock_fh, '>', $lock_file ) || return;
 		flock( $lock_fh, LOCK_EX ) or $logger->error("Can't flock $lock_file: $!");
 		my $set_id = $options->{'set_id'};
 		if ( $options->{'locus'} =~ /SCHEME_(\d+)/x ) {
