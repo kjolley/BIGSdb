@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use Bio::Tools::SeqStats;
-use constant MAX_INSTANT_RUN => 2000;
+use constant MAX_INSTANT_RUN => 1;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.3',
+		version     => '1.3.4',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -248,6 +248,14 @@ sub run_job {
 	if ( $params->{'qry'} =~ /temp_list/x ) {
 		my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
+
+		#Convert list attribute field to ids.
+		my $view            = $self->{'system'}->{'view'};
+		my $ICASE_FIELD     = qr/UPPER\s*\($view.\w*?\)/x;
+		my $TEMP_LIST_VALUE = qr/\(SELECT\ value\ FROM\ temp_list\)/x;
+		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list))";
+		$params->{'qry'} =~ s/\($view.\w*?\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
+		$params->{'qry'} =~ s/\($ICASE_FIELD\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
 	}
 	$self->_write_tab_text(
 		{
@@ -267,7 +275,7 @@ sub run_job {
 				filename      => "$job_id.txt",
 				description   => '01_Export table (text)',
 				compress      => 1,
-				keep_original => 1                                           #Original needed to generate Excel file
+				keep_original => 1                           #Original needed to generate Excel file
 			}
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );

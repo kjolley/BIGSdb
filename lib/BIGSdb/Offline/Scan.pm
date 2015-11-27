@@ -347,6 +347,7 @@ sub run_script {
 			my $off_end;
 			my $i = 1;
 			my $new_designation;
+
 			if ( ref $exact_matches && @$exact_matches ) {
 				my %new_matches;
 				foreach my $match (@$exact_matches) {
@@ -406,11 +407,7 @@ sub run_script {
 						my $seq = $self->extract_seq_from_match($match);
 						$new_seqs_found = 1;
 						my $new = 1;
-						foreach ( @{ $new_alleles->{$locus} } ) {
-							if ( $seq eq $_ ) {
-								$new = 0;
-							}
-						}
+						$new = 0 if any { $seq eq $_ } @{ $new_alleles->{$locus} };
 						if ($new) {
 							push @{ $new_alleles->{$locus} }, $seq;
 							open( my $seqs_fh, '>>', $seq_filename )
