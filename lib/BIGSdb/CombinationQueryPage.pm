@@ -20,7 +20,7 @@ package BIGSdb::CombinationQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::ResultsTablePage);
+use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -45,11 +45,11 @@ sub get_help_url {
 }
 
 sub print_content {
-	my ($self)    = @_;
-	my $system    = $self->{'system'};
-	my $q         = $self->{'cgi'};
+	my ($self) = @_;
+	my $system = $self->{'system'};
+	my $q      = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
-	my $desc      = $self->get_db_description;
+	my $desc = $self->get_db_description;
 	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
@@ -71,6 +71,60 @@ sub print_content {
 	return;
 }
 
+sub _autofill {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $q           = $self->{'cgi'};
+	my @errors;
+	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $q->param($primary_key) ) ) {
+		push @errors, "$primary_key is an integer field.";
+	}
+	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $pk_value = $q->param($primary_key);
+	if ( !@errors ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			try {
+				my $loci_values =
+				  $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( [$pk_value] );
+				foreach my $i ( 0 .. @$loci - 1 ) {
+					$q->param( "l_$loci->[$i]", $loci_values->[$i] );
+				}
+			}
+			catch BIGSdb::DatabaseConfigurationException with {
+				push @errors, 'Error retrieving information from remote database - check configuration.';
+			};
+		} else {
+			my @cleaned_loci = @$loci;
+			foreach my $locus (@cleaned_loci) {
+				$locus =~ s/'/_PRIME_/gx;
+			}
+			local $" = ',';
+			my $scheme_view =
+			  $self->{'datastore'}->materialized_view_exists($scheme_id)
+			  ? "mv_scheme_$scheme_id"
+			  : "scheme_$scheme_id";
+			my $qry = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
+			my $loci_values = $self->{'datastore'}->run_query( $qry, $pk_value, { fetch => 'row_hashref' } );
+			foreach my $locus (@$loci) {
+				( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
+				$q->param( "l_$locus", $loci_values->{ lc($cleaned) } );
+			}
+		}
+	}
+	return \@errors;
+}
+
+sub _get_col_width {
+	my ( $self, $has_pk, $all_integers ) = @_;
+	if ($has_pk) {
+		return $all_integers ? 7 : 4;
+	} else {
+		return $all_integers ? 14 : 7;
+	}
+}
+
 sub _print_query_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -84,44 +138,10 @@ sub _print_query_interface {
 	  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	my $scheme_fields;
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
-	my @errors;
+	my $errors = [];
 
 	if ( $primary_key && $q->param('Autofill') ) {
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-		if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $q->param($primary_key) ) ) {
-			push @errors, "$primary_key is an integer field.";
-		}
-		my $pk_value = $q->param($primary_key);
-		if ( !@errors ) {
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				try {
-					my $loci_values =
-					  $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( [$pk_value] );
-					foreach my $i ( 0 .. @$loci - 1 ) {
-						$q->param( "l_$loci->[$i]", $loci_values->[$i] );
-					}
-				}
-				catch BIGSdb::DatabaseConfigurationException with {
-					push @errors, 'Error retrieving information from remote database - check configuration.';
-				};
-			} else {
-				my @cleaned_loci = @$loci;
-				foreach my $locus (@cleaned_loci) {
-					$locus =~ s/'/_PRIME_/gx;
-				}
-				local $" = ',';
-				my $scheme_view =
-				  $self->{'datastore'}->materialized_view_exists($scheme_id)
-				  ? "mv_scheme_$scheme_id"
-				  : "scheme_$scheme_id";
-				my $qry = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
-				my $loci_values = $self->{'datastore'}->run_query( $qry, $pk_value, { fetch => 'row_hashref' } );
-				foreach my $locus (@$loci) {
-					( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-					$q->param( "l_$locus", $loci_values->{ lc($cleaned) } );
-				}
-			}
-		}
+		$errors = $self->_autofill( $scheme_id, $loci );
 	}
 	say q(<div class="scrollable">);
 	say $q->start_form;
@@ -139,12 +159,7 @@ sub _print_query_interface {
 			last;
 		}
 	}
-	my $max_per_row;
-	if ($primary_key) {
-		$max_per_row = $all_integers ? 7 : 4;
-	} else {
-		$max_per_row = $all_integers ? 14 : 7;
-	}
+	my $max_per_row = $self->_get_col_width( $primary_key, $all_integers );
 	my @display_loci;
 	my (%label);
 	foreach my $locus (@$loci) {
@@ -241,209 +256,245 @@ sub _print_query_interface {
 	say $q->end_form;
 	say q(</div></div>);
 
-	if (@errors) {
+	if (@$errors) {
 		local $" = '<br />';
-		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@errors</p></div>);
+		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@$errors</p></div>);
 	}
 	return;
+}
+
+sub _get_scheme_view {
+	my ( $self, $scheme_id ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		return $self->{'datastore'}->materialized_view_exists($scheme_id)
+		  ? "mv_scheme_$scheme_id"
+		  : "scheme_$scheme_id";
+	}
+	return;
+}
+
+sub _generate_query {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_view = $self->_get_scheme_view($scheme_id);
+	my $q           = $self->{'cgi'};
+	my @params      = $q->param;
+	my @errors;
+	my $msg;
+	my $qry;
+	my @loci;
+	my %values;
+	my $pattern = LOCUS_PATTERN;
+
+	foreach my $param (@params) {
+		if ( $param =~ /$pattern/x ) {
+			if ( $q->param($param) ne q() ) {
+				push @loci, $1;
+				if ( $values{$1} && $q->param($param) && $values{$1} ne $q->param($param) ) {
+					my $aliases =
+					  $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
+						$1, { fetch => 'col_arrayref' } );
+					local $" = ', ';
+					push @errors,
+					    "Locus $1 has been defined with more than one value (due to an "
+					  . 'alias for this locus also being used). The following alias(es) exist '
+					  . "for this locus: @$aliases";
+					next;
+				}
+				$values{$1} = $q->param($param);
+			}
+		}
+	}
+	my @lqry;
+	foreach my $locus (@loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		$self->process_value( \$values{$locus} );
+		( my $cleaned_locus = $locus ) =~ s/'/\\'/gx;
+		if (
+			(
+				   $values{$locus} ne ''
+				&& $locus_info->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( $values{$locus} )
+			)
+			&& !( $scheme_info->{'allow_missing_loci'} && $values{$locus} eq 'N' )
+		  )
+		{
+			my $arbitrary_msg = $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
+			push @errors, "$locus is an integer field.$arbitrary_msg";
+			next;
+		}
+		next if $values{$locus} eq '';
+		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
+		my $locus_qry;
+		if ( $values{$locus} eq 'N' ) {
+			$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
+		} else {
+			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
+			$locus_qry =
+			  $locus_info->{'allele_id_format'} eq 'text'
+			  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
+			  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
+		}
+		$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
+		push @lqry, $locus_qry;
+	}
+	my $view = $self->{'system'}->{'view'};
+	if (@lqry) {
+		local $" = ' OR ';
+		my $required_matches = $q->param('matches_list');
+		$required_matches = scalar @lqry if $required_matches == @loci;
+		my $lqry;
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
+			  . "$view.id=allele_designations.isolate_id WHERE @lqry";
+		} else {
+			$lqry =
+			    '(SELECT DISTINCT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON '
+			  . 'profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id '
+			  . "AND profile_members.scheme_id=$scheme_id WHERE "
+			  . "$scheme_view.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
+		}
+		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
+			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
+			if ($match) {
+				$required_matches = $match;
+				$msg = $self->_get_match_msg( $match, scalar @lqry );
+			}
+		}
+		$lqry .=
+		  $self->{'system'}->{'dbtype'} eq 'isolates'
+		  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
+		  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$required_matches)";
+		$qry =
+		  $self->{'system'}->{'dbtype'} eq 'isolates'
+		  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
+		  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
+	}
+	$self->_modify_qry_by_filters( \$qry );
+	$self->_add_query_ordering( \$qry, $scheme_id );
+	return ( $qry, $msg, \@errors );
+}
+
+sub _add_query_ordering {
+	my ( $self, $qry_ref, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
+	$$qry_ref .= ' ORDER BY ';
+	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $order_field = $q->param('order');
+		my $pattern     = LOCUS_PATTERN;
+		if ( $order_field =~ /$pattern/x ) {
+			if ( $self->{'datastore'}->is_locus($1) ) {
+				$$qry_ref .= "l_$1";
+			} else {
+				$$qry_ref .= 'f_id';    #Invalid order field entered
+			}
+		} elsif ( $order_field =~ /s_(\d+)_(\S+)/x ) {
+			if ( $self->{'datastore'}->is_scheme_field( $1, $2 ) ) {
+				$$qry_ref .= $order_field;
+			} else {
+				$$qry_ref .= 'f_id';    #Invalid order field entered
+			}
+		} else {
+			if ( $order_field =~ /f_(.+)/x && $self->{'xmlHandler'}->is_field($1) ) {
+				$$qry_ref .= $order_field;
+			} else {
+				$$qry_ref .= 'f_id';    #Invalid order field entered
+			}
+		}
+		my $view = $self->{'system'}->{'view'};
+		$$qry_ref .= " $dir,$view.id;";
+	} else {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+		my $profile_id_field =
+		  $pk_info->{'type'} eq 'integer'
+		  ? "lpad($scheme_info->{'primary_key'},20,'0')"
+		  : $scheme_info->{'primary_key'};
+		my $order_field = $q->param('order') // $profile_id_field;
+		$order_field =~ s/^f_//x;
+		if ( $order_field eq $scheme_info->{'primary_key'} ) {
+			$$qry_ref .= "$profile_id_field $dir;";
+		} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
+			my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
+			$order_field =~ s/'/_PRIME_/gx;
+			$$qry_ref .=
+			  $locus_info->{'allele_id_format'} eq 'integer'
+			  ? "to_number(textcat('0', $order_field), text(99999999))"
+			  : $order_field;
+			$$qry_ref .= " $dir,$profile_id_field;";
+		} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $order_field ) ) {
+			my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $order_field );
+			$$qry_ref .= $field_info->{'type'} eq 'integer' ? "CAST($order_field AS int)" : $order_field;
+			$$qry_ref .= " $dir,$profile_id_field;";
+		} else {
+			$$qry_ref .= "$profile_id_field $dir;";    #Invalid order field entered
+		}
+	}
+	return;
+}
+
+sub _find_best_match_count {
+	my ( $self, $scheme_id, $lqry ) = @_;
+	my $q = $self->{'cgi'};
+	local $" = ' OR ';
+	my $match_qry;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view = $self->{'system'}->{'view'};
+		$match_qry =
+		  "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=isolate_id WHERE (@$lqry) ";
+		my $project_id = $q->param('project_list');
+		if ( BIGSdb::Utils::is_int($project_id) ) {
+			$match_qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id) ";
+		}
+		$match_qry .= "GROUP BY $view.id ORDER BY count($view.id) desc LIMIT 1";
+	} else {
+		$match_qry =
+		    'SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members '
+		  . 'ON profiles.profile_id=profile_members.profile_id AND '
+		  . 'profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id='
+		  . "$scheme_id WHERE @$lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) "
+		  . 'desc LIMIT 1';
+	}
+	my $match = $self->{'datastore'}->run_query($match_qry);
+	return $match;
+}
+
+sub _get_match_msg {
+	my ( $self, $match, $total_loci ) = @_;
+	my $term   = $match > 1  ? 'loci' : 'locus';
+	my $plural = $match == 1 ? ''     : 'es';
+	return $match == $total_loci
+	  ? "Exact match$plural found ($match $term)."
+	  : "Nearest match: $match $term.";
 }
 
 sub _run_query {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $qry;
 	my $msg;
-	my @errors;
-	my $scheme_view;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$scheme_view =
-		  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	}
+	my $errors = [];
 	if ( !defined $q->param('query_file') ) {
-		my @params = $q->param;
-		my @loci;
-		my %values;
-		my $pattern = LOCUS_PATTERN;
-		foreach my $param (@params) {
-			if ( $param =~ /$pattern/x ) {
-				if ( $q->param($param) ne q() ) {
-					push @loci, $1;
-					if ( $values{$1} && $q->param($param) && $values{$1} ne $q->param($param) ) {
-						my $aliases =
-						  $self->{'datastore'}
-						  ->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
-							$1, { fetch => 'col_arrayref' } );
-						local $" = ', ';
-						push @errors,
-						    "Locus $1 has been defined with more than one value (due to an "
-						  . 'alias for this locus also being used). The following alias(es) exist '
-						  . "for this locus: @$aliases";
-						next;
-					}
-					$values{$1} = $q->param($param);
-				}
-			}
-		}
-		my @lqry;
-		foreach my $locus (@loci) {
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			$values{$locus} = defined $values{$locus} ? $values{$locus} : '';
-			$values{$locus} =~ s/^\s*//x;
-			$values{$locus} =~ s/\s*$//x;
-			$values{$locus} =~ s/'/\\'/gx;
-			( my $cleaned_locus = $locus ) =~ s/'/\\'/gx;
-			if (
-				(
-					   $values{$locus} ne ''
-					&& $locus_info->{'allele_id_format'} eq 'integer'
-					&& !BIGSdb::Utils::is_int( $values{$locus} )
-				)
-				&& !( $scheme_info->{'allow_missing_loci'} && $values{$locus} eq 'N' )
-			  )
-			{
-				my $arbitrary_msg =
-				  $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
-				push @errors, "$locus is an integer field.$arbitrary_msg";
-				next;
-			}
-			next if $values{$locus} eq '';
-			my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
-			my $locus_qry;
-			if ( $values{$locus} eq 'N' ) {
-				$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
-			} else {
-				my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
-				$locus_qry =
-				  $locus_info->{'allele_id_format'} eq 'text'
-				  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
-				  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
-			}
-			$locus_qry .=
-			  $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
-			push @lqry, $locus_qry;
-		}
-		my $view = $self->{'system'}->{'view'};
-		if (@lqry) {
-			local $" = ' OR ';
-			my $required_matches = $q->param('matches_list');
-			$required_matches = scalar @lqry if $required_matches == @loci;
-			my $lqry;
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-				$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
-				  . "$view.id=allele_designations.isolate_id WHERE @lqry";
-			} else {
-				$lqry =
-				    '(SELECT DISTINCT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON '
-				  . 'profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id '
-				  . "AND profile_members.scheme_id=$scheme_id WHERE "
-				  . "$scheme_view.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
-			}
-			if ( $required_matches == 0 ) {    #Find out the greatest number of matches
-				my $match_qry;
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					$match_qry = "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON "
-					  . "$view.id=isolate_id WHERE (@lqry) ";
-					my $project_id = $q->param('project_list');
-					if ( BIGSdb::Utils::is_int($project_id) ) {
-						$match_qry .= " AND $view.id IN (SELECT isolate_id FROM "
-						  . "project_members WHERE project_id=$project_id) ";
-					}
-					$match_qry .= "GROUP BY $view.id ORDER BY count($view.id) desc LIMIT 1";
-				} else {
-					$match_qry =
-					    'SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members '
-					  . 'ON profiles.profile_id=profile_members.profile_id AND '
-					  . 'profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id='
-					  . "$scheme_id WHERE @lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) "
-					  . 'desc LIMIT 1';
-				}
-				my $match = $self->{'datastore'}->run_query($match_qry);
-				if ($match) {
-					$required_matches = $match;
-					my $term   = $match > 1  ? 'loci' : 'locus';
-					my $plural = $match == 1 ? ''     : 'es';
-					$msg =
-					  $match == scalar @lqry
-					  ? "Exact match$plural found ($match $term)."
-					  : "Nearest match: $match $term.";
-				}
-			}
-			$lqry .=
-			  $self->{'system'}->{'dbtype'} eq 'isolates'
-			  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
-			  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$required_matches)";
-			$qry = $self->{'system'}->{'dbtype'} eq 'isolates'
-			  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
-			  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
-		}
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			if ( $qry && ( $q->param('project_list') // '' ) ne '' ) {
-				my $project_id = $q->param('project_list');
-				if ($project_id) {
-					$qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
-				}
-			}
-			if ( $qry && !$q->param('include_old') ) {
-				$qry .= " AND ($view.new_version IS NULL)";
-			}
-		}
-		$qry .= ' ORDER BY ';
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $order_field = $q->param('order');
-			if ( $order_field =~ /la_(.+)\|\|/x || $order_field =~ /cn_(.+)/x ) {
-				if ( $self->{'datastore'}->is_locus($1) ) {
-					$qry .= "l_$1";
-				} else {
-					$qry .= 'f_id';    #Invalid order field entered
-				}
-			} else {
-				if ( $order_field =~ /f_(.+)/x && $self->{'xmlHandler'}->is_field($1) ) {
-					$qry .= $order_field;
-				} else {
-					$qry .= 'f_id';    #Invalid order field entered
-				}
-			}
-			$qry .= " $dir,$view.id;";
-		} else {
-			my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-			my $profile_id_field =
-			  $pk_info->{'type'} eq 'integer'
-			  ? "lpad($scheme_info->{'primary_key'},20,'0')"
-			  : $scheme_info->{'primary_key'};
-			my $order_field = $q->param('order') // $profile_id_field;
-			$order_field =~ s/^f_//x;
-			if ( $order_field eq $scheme_info->{'primary_key'} ) {
-				$qry .= "$profile_id_field $dir;";
-			} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
-				my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
-				$order_field =~ s/'/_PRIME_/gx;
-				$qry .=
-				  $locus_info->{'allele_id_format'} eq 'integer'
-				  ? "to_number(textcat('0', $order_field), text(99999999))"
-				  : $order_field;
-				$qry .= " $dir,$profile_id_field;";
-			} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $order_field ) ) {
-				my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $order_field );
-				$qry .= $field_info->{'type'} eq 'integer' ? "CAST($order_field AS int)" : $order_field;
-				$qry .= " $dir,$profile_id_field;";
-			} else {
-				$qry .= "$profile_id_field $dir;";    #Invalid order field entered
-			}
-		}
+		( $qry, $msg, $errors ) = $self->_generate_query($scheme_id);
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 	}
-	if (@errors) {
+	if (@$errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say "<p>@errors</p></div>";
+		say "<p>@$errors</p></div>";
 	} elsif ( $qry !~ /^\ ORDER\ BY/x ) {
 		my @hidden_attributes;
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
-		my $loci = $self->{'datastore'}->get_scheme_loci( $q->param('scheme_id') );
-		push @hidden_attributes, "l_$_" foreach @$loci;
+		my $set_id = $self->get_set_id;
+		my $loci =
+		    $scheme_id
+		  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
+		  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+		foreach my $locus (@$loci) {
+			push @hidden_attributes, "l_$locus" if $q->param("l_$locus");
+		}
 		push @hidden_attributes, qw(scheme_id matches_list);
 		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
 		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes };
@@ -451,6 +502,23 @@ sub _run_query {
 		$self->paged_display($args);
 	} else {
 		say q(<div class="box" id="statusbad">Invalid search performed.</div>);
+	}
+	return;
+}
+
+sub _modify_qry_by_filters {
+	my ( $self, $qry_ref ) = @_;
+	return if $self->{'system'}->{'dbtype'} eq 'sequences';
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	if ( $$qry_ref && ( $q->param('project_list') // '' ) ne '' ) {
+		my $project_id = $q->param('project_list');
+		if ($project_id) {
+			$$qry_ref .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
+		}
+	}
+	if ( $$qry_ref && !$q->param('include_old') ) {
+		$$qry_ref .= " AND ($view.new_version IS NULL)";
 	}
 	return;
 }

@@ -250,6 +250,7 @@ sub clean_list {
 
 sub process_value {
 	my ( $self, $value_ref ) = @_;
+	$$value_ref //= q();
 	$$value_ref =~ s/^\s*//x;
 	$$value_ref =~ s/\s*$//x;
 	$$value_ref =~ s/\\/\\\\/gx;
