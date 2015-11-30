@@ -48,7 +48,7 @@ sub print_content {
 	my ($self)    = @_;
 	my $system    = $self->{'system'};
 	my $q         = $self->{'cgi'};
-	my $scheme_id = $q->param('scheme_id');
+	my $scheme_id = $q->param('scheme_id') // 0;
 	my $desc      = $self->get_db_description;
 	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
