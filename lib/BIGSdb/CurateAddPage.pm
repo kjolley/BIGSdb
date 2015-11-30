@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(any none uniq);
+use List::MoreUtils qw(none uniq);
 use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID MAX_POSTGRES_COLS DATABANKS);
 use constant SUCCESS => 1;
 
@@ -47,17 +47,37 @@ sub get_help_url {
 	return;
 }
 
-sub print_content {
-	my ($self) = @_;
+sub _warn_about_scheme_modification {
+	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
-	my $table = $q->param('table') || '';
-	my $record_name = $self->get_record_name($table);
+	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences'
+		&& !$q->param('sent') )
+	{
+		say q(<div class="box" id="warning"><p>Please be aware that any modifications to the structure of )
+		  . q(this scheme will result in the removal of all data from it. This is done to ensure data integrity. )
+		  . q(This does not affect allele designations, but any profiles will have to be reloaded.</p></div>);
+	}
+	return;
+}
+
+sub _table_exists {
+	my ( $self, $table ) = @_;
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
 		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
 		return;
 	}
+	return 1;
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $table = $q->param('table') || '';
+	my $record_name = $self->get_record_name($table);
+	return if !$self->_table_exists($table);
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
 		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
@@ -72,38 +92,27 @@ sub print_content {
 		}
 		return;
 	}
-	if ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
+	my %table_references_loci = map { $_ => 1 } qw (sequence_refs accession);
+	if ( $table_references_loci{$table} && $q->param('locus') ) {
 		my $locus = $q->param('locus');
 		if (   !$self->is_admin
 			&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 		{
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add )
-			  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
-			  . q( for this locus.</p></div>);
+			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
+			  . qq(add ${record_name}s for this locus.</p></div>);
 			return;
 		}
 	}
-	if ( $table eq 'allele_designations' ) {
-		say q(<div class="box" id="statusbad"><p>Please add allele designations using )
-		  . q(the isolate update interface.</p></div>);
+	my %bad_table = (
+		allele_designations => 'Please add allele designations using the isolate update interface.',
+		allele_sequences    => 'Tag allele sequences using the scan interface.',
+		sequence_bin        => 'Add contigs using the batch add page.'
+	);
+	if ( $bad_table{$table} ) {
+		say qq(<div class="box" id="statusbad"><p>$bad_table{$table}</p></div>);
 		return;
 	}
-	if ( $table eq 'allele_sequences' ) {
-		say q(<div class="box" id="statusbad"><p>Tag allele sequences using the scan interface.</p></div>);
-		return;
-	}
-	if ( $table eq 'sequence_bin' ) {
-		say q(<div class="box" id="statusbad"><p>Add contigs using the batch add page.</p></div>);
-		return;
-	}
-	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
-		&& $self->{'system'}->{'dbtype'} eq 'sequences'
-		&& !$q->param('sent') )
-	{
-		say q(<div class="box" id="warning"><p>Please be aware that any modifications to the structure of )
-		  . q(this scheme will result in the removal of all data from it. This is done to ensure data integrity. )
-		  . q(This does not affect allele designations, but any profiles will have to be reloaded.</p></div>);
-	}
+	$self->_warn_about_scheme_modification($table);
 	my $buffer;
 	my %newdata;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -182,6 +191,19 @@ sub _check_locus_descriptions {
 	return;
 }
 
+sub _too_many_cols {
+	my ( $self, $has_pk, $field_count ) = @_;
+	if ( $has_pk && $field_count > MAX_POSTGRES_COLS ) {
+		say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
+		  . MAX_POSTGRES_COLS
+		  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's )
+		  . q(not really sensible to have indexed schemes (those with a primary key field) to have so )
+		  . q(many fields. Update failed.</p></div);
+		return 1;
+	}
+	return;
+}
+
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -190,14 +212,13 @@ sub _insert {
 	$self->_format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
-	my @tables =
-	  qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields scheme_group_group_members
-	  sequences sequence_bin sequence_refs);
+	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
+	  scheme_group_group_members sequences sequence_bin sequence_refs);
 
 	if ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
 		return;    #Problem will be reported in CuratePage::create_record_table.
 	}
-	if ( any { $table eq $_ } @tables ) {
+	if ( $check_tables{$table} ) {
 		my $method = "_check_$table";
 		$self->$method( $newdata, \@problems, $extra_inserts );
 	}
@@ -223,29 +244,25 @@ sub _insert {
 			foreach (@$extra_inserts) {
 				$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 			}
-			if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-				$self->create_scheme_view( $newdata->{'id'} );
-			} elsif ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-				&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-			{
-				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
-				my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
-				my $scheme_info   = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-				my $field_count   = @$scheme_fields + @$scheme_loci;
-				if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
-					say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-					  . MAX_POSTGRES_COLS
-					  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's )
-					  . q(not really sensible to have indexed schemes (those with a primary key field) to have so )
-					  . q(many fields. Update failed.</p></div);
-					$continue = 0;
-				} else {
-					$self->remove_profile_data( $newdata->{'scheme_id'} );
-					$self->drop_scheme_view( $newdata->{'scheme_id'} );
-					$self->create_scheme_view( $newdata->{'scheme_id'} );
+			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				my %modifies_scheme = map { $_ => 1 } qw(scheme_members scheme_fields);
+				if ( $table eq 'schemes' ) {
+					$self->create_scheme_view( $newdata->{'id'} );
+				} elsif ( $modifies_scheme{$table} ) {
+					my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
+					my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
+					my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+					my $field_count = @$scheme_fields + @$scheme_loci;
+					if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
+						$continue = 0;
+					} else {
+						$self->remove_profile_data( $newdata->{'scheme_id'} );
+						$self->drop_scheme_view( $newdata->{'scheme_id'} );
+						$self->create_scheme_view( $newdata->{'scheme_id'} );
+					}
+				} elsif ( $table eq 'sequences' ) {
+					$self->{'datastore'}->mark_cache_stale;
 				}
-			} elsif ( $table eq 'sequences' ) {
-				$self->{'datastore'}->mark_cache_stale;
 			}
 		};
 		return if !$continue;
@@ -279,40 +296,47 @@ sub _insert {
 				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}">)
 				  . q(Add values and fully customize this composite field</a>.</p>);
 			}
-			say q(<p>);
-			if ( $table eq 'samples' ) {
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-				  . qq(table=samples&isolate_id=$newdata->{'isolate_id'}">Add another</a> | );
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
-				  . qq(id=$newdata->{'isolate_id'}">Back to isolate update</a>);
-			} else {
-				my $locus_clause = '';
-				if ( $table eq 'sequences' ) {
-					$newdata->{'locus'} =~ s/\\//gx;
-					$locus_clause = qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;)
-					  . qq(sender=$newdata->{'sender'});
-				}
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-				  . qq(table=$table$locus_clause">Add another</a>);
-			}
-			if ( $table eq 'users' ) {
-				if ( $self->{'system'}->{'authentication'} eq 'builtin'
-					&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
-				{
-					say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-					  . qq(page=setPassword&amp;user=$newdata->{'user_name'}">Set password</a>);
-				}
-			}
-			if ( $q->param('submission_id') ) {
-				my $submission_id = $q->param('submission_id');
-				say qq( | <a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-				  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a>);
-			}
-			say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			$self->_display_navlinks( $table, $newdata );
+			say q(</div>);
 			return SUCCESS;
 		}
 	}
+	return;
+}
+
+sub _display_navlinks {
+	my ( $self, $table, $newdata ) = @_;
+	say q(<p>);
+	if ( $table eq 'samples' ) {
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+		  . qq(table=samples&isolate_id=$newdata->{'isolate_id'}">Add another</a> | );
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
+		  . qq(id=$newdata->{'isolate_id'}">Back to isolate update</a>);
+	} else {
+		my $locus_clause = '';
+		if ( $table eq 'sequences' ) {
+			$newdata->{'locus'} =~ s/\\//gx;
+			$locus_clause =
+			  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;) . qq(sender=$newdata->{'sender'});
+		}
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+		  . qq(table=$table$locus_clause">Add another</a>);
+	}
+	if ( $table eq 'users' ) {
+		if ( $self->{'system'}->{'authentication'} eq 'builtin'
+			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
+		{
+			say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}">Set password</a>);
+		}
+	}
+	my $q = $self->{'cgi'};
+	if ( $q->param('submission_id') ) {
+		my $submission_id = $q->param('submission_id');
+		say qq( | <a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a>);
+	}
+	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">) . q(Back to main page</a></p>);
 	return;
 }
 
@@ -350,8 +374,9 @@ sub _check_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSu
 	return;
 }
 
-#Check for sequence length in sequences table, that sequence doesn't already exist and is similar to existing etc.
-#Prepare extra inserts for PubMed/Genbank records and sequence flags.
+#Check for sequence length in sequences table, that sequence doesn't already
+#exist and is similar to existing etc. Prepare extra inserts for PubMed/Genbank
+#records and sequence flags.
 sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q          = $self->{'cgi'};
@@ -362,125 +387,11 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 	} else {
 		$newdata->{'sequence'} =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//gx;
 	}
-	my $length = length( $newdata->{'sequence'} );
-	my $units = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-	if ( !$length ) {
-		push @$problems, 'Sequence is a required field and can not be left blank.<br />';
-	}
-	my $retired =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
-	if ($retired) {
-		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
-	}
-	if ( !$q->param('ignore_length') ) {
-		if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length )
-		{
-			push @$problems, "Sequence is $length $units long but this locus is set as a standard "
-			  . "length of $locus_info->{'length'} $units.<br />";
-		} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
-			push @$problems, "Sequence is $length $units long but this locus is set with a minimum "
-			  . "length of $locus_info->{'min_length'} $units.<br />";
-		} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
-			push @$problems, "Sequence is $length $units long but this locus is set with a maximum "
-			  . "length of $locus_info->{'max_length'} $units.<br />";
-		}
-	}
-	if ( $newdata->{'allele_id'} =~ /\s/x ) {
-		push @$problems, 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
-	} else {
-		$newdata->{'sequence'} =~ s/\s//gx;
-		my $exists = $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
-			[ $newdata->{'locus'}, $newdata->{'sequence'} ] );
-		if ($exists) {
-			my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
-			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).<br />";
-		}
-	}
-	if (
-		   $locus_info->{'data_type'}
-		&& $locus_info->{'data_type'} eq 'DNA'
-		&& !BIGSdb::Utils::is_valid_DNA(
-			$newdata->{'sequence'},
-			{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
-		)
-	  )
-	{
-		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
-		local $" = '|';
-		push @$problems, "Sequence contains non nucleotide (@chars) characters.<br />";
-	} elsif ( !@$problems
-		&& $locus_info->{'data_type'}
-		&& $locus_info->{'data_type'} eq 'DNA'
-		&& !$q->param('ignore_similarity')
-		&& $self->{'datastore'}->sequences_exist( $newdata->{'locus'} )
-		&& !$self->{'datastore'}->is_sequence_similar_to_others( $newdata->{'locus'}, \( $newdata->{'sequence'} ) ) )
-	{
-		push @$problems,
-		    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
-		  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
-		  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
-		  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
-		  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
-	}
-	if (   defined $newdata->{'allele_id'}
-		&& $newdata->{'allele_id'} ne ''
-		&& !BIGSdb::Utils::is_int( $newdata->{'allele_id'} )
-		&& $locus_info->{'allele_id_format'} eq 'integer' )
-	{
-		push @$problems, 'The allele id must be an integer for this locus.';
-	} elsif ( $locus_info->{'allele_id_regex'} ) {
-		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && $newdata->{'allele_id'} !~ /$regex/x ) {
-			push @$problems, "Allele id value is invalid - it must match the regular expression /$regex/.";
-		}
-	}
-
-	#check extended attributes if they exist
-	my $ext_atts = $self->{'datastore'}->run_query(
-		'SELECT field,required,value_format,value_regex,option_list ' . 'FROM locus_extended_attributes WHERE locus=?',
-		$newdata->{'locus'},
-		{ fetch => 'all_arrayref' }
-	);
-	my @missing_field;
-	foreach my $ext_att (@$ext_atts) {
-		my ( $field, $required, $format, $regex, $option_list ) = @$ext_att;
-		my @optlist;
-		my %options;
-		if ($option_list) {
-			@optlist = split /\|/x, $option_list;
-			$options{$_} = 1 foreach @optlist;
-		}
-		$newdata->{$field} = $q->param($field);
-		if ( $required && $newdata->{$field} eq q() ) {
-			push @missing_field, $field;
-		} elsif ( $option_list && $newdata->{$field} ne '' && !$options{ $newdata->{$field} } ) {
-			local $" = ', ';
-			push @$problems, "$field value is not on the allowed list (@optlist).<br />";
-		} elsif ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
-			push @$problems, "$field must be an integer.<br />";
-		} elsif ( $newdata->{$field} ne q() && $regex && $newdata->{$field} !~ /$regex/x ) {
-			push @$problems, "Field '$field' does not conform to specified format.\n";
-		} else {
-			if ( $newdata->{$field} ne '' ) {
-				push @$extra_inserts,
-				  {
-					statement =>
-					  'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES '
-					  . '(?,?,?,?,?,?)',
-					arguments => [
-						$newdata->{'locus'}, $field, $newdata->{'allele_id'},
-						$newdata->{$field},  'now',  $newdata->{'curator'}
-					]
-				  };
-			}
-		}
-	}
-	if (@missing_field) {
-		local $" = ', ';
-		push @$problems, 'Please fill in all extended attribute fields. '
-		  . "The following extended attribute fields are missing: @missing_field";
-	}
+	$self->_check_sequence_retired( $newdata, $problems );
+	$self->_check_sequence_length( $newdata, $problems );
+	$self->_check_sequence_allele_id( $newdata, $problems );
+	$self->_check_sequence_field( $newdata, $problems );
+	$self->_check_sequence_extended_attributes( $newdata, $problems, $extra_inserts );
 	my @flags = $q->param('flags');
 	foreach my $flag (@flags) {
 		next if none { $flag eq $_ } ALLELE_FLAGS;
@@ -528,6 +439,158 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 			arguments =>
 			  [ 'assigned', $newdata->{'allele_id'}, $q->param('submission_id'), uc( $q->param('sequence') ) ]
 		  };
+	}
+	return;
+}
+
+sub _check_sequence_retired {
+	my ( $self, $newdata, $problems ) = @_;
+	my $retired =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+	if ($retired) {
+		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
+	}
+	return;
+}
+
+sub _check_sequence_length {
+	my ( $self, $newdata, $problems ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	my $length     = length( $newdata->{'sequence'} );
+	my $units      = $locus_info->{'data_type'} && $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+	if ( !$length ) {
+		push @$problems, 'Sequence is a required field and can not be left blank.';
+	}
+	my $q = $self->{'cgi'};
+	return if $q->param('ignore_length');
+	if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
+		push @$problems, "Sequence is $length $units long but this locus is set as a standard "
+		  . "length of $locus_info->{'length'} $units.";
+	} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
+		push @$problems, "Sequence is $length $units long but this locus is set with a minimum "
+		  . "length of $locus_info->{'min_length'} $units.";
+	} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
+		push @$problems, "Sequence is $length $units long but this locus is set with a maximum "
+		  . "length of $locus_info->{'max_length'} $units.";
+	}
+	return;
+}
+
+sub _check_sequence_allele_id {
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $newdata->{'allele_id'} =~ /\s/x ) {
+		push @$problems, 'Allele id must not contain spaces - try substituting with underscores (_).';
+	} else {
+		$newdata->{'sequence'} =~ s/\s//gx;
+		my $exists = $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
+			[ $newdata->{'locus'}, $newdata->{'sequence'} ] );
+		if ($exists) {
+			my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
+			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).";
+		}
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	if (   defined $newdata->{'allele_id'}
+		&& $newdata->{'allele_id'} ne ''
+		&& !BIGSdb::Utils::is_int( $newdata->{'allele_id'} )
+		&& $locus_info->{'allele_id_format'} eq 'integer' )
+	{
+		push @$problems, 'The allele id must be an integer for this locus.';
+	} elsif ( $locus_info->{'allele_id_regex'} ) {
+		my $regex = $locus_info->{'allele_id_regex'};
+		if ( $regex && $newdata->{'allele_id'} !~ /$regex/x ) {
+			push @$problems, "Allele id value is invalid - it must match the regular expression /$regex/.";
+		}
+	}
+	return;
+}
+
+sub _check_sequence_field {
+	my ( $self, $newdata, $problems ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	my $q          = $self->{'cgi'};
+	if (
+		   $locus_info->{'data_type'}
+		&& $locus_info->{'data_type'} eq 'DNA'
+		&& !BIGSdb::Utils::is_valid_DNA(
+			$newdata->{'sequence'},
+			{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+		)
+	  )
+	{
+		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+		local $" = '|';
+		push @$problems, "Sequence contains non nucleotide (@chars) characters.";
+	} elsif ( !@$problems
+		&& $locus_info->{'data_type'}
+		&& $locus_info->{'data_type'} eq 'DNA'
+		&& !$q->param('ignore_similarity')
+		&& $self->{'datastore'}->sequences_exist( $newdata->{'locus'} )
+		&& !$self->{'datastore'}->is_sequence_similar_to_others( $newdata->{'locus'}, \( $newdata->{'sequence'} ) ) )
+	{
+		push @$problems,
+		    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+		  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
+		  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
+		  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
+		  . q[sure that the 'Override sequence similarity check' box is ticked.];
+	}
+	return;
+}
+
+sub _check_sequence_extended_attributes {
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	my $ext_atts =
+	  $self->{'datastore'}->run_query(
+		'SELECT field,required,value_format,value_regex,option_list FROM locus_extended_attributes WHERE locus=?',
+		$newdata->{'locus'}, { fetch => 'all_arrayref' } );
+	my @missing_field;
+	my $q = $self->{'cgi'};
+	foreach my $ext_att (@$ext_atts) {
+		my ( $field, $required, $format, $regex, $option_list ) = @$ext_att;
+		my @optlist;
+		my %options;
+		if ($option_list) {
+			@optlist = split /\|/x, $option_list;
+			$options{$_} = 1 foreach @optlist;
+		}
+		$newdata->{$field} = $q->param($field);
+		if ( $required && $newdata->{$field} eq q() ) {
+			push @missing_field, $field;
+			next;
+		}
+		if ( $option_list && $newdata->{$field} ne '' && !$options{ $newdata->{$field} } ) {
+			local $" = ', ';
+			push @$problems, "$field value is not on the allowed list (@optlist).";
+			next;
+		}
+		if ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
+			push @$problems, "$field must be an integer.";
+			next;
+		}
+		if ( $newdata->{$field} ne q() && $regex && $newdata->{$field} !~ /$regex/x ) {
+			push @$problems, "Field '$field' does not conform to specified format.";
+			next;
+		}
+		if ( $newdata->{$field} ne '' ) {
+			push @$extra_inserts,
+			  {
+				statement =>
+				  'INSERT INTO sequence_extended_attributes(locus,field,allele_id,value,datestamp,curator) VALUES '
+				  . '(?,?,?,?,?,?)',
+				arguments => [
+					$newdata->{'locus'}, $field, $newdata->{'allele_id'},
+					$newdata->{$field},  'now',  $newdata->{'curator'}
+				]
+			  };
+		}
+	}
+	if (@missing_field) {
+		local $" = ', ';
+		push @$problems, 'Please fill in all extended attribute fields. '
+		  . "The following extended attribute fields are missing: @missing_field";
 	}
 	return;
 }

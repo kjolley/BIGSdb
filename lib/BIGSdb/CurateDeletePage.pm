@@ -506,12 +506,6 @@ sub get_title {
 	return "Delete $type - $desc";
 }
 
-sub initiate {
-	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery);
-	return;
-}
-
 sub _get_tables_which_reference_table {
 	my ( $self, $table ) = @_;
 	my %tables;

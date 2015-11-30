@@ -366,8 +366,8 @@ sub _print_scheme_table {
 			$scheme_fields_qry = "SELECT * FROM $list_table INNER JOIN $temp_table ON $list_table.value=$temp_table.id";
 		}
 		catch BIGSdb::DatabaseConnectionException with {
-			say q(<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
-			  . q(This may be a configuration problem.</p></div>);
+			say qq(<p class="statusbad">The database for scheme $scheme_id is not accessible. )
+			  . q(This may be a configuration problem.</p>);
 			$continue = 0;
 		};
 		return if !$continue;
