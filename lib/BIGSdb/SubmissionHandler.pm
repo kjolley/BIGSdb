@@ -347,9 +347,14 @@ sub check_new_alleles_fasta {
 				push @info, qq(Sequence "$seq_id" is $check->{'err'});
 			}
 		}
-		if ( !$self->{'datastore'}->is_sequence_similar_to_others( $locus, \$sequence ) ) {
+		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, \$sequence );
+		if ( !$check->{'similar'} ) {
 			push @info,
 			  qq(Sequence "$seq_id" is dissimilar (or in reverse orientation compared) to other $locus sequences.);
+		} elsif ( $check->{'subsequence_of'} ) {
+			push @info, qq(Sequence is a sub-sequence of allele-$check->{'subsequence_of'}.);
+		} elsif ( $check->{'supersequence_of'} ) {
+			push @info, qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}.];
 		}
 	}
 	close $stringfh_in;
