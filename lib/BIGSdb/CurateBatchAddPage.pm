@@ -1175,9 +1175,7 @@ sub _check_data_sequences {
 	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
 	my @data            = @{ $arg_ref->{'data'} };
 	my $q               = $self->{'cgi'};
-	my $buffer;
 	my $locus;
-
 	if ( $field eq 'locus' && $q->param('locus') ) {
 		${ $arg_ref->{'value'} } = $q->param('locus');
 	}
@@ -1189,68 +1187,7 @@ sub _check_data_sequences {
 		  ? $data[ $file_header_pos{'locus'} ]
 		  : undef;
 	}
-	if ( defined $locus && $field eq 'allele_id' ) {
-		if (   defined $file_header_pos{'locus'}
-			&& $data[ $file_header_pos{'locus'} ]
-			&& any { $_ eq $data[ $file_header_pos{'locus'} ] } @{ $arg_ref->{'required_extended_exist'} } )
-		{
-			$buffer .= qq(Locus $locus has required extended attributes - please use specific )
-			  . q(batch upload form for this locus.<br />);
-		}
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		if (
-			   defined $locus_info->{'allele_id_format'}
-			&& $locus_info->{'allele_id_format'} eq 'integer'
-			&& (   !defined $file_header_pos{'allele_id'}
-				|| !defined $data[ $file_header_pos{'allele_id'} ]
-				|| $data[ $file_header_pos{'allele_id'} ] eq '' )
-		  )
-		{
-			if ( $arg_ref->{'last_id'}->{$locus} ) {
-				${ $arg_ref->{'value'} } = $arg_ref->{'last_id'}->{$locus};
-			} else {
-				${ $arg_ref->{'value'} } = $self->{'datastore'}->get_next_allele_id($locus) - 1;
-			}
-			my $exists;
-			do {
-				${ $arg_ref->{'value'} }++;
-				$exists = $self->{'datastore'}->run_query(
-					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-					[ $locus, ${ $arg_ref->{'value'} } ],
-					{ cache => 'CurateBatchAddPage::allele_id_exists' }
-				);
-			} while $exists;
-			$arg_ref->{'last_id'}->{$locus} = ${ $arg_ref->{'value'} };
-		} elsif ( defined $file_header_pos{'allele_id'}
-			&& !BIGSdb::Utils::is_int( $data[ $file_header_pos{'allele_id'} ] )
-			&& defined $locus_info->{'allele_id_format'}
-			&& $locus_info->{'allele_id_format'} eq 'integer' )
-		{
-			$buffer .= 'Allele id must be an integer.<br />';
-		}
-		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && $data[ $file_header_pos{'allele_id'} ] !~ /$regex/x ) {
-			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
-		}
-		if ( $data[ $file_header_pos{'allele_id'} ] ) {
-			my $exists = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-				[ $locus, $data[ $file_header_pos{'allele_id'} ] ],
-				{ cache => 'CurateBatchAddPage::allele_id_exists' }
-			);
-			if ($exists) {
-				$buffer .= 'Allele id already exists.<br />';
-			}
-			my $retired =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-				[ $locus, $data[ $file_header_pos{'allele_id'} ] ] );
-			if ($retired) {
-				$buffer .= 'Allele id has been retired.<br />';
-			}
-		}
-	}
-
+	my $buffer = $self->_check_sequence_allele_id( $locus, $arg_ref );
 	#special case to check for sequence length in sequences table, and that sequence doesn't already exist
 	#and is similar to existing.
 	if ( defined $locus && $field eq 'sequence' ) {
@@ -1436,6 +1373,74 @@ sub _check_data_sequences {
 		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
+}
+
+sub _check_sequence_allele_id {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my $buffer;
+	if ( defined $locus && $field eq 'allele_id' ) {
+		if (   defined $file_header_pos->{'locus'}
+			&& $data->[ $file_header_pos->{'locus'} ]
+			&& any { $_ eq $data->[ $file_header_pos->{'locus'} ] } @{ $args->{'required_extended_exist'} } )
+		{
+			$buffer .= qq(Locus $locus has required extended attributes - please use specific )
+			  . q(batch upload form for this locus.<br />);
+		}
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if (
+			   defined $locus_info->{'allele_id_format'}
+			&& $locus_info->{'allele_id_format'} eq 'integer'
+			&& (   !defined $file_header_pos->{'allele_id'}
+				|| !defined $data->[ $file_header_pos->{'allele_id'} ]
+				|| $data->[ $file_header_pos->{'allele_id'} ] eq '' )
+		  )
+		{
+			if ( $args->{'last_id'}->{$locus} ) {
+				${ $args->{'value'} } = $args->{'last_id'}->{$locus};
+			} else {
+				${ $args->{'value'} } = $self->{'datastore'}->get_next_allele_id($locus) - 1;
+			}
+			my $exists;
+			do {
+				${ $args->{'value'} }++;
+				$exists = $self->{'datastore'}->run_query(
+					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+					[ $locus, ${ $args->{'value'} } ],
+					{ cache => 'CurateBatchAddPage::allele_id_exists' }
+				);
+			} while $exists;
+			$args->{'last_id'}->{$locus} = ${ $args->{'value'} };
+		} elsif ( defined $file_header_pos->{'allele_id'}
+			&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'allele_id'} ] )
+			&& defined $locus_info->{'allele_id_format'}
+			&& $locus_info->{'allele_id_format'} eq 'integer' )
+		{
+			$buffer .= 'Allele id must be an integer.<br />';
+		}
+		my $regex = $locus_info->{'allele_id_regex'};
+		if ( $regex && $data->[ $file_header_pos->{'allele_id'} ] !~ /$regex/x ) {
+			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
+		}
+		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
+			my $exists = $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+				[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ],
+				{ cache => 'CurateBatchAddPage::allele_id_exists' }
+			);
+			if ($exists) {
+				$buffer .= 'Allele id already exists.<br />';
+			}
+			my $retired =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+				[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ] );
+			if ($retired) {
+				$buffer .= 'Allele id has been retired.<br />';
+			}
+		}
+	}
+	return $buffer;
 }
 
 sub _check_retired_allele_ids {

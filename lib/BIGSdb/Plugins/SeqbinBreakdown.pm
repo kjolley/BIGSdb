@@ -363,7 +363,7 @@ sub _get_html_table_header {
 	my $gc = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
 	my $buffer =
 	    q(<table class="tablesorter" id="sortTable"><thead>)
-	  . q(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th>)
+	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th>)
 	  . q(<th>Max</th><th>Mean</th><th>&sigma;</th><th>N50 contig number</th><th>N50 contig length (L50)</th>)
 	  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
 	  . qq(<th>N95 contig length (L95)</th>$gc<th>Alleles designated</th><th>% Alleles designated</th>)
