@@ -319,17 +319,28 @@ sub _check_sequence {
 	#Check allele is sufficiently similar to existing alleles
 	if (   $self->{'locus_info'}->{'data_type'} eq 'DNA'
 		&& !$q->param('ignore_similarity')
-		&& $self->{'datastore'}->sequences_exist($locus)
-		&& !$self->{'datastore'}->is_sequence_similar_to_others( $locus, \$data->{'seq'} ) )
+		&& $self->{'datastore'}->sequences_exist($locus) )
 	{
-		return ( FAILURE, $allele_id,
-			    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an alignment of ]
-			  . q[less than 90% its length). Similarity is determined by the output of the best match from the BLAST ]
-			  . q[algorithm - this may be conservative.  The check will also fail if the best match is in the reverse ]
-			  . q[orientation. If you're sure that this sequence should be entered, please select the 'Override ]
-			  . q[sequence similarity check' box.] );
+		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, \$data->{'seq'} );
+		if ( !$check->{'similar'} ) {
+			return ( FAILURE, $allele_id,
+				    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+				  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
+				  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
+				  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
+				  . q[sure that the 'Override sequence similarity check' box is ticked.] );
+		} elsif ( $check->{'subsequence_of'} ) {
+			return ( FAILURE, $allele_id,
+				    qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
+				  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
+				  . q[sure that the 'Override sequence similarity check' box is ticked.] );
+		} elsif ( $check->{'supersequence_of'} ) {
+			return ( FAILURE, $allele_id,
+				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
+				  . q[complete length of this allele but is shorter. If you're sure you want to add this sequence ]
+				  . q[then make sure that the 'Override sequence similarity check' box is ticked.] );
+		}
 	}
-
 	#Check if allele is complete coding sequence
 	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA' && $q->param('complete_CDS') ) {
 		my $cds_check = BIGSdb::Utils::is_complete_cds( $data->{'seq'} );

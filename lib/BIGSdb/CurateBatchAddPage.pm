@@ -520,7 +520,10 @@ sub _check_data {
 				checked_record     => \$checked_record,
 				table              => $table
 			};
-			$tablebuffer .= $self->_isolate_record_further_checks( $table, $new_args, \%advisories, $pk_combination );
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				$tablebuffer .=
+				  $self->_isolate_record_further_checks( $table, $new_args, \%advisories, $pk_combination );
+			}
 			$header_complete = 1;
 			push @checked_buffer, $header_row if $first_record;
 			$first_record = 0;
@@ -587,7 +590,6 @@ sub _check_data {
 
 sub _isolate_record_further_checks {
 	my ( $self, $table, $args, $advisories, $pk_combination ) = @_;
-	return q() if $self->{'system'}->{'dbtype'} ne 'isolates';
 	return q() if $table ne 'isolates';
 	if ( !$self->{'cache'}->{'label_field_values'} ) {
 		$self->{'cache'}->{'label_field_values'} = $self->_get_existing_label_field_values;
@@ -776,36 +778,37 @@ sub _extract_value {
 	my ( $self, $arg_ref ) = @_;
 	my $q               = $self->{'cgi'};
 	my $field           = $arg_ref->{'field'};
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	my $value;
+	my $data            = $arg_ref->{'data'};
+	my $file_header_pos = $arg_ref->{'file_header_pos'};
 	if ( $field eq 'id' ) {
-		$value = $arg_ref->{'id'};
+		return $arg_ref->{'id'};
 	}
 	if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-		$value = BIGSdb::Utils::get_datestamp();
-	} elsif ( $field eq 'sender' ) {
-		if ( defined $file_header_pos{$field} ) {
-			$value = $data[ $file_header_pos{$field} ];
+		return BIGSdb::Utils::get_datestamp();
+	}
+	if ( $field eq 'sender' ) {
+		if ( defined $file_header_pos->{$field} ) {
+			return $data->[ $file_header_pos->{$field} ];
 		} else {
-			$value = $q->param('sender')
+			return $q->param('sender')
 			  if $q->param('sender') != -1;
 		}
-	} elsif ( $field eq 'curator' ) {
-		$value = $self->get_curator_id;
-	} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'format'}
+	}
+	if ( $field eq 'curator' ) {
+		return $self->get_curator_id;
+	}
+	if (   $arg_ref->{'extended_attributes'}->{$field}->{'format'}
 		&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'boolean' )
 	{
-		if ( defined $file_header_pos{$field} ) {
-			$value = $data[ $file_header_pos{$field} ];
-			$value = lc($value);
+		if ( defined $file_header_pos->{$field} ) {
+			return lc( $data->[ $file_header_pos->{$field} ] );
 		}
 	} else {
-		if ( defined $file_header_pos{$field} ) {
-			$value = $data[ $file_header_pos{$field} ];
+		if ( defined $file_header_pos->{$field} ) {
+			return $data->[ $file_header_pos->{$field} ];
 		}
 	}
-	return $value;
+	return;
 }
 
 sub _get_primary_key_values {
