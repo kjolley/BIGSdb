@@ -1190,75 +1190,8 @@ sub _check_data_sequences {
 	my $buffer = $self->_check_sequence_allele_id( $locus, $arg_ref );
 	$buffer .= $self->_check_sequence_length( $locus, $arg_ref );
 	$buffer .= $self->_check_sequence_field( $locus, $arg_ref );
-
-
-	#check extended attributes if they exist
-	if ( $arg_ref->{'extended_attributes'}->{$field} ) {
-		my @optlist;
-		my %options;
-		if ( $arg_ref->{'extended_attributes'}->{$field}->{'option_list'} ) {
-			@optlist = split /\|/x, $arg_ref->{'extended_attributes'}->{$field}->{'option_list'};
-			foreach (@optlist) {
-				$options{$_} = 1;
-			}
-		}
-		if (
-			$arg_ref->{'extended_attributes'}->{$field}->{'required'}
-			&& (   !defined $file_header_pos{$field}
-				|| !defined $data[ $file_header_pos{$field} ]
-				|| $data[ $file_header_pos{$field} ] eq q() )
-		  )
-		{
-			$buffer .= "'$field' is a required field and cannot be left blank.<br />";
-		} elsif ( $arg_ref->{'extended_attributes'}->{$field}->{'option_list'}
-			&& defined $file_header_pos{$field}
-			&& defined $data[ $file_header_pos{$field} ]
-			&& $data[ $file_header_pos{$field} ] ne ''
-			&& !$options{ $data[ $file_header_pos{$field} ] } )
-		{
-			local $" = ', ';
-			$buffer .= "Field '$field' value is not on the allowed list (@optlist).<br />";
-		} elsif (
-			$arg_ref->{'extended_attributes'}->{$field}->{'format'}
-			&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'integer'
-			&& (   defined $file_header_pos{$field}
-				&& defined $data[ $file_header_pos{$field} ]
-				&& $data[ $file_header_pos{$field} ] ne '' )
-			&& !BIGSdb::Utils::is_int( $data[ $file_header_pos{$field} ] )
-		  )
-		{
-			$buffer .= "Field '$field' must be an integer.<br />";
-		} elsif (
-			$arg_ref->{'extended_attributes'}->{$field}->{'format'}
-			&& $arg_ref->{'extended_attributes'}->{$field}->{'format'} eq 'boolean'
-			&& (   defined $file_header_pos{$field}
-				&& lc( $data[ $file_header_pos{$field} ] ) ne 'false'
-				&& lc( $data[ $file_header_pos{$field} ] ) ne 'true' )
-		  )
-		{
-			$buffer .= "Field '$field' must be boolean (either true or false).<br />";
-		} elsif ( defined $file_header_pos{$field}
-			&& defined $data[ $file_header_pos{$field} ]
-			&& $data[ $file_header_pos{$field} ] ne ''
-			&& $arg_ref->{'extended_attributes'}->{$field}->{'regex'}
-			&& $data[ $file_header_pos{$field} ] !~ /$arg_ref->{'extended_attributes'}->{$field}->{'regex'}/x )
-		{
-			$buffer .= "Field '$field' does not conform to specified format.<br />\n";
-		}
-	}
-
-	#check sequence flags
-	if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
-		&& $field eq 'flags'
-		&& defined $file_header_pos{'flags'} )
-	{
-		my @flags = split /;/x, $data[ $file_header_pos{'flags'} ] // q();
-		foreach my $flag (@flags) {
-			if ( none { $flag eq $_ } ALLELE_FLAGS ) {
-				$buffer .= "Flag '$flag' is not on the list of allowed flags.<br />\n";
-			}
-		}
-	}
+	$buffer .= $self->_check_sequence_extended_attributes( $locus, $arg_ref );
+	$buffer .= $self->_check_sequence_flags( $locus, $arg_ref );
 	if ($buffer) {
 		$arg_ref->{'problems'}->{$pk_combination} .= $buffer;
 		${ $arg_ref->{'special_problem'} } = 1;
@@ -1355,8 +1288,8 @@ sub _check_sequence_length {
 	if ( $length == 0 ) {
 		${ $args->{'continue'} } = 0;
 		return $buffer;
-	} 
-	if ( !$locus_info->{'length_varies'}
+	}
+	if (   !$locus_info->{'length_varies'}
 		&& defined $locus_info->{'length'}
 		&& $locus_info->{'length'} != $length )
 	{
@@ -1367,7 +1300,7 @@ sub _check_sequence_length {
 		  if !$buffer || $buffer !~ /$problem_text/x;
 		${ $args->{'special_problem'} } = 1;
 		return $buffer;
-	} 
+	}
 	if ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
 		my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
 		  . "$locus_info->{'min_length'} $units.<br />";
@@ -1458,6 +1391,86 @@ sub _check_sequence_field {
 			    qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
 			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
 			  . q[make sure that the 'Override sequence similarity check' box is ticked.<br />];
+		}
+	}
+	return $buffer;
+}
+
+sub _check_sequence_extended_attributes {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	return q() if !defined $locus;
+	return q() if !$args->{'extended_attributes'}->{$field};
+	my @optlist;
+	my %options;
+	if ( $args->{'extended_attributes'}->{$field}->{'option_list'} ) {
+		@optlist = split /\|/x, $args->{'extended_attributes'}->{$field}->{'option_list'};
+		%options = map { $_ => 1 } @optlist;
+	}
+	if (
+		$args->{'extended_attributes'}->{$field}->{'required'}
+		&& (   !defined $file_header_pos->{$field}
+			|| !defined $data->[ $file_header_pos->{$field} ]
+			|| $data->[ $file_header_pos->{$field} ] eq q() )
+	  )
+	{
+		return "'$field' is a required field and cannot be left blank.<br />";
+	}
+	if (   $args->{'extended_attributes'}->{$field}->{'option_list'}
+		&& defined $file_header_pos->{$field}
+		&& defined $data->[ $file_header_pos->{$field} ]
+		&& $data->[ $file_header_pos->{$field} ] ne q()
+		&& !$options{ $data->[ $file_header_pos->{$field} ] } )
+	{
+		local $" = ', ';
+		return "Field '$field' value is not on the allowed list (@optlist).<br />";
+	}
+	if (
+		   $args->{'extended_attributes'}->{$field}->{'format'}
+		&& $args->{'extended_attributes'}->{$field}->{'format'} eq 'integer'
+		&& (   defined $file_header_pos->{$field}
+			&& defined $data->[ $file_header_pos->{$field} ]
+			&& $data->[ $file_header_pos->{$field} ] ne '' )
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{$field} ] )
+	  )
+	{
+		return "Field '$field' must be an integer.<br />";
+	}
+	if (
+		   $args->{'extended_attributes'}->{$field}->{'format'}
+		&& $args->{'extended_attributes'}->{$field}->{'format'} eq 'boolean'
+		&& (   defined $file_header_pos->{$field}
+			&& lc( $data->[ $file_header_pos->{$field} ] ) ne 'false'
+			&& lc( $data->[ $file_header_pos->{$field} ] ) ne 'true' )
+	  )
+	{
+		return "Field '$field' must be boolean (either true or false).<br />";
+	}
+	if (   defined $file_header_pos->{$field}
+		&& defined $data->[ $file_header_pos->{$field} ]
+		&& $data->[ $file_header_pos->{$field} ] ne ''
+		&& $args->{'extended_attributes'}->{$field}->{'regex'}
+		&& $data->[ $file_header_pos->{$field} ] !~ /$args->{'extended_attributes'}->{$field}->{'regex'}/x )
+	{
+		return "Field '$field' does not conform to specified format.<br />\n";
+	}
+	return q();
+}
+
+sub _check_sequence_flags {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	return q() if !defined $locus;
+	my $buffer = q();
+	if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+		&& $field eq 'flags'
+		&& defined $file_header_pos->{'flags'} )
+	{
+		my @flags = split /;/x, $data->[ $file_header_pos->{'flags'} ] // q();
+		foreach my $flag (@flags) {
+			if ( none { $flag eq $_ } ALLELE_FLAGS ) {
+				$buffer .= "Flag '$flag' is not on the list of allowed flags.<br />\n";
+			}
 		}
 	}
 	return $buffer;
