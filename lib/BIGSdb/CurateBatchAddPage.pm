@@ -1188,118 +1188,9 @@ sub _check_data_sequences {
 		  : undef;
 	}
 	my $buffer = $self->_check_sequence_allele_id( $locus, $arg_ref );
-	#special case to check for sequence length in sequences table, and that sequence doesn't already exist
-	#and is similar to existing.
-	if ( defined $locus && $field eq 'sequence' ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		${ $arg_ref->{'value'} } //= '';
-		${ $arg_ref->{'value'} } =~ s/ //g;
-		my $length = length( ${ $arg_ref->{'value'} } );
-		my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
-		if ( $length == 0 ) {
-			${ $arg_ref->{'continue'} } = 0;
-		} elsif ( !$locus_info->{'length_varies'}
-			&& defined $locus_info->{'length'}
-			&& $locus_info->{'length'} != $length )
-		{
-			my $problem_text =
-			    "Sequence is $length $units long but this locus is set as a standard length of "
-			  . "$locus_info->{'length'} $units.<br />";
-			$buffer .= $problem_text
-			  if !$buffer || $buffer !~ /$problem_text/x;
-			${ $arg_ref->{'special_problem'} } = 1;
-		} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
-			my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
-			  . "$locus_info->{'min_length'} $units.<br />";
-			$buffer .= $problem_text;
-		} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
-			my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
-			  . "$locus_info->{'max_length'} $units.<br />";
-			$buffer .= $problem_text;
-		} elsif ( defined $file_header_pos{'allele_id'}
-			&& defined $data[ $file_header_pos{'allele_id'} ]
-			&& $data[ $file_header_pos{'allele_id'} ] =~ /\s/x )
-		{
-			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
-		} elsif ( defined $locus ) {
-			${ $arg_ref->{'value'} } = uc( ${ $arg_ref->{'value'} } );
-			if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
-				${ $arg_ref->{'value'} } =~ s/[\W]//gx;
-			} else {
-				${ $arg_ref->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//gx;
-			}
-			my $md5_seq = md5( ${ $arg_ref->{'value'} } );
-			$self->{'unique_values'}->{$locus}->{$md5_seq}++;
-			if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
-				if ( $q->param('ignore_existing') ) {
-					${ $arg_ref->{'continue'} } = 0;
-				} else {
-					$buffer .= 'Sequence appears more than once in this submission.<br />';
-				}
-			}
-			my $exists = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,sequence)=(?,?))',
-				[ $locus, ${ $arg_ref->{'value'} } ],
-				{ cache => 'CurateBatchAddPage::sequence_exists' }
-			);
-			if ($exists) {
-				if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
-					${ $arg_ref->{'continue'} } = 0;
-				} else {
-					$buffer .= "Sequence already exists in the database ($locus: $exists).<br />";
-				}
-			}
-			if ( $q->param('complete_CDS') ) {    #TODO Use BIGSdb::Utils::is_complete_cds
-				my $first_codon = substr( ${ $arg_ref->{'value'} }, 0, 3 );
-				${ $arg_ref->{'continue'} } = 0 if none { $first_codon eq $_ } qw (ATG GTG TTG);
-				my $end_codon = substr( ${ $arg_ref->{'value'} }, -3 );
-				${ $arg_ref->{'continue'} } = 0 if none { $end_codon eq $_ } qw (TAA TGA TAG);
-				my $multiple_of_3 =
-				  ( length( ${ $arg_ref->{'value'} } ) / 3 ) == int( length( ${ $arg_ref->{'value'} } ) / 3 )
-				  ? 1
-				  : 0;
-				${ $arg_ref->{'continue'} } = 0 if !$multiple_of_3;
-				my $internal_stop;
-				for ( my $pos = 0 ; $pos < length( ${ $arg_ref->{'value'} } ) - 3 ; $pos += 3 ) {
-					my $codon = substr( ${ $arg_ref->{'value'} }, $pos, 3 );
-					if ( any { $codon eq $_ } qw (TAA TGA TAG) ) {
-						$internal_stop = 1;
-					}
-				}
-				${ $arg_ref->{'continue'} } = 0 if $internal_stop;
-			}
-		}
-		if ( ${ $arg_ref->{'continue'} } ) {
-			if (
-				( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-				&& !BIGSdb::Utils::is_valid_DNA(
-					${ $arg_ref->{'value'} },
-					{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
-				)
-			  )
-			{
-				if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
-					${ $arg_ref->{'continue'} } = 0;
-				} else {
-					my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
-					local $" = '|';
-					$buffer .= "Sequence contains non nucleotide (@chars) characters.<br />";
-				}
-			} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
-				&& $self->{'datastore'}->sequences_exist($locus)
-				&& !$q->param('ignore_similarity')
-				&& !$self->{'datastore'}->is_sequence_similar_to_others( $locus, $arg_ref->{'value'} ) )
-			{
-				$buffer .=
-				    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
-				  . q[alignment of less than 90% its length). Similarity is determined by the output of the ]
-				  . q[best match from the BLAST algorithm - this may be conservative.  The check will also fail ]
-				  . q[if the best match is in the reverse orientation. If you're sure that this sequence should ]
-				  . q[be entered, please select the 'Override sequence similarity check' ]
-				  . q[box.<br />];
-			}
-		}
-	}
+	$buffer .= $self->_check_sequence_length( $locus, $arg_ref );
+	$buffer .= $self->_check_sequence_field( $locus, $arg_ref );
+
 
 	#check extended attributes if they exist
 	if ( $arg_ref->{'extended_attributes'}->{$field} ) {
@@ -1378,7 +1269,7 @@ sub _check_data_sequences {
 sub _check_sequence_allele_id {
 	my ( $self,  $locus,           $args ) = @_;
 	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	my $buffer;
+	my $buffer = q();
 	if ( defined $locus && $field eq 'allele_id' ) {
 		if (   defined $file_header_pos->{'locus'}
 			&& $data->[ $file_header_pos->{'locus'} ]
@@ -1417,6 +1308,11 @@ sub _check_sequence_allele_id {
 			&& $locus_info->{'allele_id_format'} eq 'integer' )
 		{
 			$buffer .= 'Allele id must be an integer.<br />';
+		} elsif ( defined $file_header_pos->{'allele_id'}
+			&& defined $data->[ $file_header_pos->{'allele_id'} ]
+			&& $data->[ $file_header_pos->{'allele_id'} ] =~ /\s/x )
+		{
+			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
 		if ( $regex && $data->[ $file_header_pos->{'allele_id'} ] !~ /$regex/x ) {
@@ -1438,6 +1334,130 @@ sub _check_sequence_allele_id {
 			if ($retired) {
 				$buffer .= 'Allele id has been retired.<br />';
 			}
+		}
+	}
+	return $buffer;
+}
+
+sub _check_sequence_length {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my $q = $self->{'cgi'};
+
+	#Check for sequence length, doesn't already exist, and is similar to existing.
+	my $buffer = q();
+	return $buffer if !( defined $locus && $field eq 'sequence' );
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	${ $args->{'value'} } //= '';
+	${ $args->{'value'} } =~ s/ //g;
+	my $length = length( ${ $args->{'value'} } );
+	my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
+	if ( $length == 0 ) {
+		${ $args->{'continue'} } = 0;
+		return $buffer;
+	} 
+	if ( !$locus_info->{'length_varies'}
+		&& defined $locus_info->{'length'}
+		&& $locus_info->{'length'} != $length )
+	{
+		my $problem_text =
+		    "Sequence is $length $units long but this locus is set as a standard length of "
+		  . "$locus_info->{'length'} $units.<br />";
+		$buffer .= $problem_text
+		  if !$buffer || $buffer !~ /$problem_text/x;
+		${ $args->{'special_problem'} } = 1;
+		return $buffer;
+	} 
+	if ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
+		my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
+		  . "$locus_info->{'min_length'} $units.<br />";
+		$buffer .= $problem_text;
+	} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
+		my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
+		  . "$locus_info->{'max_length'} $units.<br />";
+		$buffer .= $problem_text;
+	} elsif ( defined $locus ) {
+		${ $args->{'value'} } = uc( ${ $args->{'value'} } );
+		if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
+			${ $args->{'value'} } =~ s/[\W]//gx;
+		} else {
+			${ $args->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//gx;
+		}
+		my $md5_seq = md5( ${ $args->{'value'} } );
+		$self->{'unique_values'}->{$locus}->{$md5_seq}++;
+		if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
+			if ( $q->param('ignore_existing') ) {
+				${ $args->{'continue'} } = 0;
+			} else {
+				$buffer .= 'Sequence appears more than once in this submission.<br />';
+			}
+		}
+		my $exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,sequence)=(?,?))',
+			[ $locus, ${ $args->{'value'} } ],
+			{ cache => 'CurateBatchAddPage::sequence_exists' }
+		);
+		if ($exists) {
+			if ( $q->param('complete_CDS') || $q->param('ignore_existing') ) {
+				${ $args->{'continue'} } = 0;
+			} else {
+				$buffer .= "Sequence already exists in the database ($locus: $exists).<br />";
+			}
+		}
+		if ( $q->param('complete_CDS') ) {
+			my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'} );
+			${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
+		}
+	}
+	return $buffer;
+}
+
+sub _check_sequence_field {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my $buffer = q();
+	return $buffer if !( defined $locus && $field eq 'sequence' );
+	return $buffer if !${ $args->{'continue'} };
+	my $q          = $self->{'cgi'};
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if (
+		( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
+		&& !BIGSdb::Utils::is_valid_DNA(
+			${ $args->{'value'} },
+			{ diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+		)
+	  )
+	{
+
+		if ( $q->param('complete_CDS') || $q->param('ignore_non_DNA') ) {
+			${ $args->{'continue'} } = 0;
+		} else {
+			my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+			local $" = '|';
+			$buffer .= "Sequence contains non nucleotide (@chars) characters.<br />";
+		}
+	} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
+		&& $self->{'datastore'}->sequences_exist($locus)
+		&& !$q->param('ignore_similarity') )
+	{
+		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $args->{'value'} );
+		if ( !$check->{'similar'} ) {
+			$buffer .=
+			    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
+			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
+			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
+			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
+		} elsif ( $check->{'subsequence_of'} ) {
+			$buffer .=
+			    qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
+			  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
+			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
+		} elsif ( $check->{'supersequence_of'} ) {
+			$buffer .=
+			    qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
+			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
+			  . q[make sure that the 'Override sequence similarity check' box is ticked.<br />];
 		}
 	}
 	return $buffer;

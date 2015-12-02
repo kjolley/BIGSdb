@@ -543,7 +543,7 @@ sub _check_sequence_field {
 		} elsif ( $check->{'supersequence_of'} ) {
 			push @$problems,
 			    qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
-			  . q[complete length of this allele but is shorter. If you're sure you want to add this sequence then ]
+			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
 			  . q[make sure that the 'Override sequence similarity check' box is ticked.];
 		}
 	}

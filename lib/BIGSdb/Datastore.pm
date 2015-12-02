@@ -1953,43 +1953,6 @@ sub _get_cache_age {
 	return -M $temp_fastafile;
 }
 
-sub is_sequence_similar_to_others {
-
-	#returns true if sequence is at least 70% identical over an alignment length of 90% or more.
-	my ( $self, $locus, $seq_ref ) = @_;
-	$logger->logcarp('This method is deprecated - migrate to Datastore::check_sequence_similarity');
-	my $locus_info = $self->get_locus_info($locus);
-	my ( $blast_file, undef ) =
-	  $self->run_blast(
-		{ locus => $locus, seq_ref => $seq_ref, qry_type => $locus_info->{'data_type'}, num_results => 1 } );
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	my $length    = length $$seq_ref;
-	return if !-s $full_path;
-	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
-	my ( $identity, $reversed, $alignment );
-
-	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^\#/x;
-		my @record = split /\s+/x, $line;
-		$identity  = $record[2];
-		$alignment = $record[3];
-		if (   ( $record[8] > $record[9] && $record[7] > $record[6] )
-			|| ( $record[8] < $record[9] && $record[7] < $record[6] ) )
-		{
-			$reversed = 1;
-		}
-		last;
-	}
-	close $blast_fh;
-	unlink $full_path;
-	return if $reversed;
-	if ( defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
-		return 1;
-	}
-	return;
-}
-
 sub check_sequence_similarity {
 
 	#returns hashref with the following keys
