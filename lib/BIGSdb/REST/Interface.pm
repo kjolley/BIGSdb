@@ -178,10 +178,11 @@ sub _is_authorized {
 	}
 	my $query_params = params('query');
 	my $body_params  = params('body');
+	
 	my $extra_params = {};
 	foreach my $param ( keys %$query_params, keys %$body_params ) {
 		next if $param =~ /^oauth_/x;
-		$extra_params->{$param} = $query_params->{$param};
+		$extra_params->{$param} = $query_params->{$param} // $body_params->{$param};
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
