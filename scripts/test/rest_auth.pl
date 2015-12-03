@@ -1,5 +1,21 @@
 #!/usr/bin/perl
 #Script to test authenticated resources via REST interface.
+#Written by Keith Jolley
+#Copyright (c) 2015, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
 #Usage: rest_auth.pl <route>
 use strict;
 use warnings;
@@ -25,6 +41,7 @@ use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl
 ###
 my %opts;
 GetOptions(
+	'a|arguments=s'     => \$opts{'a'},
 	'f|file=s'          => \$opts{'f'},
 	'i|isolates_file=s' => \$opts{'i'},
 	'm|method=s'        => \$opts{'m'},
@@ -230,6 +247,13 @@ sub _get_route {
 		close $fh;
 		$extra_params->{'upload'} = encode_base64($contents);
 	}
+	if ( $opts{'a'} ) {
+		my @p = split /&/x, $opts{'a'};
+		for my $pa (@p) {
+			my @ps = split /=/x, $pa;
+			$extra_params->{ $ps[0] } = $ps[1];
+		}
+	}
 	my $url = TEST_REST_URL . "$route";
 	say "\nAccessing authenticated resource ($url)...";
 	my $request = Net::OAuth->request('protected resource')->new(
@@ -249,7 +273,10 @@ sub _get_route {
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	my $method = lc( $opts{'m'} );
-	my $res = $ua->$method( $request->to_url, Content_Type => 'application/json' );
+	my $res =
+	    $opts{'m'} eq 'POST'
+	  ? $ua->post( $url, Content => $request->to_post_body )
+	  : $ua->$method( $request->to_url );
 	my $decoded_json;
 	eval { $decoded_json = decode_json( $res->content ) };
 	if ($@) {
@@ -318,6 +345,10 @@ ${bold}SYNOPSIS$norm
     ${bold}rest_auth.pl --route$norm ${under}ROUTE$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
+
+${bold}-a, --arguments$norm ${under}DATA$norm
+    Data to put in during POST e.g. 
+    'type=alleles&software=Enterobase'.
 
 ${bold}-f, --file$norm ${under}FILENAME$norm
     Name of file to upload.
