@@ -781,6 +781,9 @@ sub _extract_value {
 	my $data            = $arg_ref->{'data'};
 	my $file_header_pos = $arg_ref->{'file_header_pos'};
 	if ( $field eq 'id' ) {
+		if ( defined $file_header_pos->{'id'} ) {
+			return $data->[ $file_header_pos->{'id'} ];
+		}
 		return $arg_ref->{'id'};
 	}
 	if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
@@ -1169,32 +1172,29 @@ sub _check_data_scheme_group_group_members {
 }
 
 sub _check_data_sequences {
-	my ( $self, $arg_ref ) = @_;
-	my $field           = $arg_ref->{'field'};
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	my @data            = @{ $arg_ref->{'data'} };
-	my $q               = $self->{'cgi'};
+	my ( $self, $args ) = @_;
+	my ( $field, $file_header_pos, $data, $pk_combination ) = @{$args}{qw(field file_header_pos data pk_combination)};
+	my $q = $self->{'cgi'};
 	my $locus;
 	if ( $field eq 'locus' && $q->param('locus') ) {
-		${ $arg_ref->{'value'} } = $q->param('locus');
+		${ $args->{'value'} } = $q->param('locus');
 	}
 	if ( $q->param('locus') ) {
 		$locus = $q->param('locus');
 	} else {
 		$locus =
-		  ( defined $file_header_pos{'locus'} && defined $data[ $file_header_pos{'locus'} ] )
-		  ? $data[ $file_header_pos{'locus'} ]
+		  ( defined $file_header_pos->{'locus'} && defined $data->[ $file_header_pos->{'locus'} ] )
+		  ? $data->[ $file_header_pos->{'locus'} ]
 		  : undef;
 	}
-	my $buffer = $self->_check_sequence_allele_id( $locus, $arg_ref );
-	$buffer .= $self->_check_sequence_length( $locus, $arg_ref );
-	$buffer .= $self->_check_sequence_field( $locus, $arg_ref );
-	$buffer .= $self->_check_sequence_extended_attributes( $locus, $arg_ref );
-	$buffer .= $self->_check_sequence_flags( $locus, $arg_ref );
+	my $buffer = $self->_check_sequence_allele_id( $locus, $args );
+	$buffer .= $self->_check_sequence_length( $locus, $args );
+	$buffer .= $self->_check_sequence_field( $locus, $args );
+	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
+	$buffer .= $self->_check_sequence_flags( $locus, $args );
 	if ($buffer) {
-		$arg_ref->{'problems'}->{$pk_combination} .= $buffer;
-		${ $arg_ref->{'special_problem'} } = 1;
+		$args->{'problems'}->{$pk_combination} .= $buffer;
+		${ $args->{'special_problem'} } = 1;
 	}
 	return;
 }
@@ -1498,68 +1498,18 @@ sub _check_retired_allele_ids {
 
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
-	my $table    = $arg_ref->{'table'};
-	my $locus    = $arg_ref->{'locus'};
-	my $loci     = $self->{'datastore'}->get_loci;
-	my $q        = $self->{'cgi'};
-	my $tmp_file = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
+	my $table = $arg_ref->{'table'};
+	my $locus = $arg_ref->{'locus'};
+	my $q     = $self->{'cgi'};
 	my %schemes;
-	my @records;
-
-	if ( !-e $tmp_file ) {
-		say q(<div class="box" id="statusbad"><p>The temp file containing the checked data does not exist.</p>)
-		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
-		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
-		$logger->error("Checked buffer file $tmp_file does not exist.");
-		return;
-	}
-	if ( open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) ) {
-		@records = <$tmp_fh>;
-		close $tmp_fh;
-	} else {
-		$logger->error("Can't open $tmp_file for reading.");
-	}
-	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
-		$logger->info("Deleting temp file $tmp_file.");
-		unlink $1;
-	} else {
-		$logger->error("Can't delete temp file $tmp_file.");
-	}
-	my $headerline = shift @records;
-	my @fieldorder;
-	if ( defined $headerline ) {
-		$headerline =~ s/[\r\n]//gx;
-		@fieldorder = split /\t/x, $headerline;
-	}
-	my %fieldorder;
-	my $extended_attributes;
-	for ( my $i = 0 ; $i < @fieldorder ; $i++ ) {
-		$fieldorder{ $fieldorder[$i] } = $i;
-	}
-	my ( @fields_to_include, @metafields );
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		foreach my $field (@$field_list) {
-			if ( $field =~ /^meta_.*:/x ) {
-				push @metafields, $field;
-			} else {
-				push @fields_to_include, $field;
-			}
-		}
-	} else {
-		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		push @fields_to_include, $_->{'name'} foreach @$attributes;
-		if ( $table eq 'sequences' && $locus ) {
-			$extended_attributes =
-			  $self->{'datastore'}->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
-				$locus, { fetch => 'col_arrayref' } );
-		}
-	}
+	my $records = $self->_extract_checked_records;
+	return if !@$records;
+	my $field_order = $self->_get_field_order($records);
+	my ( $fields_to_include, $meta_fields, $extended_attributes ) = $self->_get_fields_to_include( $table, $locus );
 	my @history;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	foreach my $record (@records) {
+
+	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
 		my @profile;
 		if ($record) {
@@ -1567,157 +1517,74 @@ sub _upload_data {
 			@data = $self->_process_fields( \@data );
 			my @value_list;
 			my ( @extras, @ref_extras );
-			my ( $id,     $sender );
-			foreach my $field (@fields_to_include) {
-				$id = $data[ $fieldorder{$field} ] if $field eq 'id';
-				if ( $field eq 'date_entered' || $field eq 'datestamp' ) {
-					push @value_list, 'now';
-				} elsif ( $field eq 'curator' ) {
-					push @value_list, $self->get_curator_id;
-				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
-					push @value_list, $self->get_curator_id;
-					$sender = $self->get_curator_id;
-				} elsif ( defined $fieldorder{$field}
-					&& defined $data[ $fieldorder{$field} ] )
-				{
-					push @value_list, $data[ $fieldorder{$field} ];
-					if ( $field eq 'sender' ) {
-						$sender = $data[ $fieldorder{$field} ];
+			my $id;
+			my $sender = $self->_get_sender( $field_order, \@data, $user_info->{'status'} );
+			foreach my $field (@$fields_to_include) {
+				$id = $data[ $field_order->{$field} ] if $field eq 'id';
+				push @value_list,
+				  $self->_read_value(
+					{
+						table       => $table,
+						field       => $field,
+						field_order => $field_order,
+						data        => \@data,
+						locus       => $locus,
+						user_status => ( $user_info->{'status'} // undef )
 					}
-				} elsif ( $field eq 'sender' ) {
-					if ( $q->param('sender') ) {
-						$sender = $q->param('sender');
-						push @value_list, $q->param('sender');
-					} else {
-						push @value_list, undef;
-						$logger->error('No sender!');
-					}
-				} elsif ( $table eq 'sequences' && !defined $fieldorder{$field} && $locus ) {
-					push @value_list, $locus;
-				} else {
-					push @value_list, undef;
-				}
+				  ) // undef;
 				if ( $field eq 'scheme_id' ) {
-					$schemes{ $data[ $fieldorder{'scheme_id'} ] } = 1;
+					$schemes{ $data[ $field_order->{'scheme_id'} ] } = 1;
 				}
 			}
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && ( $table eq 'loci' || $table eq 'isolates' ) ) {
-				@extras = split /;/x, $data[ $fieldorder{'aliases'} ]
-				  if defined $fieldorder{'aliases'} && defined $data[ $fieldorder{'aliases'} ];
-				@ref_extras = split /;/x, $data[ $fieldorder{'references'} ]
-				  if defined $fieldorder{'references'} && defined $data[ $fieldorder{'references'} ];
+			if ( $table eq 'loci' || $table eq 'isolates' ) {
+				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
+				  if defined $field_order->{'aliases'} && defined $data[ $field_order->{'aliases'} ];
+				@ref_extras = split /;/x, $data[ $field_order->{'references'} ]
+				  if defined $field_order->{'references'} && defined $data[ $field_order->{'references'} ];
 			}
 			my @inserts;
 			my $qry;
 			local $" = ',';
-			my @placeholders = ('?') x @fields_to_include;
-			$qry = "INSERT INTO $table (@fields_to_include) VALUES (@placeholders)";
+			my @placeholders = ('?') x @$fields_to_include;
+			$qry = "INSERT INTO $table (@$fields_to_include) VALUES (@placeholders)";
 			push @inserts, { statement => $qry, arguments => \@value_list };
 			if ( $table eq 'allele_designations' ) {
-				push @history, "$data[$fieldorder{'isolate_id'}]|$data[$fieldorder{'locus'}]: "
-				  . "new designation '$data[$fieldorder{'allele_id'}]'";
+				push @history, "$data[$field_order->{'isolate_id'}]|$data[$field_order->{'locus'}]: "
+				  . "new designation '$data[$field_order->{'allele_id'}]'";
 			}
 			my $curator = $self->get_curator_id;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-				my $meta_inserts = $self->_prepare_metaset_insert( \@metafields, \%fieldorder, \@data );
+				my $meta_inserts = $self->_prepare_metaset_insert( $meta_fields, $field_order, \@data );
 				push @inserts, @$meta_inserts;
-
-				#Remove duplicate loci which may occur if they belong to more than one scheme.
-				my @locus_list = uniq @$loci;
-				foreach (@locus_list) {
-					next if !$fieldorder{$_};
-					my $value = $data[ $fieldorder{$_} ];
-					$value //= q();
-					$value =~ s/^\s*//gx;
-					$value =~ s/\s*$//gx;
-					next if $value eq q();
-					if ( defined $fieldorder{$_} ) {
-						$qry =
-						    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
-						  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
-						push @inserts,
-						  {
-							statement => $qry,
-							arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
-						  };
+				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
+					{
+						id          => $id,
+						sender      => $sender,
+						curator     => $curator,
+						data        => \@data,
+						field_order => $field_order,
+						extras      => \@extras,
+						ref_extras  => \@ref_extras
 					}
-				}
-				foreach (@extras) {
-					next if !defined $_;
-					$_ =~ s/^\s*//gx;
-					$_ =~ s/\s*$//gx;
-					if ( $_ && $_ ne $id && defined $data[ $fieldorder{ $self->{'system'}->{'labelfield'} } ] ) {
-						$qry = 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)';
-						push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
-					}
-				}
-				foreach (@ref_extras) {
-					next if !defined $_;
-					$_ =~ s/^\s*//gx;
-					$_ =~ s/\s*$//gx;
-					if ( $_ && $_ ne $id && defined $data[ $fieldorder{ $self->{'system'}->{'labelfield'} } ] ) {
-						if ( BIGSdb::Utils::is_int($_) ) {
-							$qry = 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)';
-							push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
-						}
-					}
-				}
+				);
+				push @inserts, @$isolate_extra_inserts;
 				push @history, "$id|Isolate record added";
 			} elsif ( $table eq 'loci' ) {
-				foreach (@extras) {
-					$_ =~ s/^\s*//gx;
-					$_ =~ s/\s*$//gx;
-					if ( defined $_ && $_ ne $id ) {
-						$qry = 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)';
-						push @inserts, { statement => $qry, arguments => [ $id, $_, 'TRUE', $curator, 'now' ] };
-					}
-				}
-				if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-					my $full_name = defined $fieldorder{'full_name'} ? $data[ $fieldorder{'full_name'} ] : undef;
-					my $product = defined $fieldorder{'product'}
-					  && $data[ $fieldorder{'product'} ] ? $data[ $fieldorder{'product'} ] : undef;
-					my $description = defined $fieldorder{'description'} ? $data[ $fieldorder{'description'} ] : undef;
-					$qry =
-					    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
-					  . 'VALUES (?,?,?,?,?,?)';
-					push @inserts,
-					  { statement => $qry, arguments => [ $id, $curator, 'now', $full_name, $product, $description ] };
-				}
+				my $loci_extra_inserts = $self->_prepare_loci_extra_inserts(
+					{ id => $id, curator => $curator, data => \@data, field_order => $field_order, extras => \@extras }
+				);
+				push @inserts, @$loci_extra_inserts;
 			} elsif ( $table eq 'sequences' ) {
-				$locus //= $data[ $fieldorder{'locus'} ];
-				if ( $locus && ref $extended_attributes eq 'ARRAY' ) {
-					my @values;
-					$qry = 'INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,'
-					  . 'curator) VALUES (?,?,?,?,?,?)';
-					foreach (@$extended_attributes) {
-						if ( defined $fieldorder{$_} && defined $data[ $fieldorder{$_} ] ) {
-							push @inserts,
-							  {
-								statement => $qry,
-								arguments => [
-									$locus, $_,
-									$data[ $fieldorder{'allele_id'} ],
-									$data[ $fieldorder{$_} ],
-									'now', $curator
-								]
-							  };
-						}
+				my $sequences_extra_inserts = $self->_prepare_sequences_extra_inserts(
+					{
+						locus               => $locus,
+						extended_attributes => $extended_attributes,
+						data                => \@data,
+						field_order         => $field_order,
+						curator             => $curator
 					}
-				}
-				if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
-					&& defined $fieldorder{'flags'}
-					&& defined $data[ $fieldorder{'flags'} ] )
-				{
-					my @flags = split /;/x, $data[ $fieldorder{'flags'} ];
-					$qry = 'INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (?,?,?,?,?)';
-					foreach (@flags) {
-						push @inserts,
-						  {
-							statement => $qry,
-							arguments => [ $locus, $data[ $fieldorder{'allele_id'} ], $_, 'now', $curator ]
-						  };
-					}
-				}
+				);
+				push @inserts, @$sequences_extra_inserts;
 				$self->{'datastore'}->mark_cache_stale;
 			}
 			eval {
@@ -1745,32 +1612,25 @@ sub _upload_data {
 			}
 		}
 	}
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-	{
-		foreach my $scheme_id ( keys %schemes ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $field_count   = @$scheme_fields + @$scheme_loci;
-			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
-				say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-				  . MAX_POSTGRES_COLS
-				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
-				  . q(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
-				$self->{'db'}->rollback;
-				return;
-			}
-			$self->remove_profile_data($scheme_id);
-			$self->drop_scheme_view($scheme_id);
-			$self->create_scheme_view($scheme_id);
-		}
-	}
+	$self->_regenerate_scheme_view_if_needed( $table, \%schemes );
 	$self->{'db'}->commit && say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
 		$self->update_history( $isolate_id, $action );
 	}
+	$self->_display_update_footer_links($table);
+	if ( $table eq 'sequences' ) {
+		$self->update_blast_caches;
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
+	}
+	say q(</div>);
+	return;
+}
+
+sub _display_update_footer_links {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<p>);
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
@@ -1788,12 +1648,272 @@ sub _upload_data {
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
 		  . qq(ignore_similarity=$ignore_similarity">Add more</a>);
-		$self->update_blast_caches;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
 	}
-	say q(</p></div>);
+	say q(</p>);
 	return;
+}
+
+sub _regenerate_scheme_view_if_needed {
+	my ( $self, $table, $schemes ) = @_;
+	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
+	{
+		foreach my $scheme_id ( keys %$schemes ) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $field_count   = @$scheme_fields + @$scheme_loci;
+			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
+				say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
+				  . MAX_POSTGRES_COLS
+				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
+				  . q(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
+				$self->{'db'}->rollback;
+				return;
+			}
+			$self->remove_profile_data($scheme_id);
+			$self->drop_scheme_view($scheme_id);
+			$self->create_scheme_view($scheme_id);
+		}
+	}
+	return;
+}
+
+sub _get_locus_list {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'loci'} ) {
+		$self->{'cache'}->{'loci'} = $self->{'datastore'}->get_loci;
+	}
+	return $self->{'cache'}->{'loci'};
+}
+
+sub _prepare_isolate_extra_inserts {
+	my ( $self, $args ) = @_;
+	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras ) =
+	  @{$args}{qw(id sender curator data field_order extras ref_extras)};
+	my @inserts;
+	my $locus_list = $self->_get_locus_list;
+	foreach (@$locus_list) {
+		next if !$field_order->{$_};
+		my $value = $data->[ $field_order->{$_} ];
+		$value //= q();
+		$value =~ s/^\s*//gx;
+		$value =~ s/\s*$//gx;
+		next if $value eq q();
+		if ( defined $field_order->{$_} ) {
+			my $qry =
+			    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
+			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
+			push @inserts,
+			  {
+				statement => $qry,
+				arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
+			  };
+		}
+	}
+	foreach (@$extras) {
+		next if !defined $_;
+		$_ =~ s/^\s*//gx;
+		$_ =~ s/\s*$//gx;
+		if ( $_ && $_ ne $id && defined $data->[ $field_order->{ $self->{'system'}->{'labelfield'} } ] ) {
+			my $qry = 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)';
+			push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
+		}
+	}
+	foreach (@$ref_extras) {
+		next if !defined $_;
+		$_ =~ s/^\s*//gx;
+		$_ =~ s/\s*$//gx;
+		if ( $_ && $_ ne $id && defined $data->[ $field_order->{ $self->{'system'}->{'labelfield'} } ] ) {
+			if ( BIGSdb::Utils::is_int($_) ) {
+				my $qry = 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)';
+				push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
+			}
+		}
+	}
+	return \@inserts;
+}
+
+sub _prepare_loci_extra_inserts {
+	my ( $self, $args ) = @_;
+	my ( $id, $curator, $data, $field_order, $extras ) = @{$args}{qw(id curator data field_order extras)};
+	my @inserts;
+	foreach (@$extras) {
+		$_ =~ s/^\s*//gx;
+		$_ =~ s/\s*$//gx;
+		if ( defined $_ && $_ ne $id ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				my $qry = 'INSERT INTO locus_aliases (locus,alias,use_alias,curator,datestamp) VALUES (?,?,?,?,?)';
+				push @inserts, { statement => $qry, arguments => [ $id, $_, 'TRUE', $curator, 'now' ] };
+			} else {
+				my $qry = 'INSERT INTO locus_aliases (locus,alias,curator,datestamp) VALUES (?,?,?,?)';
+				push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
+			}
+		}
+	}
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		my $full_name = defined $field_order->{'full_name'} ? $data->[ $field_order->{'full_name'} ] : undef;
+		my $product = defined $field_order->{'product'}
+		  && $data->[ $field_order->{'product'} ] ? $data->[ $field_order->{'product'} ] : undef;
+		my $description = defined $field_order->{'description'} ? $data->[ $field_order->{'description'} ] : undef;
+		my $qry =
+		    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
+		  . 'VALUES (?,?,?,?,?,?)';
+		push @inserts, { statement => $qry, arguments => [ $id, $curator, 'now', $full_name, $product, $description ] };
+	}
+	return \@inserts;
+}
+
+sub _prepare_sequences_extra_inserts {
+	my ( $self, $args ) = @_;
+	my ( $locus, $extended_attributes, $data, $field_order, $curator ) =
+	  @{$args}{qw(locus extended_attributes data field_order curator)};
+	my @inserts;
+	$locus //= $data->[ $field_order->{'locus'} ];
+	if ( $locus && ref $extended_attributes eq 'ARRAY' ) {
+		my @values;
+		my $qry = 'INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,'
+		  . 'curator) VALUES (?,?,?,?,?,?)';
+		foreach (@$extended_attributes) {
+			if ( defined $field_order->{$_} && defined $data->[ $field_order->{$_} ] ) {
+				push @inserts,
+				  {
+					statement => $qry,
+					arguments => [
+						$locus, $_,
+						$data->[ $field_order->{'allele_id'} ],
+						$data->[ $field_order->{$_} ],
+						'now', $curator
+					]
+				  };
+			}
+		}
+	}
+	if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+		&& defined $field_order->{'flags'}
+		&& defined $data->[ $field_order->{'flags'} ] )
+	{
+		my @flags = split /;/x, $data->[ $field_order->{'flags'} ];
+		my $qry = 'INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (?,?,?,?,?)';
+		foreach (@flags) {
+			push @inserts,
+			  {
+				statement => $qry,
+				arguments => [ $locus, $data->[ $field_order->{'allele_id'} ], $_, 'now', $curator ]
+			  };
+		}
+	}
+	return \@inserts;
+}
+
+sub _extract_checked_records {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my @records;
+	my $tmp_file = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
+	if ( !-e $tmp_file ) {
+		say q(<div class="box" id="statusbad"><p>The temp file containing the checked data does not exist.</p>)
+		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
+		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
+		$logger->error("Checked buffer file $tmp_file does not exist.");
+		return [];
+	}
+	if ( open( my $tmp_fh, '<:encoding(utf8)', $tmp_file ) ) {
+		@records = <$tmp_fh>;
+		close $tmp_fh;
+	} else {
+		$logger->error("Can't open $tmp_file for reading.");
+	}
+	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
+		$logger->info("Deleting temp file $tmp_file.");
+		unlink $1;
+	} else {
+		$logger->error("Can't delete temp file $tmp_file.");
+	}
+	return \@records;
+}
+
+sub _get_sender {
+	my ( $self, $field_order, $data, $user_status ) = @_;
+	if ( $user_status eq 'submitter' ) {
+		return $self->get_curator_id;
+	} elsif ( defined $field_order->{'sender'}
+		&& defined $data->[ $field_order->{'sender'} ] )
+	{
+		return $data->[ $field_order->{'sender'} ];
+	}
+	my $q = $self->{'cgi'};
+	if ( $q->param('sender') ) {
+		return $q->param('sender');
+	}
+	return;
+}
+
+sub _read_value {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $field_order, $data, $locus, $user_status ) =
+	  @{$args}{qw(table field field_order data locus user_status)};
+	if ( $field eq 'date_entered' || $field eq 'datestamp' ) {
+		return 'now';
+	}
+	if ( $field eq 'curator' ) {
+		return $self->get_curator_id;
+	}
+	if ( $field eq 'sender' && $user_status eq 'submitter' ) {
+		return $self->get_curator_id;
+	}
+	if ( defined $field_order->{$field} && defined $data->[ $field_order->{$field} ] ) {
+		return $data->[ $field_order->{$field} ];
+	}
+	if ( $field eq 'sender' ) {
+		my $q = $self->{'cgi'};
+		return $q->param('sender') ? $q->param('sender') : undef;
+	}
+	if ( $table eq 'sequences' && !defined $field_order->{$field} && $locus ) {
+		return $locus;
+	}
+	return;
+}
+
+sub _get_field_order {
+	my ( $self, $records ) = @_;
+	my $header_line = shift @$records;
+	my @fields;
+	if ( defined $header_line ) {
+		$header_line =~ s/[\r\n]//gx;
+		@fields = split /\t/x, $header_line;
+	}
+	my %field_order;
+	for my $i ( 0 .. @fields - 1 ) {
+		$field_order{ $fields[$i] } = $i;
+	}
+	return \%field_order;
+}
+
+sub _get_fields_to_include {
+	my ( $self, $table, $locus ) = @_;
+	my ( @fields_to_include, @metafields, $extended_attributes );
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		my $set_id        = $self->get_set_id;
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		foreach my $field (@$field_list) {
+			if ( $field =~ /^meta_.*:/x ) {
+				push @metafields, $field;
+			} else {
+				push @fields_to_include, $field;
+			}
+		}
+	} else {
+		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+		push @fields_to_include, $_->{'name'} foreach @$attributes;
+		if ( $table eq 'sequences' && $locus ) {
+			$extended_attributes =
+			  $self->{'datastore'}->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
+				$locus, { fetch => 'col_arrayref' } );
+		}
+	}
+	return ( \@fields_to_include, \@metafields, $extended_attributes );
 }
 
 sub _update_scheme_caches {
@@ -1880,7 +2000,7 @@ sub _get_fields_in_order {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach my $att (@$attributes) {
 			push @fields, $att->{'name'};
-			if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $att->{'name'} eq 'id' ) {
+			if ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
 				push @fields, 'aliases';
 			}
 		}
@@ -1914,7 +2034,7 @@ sub _get_field_table_header {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach (@$attributes) {
 			push @headers, $_->{'name'};
-			if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $_->{'name'} eq 'id' ) {
+			if ( $table eq 'loci' && $_->{'name'} eq 'id' ) {
 				push @headers, 'aliases';
 			}
 		}

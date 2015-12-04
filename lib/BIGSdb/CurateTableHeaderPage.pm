@@ -88,7 +88,7 @@ sub get_headers {
 				push @headers, $att->{'name'}
 				  if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
 			}
-			if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' && $att->{'name'} eq 'id' ) {
+			if ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
 				push @headers, 'aliases';
 			}
 		}
