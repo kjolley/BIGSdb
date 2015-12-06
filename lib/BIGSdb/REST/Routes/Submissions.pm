@@ -282,7 +282,9 @@ sub _check_submitted_alleles {
 	$fasta_string =~ s/^\s*//x;
 	$fasta_string =~ s/\n\s*/\n/xg;
 	$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
-	my $check = $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string );
+	my $check =
+	  $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string, { skip_info_checks => 1 } )
+	  ;
 
 	if ( $check->{'err'} ) {
 		local $" = q( );

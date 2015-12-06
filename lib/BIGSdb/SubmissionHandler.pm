@@ -287,7 +287,8 @@ sub mkpath {
 
 #Validate new allele submissions
 sub check_new_alleles_fasta {
-	my ( $self, $locus, $fasta_ref ) = @_;
+	my ( $self, $locus, $fasta_ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$locus_info ) {
 		$logger->error("Locus $locus is not defined");
@@ -341,6 +342,7 @@ sub check_new_alleles_fasta {
 		if ($existing_allele) {
 			push @err, qq(Sequence "$seq_id" has already been defined as $locus-$existing_allele.);
 		}
+		next if $options->{'skip_info_checks'};
 		if ( $locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA' ) {
 			my $check = BIGSdb::Utils::is_complete_cds( \$sequence );
 			if ( !$check->{'cds'} ) {
