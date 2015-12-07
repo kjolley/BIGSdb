@@ -298,6 +298,7 @@ sub check_new_alleles_fasta {
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my ( @err, @info, @seqs, %used_ids );
+	my $locus_seq_table = $self->{'datastore'}->create_temp_allele_table($locus);
 	while ( my $seq_object = $seqin->next_seq ) {
 		push @seqs, { seq_id => $seq_object->id, sequence => $seq_object->seq };
 		my $seq_id = $seq_object->id;
@@ -335,8 +336,8 @@ sub check_new_alleles_fasta {
 			  . qq(has a maximum length of $locus_info->{'max_length'} $units.);
 		}
 		my $existing_allele = $self->{'datastore'}->run_query(
-			'SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))',
-			[ $locus, $sequence ],
+			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
+			uc($sequence),
 			{ cache => 'check_new_alleles_fasta' }
 		);
 		if ($existing_allele) {

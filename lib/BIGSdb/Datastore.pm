@@ -2152,6 +2152,22 @@ sub create_temp_ref_table {
 	$logger->error($@) if $@;
 	return 1;
 }
+
+#Table containing all sequences for a particular locus - this is more efficient for querying by sequence
+#in large seqdef databases
+sub create_temp_allele_table {
+	my ( $self, $locus ) = @_;
+	my $table = 'temp_seqs_' . int( rand(99999999) );
+	eval {
+		$self->{'db'}->do(
+			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
+			  . 'AS sequence FROM sequences WHERE locus=?',
+			undef, $locus
+		);
+	};
+	$logger->error($@) if $@;
+	return $table;
+}
 ##############SQL######################################################################
 sub run_query {
 

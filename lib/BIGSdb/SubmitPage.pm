@@ -1389,8 +1389,9 @@ sub _print_sequence_table {
 	say q(<table class="resultstable">);
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
-	my $td           = 1;
-	my $pending_seqs = [];
+	my $td              = 1;
+	my $pending_seqs    = [];
+	my $locus_seq_table = $self->{'datastore'}->create_temp_allele_table( $allele_submission->{'locus'} );
 
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
@@ -1398,16 +1399,15 @@ sub _print_sequence_table {
 		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->{'sequence'}, 40 );
 		$cds = '';
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			$cds =
-			  BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
+			$cds = BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
 			  ? q(<td><span class="fa fa-check fa-lg" style="color:green"></span></td>)
 			  : q(<td><span class="fa fa-times fa-lg" style="color:red"></span></td>);
 		}
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
 		my $assigned = $self->{'datastore'}->run_query(
-			'SELECT allele_id FROM sequences WHERE (locus,UPPER(sequence))=(?,UPPER(?))',
-			[ $allele_submission->{'locus'}, $seq->{'sequence'} ],
+			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
+			uc( $seq->{'sequence'} ),
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
 		if ( !defined $assigned ) {
@@ -1452,6 +1452,7 @@ sub _print_sequence_table {
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+		$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	}
 	say q(</table>);
 	if ( $options->{'curate'} ) {
