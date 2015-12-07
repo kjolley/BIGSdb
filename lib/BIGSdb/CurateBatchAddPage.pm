@@ -482,6 +482,7 @@ sub _check_data {
 				};
 				$self->_check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
+				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->_format_display_value(
@@ -668,6 +669,31 @@ sub _check_curator_permissions {
 		  "Your user account is not allowed to add or modify sequences for locus $locus. ";
 	}
 	return;
+}
+
+sub _check_super_sequence {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my $q = $self->{'cgi'};
+	return q() if $q->param('ignore_similarity');
+	return q() if !( defined $locus && $field eq 'sequence' );
+	return q() if !${ $args->{'continue'} };
+	my $seq = $data->[ $args->{'file_header_pos'}->{'sequence'} ];
+	return q() if $self->{'cache'}->{'seqs'}->{$locus}->{$seq};
+	my $allele_id = $args->{'last_id'}->{$locus} // $data->[ $file_header_pos->{'allele_id'} ];
+
+	foreach my $test_seq ( keys %{ $self->{'cache'}->{'seqs'}->{$locus} } ) {
+		if ( $seq =~ /$test_seq/x ) {
+			return "Sequence is a super-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
+			  . 'submitted as part of this batch.';
+		}
+		if ( $test_seq =~ /$seq/x ) {
+			return "Sequence is a sub-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
+			  . 'submitted as part of this batch.';
+		}
+	}
+	$self->{'cache'}->{'seqs'}->{$locus}->{$seq} = $allele_id;
+	return q();
 }
 
 sub _check_corresponding_sequence_exists {
@@ -1192,6 +1218,7 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_sequence_field( $locus, $args );
 	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
 	$buffer .= $self->_check_sequence_flags( $locus, $args );
+	$buffer .= $self->_check_super_sequence( $locus, $args );
 	if ($buffer) {
 		$args->{'problems'}->{$pk_combination} .= $buffer;
 		${ $args->{'special_problem'} } = 1;
@@ -1235,6 +1262,7 @@ sub _check_sequence_allele_id {
 				);
 			} while $exists;
 			$args->{'last_id'}->{$locus} = ${ $args->{'value'} };
+			$args->{'pk_combination'} = "locus: $locus; allele_id: ${ $args->{'value'} }";
 		} elsif ( defined $file_header_pos->{'allele_id'}
 			&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'allele_id'} ] )
 			&& defined $locus_info->{'allele_id_format'}
@@ -1248,7 +1276,7 @@ sub _check_sequence_allele_id {
 			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && $data->[ $file_header_pos->{'allele_id'} ] !~ /$regex/x ) {
+		if ( $regex && ($data->[ $file_header_pos->{'allele_id'} ] // q()) !~ /$regex/x ) {
 			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
 		}
 		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
