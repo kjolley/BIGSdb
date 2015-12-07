@@ -1936,7 +1936,7 @@ sub _update_scheme_caches {
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
-					instance         => $self->{'instance'}
+					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'}
 				}
 			);
 			CORE::exit(0);
