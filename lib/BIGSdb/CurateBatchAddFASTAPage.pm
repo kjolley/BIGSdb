@@ -244,103 +244,15 @@ sub _check_sequence {
 	} else {
 		$allele_id = $data->{'id'};
 	}
+	my $msg = $self->_check_allele_id( $locus, $allele_id );
+	return ( FAILURE, $allele_id, $msg ) if $msg;
+	$msg = $self->_check_sequence_field( \$data->{'seq'} );
+	return ( FAILURE, $allele_id, $msg ) if $msg;
+	$msg = $self->_check_sequence_exists( $locus, \$data->{'seq'} );
+	return ( FAILURE, $allele_id, $msg ) if $msg;
+	$msg = $self->_check_sequence_similarity( $locus, \$data->{'seq'} );
+	return ( FAILURE, $allele_id, $msg ) if $msg;
 
-	#Check allele_id is correct format
-	if ( $self->{'locus_info'}->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele_id) ) {
-		return ( FAILURE, $allele_id, 'Allele id is not an integer.' );
-	}
-	if ( $self->{'locus_info'}->{'allele_id_regex'} && $allele_id !~ /$self->{'locus_info'}->{'allele_id_regex'}/x ) {
-		return ( FAILURE, $allele_id, 'Allele id does not conform to required format.' );
-	}
-
-	#Check id doesn't already exist and has not been retired.
-	if ( $self->{'datastore'}->sequence_exists( $locus, $allele_id ) ) {
-		return ( FAILURE, $allele_id, 'Allele id already exists.' );
-	}
-	if ( $self->{'datastore'}->sequence_retired( $locus, $allele_id ) ) {
-		return ( FAILURE, $allele_id, 'Allele id has been retired.' );
-	}
-
-	#Check id isn't already submitted in this submission
-	if ( $self->{'used_alleles'}->{$allele_id} ) {
-		return ( FAILURE, $allele_id, 'Allele id already submitted in this upload.' );
-	}
-
-	#Check invalid characters
-	if (
-		$self->{'locus_info'}->{'data_type'} eq 'DNA'
-		&& !BIGSdb::Utils::is_valid_DNA(
-			$data->{'seq'}, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
-		)
-	  )
-	{
-		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
-		local $" = '|';
-		return ( FAILURE, $allele_id, "Sequence contains non nucleotide (@chars) characters." );
-	} elsif ( $self->{'locus_info'}->{'data_type'} eq 'peptide' && $data->{'seq'} =~ /[^GPAVLIMCFYWHKRQNEDST\*]/x ) {
-		return ( FAILURE, $allele_id, 'Sequence contains non AA characters.' );
-	}
-
-	#Check length
-	my $length = length $data->{'seq'};
-	my $units =
-	  $self->{'locus_info'}->{'data_type'} && $self->{'locus_info'}->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-	if (   !$self->{'locus_info'}->{'length_varies'}
-		&& defined $self->{'locus_info'}->{'length'}
-		&& $self->{'locus_info'}->{'length'} != $length )
-	{
-		return ( FAILURE, $allele_id,
-			    "Sequence is $length $units long but this locus is set as a standard "
-			  . "length of $self->{'locus_info'}->{'length'} $units." );
-	} elsif ( $self->{'locus_info'}->{'min_length'} && $length < $self->{'locus_info'}->{'min_length'} ) {
-		return ( FAILURE, $allele_id,
-			    "Sequence is $length $units long but this locus is set with a minimum "
-			  . "length of $self->{'locus_info'}->{'min_length'} $units." );
-	} elsif ( $self->{'locus_info'}->{'max_length'} && $length > $self->{'locus_info'}->{'max_length'} ) {
-		return ( FAILURE, $allele_id,
-			    "Sequence is $length $units long but this locus is set with a maximum "
-			  . "length of $self->{'locus_info'}->{'max_length'} $units." );
-	}
-
-	#Check seq doesn't already exist
-	my $exists =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)', [ $locus, $data->{'seq'} ] );
-	if ( defined $exists ) {
-		return ( FAILURE, $allele_id, "Sequence has already been defined as $locus-$exists." );
-	}
-
-	#Check sequence isn't already submitted in this submission
-	my $seq_hash = Digest::MD5::md5_hex( $data->{'seq'} );
-	if ( $self->{'used_seq'}->{$seq_hash} ) {
-		return ( FAILURE, $allele_id, 'Sequence already submitted in this upload.' );
-	}
-
-	#Check allele is sufficiently similar to existing alleles
-	if (   $self->{'locus_info'}->{'data_type'} eq 'DNA'
-		&& !$q->param('ignore_similarity')
-		&& $self->{'datastore'}->sequences_exist($locus) )
-	{
-		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, \$data->{'seq'} );
-		if ( !$check->{'similar'} ) {
-			return ( FAILURE, $allele_id,
-				    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
-				  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
-				  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
-				  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
-				  . q[sure that the 'Override sequence similarity check' box is ticked.] );
-		} elsif ( $check->{'subsequence_of'} ) {
-			return ( FAILURE, $allele_id,
-				    qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
-				  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
-				  . q[sure that the 'Override sequence similarity check' box is ticked.] );
-		} elsif ( $check->{'supersequence_of'} ) {
-			return ( FAILURE, $allele_id,
-				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
-				  . q[complete length of this allele but is longer. If you're sure you want to add this sequence ]
-				  . q[then make sure that the 'Override sequence similarity check' box is ticked.] );
-		}
-	}
 	#Check if allele is complete coding sequence
 	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA' && $q->param('complete_CDS') ) {
 		my $cds_check = BIGSdb::Utils::is_complete_cds( $data->{'seq'} );
@@ -349,8 +261,125 @@ sub _check_sequence {
 		}
 	}
 	$self->{'used_alleles'}->{$allele_id} = 1;
-	$self->{'used_seq'}->{$seq_hash}      = 1;
+	$self->{'cache'}->{'seqs'}->{ $data->{'seq'} } = $allele_id;
 	return ( SUCCESS, $allele_id, 'OK' );
+}
+
+sub _check_allele_id {
+	my ( $self, $locus, $allele_id ) = @_;
+
+	#Check allele_id is correct format
+	if ( $self->{'locus_info'}->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele_id) ) {
+		return 'Allele id is not an integer.';
+	}
+	if ( $self->{'locus_info'}->{'allele_id_regex'} && $allele_id !~ /$self->{'locus_info'}->{'allele_id_regex'}/x ) {
+		return 'Allele id does not conform to required format.';
+	}
+
+	#Check id doesn't already exist and has not been retired.
+	if ( $self->{'datastore'}->sequence_exists( $locus, $allele_id ) ) {
+		return 'Allele id already exists.';
+	}
+	if ( $self->{'datastore'}->sequence_retired( $locus, $allele_id ) ) {
+		return 'Allele id has been retired.';
+	}
+
+	#Check id isn't already submitted in this submission
+	if ( $self->{'used_alleles'}->{$allele_id} ) {
+		return 'Allele id already submitted in this upload.';
+	}
+	return;
+}
+
+sub _check_sequence_field {
+	my ( $self, $seq_ref ) = @_;
+
+	#Check invalid characters
+	if (
+		$self->{'locus_info'}->{'data_type'} eq 'DNA'
+		&& !BIGSdb::Utils::is_valid_DNA(
+			$$seq_ref, { diploid => ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? 1 : 0 ) }
+		)
+	  )
+	{
+		my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
+		local $" = '|';
+		return "Sequence contains non nucleotide (@chars) characters.";
+	} elsif ( $self->{'locus_info'}->{'data_type'} eq 'peptide' && $$seq_ref =~ /[^GPAVLIMCFYWHKRQNEDST\*]/x ) {
+		return 'Sequence contains non AA characters.';
+	}
+
+	#Check length
+	my $length = length $$seq_ref;
+	my $units =
+	  $self->{'locus_info'}->{'data_type'} && $self->{'locus_info'}->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
+	if (   !$self->{'locus_info'}->{'length_varies'}
+		&& defined $self->{'locus_info'}->{'length'}
+		&& $self->{'locus_info'}->{'length'} != $length )
+	{
+		return "Sequence is $length $units long but this locus is set as a standard "
+		  . "length of $self->{'locus_info'}->{'length'} $units.";
+	} elsif ( $self->{'locus_info'}->{'min_length'} && $length < $self->{'locus_info'}->{'min_length'} ) {
+		return "Sequence is $length $units long but this locus is set with a minimum "
+		  . "length of $self->{'locus_info'}->{'min_length'} $units.";
+	} elsif ( $self->{'locus_info'}->{'max_length'} && $length > $self->{'locus_info'}->{'max_length'} ) {
+		return "Sequence is $length $units long but this locus is set with a maximum "
+		  . "length of $self->{'locus_info'}->{'max_length'} $units.";
+	}
+	return;
+}
+
+sub _check_sequence_exists {
+	my ( $self, $locus, $seq_ref ) = @_;
+
+	#Check seq doesn't already exist
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)', [ $locus, $$seq_ref ] );
+	if ( defined $exists ) {
+		return "Sequence has already been defined as $locus-$exists.";
+	}
+
+	#Check sequence isn't already submitted in this submission
+	my $seq_hash = Digest::MD5::md5_hex($$seq_ref);
+	if ( $self->{'used_seq'}->{$seq_hash} ) {
+		return 'Sequence already submitted in this upload.';
+	}
+	$self->{'used_seq'}->{$seq_hash} = 1;
+	return;
+}
+
+sub _check_sequence_similarity {
+	my ( $self, $locus, $seq_ref ) = @_;
+	my $q = $self->{'cgi'};
+
+	#Check allele is sufficiently similar to existing alleles
+	return
+	  if !($self->{'locus_info'}->{'data_type'} eq 'DNA'
+		&& !$q->param('ignore_similarity')
+		&& $self->{'datastore'}->sequences_exist($locus) );
+	my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $seq_ref );
+	if ( !$check->{'similar'} ) {
+		return q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+		  . q[alignment of less than 90% its length). ];
+	} elsif ( $check->{'subsequence_of'} ) {
+		return qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
+		  . q[complete length but is shorter.];
+	} elsif ( $check->{'supersequence_of'} ) {
+		return qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
+		  . q[complete length of this allele but is longer. ];
+	}
+	foreach my $test_seq ( keys %{ $self->{'cache'}->{'seqs'} } ) {
+		if ( $$seq_ref =~ /$test_seq/x ) {
+			return qq(Sequence is a super-sequence of allele $self->{'cache'}->{'seqs'}->{$test_seq} )
+			  . q(submitted as part of this batch.);
+		}
+		if ( $test_seq =~ /$$seq_ref/x ) {
+			return qq(Sequence is a sub-sequence of allele $self->{'cache'}->{'seqs'}->{$test_seq} )
+			  . q(submitted as part of this batch.);
+		}
+	}
+	return;
 }
 
 sub _upload {
