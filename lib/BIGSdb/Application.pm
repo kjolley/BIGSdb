@@ -384,7 +384,8 @@ sub setup_submission_handler {
 		system     => $self->{'system'},
 		config     => $self->{'config'},
 		datastore  => $self->{'datastore'},
-		xmlHandler => $self->{'xmlHandler'}
+		xmlHandler => $self->{'xmlHandler'},
+		instance   => $self->{'instance'}
 	);
 	return;
 }

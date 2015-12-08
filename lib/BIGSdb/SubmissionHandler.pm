@@ -26,6 +26,7 @@ use List::Util qw(max);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Utils;
+use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
 my $logger = get_logger('BIGSdb.Submissions');
 
 sub new {
@@ -33,6 +34,7 @@ sub new {
 	my $self = {@atr};
 	bless( $self, $class );
 	$logger->info('Submission handler set up.');
+	$self->_delete_expired_flood_protection_files;
 	return $self;
 }
 
@@ -335,11 +337,9 @@ sub check_new_alleles_fasta {
 			push @err, qq(Sequence "$seq_id" has a length of $seq_length $units while this locus )
 			  . qq(has a maximum length of $locus_info->{'max_length'} $units.);
 		}
-		my $existing_allele = $self->{'datastore'}->run_query(
-			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
-			uc($sequence),
-			{ cache => 'check_new_alleles_fasta' }
-		);
+		my $existing_allele =
+		  $self->{'datastore'}->run_query( "SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
+			uc($sequence), { cache => 'check_new_alleles_fasta' } );
 		if ($existing_allele) {
 			push @err, qq(Sequence "$seq_id" has already been defined as $locus-$existing_allele.);
 		}
@@ -994,6 +994,7 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
+		next if !$self->_can_email_curator($curator_id);
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
@@ -1009,7 +1010,45 @@ sub notify_curators {
 				message   => $message
 			}
 		);
+		$self->_write_flood_protection_file($curator_id);
 	}
+	return;
+}
+
+#Prevent flood of curator E-mails when multiple submissions sent in very short
+#space of time, e.g. via scripted REST calls.
+sub _can_email_curator {
+	my ( $self, $curator_id ) = @_;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE/$self->{'instance'}_$curator_id";
+	return if -e $filename;
+	return 1;
+}
+
+sub _delete_expired_flood_protection_files {
+	my ($self) = @_;
+	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE/*");
+	foreach my $file (@files) {
+
+		# -M gives age relative to process startup - reset so it is relative to current time
+		local $^T = time;
+		my $file_age = ( -M $file ) * 3600 * 24;    #File age in seconds
+		
+		if ( $file_age > EMAIL_FLOOD_PROTECTION_TIME ) {
+			if ($file =~ /^(.*BIGSdb.*)$/x){
+				unlink $1 || $logger->error("Could not unlink $file");
+			}
+		}
+	}
+	return;
+}
+
+sub _write_flood_protection_file {
+	my ( $self, $curator_id ) = @_;
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE";
+	$self->mkpath($dir);
+	my $filename = "$dir/$self->{'instance'}_$curator_id";
+	open( my $fh, '>', $filename ) || $logger->error("Can't write flood defence file $filename");
+	close $fh;
 	return;
 }
 
