@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.1',
+		version     => '1.3.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -328,8 +328,14 @@ sub run_job {
 			{ message_html => "<p>Dynamically updated output disabled as >$max_display_taxa taxa selected.</p>" } );
 	}
 	foreach my $id (@$ids) {
+		$progress++;
+		my $complete = int( 100 * $progress / @$ids );
 		my $matches = $self->_blast( $id, \$params->{'sequence'}, $params );
-		next if !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches );
+		if ( !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches ) ) {
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
+			next;
+		}
 		$html_buffer .= $html_header if $first;
 		my $include_values = $self->_get_include_values( \@includes, $id );
 		$some_results = 1;
@@ -371,11 +377,12 @@ sub run_job {
 			$file_buffer .= qq(\t0\n);
 		}
 		my $message = "$html_buffer</table>";
-		$progress++;
-		my $complete = int( 100 * $progress / @$ids );
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			$self->{'jobManager'}->update_job_status( $job_id,
+				{ percent_complete => $complete, message_html => $message, stage => "Checked id: $id" } );
+		} else {
 			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $message } );
+			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
 		}
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
