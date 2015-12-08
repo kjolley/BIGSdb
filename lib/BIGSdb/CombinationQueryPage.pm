@@ -57,7 +57,7 @@ sub print_content {
 		my $with_pk  = $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0;
 		my $all_loci = $self->{'system'}->{'dbtype'} eq 'isolates'  ? 1 : 0;
 		return
-		  if defined $scheme_id
+		  if $scheme_id
 		  && $self->is_scheme_invalid( $scheme_id, { with_pk => $with_pk, all_loci => $all_loci } );
 		$self->print_scheme_section( { with_pk => $with_pk, all_loci => $all_loci } );
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
