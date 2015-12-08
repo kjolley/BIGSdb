@@ -306,9 +306,7 @@ sub _print_started_submissions {
 				}
 			}
 			say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=submit&amp;$submission->{'type'}=1&amp;abort=1&amp;no_check=1">Abort</a> | )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-			  . qq($submission->{'type'}=1&amp;continue=1">Continue</a>);
+			  . qq(page=submit&amp;$submission->{'type'}=1&amp;continue=1">Abort/Continue</a>);
 			say q(</dl>);
 		}
 		return 1;
@@ -1166,14 +1164,16 @@ sub _print_abort_form {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div style="float:left">);
-	say q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>);
+	say q(<span class="warning_icon fa fa-exclamation-triangle fa-4x pull-left"></span>);
 	say q(</div>);
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );
 	$q->param( confirm       => 1 );
+	$q->param( abort         => 1 );
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page submission_id abort confirm);
 	say $q->end_form;
+	$q->param( abort => 0 );
 	return;
 }
 
@@ -1232,9 +1232,7 @@ sub _presubmit_alleles {
 		$self->_start_allele_submission( $submission_id, $locus, $seqs );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
-	if ( $q->param('abort') ) {
-		$self->_print_abort_form($submission_id);
-	}
+	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
@@ -1263,9 +1261,7 @@ sub _presubmit_profiles {
 		$self->_start_profile_submission( $submission_id, $scheme_id, $profiles );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
-	if ( $q->param('abort') ) {
-		$self->_print_abort_form($submission_id);
-	}
+	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
@@ -1291,9 +1287,7 @@ sub _presubmit_isolates {
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
-	if ( $q->param('abort') ) {
-		$self->_print_abort_form($submission_id);
-	}
+	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_isolate_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
@@ -1399,7 +1393,8 @@ sub _print_sequence_table {
 		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->{'sequence'}, 40 );
 		$cds = '';
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			$cds = BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
+			$cds =
+			  BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
 			  ? q(<td><span class="fa fa-check fa-lg" style="color:green"></span></td>)
 			  : q(<td><span class="fa fa-times fa-lg" style="color:red"></span></td>);
 		}
