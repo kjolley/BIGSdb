@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.0',
+		version     => '1.3.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -152,7 +152,8 @@ sub run {
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
 		my $att       = $self->get_attributes;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $params    = $q->Vars;
+		$q->delete('isolate_id');
+		my $params = $q->Vars;
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
