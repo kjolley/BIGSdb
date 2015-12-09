@@ -57,6 +57,7 @@ sub print_content {
 			$project->{'id'},
 			{ cache => 'ProjectsPage::print_content' }
 		);
+		$project->{'full_description'} //= q();
 		say qq(<tr class="td$td"><td>$project->{'id'}</td><td>$project->{'short_description'}</td>)
 		  . qq(<td>$project->{'full_description'}</td><td>$isolates</td><td>);
 		say $q->start_form( -style => 'display:inline' );
