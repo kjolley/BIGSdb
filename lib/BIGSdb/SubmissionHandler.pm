@@ -463,12 +463,13 @@ sub _get_profile_header_positions {
 }
 
 sub check_new_isolates {
-	my ( $self, $set_id, $data_ref ) = @_;
+	my ( $self, $set_id, $data_ref, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my @isolates;
 	my @err;
 	my @rows          = split /\n/x, $$data_ref;
 	my $header_row    = shift @rows;
-	my $header_status = $self->_get_isolate_header_positions( $header_row, $set_id );
+	my $header_status = $self->_get_isolate_header_positions( $header_row, $set_id, $options );
 	my $positions     = $header_status->{'positions'};
 	my %err_message   = (
 		unrecognized => 'The header contains an unrecognized column for',
@@ -494,7 +495,7 @@ sub check_new_isolates {
 			  defined $positions->{ $self->{'system'}->{'labelfield'} }
 			  ? ( $values[ $positions->{ $self->{'system'}->{'labelfield'} } ] || "Row $row_number" )
 			  : "Row $row_number";
-			my $status = $self->_check_isolate_record( $set_id, $positions, \@values );
+			my $status = $self->_check_isolate_record( $set_id, $positions, \@values, $options );
 			local $" = q(, );
 			if ( $status->{'missing'} ) {
 				my @missing = @{ $status->{'missing'} };
@@ -515,7 +516,8 @@ sub check_new_isolates {
 }
 
 sub _get_isolate_header_positions {
-	my ( $self, $header_row, $set_id ) = @_;
+	my ( $self, $header_row, $set_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	$header_row =~ s/\s*$//x;
 	my ( @unrecognized, @missing, @duplicates, %positions );
 	my @header = split /\t/x, $header_row;
@@ -526,6 +528,7 @@ sub _get_isolate_header_positions {
 	}
 	my $ret = { positions => \%positions };
 	my $fields = $self->{'xmlHandler'}->get_field_list;
+	push @$fields, 'assembly_filename' if $options->{'genomes'};
 	if ($set_id) {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
@@ -551,9 +554,11 @@ sub _get_isolate_header_positions {
 }
 
 sub _check_isolate_record {
-	my ( $self, $set_id, $positions, $values ) = @_;
+	my ( $self, $set_id, $positions, $values, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	push @$fields, 'assembly_filename' if $options->{'genomes'};
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
 	my $isolate = {};
@@ -561,6 +566,7 @@ sub _check_isolate_record {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		$att->{'required'} = 'yes' if $field eq 'assembly_filename';
 		if (  !( ( $att->{'required'} // '' ) eq 'no' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{

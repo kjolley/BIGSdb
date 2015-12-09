@@ -28,6 +28,7 @@ use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::CombinationQueryPage;
+use BIGSdb::Constants qw(:limits);
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::Dataconnector;
@@ -78,7 +79,7 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = 50 * 1024 * 1024;             #Limit any uploads to 50Mb.
+	$CGI::POST_MAX              = MAX_UPLOAD_SIZE;             
 	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
