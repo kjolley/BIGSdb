@@ -24,7 +24,7 @@ use Net::OAuth 0.20;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use HTTP::Request::Common;
 use LWP::UserAgent;
-use JSON qw(decode_json);
+use JSON qw(encode_json decode_json);
 use Data::Random qw(rand_chars);
 use Data::Dumper;
 use Config::Tiny;
@@ -269,13 +269,17 @@ sub _get_route {
 		extra_params     => $extra_params
 	);
 	$request->sign;
-
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
+	my $request_params = $request->all_message_params;
+	my %all_params     = %$extra_params;
+	foreach my $param (@$request_params) {
+		$all_params{"oauth_$param"} = $request->$param;
+	}
 	my $method = lc( $opts{'m'} );
 	my $res =
 	    $opts{'m'} eq 'POST'
-	  ? $ua->post( $url, Content => $request->to_post_body )
+	  ? $ua->post( $url, Content => encode_json \%all_params )
 	  : $ua->$method( $request->to_url );
 	my $decoded_json;
 	eval { $decoded_json = decode_json( $res->content ) };
