@@ -135,7 +135,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
-	foreach my $type (qw (alleles profiles isolates)) {
+	foreach my $type (qw (alleles profiles isolates genomes)) {
 		if ( $q->param($type) ) {
 			my $method = "_handle_$type";
 			$self->$method;
@@ -214,6 +214,18 @@ sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return;
 }
 
+sub _handle_genomes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		say q(<div class="box" id="statusbad"><p>You cannot submit new isolates to a )
+		  . q(sequence definition database.<p></div>);
+		return;
+	}
+	$self->_submit_isolates({genomes=>1});
+	return;
+}
+
 sub _print_new_submission_links {
 	my ($self) = @_;
 	say q(<h2>Submit new data</h2>);
@@ -225,8 +237,8 @@ sub _print_new_submission_links {
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">alleles</a></li>);
 
-		#Don't allow profile submissions by default - normally new isolate data should be submitted and they
-		#can be extracted from those records.  This ensures that every new profile has accompanying isolate data.
+		#Don't allow profile submissions by default - theycan be extracted from those records.
+		#This ensures that every new profile has accompanying isolate data.
 		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
 			my $set_id = $self->get_set_id;
 			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
@@ -237,7 +249,9 @@ sub _print_new_submission_links {
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(isolates=1">isolates</a></li>);
+		  . q(isolates=1">isolates</a></li>)
+		  . qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . q(genomes=1">genomes</a> (isolate records with associated assembly files)</li>);
 	}
 	say q(</ul>);
 	return;
@@ -799,7 +813,8 @@ sub _submit_profiles {
 }
 
 sub _submit_isolates {
-	my ($self)        = @_;
+	my ($self,$options)        = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q             = $self->{'cgi'};
 	my $submission_id = $self->_get_started_submission_id;
 	$q->param( submission_id => $submission_id );
@@ -822,19 +837,28 @@ sub _submit_isolates {
 	my $set_id = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<h2>Submit new isolates</h2>);
+	say q(<h2>Submit new isolates);
+	say q( with associated genome assemblies) if $options->{'genomes'};
+	say q(</h2>);
 	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
 	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
 	say q(<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids.</li>);
 	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
-	  . q(new column with the locus name.</li></ul>);
+	  . q(new column with the locus name.</li>);
+	if ($options->{'genomes'}){
+		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
+		. q(this file as supporting data.</li>)
+	}
+	say q(</ul>);
+	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=isolates$set_clause">Download tab-delimited )
+	  . qq(table=isolates$set_clause$contig_file_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=isolates$set_clause">Download submission template ]
+	  . qq[table=isolates$set_clause$contig_file_clause">Download submission template ]
 	  . q[(xlsx format)</a></li></ul>];
+	
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);

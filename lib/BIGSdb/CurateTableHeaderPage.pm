@@ -42,6 +42,10 @@ sub print_content {
 	my $no_fields = $q->param('no_fields') ? 1 : 0;    #For profile submissions
 	my $id_field  = $q->param('id_field') ? 1 : 0;     #Ditto
 	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
+	if ( $table eq 'isolates' && $q->param('addCols') ) {
+		my @cols = split /,/x, $q->param('addCols');
+		push @$headers, @cols;
+	}
 	local $" = "\t";
 	say "@$headers";
 	return;
