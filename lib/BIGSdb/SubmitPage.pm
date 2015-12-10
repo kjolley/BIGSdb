@@ -852,7 +852,7 @@ sub _submit_isolates {
 		  . q(this file as supporting data.</li>);
 	}
 	say q(</ul>);
-	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename' : q();
+	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=isolates$set_clause$contig_file_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
@@ -1230,7 +1230,7 @@ sub _print_file_upload_fieldset {
 		  . q(or add an explanatory note so that they can be linked to the appropriate submission item. );
 	}
 	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go, )
-	  . q(although you can upload multiple times so that the total size of the submission is not limited.</p>);
+	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
@@ -1627,16 +1627,28 @@ sub _print_isolate_table {
 	my $files       = $self->_get_submission_files($submission_id);
 	my %file_exists = map { $_->{'filename'} => 1 } @$files;
 	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my %filename_already_used;
 
 	foreach my $isolate (@$isolates) {
 		my @values;
 		foreach my $field (@$fields) {
-			if ( $field eq 'assembly_filename' && !-e "$dir/$isolate->{$field}" ) {
-				push @values, qq(<span style="color:red">$isolate->{$field}</span>);
-				$self->{'contigs_missing'} = 1;
+			if ( $field eq 'assembly_filename'){
+				if (!-e "$dir/$isolate->{$field}" ) {
+					push @values, qq(<span style="color:red">$isolate->{$field}</span>);
+					$self->{'contigs_missing'} = 1;
+				} else {
+					if ($filename_already_used{$isolate->{$field}}){
+						push @values, qq(<span style="color:red">$isolate->{$field} [duplicated]</span>);
+						$self->{'contigs_missing'} = 1;
+					} else {
+						push @values, $isolate->{$field};
+					}
+					$filename_already_used{$isolate->{$field}} = 1;
+				}
 			} else {
 				push @values, $isolate->{$field} // q();
 			}
+			
 		}
 		say qq(<tr class="td$td"><td>@values</td></tr>);
 		$td = $td == 1 ? 2 : 1;

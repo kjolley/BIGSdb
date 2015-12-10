@@ -23,9 +23,10 @@ use 5.010;
 use Bio::SeqIO;
 use File::Path qw(make_path remove_tree);
 use List::Util qw(max);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:submissions SEQ_METHODS);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
 my $logger = get_logger('BIGSdb.Submissions');
 
@@ -528,7 +529,9 @@ sub _get_isolate_header_positions {
 	}
 	my $ret = { positions => \%positions };
 	my $fields = $self->{'xmlHandler'}->get_field_list;
-	push @$fields, 'assembly_filename' if $options->{'genomes'};
+	if ( $options->{'genomes'} ) {
+		push @$fields, REQUIRED_GENOME_FIELDS;
+	}
 	if ($set_id) {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
@@ -556,17 +559,18 @@ sub _get_isolate_header_positions {
 sub _check_isolate_record {
 	my ( $self, $set_id, $positions, $values, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	push @$fields, 'assembly_filename' if $options->{'genomes'};
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $fields = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	push @$fields, REQUIRED_GENOME_FIELDS if $options->{'genomes'};
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
 	my $isolate = {};
+
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		$att->{'required'} = 'yes' if $field eq 'assembly_filename';
+		$att->{'required'} = 'yes' if any { $field eq $_ } REQUIRED_GENOME_FIELDS && $options->{'genomes'};
 		if (  !( ( $att->{'required'} // '' ) eq 'no' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{
@@ -619,7 +623,7 @@ sub _is_field_bad_isolates {
 	$value =~ s/<blank>//x;
 	$value =~ s/null//;
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
-	$thisfield->{'type'} ||= 'text';
+	$thisfield->{'type'} //= 'text';
 
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
@@ -630,93 +634,142 @@ sub _is_field_bad_isolates {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
-
-	#Make sure int fields really are integers and obey min/max values if set
-	if ( $thisfield->{'type'} eq 'int' ) {
-		if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
-		elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-			return "must be equal to or larger than $thisfield->{'min'}.";
-		} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-			return "must be equal to or smaller than $thisfield->{'max'}.";
-		}
+	my @insert_checks = qw(date_entered id_exists);
+	foreach my $insert_check (@insert_checks) {
+		next if !( ( $flag // q() ) eq 'insert' );
+		my $method = "_check_isolate_$insert_check";
+		my $message = $self->$method( $fieldname, $value );
+		return $message if $message;
 	}
+	my @checks = qw(sender regex datestamp integer date float boolean optlist length);
+	foreach my $check (@checks) {
+		my $method = "_check_isolate_$check";
+		my $message = $self->$method( $fieldname, $value );
+		return $message if $message;
+	}
+	return;
+}
 
-	#Make sure sender is in database
-	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
-		my $sender_exists = $self->_user_exists($value);
+#Make sure sender is in database
+sub _check_isolate_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'sender' && $field ne 'sequenced_by';
+	my $sender_exists = $self->_user_exists($value);
+	if ( !$sender_exists ) {
 		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>)
-		  if !$sender_exists;
+		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>);
 	}
+	return;
+}
 
-	#If a regex pattern exists, make sure data conforms to it
-	if ( $thisfield->{'regex'} ) {
-		if ( $value !~ /^$thisfield->{'regex'}$/x ) {
-			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
-				return 'does not conform to the required formatting.';
-			}
+sub _check_isolate_regex {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	return if !$thisfield->{'regex'};
+	if ( $value !~ /^$thisfield->{'regex'}$/x ) {
+		if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
+			return 'does not conform to the required formatting.';
 		}
 	}
+	return;
+}
 
-	#Make sure floats fields really are floats
-	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
-	}
-
-	#Make sure the datestamp is today
+sub _check_isolate_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'datestamp';
 	my $datestamp = BIGSdb::Utils::get_datestamp();
-	if ( $fieldname eq 'datestamp' && ( $value ne $datestamp ) ) {
-		return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
+	if ( $value ne $datestamp ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp)];
 	}
-	if ( $flag && $flag eq 'insert' ) {
+	return;
+}
 
-		#Make sure the date_entered is today
-		if ( $fieldname eq 'date_entered'
-			&& ( $value ne $datestamp ) )
-		{
-			return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
-		}
+#Make sure the date_entered is today
+sub _check_isolate_date_entered {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'date_entered';
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( $value ne $datestamp ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp)];
 	}
+	return;
+}
 
-	#make sure date fields really are dates in correct format
+#Make sure id number has not been used previously
+sub _check_isolate_id_exists {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'id';
+	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)',
+		$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
+	if ($exists) {
+		return "$value is already in database";
+	}
+	return;
+}
+
+sub _check_isolate_integer {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	return if $thisfield->{'type'} ne 'int';
+	if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer.' }
+	elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+		return "must be equal to or larger than $thisfield->{'min'}.";
+	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+		return "must be equal to or smaller than $thisfield->{'max'}.";
+	}
+	return;
+}
+
+sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return 'must be a valid date in yyyy-mm-dd format';
 	}
+	return;
+}
 
-	#make sure boolean fields are true/false
+sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+		return 'must be a floating point number';
+	}
+	return;
+}
+
+sub _check_isolate_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
 		return 'must be a valid boolean value - true, false, 1, or 0.';
 	}
+	return;
+}
 
-	#Make sure id number has not been used previously
-	if ( $flag && $flag eq 'insert' && ( $fieldname eq 'id' ) ) {
-		my $exists =
-		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
-			$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
-		if ($exists) {
-			return "$value is already in database";
-		}
+sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	$thisfield->{'optlist'} = 'yes' if $field eq 'sequence_method';
+	return if ( $thisfield->{'optlist'} // q() ) ne 'yes';
+	my $options = $self->{'xmlHandler'}->get_field_option_list($field);
+	$options = [SEQ_METHODS] if $field eq 'sequence_method';
+	foreach my $option (@$options) {
+		return if $value eq $option;
 	}
-
-	#Make sure options list fields only use a listed option (or null if optional)
-	if ( $thisfield->{'optlist'} ) {
-		my $options = $self->{'xmlHandler'}->get_field_option_list($fieldname);
-		foreach (@$options) {
-			if ( $value eq $_ ) {
-				return 0;
-			}
-		}
-		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
-			return 0 if ( $value eq '' );
-		}
-		return qq("$value" is not on the list of allowed values for this field.);
+	if ( $thisfield->{'required'} eq 'no' ) {
+		return if $value eq q();
 	}
+	return qq("$value" is not on the list of allowed values for this field.);
+}
 
-	#Make sure field is not too long
+sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'})";
 	}
-	return 0;
+	return;
 }
 
 sub _is_field_bad_other {
@@ -1038,9 +1091,8 @@ sub _delete_expired_flood_protection_files {
 		# -M gives age relative to process startup - reset so it is relative to current time
 		local $^T = time;
 		my $file_age = ( -M $file ) * 3600 * 24;    #File age in seconds
-		
 		if ( $file_age > EMAIL_FLOOD_PROTECTION_TIME ) {
-			if ($file =~ /^(.*BIGSdb.*)$/x){
+			if ( $file =~ /^(.*BIGSdb.*)$/x ) {
 				unlink $1 || $logger->error("Could not unlink $file");
 			}
 		}

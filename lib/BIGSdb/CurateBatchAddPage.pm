@@ -317,8 +317,12 @@ sub _get_sender_message {
 		if ( $sender == -1 ) {
 			$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 		} else {
-			my $sender_ref = $self->{'datastore'}->get_user_info($sender);
-			$sender_message = qq(<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n);
+			my $sender_info = $self->{'datastore'}->get_user_info($sender);
+			if ( !$sender_info ) {
+				$sender_message = qq(<p>Sender: Unknown</p>\n);
+			} else {
+				$sender_message = qq(<p>Sender: $sender_info->{'first_name'} $sender_info->{'surname'}</p>\n);
+			}
 		}
 	}
 	return $sender_message;
@@ -1276,7 +1280,7 @@ sub _check_sequence_allele_id {
 			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && ($data->[ $file_header_pos->{'allele_id'} ] // q()) !~ /$regex/x ) {
+		if ( $regex && ( $data->[ $file_header_pos->{'allele_id'} ] // q() ) !~ /$regex/x ) {
 			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
 		}
 		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
