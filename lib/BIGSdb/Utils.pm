@@ -229,21 +229,22 @@ sub round_up {
 }
 
 sub read_fasta {
-	my $data_ref = shift;
-	my @lines = split /\n/x, $$data_ref;
+	my ($data_ref) = @_;
+	my @lines = split /\r?\n/x, $$data_ref;
 	my %seqs;
 	my $header;
-	foreach (@lines) {
-		$_ =~ s/\r//gx;
-		if ( $_ =~ /^>/x ) {
-			$header = substr( $_, 1 );
+	foreach my $line (@lines) {
+		if ( substr( $line, 0, 1 ) eq '>' ) {
+			$header = substr( $line, 1 );
 			next;
 		}
 		throw BIGSdb::DataException('Not valid FASTA format.') if !$header;
-		my $temp_seq = uc($_);
-		$temp_seq =~ s/\s//gx;
-		throw BIGSdb::DataException("Not valid DNA - $header") if $temp_seq =~ /[^GATCBDHVRYKMSWN]/x;
+		my $temp_seq = uc($line);
 		$seqs{$header} .= $temp_seq;
+	}
+	foreach my $id ( keys %seqs ) {
+		$seqs{$id} =~ s/\s//gx;
+		throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
 	}
 	return \%seqs;
 }
@@ -537,7 +538,7 @@ sub get_nice_size {
 
 sub slurp {
 	my ($file_path) = @_;
-	open( my $fh, '<:encoding(utf8)', $file_path )
+	open( my $fh, '<:raw', $file_path )
 	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
 	my $contents = do { local $/ = undef; <$fh> };
 	return \$contents;

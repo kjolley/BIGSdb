@@ -341,8 +341,8 @@ sub _get_own_submissions {
 			my $details = '';
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
-				my $allele_count      = @{ $allele_submission->{'seqs'} };
-				my $plural            = $allele_count == 1 ? '' : 's';
+				my $allele_count = @{ $allele_submission->{'seqs'} };
+				my $plural = $allele_count == 1 ? '' : 's';
 				next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
 				my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
 				$details = "$allele_count $clean_locus sequence$plural";
@@ -357,7 +357,7 @@ sub _get_own_submissions {
 				  $self->{'datastore'}
 				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
 				$details = "$profile_count $scheme_info->{'description'} profile$plural";
-			} elsif ( $submission->{'type'} eq 'isolates' ) {
+			} elsif ( $submission->{'type'} eq 'isolates' || $submission->{'type'} eq 'genomes' ) {
 				my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 				my $isolate_count      = @{ $isolate_submission->{'isolates'} };
 				my $plural             = $isolate_count == 1 ? '' : 's';
@@ -533,12 +533,13 @@ sub _get_profile_submissions_for_curation {
 sub _get_isolate_submissions_for_curation {
 	my ( $self, $options ) = @_;
 	my $status = $options->{'status'} // 'pending';
-	return q() if !$self->is_admin && !$self->can_modify_table('isolates');
+	return q() if !$self->can_modify_table('isolates');
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
 	my $td = 1;
 	foreach my $submission (@$submissions) {
-		next if $submission->{'type'} ne 'isolates';
+		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
+		next if $submission->{'type'} eq 'genomes' && !$self->can_modify_table('sequence_bin');
 		my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -1632,23 +1633,22 @@ sub _print_isolate_table {
 	foreach my $isolate (@$isolates) {
 		my @values;
 		foreach my $field (@$fields) {
-			if ( $field eq 'assembly_filename'){
-				if (!-e "$dir/$isolate->{$field}" ) {
+			if ( $field eq 'assembly_filename' ) {
+				if ( !-e "$dir/$isolate->{$field}" ) {
 					push @values, qq(<span style="color:red">$isolate->{$field}</span>);
 					$self->{'contigs_missing'} = 1;
 				} else {
-					if ($filename_already_used{$isolate->{$field}}){
+					if ( $filename_already_used{ $isolate->{$field} } ) {
 						push @values, qq(<span style="color:red">$isolate->{$field} [duplicated]</span>);
 						$self->{'contigs_missing'} = 1;
 					} else {
 						push @values, $isolate->{$field};
 					}
-					$filename_already_used{$isolate->{$field}} = 1;
+					$filename_already_used{ $isolate->{$field} } = 1;
 				}
 			} else {
 				push @values, $isolate->{$field} // q();
 			}
-			
 		}
 		say qq(<tr class="td$td"><td>@values</td></tr>);
 		$td = $td == 1 ? 2 : 1;
