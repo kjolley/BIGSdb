@@ -279,6 +279,7 @@ sub print_page_content {
 		my $javascript = $self->_get_javascript_paths;
 
 		#META tag inclusion code written by Andreas Tille.
+		$self->{'instance'} //= q();
 		my $meta_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html";
 		my %meta_content;
 		my %shortcut_icon;
@@ -519,6 +520,7 @@ sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $filename = $self->{'curate'} ? 'curate_header.html' : 'header.html';
+	return if !$self->{'instance'};
 	my $header_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
 	$self->print_file($header_file) if ( -e $header_file );
 	return;
@@ -833,6 +835,7 @@ sub _print_footer {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $filename = $self->{'curate'} ? 'curate_footer.html' : 'footer.html';
+	return if !$self->{'instance'};
 	my $footer_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
 	$self->print_file($footer_file) if ( -e $footer_file );
 	return;

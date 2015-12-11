@@ -21,8 +21,11 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateTableHeaderPage);
+use BIGSdb::Constants qw(SEQ_METHODS);
 use Excel::Writer::XLSX;
 use Excel::Writer::XLSX::Utility;
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
@@ -126,8 +129,9 @@ sub _get_col_width {
 
 sub _set_isolate_validation {
 	my ( $self, $worksheet, $field, $col ) = @_;
-	if ( $self->{'xmlHandler'}->is_field($field) ) {
+	if ( $self->{'xmlHandler'}->is_field($field) || $field eq 'sequence_method' ) {
 		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
+		$options = [SEQ_METHODS] if $field eq 'sequence_method';
 		if (@$options) {
 			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
 			my $range_bottom =
@@ -143,6 +147,7 @@ sub _print_isolate_allowed_values {
 	my ( $self, $worksheet, $field ) = @_;
 	state $col = 0;
 	my $options      = $self->{'xmlHandler'}->get_field_option_list($field);
+	$options = [SEQ_METHODS] if $field eq 'sequence_method';
 	my $col_width    = 5;
 	my $field_length = int( 0.9 * ( length $field ) + 2 );
 	$col_width = $field_length if $field_length > $col_width;

@@ -135,7 +135,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
 		return;
 	}
-	foreach my $type (qw (alleles profiles isolates)) {
+	foreach my $type (qw (alleles profiles isolates genomes)) {
 		if ( $q->param($type) ) {
 			my $method = "_handle_$type";
 			$self->$method;
@@ -214,6 +214,18 @@ sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return;
 }
 
+sub _handle_genomes {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		say q(<div class="box" id="statusbad"><p>You cannot submit new genomes to a )
+		  . q(sequence definition database.<p></div>);
+		return;
+	}
+	$self->_submit_isolates( { genomes => 1 } );
+	return;
+}
+
 sub _print_new_submission_links {
 	my ($self) = @_;
 	say q(<h2>Submit new data</h2>);
@@ -225,8 +237,8 @@ sub _print_new_submission_links {
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">alleles</a></li>);
 
-		#Don't allow profile submissions by default - normally new isolate data should be submitted and they
-		#can be extracted from those records.  This ensures that every new profile has accompanying isolate data.
+		#Don't allow profile submissions by default - theycan be extracted from those records.
+		#This ensures that every new profile has accompanying isolate data.
 		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
 			my $set_id = $self->get_set_id;
 			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
@@ -237,7 +249,9 @@ sub _print_new_submission_links {
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(isolates=1">isolates</a></li>);
+		  . q(isolates=1">isolates</a></li>)
+		  . qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . q(genomes=1">genomes</a> (isolate records with associated assembly files)</li>);
 	}
 	say q(</ul>);
 	return;
@@ -306,7 +320,7 @@ sub _print_started_submissions {
 				}
 			}
 			say qq(<dt>Action</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=submit&amp;$submission->{'type'}=1&amp;continue=1">Abort/Continue</a>);
+			  . qq(page=submit&amp;$submission->{'type'}=1">Abort/Continue</a>);
 			say q(</dl>);
 		}
 		return 1;
@@ -343,7 +357,7 @@ sub _get_own_submissions {
 				  $self->{'datastore'}
 				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
 				$details = "$profile_count $scheme_info->{'description'} profile$plural";
-			} elsif ( $submission->{'type'} eq 'isolates' ) {
+			} elsif ( $submission->{'type'} eq 'isolates' || $submission->{'type'} eq 'genomes' ) {
 				my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 				my $isolate_count      = @{ $isolate_submission->{'isolates'} };
 				my $plural             = $isolate_count == 1 ? '' : 's';
@@ -519,12 +533,13 @@ sub _get_profile_submissions_for_curation {
 sub _get_isolate_submissions_for_curation {
 	my ( $self, $options ) = @_;
 	my $status = $options->{'status'} // 'pending';
-	return q() if !$self->is_admin && !$self->can_modify_table('isolates');
+	return q() if !$self->can_modify_table('isolates');
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
 	my $td = 1;
 	foreach my $submission (@$submissions) {
-		next if $submission->{'type'} ne 'isolates';
+		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
+		next if $submission->{'type'} eq 'genomes' && !$self->can_modify_table('sequence_bin');
 		my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -799,48 +814,63 @@ sub _submit_profiles {
 }
 
 sub _submit_isolates {
-	my ($self)        = @_;
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my $q             = $self->{'cgi'};
 	my $submission_id = $self->_get_started_submission_id;
 	$q->param( submission_id => $submission_id );
 	if ($submission_id) {
-		$self->_presubmit_isolates( $submission_id, undef );
+		$self->_presubmit_isolates( { submission_id => $submission_id, options => $options } );
 		return;
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $set_id = $self->get_set_id;
-		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$q->param('data') );
+		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$q->param('data'), $options );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
 			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
 		} else {
-			$self->_presubmit_isolates( undef, $ret->{'isolates'}, $ret->{'positions'} );
+			$self->_presubmit_isolates(
+				{ isolates => $ret->{'isolates'}, positions => $ret->{'positions'}, options => $options } );
 			return;
 		}
 	}
 	my $set_id = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<h2>Submit new isolates</h2>);
+	say q(<h2>Submit new isolates);
+	say q( with associated genome assemblies) if $options->{'genomes'};
+	say q(</h2>);
 	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
 	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
 	say q(<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids.</li>);
 	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
-	  . q(new column with the locus name.</li></ul>);
+	  . q(new column with the locus name.</li>);
+
+	if ( $options->{'genomes'} ) {
+		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
+		  . q(this file as supporting data.</li>);
+		my @methods = SEQ_METHODS;
+		local $" = q(, );
+		say q(<li>Enter the name of the sequence method used in the sequence_method field )
+		  . qq((allowed values: @methods)</li>);
+	}
+	say q(</ul>);
+	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=isolates$set_clause">Download tab-delimited )
+	  . qq(table=isolates$set_clause$contig_file_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=isolates$set_clause">Download submission template ]
+	  . qq[table=isolates$set_clause$contig_file_clause">Download submission template ]
 	  . q[(xlsx format)</a></li></ul>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);
-	say $q->hidden($_) foreach qw(db page isolates);
+	say $q->hidden($_) foreach qw(db page isolates genomes);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say q(</div></div>);
@@ -955,7 +985,7 @@ sub _print_isolate_table_fieldset {
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
-	return if $submission->{'type'} ne 'isolates';
+	return if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
 	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission($submission_id);
 	return if !$isolate_submission;
 	my $isolates = $isolate_submission->{'isolates'};
@@ -973,6 +1003,8 @@ sub _print_isolate_table_fieldset {
 	  if ( $options->{'download_link'} );
 	say $q->start_form;
 	$self->_print_isolate_table( $submission_id, $options );
+	say q(<p><span style="color:red">Missing contig assembly files are shown in red.</span>)
+	  if $self->{'contigs_missing'};
 	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
@@ -1021,7 +1053,7 @@ sub _check_new_alleles {
 
 sub _start_submission {
 	my ( $self, $type ) = @_;
-	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates);
+	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates genomes);
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
@@ -1195,16 +1227,20 @@ sub _print_file_upload_fieldset {
 		}
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
-	say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously or )
-	  . q(add an explanatory note so that they can be linked to the appropriate submission item.  Individual filesize )
-	  . q(is limited to )
-	  . BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE)
-	  . q(.</p>);
+	my $nice_file_size = BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE);
+	if ( $options->{'genomes'} ) {
+		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
+	} else {
+		say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously )
+		  . q(or add an explanatory note so that they can be linked to the appropriate submission item. );
+	}
+	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go, )
+	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
 	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page alleles profiles isolates locus submit submission_id no_check view);
+	say $q->hidden($_) foreach qw(db page alleles profiles isolates genomes locus submit submission_id no_check view);
 	say $q->end_form;
 	my $files = $self->_get_submission_files($submission_id);
 
@@ -1212,7 +1248,8 @@ sub _print_file_upload_fieldset {
 		say $q->start_form;
 		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
 		$q->param( delete => 1 );
-		say $q->hidden($_) foreach qw(db page alleles profiles isolates locus submission_id delete no_check view);
+		say $q->hidden($_)
+		  foreach qw(db page alleles profiles isolates genomes locus submission_id delete no_check view);
 		say $q->submit( -label => 'Delete selected files', -class => BUTTON_CLASS );
 		say $q->end_form;
 	}
@@ -1234,6 +1271,7 @@ sub _presubmit_alleles {
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
+	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_sequence_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
 	$self->_print_sequence_details_fieldset($submission_id);
@@ -1243,7 +1281,6 @@ sub _presubmit_alleles {
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page locus submit finalize submission_id);
 	say $q->end_form;
-	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
 	return;
@@ -1263,6 +1300,7 @@ sub _presubmit_profiles {
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
+	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_profile_table_fieldset( $submission_id, { download_link => 1 } );
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
@@ -1271,34 +1309,37 @@ sub _presubmit_profiles {
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
 	say $q->end_form;
-	$self->_print_file_upload_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
 	return;
 }
 
 sub _presubmit_isolates {
-	my ( $self, $submission_id, $isolates, $positions ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $submission_id, $isolates, $positions, $options ) = @{$args}{qw(submission_id isolates positions options)};
 	$isolates //= [];
 	return if !$submission_id && !@$isolates;
 	my $q = $self->{'cgi'};
 	if ( !$submission_id ) {
-		$submission_id = $self->_start_submission('isolates');
+		my $type = $options->{'genomes'} ? 'genomes' : 'isolates';
+		$submission_id = $self->_start_submission($type);
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
-	$self->_print_isolate_table_fieldset( $submission_id, { download_link => 1 } );
+	$options->{'download_link'} = 1;
+	$self->_print_file_upload_fieldset( $submission_id, $options );
+	$self->_print_isolate_table_fieldset( $submission_id, $options );
+	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } )
+	  if !$self->{'contigs_missing'};
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
 	say $q->end_form;
-	$self->_print_file_upload_fieldset($submission_id);
-	$self->_print_message_fieldset($submission_id);
 	say q(</div></div>);
 	return;
 }
@@ -1587,12 +1628,31 @@ sub _print_isolate_table {
 	say q(</tr>);
 	my $td = 1;
 	local $" = q(</td><td>);
-	my $i = 1;
+	my $i           = 1;
+	my $files       = $self->_get_submission_files($submission_id);
+	my %file_exists = map { $_->{'filename'} => 1 } @$files;
+	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my %filename_already_used;
 
 	foreach my $isolate (@$isolates) {
 		my @values;
 		foreach my $field (@$fields) {
-			push @values, $isolate->{$field} // q();
+			if ( $field eq 'assembly_filename' ) {
+				if ( !-e "$dir/$isolate->{$field}" ) {
+					push @values, qq(<span style="color:red">$isolate->{$field}</span>);
+					$self->{'contigs_missing'} = 1;
+				} else {
+					if ( $filename_already_used{ $isolate->{$field} } ) {
+						push @values, qq(<span style="color:red">$isolate->{$field} [duplicated]</span>);
+						$self->{'contigs_missing'} = 1;
+					} else {
+						push @values, $isolate->{$field};
+					}
+					$filename_already_used{ $isolate->{$field} } = 1;
+				}
+			} else {
+				push @values, $isolate->{$field} // q();
+			}
 		}
 		say qq(<tr class="td$td"><td>@values</td></tr>);
 		$td = $td == 1 ? 2 : 1;
@@ -1849,7 +1909,7 @@ sub _print_message_fieldset {
 		}
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
-		  foreach qw(db page alleles profiles isolates locus submit continue view curate abort submission_id no_check );
+		  foreach qw(db page alleles profiles isolates genomes locus submit view curate abort submission_id no_check );
 		$buffer .= $q->end_form;
 	}
 	say qq(<fieldset style="float:left"><legend>Messages</legend>$buffer</fieldset>) if $buffer;
@@ -1918,7 +1978,6 @@ sub _get_submission_files {
 	opendir( my $dh, $dir ) || $logger->error("Can't open directory $dir");
 	while ( my $filename = readdir $dh ) {
 		next if $filename =~ /^\./x;
-		next if $filename =~ /^submission/x;    #Temp file created by script
 		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
 	}
 	closedir $dh;

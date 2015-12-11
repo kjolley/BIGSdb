@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS :submissions);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -317,8 +317,12 @@ sub _get_sender_message {
 		if ( $sender == -1 ) {
 			$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 		} else {
-			my $sender_ref = $self->{'datastore'}->get_user_info($sender);
-			$sender_message = qq(<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n);
+			my $sender_info = $self->{'datastore'}->get_user_info($sender);
+			if ( !$sender_info ) {
+				$sender_message = qq(<p>Sender: Unknown</p>\n);
+			} else {
+				$sender_message = qq(<p>Sender: $sender_info->{'first_name'} $sender_info->{'surname'}</p>\n);
+			}
 		}
 	}
 	return $sender_message;
@@ -617,7 +621,7 @@ sub _format_display_value {
 	  @{$args}{qw(table field value problems pk_combination special_problem)};
 	$value //= '';
 	my $display_value;
-	if ( $field =~ /sequence/ && $field ne 'coding_sequence' ) {
+	if ( $field =~ /sequence/ && $field ne 'coding_sequence' && $field ne 'sequence_method' ) {
 		$display_value = q(<span class="seq">) . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . q(</span>);
 	} else {
 		$display_value = $value;
@@ -1276,7 +1280,7 @@ sub _check_sequence_allele_id {
 			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && ($data->[ $file_header_pos->{'allele_id'} ] // q()) !~ /$regex/x ) {
+		if ( $regex && ( $data->[ $file_header_pos->{'allele_id'} ] // q() ) !~ /$regex/x ) {
 			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
 		}
 		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
@@ -1581,7 +1585,11 @@ sub _upload_data {
 				  . "new designation '$data[$field_order->{'allele_id'}]'";
 			}
 			my $curator = $self->get_curator_id;
+			my ( $upload_err, $failed_file );
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+				my $isolate_name = $data[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
+				$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
+				
 				my $meta_inserts = $self->_prepare_metaset_insert( $meta_fields, $field_order, \@data );
 				push @inserts, @$meta_inserts;
 				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
@@ -1596,7 +1604,26 @@ sub _upload_data {
 					}
 				);
 				push @inserts, @$isolate_extra_inserts;
+				try {
+					my ($contigs_extra_inserts, $message) = $self->_prepare_contigs_extra_inserts(
+						{
+							id          => $id,
+							sender      => $sender,
+							curator     => $curator,
+							data        => \@data,
+							field_order => $field_order,
+						}
+					);
+					push @inserts, @$contigs_extra_inserts;
+					
+				}
+				catch BIGSdb::DataException with {
+					$upload_err  = 'Invalid FASTA file';
+					$failed_file = $data[ $field_order->{'assembly_filename'} ];
+				};
+				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";
+				
 			} elsif ( $table eq 'loci' ) {
 				my $loci_extra_inserts = $self->_prepare_loci_extra_inserts(
 					{ id => $id, curator => $curator, data => \@data, field_order => $field_order, extras => \@extras }
@@ -1621,20 +1648,8 @@ sub _upload_data {
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
 			};
-			if ($@) {
-				my $err = $@;
-				say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled )
-				  . q(- no records have been touched.</p>);
-				if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
-					  . q(unique field with duplicate values.  This can result from another curator adding )
-					  . q(data at the same time.  Try pressing the browser back button twice and then re-submit )
-					  . q(the records.</p>);
-				} else {
-					say q(<p>An error has occurred - more details will be available in the server log.</p>);
-					$logger->error($err);
-				}
-				say q(</div>);
+			if ( $@ || $upload_err ) {
+				$self->_report_upload_error( ( $upload_err // $@ ), $failed_file );
 				$self->{'db'}->rollback;
 				return;
 			}
@@ -1656,6 +1671,43 @@ sub _upload_data {
 	return;
 }
 
+sub _report_upload_error {
+	my ( $self, $err, $failed_file ) = @_;
+	say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled )
+	  . q(- no records have been touched.</p>);
+	if ( $err eq 'Invalid FASTA file' ) {
+		say qq(<p>The contig file '$failed_file' was not in valid FASTA format.</p>);
+	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
+		say q(<p>Data entry would have resulted in records with either duplicate ids or another )
+		  . q(unique field with duplicate values.  This can result from another curator adding )
+		  . q(data at the same time.  Try pressing the browser back button twice and then re-submit )
+		  . q(the records.</p>);
+	} else {
+		say q(<p>An error has occurred - more details will be available in the server log.</p>);
+		$logger->error($err);
+	}
+	say q(</div>);
+	return;
+}
+
+sub _update_submission_database {
+	my ( $self, $submission_id ) = @_;
+	eval {
+		$self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, 'good', $submission_id );
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef, $submission_id, 'now', $self->get_curator_id, $self->{'submission_message'} );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->{'submissionHandler'}
+		  ->append_message( $submission_id, $self->get_curator_id, $self->{'submission_message'} );
+	}
+	return;
+}
+
 sub _display_update_footer_links {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
@@ -1664,6 +1716,7 @@ sub _display_update_footer_links {
 	if ($submission_id) {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a> | );
+		$self->_update_submission_database($submission_id);
 	}
 	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>);
 	if ( $table eq 'sequences' ) {
@@ -1758,6 +1811,36 @@ sub _prepare_isolate_extra_inserts {
 				push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
 			}
 		}
+	}
+	return \@inserts;
+}
+
+sub _prepare_contigs_extra_inserts {
+	my ( $self, $args ) = @_;
+	my ( $id, $sender, $curator, $data, $field_order ) = @{$args}{qw(id sender curator data field_order )};
+	my $q             = $self->{'cgi'};
+	my $submission_id = $q->param('submission_id');
+	return [] if !$submission_id || !defined $field_order->{'assembly_filename'};
+	my $dir      = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $filename = "$dir/" . $data->[ $field_order->{'assembly_filename'} ];
+	return [] if !-e $filename;
+	my $fasta   = BIGSdb::Utils::slurp($filename);
+	my $seq_ref = BIGSdb::Utils::read_fasta($fasta);
+	my @inserts;
+	my $size = BIGSdb::Utils::get_nice_size(-s $filename);
+	$self->{'submission_message'} .= " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size) uploaded.";
+	foreach my $contig_name ( keys %$seq_ref ) {
+		push @inserts,
+		  {
+			statement => 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,'
+			  . 'sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?)',
+			arguments => [
+				$id,
+				$seq_ref->{$contig_name},
+				$data->[ $field_order->{'sequence_method'} ],
+				$contig_name, $sender, $curator, 'now', 'now'
+			]
+		  };
 	}
 	return \@inserts;
 }
@@ -2008,9 +2091,8 @@ sub get_title {
 	return "Batch add new $type records - $desc";
 }
 
+#Return list of fields in order
 sub _get_fields_in_order {
-
-	#Return list of fields in order
 	my ( $self, $table, $locus ) = @_;
 	my @fields;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -2024,6 +2106,7 @@ sub _get_fields_in_order {
 				push @fields, 'references';
 			}
 		}
+		push @fields, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach my $att (@$attributes) {
@@ -2043,6 +2126,17 @@ sub _get_fields_in_order {
 	return \@fields;
 }
 
+sub _in_genome_submission {
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $submission_id = $q->param('submission_id');
+	return if !$submission_id;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission;
+	return 1 if $submission->{'type'} eq 'genomes';
+	return;
+}
+
 sub _get_field_table_header {
 	my ( $self, $table ) = @_;
 	my @headers;
@@ -2057,6 +2151,7 @@ sub _get_field_table_header {
 				push @headers, 'references';
 			}
 		}
+		push @headers, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 		push @headers, 'loci';
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);

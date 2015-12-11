@@ -67,7 +67,7 @@ sub get_all_field_attributes {
 
 sub get_field_attributes {
 	my ( $self, $name ) = @_;
-	return $self->{'attributes'}->{$name} // {};
+	return $self->{'attributes'}->{$name} // { type => q(), required => q() };
 }
 
 sub get_sample_field_attributes {
