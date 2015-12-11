@@ -50,11 +50,14 @@ sub create_record_table {
 	$options = {} if ref $options ne 'HASH';
 	if ( ref $newdata ne 'HASH' ) {
 		say q(<div class="box" id="statusbad"><p>Record doesn't exist.</p></div>);
-		return '';
+		return q();
+	} elsif ( defined $newdata->{'isolate_id'} && !BIGSdb::Utils::is_int( $newdata->{'isolate_id'} ) ) {
+		say q(<div class="box" id="statusbad"><p>Invalid isolate_id submitted.</p></div>);
+		return q();
 	} elsif ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
 		say q(<div class="box" id="statusbad"><p>Your account is not allowed to modify values for isolate )
 		  . qq(id-$newdata->{'isolate_id'}.</p></div>);
-		return '';
+		return q();
 	}
 	my $q = $self->{'cgi'};
 	my $buffer;
@@ -714,189 +717,84 @@ sub check_record {
 	my ( @problems, @missing );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
-	foreach my $att (@$attributes) {
+  ATT: foreach my $att (@$attributes) {
 		next if $update && $att->{'user_update'} && $att->{'user_update'} eq 'no';
-		my $original_data = $newdata->{ $att->{'name'} };
 		if ( $att->{'name'} =~ /sequence$/x ) {
 			$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } // '' );
 			$newdata->{ $att->{'name'} } =~ s/\s//gx;
 		}
-		if ( $att->{'required'} eq 'yes'
-			&& ( !defined $newdata->{ $att->{'name'} } || $newdata->{ $att->{'name'} } eq '' ) )
-		{
-			push @missing, $att->{'name'};
-		} elsif ( $newdata->{ $att->{'name'} }
-			&& $att->{'type'} eq 'int'
-			&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
-		{
-			push @problems, "$att->{name} must be an integer.\n";
-		} elsif ( $newdata->{ $att->{'name'} }
-			&& $att->{'type'} eq 'float'
-			&& !BIGSdb::Utils::is_float( $newdata->{ $att->{'name'} } ) )
-		{
-			push @problems, "$att->{name} must be a floating point number.\n";
-		} elsif ( $newdata->{ $att->{'name'} }
-			&& $att->{'type'} eq 'date'
-			&& !BIGSdb::Utils::is_date( $newdata->{ $att->{'name'} } ) )
-		{
-			push @problems, "$newdata->{$att->{name}} must be in date format (yyyy-mm-dd or 'today').\n";
-		} elsif ( defined $newdata->{ $att->{'name'} }
-			&& $newdata->{ $att->{'name'} } ne ''
-			&& $att->{'regex'}
-			&& $newdata->{ $att->{'name'} } !~ /$att->{'regex'}/x )
-		{
-			push @problems, "Field '$att->{name}' does not conform to specified format.\n";
-		} elsif ( $att->{'unique'} ) {
-			my $exists =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE $att->{name} =?)", $newdata->{ $att->{'name'} } );
-			if (   ( $update && $exists && $newdata->{ $att->{'name'} } ne $allowed_values->{ $att->{'name'} } )
-				|| ( $exists && !$update ) )
-			{
-				if ( $att->{'name'} =~ /sequence/ ) {
-					my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-					local $" = ', ';
-					my $values = $self->{'datastore'}->run_query(
-						"SELECT @primary_keys FROM $table WHERE $att->{'name'}=?",
-						$newdata->{ $att->{'name'} },
-						{ fetch => 'row_arrayref' }
-					);
-					my @key;
-					for ( my $i = 0 ; $i < scalar @primary_keys ; $i++ ) {
-						push @key, "$primary_keys[$i]: $values->[$i]";
-					}
-					push @problems, "This sequence already exists in the database as '@key'.";
-				} else {
-					my $article = $record_name =~ /^[aeio]/x ? 'An' : 'A';
-					push @problems,
-					  "$article $record_name already exists with $att->{'name'} = '$newdata->{$att->{'name'}}', "
-					  . "please choose a different $att->{'name'}.";
-				}
-			}
-		} elsif ( $att->{'foreign_key'} ) {
-			my $exists =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT EXISTS(SELECT * FROM $att->{'foreign_key'} WHERE id=?)", $original_data );
-			if ( !$exists ) {
-				push @problems,
-				  "$att->{'name'} should refer to a record within the $att->{'foreign_key'} table, but it doesn't.";
-			}
-		} elsif ( ( $table eq 'allele_designations' )
-			&& $att->{'name'} eq 'allele_id' )
-		{
-			#special case to check for allele id format and regex which is defined in loci table
-			my $format =
-			  $self->{'datastore'}->run_query( 'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?',
-				$newdata->{'locus'}, { fetch => 'row_hashref' } );
-			if ( $format->{'allele_id_format'} eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
-			{
-				push @problems, "$att->{'name'} must be an integer.\n";
-			} elsif ( $format->{'allele_id_regex'} && $newdata->{ $att->{'name'} } !~ /$format->{'allele_id_regex'}/x )
-			{
-				push @problems, "$att->{'name'} value is invalid - it must match the regular "
-				  . "expression /$format->{'allele_id_regex'}/.";
-			}
-		} elsif ( ( $table eq 'isolate_field_extended_attributes' )
-			&& $att->{'name'} eq 'attribute'
-			&& $newdata->{ $att->{'name'} } =~ /'/x )
-		{
-			push @problems, "Attribute contains invalid characters.\n";
-		} elsif ( ( $table eq 'isolate_value_extended_attributes' )
-			&& $att->{'name'} eq 'value' )
-		{
-			#special case to check for extended attribute value format and
-			#regex which is defined in isolate_field_extended_attributes table
-			my $format = $self->{'datastore'}->run_query(
-				'SELECT value_format,value_regex,length FROM isolate_field_extended_attributes '
-				  . 'WHERE isolate_field=? AND attribute=?',
-				[ $newdata->{'isolate_field'}, $newdata->{'attribute'} ],
-				{ fetch => 'row_arrayref' }
-			);
-			next if !$format;
-			if ( $format->[0] eq 'integer'
-				&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
-			{
-				push @problems, "$att->{'name'} must be an integer.\n";
-			} elsif ( $format->[1] && $newdata->{ $att->{'name'} } !~ /$format->[1]/x ) {
-				push @problems, "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
-			} elsif ( $format->[2] && length( $newdata->{ $att->{'name'} } ) > $format->[2] ) {
-				push @problems, "$att->{'name'} value is too long - it must be no longer than $format->[2] characters";
-			}
-		} elsif ( $table eq 'users' && $att->{'name'} eq 'status' ) {
-
-			#special case to check that changing user status is allowed
-			my $status =
-			  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
-			my ( $user_status, $user_username );
-			if ($update) {
-				( $user_status, $user_username ) =
-				  $self->{'datastore'}->run_query( 'SELECT status,user_name FROM users WHERE id=?', $newdata->{'id'} );
-			}
-			$user_status //= q();
-			if (   $status ne 'admin'
-				&& defined $user_status
-				&& $newdata->{'status'} ne $user_status
-				&& $update )
-			{
-				push @problems, "You must have admin rights to change the status of a user.\n";
-			}
-			if (   $status ne 'admin'
-				&& $newdata->{'status'} ne 'admin'
-				&& $user_status eq 'admin' )
-			{
-				push @problems, "You must have admin rights to revoke admin status from another user.\n";
-			}
-			if (   $status ne 'admin'
-				&& $newdata->{'status'} eq 'admin'
-				&& $user_status ne 'admin'
-				&& $update )
-			{
-				push @problems, "You must have admin rights to upgrade a user to admin status.\n";
-			}
-			if (   $status ne 'admin'
-				&& $newdata->{'status'} ne 'user'
-				&& !$update )
-			{
-				push @problems, "You must have admin rights to create a user with a status other than 'user'.\n";
-			}
-			if (   $status ne 'admin'
-				&& defined $user_username
-				&& $newdata->{'user_name'} ne $user_username
-				&& $update )
-			{
-				push @problems, "You must have admin rights to change the username of a user.\n";
-			}
-		} elsif ( $table eq 'isolate_value_extended_attributes' && $att->{'name'} eq 'attribute' ) {
-			my $attribute_exists = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
-				[ $newdata->{'isolate_field'}, $newdata->{'attribute'} ]
-			);
-			if ( !$attribute_exists ) {
-				my $fields = $self->{'datastore'}->run_query(
-					'SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?',
-					$newdata->{'attribute'},
-					{ fetch => 'col_arrayref' }
-				);
-				my $message = "Attribute $newdata->{'attribute'} has not been defined for "
-				  . "the $newdata->{'isolate_field'} field.\n";
-				if (@$fields) {
-					local $" = ', ';
-					$message .= "  Fields with this attribute defined are: @$fields.";
-				}
-				push @problems, $message;
-			}
-		} elsif ( $table eq 'retired_allele_ids' && $att->{'name'} eq 'allele_id' ) {
-			my $exists =
-			  $self->{'datastore'}->run_query( 'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-				[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
-			if ($exists) {
-				push @problems, 'This allele has already been defined - delete it before you retire the identifier.';
-			}
-		}
 		if ( $att->{'primary_key'} ) {
 			( my $cleaned_name = $newdata->{ $att->{name} } ) =~ s/'/\\'/gx;
 			push @primary_key_query, "$att->{name} = E'$cleaned_name'";
+		}
+		if ( $self->_check_is_missing( $att, $newdata ) ) {
+			push @missing, $att->{'name'};
+			next ATT;
+		}
+		my @checks = qw(integer float date regex foreign_key);
+		foreach my $check (@checks) {
+			my $method = "_check_$check";
+			my $message = $self->$method( $att, $newdata );
+			if ($message) {
+				push @problems, $message;
+				next ATT;
+			}
+		}
+		my $message = $self->_check_unique( $att, $newdata, $table, $update, $allowed_values );
+		if ($message) {
+			push @problems, $message;
+			next ATT;
+		}
+		my @table_field_checks = (
+			{
+				table  => 'allele_designations',
+				field  => 'allele_id',
+				method => sub { $self->_check_allele_designations_allele_id( $att, $newdata ) }
+			},
+			{
+				table  => 'isolate_field_extended_attributes',
+				field  => 'attribute',
+				method => sub {
+					$self->_check_isolate_field_extended_attributes( $att, $newdata );
+				  }
+			},
+			{
+				table  => 'isolate_value_extended_attributes',
+				field  => 'value',
+				method => sub {
+					$self->_check_isolate_field_extended_attribute_value( $att, $newdata );
+				  }
+			},
+			{
+				table  => 'users',
+				field  => 'status',
+				method => sub {
+					$self->_check_users_status( $att, $newdata, $update );
+				  }
+			},
+			{
+				table  => 'isolate_value_extended_attributes',
+				field  => 'attribute',
+				method => sub {
+					$self->_check_isolate_field_extended_attribute_name( $att, $newdata );
+				  }
+			},
+			{
+				table  => 'retired_allele_ids',
+				field  => 'allele_id',
+				method => sub {
+					$self->_check_retired_allele_id( $att, $newdata );
+				  }
+			}
+		);
+		foreach my $check (@table_field_checks) {
+			if ( $table eq $check->{'table'} && $att->{'name'} eq $check->{'field'} ) {
+				$message = $check->{'method'}->();
+				if ($message) {
+					push @problems, $message;
+					next ATT;
+				}
+			}
 		}
 	}
 	if (@missing) {
@@ -911,6 +809,216 @@ sub check_record {
 		}
 	}
 	return @problems;
+}
+
+sub _check_is_missing {
+	my ( $self, $att, $newdata ) = @_;
+	if ( $att->{'required'} eq 'yes'
+		&& ( !defined $newdata->{ $att->{'name'} } || $newdata->{ $att->{'name'} } eq '' ) )
+	{
+		return 1;
+	}
+	return;
+}
+
+sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'int'
+		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$att->{name} must be an integer.";
+	}
+	return;
+}
+
+sub _check_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'float'
+		&& !BIGSdb::Utils::is_float( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$att->{name} must be a floating point number.";
+	}
+	return;
+}
+
+sub _check_date {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'date'
+		&& !BIGSdb::Utils::is_date( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$newdata->{$att->{name}} must be in date format (yyyy-mm-dd).";
+	}
+	return;
+}
+
+sub _check_regex {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   defined $newdata->{ $att->{'name'} }
+		&& $newdata->{ $att->{'name'} } ne ''
+		&& $att->{'regex'}
+		&& $newdata->{ $att->{'name'} } !~ /$att->{'regex'}/x )
+	{
+		return "Field '$att->{name}' does not conform to specified format.";
+	}
+	return;
+}
+
+sub _check_foreign_key {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	return if !$att->{'foreign_key'};
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $att->{'foreign_key'} WHERE id=?)", $newdata->{ $att->{'name'} } );
+	if ( !$exists ) {
+		return "$att->{'name'} should refer to a record within the $att->{'foreign_key'} table, but it doesn't.";
+	}
+}
+
+sub _check_unique {
+	my ( $self, $att, $newdata, $table, $update, $allowed_values ) = @_;
+	return if !$att->{'unique'};
+	my $exists =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE $att->{name} =?)", $newdata->{ $att->{'name'} } );
+	if (   ( $update && $exists && $newdata->{ $att->{'name'} } ne $allowed_values->{ $att->{'name'} } )
+		|| ( $exists && !$update ) )
+	{
+		return "A record already exists with $att->{'name'} = '$newdata->{$att->{'name'}}', "
+		  . "please choose a different $att->{'name'}.";
+	}
+	return;
+}
+
+#Check for allele id format and regex which is defined in loci table
+sub _check_allele_designations_allele_id {
+	my ( $self, $att, $newdata ) = @_;
+	my $format = $self->{'datastore'}->run_query( 'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?',
+		$newdata->{'locus'}, { fetch => 'row_hashref' } );
+	if ( $format->{'allele_id_format'} eq 'integer'
+		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$att->{'name'} must be an integer.";
+	} elsif ( $format->{'allele_id_regex'}
+		&& $newdata->{ $att->{'name'} } !~ /$format->{'allele_id_regex'}/x )
+	{
+		return "$att->{'name'} value is invalid - it must match the regular "
+		  . "expression /$format->{'allele_id_regex'}/.";
+	}
+	return;
+}
+
+sub _check_isolate_field_extended_attributes {
+	my ( $self, $att, $newdata ) = @_;
+	if ( $newdata->{ $att->{'name'} } =~ /'/x ) {
+		return 'Attribute contains invalid characters.';
+	}
+	return;
+}
+
+#Check for extended attribute value format and
+#regex which is defined in isolate_field_extended_attributes table
+sub _check_isolate_field_extended_attribute_value {
+	my ( $self, $att, $newdata ) = @_;
+	my $format = $self->{'datastore'}->run_query(
+		'SELECT value_format,value_regex,length FROM isolate_field_extended_attributes '
+		  . 'WHERE isolate_field=? AND attribute=?',
+		[ $newdata->{'isolate_field'}, $newdata->{'attribute'} ],
+		{ fetch => 'row_arrayref' }
+	);
+	next if !$format;
+	if ( $format->[0] eq 'integer'
+		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$att->{'name'} must be an integer.\n";
+	} elsif ( $format->[1] && $newdata->{ $att->{'name'} } !~ /$format->[1]/x ) {
+		return "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
+	} elsif ( $format->[2] && length( $newdata->{ $att->{'name'} } ) > $format->[2] ) {
+		return "$att->{'name'} value is too long - it must be no longer than $format->[2] characters";
+	}
+	return;
+}
+
+#Check that changing user status is allowed
+sub _check_users_status {
+	my ( $self, $att, $newdata, $update ) = @_;
+	my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+	my ( $user_status, $user_username );
+	if ($update) {
+		( $user_status, $user_username ) =
+		  $self->{'datastore'}->run_query( 'SELECT status,user_name FROM users WHERE id=?', $newdata->{'id'} );
+	}
+	$user_status //= q();
+	if (   $status ne 'admin'
+		&& defined $user_status
+		&& $newdata->{'status'} ne $user_status
+		&& $update )
+	{
+		return q(You must have admin rights to change the status of a user.);
+	}
+	if (   $status ne 'admin'
+		&& $newdata->{'status'} ne 'admin'
+		&& $user_status eq 'admin' )
+	{
+		return q(You must have admin rights to revoke admin status from another user.);
+	}
+	if (   $status ne 'admin'
+		&& $newdata->{'status'} eq 'admin'
+		&& $user_status ne 'admin'
+		&& $update )
+	{
+		return q(You must have admin rights to upgrade a user to admin status.);
+	}
+	if (   $status ne 'admin'
+		&& $newdata->{'status'} ne 'user'
+		&& !$update )
+	{
+		return q(You must have admin rights to create a user with a status other than 'user'.);
+	}
+	if (   $status ne 'admin'
+		&& defined $user_username
+		&& $newdata->{'user_name'} ne $user_username
+		&& $update )
+	{
+		return q(You must have admin rights to change the username of a user.);
+	}
+	return;
+}
+
+sub _check_isolate_field_extended_attribute_name {
+	my ( $self, $att, $newdata ) = @_;
+	my $attribute_exists =
+	  $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
+		[ $newdata->{'isolate_field'}, $newdata->{'attribute'} ] );
+	if ( !$attribute_exists ) {
+		my $fields = $self->{'datastore'}->run_query(
+			'SELECT isolate_field FROM isolate_field_extended_attributes WHERE attribute=?',
+			$newdata->{'attribute'},
+			{ fetch => 'col_arrayref' }
+		);
+		my $message =
+		  "Attribute $newdata->{'attribute'} has not been defined for the $newdata->{'isolate_field'} field.\n";
+		if (@$fields) {
+			local $" = ', ';
+			$message .= " Fields with this attribute defined are: @$fields.";
+		}
+		return $message;
+	}
+	return;
+}
+
+sub _check_retired_allele_id {
+	my ( $self, $att, $newdata ) = @_;
+	my $exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+	if ($exists) {
+		return 'This allele has already been defined - delete it before you retire the identifier.';
+	}
+	return;
 }
 
 sub clean_value {
@@ -1008,7 +1116,8 @@ sub create_scheme_view {
 	}
 	foreach (@$fields) {
 		next if $_ eq $scheme_info->{'primary_key'};
-		$qry .= " LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND "
+		$qry .=
+		    " LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND "
 		  . "profiles.scheme_id=$_.scheme_id";
 	}
 	$qry .= " WHERE profiles.scheme_id = $scheme_id";

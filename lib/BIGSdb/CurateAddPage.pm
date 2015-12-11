@@ -215,7 +215,12 @@ sub _insert {
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs);
 
-	if ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+	if (
+		defined $newdata->{'isolate_id'}
+		&& (   !BIGSdb::Utils::is_int( $newdata->{'isolate_id'} )
+			|| !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) )
+	  )
+	{
 		return;    #Problem will be reported in CuratePage::create_record_table.
 	}
 	if ( $check_tables{$table} ) {
