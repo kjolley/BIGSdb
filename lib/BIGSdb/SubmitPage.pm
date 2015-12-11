@@ -341,8 +341,8 @@ sub _get_own_submissions {
 			my $details = '';
 			if ( $submission->{'type'} eq 'alleles' ) {
 				my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
-				my $allele_count = @{ $allele_submission->{'seqs'} };
-				my $plural = $allele_count == 1 ? '' : 's';
+				my $allele_count      = @{ $allele_submission->{'seqs'} };
+				my $plural            = $allele_count == 1 ? '' : 's';
 				next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
 				my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
 				$details = "$allele_count $clean_locus sequence$plural";
@@ -851,6 +851,10 @@ sub _submit_isolates {
 	if ( $options->{'genomes'} ) {
 		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
 		  . q(this file as supporting data.</li>);
+		my @methods = SEQ_METHODS;
+		local $" = q(, );
+		say q(<li>Enter the name of the sequence method used in the sequence_method field )
+		  . qq((allowed values: @methods)</li>);
 	}
 	say q(</ul>);
 	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
