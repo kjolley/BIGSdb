@@ -570,7 +570,7 @@ sub _check_isolate_record {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		$att->{'required'} = 'yes' if (any { $field eq $_ } REQUIRED_GENOME_FIELDS) && $options->{'genomes'};
+		$att->{'required'} = 'yes' if ( any { $field eq $_ } REQUIRED_GENOME_FIELDS ) && $options->{'genomes'};
 		if (  !( ( $att->{'required'} // '' ) eq 'no' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{
@@ -627,7 +627,7 @@ sub _is_field_bad_isolates {
 
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
-	my %optional_fields = map {$_ => 1} qw(aliases references assembly_filename sequence_method);
+	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
 	if ( $value eq '' ) {
 		if ( $optional_fields{$fieldname} || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
 			return;
@@ -785,105 +785,33 @@ sub _is_field_bad_other {
 		}
 	}
 	$thisfield->{'type'} ||= 'text';
+	my @checks_by_attribute = qw(required integer float regex optlist length);
+	foreach my $check (@checks_by_attribute) {
+		my $method = "_check_other_$check";
+		my $message = $self->$method( $thisfield, $value );
+		return $message if $message;
+	}
+	my @checks_by_fieldname = qw(sender datestamp);
+	foreach my $check (@checks_by_fieldname) {
+		my $method = "_check_other_$check";
+		my $message = $self->$method( $fieldname, $value );
+		return $message if $message;
+	}
+	my @insert_checks = qw(date_entered);
+	foreach my $insert_check (@insert_checks) {
+		next if !( ( $flag // q() ) eq 'insert' );
+		my $method = "_check_other_$insert_check";
+		my $message = $self->$method( $fieldname, $value );
+		return $message if $message;
+	}
 
-	#If field is null make sure it's not a required field
-	if ( !defined $value || $value eq '' ) {
-		if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
-			return 0;
-		} else {
-			my $msg = 'is a required field and cannot be left blank.';
-			if ( $thisfield->{'optlist'} ) {
-				my @optlist = split /;/x, $thisfield->{'optlist'};
-				local $" = q(', ');
-				$msg .= " Allowed values are '@optlist'.";
-			}
-			return $msg;
+	#Make sure unique field values have not been used previously
+	if ( $flag eq 'insert' && ( $thisfield->{'unique'} ) ) {
+		my $exists =
+		  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE $thisfield->{'name'}=?)", $value );
+		if ($exists) {
+			return qq('$value' is already in database.);
 		}
-	}
-
-	#Make sure int fields really are integers
-	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
-		return 'must be an integer';
-	}
-
-	#Make sure sender is in database
-	if ( $fieldname eq 'sender' or $fieldname eq 'sequenced_by' ) {
-		my $qry = 'SELECT DISTINCT id FROM users';
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my ($senderid) = $sql->fetchrow_array ) {
-			if ( $value == $senderid ) {
-				return 0;
-			}
-		}
-		return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>);
-	}
-
-	#If a regex pattern exists, make sure data conforms to it
-	if ( $thisfield->{'regex'} ) {
-		if ( $value !~ /^$thisfield->{regex}$/x ) {
-			if ( !( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' && $value eq '' ) ) {
-				return 'does not conform to the required formatting';
-			}
-		}
-	}
-
-	#Make sure floats fields really are floats
-	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
-	}
-
-	#Make sure the datestamp is today
-	my $datestamp = BIGSdb::Utils::get_datestamp();
-	if ( $fieldname eq 'datestamp' && ( $value ne $datestamp ) ) {
-		return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
-	}
-	if ( $flag eq 'insert' ) {
-
-		#Make sure the date_entered is today
-		if ( $fieldname eq 'date_entered'
-			&& ( $value ne $datestamp ) )
-		{
-			return qq[must be today's date in yyyy-mm-dd format ($datestamp) or use 'today'];
-		}
-	}
-	if ( $flag eq 'insert'
-		&& ( $thisfield->{'unique'} ) )
-	{
-		#Make sure unique field values have not been used previously
-		my $qry = "SELECT DISTINCT $thisfield->{'name'} FROM $table";
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my ($id) = $sql->fetchrow_array ) {
-			if ( $value eq $id ) {
-				if ( $thisfield->{'name'} =~ /sequence/ ) {
-					$value = q(<span class="seq">) . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . q(</span>);
-				}
-				return qq('$value' is already in database);
-			}
-		}
-	}
-
-	#Make sure options list fields only use a listed option (or null if optional)
-	if ( $thisfield->{'optlist'} ) {
-		my @options = split /;/x, $thisfield->{'optlist'};
-		foreach (@options) {
-			if ( $value eq $_ ) {
-				return 0;
-			}
-		}
-		if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
-			return 0 if ( $value eq '' );
-		}
-		return qq('$value' is not on the list of allowed values for this field.);
-	}
-
-	#Make sure field is not too long
-	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
-		return "field is too long (maximum length $thisfield->{'length'})";
 	}
 
 	#Make sure a foreign key value exists in foreign table
@@ -900,12 +828,121 @@ sub _is_field_bad_other {
 		  ->run_query( $qry, $value, { cache => "SubmissionHandler::is_field_bad_other:$fieldname" } );
 		if ( !$exists ) {
 			if ( $thisfield->{'foreign_key'} eq 'isolates' && $self->{'system'}->{'view'} ne 'isolates' ) {
-				return "value '$value' does not exist in isolates table or is not accessible to your account";
+				return "value '$value' does not exist in isolates table or is not accessible to your account.";
 			}
-			return "value '$value' does not exist in $thisfield->{'foreign_key'} table";
+			return "value '$value' does not exist in $thisfield->{'foreign_key'} table.";
 		}
 	}
-	return 0;
+	return;
+}
+
+#If field is null make sure it's not a required field
+sub _check_other_required {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	return if defined $value && $value ne q();
+	if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
+		return;
+	} else {
+		my $msg = 'is a required field and cannot be left blank.';
+		if ( $thisfield->{'optlist'} ) {
+			my @optlist = split /;/x, $thisfield->{'optlist'};
+			local $" = q(', ');
+			$msg .= " Allowed values are '@optlist'.";
+		}
+		return $msg;
+	}
+	return;
+}
+
+#Make sure int fields really are integers
+sub _check_other_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+		return 'must be an integer.';
+	}
+	return;
+}
+
+#Make sure floats fields really are floats
+sub _check_other_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
+		return 'must be a floating point number';
+	}
+	return;
+}
+
+#Make sure sender is in database
+sub _check_other_sender {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	if ( $field eq 'sender' or $field eq 'sequenced_by' ) {
+		my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)',
+			$value, { cache => 'SubmissionHandler::check_other_sender' } );
+		if ( !$exists ) {
+			return qq(is not in the database users table - see <a href="$self->{'system'}->{'script_name'}?)
+			  . qq(db=$self->{'instance'}&amp;page=fieldValues&amp;field=f_sender">list of values</a>.);
+		}
+	}
+	return;
+}
+
+#If a regex pattern exists, make sure data conforms to it
+sub _check_other_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	return if !$thisfield->{'regex'};
+	if ( $value !~ /^$thisfield->{regex}$/x ) {
+		if ( !( ( $thisfield->{'required'} // q() ) eq 'no' && $value eq q() ) ) {
+			return 'does not conform to the required formatting.';
+		}
+	}
+	return;
+}
+
+#Make sure options list fields only use a listed option (or null if optional)
+sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	return if !$thisfield->{'optlist'};
+	my @options = split /;/x, $thisfield->{'optlist'};
+	foreach (@options) {
+		if ( $value eq $_ ) {
+			return;
+		}
+	}
+	if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
+		return if ( $value eq q() );
+	}
+	return qq('$value' is not on the list of allowed values for this field.);
+}
+
+#Make sure field is not too long
+sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $thisfield, $value ) = @_;
+	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
+		return "field is too long (maximum length $thisfield->{'length'}).";
+	}
+	return;
+}
+
+#Make sure the datestamp is today
+sub _check_other_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'datestamp';
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( $value ne $datestamp ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp).];
+	}
+	return;
+}
+
+#Make sure the date_entered is today
+sub _check_other_date_entered {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	return if $field ne 'date_entered';
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( $value ne $datestamp ) {
+		return qq[must be today's date in yyyy-mm-dd format ($datestamp).];
+	}
+	return;
 }
 
 sub map_locus_name {
