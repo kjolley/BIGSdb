@@ -169,11 +169,40 @@ sub _delete_submission {
 	return { message => 'Submission deleted.' };
 }
 
+sub _check_if_over_limit {
+	my $self                    = setting('self');
+	my $limit                   = _get_quota_limit();
+	my $submitter               = $self->get_user_id;
+	my $pending_submitted_today = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?)',
+		[ $submitter, 'pending' ],
+		{ cache => 'REST::Submissions::check_if_over_limit' }
+	);
+	if ( $pending_submitted_today >= $limit ) {
+		send_error(
+			'You have made too many separate submissions today - please try again tomorrow. '
+			  . 'A quota is in place to prevent misbehaving scripts flooding the submission system.',
+			403
+		);
+	}
+	return;
+}
+
+sub _get_quota_limit {
+	my $self = setting('self');
+	my $limit =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'daily_rest_submissions_limit'} )
+	  ? $self->{'system'}->{'daily_rest_submissions_limit'}
+	  : DAILY_REST_LIMIT;
+	return $limit;
+}
+
 sub _create_submission {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $type, $message, $email ) = @{$params}{qw(db type message email)};
 	_check_db_type($type);
+	_check_if_over_limit();
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my %method        = (
@@ -283,8 +312,7 @@ sub _check_submitted_alleles {
 	$fasta_string =~ s/\n\s*/\n/xg;
 	$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
 	my $check =
-	  $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string, { skip_info_checks => 1 } )
-	  ;
+	  $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string, { skip_info_checks => 1 } );
 
 	if ( $check->{'err'} ) {
 		local $" = q( );
