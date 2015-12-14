@@ -174,8 +174,8 @@ sub _check_if_over_limit {
 	my $limit                   = _get_quota_limit();
 	my $submitter               = $self->get_user_id;
 	my $pending_submitted_today = $self->{'datastore'}->run_query(
-		'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?)',
-		[ $submitter, 'pending' ],
+		'SELECT COUNT(*) FROM submissions WHERE (submitter,status,date_submitted)=(?,?,?)',
+		[ $submitter, 'pending', 'today' ],
 		{ cache => 'REST::Submissions::check_if_over_limit' }
 	);
 	if ( $pending_submitted_today >= $limit ) {

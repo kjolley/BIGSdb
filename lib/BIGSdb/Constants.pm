@@ -123,7 +123,7 @@ use constant ASSEMBLY                 => ( 'de novo', 'mapped' );
 use constant REQUIRES_READ_LENGTH     => qw(Illumina);
 use constant REQUIRES_COVERAGE        => qw(Illumina);
 use constant REQUIRED_GENOME_FIELDS   => qw(assembly_filename sequence_method);
-use constant DAILY_REST_LIMIT         => 100;
+use constant DAILY_REST_LIMIT         => 50;
 push @EXPORT_OK, qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT);
 $EXPORT_TAGS{'submissions'} = [
