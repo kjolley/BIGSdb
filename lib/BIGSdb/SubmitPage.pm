@@ -75,7 +75,12 @@ sub get_javascript {
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
+	
 });
+
+function status_markall(status){
+	\$("select[name^='status_']").val(status);
+}
 
 function check_technology() {
 	var fields = [ "read_length", "coverage"];
@@ -955,7 +960,7 @@ sub _print_profile_table_fieldset {
 	  if ( $options->{'download_link'} );
 	say $q->start_form;
 	my $status = $self->_print_profile_table( $submission_id, $options );
-	$self->_print_update_button if $options->{'curate'} && !$status->{'all_assigned'};
+	$self->_print_update_button( { mark_all => 1 } ) if $options->{'curate'} && !$status->{'all_assigned'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
 	local $" = ',';
@@ -1686,7 +1691,7 @@ sub _print_sequence_table_fieldset {
 	  if ( $options->{'download_link'} );
 	say $q->start_form;
 	my $status = $self->_print_sequence_table( $submission_id, $options );
-	$self->_print_update_button if $options->{'curate'} && !$status->{'all_assigned'};
+	$self->_print_update_button( { mark_all => 1 } ) if $options->{'curate'} && !$status->{'all_assigned'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
 	my $has_extended_attributes =
@@ -1721,6 +1726,13 @@ sub _print_update_button {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say q(<div style="float:right">);
+	if ( $options->{'mark_all'} ) {
+		say q(<span style="margin-right:1em">)
+		  . q(Mark all: <input type="button" onclick='status_markall("pending")' )
+		  . q(value="Pending" class="smallbutton" /><input type="button" )
+		  . q(onclick='status_markall("rejected")' value="Rejected" class="smallbutton" />)
+		  . q(</span>);
+	}
 	if ( $options->{'record_status'} ) {
 		say q(<label for="record_status">Record status:</label>);
 		say $q->popup_menu( -name => 'record_status', id => 'record_status',
