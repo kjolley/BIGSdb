@@ -43,6 +43,12 @@ sub print_content {
 	if ( $q->param('update') ) {
 		$self->_update;
 	} elsif ( $q->param('data') ) {
+		foreach my $param (qw (idfield1 idfield2)) {
+			if ( !$self->{'xmlHandler'}->is_field( $q->param($param) ) && $q->param($param) ne '<none>' ) {
+				say q(<div class="box" id="statusbad"><p>Invalid selection field.</p></div>);
+				return;
+			}
+		}
 		$self->_check;
 	} else {
 		print <<"HTML";
@@ -148,31 +154,85 @@ sub _get_match_criteria {
 	return $match;
 }
 
-sub _check {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
-	my $data      = $q->param('data');
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my @rows = split /\n/x, $data;
-	if ( @rows < 2 ) {
+sub _failed_basic_checks {
+	my ( $self, $rows ) = @_;
+	if ( @$rows < 2 ) {
 		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">)
 		  . q(Back</a></p></div>);
-		return;
+		return 1;
 	}
+	my $q = $self->{'cgi'};
 	if ( $q->param('idfield1') eq $q->param('idfield2') ) {
-		say q(<div class="box" id="statusbad"><p>Please select different id fields.<p></div>);
-		return;
+		say q(<div class="box" id="statusbad"><p>Please select different id fields.<p>);
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">)
+		  . q(Back</a></p></div>);
+		return 1;
 	}
-	my $buffer = qq(<div class="box" id="resultstable">\n);
-	my $id     = $self->_get_id_fields;
+	return;
+}
+
+sub _is_locus {
+	my ( $self, $field, $i ) = @_;
+	my $set_id = $self->get_set_id;
+	if ($set_id) {
+		my $locus = $self->{'datastore'}->get_set_locus_real_id( $field->[$i], $set_id );
+		if ( $self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
+			$field->[$i] = $locus;    #Map to real locus name if it is renamed in set.
+			return 1;
+		}
+	} else {
+		return $self->{'datastore'}->is_locus( $field->[$i] );
+	}
+	return;
+}
+
+sub _check_field_status {
+	my ( $self, $field, $i, $is_locus ) = @_;
+	my $set_id = $self->get_set_id;
+	my ( $bad_field, $not_allowed_field );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( !( $self->{'xmlHandler'}->is_field( $field->[$i] ) || $is_locus ) ) {
+
+		#Check if there is an extended metadata field
+		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
+		my $field_is_metafield = 0;
+		foreach my $meta_field (@$meta_fields) {
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($meta_field);
+			if ( $metafield eq $field->[$i] ) {
+				$field->[$i] = "meta_$metaset:$metafield";    #Map to real field name if it is renamed in set.
+				$field_is_metafield = 1;
+			}
+		}
+		$bad_field = 1 if !$field_is_metafield;
+	} elsif ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+		$not_allowed_field = 1;
+	}
+	return ( $bad_field, $not_allowed_field );
+}
+
+sub _get_html_header {
+	my ($self) = @_;
+	my $id_fields = $self->_get_id_fields;
+	my $extraheader = $id_fields->{'field2'} ne '<none>' ? "<th>$id_fields->{'field2'}</th>" : '';
+	return qq(<table class="resultstable"><tr><th>Transaction</th><th>$id_fields->{'field1'}</th>$extraheader)
+	  . qq(<th>Field</th><th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
+}
+
+sub _check {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $data   = $q->param('data');
+	my @rows = split /\n/x, $data;
+	return if $self->_failed_basic_checks( \@rows );
+	my $buffer    = qq(<div class="box" id="resultstable">\n);
+	my $id_fields = $self->_get_id_fields;
 	$buffer .=
 	    q(<p>The following changes will be made to the database.  Please check that this is what )
 	  . q(you intend and then press 'Upload'.  If you do not wish to make these changes, press your )
 	  . qq(browser's back button.</p>\n);
-	my $extraheader = $id->{'field2'} ne '<none>' ? "<th>$id->{'field2'}</th>" : '';
-	$buffer .= qq(<table class="resultstable"><tr><th>Transaction</th><th>$id->{'field1'}</th>$extraheader)
-	  . qq(<th>Field</th><th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
+	$buffer.= $self->_get_html_header;
 	my $i = 0;
 	my ( @id, @id2, @field, @value, @update );
 	my $td          = 1;
@@ -185,12 +245,11 @@ sub _check {
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $file       = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
 	my $table_rows = 0;
-	my $set_id     = $self->get_set_id;
 
 	foreach my $row (@rows) {
 		my @cols = split /\t/x, $row;
 		next if @cols < 3;
-		if ( $id->{'field2'} eq '<none>' ) {
+		if ( $id_fields->{'field2'} eq '<none>' ) {
 			( $id[$i], $field[$i], $value[$i] ) = split /\t/x, $row;
 		} else {
 			( $id[$i], $id2[$i], $field[$i], $value[$i] ) = split /\t/x, $row;
@@ -199,56 +258,25 @@ sub _check {
 		$id2[$i] //= q();
 		$id2[$i] =~ s/%20/ /gx;
 		$value[$i] =~ s/\s*$//gx if defined $value[$i];
-		my $display_value     = $value[$i];
-		my $display_field     = $field[$i];
-		my $bad_field         = 0;
-		my $not_allowed_field = 0;
-		my $is_locus;
-
-		if ($set_id) {
-			my $locus = $self->{'datastore'}->get_set_locus_real_id( $field[$i], $set_id );
-			if ( $self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-				$field[$i] = $locus;
-				$is_locus = 1;
-			}
-		} else {
-			$is_locus = $self->{'datastore'}->is_locus( $field[$i] );
-		}
-		if ( !( $self->{'xmlHandler'}->is_field( $field[$i] ) || $is_locus ) ) {
-
-			#Check if there is an extended metadata field
-			my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-			my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
-			my $field_is_metafield = 0;
-			foreach my $meta_field (@$meta_fields) {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($meta_field);
-				if ( $metafield eq $field[$i] ) {
-					$field[$i] = "meta_$metaset:$metafield";
-					$field_is_metafield = 1;
-				}
-			}
-			$bad_field = 1 if !$field_is_metafield;
-		} elsif ( $field[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
-			$not_allowed_field = 1;
-		}
+		my $display_value = $value[$i];
+		my $display_field = $field[$i];
+		my $is_locus      = $self->_is_locus( \@field, $i );
+		my ( $bad_field, $not_allowed_field ) = $self->_check_field_status( \@field, $i, $is_locus );
 		$update[$i] = 0;
 		my ( $old_value, $action );
+
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
 			if ( !$bad_field && !$not_allowed_field ) {
 				my $count;
 				my @args;
 				push @args, $id[$i];
-				push @args, $id2[$i] if $id->{'field2'} ne '<none>';
+				push @args, $id2[$i] if $id_fields->{'field2'} ne '<none>';
 
 				#check if allowed to edit
 				eval { $sql_id->execute(@args) };
 				if ($@) {
-					if ( $@ =~ /integer/ ) {
-						say q(<div class="box" id="statusbad"><p>Your id field(s) contain text characters but the )
-						  . q(field can only contain integers.</p></div>);
-						$logger->debug($@);
-						return;
-					}
+					$self->_display_error($@);
+					return;
 				}
 				my @not_allowed;
 				while ( my ($isolate_id) = $sql_id->fetchrow_array ) {
@@ -269,84 +297,29 @@ sub _check {
 					($count) = $sql->fetchrow_array;
 				};
 				if ( $@ || $count == 0 ) {
-					$old_value = qq(<span class="statusbad">no editable record with $id->{'field1'}='$id[$i]');
-					$old_value .= qq( and $id->{'field2'}='$id2[$i]') if $id->{'field2'} ne '<none>';
+					$old_value = qq(<span class="statusbad">no editable record with $id_fields->{'field1'}='$id[$i]');
+					$old_value .= qq( and $id_fields->{'field2'}='$id2[$i]') if $id_fields->{'field2'} ne '<none>';
 					$old_value .= q(</span>);
 					$action = q(<span class="statusbad">no action</span>);
 				} elsif ( $count > 1 ) {
-					$old_value = qq(<span class="statusbad">duplicate records with $id->{'field1'}='$id[$i]');
-					$old_value .= qq( and $id->{'field2'}='$id2[$i]') if $id->{'field2'} ne '<none>';
+					$old_value = qq(<span class="statusbad">duplicate records with $id_fields->{'field1'}='$id[$i]');
+					$old_value .= qq( and $id_fields->{'field2'}='$id2[$i]') if $id_fields->{'field2'} ne '<none>';
 					$old_value .= q(</span>);
 					$action = q(<span class="statusbad">no action</span>);
 				} else {
-					@args = ();
-					my $table = $self->_get_field_and_match_joined_table( $field[$i] );
-					if ($is_locus) {
-						$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $table ON "
-						  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
-						push @args, $field[$i];
-					} else {
-						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field[$i] );
-						$qry = 'SELECT ' . ( $metafield // $field[$i] ) . " FROM $table WHERE $match";
-					}
-					my $sql2 = $self->{'db'}->prepare($qry);
-					push @args, $id[$i];
-					push @args, $id2[$i] if $id->{'field2'} ne '<none>';
-					eval { $sql2->execute(@args) };
-					$logger->error($@) if $@;
-					my @old_values;
-					while ( my ($value) = $sql2->fetchrow_array ) {
-						push @old_values, $value // '';
-					}
-					no warnings 'numeric';
-					@old_values = sort { $a <=> $b || $a cmp $b } @old_values;
-					local $" = ',';
-					$old_value = "@old_values";
-					if (   !defined $old_value
-						|| $old_value eq ''
-						|| $q->param('overwrite') )
-					{
-						$old_value = q(&lt;blank&gt;)
-						  if !defined $old_value || $old_value eq '';
-						my $problem =
-						  $self->{'submissionHandler'}
-						  ->is_field_bad( 'isolates', $field[$i], $value[$i], 'update', $set_id );
-						if ($is_locus) {
-							my $locus_info = $self->{'datastore'}->get_locus_info( $field[$i] );
-							if ( $locus_info->{'allele_id_format'} eq 'integer'
-								&& !BIGSdb::Utils::is_int( $value[$i] ) )
-							{
-								$problem = q(invalid allele id (must be an integer));
-							}
+					( $old_value, $action ) = $self->_check_field(
+						{
+							field     => \@field,
+							i         => $i,
+							is_locus  => $is_locus,
+							match     => $match,
+							id        => \@id,
+							id2       => \@id2,
+							id_fields => $id_fields,
+							value     => \@value,
+							update    => \@update
 						}
-						if ($problem) {
-							$action = qq(<span class="statusbad">no action - $problem</span>);
-						} else {
-							if (   ( any { $value[$i] eq $_ } @old_values )
-								|| ( $value[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
-							{
-								if ($is_locus) {
-									$action = q(<span class="statusbad">no action - designation already set</span>);
-								} else {
-									$action = q(<span class="statusbad">no action - new value unchanged</span>);
-								}
-								$update[$i] = 0;
-							} else {
-								if ($is_locus) {
-									if ( $q->param('designations') eq 'add' ) {
-										$action = q(<span class="statusgood">add new designation</span>);
-									} else {
-										$action = q(<span class="statusgood">replace designation(s)</span>);
-									}
-								} else {
-									$action = q(<span class="statusgood">update field with new value</span>);
-								}
-								$update[$i] = 1;
-							}
-						}
-					} else {
-						$action = q(<span class="statusbad">no action - value already in db</span>);
-					}
+					);
 				}
 			} else {
 				$old_value =
@@ -357,7 +330,7 @@ sub _check {
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/x;
 			$display_field =~ s/^meta_.*://x;
-			if ( $id->{'field2'} ne '<none>' ) {
+			if ( $id_fields->{'field2'} ne '<none>' ) {
 				$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
 				  . qq(<td>$display_value</td><td>$old_value</td><td>$action</td></tr>\n);
 			} else {
@@ -382,8 +355,8 @@ sub _check {
 		}
 		close $fh;
 		say $q->start_form;
-		$q->param( idfield1 => $id->{'field1'} );
-		$q->param( idfield2 => $id->{'field2'} );
+		$q->param( idfield1 => $id_fields->{'field1'} );
+		$q->param( idfield2 => $id_fields->{'field2'} );
 		$q->param( update   => 1 );
 		$q->param( file     => "$prefix.txt" );
 		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
@@ -394,6 +367,94 @@ sub _check {
 	}
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div>);
 	return;
+}
+
+sub _display_error {
+	my ( $self, $err ) = @_;
+	foreach my $type (qw (integer date float)) {
+		if ( $err =~ /$type/x ) {
+			say q(<div class="box" id="statusbad"><p>Your id field(s) contain text characters but the )
+			  . qq(field can only contain ${type}s.</p></div>);
+			return;
+		}
+	}
+	return;
+}
+
+sub _check_field {
+	my ( $self, $args ) = @_;
+	my ( $field, $i, $is_locus, $match, $id, $id2, $id_fields, $value, $update ) =
+	  @{$args}{qw(field i is_locus match id id2 id_fields value update)};
+	my ( $old_value, $action );
+	my $q = $self->{'cgi'};
+	my @args;
+	my $table = $self->_get_field_and_match_joined_table( $field->[$i] );
+	my $qry;
+	my $set_id = $self->get_set_id;
+
+	if ($is_locus) {
+		$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $table ON "
+		  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
+		push @args, $field->[$i];
+	} else {
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field->[$i] );
+		$qry = 'SELECT ' . ( $metafield // $field->[$i] ) . " FROM $table WHERE $match";
+	}
+	push @args, $id->[$i];
+	push @args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
+	my $old_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'col_arrayref' } );
+	no warnings 'numeric';
+	@$old_values = sort { $a <=> $b || $a cmp $b } @$old_values;
+	local $" = ',';
+
+	#Replace undef with empty string in list
+	map { $_ //= q() } @$old_values;    ##no critic (ProhibitMutatingListFunctions)
+	$old_value = "@$old_values";
+	if (   !defined $old_value
+		|| $old_value eq ''
+		|| $q->param('overwrite') )
+	{
+		$old_value = q(&lt;blank&gt;)
+		  if !defined $old_value || $old_value eq '';
+		my $problem =
+		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
+		if ($is_locus) {
+			my $locus_info = $self->{'datastore'}->get_locus_info( $field->[$i] );
+			if ( $locus_info->{'allele_id_format'} eq 'integer'
+				&& !BIGSdb::Utils::is_int( $value->[$i] ) )
+			{
+				$problem = q(invalid allele id (must be an integer));
+			}
+		}
+		if ($problem) {
+			$action = qq(<span class="statusbad">no action - $problem</span>);
+		} else {
+			if (   ( any { $value->[$i] eq $_ } @$old_values )
+				|| ( $value->[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
+			{
+				if ($is_locus) {
+					$action = q(<span class="statusbad">no action - designation already set</span>);
+				} else {
+					$action = q(<span class="statusbad">no action - new value unchanged</span>);
+				}
+				$update->[$i] = 0;
+			} else {
+				if ($is_locus) {
+					if ( $q->param('designations') eq 'add' ) {
+						$action = q(<span class="statusgood">add new designation</span>);
+					} else {
+						$action = q(<span class="statusgood">replace designation(s)</span>);
+					}
+				} else {
+					$action = q(<span class="statusgood">update field with new value</span>);
+				}
+				$update->[$i] = 1;
+			}
+		}
+	} else {
+		$action = q(<span class="statusbad">no action - value already in db</span>);
+	}
+	return ( $old_value, $action );
 }
 
 sub _update {
