@@ -61,8 +61,7 @@ id	field	value
 </pre>
 </li>
 <li> The columns should be separated by tabs. Any other columns will be ignored.</li>
-<li> If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li>
-<li>The script is compatible with STARS output files.</li></ul>
+<li> If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>
 <p>Please enter the field(s) that you are selecting isolates on.  Values used must be unique within this field or 
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
@@ -432,9 +431,10 @@ sub _update {
 		my ( $qry, $delete_qry );
 		my $is_locus = $self->{'datastore'}->is_locus($field);
 		my ( @args, @delete_args, @deleted_designations );
+		my @id_args = ($id1);
+		push @id_args, $id2 if $id->{'field2'} ne '<none>';
+
 		if ($is_locus) {
-			my @id_args = ($id1);
-			push @id_args, $id2 if $id->{'field2'} ne '<none>';
 			$isolate_id =
 			  $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
 			my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
@@ -454,8 +454,6 @@ sub _update {
 				}
 			}
 		} else {
-			my @id_args = ($id1);
-			push @id_args, $id2 if $id->{'field2'} ne '<none>';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @args, ( ( $value // '' ) eq '' ? undef : $value );
 			if ( defined $metaset ) {
@@ -477,15 +475,12 @@ sub _update {
 				  ->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
 			} else {
 				$qry =
-				    "UPDATE isolates SET $field=?,datestamp=?,curator=? WHERE id IN "
+				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
 				  . "(SELECT $view.id FROM $match_table WHERE $match)";
 				push @args, ( 'now', $curator_id, @id_args );
 				my $id_qry = $qry;
 				$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
-				my $sql_id = $self->{'db'}->prepare($id_qry);
-				eval { $sql_id->execute(@id_args) };
-				$logger->error($@) if $@;
-				( $isolate_id, $old_value ) = $sql_id->fetchrow_array;
+				( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
 			}
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
