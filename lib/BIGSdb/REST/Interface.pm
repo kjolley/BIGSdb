@@ -216,7 +216,7 @@ sub _is_authorized {
 		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 		send_error( 'Signature verification failed.', 401 );
 	}
-	$self->_check_client_authorization;
+	$self->_check_client_authorization($client);
 	$self->{'username'} = $session_token->{'username'};
 	return 1;
 }
