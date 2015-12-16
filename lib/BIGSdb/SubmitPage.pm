@@ -492,7 +492,8 @@ sub _get_profile_submissions_for_curation {
 	my $set_id = $self->get_set_id;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'profiles';
-		my $profile_submission = $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'} );
+		my $profile_submission =
+		  $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'}, { count_only => 1 } );
 		next
 		  if !($self->is_admin
 			|| $self->{'datastore'}->is_scheme_curator( $profile_submission->{'scheme_id'}, $user_info->{'id'} ) );
@@ -507,8 +508,7 @@ sub _get_profile_submissions_for_curation {
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$scheme_info->{'description'}</td>);
-		my $seq_count = @{ $profile_submission->{'profiles'} };
-		$buffer .= qq(<td>$seq_count</td>);
+		$buffer .= qq(<td>$profile_submission->{'count'}</td>);
 
 		if ( $status eq 'closed' ) {
 			my %style = FACE_STYLE;

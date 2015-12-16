@@ -107,6 +107,15 @@ sub get_profile_submission {
 	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM profile_submissions WHERE submission_id=?',
 		$submission_id, { fetch => 'row_hashref', cache => 'SubmissionHandler::get_profile_submission' } );
 	return if !$submission;
+	if ( $options->{'count_only'} ) {
+		my $count = $self->{'datastore'}->run_query(
+			'SELECT COUNT(*) FROM profile_submission_profiles WHERE submission_id=?',
+			$submission_id,
+			{ cache => 'SubmissionHandler::get_profile_submission::profile_count' }
+		);
+		$submission->{'count'} = $count;
+		return $submission;
+	}
 	my $fields = $options->{'fields'} // '*';
 	my $profiles =
 	  $self->{'datastore'}
@@ -114,7 +123,6 @@ sub get_profile_submission {
 		$submission_id,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_profile_submission::profiles' } );
 	$submission->{'profiles'} = [];
-
 	foreach my $profile (@$profiles) {
 		my $designations = $self->{'datastore'}->run_query(
 			'SELECT locus,allele_id FROM '
