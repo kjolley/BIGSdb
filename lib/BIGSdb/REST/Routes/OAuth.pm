@@ -224,7 +224,7 @@ sub _get_session_token {
 		}
 	);
 	if ( !$access_token->{'secret'} ) {
-		send_error( 'Invalid access token.  Generate new request token (/get_access_token).', 401 );
+		send_error( 'Invalid access token.  Generate new access token (/get_access_token).', 401 );
 	}
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
