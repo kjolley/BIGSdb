@@ -232,7 +232,7 @@ sub _check {
 	    q(<p>The following changes will be made to the database.  Please check that this is what )
 	  . q(you intend and then press 'Upload'.  If you do not wish to make these changes, press your )
 	  . qq(browser's back button.</p>\n);
-	$buffer.= $self->_get_html_header;
+	$buffer .= $self->_get_html_header;
 	my $i = 0;
 	my ( @id, @id2, @field, @value, @update );
 	my $td          = 1;
@@ -272,25 +272,12 @@ sub _check {
 				push @args, $id[$i];
 				push @args, $id2[$i] if $id_fields->{'field2'} ne '<none>';
 
-				#check if allowed to edit
+				#check invalid query
 				eval { $sql_id->execute(@args) };
 				if ($@) {
 					$self->_display_error($@);
 					return;
 				}
-				my @not_allowed;
-				while ( my ($isolate_id) = $sql_id->fetchrow_array ) {
-					if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-						push @not_allowed, $isolate_id;
-					}
-				}
-				if (@not_allowed) {
-					local $" = ', ';
-					say q(<div class="box" id="statusbad"><p>You are not allowed to edit the following )
-					  . qq(isolate records: @not_allowed.</p></div>);
-					return;
-				}
-
 				#Check if id exists
 				eval {
 					$sql->execute(@args);
