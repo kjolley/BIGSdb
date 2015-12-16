@@ -178,7 +178,6 @@ sub _is_authorized {
 	}
 	my $query_params = params('query');
 	my $body_params  = params('body');
-	
 	my $extra_params = {};
 	foreach my $param ( keys %$query_params, keys %$body_params ) {
 		next if $param =~ /^oauth_/x;
@@ -217,6 +216,13 @@ sub _is_authorized {
 		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 		send_error( 'Signature verification failed.', 401 );
 	}
+	$self->_check_client_authorization;
+	$self->{'username'} = $session_token->{'username'};
+	return 1;
+}
+
+sub _check_client_authorization {
+	my ( $self, $client ) = @_;
 	my ( $db_authorize, $db_submission, $db_curation ) = $self->{'datastore'}->run_query(
 		'SELECT authorize,submission,curation FROM client_permissions WHERE (client_id,dbase)=(?,?)',
 		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
@@ -255,8 +261,7 @@ sub _is_authorized {
 			send_error( "Client is unauthorized to use $method method.", 401 );
 		}
 	}
-	$self->{'username'} = $session_token->{'username'};
-	return 1;
+	return;
 }
 
 sub delete_old_sessions {
