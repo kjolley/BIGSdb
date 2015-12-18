@@ -775,7 +775,7 @@ sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 
 	#Ignore max length if we have a list of allowed values.
-	return if ( $thisfield->{'optlist'} ) // q() eq 'yes';
+	return if ( $thisfield->{'optlist'} // q() ) eq 'yes';
 	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'})";
 	}
