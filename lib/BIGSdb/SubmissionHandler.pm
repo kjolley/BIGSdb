@@ -108,11 +108,9 @@ sub get_profile_submission {
 		$submission_id, { fetch => 'row_hashref', cache => 'SubmissionHandler::get_profile_submission' } );
 	return if !$submission;
 	if ( $options->{'count_only'} ) {
-		my $count = $self->{'datastore'}->run_query(
-			'SELECT COUNT(*) FROM profile_submission_profiles WHERE submission_id=?',
-			$submission_id,
-			{ cache => 'SubmissionHandler::get_profile_submission::profile_count' }
-		);
+		my $count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profile_submission_profiles WHERE submission_id=?',
+			$submission_id, { cache => 'SubmissionHandler::get_profile_submission::profile_count' } );
 		$submission->{'count'} = $count;
 		return $submission;
 	}
@@ -775,6 +773,9 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+
+	#Ignore max length if we have a list of allowed values.
+	return if ( $thisfield->{'optlist'} ) // q() eq 'yes';
 	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'})";
 	}
