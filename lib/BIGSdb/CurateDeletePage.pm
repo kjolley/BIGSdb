@@ -386,8 +386,20 @@ sub _confirm {
 		  . q(page=compositeQuery">Query another</a>);
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
-		$self->refresh_material_view($scheme_id);
-		$self->{'db'}->commit;
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $profile_id = $q->param('profile_id');
+			eval {
+				$self->{'db'}
+				  ->do( "DELETE FROM mv_scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?", undef, $profile_id );
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+			}
+		}
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(scheme_id=$scheme_id">Query another</a>);
 	} else {
