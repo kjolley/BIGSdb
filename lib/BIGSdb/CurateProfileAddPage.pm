@@ -216,6 +216,7 @@ sub _upload {
 		}
 		if ($insert) {
 			my @inserts;
+			my ( @mv_fields, @mv_values );
 			push @inserts,
 			  {
 				statement => 'INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) '
@@ -237,6 +238,8 @@ sub _upload {
 						$newdata->{'field:curator'},      'now'
 					]
 				  };
+				push @mv_fields, $locus;
+				push @mv_values, $newdata->{"locus:$locus"};
 			}
 			foreach my $field (@$fields_with_values) {
 				push @inserts,
@@ -249,6 +252,8 @@ sub _upload {
 						$newdata->{'field:curator'},      'now'
 					]
 				  };
+				push @mv_fields, $field;
+				push @mv_values, $newdata->{"field:$field"};
 			}
 			push @inserts, @extra_inserts;
 			local $" = ';';
@@ -257,7 +262,21 @@ sub _upload {
 				{
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
-				$self->refresh_material_view($scheme_id);
+
+				#It is more efficient to directly add new records to the materialized view than
+				#to call $self->refresh_material_view($scheme_id).
+				if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
+					my @placeholders = ('?') x ( @mv_fields + 4 );
+					local $" = q(,);
+					my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
+					  . "date_entered,datestamp) VALUES (@placeholders)";
+					$self->{'db'}->do(
+						$qry, undef, @mv_values,
+						$newdata->{'field:sender'},
+						$newdata->{'field:curator'},
+						'now', 'now'
+					);
+				}
 			};
 			if ($@) {
 				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
