@@ -178,7 +178,7 @@ sub _check {
 	my $set_id = $self->get_set_id;
 
 	foreach my $field (@fileheaderFields) {
-		my $mapped = $self->{'submissionHandler'}->map_locus_name($field, $set_id);
+		my $mapped = $self->{'submissionHandler'}->map_locus_name( $field, $set_id );
 		$fileheaderPos{$mapped} = $i;
 		$i++;
 		$pk_included = 1 if $field eq $primary_key;
@@ -422,6 +422,7 @@ sub _upload {
 	my $primary_key = $scheme_info->{'primary_key'};
 	my @profile_ids;
 	foreach my $row (@records) {
+		my ( @mv_fields, @mv_values );
 		$row =~ s/\r//gx;
 		next if !$row;
 		my @data = split /\t/x, $row;
@@ -449,6 +450,8 @@ sub _upload {
 				  . 'datestamp) VALUES (?,?,?,?,?,?)',
 				arguments => [ $scheme_id, $locus, $profile_id, $data[ $fieldorder{$locus} ], $curator, 'now' ]
 			  };
+			push @mv_fields, $locus;
+			push @mv_values, $data[ $fieldorder{$locus} ];
 		}
 		foreach my $field (@$scheme_fields) {
 			next
@@ -461,6 +464,18 @@ sub _upload {
 				  . 'datestamp) VALUES (?,?,?,?,?,?)',
 				arguments => [ $scheme_id, $field, $profile_id, $data[ $fieldorder{$field} ], $curator, 'now' ]
 			  };
+			push @mv_fields, $field;
+			push @mv_values, $data[ $fieldorder{$field} ];
+		}
+
+		#It is more efficient to directly add new records to the materialized view than
+		#to call $self->refresh_material_view($scheme_id).
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
+			my @placeholders = ('?') x ( @mv_fields + 4 );
+			local $" = q(,);
+			my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
+			  . "date_entered,datestamp) VALUES (@placeholders)";
+			push @inserts, { statement => $qry, arguments => [ @mv_values, $curator, $sender, 'now', 'now' ] };
 		}
 		eval {
 			foreach my $insert (@inserts)
@@ -483,7 +498,6 @@ sub _upload {
 			return;
 		}
 	}
-	$self->refresh_material_view($scheme_id);
 	$self->{'db'}->commit
 	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
 	if ( $q->param('submission_id') ) {
