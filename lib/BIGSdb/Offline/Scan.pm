@@ -154,9 +154,10 @@ sub _create_fasta_index {
 		try {
 			my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
 			return if !keys %$seqs_ref;
+			my $buffer;
 			foreach my $allele_id ( keys %$seqs_ref ) {
 				next if !length $seqs_ref->{$allele_id};
-				say $fasta_fh ">$allele_id\n$seqs_ref->{$allele_id}";
+				$buffer.= ">$allele_id\n$seqs_ref->{$allele_id}\n";
 				my $allele_length = length $seqs_ref->{$allele_id};
 				if (
 					   $allele_id ne '0'
@@ -168,6 +169,7 @@ sub _create_fasta_index {
 					$self->{'min_allele_length'}->{$locus} = $allele_length;
 				}
 			}
+			say $fasta_fh $buffer;
 		}
 		catch BIGSdb::DatabaseConfigurationException with {
 			$ok = 0;

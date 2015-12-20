@@ -89,33 +89,39 @@ sub get_all_sequences {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return;
 	}
-	if ( !$self->{'sql'}->{'all_sequences'} ) {
-		my $qry;
-		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-			$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
-			  . "$self->{'dbase_id2_field'}=?";
-		} else {
-			$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
-		}
-		$self->{'sql'}->{'all_sequences'} = $self->{'db'}->prepare($qry);
-		$logger->debug("Locus $self->{'id'} statement handle 'all_sequences' prepared ($qry).");
+
+	#It is significantly quicker, on large databases, to create a temporary table of
+	#all alleles for a locus, and then to return all of this, than to simply return
+	#the values from the sequences table directly.
+	my $temp_table = "temp_locus_$self->{'id'}";
+	my $qry;
+	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
+		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
+		  . "$self->{'dbase_id2_field'}=?";
+	} else {
+		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
 	}
 	my @args;
 	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $self->{'sql'}->{'all_sequences'}->execute(@args) };
+	eval { $self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args ) };
+	$logger->error($@) if $@;
+	my $sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
+	eval { $sql->execute };
 	if ($@) {
-		$logger->error( q(Cannot execute 'all_sequences' query handle. Check database attributes in the )
+		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
 			  . qq(locus table for locus '$self->{'id'}'!.)
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
-	my %seqs;
-	my $data = $self->{'sql'}->{'all_sequences'}->fetchall_arrayref;
-	foreach (@$data) {
-		my ( $id, $seq ) = @$_;
-		$seqs{$id} = $seq;
-	}
-	$self->{'db'}->commit;    #Prevent table lock on long offline jobs
+	my $data = $sql->fetchall_arrayref;
+
+	#Explicitly drop temp table as some offline jobs can be long-running and we
+	#shouldn't call this method multiple times anyway.
+	$self->{'db'}->do("DROP TABLE $temp_table");
+	my %seqs = map { $_->[0] => $_->[1] } @$data;
+
+	#Prevent table lock on long offline jobs
+	$self->{'db'}->commit;
 	return \%seqs;
 }
 
