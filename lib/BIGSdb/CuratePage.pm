@@ -932,11 +932,11 @@ sub _check_isolate_field_extended_attribute_value {
 	if ( $format->[0] eq 'integer'
 		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
 	{
-		return "$att->{'name'} must be an integer.\n";
+		return "$att->{'name'} must be an integer.";
 	} elsif ( $format->[1] && $newdata->{ $att->{'name'} } !~ /$format->[1]/x ) {
-		return "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/";
+		return "$att->{'name'} value is invalid - it must match the regular expression /$format->[1]/.";
 	} elsif ( $format->[2] && length( $newdata->{ $att->{'name'} } ) > $format->[2] ) {
-		return "$att->{'name'} value is too long - it must be no longer than $format->[2] characters";
+		return "$att->{'name'} value is too long - it must be no longer than $format->[2] characters.";
 	}
 	return;
 }

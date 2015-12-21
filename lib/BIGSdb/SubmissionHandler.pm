@@ -866,6 +866,7 @@ sub _check_other_required {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 #Make sure int fields really are integers
 sub _check_other_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
+	return if !defined $value || $value eq q();
 	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer.';
 	}
@@ -875,6 +876,7 @@ sub _check_other_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 #Make sure floats fields really are floats
 sub _check_other_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
+	return if !defined $value || $value eq q();
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
 		return 'must be a floating point number';
 	}
@@ -910,6 +912,7 @@ sub _check_other_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 #Make sure options list fields only use a listed option (or null if optional)
 sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
+	return if !defined $value || $value eq q();
 	return if !$thisfield->{'optlist'};
 	my @options = split /;/x, $thisfield->{'optlist'};
 	foreach (@options) {
