@@ -94,6 +94,7 @@ sub get_all_sequences {
 	#all alleles for a locus, and then to return all of this, than to simply return
 	#the values from the sequences table directly.
 	my $temp_table = "temp_locus_$self->{'id'}";
+	$temp_table =~ s/'/_/gx;
 	my $qry;
 	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
@@ -108,9 +109,11 @@ sub get_all_sequences {
 	my $sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
 	eval { $sql->execute };
 	if ($@) {
-		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
-			  . qq(locus table for locus '$self->{'id'}'!.)
-			  . $self->{'db'}->errstr );
+		$logger->error(
+			    q(Cannot query all sequence temporary table. Check database attributes in the )
+			  . qq(locus table for locus '$self->{'id'}'!. $@)
+			  . $self->{'db'}->errstr
+		);
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
 	my $data = $sql->fetchall_arrayref;
