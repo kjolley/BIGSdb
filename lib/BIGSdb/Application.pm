@@ -79,7 +79,7 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = MAX_UPLOAD_SIZE;             
+	$CGI::POST_MAX              = MAX_UPLOAD_SIZE;
 	$CGI::DISABLE_UPLOADS       = 0;
 	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
@@ -589,8 +589,7 @@ sub authenticate {
 		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
-		my $config_access =
-		  $self->{'system'}->{'default_access'} ? $self->_user_allowed_access( $page_attributes->{'username'} ) : 1;
+		my $config_access = $self->_user_allowed_access( $page_attributes->{'username'} );
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
@@ -609,6 +608,12 @@ sub authenticate {
 
 sub _user_allowed_access {
 	my ( $self, $username ) = @_;
+	if ( ( $self->{'system'}->{'curators_only'} // q() ) eq 'yes' ) {
+		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
+		return 0 if !$status || $status eq 'user';
+		return 0 if $status eq 'submitter' && !$self->{'curate'};
+	}
+	return 1 if !$self->{'system'}->{'default_access'};
 	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
 		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
 		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
