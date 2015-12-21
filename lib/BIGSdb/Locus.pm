@@ -122,6 +122,7 @@ sub get_all_sequences {
 	#shouldn't call this method multiple times anyway.
 	$self->{'db'}->do("DROP TABLE $temp_table");
 	my %seqs = map { $_->[0] => $_->[1] } @$data;
+	delete $seqs{$_} foreach qw(N 0);
 
 	#Prevent table lock on long offline jobs
 	$self->{'db'}->commit;
