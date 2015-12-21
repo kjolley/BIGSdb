@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -170,6 +170,7 @@ sub _get_author_list {
 		next if !defined $author_string;
 		my @temp_list = split /, /x, $author_string;
 		foreach my $name (@temp_list) {
+			$name =~ s/^\s*//x;
 			push @author_names, $name if $name !~ /^\s*$/x;
 		}
 	}
