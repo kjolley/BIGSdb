@@ -238,7 +238,8 @@ sub _upload {
 						$newdata->{'field:curator'},      'now'
 					]
 				  };
-				push @mv_fields, $locus;
+				( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
+				push @mv_fields, $cleaned;
 				push @mv_values, $newdata->{"locus:$locus"};
 			}
 			foreach my $field (@$fields_with_values) {
@@ -519,14 +520,14 @@ sub is_locus_field_bad {
 			}
 			return;
 		}
-		return 'Allele id value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) '
+		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
 	}
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		return "Locus '$mapped' must be an integer.";
 	}
 	if ( $locus_info->{'allele_id_regex'} && $value !~ /$locus_info->{'allele_id_regex'}/x ) {
-		return "Allele id value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
+		return "$mapped value is invalid - it must match the regular expression /$locus_info->{'allele_id_regex'}/.";
 	}
 	if ( !defined $self->{'cache'}->{'seq_exists'}->{$locus}->{$value} ) {
 		$self->{'cache'}->{'seq_exists'}->{$locus}->{$value} = $self->{'datastore'}->sequence_exists( $locus, $value );

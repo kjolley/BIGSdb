@@ -215,109 +215,121 @@ sub _update {
 		  . q(Please address the following:</p>);
 		local $" = q(<br />);
 		say qq(<p>@$bad_field_buffer</p></div>);
+		return;
 	} elsif ( !%$locus_changed && !%$field_changed && !@$extra_inserts ) {
 		say q(<div class="box" id="statusbad"><p>No fields were changed.</p></div>);
-	} else {
-		foreach my $locus ( keys %$locus_changed ) {
+		return;
+	}
+	my @matview;
+	foreach my $locus ( keys %$locus_changed ) {
+		eval {
+			$self->{'db'}->do(
+				'UPDATE profile_members SET (allele_id,datestamp,curator)=(?,?,?) WHERE '
+				  . '(scheme_id,locus,profile_id)=(?,?,?)',
+				undef, $newdata->{"locus:$locus"}, 'now', $curator_id, $scheme_id, $locus, $profile_id
+			);
+		};
+		if ($@) {
+			$self->_handle_failure;
+			return;
+		}
+		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
+		push @matview,
+		  {
+			statement => "UPDATE mv_scheme_$scheme_id SET ($cleaned,datestamp,curator)=(?,?,?)",
+			arguments => [ $newdata->{"locus:$locus"}, 'now', $curator_id ]
+		  };
+		push @$updated_field, qq($locus: '$allele_data->{$locus}' -> '$newdata->{"locus:$locus"}');
+	}
+	foreach my $field ( keys %$field_changed ) {
+		if ( $field eq 'sender' ) {
 			eval {
 				$self->{'db'}->do(
-					'UPDATE profile_members SET (allele_id,datestamp,curator)=(?,?,?) WHERE '
-					  . '(scheme_id,locus,profile_id)=(?,?,?)',
-					undef, $newdata->{"locus:$locus"}, 'now', $curator_id, $scheme_id, $locus, $profile_id
+					'UPDATE profiles SET (sender,datestamp,curator)=(?,?,?) WHERE (scheme_id,profile_id)=(?,?)',
+					undef, $newdata->{'field:sender'},
+					'now', $curator_id, $scheme_id, $profile_id
 				);
 			};
 			if ($@) {
 				$self->_handle_failure;
 				return;
 			}
-			push @$updated_field, qq($locus: '$allele_data->{$locus}' -> '$newdata->{"locus:$locus"}');
-		}
-		foreach my $field ( keys %$field_changed ) {
-			if ( $field eq 'sender' ) {
+			push @$updated_field, qq($field: '$profile_data->{$field}' -> '$newdata->{"field:$field"}');
+		} else {
+			if ( defined $field_data->{$field} && $field_data->{$field} ne '' ) {
+				eval {
+					if ( $newdata->{"field:$field"} eq '' )
+					{
+						$self->{'db'}
+						  ->do( 'DELETE FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
+							undef, $scheme_id, $field, $profile_id );
+					} else {
+						$self->{'db'}->do(
+							'UPDATE profile_fields SET (value,datestamp,curator)=(?,?,?) '
+							  . 'WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
+							undef, $newdata->{"field:$field"}, 'now', $curator_id, $scheme_id, $field, $profile_id
+						);
+					}
+				};
+				if ($@) {
+					$self->_handle_failure;
+					return;
+				}
+			} else {
 				eval {
 					$self->{'db'}->do(
-						'UPDATE profiles SET (sender,datestamp,curator)=(?,?,?) WHERE (scheme_id,profile_id)=(?,?)',
-						undef, $newdata->{'field:sender'},
-						'now', $curator_id, $scheme_id, $profile_id
+						'INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,'
+						  . 'curator,datestamp) VALUES (?,?,?,?,?,?)',
+						undef, $scheme_id, $field, $profile_id, $newdata->{"field:$field"}, $curator_id, 'now'
 					);
 				};
 				if ($@) {
 					$self->_handle_failure;
 					return;
 				}
-				push @$updated_field, qq($field: '$profile_data->{$field}' -> '$newdata->{"field:$field"}');
-			} else {
-				if ( defined $field_data->{$field} && $field_data->{$field} ne '' ) {
-					eval {
-						if ( $newdata->{"field:$field"} eq '' )
-						{
-							$self->{'db'}
-							  ->do( 'DELETE FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
-								undef, $scheme_id, $field, $profile_id );
-						} else {
-							$self->{'db'}->do(
-								'UPDATE profile_fields SET (value,datestamp,curator)=(?,?,?) '
-								  . 'WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
-								undef,
-								$newdata->{"field:$field"},
-								'now',
-								$curator_id,
-								$scheme_id,
-								$field,
-								$profile_id
-							);
-						}
-					};
-					if ($@) {
-						$self->_handle_failure;
-						return;
-					}
-				} else {
-					eval {
-						$self->{'db'}->do(
-							'INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,'
-							  . 'curator,datestamp) VALUES (?,?,?,?,?,?)',
-							undef, $scheme_id, $field, $profile_id, $newdata->{"field:$field"}, $curator_id, 'now'
-						);
-					};
-					if ($@) {
-						$self->_handle_failure;
-						return;
-					}
-				}
-				push @$updated_field, qq($field: '$field_data->{$field}' -> '$newdata->{"field:$field"}');
 			}
+			push @$updated_field, qq($field: '$field_data->{$field}' -> '$newdata->{"field:$field"}');
 		}
-		if ( keys %$locus_changed || keys %$field_changed ) {
-			eval {
-				$self->{'db'}->do( 'UPDATE profiles SET (datestamp,curator)=(?,?) WHERE (scheme_id,profile_id)=(?,?)',
-					undef, 'now', $curator_id, $scheme_id, $profile_id );
-			};
-			if ($@) {
-				$self->_handle_failure;
-				return;
-			}
-		}
-		local $" = q(;);
+		my $value = $newdata->{"field:$field"};
+		undef $value if $newdata->{"field:$field"} eq q();
+		push @matview,
+		  {
+			statement => "UPDATE mv_scheme_$scheme_id SET ($field,datestamp,curator)=(?,?,?)",
+			arguments => [ $value, 'now', $curator_id ]
+		  };
+	}
+	if ( keys %$locus_changed || keys %$field_changed ) {
 		eval {
-			foreach my $insert (@$extra_inserts)
-			{
-				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-			}
+			$self->{'db'}->do( 'UPDATE profiles SET (datestamp,curator)=(?,?) WHERE (scheme_id,profile_id)=(?,?)',
+				undef, 'now', $curator_id, $scheme_id, $profile_id );
 		};
 		if ($@) {
 			$self->_handle_failure;
 			return;
 		}
-		$self->refresh_material_view($scheme_id);
-		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>Updated!</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
-		local $" = q(<br />);
-		$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
+	}
+	local $" = q(;);
+	eval {
+		foreach my $insert (@$extra_inserts)
+		{
+			$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
+		}
+		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
+			foreach my $insert (@matview) {
+				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
+			}
+		}
+	};
+	if ($@) {
+		$self->_handle_failure;
 		return;
 	}
+	$self->{'db'}->commit;
+	say q(<div class="box" id="resultsheader"><p>Updated!</p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+	  . q(Back to main page</a></p></div>);
+	local $" = q(<br />);
+	$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
 	return;
 }
 
