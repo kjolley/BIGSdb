@@ -218,7 +218,16 @@ sub _is_authorized {
 	}
 	$self->_check_client_authorization($client);
 	$self->{'username'} = $session_token->{'username'};
+	$self->_check_user_authorization( $self->{'username'} );
 	return 1;
+}
+
+sub _check_user_authorization {
+	my ( $self, $username ) = @_;
+	if ( !$self->is_user_allowed_access($username) ) {
+		send_error( 'User is unauthorized to access this database.', 401 );
+	}
+	return;
 }
 
 sub _check_client_authorization {

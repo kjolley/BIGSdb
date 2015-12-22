@@ -589,7 +589,7 @@ sub authenticate {
 		$self->{'cgi'}->{'page'}                        = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
-		my $config_access = $self->_user_allowed_access( $page_attributes->{'username'} );
+		my $config_access = $self->is_user_allowed_access( $page_attributes->{'username'} );
 		$page_attributes->{'permissions'} = $self->{'datastore'}->get_permissions( $page_attributes->{'username'} );
 		if ( $page_attributes->{'permissions'}->{'disable_access'} ) {
 			$page_attributes->{'error'} = 'accessDisabled';
@@ -606,7 +606,7 @@ sub authenticate {
 	return ( $authenticated, $auth_cookies_ref );
 }
 
-sub _user_allowed_access {
+sub is_user_allowed_access {
 	my ( $self, $username ) = @_;
 	if ( ( $self->{'system'}->{'curators_only'} // q() ) eq 'yes' ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
