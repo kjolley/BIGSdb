@@ -57,34 +57,186 @@ sub get_javascript {
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
+	\$('a#toggle_notifications').click(function(event){		
+		event.preventDefault();
+  		\$(this).attr('href', function(){  		
+	  		\$.ajax({
+	  			url : this.href,
+	  			success: function () {
+	  				if (\$('span#notify_text').text() == 'ON'){
+	  					\$('span#notify_text').text('OFF');
+	  				} else {
+	  					\$('span#notify_text').text('ON');
+	  				}
+	  			}
+	  		});
+	   	});
+	});
 });	
 END
 	return $buffer;
 }
 
-sub print_content {
-	my ($self)       = @_;
-	my $script_name  = $self->{'system'}->{'script_name'};
-	my $instance     = $self->{'instance'};
-	my $system       = $self->{'system'};
-	my $curator_name = $self->get_curator_name;
-	my $desc         = $self->get_db_description;
-	say "<h1>Database curator's interface - $desc</h1>";
-	my $td = 1;
-	my $buffer;
-	my $can_do_something;
+sub _toggle_notifications {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $new_status = $user_info->{'submission_emails'} ? 0 : 1;
+	eval {
+		$self->{'db'}
+		  ->do( 'UPDATE users SET submission_emails=? WHERE user_name=?', undef, $new_status, $self->{'username'} );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
 
+sub _ajax_call {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('toggle_notifications') ) {
+		$self->_toggle_notifications;
+		return 1;
+	}
+	return;
+}
+
+sub _print_set_section {
+	my ($self) = @_;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
-	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
+	return;
+}
 
-	#Display links for updating database records. Most curators will have
-	#access to most of these (but not curator permissions).
+#Append to URLs to ensure unique caching.
+sub _get_set_string {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
+	return $set_string;
+}
+
+#Display links for updating database records. Most curators will have
+#access to most of these (but not curator permissions).
+sub _get_standard_links {
+	my ( $self, $td_ref, $can_do_something ) = @_;
+	my $set_id     = $self->get_set_id;
+	my $set_string = $self->_get_set_string;
+	my $buffer;
 	foreach (qw (users user_groups user_group_members curator_permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
+			try {
+				$buffer .= $self->$function( $$td_ref, $set_string );
+			}
+			catch BIGSdb::DataException with {
+				$$td_ref = $$td_ref == 1 ? 2 : 1;
+			};
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
+			$$can_do_something = 1;
+		}
+	}
+	return $buffer;
+}
+
+sub _get_isolate_links {
+	my ( $self, $td_ref, $can_do_something ) = @_;
+	my $set_id     = $self->get_set_id;
+	my $set_string = $self->_get_set_string;
+	my $buffer = q();
+	my @tables = qw (isolates);
+	push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
+	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
+	foreach (@tables) {
+
+		if ( $self->can_modify_table($_) ) {
+			my $function  = "_print_$_";
+			my $exception = 0;
+			try {
+				my $temp_value = $self->$function( $$td_ref, $set_string );
+				$buffer .= $temp_value if $temp_value;
+			}
+			catch BIGSdb::DataException with {
+				$exception = 1;
+			};
+			next if $exception;
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
+			$$can_do_something = 1;
+		}
+	}
+	return $buffer;
+}
+
+sub _get_seqdef_links {
+	my ( $self, $td_ref, $can_do_something ) = @_;
+	my $set_id     = $self->get_set_id;
+	my $set_string = $self->_get_set_string;
+	my $buffer = q();
+	foreach (
+		qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
+		sequence_refs profiles profile_refs)
+	  )
+	{
+		if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
+			my $function = "_print_$_";
+			try {
+				my ( $temp_buffer, $returned_td ) = $self->$function( $$td_ref, $set_string );
+				if ($temp_buffer) {
+					$buffer .= $temp_buffer;
+					$can_do_something = 1;
+				}
+				$$td_ref = $returned_td || ( $$td_ref == 1 ? 2 : 1 );
+			}
+			catch BIGSdb::DataException with {    #Do nothing
+			};
+		}
+	}
+	return $buffer;
+}
+
+#Display links for updating database configuration tables.
+#These are admin functions, some of which some curators may be allowed to access.
+sub _get_admin_links {
+	my ( $self, $can_do_something ) = @_;
+	my $set_id = $self->get_set_id;
+	my $buffer = q();
+	my $td = 1;
+
+	#Only modify schemes/loci etc. when sets not selected.
+	return q() if $set_id;
+	my @tables = qw (loci);
+	my @skip_table;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @tables,
+		  qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
+		  sequence_attributes);
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
+		  client_dbase_loci_fields);
+	}
+	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
+		push @tables, 'sets';
+		my $sets_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM sets)');
+		if ($sets_exist) {
+			push @tables, qw( set_loci set_schemes);
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
+				push @tables, 'set_metadata' if @$metadata_list;
+				push @tables, 'set_view'     if $self->{'system'}->{'views'};
+			}
+		}
+	}
+	my $set_string = $self->_get_set_string;
+	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
+	  scheme_group_group_members);
+	foreach my $table (@tables) {
+		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
+			my $function = "_print_$table";
 			try {
 				$buffer .= $self->$function( $td, $set_string );
 			}
@@ -92,49 +244,31 @@ sub print_content {
 				$td = $td == 1 ? 2 : 1;
 			};
 			$td = $td == 1 ? 2 : 1;
-			$can_do_something = 1;
+			$$can_do_something = 1;
 		}
 	}
+	return $buffer;
+}
+
+sub print_content {
+	my ($self)      = @_;
+	my $script_name = $self->{'system'}->{'script_name'};
+	my $instance    = $self->{'instance'};
+	my $system      = $self->{'system'};
+	return if $self->_ajax_call;
+	my $curator_name = $self->get_curator_name;
+	my $desc         = $self->get_db_description;
+	say "<h1>Database curator's interface - $desc</h1>";
+	my $td = 1;
+	my $can_do_something;
+	$self->_print_set_section;
+	my $buffer = $self->_get_standard_links( \$td, \$can_do_something );
+	my $set_id = $self->get_set_id;
+
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my @tables = qw (isolates);
-		push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
-		  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
-		foreach (@tables) {
-			if ( $self->can_modify_table($_) ) {
-				my $function  = "_print_$_";
-				my $exception = 0;
-				try {
-					my $temp_value = $self->$function( $td, $set_string );
-					$buffer .= $temp_value if $temp_value;
-				}
-				catch BIGSdb::DataException with {
-					$exception = 1;
-				};
-				next if $exception;
-				$td = $td == 1 ? 2 : 1;
-				$can_do_something = 1;
-			}
-		}
+		$buffer .= $self->_get_isolate_links( \$td, \$can_do_something );
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		foreach (
-			qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
-			sequence_refs profiles profile_refs)
-		  )
-		{
-			if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
-				my $function = "_print_$_";
-				try {
-					my ( $temp_buffer, $returned_td ) = $self->$function( $td, $set_string );
-					if ($temp_buffer) {
-						$buffer .= $temp_buffer;
-						$can_do_something = 1;
-					}
-					$td = $returned_td || ( $td == 1 ? 2 : 1 );
-				}
-				catch BIGSdb::DataException with {    #Do nothing
-				};
-			}
-		}
+		$buffer .= $self->_get_seqdef_links( \$td, \$can_do_something );
 	}
 	if ($buffer) {
 		say q(<div class="box" id="index">);
@@ -147,51 +281,7 @@ sub print_content {
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
 	}
-	undef $buffer;
-	$td = 1;
-
-	#Display links for updating database configuration tables.
-	#These are admin functions, some of which some curators may be allowed to access.
-	if ( !$set_id ) {    #Only modify schemes/loci etc. when sets not selected.
-		my @tables = qw (loci);
-		my @skip_table;
-		if ( $system->{'dbtype'} eq 'isolates' ) {
-			push @tables,
-			  qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
-			  sequence_attributes);
-		} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-			push @tables,
-			  qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
-			  client_dbase_loci_fields);
-		}
-		if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-			push @tables, 'sets';
-			my $sets_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM sets)');
-			if ($sets_exist) {
-				push @tables, qw( set_loci set_schemes);
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
-					push @tables, 'set_metadata' if @$metadata_list;
-					push @tables, 'set_view'     if $self->{'system'}->{'views'};
-				}
-			}
-		}
-		push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
-		  scheme_group_group_members);
-		foreach my $table (@tables) {
-			if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
-				my $function = "_print_$table";
-				try {
-					$buffer .= $self->$function( $td, $set_string );
-				}
-				catch BIGSdb::DataException with {
-					$td = $td == 1 ? 2 : 1;
-				};
-				$td = $td == 1 ? 2 : 1;
-				$can_do_something = 1;
-			}
-		}
-	}
+	$buffer = $self->_get_admin_links( \$can_do_something );
 	my $list_buffer = $self->_get_admin_list_links;
 	$can_do_something = 1 if $list_buffer;
 	if ( $buffer || $list_buffer ) {
@@ -961,6 +1051,15 @@ sub _print_submission_section {
 	if ( $buffer || $closed_buffer ) {
 		say q(<div class="box" id="submissions"><div class="scrollable">);
 		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $on_or_off =
+		  $user_info->{'submission_emails'}
+		  ? 'ON'
+		  : 'OFF';
+		say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
+		  . q(<span class="main_icon fa fa-envelope fa-lg pull-left">)
+		  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
 		say $buffer if $buffer;
 		if ($closed_buffer) {
 			say q(<h2>Submissions</h2>) if !$buffer;
