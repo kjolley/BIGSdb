@@ -188,7 +188,7 @@ sub _get_seqdef_links {
 				my ( $temp_buffer, $returned_td ) = $self->$function( $$td_ref, $set_string );
 				if ($temp_buffer) {
 					$buffer .= $temp_buffer;
-					$can_do_something = 1;
+					$$can_do_something = 1;
 				}
 				$$td_ref = $returned_td || ( $$td_ref == 1 ? 2 : 1 );
 			}
