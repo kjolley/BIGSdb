@@ -220,6 +220,7 @@ sub _update {
 		say q(<div class="box" id="statusbad"><p>No fields were changed.</p></div>);
 		return;
 	}
+	my $locus_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my @matview;
 	foreach my $locus ( keys %$locus_changed ) {
 		eval {
@@ -236,8 +237,9 @@ sub _update {
 		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
 		push @matview,
 		  {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($cleaned,datestamp,curator)=(?,?,?)",
-			arguments => [ $newdata->{"locus:$locus"}, 'now', $curator_id ]
+			statement => "UPDATE mv_scheme_$scheme_id SET ($cleaned,datestamp,curator)=(?,?,?) WHERE "
+			  . "$locus_info->{'primary_key'}=?",
+			arguments => [ $newdata->{"locus:$locus"}, 'now', $curator_id, $profile_id ]
 		  };
 		push @$updated_field, qq($locus: '$allele_data->{$locus}' -> '$newdata->{"locus:$locus"}');
 	}
@@ -292,11 +294,11 @@ sub _update {
 		}
 		my $value = $newdata->{"field:$field"};
 		undef $value if $newdata->{"field:$field"} eq q();
-		push @matview,
-		  {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($field,datestamp,curator)=(?,?,?)",
-			arguments => [ $value, 'now', $curator_id ]
-		  };
+		push @matview, {
+			statement => "UPDATE mv_scheme_$scheme_id SET ($field,datestamp,curator)=(?,?,?) WHERE "
+			  . "$locus_info->{'primary_key'}=?",
+			arguments => [ $value, 'now', $curator_id, $profile_id ]
+		};
 	}
 	if ( keys %$locus_changed || keys %$field_changed ) {
 		eval {
