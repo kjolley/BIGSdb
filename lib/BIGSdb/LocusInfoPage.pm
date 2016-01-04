@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,7 +45,7 @@ sub print_content {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $set_id = $self->get_set_id;
-	if ( !$self->{'datastore'}->is_locus($locus) ) {
+	if ( !$locus_info || !$self->{'datastore'}->is_locus($locus) ) {
 		say q(<h1>Locus information</h1>);
 		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
