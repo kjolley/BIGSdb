@@ -23,6 +23,9 @@ use warnings;
 use Carp;
 use DBI;
 use DateTime;
+use Mail::Sender;
+use Getopt::Long qw(:config no_ignore_case);
+use Term::Cap;
 use 5.010;
 ###########Local configuration################################
 #Define database passwords in .pgpass file in user directory
@@ -32,12 +35,21 @@ use constant {
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
 	USER             => 'apache',
+	DOMAIN           => 'PubMLST',
+	SMTP_SERVER      => '127.0.0.1',
+	SENDER           => 'no_reply@pubmlst.org',
 
 	#Only remind about submissions last updated earlier than
-	AGE    => 7,
-	DOMAIN => 'PubMLST'
+	AGE => 7
 };
 #######End Local configuration################################
+my %opts;
+GetOptions( 'q|quiet' => \$opts{'q'}, 'h|help' => \$opts{'h'}, 't|test' => \$opts{'t'} )
+  or die("Error in command line arguments\n");
+if ( $opts{'h'} ) {
+	show_help();
+	exit;
+}
 main();
 
 sub main {
@@ -55,6 +67,7 @@ sub main {
 		}
 	}
 	foreach my $email ( sort keys %dbase_by_email ) {
+		my $summary;
 		my %mentioned;
 		my $buffer;
 		foreach my $run (qw(answered new)) {
@@ -85,13 +98,24 @@ sub main {
 				}
 			}
 			if ($run_buffer) {
-				$buffer .= get_message($run) . $run_buffer;
+				$summary .= qq($run\t\n) . ( '=' x length $run ) . qq(\t\n);
+				$summary .= $run_buffer;
+				$buffer  .= get_message($run) . $run_buffer;
 			}
 		}
 		if ($buffer) {
-			say get_message('intro');
-			say "$name_by_email{$email} ($email)";
-			say $buffer;
+			my $message = get_message('intro');
+			$message .= $buffer;
+			if ( $opts{'t'} ) {
+				say "E-mail to $email (TEST - NOT SENDING)";
+				say $summary;
+			} else {
+				say "Sending E-mail to $email" if !$opts{'q'};
+				email( $email, $message );
+			}
+
+			#Don't spam the outgoing mail server
+			sleep 5;
 		}
 	}
 	return;
@@ -144,18 +168,21 @@ sub is_isolate_curator {
 sub get_message {
 	my ($section) = @_;
 	my ( $age, $domain ) = ( AGE, DOMAIN );
+
+	#Tabs are included and end of lines to stop Outlook removing line breaks!
 	my %message = (
-		intro => qq(This is an automated message from the $domain submission system\n)
-		  . qq(to notify you of any outstanding submissions on the system. You \n)
-		  . qq(have been sent this message because you have curator status for \n)
-		  . qq(the respective databases and have submission E-mail notifications\n)
-		  . qq(switched on. Please note that you may not be the only curator to\n)
-		  . qq(whom this message has been sent.\n),
-		answered => qq(You have answered or initiated the following submissions which have\n)
-		  . qq(not been updated in $age days. Please either accept or reject each record,\n)
-		  . qq(then close the submission.\n\n),
-		new => qq(The following submissions have not been answered by any curator and\n)
-		  . qq(have not been updated in $age days. Please handle these soon.\n\n)
+		intro => qq(This is an automated message from the $domain submission system\t\n)
+		  . qq(to notify you of any outstanding submissions pending. You have\t\n)
+		  . qq(been sent this message because you have curator status for the\t\n)
+		  . qq(respective databases and have submission E-mail notifications\t\n)
+		  . qq(switched on. Please note that you may not be the only curator to\t\n)
+		  . qq(whom this message has been sent.\t\n\t\n),
+		answered => qq(You have sent correspondence for the following submissions which\t\n)
+		  . qq(have not been updated in $age days. Please either accept or reject\t\n)
+		  . qq(each record, then close the submission.\n\n),
+		new => qq[The following submissions have not been answered by any curator and\t\n]
+		  . qq[have not been updated in $age days. Please handle these soon (either\t\n]
+		  . qq[assign or reject).\t\n\t\n]
 	);
 	return $message{$section};
 }
@@ -335,4 +362,40 @@ sub calculate_age_in_days {
 	my $dt_date  = DateTime->new( year => $y, month => $m, day => $d );
 	my $duration = $dt_now->delta_days($dt_date)->{'days'};
 	return $duration;
+}
+
+sub email {
+	my ( $email, $message ) = @_;
+	my $domain      = DOMAIN;
+	my $subject     = "Submission reminder ($domain)";
+	my $args        = { smtp => SMTP_SERVER, to => $email, from => SENDER };
+	my $mail_sender = Mail::Sender->new($args);
+	$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
+	return;
+}
+
+sub show_help {
+	my $termios = POSIX::Termios->new;
+	$termios->getattr;
+	my $ospeed = $termios->getospeed;
+	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
+	say << "HELP";
+${bold}NAME$norm
+    ${bold}nag_curators.pl$norm - Remind curators of pending submissions
+
+${bold}SYNOPSIS$norm
+    ${bold}nag_curators.pl$norm [${under}options$norm]
+
+${bold}OPTIONS$norm
+${bold}-h, --help$norm
+    This help page.
+
+${bold}-q, --quiet$norm
+    Suppress output (except errors).
+    
+${bold}-t, --test$norm
+    Perform run but do not send E-mails.
+HELP
+	return;
 }
