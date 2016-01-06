@@ -122,7 +122,7 @@ sub initiate {
 			} else {
 				$self->{'refresh'} = 5;
 			}
-			if ($status->{'request_stop'}){
+			if ( $status->{'request_stop'} ) {
 				$self->{'refresh'} = 1;
 			}
 			$self->{'refresh_page'} = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
@@ -428,9 +428,8 @@ sub _scan {
 	my @ids        = $q->param('isolate_id');
 	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list;
 	push @ids, @$pasted_cleaned_ids;
-	@ids = uniq sort @ids;
+	@ids = uniq sort { $a <=> $b } @ids;
 	$q->param( isolate_id => @ids );
-
 	if ( !@ids ) {
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		$self->_print_interface;
