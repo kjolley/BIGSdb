@@ -169,7 +169,7 @@ sub get_message {
 	my ($section) = @_;
 	my ( $age, $domain ) = ( AGE, DOMAIN );
 
-	#Tabs are included and end of lines to stop Outlook removing line breaks!
+	#Tabs are included at end of lines to stop Outlook removing line breaks!
 	my %message = (
 		intro => qq(This is an automated message from the $domain submission system\t\n)
 		  . qq(to notify you of any outstanding submissions pending. You have\t\n)
