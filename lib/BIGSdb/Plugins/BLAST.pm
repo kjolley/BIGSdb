@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any);
+use List::MoreUtils qw(uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 2000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
@@ -107,7 +108,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.2',
+		version     => '1.3.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -142,6 +143,16 @@ sub run {
 		return;
 	}
 	my @ids = $q->param('isolate_id');
+	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+	push @ids, @$pasted_cleaned_ids;
+	@ids = uniq @ids;
+	if (@$invalid_ids) {
+		local $" = ', ';
+		$self->_print_interface;
+		say q(<div class="box" id="statusbad"><p>The following isolates in your )
+		  . qq(pasted list are invalid: @$invalid_ids.</p></div>);
+		return;
+	}
 	if ( !@ids ) {
 		$self->_print_interface;
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
@@ -580,7 +591,7 @@ sub _print_interface {
 	  . q(and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
+	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	say q(<fieldset style="float:left"><legend>Paste sequence</legend>);
 	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
 	say q(</fieldset>);
