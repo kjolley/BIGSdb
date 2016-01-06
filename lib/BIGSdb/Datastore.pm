@@ -1113,6 +1113,7 @@ sub create_temp_list_table_from_array {
 		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
 		$self->{'db'}->do("COPY $table FROM STDIN");
 		foreach (@$list) {
+			s/\t/    /gx;
 			$self->{'db'}->pg_putcopydata("$_\n");
 		}
 		$self->{'db'}->pg_putcopyend;
