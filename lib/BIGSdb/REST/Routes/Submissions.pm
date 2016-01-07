@@ -173,7 +173,7 @@ sub _add_missing_contig_files {
 	my $missing_contig_files = _get_missing_contig_filenames($submission_id);
 	if (@$missing_contig_files) {
 		local $" = q(, );
-		$values->{'missing_files'} = "@$missing_contig_files";
+		$values->{'missing_files'} = \@$missing_contig_files;
 		$values->{'message'}       = 'Please upload missing contig files to complete submission.';
 	}
 	return;
