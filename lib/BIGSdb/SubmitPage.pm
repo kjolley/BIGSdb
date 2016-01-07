@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1113,7 +1113,10 @@ sub _start_allele_submission {
 		  $self->{'db'}->prepare(
 			'INSERT INTO allele_submission_sequences (submission_id,index,seq_id,sequence,status) VALUES (?,?,?,?,?)');
 		foreach my $seq (@$seqs) {
-			eval { $insert_sql->execute( $submission_id, $index, $seq->{'seq_id'}, $seq->{'sequence'}, 'pending' ) };
+			eval {
+				$insert_sql->execute( $submission_id, $index, ( $seq->{'seq_id'} // '' ),
+					$seq->{'sequence'}, 'pending' );
+			};
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
@@ -2158,8 +2161,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
-	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
-	  ;
+	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
