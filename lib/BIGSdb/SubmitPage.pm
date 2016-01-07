@@ -1015,14 +1015,14 @@ sub _print_isolate_table_fieldset {
 	say $q->end_form;
 	local $" = ',';
 
-	if ( $options->{'curate'} && !$submission->{'outcome'} ) {
+	if ( $options->{'curate'} && !$submission->{'outcome'} && !$self->{'contigs_missing'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
 		my $page = $q->param('page');
 		$q->param( page   => 'batchAdd' );
 		$q->param( table  => 'isolates' );
 		$q->param( submit => 1 );
-		say $q->hidden($_) foreach qw( db page submission_id table submit);
+		say $q->hidden($_) foreach qw(db page submission_id table submit);
 		say $q->end_form;
 
 		#Restore value
@@ -2158,8 +2158,9 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
+	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
+	  ;
 	$self->_print_isolate_table_fieldset($submission_id);
-	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
 	say q(</div></div>);

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub _check_db_type {
 		send_error( 'Submissions are not enabled on this database', 404 );
 	}
 	send_error( 'Submission type not selected', 400 ) if !$type;
-	my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1 } };
+	my $db_types = { sequences => { alleles => 1, profiles => 1 }, isolates => { isolates => 1, genomes => 1 } };
 	if ( !$db_types->{ $self->{'system'}->{'dbtype'} }->{$type} ) {
 		send_error( qq(Submissions of type "$type" are not supported by this database), 404 );
 	}
@@ -134,10 +134,11 @@ sub _get_submission {
 			}
 		},
 		isolates => sub {
-			my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
-			if ($isolate_submission) {
-				$values->{'isolates'} = $isolate_submission->{'isolates'} if @{ $isolate_submission->{'isolates'} };
-			}
+			_add_isolate_data( $submission->{'id'}, $values );
+		},
+		genomes => sub {
+			_add_isolate_data( $submission->{'id'}, $values );
+			_add_missing_contig_files( $submission->{'id'}, $values );
 		}
 	);
 	$type{ $submission->{'type'} }->() if $type{ $submission->{'type'} };
@@ -154,6 +155,28 @@ sub _get_submission {
 		$values->{'correspondence'} = $correspondence;
 	}
 	return $values;
+}
+
+sub _add_isolate_data {
+	my ( $submission_id, $values ) = @_;
+	my $self               = setting('self');
+	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission($submission_id);
+	if ($isolate_submission) {
+		$values->{'isolates'} = $isolate_submission->{'isolates'} if @{ $isolate_submission->{'isolates'} };
+	}
+	return;
+}
+
+sub _add_missing_contig_files {
+	my ( $submission_id, $values ) = @_;
+	my $self                 = setting('self');
+	my $missing_contig_files = _get_missing_contig_filenames($submission_id);
+	if (@$missing_contig_files) {
+		local $" = q(, );
+		$values->{'missing_files'} = "@$missing_contig_files";
+		$values->{'message'}       = 'Please upload missing contig files to complete submission.';
+	}
+	return;
 }
 
 sub _delete_submission {
@@ -208,7 +231,8 @@ sub _create_submission {
 	my %method        = (
 		alleles  => sub { _prepare_allele_submission($submission_id) },
 		profiles => sub { _prepare_profile_submission($submission_id) },
-		isolates => sub { _prepare_isolate_submission($submission_id) }
+		isolates => sub { _prepare_isolate_submission($submission_id) },
+		genomes  => sub { _prepare_isolate_submission( $submission_id, { genomes => 1 } ) }
 	);
 	my $sql = [];
 	$sql = $method{$type}->() if $method{$type};
@@ -233,15 +257,44 @@ sub _create_submission {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my %write_file = (
+	my $missing_contig_files = [];
+	my %write_file           = (
 		alleles  => sub { $self->{'submissionHandler'}->write_submission_allele_FASTA($submission_id) },
 		profiles => sub { $self->{'submissionHandler'}->write_profile_csv($submission_id) },
-		isolates => sub { $self->{'submissionHandler'}->write_isolate_csv($submission_id) }
+		isolates => sub { $self->{'submissionHandler'}->write_isolate_csv($submission_id) },
+		genomes  => sub {
+			$self->{'submissionHandler'}->write_isolate_csv($submission_id);
+			$missing_contig_files = _get_missing_contig_filenames($submission_id);
+		}
 	);
 	$write_file{$type}->() if $write_file{$type};
 	$self->{'submissionHandler'}->notify_curators($submission_id);
 	status(201);
+	if ( $type eq 'genomes' ) {
+		local $" = q(, );
+		return {
+			submission    => request->uri_for("/db/$db/submissions/$submission_id"),
+			missing_files => "@$missing_contig_files",
+			message       => 'Please upload missing contig files to complete submission.'
+		};
+	}
 	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
+}
+
+sub _get_missing_contig_filenames {
+	my ($submission_id) = @_;
+	my $self            = setting('self');
+	my $filenames       = $self->{'datastore'}->run_query(
+		'SELECT value FROM isolate_submission_isolates WHERE (submission_id,field)=(?,?)',
+		[ $submission_id, 'assembly_filename' ],
+		{ fetch => 'col_arrayref' }
+	);
+	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my @missing_files;
+	foreach my $filename (@$filenames) {
+		push @missing_files, $filename if !-e "$dir/$filename";
+	}
+	return \@missing_files;
 }
 
 sub _prepare_allele_submission {
@@ -392,13 +445,13 @@ sub _prepare_profile_submission {
 }
 
 sub _prepare_isolate_submission {
-	my ($submission_id) = @_;
-	my $self            = setting('self');
-	my $params          = params;
+	my ( $submission_id, $options ) = @_;
+	my $self   = setting('self');
+	my $params = params;
 	my ( $db, $isolates ) = @{$params}{qw(db isolates)};
 	send_error( 'Required field(s) missing: isolates', 400 ) if !defined $isolates;
 	my $set_id = $self->get_set_id;
-	my $check = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates );
+	my $check = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates, $options );
 	if ( $check->{'err'} ) {
 		local $" = q( );
 		my $err = "@{ $check->{'err'} }";

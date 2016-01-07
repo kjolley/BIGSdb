@@ -288,6 +288,7 @@ sub _get_route {
 		return;
 	}
 	say Dumper ($decoded_json);
+	return if ref $decoded_json ne 'HASH';
 	if ( ( $decoded_json->{'message'} // q() ) =~ /Client\ is\ unauthorized/x ) {
 		say 'Access denied - client is unauthorized.';
 		return;
