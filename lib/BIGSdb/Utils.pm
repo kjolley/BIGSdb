@@ -166,13 +166,14 @@ sub decimal_place {
 #returns true if string is an acceptable date format
 sub is_date {
 	my ($qry) = @_;
+	return if ( !defined $qry || $qry eq '' );
 	return 1 if $qry eq 'today' || $qry eq 'yesterday';
 	if ( $qry =~ /^(\d{4})-(\d{2})-(\d{2})$/x ) {
 		my ( $y, $m, $d ) = ( $1, $2, $3 );
 		eval { timelocal 0, 0, 0, $d, $m - 1, $y - 1900 };
 		return $@ ? 0 : 1;
 	}
-	return 0;
+	return;
 }
 
 sub is_bool {
@@ -182,7 +183,7 @@ sub is_bool {
 		|| lc($qry) eq 'false'
 		|| $qry     eq '1'
 		|| $qry     eq '0' );
-	return 0;
+	return;
 }
 
 sub is_int {

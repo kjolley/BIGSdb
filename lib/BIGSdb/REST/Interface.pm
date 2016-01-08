@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -426,9 +426,50 @@ sub check_scheme {
 }
 
 sub get_user_id {
-	my $self      = setting('self');
+	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	send_error( 'Unrecognized user.', 401 ) if !$user_info;
 	return $user_info->{'id'};
+}
+
+sub add_filters {
+	my ( $self, $qry, $allowed_args ) = @_;
+	my $params = params;
+	my ($added_after,$updated_after) = @{$params}{qw(added_after updated_after)};
+	my @terms;
+	my %methods = (
+		added_after => sub {
+			push @terms, qq(date_entered>'$added_after') if BIGSdb::Utils::is_date($added_after);
+		},
+		updated_after => sub {
+			push @terms, qq(datestamp>'$updated_after') if BIGSdb::Utils::is_date($updated_after);
+		}
+	);
+	foreach my $arg (@$allowed_args) {
+		$methods{$arg}->() if $methods{$arg};
+	}
+	local $" = q( AND );
+	my $and_or_where = $qry =~ /WHERE/x ? 'AND' : 'WHERE';
+	$qry .= qq( $and_or_where (@terms)) if @terms;
+	return $qry;
+}
+
+sub get_full_path {
+	my ($self, $path, $allowed_args) = @_;
+	$self->get_param_string($allowed_args);
+	my $passed_params = $self->get_param_string($allowed_args);
+	$path .= "?$passed_params" if $passed_params;
+	return $path;
+}
+
+sub get_param_string {
+	my ( $self, $allowed_args ) = @_;
+	my @params;
+	my $param_hash = request->query_parameters;
+	foreach my $arg (@$allowed_args) {
+		push @params, "$arg=$param_hash->{$arg}" if defined $param_hash->{$arg};
+	}
+	local $" = q(&);
+	return "@params";
 }
 1;

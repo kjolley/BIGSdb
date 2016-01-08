@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,16 +33,21 @@ get '/db/:db/fields'       => sub { _get_fields() };
 sub _get_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
-	my ($db) = params->{'db'};
-	my $page          = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-	my $pages         = ceil( $isolate_count / $self->{'page_size'} );
-	my $offset        = ( $page - 1 ) * $self->{'page_size'};
-	my $qry           = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+	my $params          = params;
+	my $db              = params->{'db'};
+	my $page            = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $allowed_filters = [qw(added_after updated_after)];
+	my $qry             = $self->add_filters( "SELECT COUNT(*) FROM $self->{'system'}->{'view'}", $allowed_filters );
+	my $isolate_count   = $self->{'datastore'}->run_query($qry);
+	my $pages           = ceil( $isolate_count / $self->{'page_size'} );
+	my $offset          = ( $page - 1 ) * $self->{'page_size'};
+	$qry = $self->add_filters( "SELECT id FROM $self->{'system'}->{'view'}", $allowed_filters );
+	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
-	my $paging = $self->get_paging( "/db/$db/isolates", $pages, $page );
+	my $path = $self->get_full_path( "/db/$db/isolates", $allowed_filters );
+	my $paging = $self->get_paging( $path, $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
 	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
@@ -51,8 +56,9 @@ sub _get_isolates {
 }
 
 sub _get_isolate {
-	my $self = setting('self');
-	my ( $db, $id ) = ( params->{'db'}, params->{'id'} );
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id ) = @{$params}{qw(db id)};
 	$self->check_isolate_is_valid($id);
 	my $values = {};
 	my $field_values =
@@ -60,8 +66,8 @@ sub _get_isolate {
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $provenance = {};
-	foreach my $field (@$field_list) {
 
+	foreach my $field (@$field_list) {
 		if ( $field eq 'sender' || $field eq 'curator' ) {
 			$provenance->{$field} = request->uri_for("/db/$db/users/$field_values->{$field}");
 		} else {

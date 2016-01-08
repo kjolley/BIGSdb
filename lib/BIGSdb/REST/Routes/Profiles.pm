@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,17 +33,20 @@ sub _get_profiles {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $set_id = $self->get_set_id;
+	my $page            = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $allowed_filters = [qw(added_after updated_after)];
+	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $profile_view =
 	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $profile_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $profile_view");
+	my $qry           = $self->add_filters( "SELECT COUNT(*) FROM $profile_view", $allowed_filters );
+	my $profile_count = $self->{'datastore'}->run_query($qry);
 	my $pages         = ceil( $profile_count / $self->{'page_size'} );
 	my $offset        = ( $page - 1 ) * $self->{'page_size'};
 	my $pk_info       = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-	my $qry           = "SELECT $scheme_info->{'primary_key'} FROM $profile_view ORDER BY "
+	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $profile_view", $allowed_filters );
+	$qry .= ' ORDER BY '
 	  . (
 		$pk_info->{'type'} eq 'integer'
 		? "CAST($scheme_info->{'primary_key'} AS int)"
@@ -52,7 +55,8 @@ sub _get_profiles {
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($profile_count) };
-	my $paging = $self->get_paging( "/db/$db/schemes/$scheme_id/profiles", $pages, $page );
+	my $path = $self->get_full_path( "/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
+	my $paging = $self->get_paging( $path, $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
 
@@ -68,6 +72,7 @@ sub _get_profiles_csv {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
+	my $allowed_filters = [qw(added_after updated_after)];
 	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
@@ -99,8 +104,8 @@ sub _get_profiles_csv {
 	my $scheme_view =
 	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry =
-	  "SELECT @fields FROM $scheme_view ORDER BY "
+	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_view", $allowed_filters );
+	$qry .= ' ORDER BY '
 	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 
