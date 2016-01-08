@@ -162,6 +162,7 @@ sub run {
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
 		my $att       = $self->get_attributes;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$q->delete('isolate_paste_list');
 		$q->delete('isolate_id');
 		my $params = $q->Vars;
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
