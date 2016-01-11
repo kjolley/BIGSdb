@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,6 +58,8 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		reloadTooltips();
+		\$("span#show_aliases_text").css('display', 'inline');
+		\$("span#hide_aliases_text").css('display', 'none');
 		\$("span#tree_button").css('display', 'inline');
 		if (\$("span").hasClass('aliases')){
 			\$("span#aliases_button").css('display', 'inline');
@@ -97,7 +99,7 @@ sub get_javascript {
 			\$("span#show_aliases_text").css('display', 'none');
 			\$("span#hide_aliases_text").css('display', 'inline');
 		}
-		\$( "span.aliases" ).toggle( 'highlight', {} , 500 );
+		\$( "span.aliases" ).toggle();
 		return false;
 	});
 	\$( "#show_tree" ).click(function() {		
