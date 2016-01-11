@@ -32,8 +32,6 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
 use IO::Handle;
-use Memoize;
-memoize('get_locus_info');
 
 sub new {
 	my ( $class, @atr ) = @_;
@@ -587,6 +585,17 @@ sub get_scheme_loci {
 
 sub get_locus_aliases {
 	my ( $self, $locus ) = @_;
+	$self->{'locus_alias_count'}++;
+	if ( $self->{'locus_alias_count'} > 10 && !$self->{'all_locus_aliases'} ) {
+		my $all_data = $self->run_query( 'SELECT locus,alias FROM locus_aliases WHERE use_alias ORDER BY alias',
+			undef, { fetch => 'all_arrayref' } );
+		foreach my $record (@$all_data) {
+			push @{ $self->{'all_locus_aliases'}->{ $record->[0] } }, $record->[1];
+		}
+	}
+	if ( $self->{'all_locus_aliases'} ) {
+		return $self->{'all_locus_aliases'}->{$locus} // [];
+	}
 	return $self->run_query( 'SELECT alias FROM locus_aliases WHERE use_alias AND locus=? ORDER BY alias',
 		$locus, { fetch => 'col_arrayref', cache => 'get_locus_aliases' } );
 }
@@ -1266,10 +1275,22 @@ sub get_locus_list {
 
 sub get_locus_info {
 	my ( $self, $locus, $options ) = @_;
+	$self->{'locus_count'}++;
+
+	#Get information for all loci if we're being called multiple times.
+	#Cache this information.
+	if ( $self->{'locus_count'} > 10 && !$self->{'all_locus_info'} ) {
+		$self->{'all_locus_info'} =
+		  $self->run_query( 'SELECT * FROM loci', undef, { fetch => 'all_hashref', key => 'id' } );
+	}
 	$options = {} if ref $options ne 'HASH';
-	my $locus_info =
-	  $self->run_query( 'SELECT * FROM loci WHERE id=?', $locus,
-		{ fetch => 'row_hashref', cache => 'get_locus_info' } );
+	my $locus_info;
+	if ( $self->{'all_locus_info'} ) {
+		$locus_info = $self->{'all_locus_info'}->{$locus};
+	} else {
+		$locus_info = $self->run_query( 'SELECT * FROM loci WHERE id=?',
+			$locus, { fetch => 'row_hashref', cache => 'get_locus_info' } );
+	}
 	if ( $options->{'set_id'} ) {
 		my $set_locus = $self->run_query(
 			'SELECT * FROM set_loci WHERE set_id=? AND locus=?',
