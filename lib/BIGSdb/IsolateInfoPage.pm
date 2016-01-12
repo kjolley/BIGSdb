@@ -24,10 +24,11 @@ use parent qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(none uniq);
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY => 1;
 use constant LOCUS_SUMMARY   => 2;
+use constant MAX_DISPLAY     => 1000;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -142,24 +143,24 @@ sub _get_child_group_scheme_tables {
 		my $parent_level = $level - 1;
 		if ( $self->{'open_divs'} > $parent_level ) {
 			my $divs_to_close = $self->{'open_divs'} - $parent_level;
-			for ( 0 .. $divs_to_close ) {
-				$parent_buffer .= '</div>';
+			for ( 0 .. $divs_to_close - 1 ) {
+				$parent_buffer .= qq(</div>\n);
 				$self->{'open_divs'}--;
 			}
 		}
-		$parent_buffer .= q(<div style="float:left;padding-right:0.5em">)
-		  . qq(<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>);
+		$parent_buffer .= qq(<div style="float:left;padding-right:0.5em">\n)
+		  . qq(<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
 		$self->{'open_divs'}++;
 	}
-	my $group_buffer = '';
+	my $group_buffer = q();
 	if (@$child_groups) {
 		foreach my $child_group (@$child_groups) {
 			if ( $self->{'groups_with_data'}->{$child_group} ) {
 				my $group_info = $self->{'datastore'}->get_scheme_group_info($child_group);
 				my $new_level  = $level;
 				last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
-				if ( $new_level == $self->{'level'} ) {
-					$group_buffer .= '</div>';
+				if ( $new_level == $self->{'level'} && $new_level > 1 ) {
+					$group_buffer .= qq(</div>\n);
 					$self->{'open_divs'}--;
 				}
 				my $buffer = $self->_get_child_group_scheme_tables( $child_group, $isolate_id, ++$new_level );
@@ -208,29 +209,146 @@ sub _get_group_scheme_tables {
 sub _handle_scheme_ajax {
 	my ( $self, $isolate_id ) = @_;
 	my $q = $self->{'cgi'};
-	if ( defined $q->param('group_id') && BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+	return if !$q->param('no_header');
+	my $should_display_items = $self->_should_display_items($isolate_id);
+	if ( !$should_display_items ) {
+		my $param;
+		if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+			$param = q(group_id=) . $q->param('group_id');
+		} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+			$param = q(scheme_id=) . $q->param('scheme_id');
+		}
+		say q(Too many items to display - )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
+		  . qq(id=$isolate_id&amp;function=scheme_display&amp;$param">display selected schemes separately.</a>);
+		return 1;
+	}
+	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+		$self->_print_group_data( $isolate_id, $q->param('group_id') );
+		return 1;
+	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+		$self->_print_scheme_data( $isolate_id, $q->param('scheme_id') );
+		return 1;
+	}
+	return;
+}
+
+sub _print_group_data {
+	my ( $self, $isolate_id, $group_id ) = @_;
+	$self->{'groups_with_data'} =
+	  $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
+	if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
+		$self->_print_other_schemes($isolate_id);
+	} else {                   #Scheme group
+		say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
+		say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		$self->_close_divs;
+	}
+	return;
+}
+
+sub _print_scheme_data {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	if ( $scheme_id == -1 ) {    #All schemes/loci
 		$self->{'groups_with_data'} =
 		  $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
+		$self->_print_all_loci($isolate_id);
+	} else {
+		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+	}
+	return;
+}
+
+sub _should_display_items {
+	my ( $self, $isolate_id ) = @_;
+	my $q     = $self->{'cgi'};
+	my $items = 0;
+	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
 		my $group_id = $q->param('group_id');
-		my $scheme_ids;
 		if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
-			$self->_print_other_schemes($isolate_id);
+			my $scheme_ids = $self->{'datastore'}->run_query(
+				'SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
+				  . 'scheme_group_scheme_members) ORDER BY display_order,description',
+				undef,
+				{ fetch => 'col_arrayref' }
+			);
+			foreach my $scheme_id (@$scheme_ids) {
+				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme_id );
+				return if $items > MAX_DISPLAY;
+			}
 		} else {                   #Scheme group
-			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
-			$self->_close_divs;
+			my $schemes = $self->{'datastore'}->get_schemes_in_group($group_id);
+			foreach my $scheme_id (@$schemes) {
+				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme_id );
+				return if $items > MAX_DISPLAY;
+			}
 		}
-		return 1;
-	} elsif ( defined $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( $scheme_id == -1 ) {    #All schemes/loci
-			$self->{'groups_with_data'} =
-			  $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
-			$self->_print_all_loci($isolate_id);
+			my $set_id = $self->get_set_id;
+			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+			foreach my $scheme (@$schemes) {
+				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme->{'id'} );
+				return if $items > MAX_DISPLAY;
+			}
+			$items += $self->_get_display_items_in_scheme( $isolate_id, 0 );
 		} else {
-			say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+			$items = $self->_get_display_items_in_scheme( $isolate_id, $scheme_id );
 		}
-		return 1;
+	}
+	return if $items > MAX_DISPLAY;
+	return 1;
+}
+
+sub _get_display_items_in_scheme {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my $items = 0;
+	if ($scheme_id) {
+		return 0 if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+		my $should_display = $self->_should_display_scheme( $isolate_id, $scheme_id );
+		return 0 if !$should_display;
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		foreach my $field (@$scheme_fields) {
+			$items++ if $self->{'prefs'}->{'isolate_display_scheme_fields'}->{$scheme_id}->{$field};
+		}
+		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach my $locus (@$loci) {
+			$items++ if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} ne 'hide';
+		}
+	} else {
+		my $loci = $self->{'datastore'}->get_loci_in_no_scheme;
+		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
+		my $loci_with_designations =
+		  $self->{'datastore'}->run_query(
+			"SELECT locus FROM allele_designations WHERE isolate_id=? AND locus IN (SELECT value FROM $list_table)",
+			$isolate_id, { fetch => 'col_arrayref' } );
+		my $loci_with_seqs =
+		  $self->{'datastore'}->run_query(
+			"SELECT locus FROM allele_sequences WHERE isolate_id=? AND locus IN (SELECT value FROM $list_table)",
+			$isolate_id, { fetch => 'col_arrayref' } );
+		foreach my $locus ( uniq( @$loci_with_designations, @$loci_with_seqs ) ) {
+			$items++ if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} ne 'hide';
+		}
+	}
+	return $items;
+}
+
+sub _print_separate_scheme_data {
+	my ( $self, $isolate_id ) = @_;
+	my $q = $self->{'cgi'};
+	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+		say q(<div class="box" id="resultspanel">);
+		$self->_print_group_data( $isolate_id, $q->param('group_id') );
+		say q(<div style="clear:both"></div>);
+		say q(</div>);
+	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+		say q(<div class="box" id="resultspanel">);
+		$self->_print_scheme_data( $isolate_id, $q->param('scheme_id') );
+		say q(<div style="clear:both"></div>);
+		say q(</div>);
+	} else {
+		say q(<div class="box" id="statusbad"><p>No scheme or group passed.</p></div>);
 	}
 	return;
 }
@@ -269,13 +387,20 @@ sub print_content {
 		  . q(have permission to view this record.</p></div>);
 		return;
 	}
-	if ( defined $data->{ $self->{'system'}->{'labelfield'} } && $data->{ $self->{'system'}->{'labelfield'} } ne '' ) {
-		my $identifier = $self->{'system'}->{'labelfield'};
-		$identifier =~ tr/_/ /;
-		say qq(<h1>Full information on $identifier $data->{lc($self->{'system'}->{'labelfield'})}</h1>);
+	my $identifier;
+	if ( ( $data->{ $self->{'system'}->{'labelfield'} } // q() ) ne q() ) {
+		my $field = $self->{'system'}->{'labelfield'};
+		$field =~ tr/_/ /;
+		$identifier = qq($field $data->{lc($self->{'system'}->{'labelfield'})} (id:$data->{'id'}));
 	} else {
-		say qq(<h1>Full information on id $data->{'id'}</h1>);
+		$identifier = qq(id $data->{'id'});
 	}
+	if ( ( $q->param('function') // q() ) eq 'scheme_display' ) {
+		say qq(<h1>Selected scheme/locus breakdown for $identifier</h1>);
+		$self->_print_separate_scheme_data($isolate_id);
+		return;
+	}
+	say qq(<h1>Full information on $identifier</h1>);
 	if ( $self->{'cgi'}->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
@@ -334,7 +459,7 @@ sub print_content {
 sub _close_divs {
 	my ($self) = @_;
 	if ( $self->{'open_divs'} ) {
-		for ( 0 .. $self->{'open_divs'} ) {
+		for ( 0 .. $self->{'open_divs'} - 1 ) {
 			say q(</div>);
 		}
 		$self->{'open_divs'} = 0;
@@ -818,25 +943,24 @@ sub _get_loci_not_in_schemes {
 sub _should_display_scheme {
 	my ( $self, $isolate_id, $scheme_id, $summary_view ) = @_;
 	my $set_id = $self->get_set_id;
-	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	return 0 if none { $scheme_id eq $_ } @$scheme_ids_ref;
-	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci               = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	if ($set_id) {
+		return if !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+	}
 	my $designations_exist = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON '
 		  . 'scheme_members.locus=allele_designations.locus WHERE (isolate_id,scheme_id)=(?,?))',
 		[ $isolate_id, $scheme_id ],
 		{ cache => 'IsolateInfoPage::should_display_scheme::designations' }
 	);
+	return 1 if $designations_exist;
 	my $sequences_exist = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT isolate_id FROM allele_sequences LEFT JOIN scheme_members ON '
 		  . 'allele_sequences.locus=scheme_members.locus WHERE (isolate_id,scheme_id)=(?,?))',
 		[ $isolate_id, $scheme_id ],
 		{ cache => 'IsolateInfoPage::should_display_scheme::sequences' }
 	);
-	my $should_display = ( $designations_exist || $sequences_exist ) ? 1 : 0;
-	return $should_display;
+	return 1 if $sequences_exist;
+	return;
 }
 
 sub _get_scheme_field_values {
@@ -910,8 +1034,9 @@ sub _get_scheme {
 			$scheme_info->{'description'} = 'Loci not in schemes';
 		}
 	}
-	return '' if !( $locus_display_count + $scheme_fields_count );
-	$buffer .= qq(<div style="float:left;padding-right:0.5em"><h3 class="scheme">$scheme_info->{'description'}</h3>);
+	return q() if !( $locus_display_count + $scheme_fields_count );
+	$buffer .= qq(<div style="float:left;padding-right:0.5em">\n);
+	$buffer .= qq(<h3 class="scheme">$scheme_info->{'description'}</h3>\n);
 	my @args = (
 		{
 			loci                => $loci,
@@ -922,7 +1047,7 @@ sub _get_scheme {
 		}
 	);
 	$buffer .= $self->_get_scheme_values(@args);
-	$buffer .= q(</div>);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -1064,7 +1189,7 @@ sub get_title {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
-	return '' if defined $q->param('scheme_id') || defined $q->param('group_id');
+	return q() if $q->param('no_header');
 	return q(Invalid isolate id) if !BIGSdb::Utils::is_int($isolate_id);
 	my $name  = $self->get_name($isolate_id);
 	my $title = qq(Isolate information: id-$isolate_id);
