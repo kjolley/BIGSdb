@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1007,7 +1007,7 @@ sub email {
 	$mail_sender->MailMsg(
 		{ subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $params->{'message'} } );
 	no warnings 'once';
-	$logger->error($Mail::Sender::Error) if $sender->{'error'};
+	$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
 	return;
 }
 

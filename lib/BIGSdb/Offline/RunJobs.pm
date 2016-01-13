@@ -25,6 +25,7 @@ use Error qw(:try);
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Parser;
+use constant DEFAULT_DOMAIN => 'pubmlst.org';
 
 sub initiate {
 	my ($self) = @_;
@@ -53,7 +54,7 @@ sub _initiate_db {
 		return;
 	}
 	$self->{'xmlHandler'} = $xmlHandler;
-	$self->{'system'} = $xmlHandler->get_system_hash;
+	$self->{'system'}     = $xmlHandler->get_system_hash;
 	$self->{'system'}->{'host'}     ||= 'localhost';
 	$self->{'system'}->{'port'}     ||= 5432;
 	$self->{'system'}->{'user'}     ||= 'apache';
@@ -76,7 +77,7 @@ sub run_script {
 	exit if !$job_id;
 	$self->{'logger'}->info("Job:$job_id") if $job_id;
 	my $job = $self->{'jobManager'}->get_job($job_id);
-	if ($job->{'cancel'}){
+	if ( $job->{'cancel'} ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'cancelled' } );
 		exit;
 	}
@@ -93,8 +94,8 @@ sub run_script {
 		$job = $self->{'jobManager'}->get_job($job_id);
 		my $status = $job->{'status'} // 'started';
 		$status = 'finished' if $status eq 'started';
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { status => $status, stage => undef, stop_time => 'now', percent_complete => 100, pid => undef } );
+		$self->{'jobManager'}->update_job_status( $job_id,
+			{ status => $status, stage => undef, stop_time => 'now', percent_complete => 100, pid => undef } );
 	}
 	catch BIGSdb::PluginException with {
 		my $msg = shift;
@@ -110,6 +111,39 @@ sub run_script {
 			}
 		);
 	};
+	$self->_notify_user($job_id);
+	return;
+}
+
+sub _notify_user {
+	my ( $self, $job_id ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	my $params = $self->{'jobManager'}->get_job_params($job_id);
+	return if !$params->{'enable_notifications'};
+	eval 'use Email::Valid';    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		$self->{'logger'}->error('Email::Valid not installed - cannot E-mail user.');
+	}
+	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		$self->{'logger'}->error('Mail::Sender not installed - cannot E-mail user.');
+		return;
+	}
+	my $address = Email::Valid->address( $params->{'email'} );
+	return if !$address;
+	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $address, from => "no_reply\@$domain" };
+	my $subject = qq(Job finished: $job_id);
+	$subject .= qq( - $params->{'title'}) if $params->{'title'};
+	my $message = qq(Job $job_id has finished.\n\n);
+	$message .= qq(Title: $params->{'title'}\n)             if $params->{'title'};
+	$message .= qq(Description: $params->{'description'}\n) if $params->{'description'};
+	$message .= qq(URL: $params->{'job_url'});
+	my $mail_sender = Mail::Sender->new($args);
+	$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
+	$self->{'logger'}->info("Email to $address");
+	no warnings 'once';
+	$self->{'logger'}->error($Mail::Sender::Error) if $mail_sender->{'error'};
 	return;
 }
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -322,10 +322,39 @@ sub update_job_status {
 	return;
 }
 
+sub update_notifications {
+	my ( $self, $job_id, $values ) = @_;
+	if ( !$self->{'sql'}->{'param_exists'} ) {
+		$self->{'sql'}->{'param_exists'} =
+		  $self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM params WHERE (job_id,key)=(?,?))');
+	}
+	eval {
+		foreach my $param (qw(email title description enable_notifications job_url))
+		{
+			my ($exists) = $self->{'db'}->selectrow_array( $self->{'sql'}->{'param_exists'}, undef, $job_id, $param );
+			if ($exists) {
+				$self->{'db'}
+				  ->do( 'UPDATE params SET value=? WHERE (job_id,key)=(?,?)', undef, $values->{$param}, $job_id, $param );
+			} else {
+				$self->{'db'}
+				  ->do( 'INSERT INTO params (job_id,key,value) VALUES (?,?,?)', undef, $job_id, $param, $values->{$param} );
+			}
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub get_job_status {
 	my ( $self, $job_id ) = @_;
-	my $status = $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
-	$self->{'db'}->commit; #Prevent idle in transaction table lock.
+	my $status =
+	  $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
+	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	return $status;
 }
 

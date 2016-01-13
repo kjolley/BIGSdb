@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
-use BIGSdb::Constants qw(RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(BUTTON_CLASS RESET_BUTTON_CLASS);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -112,14 +112,16 @@ sub _print_status {
 		<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/x;
 	}
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<div style="float:left;margin-right:2em">);
+	say q(<span class="main_icon fa fa-flag fa-3x pull-left"></span>);
 	say q(<h2>Status</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
 	say qq(<dt>Submit time</dt><dd>$submit_time</dd>);
 	say qq(<dt>Status</dt><dd>$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
-	say
-qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript><div id="progressbar" style="width:18em"></div></dd>);
+	say qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript>)
+	  . q(<div id="progressbar" style="width:18em"></div></dd>);
 	say qq(<dt>Stage</dt><dd>$job->{'stage'}</dd>) if $job->{'stage'};
 	say qq(<dt>Stop time</dt><dd>$stop_time</dd>)  if $stop_time;
 	my ( $field, $value );
@@ -142,7 +144,65 @@ qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript><div id=
 	}
 	say qq(<dt>$field</dt><dd>$value</dd>) if $value;
 	say q(</dl>);
+	say q(</div>);
+	$self->_print_notification_form($job);
 	say q(</div></div>);
+	return;
+}
+
+sub _print_notification_form {
+	my ( $self, $job ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	return if $job->{'stop_time'};
+	my $q = $self->{'cgi'};
+	if ( $q->param('Update') ) {
+		$self->_update_notifications( $job->{'id'} );
+	}
+	say q(<div style="float:left">);
+	say q(<span class="main_icon fa fa-envelope fa-3x pull-left"></span>);
+	say q(<h2>Notification</h2>);
+	say q(<p>Enter address for notification of job completion. You can also<br />)
+	  . q(add a title and/or description to remind you of what the job is.</p>);
+	say $q->start_form;
+	say q(<dl class="data">);
+	say q(<dt>E-mail address</dt><dd>);
+	my $params = $self->{'jobManager'}->get_job_params( $job->{'id'} );
+	my $default_email = $params->{'email'} // $job->{'email'};
+	say $q->textfield( -name => 'email', -default => $default_email, -size => 30 );
+	say q(</dd>);
+	say q(<dt>Title</dt><dd>);
+	my $default_title = $params->{'title'};
+	say $q->textfield( -name => 'title', -default => $default_title, -size => 30 );
+	say q(</dd>);
+	say q(<dt>Description</dt><dd>);
+	my $default_desc = $params->{'description'};
+	say $q->textarea( -name => 'description', -default => $default_desc, -cols => 25 );
+	say q(</dd>);
+	say q(<dt>Enable</dt><dd>);
+	say $q->checkbox( -name => 'enable_notifications', -label => '', -checked => $params->{'enable_notifications'} )
+	  ;
+	say $q->submit( -name => 'Update', -class => BUTTON_CLASS );
+	say q(</dd>);
+	say q(</dl>);
+	say $q->hidden($_) foreach qw(db page id);
+	say $q->end_form;
+	say q(</div>);
+	return;
+}
+
+sub _update_notifications {
+	my ( $self, $job_id ) = @_;
+	my $q = $self->{'cgi'};
+	$self->{'jobManager'}->update_notifications(
+		$job_id,
+		{
+			email                => $q->param('email'),
+			title                => $q->param('title'),
+			description          => $q->param('description'),
+			enable_notifications => $q->param('enable_notifications') ? 1 : 0,
+			job_url => $q->url( -full => 1 ) . "?db=$self->{'instance'}&page=job&id=$job_id"
+		}
+	);
 	return;
 }
 
@@ -233,12 +293,12 @@ sub _print_output {
 		my $text = qq(<li><a href="/tmp/$output->{$description}">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
-		if ( $size > ( 1024 * 1024 ) ) {                                             #1Mb
+		if ( $size > ( 1024 * 1024 ) ) {    #1Mb
 			my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
 			$text .= qq( ($size_in_MB MB));
 		}
 		$text .= qq( $icon) if $icon;
-		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );                           #10MB
+		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
 		if ( $output->{$description} =~ /\.png$/x ) {
 			my $title = $link_text . ( $comments ? qq( - $comments) : q() );
 			$text .=
