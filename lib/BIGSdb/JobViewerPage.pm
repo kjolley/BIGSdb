@@ -179,8 +179,10 @@ sub _print_notification_form {
 	say $q->textarea( -name => 'description', -default => $default_desc, -cols => 25 );
 	say q(</dd>);
 	say q(<dt>Enable</dt><dd>);
-	say $q->checkbox( -name => 'enable_notifications', -label => '', -checked => $params->{'enable_notifications'} )
-	  ;
+	say $q->checkbox( -name => 'enable_notifications', -label => '', -checked => $params->{'enable_notifications'} );
+	say q(<strong style="margin-right:1em">)
+	  . ( $params->{'enable_notifications'} ? 'ON' : 'OFF' )
+	  . q(</strong>);
 	say $q->submit( -name => 'Update', -class => BUTTON_CLASS );
 	say q(</dd>);
 	say q(</dl>);
