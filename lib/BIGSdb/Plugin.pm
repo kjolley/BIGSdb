@@ -76,7 +76,7 @@ sub get_job_redirect {
 	my ( $self, $job_id ) = @_;
 	my $buffer = <<"REDIRECT";
 <div class="box" id="resultspanel">
-<p>This export job has been submitted to the job queue.</p>
+<p>This job has been submitted to the queue.</p>
 <p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
 Follow the progress of this job and view the output.</a></p></div>
 <script type="text/javascript">

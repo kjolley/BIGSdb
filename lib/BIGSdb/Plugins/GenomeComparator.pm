@@ -697,14 +697,14 @@ sub _get_identifier {
 				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
 				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id($id, $scheme_id);
 				my @field_values = keys %{$scheme_values->{lc $scheme_field}};
-				local $" = q(;);
-				$field_value = "@field_values";
+				local $" = q(_);
+				$field_value = qq(@field_values);
 			} else {
 				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				if ( defined $metaset ) {
 					$field_value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 				} else {
-					$field_value = $include_data->{$field} // '';
+					$field_value = $include_data->{$field} // q();
 				}
 			}
 			$field_value =~ tr/[\(\):, ]/_/;
