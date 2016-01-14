@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2013, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -118,6 +118,7 @@ sub run_script {
 sub _notify_user {
 	my ( $self, $job_id ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
+	my $job    = $self->{'jobManager'}->get_job($job_id);
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
 	return if !$params->{'enable_notifications'};
 	eval 'use Email::Valid';    ## no critic (ProhibitStringyEval)
@@ -135,10 +136,19 @@ sub _notify_user {
 	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $address, from => "no_reply\@$domain" };
 	my $subject = qq(Job finished: $job_id);
 	$subject .= qq( - $params->{'title'}) if $params->{'title'};
-	my $message = qq(Job $job_id has finished.\n\n);
-	$message .= qq(Title: $params->{'title'}\n)             if $params->{'title'};
+	my $message = qq(The following job has finished:\n\n);
+	$message .= qq(     Job id: $job_id\n);
+	$message .= qq(   Database: $job->{'dbase_config'}\n);
+	$message .= qq(     Module: $job->{'module'}\n);
+	my $time = substr( $job->{'submit_time'}, 0, 16 );
+	$message .= qq(Submit time: $time\n);
+	$message .= qq(      Title: $params->{'title'}\n) if $params->{'title'};
 	$message .= qq(Description: $params->{'description'}\n) if $params->{'description'};
-	$message .= qq(URL: $params->{'job_url'});
+	$message .= qq(        URL: $params->{'job_url'}\n\n);
+
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
+		$message .= qq(This job will remain on the server for $self->{'config'}->{'results_deleted_days'} days.);
+	}
 	my $mail_sender = Mail::Sender->new($args);
 	$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
 	$self->{'logger'}->info("Email to $address");

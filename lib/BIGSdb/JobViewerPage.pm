@@ -260,8 +260,7 @@ sub print_content {
 	say qq(<p>This page will reload in $refresh. You can refresh it any time, )
 	  . q(or bookmark it and close your browser if you wish.</p>)
 	  if $self->{'refresh'};
-	if ( $self->{'config'}->{'results_deleted_days'}
-		&& BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) )
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) )
 	{
 		say q(<p>Please note that job results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
