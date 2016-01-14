@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,7 +26,7 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant SEQ_SOURCE     => 'seqbin id + position';
+use constant SEQ_SOURCE => 'seqbin id + position';
 our @EXPORT_OK = qw(SEQ_SOURCE);
 
 #Override the following methods in subclass
@@ -70,6 +70,22 @@ sub get_javascript {
 $tree_js
 JS
 	return $js;
+}
+
+sub get_job_redirect {
+	my ( $self, $job_id ) = @_;
+	my $buffer = <<"REDIRECT";
+<div class="box" id="resultspanel">
+<p>This export job has been submitted to the job queue.</p>
+<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
+Follow the progress of this job and view the output.</a></p></div>
+<script type="text/javascript">
+setTimeout(function(){
+	window.location = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=$job_id";
+}, 2000);
+</script>
+REDIRECT
+	return $buffer;
 }
 
 sub get_query {

@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.3.0',
+		version     => '1.3.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -103,8 +103,6 @@ sub run {
 	}
 	return if ( $q->param('function') // '' ) ne 'breakdown';
 	my $guid = $self->get_guid;
-
-	#	my %prefs;
 	my %options;
 	foreach my $att (qw (threeD transparent)) {
 		try {
@@ -139,10 +137,7 @@ sub run {
 				isolates     => $id_list
 			}
 		);
-		say q(<div class="box" id="resultstable">);
-		say q(<p>This job has been submitted to the job queue.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+		say $self->get_job_redirect($job_id);
 		return;
 	}
 	$self->_breakdown(

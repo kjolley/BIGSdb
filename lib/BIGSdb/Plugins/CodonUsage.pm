@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
-		version     => '1.2.3',
+		version     => '1.2.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -191,11 +191,7 @@ sub run {
 					loci         => $loci_selected
 				}
 			);
-			say q(<div class="box" id="resultspanel"><p>This analysis has been submitted to )
-			  . q(the job queue.</p><p>Please be aware that this job may take some time depending )
-			  . q(on the number of sequences to analyse and how busy the server is.</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+			say $self->get_job_redirect($job_id);
 			return;
 		}
 	}

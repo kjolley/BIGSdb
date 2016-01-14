@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
@@ -142,14 +142,7 @@ sub run {
 				email        => $user_info->{'email'}
 			}
 		);
-		say q(<div class="box" id="resultstable">)
-		  . q(<p>This analysis has been submitted to the job queue.</p>)
-		  . q(<p>Please be aware that this job may take a long time depending on the number of )
-		  . q(sequences to align and how busy the server is.</p>)
-		  . q(<p>Since alignment is offloaded to a third-party application, the progress report )
-		  . q(will not be accurate.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+		say $self->get_job_redirect($job_id);
 		return;
 	} else {
 		my $max      = MAX_SEQUENCES;

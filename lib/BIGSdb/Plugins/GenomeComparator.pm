@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.7',
+		version     => '1.7.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -331,15 +331,7 @@ sub run {
 					loci         => $loci_selected
 				}
 			);
-			print <<"HTML";
-<div class="box" id="resultstable">
-<p>This analysis has been submitted to the job queue.</p>
-<p>Please be aware that this job may take a long time depending on the number of comparisons
-and how busy the server is.</p>
-<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">
-Follow the progress of this job and view the output.</a></p> 	
-</div>	
-HTML
+			say $self->get_job_redirect($job_id);
 			return;
 		}
 	}

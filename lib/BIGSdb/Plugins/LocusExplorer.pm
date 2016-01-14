@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.1',
+		version          => '1.3.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -375,13 +375,7 @@ sub _submit_job {
 			email        => $user_info->{'email'}
 		}
 	);
-	say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
-	  . q(<p>Please be aware that this job may take a long time depending on the number of sequences to align )
-	  . q(and how busy the server is.</p>)
-	  . q(<p>Since alignment is offloaded to a third-party application, the progress report will not be )
-	  . q(accurate.</p>)
-	  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
-	  . q(Follow the progress of this job and view the output.</a></p></div>);
+	say $self->get_job_redirect($job_id);
 	return;
 }
 

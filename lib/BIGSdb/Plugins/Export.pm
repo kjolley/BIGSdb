@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.5',
+		version     => '1.3.6',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -185,10 +185,7 @@ sub run {
 						isolates     => $$qry_ref =~ /temp_list/x ? $ids : undef
 					}
 				);
-				say q(<div class="box" id="resultstable">);
-				say q(<p>This export job has been submitted to the job queue.</p>);
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+				say $self->get_job_redirect($job_id);
 				return;
 			}
 			say q(<div class="box" id="resultstable">);

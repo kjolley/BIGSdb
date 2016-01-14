@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.3',
+		version     => '1.3.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -178,10 +178,7 @@ sub run {
 				isolates     => \@ids
 			}
 		);
-		say q(<div class="box" id="resultspanel">);
-		say q(<p>This export job has been submitted to the job queue.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=job&amp;id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+		say $self->get_job_redirect($job_id);
 		return;
 	}
 	$self->_print_interface;
@@ -318,7 +315,7 @@ sub run_job {
 	#Terminate cleanly on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
-	my @includes = split /\|\|/x, $params->{'includes'};
+	my @includes = split /\|\|/x, ($params->{'includes'} // q());
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
 	my $out_file                 = "$job_id.txt";
 	my $out_file_flanking        = "${job_id}_flanking.txt";

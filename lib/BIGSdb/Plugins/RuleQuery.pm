@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2015, University of Oxford
+#Copyright (c) 2012-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.4',
+		version          => '1.0.5',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -122,9 +122,7 @@ sub run {
 				email        => $user_info->{'email'},
 			}
 		);
-		say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$job_id">)
-		  . q(Follow the progress of this job and view the output.</a></p></div>);
+		say $self->get_job_redirect($job_id);
 		return;
 	}
 	$self->_print_interface( $rulesets, $ruleset_id );

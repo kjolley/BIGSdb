@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.3.0',
+		version     => '1.3.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -118,11 +118,7 @@ sub run {
 						loci         => $loci_selected
 					}
 				);
-				say q(<div class="box" id="resultstable"><p>This analysis has been submitted to the job queue.</p>)
-				  . q(<p>Please be aware that this job may take a long time depending on the number of comparisons )
-				  . q(and how busy the server is.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
-				  . qq(id=$job_id">Follow the progress of this job and view the output.</a></p></div>);
+				say $self->get_job_redirect($job_id);
 				return;
 			} else {
 				$self->_print_interface;
