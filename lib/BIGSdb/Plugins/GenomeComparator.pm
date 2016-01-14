@@ -399,7 +399,12 @@ HTML
 		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(
-		{ title => 'Include in identifiers', preselect => $self->{'system'}->{'labelfield'} } );
+		{
+			title                 => 'Include in identifiers',
+			preselect             => $self->{'system'}->{'labelfield'},
+			include_scheme_fields => 1
+		}
+	);
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -687,12 +692,20 @@ sub _get_identifier {
 			$id, { fetch => 'row_hashref', cache => 'GenomeComparator::get_identifier' } );
 		my $first = 1;
 		foreach my $field (@includes) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $field_value;
-			if ( defined $metaset ) {
-				$field_value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+			if ( $field =~ /s_(\d+)_([\w_]+)/x ) {
+				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id($id, $scheme_id);
+				my @field_values = keys %{$scheme_values->{lc $scheme_field}};
+				local $" = q(;);
+				$field_value = "@field_values";
 			} else {
-				$field_value = $include_data->{$field} // '';
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				if ( defined $metaset ) {
+					$field_value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+				} else {
+					$field_value = $include_data->{$field} // '';
+				}
 			}
 			$field_value =~ tr/[\(\):, ]/_/;
 			$value .= '|' if !$first || !$options->{'no_id'};

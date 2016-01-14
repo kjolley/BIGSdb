@@ -655,6 +655,16 @@ sub print_includes_fieldset {
 		if ( $options->{'include_seqbin_id'} ) {
 			push @fields, SEQ_SOURCE;
 		}
+		if ( $options->{'include_scheme_fields'} ) {
+			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+			foreach my $scheme (@$schemes) {
+				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+				foreach my $field (@$scheme_fields) {
+					push @fields, "s_$scheme->{'id'}_$field";
+					$labels->{"s_$scheme->{'id'}_$field"} = "$scheme->{'description'}: $field";
+				}
+			}
+		}
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $options->{'scheme_id'} );
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $options->{'scheme_id'}, { get_pk => 1 } );
