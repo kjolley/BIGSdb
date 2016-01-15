@@ -2,7 +2,7 @@ Bacterial Isolate Genome Sequence Database (BIGSdb)
 ===================================================
 **Gene-by-gene population annotation and analysis**
 
-Written by Keith Jolley, © 2010-2015 University of Oxford
+Written by Keith Jolley, © 2010-2016 University of Oxford
 
 <a href="http://www.biomedcentral.com/1471-2105/11/595">Jolley & Maiden 2010, BMC Bioinformatics 11:595</a>
 
