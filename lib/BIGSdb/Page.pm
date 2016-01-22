@@ -1191,7 +1191,7 @@ sub clean_locus {
 
 		#Locus names can't begin with a digit, so people can use an underscore,
 		#but this looks untidy in the interface.
-		$locus =~ s/^_//x;
+		$locus =~ s/^_//x if !$options->{'keep_underscores'};
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
