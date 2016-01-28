@@ -706,6 +706,7 @@ sub _check_isolate_date_entered {    ## no critic (ProhibitUnusedPrivateSubrouti
 sub _check_isolate_id_exists {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'id';
+	return "$value is not an integer" if !BIGSdb::Utils::is_int($value);
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)',
 		$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
 	if ($exists) {
