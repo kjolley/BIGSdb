@@ -1449,6 +1449,7 @@ sub _print_sequence_table {
 		}
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
+		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(
 			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
 			uc( $seq->{'sequence'} ),
