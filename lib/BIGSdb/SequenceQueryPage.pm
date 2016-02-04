@@ -427,6 +427,7 @@ sub _generate_batch_table {
 		print $fh $id;
 		foreach my $locus (@loci) {
 			local $" = q(; );
+			$self->{'batch_results'}->{$id}->{$locus} //= [];
 			print $fh qq(\t@{$self->{'batch_results'}->{$id}->{$locus}});
 		}
 		foreach my $scheme_id (@valid_schemes) {
