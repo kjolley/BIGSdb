@@ -444,13 +444,13 @@ sub _generate_batch_table {
 			  $self->{'datastore'}->materialized_view_exists($scheme_id)
 			  ? qq(mv_scheme_$scheme_id)
 			  : qq(scheme_$scheme_id);
-			my @placeholders = ('?') x @$scheme_loci;
-			local $" = q(,);
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $field_values =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT @$scheme_fields FROM $scheme_table WHERE (@cleaned_loci)=(@placeholders)",
-				\@args, { fetch => 'row_arrayref' } );
+			local $" = q(,);
+			my $qry = qq(SELECT @$scheme_fields FROM $scheme_table WHERE );
+			local $" = q( IN (?,'N') AND );
+			$qry .= qq(@cleaned_loci IN (?,'N'));
+			my $field_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'row_arrayref' } );
+
 			if ( !$field_values ) {
 				@$field_values = (undef) x @$scheme_fields;
 			}
