@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -382,9 +382,87 @@ sub _run_query {
 	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
 	if ( $page eq 'batchSequenceQuery' && $batch_buffer ) {
 		say q(</table>);
-		say qq(<p><a href="/tmp/$text_filename">Text format</a></p></div>);
+		my $table_file = $self->_generate_batch_table;
+		say qq(<p>Text format: <a href="/tmp/$text_filename">list</a>);
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$table_file" ) {
+			say qq( | <a href="/tmp/$table_file">table</a>);
+		}
+		say q(</p></div>);
 	}
 	return;
+}
+
+sub _generate_batch_table {
+	my ($self)     = @_;
+	my $table_file = BIGSdb::Utils::get_random() . '_table.txt';
+	my $full_path  = "$self->{'config'}->{'tmp_dir'}/$table_file";
+	my %loci;
+	$self->{'batch_results'} //= {};
+	foreach my $id ( keys %{ $self->{'batch_results'} } ) {
+		foreach my $locus ( keys %{ $self->{'batch_results'}->{$id} } ) {
+			$loci{$locus} = 1;
+		}
+	}
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+	my @valid_schemes;
+	foreach my $scheme (@$schemes) {
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
+		foreach my $scheme_loci (@$scheme_loci) {
+			next if !$loci{$scheme_loci};    # We have no data for this locus
+		}
+		push @valid_schemes, $scheme->{'id'};
+	}
+	my @loci = sort keys %loci;
+	$self->{'batch_results_ids'} //= [];
+	local $" = qq(\t);
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	print $fh qq(id\t@loci);
+	foreach my $scheme_id (@valid_schemes) {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		print $fh qq(\t@$scheme_fields);
+	}
+	print $fh qq(\n);
+	foreach my $id ( @{ $self->{'batch_results_ids'} } ) {
+		print $fh $id;
+		foreach my $locus (@loci) {
+			local $" = q(; );
+			print $fh qq(\t@{$self->{'batch_results'}->{$id}->{$locus}});
+		}
+		foreach my $scheme_id (@valid_schemes) {
+			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my @args;
+			my @cleaned_loci;
+			foreach my $scheme_locus (@$scheme_loci) {
+				local $" = q(; );
+				$self->{'batch_results'}->{$id}->{$scheme_locus} //= [];
+				push @args, "@{$self->{'batch_results'}->{$id}->{$scheme_locus}}";
+				( my $cleaned = $scheme_locus ) =~ s/'/_PRIME_/gx;
+				push @cleaned_loci, $cleaned;
+			}
+			my $scheme_table =
+			  $self->{'datastore'}->materialized_view_exists($scheme_id)
+			  ? qq(mv_scheme_$scheme_id)
+			  : qq(scheme_$scheme_id);
+			my @placeholders = ('?') x @$scheme_loci;
+			local $" = q(,);
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $field_values =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT @$scheme_fields FROM $scheme_table WHERE (@cleaned_loci)=(@placeholders)",
+				\@args, { fetch => 'row_arrayref' } );
+			if ( !$field_values ) {
+				@$field_values = (undef) x @$scheme_fields;
+			}
+			foreach my $value (@$field_values) {
+				$value //= q();
+				print $fh qq(\t$value);
+			}
+		}
+		print $fh qq(\n);
+	}
+	close $full_path;
+	return $table_file;
 }
 
 sub _translate_button {
@@ -682,6 +760,7 @@ sub _output_batch_query_exact {
 	my $text_buffer = '';
 	my %locus_matches;
 	my $displayed = 0;
+	push @{ $self->{'batch_results_ids'} }, $id;
 	foreach (@$exact_matches) {
 		my $allele_id;
 		if ( !$distinct_locus_selected && $_->{'allele'} =~ /(.*):(.*)/x ) {
@@ -704,6 +783,7 @@ sub _output_batch_query_exact {
 		$displayed++;
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
+		push @{ $self->{'batch_results'}->{$id}->{$text_locus} }, $allele_id;
 	}
 	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" )
 	  or $logger->error("Can't open $filename for appending");
