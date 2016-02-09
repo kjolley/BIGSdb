@@ -397,6 +397,7 @@ sub _generate_batch_table {
 	my $table_file = BIGSdb::Utils::get_random() . '_table.txt';
 	my $full_path  = "$self->{'config'}->{'tmp_dir'}/$table_file";
 	my %loci;
+	return $table_file if !ref $self->{'batch_results'};
 	$self->{'batch_results'} //= {};
 	foreach my $id ( keys %{ $self->{'batch_results'} } ) {
 		foreach my $locus ( keys %{ $self->{'batch_results'}->{$id} } ) {
@@ -406,10 +407,10 @@ sub _generate_batch_table {
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 	my @valid_schemes;
-	foreach my $scheme (@$schemes) {
+  SCHEME: foreach my $scheme (@$schemes) {
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
-		foreach my $scheme_loci (@$scheme_loci) {
-			next if !$loci{$scheme_loci};    # We have no data for this locus
+	  LOCUS: foreach my $scheme_loci (@$scheme_loci) {
+			next SCHEME if !$loci{$scheme_loci};                 # We have no data for this locus
 		}
 		push @valid_schemes, $scheme->{'id'};
 	}
