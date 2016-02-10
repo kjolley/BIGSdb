@@ -103,7 +103,8 @@ sub _check {
 				} else {
 					$newdata->{$field} = $q->param($field);
 				}
-				my $bad_field = $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
+				my $bad_field =
+				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
 				if ($bad_field) {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field);
 				}
@@ -402,11 +403,12 @@ sub print_provenance_form_elements {
 						%html5_args
 					);
 				} elsif ( $thisfield->{'type'} eq 'bool' ) {
+					my %bool_convert = ( 1 => 'true', 0 => 'false' );
 					say $q->popup_menu(
 						-name   => $field,
 						-id     => $field_id,
 						-values => [ '', 'true', 'false' ],
-						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} )
+						-default => ( $bool_convert{ $newdata->{ lc($field) } } // $thisfield->{'default'} )
 					);
 				} elsif ( lc($field) eq 'datestamp' ) {
 					say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
