@@ -240,8 +240,7 @@ sub _insert {
 	}
 	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
-		$new =~ s/\s+$//x;
-		$new =~ s/^\s+//x;
+		$new = $self->clean_value( $new, { no_escape => 1 } );
 		next if $new eq '';
 		push @inserts,
 		  {

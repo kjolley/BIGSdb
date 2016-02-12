@@ -1026,7 +1026,7 @@ sub clean_value {
 	$options = {} if ref $options ne 'HASH';
 	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
 	$value =~ s/\r//gx;
-	$value =~ s/\n/ /gx;
+	$value =~ s/[\n\t]/ /gx;
 	$value =~ s/^\s*//x;
 	$value =~ s/\s*$//x;
 	return $value;
