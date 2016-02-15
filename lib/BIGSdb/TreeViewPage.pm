@@ -308,8 +308,9 @@ sub _get_child_groups {
 sub _scheme_data_present {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
 	my $designations_present = $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON '
-		  . 'allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND scheme_id=?)',
+		    q[SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON ]
+		  . q[allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND ]
+		  . q[scheme_id=? AND allele_id !='0')],
 		[ $isolate_id, $scheme_id ],
 		{ cache => 'TreeViewPage::scheme_data_present::allele_designations' }
 	);
@@ -332,10 +333,10 @@ sub _data_not_in_scheme_present {
 	  ? 'SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT '
 	  . "scheme_id FROM set_schemes WHERE set_id=$set_id)"
 	  : 'SELECT locus FROM scheme_members';
-	my $designations = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))",
-		$isolate_id
-	);
+	my $designations =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=? AND locus NOT IN ($set_clause))",
+		$isolate_id );
 	return 1 if $designations;
 	my $sequences =
 	  $self->{'datastore'}

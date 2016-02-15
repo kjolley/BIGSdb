@@ -947,8 +947,9 @@ sub _should_display_scheme {
 		return if !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 	}
 	my $designations_exist = $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON '
-		  . 'scheme_members.locus=allele_designations.locus WHERE (isolate_id,scheme_id)=(?,?))',
+		    q[SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON ]
+		  . q[scheme_members.locus=allele_designations.locus WHERE (isolate_id,scheme_id)=(?,?) ]
+		  . q[AND allele_id != '0')],
 		[ $isolate_id, $scheme_id ],
 		{ cache => 'IsolateInfoPage::should_display_scheme::designations' }
 	);
