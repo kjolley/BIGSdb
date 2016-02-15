@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.2',
+		version          => '1.3.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -93,8 +93,8 @@ sub run {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $query_file = $q->param('query_file');
-	my $list_file = $q->param('list_file');
-	my $list       = $self->get_allele_id_list($query_file, $list_file);
+	my $list_file  = $q->param('list_file');
+	my $list       = $self->get_allele_id_list( $query_file, $list_file );
 	my $desc       = $self->get_db_description;
 	if ( !@$display_loci ) {
 		say qq(<h1>Locus Explorer - $desc</h1>);
@@ -157,6 +157,7 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	$params->{'analysis'} //= 'snp';
 	my @allele_ids = split /\|\|/x, $params->{'allele_ids'};
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $params->{'analysis'} eq 'snp' ) {
 		my ( $seqs, undef, $prefix ) = $self->_get_seqs( $params->{'locus'}, \@allele_ids );
 		if ( !@$seqs ) {
@@ -171,7 +172,6 @@ sub run_job {
 		print $html_fh $self->get_html_header($locus);
 		say $html_fh q(<h1>Polymorphic site analysis</h1><div class="box" id="resultspanel">);
 		print $html_fh $buffer;
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		say $html_fh q(</div>);
 		( $buffer, undef ) = $self->get_freq_table( $freqs, $locus_info );
 		print $html_fh $buffer;
@@ -180,8 +180,7 @@ sub run_job {
 		  ->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 		$self->delete_temp_files("$prefix*");
 	} elsif ( $params->{'analysis'} eq 'translate' ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $orf        = $locus_info->{'orf'} // 1;
+		my $orf = $locus_info->{'orf'} // 1;
 		my $final_file = $self->_run_translate( $locus, \@allele_ids, { alignwidth => $params->{'alignwidth'} } );
 		if ( -e $final_file ) {
 			( my $rel_file_path = $final_file ) =~ s/.*\///x;
@@ -218,9 +217,10 @@ sub _print_interface {
 	  $self->{'datastore'}
 	  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY $order",
 		$locus, { fetch => 'col_arrayref' } );
+	my $length_varies = $self->_does_seq_length_vary( $locus, $allele_ids );
 	say qq(<p>Polymorphic site analysis is limited to $max_sequences sequences )
 	  . q(for this locus since it requires alignment.</p>)
-	  if $locus_info->{'length_varies'} && @$allele_ids > MAX_SEQUENCES;
+	  if $length_varies && @$allele_ids > MAX_SEQUENCES;
 	say q(<fieldset style="float:left"><legend>Select sequences</legend>);
 	say $q->scrolling_list(
 		-name     => 'allele_ids',
@@ -245,12 +245,12 @@ sub _print_interface {
 	};
 	my @values;
 
-	if ( !$locus_info->{'length_varies'} || $aligner_available ) {
+	if ( !$length_varies || $aligner_available ) {
 		push @values, 'snp';
 	}
 	if ( $self->{'config'}->{'emboss_path'} && $locus_info->{'data_type'} eq 'DNA' ) {
 		push @values, 'codon';
-		if ( $locus_info->{'coding_sequence'} && ( !$locus_info->{'length_varies'} || $aligner_available ) ) {
+		if ( $locus_info->{'coding_sequence'} && ( !$length_varies || $aligner_available ) ) {
 			push @values, 'translate';
 		}
 	}
@@ -291,7 +291,7 @@ sub _get_seqs {
 	}
 	my $seq_file;
 	my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
-	if ( $locus_info->{'length_varies'} && @seqs > 1 ) {
+	if ( $self->_does_seq_length_vary( $locus, $allele_ids ) ) {
 		if ( $options->{'print_status'} ) {
 			local $| = 1;
 			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
@@ -333,7 +333,8 @@ sub _snp {
 	my $seq_count     = $self->_get_seqs( $locus, $allele_ids, { count_only => 1 } );
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
-	if ( $seq_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
+	my $length_varies = $self->_does_seq_length_vary( $locus, $allele_ids );
+	if ( $seq_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
 		say qq(<h2>$cleaned</h2>);
@@ -345,13 +346,23 @@ sub _snp {
 		say $buffer if $buffer;
 
 		#Keep temp files as they are needed for site explorer function.
-	} elsif ( $seq_count > $max_sequences && $locus_info->{'length_varies'} ) {
+	} elsif ( $seq_count > $max_sequences && $length_varies ) {
 		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore require )
 		  . qq(real-time alignment. Consequently this function is limited to $max_sequences sequences or )
 		  . qq(fewer - you have selected $allele_count.</p></div>);
 	} else {
 		$self->_submit_job( $locus, $allele_ids );
 	}
+	return;
+}
+
+sub _does_seq_length_vary {
+	my ( $self, $locus, $allele_ids ) = @_;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $allele_ids );
+	my $lengths =
+	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequences WHERE locus=? GROUP BY length(sequence)',
+		$locus, { fetch => 'col_arrayref' } );
+	return 1 if @$lengths > 1;
 	return;
 }
 
@@ -675,7 +686,8 @@ sub _translate {
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
-	if ( $allele_count <= MAX_INSTANT_RUN || !$locus_info->{'length_varies'} ) {
+	my $length_varies = $self->_does_seq_length_vary( $locus, $allele_ids );
+	if ( $allele_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		local $| = 1;
 		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
 		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
@@ -696,7 +708,7 @@ sub _translate {
 		$self->print_file($final_file);
 		say q(</pre></div></div>);
 		unlink $final_file;
-	} elsif ( $locus_info->{'length_varies'} && @$allele_ids > MAX_SEQUENCES ) {
+	} elsif ( $length_varies && @$allele_ids > MAX_SEQUENCES ) {
 		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore )
 		  . qq(require real-time alignment. Consequently this function is limited to $max_sequences )
 		  . qq(sequences or fewer - you have selected $allele_count.</p></div>);
@@ -739,7 +751,7 @@ sub _run_translate {
 	system( "$self->{'config'}->{'emboss_path'}/transeq -sequence $temp_file -outseq "
 		  . "$out_file -frame $orf -trim -clean 2> /dev/null" );
 	if ( $seq_count > 1 ) {
-		if ( $locus_info->{'length_varies'} ) {
+		if ( $self->_does_seq_length_vary( $locus, $allele_ids ) ) {
 			my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 			if ( -x $self->{'config'}->{'mafft_path'} ) {
 				my $threads =
