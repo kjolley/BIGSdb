@@ -26,6 +26,7 @@ use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
 use constant DBASE_QUOTA_EXCEEDED => 1;
+use constant USER_QUOTA_EXCEEDED  => 2;
 
 sub new {
 
@@ -122,12 +123,7 @@ sub add_job {
 	if ($duplicate_job) {
 		$status = "rejected - duplicate job ($duplicate_job)";
 	} elsif ($quota_exceeded) {
-		if ( $quota_exceeded == DBASE_QUOTA_EXCEEDED ) {
-			my $plural = $self->{'system'}->{'job_quota'} == 1 ? '' : 's';
-			$status =
-			    "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'job_quota'} "
-			  . "concurrent job$plural.  Please try again later.";
-		}
+		$status = $self->_get_quota_status($quota_exceeded);
 	} else {
 		$status = 'submitted';
 	}
@@ -193,6 +189,21 @@ sub add_job {
 	return $id;
 }
 
+sub _get_quota_status {
+	my ( $self, $quota_status ) = @_;
+	if ( $quota_status == DBASE_QUOTA_EXCEEDED ) {
+		my $plural = $self->{'system'}->{'job_quota'} == 1 ? '' : 's';
+		return "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'job_quota'} "
+		  . "concurrent job$plural.  Please try again later.";
+	} elsif ( $quota_status == USER_QUOTA_EXCEEDED ) {
+		my $plural = $self->{'system'}->{'user_job_quota'} == 1 ? '' : 's';
+		return "rejected - database jobs exceeded. This database has a quota of $self->{'system'}->{'user_job_quota'} "
+		  . "concurrent job$plural for any user.  Please try again later.";
+	}
+	$logger->error('Invalid job quota status - this should not be possible.');
+	return;
+}
+
 sub _make_job_fingerprint {
 	my ( $self, $cgi_params, $params ) = @_;
 	my $buffer;
@@ -222,6 +233,13 @@ sub _is_quota_exceeded {
 		  $self->_run_query( q[SELECT COUNT(*) FROM jobs WHERE dbase_config=? AND status IN ('submitted','started')],
 			$params->{'dbase_config'} );
 		return DBASE_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'job_quota'};
+	}
+	if ( BIGSdb::Utils::is_int( $self->{'system'}->{'user_job_quota'} ) && $params->{'username'} ) {
+		my $job_count =
+		  $self->_run_query(
+			q[SELECT COUNT(*) FROM jobs WHERE (dbase_config,username)=(?,?) AND status IN ('submitted','started')],
+			[ $params->{'dbase_config'}, $params->{'username'} ] );
+		return USER_QUOTA_EXCEEDED if $job_count >= $self->{'system'}->{'user_job_quota'};
 	}
 	return;
 }
@@ -333,11 +351,11 @@ sub update_notifications {
 		{
 			my ($exists) = $self->{'db'}->selectrow_array( $self->{'sql'}->{'param_exists'}, undef, $job_id, $param );
 			if ($exists) {
-				$self->{'db'}
-				  ->do( 'UPDATE params SET value=? WHERE (job_id,key)=(?,?)', undef, $values->{$param}, $job_id, $param );
+				$self->{'db'}->do( 'UPDATE params SET value=? WHERE (job_id,key)=(?,?)',
+					undef, $values->{$param}, $job_id, $param );
 			} else {
-				$self->{'db'}
-				  ->do( 'INSERT INTO params (job_id,key,value) VALUES (?,?,?)', undef, $job_id, $param, $values->{$param} );
+				$self->{'db'}->do( 'INSERT INTO params (job_id,key,value) VALUES (?,?,?)',
+					undef, $job_id, $param, $values->{$param} );
 			}
 		}
 	};
