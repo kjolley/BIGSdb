@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,6 +49,41 @@ sub DESTROY {
 	}
 	$logger->info("Locus $self->{'id'} destroyed.");
 	return;
+}
+
+sub get_allele_id_from_sequence {
+	my ( $self, $seq_ref ) = @_;
+	if ( !$self->{'db'} ) {
+		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
+	}
+	if ( !$self->{'sql'}->{'lookup_sequence'} ) {
+		my $qry;
+		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
+			$qry =
+			    "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE "
+			  . "($self->{'dbase_seq_field'},$self->{'dbase_id2_field'})=(?,?)";
+		} else {
+			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_seq_field'}=?";
+		}
+		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
+	}
+	my @args = ($$seq_ref);
+	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
+	eval { $self->{'sql'}->{'lookup_sequence'}->execute(@args) };
+	if ($@) {
+		$logger->error(
+			    q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
+			  . qq (locus table for locus '$self->{'id'}'! Statement was )
+			  . qq('$self->{'sql'}->{lookup_sequence}->{Statement}'. $@ )
+			  . $self->{'db'}->errstr
+		);
+		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+	} else {
+		my ($allele_id) = $self->{'sql'}->{'lookup_sequence'}->fetchrow_array;
+		#Prevent table lock on long offline jobs
+		$self->{'db'}->commit;                                               
+		return $allele_id;
+	}
 }
 
 sub get_allele_sequence {
@@ -109,11 +144,9 @@ sub get_all_sequences {
 	my $sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
 	eval { $sql->execute };
 	if ($@) {
-		$logger->error(
-			    q(Cannot query all sequence temporary table. Check database attributes in the )
+		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
 			  . qq(locus table for locus '$self->{'id'}'!. $@)
-			  . $self->{'db'}->errstr
-		);
+			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
 	my $data = $sql->fetchall_arrayref;

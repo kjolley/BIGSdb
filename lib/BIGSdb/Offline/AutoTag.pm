@@ -127,7 +127,7 @@ sub _get_params {
 	if ( BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ) {
 		$params->{'word_size'} = $self->{'options'}->{'w'};
 	} else {
-		if ( $self->{'options'}->{'0'} ) {
+		if ( $self->{'options'}->{'0'} || $self->{'options'}->{'first_allele'} ) {
 			$params->{'word_size'} = 15;    #More stringent if checking for missing loci
 		} else {
 			$params->{'word_size'}          = DEFAULT_WORD_SIZE;
@@ -138,7 +138,8 @@ sub _get_params {
 		$params->{'alignment'} = MISSING_ALLELE_ALIGNMENT;
 		$params->{'identity'}  = MISSING_ALLELE_IDENTITY;
 	}
-	return;
+	$params->{$_} = $self->{'options'}->{$_} foreach qw(first_allele);
+	return $params;
 }
 
 sub _handle_match {
