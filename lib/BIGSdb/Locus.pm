@@ -71,17 +71,16 @@ sub get_allele_id_from_sequence {
 	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
 	eval { $self->{'sql'}->{'lookup_sequence'}->execute(@args) };
 	if ($@) {
-		$logger->error(
-			    q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
+		$logger->error( q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
 			  . qq (locus table for locus '$self->{'id'}'! Statement was )
 			  . qq('$self->{'sql'}->{lookup_sequence}->{Statement}'. $@ )
-			  . $self->{'db'}->errstr
-		);
+			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	} else {
 		my ($allele_id) = $self->{'sql'}->{'lookup_sequence'}->fetchrow_array;
+
 		#Prevent table lock on long offline jobs
-		$self->{'db'}->commit;                                               
+		$self->{'db'}->commit;
 		return $allele_id;
 	}
 }
@@ -119,11 +118,12 @@ sub get_allele_sequence {
 }
 
 sub get_all_sequences {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return;
 	}
+	$options = {} if ref $options ne 'HASH';
 
 	#It is significantly quicker, on large databases, to create a temporary table of
 	#all alleles for a locus, and then to return all of this, than to simply return
@@ -134,8 +134,10 @@ sub get_all_sequences {
 	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
 		  . "$self->{'dbase_id2_field'}=?";
+		$qry .= ' AND exemplar' if $options->{'exemplar'};
 	} else {
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
+		$qry .= ' WHERE exemplar' if $options->{'exemplar'};
 	}
 	my @args;
 	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
@@ -160,6 +162,32 @@ sub get_all_sequences {
 	#Prevent table lock on long offline jobs
 	$self->{'db'}->commit;
 	return \%seqs;
+}
+
+sub get_all_allele_lengths {
+	my ($self) = @_;
+	if ( !$self->{'db'} ) {
+		$logger->info("No connection to locus $self->{'id'} database");
+		return;
+	}
+	my $qry;
+	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
+		$qry = "SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'} "
+		  . "WHERE $self->{'dbase_id2_field'}=?";
+	} else {
+		$qry = "SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'}";
+	}
+	my $sql = $self->{'db'}->prepare($qry);
+	my @args;
+	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
+	eval { $sql->execute(@args) };
+	if ($@) {
+		$logger->error($@);
+		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+	}
+	my $data = $sql->fetchall_arrayref;
+	my %lengths = map { $_->[0] => $_->[1] } @$data;
+	return \%lengths;
 }
 
 sub get_sequence_count {

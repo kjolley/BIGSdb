@@ -40,7 +40,7 @@ use BIGSdb::Offline::AutoTag;
 my %opts;
 GetOptions(
 	'd|database=s'         => \$opts{'d'},
-	'first_allele'         => \$opts{'first_allele'},
+	'e|exemplar'           => \$opts{'exemplar'},
 	'i|isolates=s'         => \$opts{'i'},
 	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
 	'I|exclude_isolates=s' => \$opts{'I'},
@@ -169,11 +169,12 @@ ${bold}-0, --missing$norm
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
     
-${bold}--first_allele$norm
-    Only use allele#1 in BLAST searches to identify locus within genome.
-    Specific allele is then identified using a database lookup. This should
-    be quicker than using all alleles for the BLAST search, but will be at the
-    expense of sensitivity. Sets default word size to 15.
+${bold}-e, --exemplar$norm
+    Only use alleles with the 'exemplar' flag set in BLAST searches to identify
+    locus within genome. Specific allele is then identified using a database 
+    lookup. This should be quicker than using all alleles for the BLAST search, 
+    but will be at the expense of sensitivity. If no exemplar alleles are set 
+    for a locus then all alleles will be used. Sets default word size to 15.
 
 ${bold}-h, --help$norm
     This help page.

@@ -70,7 +70,7 @@ sub blast {
 	$temp_fastafile =~ s/\\/\\\\/gx;
 	$temp_fastafile =~ s/'/__prime__/gx;
 	my $outfile_url = "$file_prefix\_$$\_outfile.txt";
-	$self->_create_fasta_index( $locus, $temp_fastafile, { first_allele => $params->{'first_allele'} } );
+	$self->_create_fasta_index( $locus, $temp_fastafile, { exemplar => $params->{'exemplar'} } );
 	$self->_create_query_fasta_file( $isolate_id, $temp_infile, $params );
 	my ( $probe_matches, $pcr_products );
 	my $continue = 1;
@@ -84,6 +84,7 @@ sub blast {
 	return if !$continue;
 	$self->{'db'}->commit;    #prevent idle in transaction table locks
 	return if !-e $temp_fastafile || -z $temp_fastafile;
+	$params->{'exact_matches_only'} = 1 if ( $self->{'no_exemplars'} );
 	my $word_size = $self->_get_word_size( $program, $locus, $params );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -142,7 +143,7 @@ sub blast {
 				}
 			);
 		}
-		if ( $params->{'first_allele'} && !@$exact_matches ) {
+		if ( $params->{'exemplar'} && !@$exact_matches ) {
 			$self->_lookup_partial_matches( $locus, $exact_matches, $partial_matches );
 		}
 		return ( $exact_matches, $partial_matches );
@@ -158,14 +159,14 @@ sub blast {
 sub _lookup_partial_matches {
 	my ( $self, $locus, $exact_matches, $partial_matches ) = @_;
 	return if !@$partial_matches;
-	foreach my $match (@$partial_matches){
-		my $seq = $self->extract_seq_from_match($match);
-		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence(\$seq);
-		if (defined $allele_id){
+	foreach my $match (@$partial_matches) {
+		my $seq       = $self->extract_seq_from_match($match);
+		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
+		if ( defined $allele_id ) {
 			$match->{'identity'} = 100;
-			$match->{'allele'} = $allele_id;
+			$match->{'allele'}   = $allele_id;
 			push @$exact_matches, $match;
-		} 
+		}
 	}
 	return;
 }
@@ -175,6 +176,7 @@ sub _lookup_partial_matches {
 #this should then be deleted by the calling function!
 sub _create_fasta_index {
 	my ( $self, $locus, $temp_fastafile, $options ) = @_;
+	undef $self->{'no_exemplars'};
 	$options = {} if ref $options ne 'HASH';
 	return if -e $temp_fastafile;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -183,16 +185,12 @@ sub _create_fasta_index {
 	if ( $locus_info->{'dbase_name'} ) {
 		my $ok = 1;
 		try {
-			my $seqs_ref = {};
-			if ( $options->{'first_allele'} ) {
-				my $first_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence('1');
-				if ($$first_seq) {
-					$seqs_ref->{'1'} = $$first_seq;
-				} else {
-					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
-				}
-			} else {
+			my $seqs_ref =
+			  $self->{'datastore'}->get_locus($locus)->get_all_sequences( { exemplar => $options->{'exemplar'} } );
+			if ( $options->{'exemplar'} && !keys %$seqs_ref ) {
+				$logger->info("Locus $locus has no exemplars set - using all alleles.");
 				$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
+				$self->{'no_exemplars'} = 1;
 			}
 			return if !keys %$seqs_ref;
 			my $buffer;
@@ -804,7 +802,8 @@ sub _parse_blast_exact {
 	my @matches;
 	my $matched_already;
 	my $region_matched_already;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
+	my $allele_lengths = $self->{'datastore'}->get_locus($locus)->get_all_allele_lengths;
   LINE: while ( my $line = <$blast_fh> ) {
 		my $match;
 		next if !$line || $line =~ /^\#/x;
@@ -814,8 +813,10 @@ sub _parse_blast_exact {
 			if ( $record[1] eq 'ref' ) {
 				$ref_length = length( $locus_info->{'reference_sequence'} );
 			} else {
-				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
-				$ref_length = length $$ref_seq;
+
+				#				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
+				#				$ref_length = length $$ref_seq;
+				$ref_length = $allele_lengths->{ $record[1] };
 			}
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( \@record, $ref_length ) ) {
