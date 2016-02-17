@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -806,16 +806,12 @@ sub _parse_blast_exact {
 	my $allele_lengths = $self->{'datastore'}->get_locus($locus)->get_all_allele_lengths;
   LINE: while ( my $line = <$blast_fh> ) {
 		my $match;
-		next if !$line || $line =~ /^\#/x;
 		my @record = split /\s+/x, $line;
 		if ( $record[2] == 100 ) {    #identity
 			my $ref_length;
 			if ( $record[1] eq 'ref' ) {
 				$ref_length = length( $locus_info->{'reference_sequence'} );
 			} else {
-
-				#				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $record[1] );
-				#				$ref_length = length $$ref_seq;
 				$ref_length = $allele_lengths->{ $record[1] };
 			}
 			next if !defined $ref_length;
@@ -886,7 +882,6 @@ sub _parse_blast_partial {
 	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
 	my %lengths;
   LINE: while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^\#/x;
 		my @record = split /\s+/x, $line;
 		if ( !$lengths{ $record[1] } ) {
 			if ( $record[1] eq 'ref' ) {
