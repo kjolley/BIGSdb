@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -117,15 +117,13 @@ sub print_content {
 			say 'This function is not available for isolate databases.';
 			return;
 		}
-		if (
-			( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
-			&& !$self->is_admin
-		  )
+		if ( ( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
+			&& !$self->is_admin )
 		{
 			say 'Allele sequence downloads are disabled for this database.';
 			return;
 		}
-		$locus =~ s/%27/'/gx;                                                   #Web-escaped locus
+		$locus =~ s/%27/'/gx;    #Web-escaped locus
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			if ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
 				say "$locus is not available";
@@ -344,18 +342,15 @@ sub _print_sequences {
 	$cleaned =~ tr/ /_/;
 	my $qry = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($locus) };
-
-	if ($@) {
-		$logger->error($@);
+	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
+	if ( !@$alleles ) {
 		say 'Cannot retrieve sequences.';
 		return;
 	}
 	my $delimiter = $self->{'cgi'}->param('delimiter') ? $self->{'cgi'}->param('delimiter') : '_';
-	while ( my ( $id, $sequence ) = $sql->fetchrow_array ) {
-		say ">$cleaned$delimiter$id";
-		my $cleaned_seq = BIGSdb::Utils::break_line( $sequence, 60 ) || '';
+	foreach my $allele (@$alleles) {
+		say ">$cleaned$delimiter$allele->[0]";
+		my $cleaned_seq = BIGSdb::Utils::break_line( $allele->[1], 60 ) || '';
 		say "$cleaned_seq";
 	}
 	return;
