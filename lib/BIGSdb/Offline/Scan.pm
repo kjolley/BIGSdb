@@ -123,7 +123,7 @@ sub blast {
 			}
 		);
 		if (
-			( !@$exact_matches || $params->{'partial_when_exact'} )
+			( !@$exact_matches || $params->{'partial_when_exact'} || $params->{'exemplar'} )
 			|| (   $locus_info->{'pcr_filter'}
 				&& !$params->{'pcr_filter'}
 				&& $locus_info->{'probe_filter'}

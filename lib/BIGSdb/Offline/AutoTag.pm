@@ -59,6 +59,7 @@ sub run_script {
 	$self->{'start_time'} = time;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
+	my $start = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
 	my $i = 0;
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
@@ -116,7 +117,9 @@ sub run_script {
 		say "Time limit reached ($self->{'options'}->{'t'} minute"
 		  . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ')';
 	}
-	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop");
+	my $stop = time;
+	my $duration = $stop - $start;
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($duration s)");
 	return;
 }
 
