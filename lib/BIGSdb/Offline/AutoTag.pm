@@ -144,6 +144,7 @@ sub _get_params {
 		$params->{'identity'}  = MISSING_ALLELE_IDENTITY;
 	}
 	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar);
+	$params->{'partial_matches'} = 100 if $self->{'options'}->{'exemplar'};
 	return $params;
 }
 

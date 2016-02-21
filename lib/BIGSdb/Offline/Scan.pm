@@ -19,6 +19,7 @@
 package BIGSdb::Offline::Scan;
 use strict;
 use warnings;
+use 5.010;
 no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
@@ -143,7 +144,7 @@ sub blast {
 				}
 			);
 		}
-		if ( $params->{'exemplar'} && !@$exact_matches ) {
+		if ( $params->{'exemplar'} ) {
 			$self->_lookup_partial_matches( $locus, $exact_matches, $partial_matches );
 		}
 		return ( $exact_matches, $partial_matches );
@@ -159,10 +160,11 @@ sub blast {
 sub _lookup_partial_matches {
 	my ( $self, $locus, $exact_matches, $partial_matches ) = @_;
 	return if !@$partial_matches;
+	my %already_matched_alleles = map { $_->{'allele'} => 1 } @$exact_matches;
 	foreach my $match (@$partial_matches) {
 		my $seq       = $self->extract_seq_from_match($match);
 		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
-		if ( defined $allele_id ) {
+		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'identity'} = 100;
 			$match->{'allele'}   = $allele_id;
 			push @$exact_matches, $match;
@@ -946,7 +948,7 @@ sub _parse_blast_partial {
 			}
 
 			#Don't handle exact matches - these are handled elsewhere.
-			next if $exact_matched_regions->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
+			next if !$params->{'exemplar'} && $exact_matched_regions->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
 			$match->{'e-value'} = $record[10];
 			if ($pcr_filter) {
 				my $within_amplicon = 0;
@@ -964,18 +966,7 @@ sub _parse_blast_partial {
 			}
 
 			#check if match already found with same predicted start or end points
-			my $exists;
-			foreach (@matches) {
-				if (
-					$_->{'seqbin_id'} == $match->{'seqbin_id'}
-					&& (   $_->{'predicted_start'} == $match->{'predicted_start'}
-						|| $_->{'predicted_end'} == $match->{'predicted_end'} )
-				  )
-				{
-					$exists = 1;
-				}
-			}
-			if ( !$exists ) {
+			if ( !$self->_matches_existing_same_region( \@matches, $match, $params->{'exemplar'} ) ) {
 				push @matches, $match;
 			}
 		}
@@ -990,6 +981,24 @@ sub _parse_blast_partial {
 		pop @matches;
 	}
 	return \@matches;
+}
+
+sub _matches_existing_same_region {
+	my ( $self, $existing_matches, $match, $both_ends ) = @_;
+	foreach my $existing_match (@$existing_matches) {
+		if ( !$both_ends ) {
+			return 1
+			  if $existing_match->{'seqbin_id'} == $match->{'seqbin_id'}
+			  && ( $existing_match->{'predicted_start'} == $match->{'predicted_start'}
+				|| $existing_match->{'predicted_end'} == $match->{'predicted_end'} );
+		} else {
+			return 1
+			  if $existing_match->{'seqbin_id'} == $match->{'seqbin_id'}
+			  && $existing_match->{'predicted_start'} == $match->{'predicted_start'}
+			  && $existing_match->{'predicted_end'} == $match->{'predicted_end'};
+		}
+	}
+	return;
 }
 
 sub _get_designation_tooltip {
