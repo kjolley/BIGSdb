@@ -60,7 +60,8 @@ sub print_content {
 		  if $scheme_id
 		  && $self->is_scheme_invalid( $scheme_id, { with_pk => $with_pk, all_loci => $all_loci } );
 		$self->print_scheme_section( { with_pk => $with_pk, all_loci => $all_loci } );
-		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
+		$scheme_id = $q->param('scheme_id');                     #Will be set by scheme section method
+		$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
 		$self->_print_query_interface($scheme_id);
 	}
 	if (   defined $q->param('query_file')
