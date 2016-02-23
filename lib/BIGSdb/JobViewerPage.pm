@@ -162,7 +162,8 @@ sub _print_notification_form {
 	say q(<span class="main_icon fa fa-envelope fa-3x pull-left"></span>);
 	say q(<h2>Notification</h2>);
 	say q(<p>Enter address for notification of job completion. You can also<br />)
-	  . q(add a title and/or description to remind you of what the job is.</p>);
+	  . q(add a title and/or description to remind you of what the job is.<br />)
+	  . q(<b>Tick 'Enable' checkbox and update to activate notification.</b></p>);
 	say $q->start_form;
 	say q(<dl class="data">);
 	say q(<dt>E-mail address</dt><dd>);
