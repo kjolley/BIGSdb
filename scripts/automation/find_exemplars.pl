@@ -116,8 +116,8 @@ sub main {
 				my $length = length $seq;
 			  COMPARE: foreach my $compare_allele (@$alleles) {
 					my ( $compare_allele_id, $compare_seq ) = @$compare_allele;
-					next         if !$exemplars{$compare_allele_id};
-					next         if $compare_allele_id eq $allele_id;
+					next COMPARE if !$exemplars{$compare_allele_id};
+					next COMPARE if $compare_allele_id eq $allele_id;
 					next COMPARE if $length != length $compare_seq;
 					my $diff = get_percent_difference( $seq, $compare_seq );
 					if ( $diff < $opts{'variation'} ) {
@@ -169,8 +169,7 @@ sub get_alleles {
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
 	my $qry        = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
-	my $alleles =
-	  $script->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
+	my $alleles = $script->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
 	return $alleles;
 }
 
