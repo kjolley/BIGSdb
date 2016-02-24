@@ -34,8 +34,6 @@ use constant PROBLEM                  => 1;
 sub run_script {
 	my ($self) = @_;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $params = $self->_get_params;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
@@ -57,11 +55,90 @@ sub run_script {
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
 	$self->{'start_time'} = time;
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
+	if ( $params->{'fast'} ) {
+		$self->_scan_loci_together( $isolate_list, $loci, $params );
+	} else {
+		$self->_scan_locus_by_locus( $isolate_list, $loci, $params );
+	}
+	my $stop     = time;
+	my $duration = $stop - $self->{'start_time'};
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($duration s)");
+	return;
+}
+
+sub _scan_loci_together {
+	my ( $self, $isolate_list, $loci, $params ) = @_;
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	my $i              = 0;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
-	my $start = time;
-	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
-	my $i = 0;
+  ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		$i++;
+		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
+		$self->{'logger'}->info(
+			"$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
+		undef $self->{'history'};
+		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
+		my @loci_to_tag;
+		my $allele_seq = {};
+		foreach my $locus (@$loci) {
+			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			next if @$existing_allele_ids;
+			$allele_seq->{$locus} = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+			next if @{ $allele_seq->{$locus} } && !$self->{'options'}->{'T'};
+			next
+			  if !@{ $allele_seq->{$locus} } && !@$existing_allele_ids && $self->{'options'}->{'only_already_tagged'};
+			push @loci_to_tag, $locus;
+		}
+		my ( $exact_matches, $partial_matches ) =
+		  $self->blast_multiple_loci( $params, \@loci_to_tag, $isolate_id, $isolate_prefix, $locus_prefix );
+		my $blast_status_bad = $?;
+	  LOCUS: foreach my $locus (@loci_to_tag) {
+			if ( ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} } ) {
+				my $ret_val = $self->_handle_match(
+					{
+						isolate_id     => $isolate_id,
+						locus          => $locus,
+						exact_matches  => $exact_matches->{$locus},
+						allele_seq     => $allele_seq->{$locus},
+						isolate_prefix => $isolate_prefix,
+						locus_prefix   => $locus_prefix
+					}
+				);
+				last ISOLATE if $ret_val;
+			} elsif ( $self->{'options'}->{'0'} && !$blast_status_bad ) {
+				my $ret_val = $self->_handle_no_match(
+					{
+						isolate_id      => $isolate_id,
+						locus           => $locus,
+						partial_matches => $partial_matches->{$locus},
+						isolate_prefix  => $isolate_prefix,
+						locus_prefix    => $locus_prefix
+					}
+				);
+				last ISOLATE if $ret_val;
+			}
+			last if $EXIT || $self->_is_time_up;
+		}
+	}
+
+	#Delete isolate seqbin FASTA
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+
+	#Delete locus working files
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+	return;
+}
+
+sub _scan_locus_by_locus {
+	my ( $self, $isolate_list, $loci, $params ) = @_;
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	my $isolate_prefix = BIGSdb::Utils::get_random();
+	my $locus_prefix   = BIGSdb::Utils::get_random();
+	my $i              = 0;
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
@@ -117,9 +194,6 @@ sub run_script {
 		say "Time limit reached ($self->{'options'}->{'t'} minute"
 		  . ( $self->{'options'}->{'t'} == 1 ? '' : 's' ) . ')';
 	}
-	my $stop = time;
-	my $duration = $stop - $start;
-	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($duration s)");
 	return;
 }
 
@@ -143,7 +217,7 @@ sub _get_params {
 		$params->{'alignment'} = MISSING_ALLELE_ALIGNMENT;
 		$params->{'identity'}  = MISSING_ALLELE_IDENTITY;
 	}
-	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar);
+	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast);
 	$params->{'partial_matches'} = 100 if $self->{'options'}->{'exemplar'};
 	return $params;
 }
