@@ -50,6 +50,7 @@ my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
 	'database=s'     => \$opts{'d'},
+	'datatype=s'     => \$opts{'datatype'},
 	'exclude_loci=s' => \$opts{'L'},
 	'help'           => \$opts{'h'},
 	'loci=s'         => \$opts{'l'},
@@ -69,7 +70,7 @@ if ( !$opts{'d'} ) {
 }
 $opts{'variation'} //= 10;
 if ( $opts{'variation'} < 0 || $opts{'variation'} > 100 ) {
-	die "%variation must be between 0-100\n";
+	die "%variation must be between 0-100.\n";
 }
 my $script = BIGSdb::Offline::Script->new(
 	{
@@ -84,6 +85,8 @@ my $script = BIGSdb::Offline::Script->new(
 		instance         => $opts{'d'},
 	}
 );
+die "This script can only be run against a seqdef database.\n"
+  if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 main();
 
 sub main {
@@ -191,6 +194,9 @@ ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}NAME$norm
     Database configuration name.
+    
+${bold}--datatype$norm ${under}DNA|peptide$norm
+    Only define exemplars for specified data type (DNA or peptide)    
    
 ${bold}--exclude_loci$norm ${under}LIST$norm
     Comma-separated list of loci to exclude
