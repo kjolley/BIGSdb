@@ -161,7 +161,7 @@ sub get_percent_difference {
 	die "Sequences are different lengths.\n" if length $seq1 != length $seq2;
 	my $length = length $seq1;
 	my $diffs  = 0;
-	foreach my $pos ( 0 .. $length ) {
+	foreach my $pos ( 0 .. ($length - 1)  ) {
 		$diffs++ if substr( $seq1, $pos, 1 ) ne substr( $seq2, $pos, 1 );
 	}
 	return ( ( $diffs * 100 ) / $length );
