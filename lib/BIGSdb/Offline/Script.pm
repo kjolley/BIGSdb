@@ -316,6 +316,12 @@ sub get_selected_loci {
 	my $qry;
 	my $loci_qry = 'SELECT id FROM loci';
 	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL' if $options->{'with_ref_db'};
+	if ( $self->{'options'}->{'datatype'} ) {
+		my %allowed = map { $_ => 1 } qw(DNA peptide);
+		die "Invalid data type selected.\n" if !$allowed{ $self->{'options'}->{'datatype'} };
+		$loci_qry .= $loci_qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
+		$loci_qry .= "data_type='$self->{'options'}->{'datatype'}'";
+	}
 	if ( $self->{'options'}->{'s'} ) {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
