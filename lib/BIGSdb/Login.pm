@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2015, University of Oxford
+#(c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -392,6 +392,8 @@ sub _create_session {
 		$logger->debug("$state session created: $session");
 		$self->{'auth_db'}->commit;
 	}
+	my $q = $self->{'cgi'};
+	$q->delete($_) foreach qw(password_field password session user submit);
 	return;
 }
 
@@ -427,8 +429,7 @@ sub _timout_logins {
 	my ($self) = @_;
 	eval {
 		$self->{'auth_db'}
-		  ->do( 'DELETE FROM sessions WHERE start_time<? AND state=?', undef, ( time - LOGIN_TIMEOUT ), 'login' )
-		  ;
+		  ->do( 'DELETE FROM sessions WHERE start_time<? AND state=?', undef, ( time - LOGIN_TIMEOUT ), 'login' );
 	};
 	if ($@) {
 		$logger->error($@);
