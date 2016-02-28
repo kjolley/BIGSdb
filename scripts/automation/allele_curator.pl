@@ -76,7 +76,6 @@ $script->setup_submission_handler;
 $opts{'identity'} //= DEFAULT_IDENTITY;
 main();
 
-#TODO Close submission and notify submitter (if appropriate)
 sub main {
 	my $submission_ids = get_submissions();
 	foreach my $submission_id (@$submission_ids) {
@@ -120,8 +119,8 @@ sub main {
 					say "$seq->{'seq_id'}: Assigned: $allele_submission->{'locus'}-$assigned_id";
 					eval {
 						$script->{'db'}->do(
-'INSERT INTO sequences(locus,allele_id,sequence,sender,curator,date_entered,datestamp,status) '
-							  . 'VALUES (?,?,?,?,?,?,?,?)',
+							'INSERT INTO sequences(locus,allele_id,sequence,sender,curator,date_entered,'
+							  . 'datestamp,status) VALUES (?,?,?,?,?,?,?,?)',
 							undef,
 							$allele_submission->{'locus'},
 							$assigned_id,
@@ -138,15 +137,63 @@ sub main {
 						die "$@\n";
 					}
 					$script->{'db'}->commit;
+					$script->{'submissionHandler'}
+					  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned_id );
 					next SEQS;
 				}
 			}
 			say "$seq->{'seq_id'}: Rejected - too dissimilar to existing allele.";
 		}
+		my $all_assigned = are_all_alleles_assigned($submission_id);
+		if ($all_assigned) {
+			close_submission($submission_id);
+		}
 	}
 
 	#TODO Update BLAST caches if changes.
 	return;
+}
+
+sub close_submission {
+	my ($submission_id) = @_;
+	my $submission = $script->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission;
+	eval {
+		$script->{'db'}->do( 'UPDATE submissions SET (status,datestamp,curator)=(?,?,?) WHERE id=?',
+			undef, 'closed', 'now', DEFINER_USER, $submission_id );
+	};
+	if ($@) {
+		$script->{'db'}->rollback;
+		die "$@\n";
+	}
+	$script->{'db'}->commit;
+	if ( $submission->{'email'} ) {
+		my $desc = $script->{'system'}->{'description'} || 'BIGSdb';
+		$script->{'submissionHandler'}->email(
+			$submission_id,
+			{
+				recipient => $submission->{'submitter'},
+				sender    => DEFINER_USER,
+				subject   => "$desc submission closed - $submission_id",
+				message   => $script->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } )
+			}
+		);
+
+		#Don't spam the mail servers.
+		sleep 5;
+	}
+	return;
+}
+
+sub are_all_alleles_assigned {
+	my ($submission_id) = @_;
+	my $allele_submission = $script->{'submissionHandler'}->get_allele_submission($submission_id);
+	return if !$allele_submission;
+	my $all_assigned = 1;
+	foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
+		$all_assigned = 0 if $seq->{'status'} ne 'assigned';
+	}
+	return $all_assigned;
 }
 
 sub assign_allele {

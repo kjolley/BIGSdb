@@ -1460,12 +1460,13 @@ sub _print_sequence_table {
 				$self->_clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
 			}
 			if ( $seq->{'status'} eq 'assigned' ) {
-				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
+				$self->{'submissionHandler'}->set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
 		} else {
 			if ( $seq->{'status'} eq 'pending' ) {
-				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
+				$self->{'submissionHandler'}
+				  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
 				$seq->{'status'} = 'assigned';
 			}
 			$all_rejected = 0;
@@ -1747,6 +1748,7 @@ sub _print_update_button {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _clear_assigned_seq_id {
 	my ( $self, $submission_id, $seq_id ) = @_;
 	eval {
@@ -1763,6 +1765,7 @@ sub _clear_assigned_seq_id {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _clear_assigned_profile_id {
 	my ( $self, $submission_id, $profile_id ) = @_;
 	eval {
@@ -1780,23 +1783,7 @@ sub _clear_assigned_profile_id {
 	return;
 }
 
-sub _set_allele_status {
-	my ( $self, $submission_id, $seq_id, $status, $assigned_id ) = @_;
-	eval {
-		$self->{'db'}
-		  ->do( 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)',
-			undef, $status, $assigned_id, $submission_id, $seq_id );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_update_submission_datestamp($submission_id);
-	}
-	return;
-}
-
+#TODO Move to SubmissionHandler.pm.
 sub _set_profile_status {
 	my ( $self, $submission_id, $profile_id, $status, $assigned_id ) = @_;
 	eval {
@@ -1815,6 +1802,8 @@ sub _set_profile_status {
 	return;
 }
 
+#TODO Use SubmissionHandler::update_submission_datestamp.
+#Then remove this.
 sub _update_submission_datestamp {
 	my ( $self, $submission_id ) = @_;
 	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };
@@ -1827,6 +1816,7 @@ sub _update_submission_datestamp {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _update_submission_outcome {
 	my ( $self, $submission_id, $outcome ) = @_;
 	eval { $self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, $outcome, $submission_id ) };

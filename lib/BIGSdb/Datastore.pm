@@ -73,7 +73,7 @@ sub get_data_connector {
 
 sub get_user_info {
 	my ( $self, $id ) = @_;
-	return $self->run_query( 'SELECT first_name,surname,affiliation,email FROM users WHERE id=?',
+	return $self->run_query( 'SELECT id,first_name,surname,affiliation,email FROM users WHERE id=?',
 		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 }
 
