@@ -159,8 +159,8 @@ sub close_submission {
 	my $submission = $script->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
 	eval {
-		$script->{'db'}->do( 'UPDATE submissions SET (status,datestamp,curator)=(?,?,?) WHERE id=?',
-			undef, 'closed', 'now', DEFINER_USER, $submission_id );
+		$script->{'db'}->do( 'UPDATE submissions SET (status,outcome,datestamp,curator)=(?,?,?,?) WHERE id=?',
+			undef, 'closed', 'good', 'now', DEFINER_USER, $submission_id );
 	};
 	if ($@) {
 		$script->{'db'}->rollback;
