@@ -106,11 +106,13 @@ sub blast_multiple_loci {
 			-query     => $temp_infile,
 			-out       => $temp_outfile,
 			-outfmt    => 6,
-			-$filter   => 'no'
+			-$filter   => 'no',
+			-evalue    => 20
 		);
 		$params{'-comp_based_stats'} = 0
 		  if $program ne 'blastn'
 		  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
+		$params{'-evalue'} = 20 if $program ne 'blastn';    #Some peptide loci are just short loops
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 		next DATATYPE if !-e $temp_outfile;
 		my $matched_regions;
@@ -137,6 +139,7 @@ sub blast_multiple_loci {
 			}
 		);
 	  LOCUS: foreach my $locus (@locus_list) {
+
 			if ( $params->{'exemplar'} ) {
 				$self->_lookup_partial_matches(
 					$locus,
@@ -274,7 +277,7 @@ sub _lookup_partial_matches {
 #this should then be deleted by the calling function!
 sub _create_fasta_index {
 	my ( $self, $locus_list, $temp_fastafile, $options ) = @_;
-	undef $self->{'no_exemplars'};
+	$self->{'no_exemplars'} = 1;
 	$options = {} if ref $options ne 'HASH';
 	return if -e $temp_fastafile;
 	my $dbtype = $options->{'dbtype'};
@@ -291,7 +294,8 @@ sub _create_fasta_index {
 				if ( $options->{'exemplar'} && !keys %$seqs_ref ) {
 					$logger->info("Locus $locus has no exemplars set - using all alleles.");
 					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
-					$self->{'no_exemplars'} = 1;
+				} else {
+					undef $self->{'no_exemplars'};
 				}
 				return if !keys %$seqs_ref;
 				foreach my $allele_id ( keys %$seqs_ref ) {
@@ -360,8 +364,8 @@ sub _create_query_fasta_file {
 	  ->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast_create_fasta' } );
 	open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
 	flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
-	foreach (@$contigs) {
-		say $infile_fh ">$_->[0]\n$_->[1]";
+	foreach my $contig (@$contigs) {
+		say $infile_fh ">$contig->[0]\n$contig->[1]";
 	}
 	close $infile_fh;
 	return;
@@ -668,20 +672,20 @@ sub _get_row {
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
 	my @runs = $hunt_for_start_end ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
-  RUN: foreach ( 0, @runs ) {
+  RUN: foreach my $offset ( 0, @runs ) {
 		my @end_to_adjust = $hunt_for_start_end ? ( 1, 2 ) : (0);
 		foreach my $end (@end_to_adjust) {
 			if ( $end == 1 ) {
 				if (   ( !$status->{'start'} && $match->{'reverse'} )
 					|| ( !$status->{'stop'} && !$match->{'reverse'} ) )
 				{
-					$match->{'predicted_end'} = $original_end + $_;
+					$match->{'predicted_end'} = $original_end + $offset;
 				}
 			} elsif ( $end == 2 ) {
 				if (   ( !$status->{'stop'} && $match->{'reverse'} )
 					|| ( !$status->{'start'} && !$match->{'reverse'} ) )
 				{
-					$match->{'predicted_start'} = $original_start + $_;
+					$match->{'predicted_start'} = $original_start + $offset;
 				}
 			}
 			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
@@ -833,8 +837,8 @@ sub _get_row {
 		$seq_disabled = 1;
 		$buffer .= q(</td><td>);
 		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
-		foreach (@$flags) {
-			$buffer .= qq( <a class="seqflag_tooltip">$_</a>);
+		foreach my $flag (@$flags) {
+			$buffer .= qq( <a class="seqflag_tooltip">$flag</a>);
 		}
 	}
 	if ($exact) {
@@ -951,11 +955,11 @@ sub _parse_blast_exact {
 				}
 				if ( $pcr_filter->{$locus} ) {
 					my $within_amplicon = 0;
-					foreach ( @{ $pcr_products->{$locus} } ) {
+					foreach my $product ( @{ $pcr_products->{$locus} } ) {
 						next
-						  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
-						  || $match->{'start'} < $_->{'start'}
-						  || $match->{'end'} > $_->{'end'};
+						  if $match->{'seqbin_id'} != $product->{'seqbin_id'}
+						  || $match->{'start'} < $product->{'start'}
+						  || $match->{'end'} > $product->{'end'};
 						$within_amplicon = 1;
 					}
 					next RECORD if !$within_amplicon;
@@ -1104,11 +1108,11 @@ sub _parse_blast_partial {
 			$match->{'e-value'} = $record->[10];
 			if ( $pcr_filter->{$locus} ) {
 				my $within_amplicon = 0;
-				foreach ( @{ $pcr_products->{$locus} } ) {
+				foreach my $product ( @{ $pcr_products->{$locus} } ) {
 					next
-					  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
-					  || $match->{'start'} < $_->{'start'}
-					  || $match->{'end'} > $_->{'end'};
+					  if $match->{'seqbin_id'} != $product->{'seqbin_id'}
+					  || $match->{'start'} < $product->{'start'}
+					  || $match->{'end'} > $product->{'end'};
 					$within_amplicon = 1;
 				}
 				next RECORD if !$within_amplicon;
@@ -1203,8 +1207,8 @@ sub _read_status {
 	my %data;
 	return \%data if !-e $status_file;
 	open( my $fh, '<', $status_file ) || $logger->error("Can't open $status_file for reading. $!");
-	while (<$fh>) {
-		if ( $_ =~ /^(.*):(.*)$/x ) {
+	while ( my $line = <$fh> ) {
+		if ( $line =~ /^(.*):(.*)$/x ) {
 			$data{$1} = $2;
 		}
 	}
@@ -1241,32 +1245,32 @@ sub _simulate_PCR {
 	my $max_primer_mismatch = 0;
 	my $conditions;
 
-	foreach (@$reactions) {
+	foreach my $reaction (@$reactions) {
 		foreach my $primer (qw (primer1 primer2)) {
-			$_->{$primer} =~ tr/ //;
+			$reaction->{$primer} =~ tr/ //;
 		}
-		my $min_length = $_->{'min_length'} || 1;
-		my $max_length = $_->{'max_length'} || 50000;
-		$_->{'max_primer_mismatch'} //= 0;
-		$max_primer_mismatch = $_->{'max_primer_mismatch'}
-		  if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
+		my $min_length = $reaction->{'min_length'} || 1;
+		my $max_length = $reaction->{'max_length'} || 50000;
+		$reaction->{'max_primer_mismatch'} //= 0;
+		$max_primer_mismatch = $reaction->{'max_primer_mismatch'}
+		  if $reaction->{'max_primer_mismatch'} > $max_primer_mismatch;
 		if ( $q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/x ) {
 			my $delta = $1;
 			$max_primer_mismatch += $delta;
 			$max_primer_mismatch = 0 if $max_primer_mismatch < 0;
 		}
-		print $fh "$_->{'id'}\t$_->{'primer1'}\t$_->{'primer2'}\t$min_length\t$max_length\n";
-		$conditions->{ $_->{'id'} } = $_;
+		say $fh "$reaction->{'id'}\t$reaction->{'primer1'}\t$reaction->{'primer2'}\t$min_length\t$max_length";
+		$conditions->{ $reaction->{'id'} } = $reaction;
 	}
 	close $fh;
 	system( "$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file "
 		  . "--mismatch $max_primer_mismatch --pretty false > $results_file 2> /dev/null" );
 	my @pcr_products;
 	open( $fh, '<', $results_file ) || $logger->error("Can't open $results_file for reading");
-	while (<$fh>) {
-		if ( $_ =~ /^ipcress:/x ) {
+	while ( my $line = <$fh> ) {
+		if ( $line =~ /^ipcress:/x ) {
 			my ( undef, $seq_id, $reaction_id, $length, undef, $start, $mismatch1, undef, $end, $mismatch2, $desc ) =
-			  split /\s+/x, $_;
+			  split /\s+/x, $line;
 			next if $desc =~ /single/x;    #product generated by one primer only.
 			my ( $seqbin_id, undef ) = split /:/x, $seq_id;
 			$logger->debug("Seqbin_id:$seqbin_id; $start-$end; mismatch1:$mismatch1; mismatch2:$mismatch2");
@@ -1305,18 +1309,18 @@ sub _simulate_hybridization {
 	  or $logger->error("Can't open temp file $probe_fasta_file for writing");
 	my %probe_info;
 
-	foreach (@$probes) {
-		$_->{'sequence'} =~ s/\s//gx;
-		print $fh ">$_->{'id'}\n$_->{'sequence'}\n";
-		$_->{'max_mismatch'} = 0 if !$_->{'max_mismatch'};
+	foreach my $probe (@$probes) {
+		$probe->{'sequence'} =~ s/\s//gx;
+		print $fh ">$probe->{'id'}\n$probe->{'sequence'}\n";
+		$probe->{'max_mismatch'} = 0 if !$probe->{'max_mismatch'};
 		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/x ) {
 			my $delta = $1;
-			$_->{'max_mismatch'} += $delta;
-			$_->{'max_mismatch'} = 0 if $_->{'max_mismatch'} < 0;
+			$probe->{'max_mismatch'} += $delta;
+			$probe->{'max_mismatch'} = 0 if $probe->{'max_mismatch'} < 0;
 		}
-		$_->{'max_gaps'} = 0 if !$_->{'max_gaps'};
-		$_->{'min_alignment'} = length $_->{'sequence'} if !$_->{'min_alignment'};
-		$probe_info{ $_->{'id'} } = $_;
+		$probe->{'max_gaps'} = 0 if !$probe->{'max_gaps'};
+		$probe->{'min_alignment'} = length $probe->{'sequence'} if !$probe->{'min_alignment'};
+		$probe_info{ $probe->{'id'} } = $probe;
 	}
 	close $fh;
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
@@ -1338,8 +1342,8 @@ sub _simulate_hybridization {
 	my @matches;
 	if ( -e $results_file ) {
 		open( $fh, '<', $results_file ) || $logger->error("Can't open $results_file for reading");
-		while (<$fh>) {
-			my @record = split /\t/x, $_;
+		while ( my $line = <$fh> ) {
+			my @record = split /\t/x, $line;
 			my $match;
 			$match->{'probe_id'}  = $record[0];
 			$match->{'seqbin_id'} = $record[1];

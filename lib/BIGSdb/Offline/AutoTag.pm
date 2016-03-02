@@ -80,7 +80,6 @@ sub _scan_loci_together {
 		$self->{'logger'}->info(
 			"$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
-		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
 		my @loci_to_tag;
 		my $allele_seq = {};
 		foreach my $locus (@$loci) {
@@ -122,13 +121,14 @@ sub _scan_loci_together {
 			}
 			last if $EXIT || $self->_is_time_up;
 		}
+		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
+
+		#Delete isolate seqbin FASTA
+		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+
+		#Delete locus working files
+		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 	}
-
-	#Delete isolate seqbin FASTA
-	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
-
-	#Delete locus working files
-	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 	return;
 }
 
