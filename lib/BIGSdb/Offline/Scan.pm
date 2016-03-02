@@ -61,13 +61,30 @@ sub blast_multiple_loci {
 	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/${isolate_prefix}_file.txt";
 	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/${isolate_prefix}_${$}_outfile.txt";
 	$self->_create_query_fasta_file( $isolate_id, $temp_infile, $params );
-	my $locus_exact_matches   = {};
-	my $locus_partial_matches = {};
+	my $datatype_exact_matches   = {};
+	my $datatype_partial_matches = {};
+	my $probe_matches            = {};
+	my $pcr_products             = {};
+	my $pcr_filter               = {};
+	my $probe_filter             = {};
   DATATYPE: foreach my $data_type (qw(DNA peptide)) {
+		$datatype_exact_matches->{$data_type}   = {};
+		$datatype_partial_matches->{$data_type} = {};
 		my @locus_list;
 	  LOCUS: foreach my $locus (@$loci) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			next LOCUS if $locus_info->{'data_type'} ne $data_type;
+			my $continue = 1;
+			try {
+				$pcr_products->{$locus} = $self->_get_pcr_products( $locus, $temp_infile, $params );
+				$probe_matches->{$locus} = $self->_get_probe_matches( $locus, $temp_infile, $params );
+			}
+			catch BIGSdb::DataException with {
+				$continue = 0;
+			};
+			next LOCUS if !$continue;
+			$pcr_filter->{$locus}   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
+			$probe_filter->{$locus} = !$params->{'probe_filter'} ? 0 : $locus_info->{'probe_filter'};
 			push @locus_list, $locus;
 		}
 		next DATATYPE if !@locus_list;
@@ -95,37 +112,43 @@ sub blast_multiple_loci {
 		  if $program ne 'blastn'
 		  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		next DATATYPE if !-e $temp_outfile;
+		my $matched_regions;
+		( $datatype_exact_matches->{$data_type}, $matched_regions ) = $self->_parse_blast_exact(
+			{
+				blast_file    => "${isolate_prefix}_${$}_outfile.txt",
+				pcr_filter    => $pcr_filter,
+				pcr_products  => $pcr_products,
+				probe_filter  => $probe_filter,
+				probe_matches => $probe_matches,
+				options       => { multiple_loci => 1, keep_data => 1 }
+			}
+		);
+		$datatype_partial_matches->{$data_type} = $self->_parse_blast_partial(
+			{
+				params                => $params,
+				exact_matched_regions => $matched_regions,
+				blast_file            => "${isolate_prefix}_${$}_outfile.txt",
+				pcr_filter            => $pcr_filter,
+				pcr_products          => $pcr_products,
+				probe_filter          => $probe_filter,
+				probe_matches         => $probe_matches,
+				options               => { multiple_loci => 1 }
+			}
+		);
 	  LOCUS: foreach my $locus (@locus_list) {
-			if ( -e $temp_outfile ) {
-				my ( $exact_matches, $matched_regions, $partial_matches );
-				( $exact_matches, $matched_regions ) = $self->_parse_blast_exact(
-					{
-						locus      => $locus,
-						blast_file => "${isolate_prefix}_${$}_outfile.txt",
-						options    => { multiple_loci => 1, keep_data => 1 }
-					}
+			if ( $params->{'exemplar'} ) {
+				$self->_lookup_partial_matches(
+					$locus,
+					$datatype_exact_matches->{$data_type},
+					$datatype_partial_matches->{$data_type}
 				);
-				if ( !@$exact_matches || $params->{'partial_when_exact'} || $params->{'exemplar'} ) {
-					$partial_matches = $self->_parse_blast_partial(
-						{
-							params                => $params,
-							locus                 => $locus,
-							exact_matched_regions => $matched_regions,
-							blast_file            => "${isolate_prefix}_${$}_outfile.txt",
-							options               => { multiple_loci => 1, keep_data => 1 }
-						}
-					);
-				}
-				if ( $params->{'exemplar'} ) {
-					$self->_lookup_partial_matches( $locus, $exact_matches, $partial_matches );
-				}
-				$locus_exact_matches->{$locus}   = $exact_matches;
-				$locus_partial_matches->{$locus} = $partial_matches;
 			}
 		}
-		undef $self->{'records'};
 	}
-	return ( $locus_exact_matches, $locus_partial_matches );
+	my $exact_matches   = { %{ $datatype_exact_matches->{'DNA'} },   %{ $datatype_exact_matches->{'peptide'} } };
+	my $partial_matches = { %{ $datatype_partial_matches->{'DNA'} }, %{ $datatype_partial_matches->{'peptide'} } };
+	return ( $exact_matches, $partial_matches );
 }
 
 sub blast {
@@ -189,14 +212,14 @@ sub blast {
 			{
 				locus         => $locus,
 				blast_file    => $outfile_url,
-				pcr_filter    => $pcr_filter,
-				pcr_products  => $pcr_products,
-				probe_filter  => $probe_filter,
-				probe_matches => $probe_matches
+				pcr_filter    => { $locus => $pcr_filter },
+				pcr_products  => { $locus => $pcr_products },
+				probe_filter  => { $locus => $probe_filter },
+				probe_matches => { $locus => $probe_matches }
 			}
 		);
 		if (
-			( !@$exact_matches || $params->{'partial_when_exact'} || $params->{'exemplar'} )
+			( !@{ $exact_matches->{$locus} } || $params->{'partial_when_exact'} || $params->{'exemplar'} )
 			|| (   $locus_info->{'pcr_filter'}
 				&& !$params->{'pcr_filter'}
 				&& $locus_info->{'probe_filter'}
@@ -209,17 +232,17 @@ sub blast {
 					locus                 => $locus,
 					exact_matched_regions => $matched_regions,
 					blast_file            => $outfile_url,
-					pcr_filter            => $pcr_filter,
-					pcr_products          => $pcr_products,
-					probe_filter          => $probe_filter,
-					probe_matches         => $probe_matches
+					pcr_filter            => { $locus => $pcr_filter },
+					pcr_products          => { $locus => $pcr_products },
+					probe_filter          => { $locus => $probe_filter },
+					probe_matches         => { $locus => $probe_matches }
 				}
 			);
 		}
 		if ( $params->{'exemplar'} ) {
 			$self->_lookup_partial_matches( $locus, $exact_matches, $partial_matches );
 		}
-		return ( $exact_matches, $partial_matches );
+		return ( $exact_matches->{$locus}, $partial_matches->{$locus} );
 	}
 
 	#Calling function should delete working files.  This is not done here as they can be re-used
@@ -231,15 +254,16 @@ sub blast {
 #set of alleles.
 sub _lookup_partial_matches {
 	my ( $self, $locus, $exact_matches, $partial_matches ) = @_;
-	return if !@$partial_matches;
-	my %already_matched_alleles = map { $_->{'allele'} => 1 } @$exact_matches;
-	foreach my $match (@$partial_matches) {
+	$partial_matches->{$locus} //= [];
+	return if !@{ $partial_matches->{$locus} };
+	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
+	foreach my $match ( @{ $partial_matches->{$locus} } ) {
 		my $seq       = $self->extract_seq_from_match($match);
 		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'identity'} = 100;
 			$match->{'allele'}   = $allele_id;
-			push @$exact_matches, $match;
+			push @{ $exact_matches->{$locus} }, $match;
 		}
 	}
 	return;
@@ -878,11 +902,16 @@ sub _parse_blast_exact {
 	my ( $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches, $options ) =
 	  @{$args}{qw (locus blast_file pcr_filter pcr_products probe_filter probe_matches options)};
 	$options = {} if ref $options ne 'HASH';
-	my @matches;
-	my $matched_already;
-	my $region_matched_already;
-	my $locus_info     = $self->{'datastore'}->get_locus_info($locus);
-	my $allele_lengths = $self->{'datastore'}->get_locus($locus)->get_all_allele_lengths;
+	my $matches = {};
+	$matches->{$locus} = [] if $locus;
+	my $matched_already        = {};
+	my $region_matched_already = {};
+	my $locus_info             = {};
+	my $allele_lengths         = {};
+	$pcr_filter    //= {};
+	$probe_filter  //= {};
+	$pcr_products  //= {};
+	$probe_matches //= {};
 	$self->_read_blast_file_into_structure($blast_file);
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
@@ -890,16 +919,21 @@ sub _parse_blast_exact {
 			my $allele_id;
 			if ( $options->{'multiple_loci'} ) {
 				my ( $match_locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
-				next RECORD if $match_locus ne $locus;
+				( $locus = $match_locus ) =~ s/__prime__/'/gx;
+				$matches->{$locus} //= [];
 				$allele_id = $match_allele_id;
 			} else {
 				$allele_id = $record->[1];
 			}
+			if ( !$locus_info->{$locus} ) {
+				$locus_info->{$locus}     = $self->{'datastore'}->get_locus_info($locus);
+				$allele_lengths->{$locus} = $self->{'datastore'}->get_locus($locus)->get_all_allele_lengths;
+			}
 			my $ref_length;
 			if ( $allele_id eq 'ref' ) {
-				$ref_length = length( $locus_info->{'reference_sequence'} );
+				$ref_length = length( $locus_info->{$locus}->{'reference_sequence'} );
 			} else {
-				$ref_length = $allele_lengths->{$allele_id};
+				$ref_length = $allele_lengths->{$locus}->{$allele_id};
 			}
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
@@ -915,9 +949,9 @@ sub _parse_blast_exact {
 					$match->{'start'} = $record->[7];
 					$match->{'end'}   = $record->[6];
 				}
-				if ($pcr_filter) {
+				if ( $pcr_filter->{$locus} ) {
 					my $within_amplicon = 0;
-					foreach (@$pcr_products) {
+					foreach ( @{ $pcr_products->{$locus} } ) {
 						next
 						  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
 						  || $match->{'start'} < $_->{'start'}
@@ -926,8 +960,8 @@ sub _parse_blast_exact {
 					}
 					next RECORD if !$within_amplicon;
 				}
-				if ($probe_filter) {
-					next RECORD if !$self->_probe_filter_match( $locus, $match, $probe_matches );
+				if ( $probe_filter->{$locus} ) {
+					next RECORD if !$self->_probe_filter_match( $locus, $match, $probe_matches->{$locus} );
 				}
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
@@ -939,16 +973,16 @@ sub _parse_blast_exact {
 					$match->{'reverse'} = 0;
 				}
 				$match->{'e-value'} = $record->[10];
-				next if $matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
-				push @matches, $match;
-				$matched_already->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
-				$region_matched_already->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
-				last if $locus_info->{'match_longest'};
+				next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
+				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
+				$region_matched_already->{$locus}->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
+				next RECORD if $locus_info->{$locus}->{'match_longest'} && @{ $matches->{$locus} };
+				push @{ $matches->{$locus} }, $match;
 			}
 		}
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
-	return \@matches, $region_matched_already;
+	return $matches, $region_matched_already;
 }
 
 sub _read_blast_file_into_structure {
@@ -978,36 +1012,42 @@ sub _parse_blast_partial {
 		qw (params locus exact_matched_regions blast_file pcr_filter pcr_products probe_filter
 		  probe_matches options)
 	  };
+	$pcr_filter    //= {};
+	$probe_filter  //= {};
+	$pcr_products  //= {};
+	$probe_matches //= {};
 	$options = {} if ref $options ne 'HASH';
-	my @matches;
+	my $matches = {};
+	$matches->{$locus} = [] if $locus;
 	my $identity  = $params->{'identity'};
 	my $alignment = $params->{'alignment'};
 	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
-	my %lengths;
+	my $lengths = {};
 	$self->_read_blast_file_into_structure($blast_file);
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $allele_id;
 		if ( $options->{'multiple_loci'} ) {
 			my ( $match_locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
-			next RECORD if $match_locus ne $locus;
+			( $locus = $match_locus ) =~ s/__prime__/'/gx;
+			$matches->{$locus} //= [];
 			$allele_id = $match_allele_id;
 		} else {
 			$allele_id = $record->[1];
 		}
-		if ( !$lengths{$allele_id} ) {
+		if ( !$lengths->{$locus}->{$allele_id} ) {
 			if ( $allele_id eq 'ref' ) {
-				$lengths{$allele_id} =
+				$lengths->{$locus}->{$allele_id} =
 				  $self->{'datastore'}->run_query( 'SELECT length(reference_sequence) FROM loci WHERE id=?',
 					$locus, { cache => 'Scan::parse_blast_partial' } );
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
 				next if !$$seq_ref;
-				$lengths{$allele_id} = length($$seq_ref);
+				$lengths->{$locus}->{$allele_id} = length($$seq_ref);
 			}
 		}
-		next if !defined $lengths{$allele_id};
-		my $length = $lengths{$allele_id};
+		next if !defined $lengths->{$locus}->{$allele_id};
+		my $length = $lengths->{$locus}->{$allele_id};
 		if ( $params->{'tblastx'} ) {
 			$record->[3] *= 3;
 		}
@@ -1060,11 +1100,11 @@ sub _parse_blast_partial {
 			#Don't handle exact matches - these are handled elsewhere.
 			next
 			  if !$params->{'exemplar'}
-			  && $exact_matched_regions->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
+			  && $exact_matched_regions->{$locus}->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} };
 			$match->{'e-value'} = $record->[10];
-			if ($pcr_filter) {
+			if ( $pcr_filter->{$locus} ) {
 				my $within_amplicon = 0;
-				foreach (@$pcr_products) {
+				foreach ( @{ $pcr_products->{$locus} } ) {
 					next
 					  if $match->{'seqbin_id'} != $_->{'seqbin_id'}
 					  || $match->{'start'} < $_->{'start'}
@@ -1073,26 +1113,26 @@ sub _parse_blast_partial {
 				}
 				next RECORD if !$within_amplicon;
 			}
-			if ($probe_filter) {
-				next RECORD if !$self->_probe_filter_match( $locus, $match, $probe_matches );
+			if ( $probe_filter->{$locus} ) {
+				next RECORD if !$self->_probe_filter_match( $locus, $match, $probe_matches->{$locus} );
 			}
 
 			#check if match already found with same predicted start or end points
-			if ( !$self->_matches_existing_same_region( \@matches, $match, $params->{'exemplar'} ) ) {
-				push @matches, $match;
+			if ( !$self->_matches_existing_same_region( $matches->{$locus}, $match, $params->{'exemplar'} ) ) {
+				push @{ $matches->{$locus} }, $match;
 			}
 		}
 	}
 
 	#Only return the number of matches selected by 'partial_matches' parameter
-	@matches = sort { $b->{'quality'} <=> $a->{'quality'} } @matches;
+	@{ $matches->{$locus} } = sort { $b->{'quality'} <=> $a->{'quality'} } @{ $matches->{$locus} };
 	my $partial_matches = $params->{'partial_matches'};
 	$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
-	while ( @matches > $partial_matches ) {
-		pop @matches;
+	while ( @{ $matches->{$locus} } > $partial_matches ) {
+		pop @{ $matches->{$locus} };
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
-	return \@matches;
+	return $matches;
 }
 
 sub _matches_existing_same_region {
@@ -1207,6 +1247,7 @@ sub _simulate_PCR {
 		}
 		my $min_length = $_->{'min_length'} || 1;
 		my $max_length = $_->{'max_length'} || 50000;
+		$_->{'max_primer_mismatch'} //= 0;
 		$max_primer_mismatch = $_->{'max_primer_mismatch'}
 		  if $_->{'max_primer_mismatch'} > $max_primer_mismatch;
 		if ( $q->param('alter_pcr_mismatches') && $q->param('alter_pcr_mismatches') =~ /([\-\+]\d)/x ) {
