@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -382,6 +382,9 @@ sub _modify_query_by_list {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	my %sql = (
+		    labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
+		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
+		  . 'WHERE UPPER(alias) IN (SELECT value FROM temp_list))',
 		provenance => ( $data_type eq 'text' ? "UPPER($view.$field)" : "$view.$field" )
 		  . ' IN (SELECT value FROM temp_list)',
 		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
@@ -427,6 +430,8 @@ sub _get_list_attribute_data {
 		$field = $1;
 		( $meta_set, $meta_field ) = $self->get_metaset_and_fieldname($field);
 		$field_type = defined $meta_set ? 'metafield' : 'provenance';
+		$field_type = 'labelfield'
+		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
 		return if !$self->{'xmlHandler'}->is_field($field);
 		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
 		$data_type = $field_info->{'type'};
@@ -1004,7 +1009,7 @@ sub _generate_query_for_provenance_fields {
 					[ $extended_isolate_field, $field ],
 					{ fetch => 'row_hashref' }
 				);
-				if (!$att_info){
+				if ( !$att_info ) {
 					push @$errors_ref, 'Invalid field selected.';
 					next;
 				}
@@ -1558,9 +1563,9 @@ sub _get_allele_designations {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
 			if ( $q->param("designation_field$i") =~ /$pattern/x ) {
-				my $locus            = $1;
-				my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
-				if (!$locus_info){
+				my $locus      = $1;
+				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				if ( !$locus_info ) {
 					push @$errors_ref, 'Invalid locus selected.';
 					next;
 				}
@@ -1665,11 +1670,11 @@ sub _get_scheme_designations {
 				my $operator          = $q->param("designation_operator$i") // '=';
 				my $text              = $q->param("designation_value$i");
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				if (!$scheme_field_info){
+				if ( !$scheme_field_info ) {
 					push @$errors_ref, 'Invalid scheme field selected.';
 					next;
 				}
-				my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$self->process_value( \$text );
 				if (   $text ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
@@ -1835,8 +1840,8 @@ sub _modify_query_for_counts {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my @count_queries;
-	my $pattern    = LOCUS_PATTERN;
-	my $set_clause = $self->_get_set_locus_clause({prepend => 'AND'});
+	my $pattern = LOCUS_PATTERN;
+	my $set_clause = $self->_get_set_locus_clause( { prepend => 'AND' } );
   ROW: foreach my $i ( 1 .. MAX_ROWS ) {
 
 		foreach my $param (qw(field operator value)) {
@@ -1896,7 +1901,7 @@ sub _modify_query_for_counts {
 				push @$errors_ref, qq(Searching for zero $field_plural of 'any locus' is not supported.);
 				next;
 			}
-			if ($operator eq '<'){
+			if ( $operator eq '<' ) {
 				push @$errors_ref, qq(Searching for fewer than a specified number of $field_plural of )
 				  . q('any locus' is not supported.);
 				next;
