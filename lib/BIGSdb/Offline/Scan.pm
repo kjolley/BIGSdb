@@ -107,7 +107,6 @@ sub blast_multiple_loci {
 			-out       => $temp_outfile,
 			-outfmt    => 6,
 			-$filter   => 'no',
-			-evalue    => 20
 		);
 		$params{'-comp_based_stats'} = 0
 		  if $program ne 'blastn'
