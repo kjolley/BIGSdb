@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,9 @@ sub print_content {
 	my $table      = $q->param('table');
 	my $query_file = $q->param('query_file');
 	my $query      = $self->get_query_from_temp_file($query_file);
+	if ( $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
+	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2015, University of Oxford
+#Copyright (c) 2012-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,6 +39,9 @@ sub print_content {
 	if ( !$qry ) {
 		say q(<div class="box" id="statusbad"><p>No query passed.</p>);
 		return;
+	}
+	if ( $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
 	}
 	my $alleles    = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $loci       = $self->_get_loci_from_alleles($alleles);
@@ -80,7 +83,7 @@ sub _print_interface {
 	say $q->checkbox_group( -name => 'flags', -values => [ALLELE_FLAGS], -linebreak => 'true' );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set' } );
-	say $q->hidden($_) foreach qw (db page query_file);
+	say $q->hidden($_) foreach qw (db page query_file list_file);
 	say $q->end_form;
 	say q(</div>);
 	return;
