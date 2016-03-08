@@ -227,25 +227,25 @@ sub _handle_match {
 	my ( $isolate_id, $locus, $exact_matches, $allele_seq, $isolate_prefix, $locus_prefix ) =
 	  @{$args}{qw(isolate_id locus exact_matches allele_seq isolate_prefix locus_prefix)};
 	print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
-	foreach (@$exact_matches) {
-		next if !$_->{'allele'};
-		print "Allele: $_->{'allele'} " if !$self->{'options'}->{'q'};
+	foreach my $match (@$exact_matches) {
+		next if !$match->{'allele'};
+		print "Allele: $match->{'allele'} " if !$self->{'options'}->{'q'};
 		my $sender = $self->{'datastore'}->run_query( 'SELECT sender FROM sequence_bin WHERE id=?',
-			$_->{'seqbin_id'}, { cache => 'AutoTag::run_script_sender' } );
+			$match->{'seqbin_id'}, { cache => 'AutoTag::run_script_sender' } );
 		my $problem;
 		try {
 			$self->_tag_allele(
-				{ isolate_id => $isolate_id, locus => $locus, allele_id => $_->{'allele'}, sender => $sender } );
+				{ isolate_id => $isolate_id, locus => $locus, allele_id => $match->{'allele'}, sender => $sender } );
 			if ( !$self->{'options'}->{'T'} || !@$allele_seq ) {
 				$self->_tag_sequence(
 					{
 						isolate_id => $isolate_id,
-						seqbin_id  => $_->{'seqbin_id'},
+						seqbin_id  => $match->{'seqbin_id'},
 						locus      => $locus,
-						allele_id  => $_->{'allele'},
-						start_pos  => $_->{'start'},
-						end_pos    => $_->{'end'},
-						reverse    => $_->{'reverse'}
+						allele_id  => $match->{'allele'},
+						start_pos  => $match->{'start'},
+						end_pos    => $match->{'end'},
+						reverse    => $match->{'reverse'}
 					}
 				);
 			}
@@ -352,11 +352,11 @@ sub _tag_sequence {
 	my $existing = $self->{'datastore'}->get_allele_sequence( $values->{'isolate_id'}, $values->{'locus'} );
 	my $locus_info = $self->{'datastore'}->get_locus_info( $values->{'locus'} );
 	if ( defined $existing ) {
-		foreach (@$existing) {
+		foreach my $allele_sequence (@$existing) {
 			return
-			     if $_->{'seqbin_id'} == $values->{'seqbin_id'}
-			  && $_->{'start_pos'} == $values->{'start_pos'}
-			  && $_->{'end_pos'} == $values->{'end_pos'};
+			     if $allele_sequence->{'seqbin_id'} == $values->{'seqbin_id'}
+			  && $allele_sequence->{'start_pos'} == $values->{'start_pos'}
+			  && $allele_sequence->{'end_pos'} == $values->{'end_pos'};
 		}
 	}
 	if ( !$self->{'sql'}->{'tag_sequence'} ) {
