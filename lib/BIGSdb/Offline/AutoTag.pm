@@ -239,12 +239,13 @@ sub _handle_match {
 			if ( !$self->{'options'}->{'T'} || !@$allele_seq ) {
 				$self->_tag_sequence(
 					{
-						seqbin_id => $_->{'seqbin_id'},
-						locus     => $locus,
-						allele_id => $_->{'allele'},
-						start_pos => $_->{'start'},
-						end_pos   => $_->{'end'},
-						reverse   => $_->{'reverse'}
+						isolate_id => $isolate_id,
+						seqbin_id  => $_->{'seqbin_id'},
+						locus      => $locus,
+						allele_id  => $_->{'allele'},
+						start_pos  => $_->{'start'},
+						end_pos    => $_->{'end'},
+						reverse    => $_->{'reverse'}
 					}
 				);
 			}
