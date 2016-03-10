@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.4',
+		version          => '1.0.5',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -118,7 +118,7 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>Allele #2 has not been defined.</p></div>);
 		return;
 	}
-	say q(<div class="box" id="resultsheader">);
+	say q(<div class="box" id="resultspanel">);
 	my $type = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
 	say qq(<h2>$type differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>);
 	my $temp    = &BIGSdb::Utils::get_random();
@@ -156,7 +156,9 @@ sub run {
 		my $numdiffs = scalar @results;
 		my $ident = BIGSdb::Utils::decimal_place( 100 - ( ( $numdiffs / ( length $$seq1_ref ) ) * 100 ), 2 );
 		$buffer .= qq(<p>Identity: $ident %</p>\n);
+		$buffer .= qq(<div class="scrollable">\n);
 		$buffer .= $self->get_alignment( $outfile, $temp );
+		$buffer .= qq(</div>\n);
 		$buffer .= qq(<p>Differences: $numdiffs<br />\n);
 		local $" = qq(<br />\n);
 		$buffer .= qq(@results</p>);
@@ -164,9 +166,11 @@ sub run {
 		say q(<p>The alleles at this locus can have insertions or deletions so an alignment will be performed.</p>);
 	}
 	if ( length $$seq1_ref != length $$seq2_ref ) {
+		say q(<div class="scrollable">);
 		say q(<pre style="font-size:1.2em">);
 		$self->print_file( $outfile, 1 );
 		say q(</pre>);
+		say q(</div>);
 	}
 	say $buffer if $buffer;
 	say q(</div>);
