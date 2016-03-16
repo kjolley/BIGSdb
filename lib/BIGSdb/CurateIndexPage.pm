@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -148,8 +148,8 @@ sub _get_isolate_links {
 	my ( $self, $td_ref, $can_do_something ) = @_;
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
-	my $buffer = q();
-	my @tables = qw (isolates);
+	my $buffer     = q();
+	my @tables     = qw (isolates);
 	push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
 	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
 	foreach (@tables) {
@@ -176,7 +176,7 @@ sub _get_seqdef_links {
 	my ( $self, $td_ref, $can_do_something ) = @_;
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
-	my $buffer = q();
+	my $buffer     = q();
 	foreach (
 		qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
 		sequence_refs profiles profile_refs)
@@ -205,7 +205,7 @@ sub _get_admin_links {
 	my ( $self, $can_do_something ) = @_;
 	my $set_id = $self->get_set_id;
 	my $buffer = q();
-	my $td = 1;
+	my $td     = 1;
 
 	#Only modify schemes/loci etc. when sets not selected.
 	return q() if $set_id;
@@ -315,9 +315,9 @@ sub _get_admin_list_links {
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=configCheck">Configuration check</a> - Checks database connectivity for loci and schemes )
-		  . qq(and that required helper applications are properly installed.</li>\n);
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
+		  . q(show_probs_only=1">Configuration check</a> - Checks database connectivity for loci and schemes and )
+		  . qq(that required helper applications are properly installed.</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=configRepair">Configuration repair</a> - Rebuild scheme tables</li>\n);

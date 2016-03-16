@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,8 +85,14 @@ sub _check_helpers {
 
 sub _check_locus_databases {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	say q(<div class="box resultstable">);
-	say q(<h2>Locus databases</h2>);
+	my $with_probs = $q->param('show_probs_only')
+	  ? q[ (only showing loci with potential problems - ]
+	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">]
+	  . q[show all loci</a>)]
+	  : q[];
+	say qq(<h2>Locus databases$with_probs</h2>);
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -97,20 +103,23 @@ sub _check_locus_databases {
 	  $self->{'datastore'}->run_query( "SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id",
 		undef, { fetch => 'col_arrayref' } );
 	my $td = 1;
+
 	if (@$loci) {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Locus</th><th>Database</th>)
 		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Primary id field</th><th>Secondary id field</th>)
 		  . q(<th>Secondary id field value</th><th>Sequence field</th><th>Database accessible</th>)
 		  . q(<th>Sequence query</th><th>Sequences assigned</th></tr>);
-		foreach my $locus (@$loci) {
+	  LOCUS: foreach my $locus (@$loci) {
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			next if !$locus_info->{'dbase_name'};
-			my $cleaned = $self->clean_locus($locus);
-			print qq(<tr class="td$td"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>)
+			my $cleaned  = $self->clean_locus($locus);
+			my $locus_db = $self->{'datastore'}->get_locus($locus)->{'db'};
+			my $buffer =
+			    qq(<tr class="td$td"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>)
 			  . ( $locus_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_port'} // $self->{'system'}->{'port'} )
@@ -125,33 +134,34 @@ sub _check_locus_databases {
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_seq_field'} // q() )
 			  . q(</td><td>);
-			my $locus_db = $self->{'datastore'}->get_locus($locus)->{'db'};
 			if ( !$locus_db ) {
-				say q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= q(<span class="statusbad fa fa-times"></span>);
 			} else {
-				say q(<span class="statusgood fa fa-check"></span>);
+				$buffer .= q(<span class="statusgood fa fa-check"></span>);
 			}
-			print q(</td><td>);
+			$buffer .= q(</td><td>);
 			my $seq;
 			eval { $seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence('1'); };
 			if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/x ) ) {
 
 				#seq can contain opening brace if sequence_field = table by mistake
 				$logger->debug("$locus; $@");
-				say q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= q(<span class="statusbad fa fa-times"></span>);
 			} else {
-				say q(<span class="statusgood fa fa-check"></span>);
+				$buffer .= q(<span class="statusgood fa fa-check"></span>);
 			}
-			say q(</td><td>);
+			$buffer .= q(</td><td>);
 			my $seq_count;
 			eval { $seq_count = $self->{'datastore'}->get_locus($locus)->get_sequence_count; };
 			if ( $@ || ( $seq_count == 0 ) ) {
 				$logger->debug("$locus; $@");
-				say q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= q(<span class="statusbad fa fa-times"></span>);
 			} else {
-				say qq(<span class="statusgood">$seq_count</span>);
+				$buffer .= qq(<span class="statusgood">$seq_count</span>);
+				next LOCUS if $q->param('show_probs_only');
 			}
-			say q(</td></tr>);
+			$buffer .= q(</td></tr>);
+			say $buffer;
 			$td = $td == 1 ? 2 : 1;
 		}
 		say q(</table></div>);
@@ -219,7 +229,7 @@ sub _check_client_databases {
 		my $client      = $self->{'datastore'}->get_client_db($_);
 		my $client_info = $self->{'datastore'}->get_client_db_info($_);
 		$buffer .=
-		  qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
+		    qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
 		  . qq(<td>$client_info->{'dbase_name'}</td><td>)
 		  . ( $client_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 		  . q(</td><td>)
