@@ -1260,8 +1260,9 @@ sub _check_sequence_allele_id {
 			do {
 				${ $args->{'value'} }++;
 				$exists = $self->{'datastore'}->run_query(
-					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-					[ $locus, ${ $args->{'value'} } ],
+					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)) OR '
+					  . 'EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+					[ $locus, ${ $args->{'value'} }, $locus, ${ $args->{'value'} } ],
 					{ cache => 'CurateBatchAddPage::allele_id_exists' }
 				);
 			} while $exists;
@@ -1589,7 +1590,6 @@ sub _upload_data {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my $isolate_name = $data[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
 				$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
-				
 				my $meta_inserts = $self->_prepare_metaset_insert( $meta_fields, $field_order, \@data );
 				push @inserts, @$meta_inserts;
 				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
@@ -1605,7 +1605,7 @@ sub _upload_data {
 				);
 				push @inserts, @$isolate_extra_inserts;
 				try {
-					my ($contigs_extra_inserts, $message) = $self->_prepare_contigs_extra_inserts(
+					my ( $contigs_extra_inserts, $message ) = $self->_prepare_contigs_extra_inserts(
 						{
 							id          => $id,
 							sender      => $sender,
@@ -1615,7 +1615,6 @@ sub _upload_data {
 						}
 					);
 					push @inserts, @$contigs_extra_inserts;
-					
 				}
 				catch BIGSdb::DataException with {
 					$upload_err  = 'Invalid FASTA file';
@@ -1623,7 +1622,6 @@ sub _upload_data {
 				};
 				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";
-				
 			} elsif ( $table eq 'loci' ) {
 				my $loci_extra_inserts = $self->_prepare_loci_extra_inserts(
 					{ id => $id, curator => $curator, data => \@data, field_order => $field_order, extras => \@extras }
@@ -1827,8 +1825,9 @@ sub _prepare_contigs_extra_inserts {
 	my $fasta   = BIGSdb::Utils::slurp($filename);
 	my $seq_ref = BIGSdb::Utils::read_fasta($fasta);
 	my @inserts;
-	my $size = BIGSdb::Utils::get_nice_size(-s $filename);
+	my $size = BIGSdb::Utils::get_nice_size( -s $filename );
 	$self->{'submission_message'} .= " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size) uploaded.";
+
 	foreach my $contig_name ( keys %$seq_ref ) {
 		push @inserts,
 		  {
