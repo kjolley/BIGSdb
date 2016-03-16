@@ -1044,7 +1044,7 @@ sub _check_new_alleles {
 	$q->param( locus => $locus );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$locus_info ) {
-		return { err => ['Locus $locus is not recognized.'] };
+		return { err => ["Locus $locus is not recognized."] };
 	}
 	if ( $q->param('fasta') ) {
 		my $fasta_string = $q->param('fasta');
