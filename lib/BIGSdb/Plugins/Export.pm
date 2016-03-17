@@ -27,7 +27,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
 use Bio::Tools::SeqStats;
-use constant MAX_INSTANT_RUN => 2000;
+use constant MAX_INSTANT_RUN         => 2000;
+use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -41,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.6',
+		version     => '1.3.7',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -253,6 +254,19 @@ sub run_job {
 		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list))";
 		$params->{'qry'} =~ s/\($view.\w*?\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
 		$params->{'qry'} =~ s/\($ICASE_FIELD\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
+	}
+	my $limit =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
+	  ? $self->{'system'}->{'export_limit'}
+	  : MAX_DEFAULT_DATA_POINTS;
+	my $data_points = $params->{'isolate_count'} * @fields;
+	if ( $data_points > $limit ) {
+		my $nice_data_points = BIGSdb::Utils::commify($data_points);
+		my $nice_limit       = BIGSdb::Utils::commify($limit);
+		my $msg = qq(<p>The submitted job is too big - you requested output containing $nice_data_points data points )
+		  . qq((isolates x fields). Jobs are limited to $nice_limit data points.</p>);
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $msg } );
+		return;
 	}
 	$self->_write_tab_text(
 		{
