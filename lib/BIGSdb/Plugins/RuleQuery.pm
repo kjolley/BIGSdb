@@ -26,7 +26,7 @@ use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
+use BIGSdb::Constants qw(MAX_UPLOAD_SIZE);
 
 sub get_attributes {
 	my ($self) = @_;

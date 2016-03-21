@@ -24,13 +24,12 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any none);
 use BIGSdb::BIGSException;
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface :limits);
 use Bio::DB::GenBank;
 use IO::String;
 use Bio::SeqIO;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 use constant INF             => 9**99;
 
 sub get_title {
