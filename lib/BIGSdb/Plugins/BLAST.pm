@@ -29,6 +29,7 @@ use Apache2::Connection ();
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 2000;
+use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
 	no warnings 'qw';
@@ -107,7 +108,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.4',
+		version     => '1.3.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -155,6 +156,13 @@ sub run {
 	if ( !@ids ) {
 		$self->_print_interface;
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
+		return;
+	}
+	if ( length $q->param('sequence') > MAX_QUERY_LENGTH ) {
+		$self->_print_interface;
+		my $limit = BIGSdb::Utils::commify(MAX_QUERY_LENGTH);
+		say q(<div class="box" id="statusbad"><p>Query sequence is limited to a )
+		  . qq(maximum of $limit characters.</p></div>);
 		return;
 	}
 	my @includes = $q->param('includes');
@@ -315,7 +323,7 @@ sub run_job {
 	#Terminate cleanly on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
-	my @includes = split /\|\|/x, ($params->{'includes'} // q());
+	my @includes = split /\|\|/x, ( $params->{'includes'} // q() );
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
 	my $out_file                 = "$job_id.txt";
 	my $out_file_flanking        = "${job_id}_flanking.txt";
