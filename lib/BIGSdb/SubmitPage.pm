@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
-use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS :submissions :interface);
+use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
 
@@ -1235,7 +1235,7 @@ sub _print_file_upload_fieldset {
 		}
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
-	my $nice_file_size = BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE);
+	my $nice_file_size = BIGSdb::Utils::get_nice_size($self->{'config'}->{'max_upload_size'});
 	if ( $options->{'genomes'} ) {
 		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
 	} else {
@@ -2012,7 +2012,7 @@ sub _upload_files {
 		open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 		binmode $fh2;
 		binmode $fh;
-		read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 		print $fh $buffer;
 		close $fh;
 	}

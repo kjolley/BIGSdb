@@ -349,7 +349,7 @@ sub _upload_ref_file {
 	my $fh2 = $self->{'cgi'}->upload('ref_upload');
 	binmode $fh2;
 	binmode $fh;
-	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	print $fh $buffer;
 	close $fh;
 	return "$temp\_ref$format";
@@ -906,11 +906,11 @@ sub _analyse_by_reference {
 	  ? $self->{'system'}->{'genome_comparator_max_ref_loci'}
 	  : MAX_REF_LOCI;
 	if ( @cds > $max_ref_loci ) {
-		my $max_upload_size = MAX_UPLOAD_SIZE / ( 1024 * 1024 );
+		my $nice_limit = BIGSdb::Utils::get_nice_size($self->{'config'}->{'max_upload_size'});
 		my $cds_count = @cds;
 		throw BIGSdb::PluginException( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
-			  . qq(reference is limited to $max_upload_size MB (larger uploads will be truncated).) );
+			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
 	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
