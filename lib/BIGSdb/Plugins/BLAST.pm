@@ -213,7 +213,7 @@ sub _get_headers {
 		$labels{$field} = $metafield;
 	}
 	my ( $scheme_fields, $scheme_labels ) =
-	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1 } );
+	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1, ignore_prefs => 1 } );
 	$labels{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
 	my $html_buffer   = qq(<table class="resultstable">\n);
 	my $display_label = ucfirst( $self->{'system'}->{'labelfield'} );

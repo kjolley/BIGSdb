@@ -812,9 +812,13 @@ sub _get_scheme_fields {
 			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
 
 			#No point using scheme fields if no scheme database is available.
-			next if !( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} && $scheme_db );
+			next
+			  if !( ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} || $options->{'ignore_prefs'} )
+				&& $scheme_db );
 			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
-				if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
+				if (   $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field}
+					|| $options->{'ignore_prefs'} )
+				{
 					if ($set_id) {
 						eval { $set_sql->execute( $set_id, $scheme_id ) };
 						$logger->error($@) if $@;
