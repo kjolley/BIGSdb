@@ -149,6 +149,7 @@ sub _upload {
 	my ( $self, $table, $newdata, $data, $query_terms, $query_values ) = @_;
 	my $attributes    = $self->{'datastore'}->get_table_field_attributes($table);
 	my $extra_inserts = [];
+	$self->format_data( $table, $newdata );
 	my @problems      = $self->check_record( $table, $newdata, 1, $data );
 	my $status;
 	if (@problems) {

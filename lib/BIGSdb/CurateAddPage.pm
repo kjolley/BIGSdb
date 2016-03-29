@@ -209,7 +209,7 @@ sub _insert {
 	my $q          = $self->{'cgi'};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @problems;
-	$self->_format_data( $table, $newdata );
+	$self->format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
@@ -232,14 +232,10 @@ sub _insert {
 		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
 	} else {
 		my ( @table_fields, @placeholders, @values );
-		foreach (@$attributes) {
-			push @table_fields, $_->{'name'};
+		foreach my $att (@$attributes) {
+			push @table_fields, $att->{'name'};
 			push @placeholders, '?';
-			if ( $_->{'name'} =~ /sequence$/x && $newdata->{ $_->{'name'} } ) {
-				$newdata->{ $_->{'name'} } = uc( $newdata->{ $_->{'name'} } );
-				$newdata->{ $_->{'name'} } =~ s/\s//gx;
-			}
-			push @values, $newdata->{ $_->{'name'} };
+			push @values, $newdata->{ $att->{'name'} };
 		}
 		local $" = ',';
 		my $qry      = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
@@ -914,11 +910,4 @@ sub _copy_locus_config {
 	return;
 }
 
-sub _format_data {
-	my ( $self, $table, $data_ref ) = @_;
-	if ( $table eq 'pcr' ) {
-		$data_ref->{$_} =~ s/[\r\n]//gx foreach qw (primer1 primer2);
-	}
-	return;
-}
 1;

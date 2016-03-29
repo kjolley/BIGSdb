@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1021,8 +1021,29 @@ sub _check_retired_allele_id {
 	return;
 }
 
+sub format_data {
+	my ( $self, $table, $data_ref ) = @_;
+	if ( $table eq 'pcr' ) {
+		$data_ref->{$_} =~ s/[\r\n]//gx foreach qw (primer1 primer2);
+	}
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	foreach my $att (@$attributes) {
+		next if !defined $data_ref->{ $att->{'name'} };
+		if ( $att->{'name'} eq 'affiliation' ) {
+			$data_ref->{ $att->{'name'} } =~ s/,?\s*\r?\n/, /gx;
+		}
+		$data_ref->{ $att->{'name'} } = $self->clean_value( $data_ref->{ $att->{'name'} }, { no_escape => 1 } );
+		if ( $att->{'name'} =~ /sequence$/x ) {
+			$data_ref->{ $att->{'name'} } = uc( $data_ref->{ $att->{'name'} } );
+			$data_ref->{ $att->{'name'} } =~ s/\s//gx;
+		}
+	}
+	return;
+}
+
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
+	return if !defined $value;
 	$options = {} if ref $options ne 'HASH';
 	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
 	$value =~ s/\r//gx;
