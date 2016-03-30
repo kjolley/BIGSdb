@@ -112,10 +112,7 @@ sub _delete {
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
 	$delete_qry =~ s/ORDER\ BY.*//x;
-	if ( $table eq 'loci' && $delete_qry =~ /JOIN\ scheme_members/x && $delete_qry =~ /scheme_id\ is\ null/x ) {
-		$delete_qry = "DELETE FROM loci WHERE id IN ($delete_qry)";
-		$delete_qry =~ s/SELECT\ \*/SELECT id/x;
-	} elsif ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
+	if ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
 		$delete_qry = "DELETE FROM sequence_bin WHERE id IN ($delete_qry)";
 		$delete_qry =~ s/SELECT\ \*/SELECT id/x;
 	} elsif (
