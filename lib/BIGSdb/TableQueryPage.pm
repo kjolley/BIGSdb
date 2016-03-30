@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -443,14 +443,14 @@ sub _run_query {
 		if (   ( $q->param('scheme_id_list') // '' ) ne ''
 			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
 			&& any { $table eq $_ }
-			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
+			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
+			#Don't do this for allele_sequences as this has its own method
 			my $scheme_id = $q->param('scheme_id_list');
 			my ( $identifier, $field );
 			my %set_id_and_field = (
 				loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
 				allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
-				allele_sequences    => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
 				schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
 			);
 			if ( $set_id_and_field{$table} ) {
@@ -958,6 +958,7 @@ sub _process_allele_sequences_filters {
 	my $q = $self->{'cgi'};
 	my $qry2;
 	my @conditions;
+	$logger->error('here');
 	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
 		if ( $q->param('sequence_flag_list') ne '' ) {
 			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
