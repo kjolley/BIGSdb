@@ -494,8 +494,7 @@ sub _get_optlist_field {
 		@optlist = split /;/x, $att->{'optlist'};
 	}
 	unshift @optlist, '';
-	my $labels =
-	  { '' => ' ' };    #Required for HTML5 validation
+	my $labels = { '' => ' ' };    #Required for HTML5 validation
 	my $q = $self->{'cgi'};
 	return $q->popup_menu(
 		-name    => $name,
@@ -628,51 +627,23 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			if ( $format eq 'integer' && !$optlist ) {
 				@html5_args{qw(type min step)} = qw(number 1 1);
 			}
-			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu(
-					-name    => $field,
-					-id      => $field,
-					-values  => [ '', qw (true false) ],
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ($optlist) {
-				my @options = split /\|/x, $optlist;
-				unshift @options, '';
-				$buffer .= $q->popup_menu(
-					-name    => $field,
-					-id      => $field,
-					-values  => \@options,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ( $length > 256 ) {
-				$buffer .= $q->textarea(
-					-name    => $field,
-					-id      => $field,
-					-rows    => 6,
-					-cols    => 70,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ( $length > 60 ) {
-				$buffer .= $q->textarea(
-					-name    => $field,
-					-id      => $field,
-					-rows    => 3,
-					-cols    => 70,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} else {
-				$buffer .= $self->textfield(
-					name      => $field,
-					id        => $field,
-					size      => $length,
-					maxlength => $length,
-					value     => $newdata->{$field},
-					%html5_args
-				);
+			my $args = {
+				format     => $format,
+				optlist    => $optlist,
+				newdata    => $newdata,
+				field      => $field,
+				length     => $length,
+				html5_args => \%html5_args
+			};
+			my %field_checks = (
+				boolean => sub { $self->_get_extra_seq_field_boolean($args) },
+				optlist => sub { $self->_get_extra_seq_field_optlist($args) },
+				text    => sub { $self->_get_extra_seq_field_text($args) }
+			);
+		  FIELD_CHECK: foreach my $check (qw(boolean optlist text)) {
+				my $check_buffer = $field_checks{$check}->();
+				$buffer .= $check_buffer;
+				last FIELD_CHECK if $check_buffer;
 			}
 			$buffer .= qq(<span class="comment"> $desc</span>\n) if $desc;
 			$buffer .= qq(</li>\n);
@@ -690,6 +661,69 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	$buffer .= $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
 	$buffer .= qq(</li>\n);
 	return $buffer;
+}
+
+sub _get_extra_seq_field_boolean {
+	my ( $self, $args ) = @_;
+	my ( $format, $newdata, $field, $html5_args ) = @$args{qw(format newdata field html5_args)};
+	return q() if $format ne 'boolean';
+	my $q = $self->{'cgi'};
+	return $q->radio_group(
+		-name    => $field,
+		-values  => [qw (true false)],
+		-default => $newdata->{$field} // '-',
+		%$html5_args
+	);
+}
+
+sub _get_extra_seq_field_optlist {
+	my ( $self, $args ) = @_;
+	my ( $optlist, $newdata, $field, $html5_args ) = @$args{qw(optlist newdata field html5_args)};
+	return q() if !$optlist;
+	my @options = split /\|/x, $optlist;
+	unshift @options, '';
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $field,
+		-id      => $field,
+		-values  => \@options,
+		-default => $newdata->{$field},
+		%$html5_args
+	);
+}
+
+sub _get_extra_seq_field_text {
+	my ( $self, $args ) = @_;
+	my ( $newdata, $field, $html5_args, $length ) = @$args{qw( newdata field html5_args length)};
+	my $q = $self->{'cgi'};
+	if ( $length > 256 ) {
+		return $q->textarea(
+			-name    => $field,
+			-id      => $field,
+			-rows    => 6,
+			-cols    => 70,
+			-default => $newdata->{$field},
+			%$html5_args
+		);
+	} elsif ( $length > 60 ) {
+		return $q->textarea(
+			-name    => $field,
+			-id      => $field,
+			-rows    => 3,
+			-cols    => 70,
+			-default => $newdata->{$field},
+			%$html5_args
+		);
+	} else {
+		return $self->textfield(
+			name      => $field,
+			id        => $field,
+			size      => $length,
+			maxlength => $length,
+			value     => $newdata->{$field},
+			%$html5_args
+		);
+	}
 }
 
 sub _create_extra_fields_for_locus_descriptions {
