@@ -120,23 +120,13 @@ sub _delete {
 		$subs{$table}->();
 	}
 	$delete_qry =~ s/^SELECT\ \*/DELETE/x;
-	my $scheme_ids;
 	my $ids_affected = [];
 	my @allele_designations;
 	my @history;
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
-		#Find what schemes are affected, then recreate scheme view
-		my $scheme_qry = $query;
-		$scheme_qry =~ s/SELECT\ \*/SELECT scheme_id/x;
-		$scheme_qry =~ s/ORDER\ BY.*//x;
-		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
-	} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $scheme_qry = $query;
-		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
-		$scheme_qry =~ s/ORDER\ BY.*//x;
-		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
-	} elsif ( $table eq 'allele_designations' ) {
+	#Find what schemes are affected, then recreate scheme view
+	my $scheme_ids = $self->_get_affected_schemes( $table, $query );
+	if ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
 		my $check_qry = $query;
@@ -264,6 +254,23 @@ sub _sub_allele_sequences {
 		$$qry = "DELETE FROM allele_sequences WHERE id IN ($$qry)";
 	}
 	return;
+}
+
+sub _get_affected_schemes {
+	my ( $self, $table, $query ) = @_;
+	return [] if $self->{'system'}->{'dbtype'} ne 'sequences';
+	if ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) {
+		my $scheme_qry = $query;
+		$scheme_qry =~ s/SELECT\ \*/SELECT scheme_id/x;
+		$scheme_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	} elsif ( $table eq 'schemes' ) {
+		my $scheme_qry = $query;
+		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
+		$scheme_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	}
+	return [];
 }
 
 sub _print_interface {
