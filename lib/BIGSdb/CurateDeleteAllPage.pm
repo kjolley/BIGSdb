@@ -112,30 +112,16 @@ sub _delete {
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
 	$delete_qry =~ s/ORDER\ BY.*//x;
-	if ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
-		$delete_qry = "DELETE FROM sequence_bin WHERE id IN ($delete_qry)";
-		$delete_qry =~ s/SELECT\ \*/SELECT id/x;
-	} elsif (
-		$table eq 'allele_sequences'
-		&& (   $delete_qry =~ /JOIN\ sequence_flags/x
-			|| $delete_qry =~ /JOIN\ sequence_bin/x
-			|| $delete_qry =~ /JOIN\ scheme_members/x )
-	  )
-	{
-		$delete_qry =~ s/SELECT\ \*/SELECT allele_sequences.id/x;
-		$delete_qry = "DELETE FROM allele_sequences WHERE id IN ($delete_qry)";
-	} elsif ( $table eq 'allele_designations' && ( $delete_qry =~ /JOIN scheme_members/ ) ) {
-		$delete_qry =~
-		  s/SELECT\ \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/x;
-		$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus,allele_id) IN ($delete_qry)";
+	my %subs = (
+		sequence_bin     => sub { $self->_sub_sequence_bin( \$delete_qry ) },
+		allele_sequences => sub { $self->_sub_allele_sequences( \$delete_qry ) }
+	);
+	if ( $subs{$table} ) {
+		$subs{$table}->();
 	}
 	$delete_qry =~ s/^SELECT\ \*/DELETE/x;
 	my $scheme_ids;
-	my $schemes_affected;
 	my $ids_affected = [];
-	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
-		$schemes_affected = 1;
-	}
 	my @allele_designations;
 	my @history;
 	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -166,11 +152,6 @@ sub _delete {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
-	}
-	if ($schemes_affected) {
-		say q(<div class="box" id="statusbad"><p>Deleting these loci would affect scheme )
-		  . q(definitions - cannot delete!</p></div>);
-		return;
 	}
 	eval {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
@@ -260,6 +241,27 @@ sub _delete {
 		}
 		say q(<div class="box" id="resultsheader"><p>Records deleted.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
+	}
+	return;
+}
+
+sub _sub_sequence_bin {
+	my ( $self, $qry ) = @_;
+	if ( $$qry =~ /JOIN experiment_sequences/ ) {
+		$$qry = "DELETE FROM sequence_bin WHERE id IN ($$qry)";
+		$$qry =~ s/SELECT\ \*/SELECT id/x;
+	}
+	return;
+}
+
+sub _sub_allele_sequences {
+	my ( $self, $qry ) = @_;
+	if (   $$qry =~ /JOIN\ sequence_flags/x
+		|| $$qry =~ /JOIN\ sequence_bin/x
+		|| $$qry =~ /JOIN\ scheme_members/x )
+	{
+		$$qry =~ s/SELECT\ \*/SELECT allele_sequences.id/x;
+		$$qry = "DELETE FROM allele_sequences WHERE id IN ($$qry)";
 	}
 	return;
 }
