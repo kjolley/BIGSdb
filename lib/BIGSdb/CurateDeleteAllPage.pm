@@ -167,24 +167,7 @@ sub _delete {
 		} else {
 			$self->{'db'}->do($delete_qry);
 		}
-		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-		{
-			foreach (@$scheme_ids) {
-				$self->remove_profile_data($_);
-				$self->drop_scheme_view($_);
-				$self->create_scheme_view($_);
-			}
-		} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			foreach (@$scheme_ids) {
-				$self->drop_scheme_view($_);
-			}
-		} elsif ( $table eq 'sequences' ) {
-			$self->{'datastore'}->mark_cache_stale;
-		} elsif ( $table eq 'profiles' ) {
-			my $scheme_id = $q->param('scheme_id');
-			$self->refresh_material_view($scheme_id);
-		}
+		$self->_refresh_db_views( $table, $scheme_ids );
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
@@ -231,6 +214,37 @@ sub _delete {
 		}
 		say q(<div class="box" id="resultsheader"><p>Records deleted.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
+	}
+	return;
+}
+
+sub _refresh_db_views {
+	my ( $self, $table, $scheme_ids ) = @_;
+	my $q = $self->{'cgi'};
+	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
+	{
+		foreach (@$scheme_ids) {
+			$self->remove_profile_data($_);
+			$self->drop_scheme_view($_);
+			$self->create_scheme_view($_);
+		}
+		return;
+	}
+	if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		foreach (@$scheme_ids) {
+			$self->drop_scheme_view($_);
+		}
+		return;
+	}
+	if ( $table eq 'sequences' ) {
+		$self->{'datastore'}->mark_cache_stale;
+		return;
+	}
+	if ( $table eq 'profiles' ) {
+		my $scheme_id = $q->param('scheme_id');
+		$self->refresh_material_view($scheme_id);
+		return;
 	}
 	return;
 }
