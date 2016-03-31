@@ -87,7 +87,8 @@ sub _check_locus_databases {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box resultstable">);
-	my $with_probs = $q->param('show_probs_only')
+	my $with_probs =
+	  $q->param('show_probs_only')
 	  ? q[ (only showing loci with potential problems - ]
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck">]
 	  . q[show all loci</a>)]
@@ -141,12 +142,14 @@ sub _check_locus_databases {
 			}
 			$buffer .= q(</td><td>);
 			my $seq;
+			my $seq_query_ok = 1;
 			eval { $seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence('1'); };
 			if ( $@ || ( ref $seq eq 'SCALAR' && defined $$seq && $$seq =~ /^\(/x ) ) {
 
 				#seq can contain opening brace if sequence_field = table by mistake
 				$logger->debug("$locus; $@");
 				$buffer .= q(<span class="statusbad fa fa-times"></span>);
+				$seq_query_ok = 0;
 			} else {
 				$buffer .= q(<span class="statusgood fa fa-check"></span>);
 			}
@@ -158,7 +161,7 @@ sub _check_locus_databases {
 				$buffer .= q(<span class="statusbad fa fa-times"></span>);
 			} else {
 				$buffer .= qq(<span class="statusgood">$seq_count</span>);
-				next LOCUS if $q->param('show_probs_only');
+				next LOCUS if $q->param('show_probs_only') && $seq_query_ok;
 			}
 			$buffer .= q(</td></tr>);
 			say $buffer;
