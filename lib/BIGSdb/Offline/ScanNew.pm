@@ -39,7 +39,7 @@ sub run_script {
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $params;
-	$params->{$_} = 1 foreach qw(pcr_filter probe_filter);
+	$params->{$_} = 1 foreach qw(pcr_filter probe_filter scannew);
 	$params->{'alignment'} =
 	  BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
 	$params->{'identity'} =
@@ -69,6 +69,7 @@ sub run_script {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my %seqs;
 		foreach my $isolate_id (@$isolate_list) {
+			
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$allele_ids;
 			if ( !$self->{'options'}->{'T'} ) {
@@ -114,6 +115,7 @@ sub run_script {
 				}
 			}
 			last if $EXIT || $self->_is_time_up;
+			last if $isolate_id==306;
 		}
 		$self->{'datastore'}->finish_with_locus($locus);
 
@@ -146,7 +148,7 @@ sub _define_allele {
 				dbase_name => $locus_info->{'dbase_name'}
 			}
 		);
-		$allele_id = $self->{'datastore'}->get_next_allele_id( $locus, {db => $locus_db} );
+		$allele_id = $self->{'datastore'}->get_next_allele_id( $locus, { db => $locus_db } );
 		eval {
 			$locus_db->do(
 				'INSERT INTO sequences (locus,allele_id,sequence,status,date_entered,datestamp,'

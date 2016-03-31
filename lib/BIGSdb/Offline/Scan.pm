@@ -182,7 +182,7 @@ sub blast {
 	return if !$continue;
 	$self->{'db'}->commit;    #prevent idle in transaction table locks
 	return if !-e $temp_fastafile || -z $temp_fastafile;
-	$params->{'exact_matches_only'} = 1 if ( $self->{'no_exemplars'} );
+	$params->{'exact_matches_only'} = 1 if ( $self->{'no_exemplars'} && !$params->{'scannew'} );
 	my $word_size = $self->_get_word_size( $program, $locus, $params );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
