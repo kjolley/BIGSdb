@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2015, University of Oxford
+#Copyright (c) 2013-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,17 +21,17 @@
 use strict;
 use warnings;
 use 5.010;
-###########Local configuration################################
+###########Local configuration#############################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'apache',
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
 	PASSWORD         => undef
 };
-#######End Local configuration################################
+#######End Local configuration#############################################
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
