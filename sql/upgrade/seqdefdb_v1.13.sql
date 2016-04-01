@@ -1,3 +1,11 @@
+-- Cleanup newlines from locus_descriptions
+UPDATE locus_descriptions SET product=regexp_replace(product,'\r|\n',' ','g');
+UPDATE locus_descriptions SET product=regexp_replace(product,'\s+$','');
+UPDATE locus_descriptions SET full_name=regexp_replace(full_name,'\r|\n',' ','g');
+UPDATE locus_descriptions SET full_name=regexp_replace(full_name,'\s+$','');
+UPDATE locus_descriptions SET description=regexp_replace(description,'\r|\n',' ','g');
+UPDATE locus_descriptions SET description=regexp_replace(description,'\s+$','');
+
 CREATE TABLE locus_stats (
 locus text NOT NULL,
 datestamp date,

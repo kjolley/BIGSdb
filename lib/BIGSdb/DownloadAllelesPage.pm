@@ -144,7 +144,6 @@ sub print_content {
 			$logger->warn("Invalid scheme selected - $scheme_id");
 			return;
 		}
-		$self->_create_temp_allele_count_table( { scheme_id => $scheme_id } );
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
@@ -168,7 +167,6 @@ sub print_content {
 			$logger->warn("Invalid group selected - $group_id");
 			return;
 		}
-		$self->_create_temp_allele_count_table;
 		my $scheme_ids;
 		if ( $group_id == 0 ) {
 			my $set_clause = $set_id ? " AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : q();
@@ -214,14 +212,12 @@ sub print_content {
 		  . q(page=downloadAlleles&amp;tree=1">Select loci by scheme</a> | Alphabetical list | )
 		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles">)
 		  . q(All loci by scheme</a></p>);
-		$self->_create_temp_allele_count_table;
 		$self->_print_alphabetical_list;
 	} else {
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . q(page=downloadAlleles&amp;tree=1\">Select loci by scheme</a>  | )
 		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . q(page=downloadAlleles&amp;list=1">Alphabetical list</a> | All loci by scheme</p>);
-		$self->_create_temp_allele_count_table;
 		$self->_print_all_loci_by_scheme;
 	}
 	say q(</div>);
@@ -230,8 +226,12 @@ sub print_content {
 
 sub _print_table_link {
 	my ($self) = @_;
-	if ( -e $self->{'outfile'} ) {
+	if ( $self->{'text_buffer'} ) {
 		say qq(<p style="margin-top:1em">Download table: <a href="/tmp/$self->{'prefix'}.txt">tab-delimited text</a>);
+		open( my $fh, '>:encoding(utf8)', $self->{'outfile'} )
+		  || $logger->error("Cannot open $self->{'outfile'} for appending");
+		say $fh $self->{'text_buffer'};
+		close $fh;
 		my $excel = BIGSdb::Utils::text2excel( $self->{'outfile'} );
 		if ( -e $excel ) {
 			say qq( | <a href="/tmp/$self->{'prefix'}.xlsx">Excel format</a>);
@@ -366,13 +366,58 @@ sub _print_table_header_row {
 	return;
 }
 
+sub _query_locus_stats {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'locus_stats'} ) {
+		$self->{'cache'}->{'locus_stats'} =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM locus_stats', undef, { fetch => 'all_hashref', key => 'locus' } );
+	}
+	return;
+}
+
+sub _query_locus_descriptions {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'desc'} ) {
+		$self->{'cache'}->{'desc'} =
+		  $self->{'datastore'}->run_query( 'SELECT locus,full_name,product FROM locus_descriptions',
+			undef, { fetch => 'all_hashref', key => 'locus' } );
+	}
+	return;
+}
+
+sub _query_locus_aliases {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'aliases'} ) {
+		my $all_aliases =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT locus,alias FROM locus_aliases ORDER BY alias', undef, { fetch => 'all_arrayref' } );
+		foreach my $alias (@$all_aliases) {
+			push @{ $self->{'cache'}->{'aliases'}->{ $alias->[0] } }, $alias->[1];
+		}
+	}
+	return;
+}
+
+sub _query_curators {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'curators'} ) {
+		my $curator_ids =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT locus,curator_id FROM locus_curators WHERE hide_public IS NULL OR NOT hide_public',
+			undef, { fetch => 'all_arrayref' } );
+		foreach my $curator (@$curator_ids) {
+			push @{ $self->{'cache'}->{'curators'}->{ $curator->[0] } }, $curator->[1];
+		}
+	}
+	return;
+}
+
 sub _print_locus_row {
 	my ( $self, $locus, $display_name, $options ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my ( $count, $last_updated ) =
-	  $self->{'datastore'}->run_query( 'SELECT allele_count, last_updated FROM allele_count WHERE locus=?',
-		$locus, { cache => 'DownloadAllelesPage::print_locus_row::count' } );
-	$count //= 0;
+	$self->_query_locus_stats;
+	my $count = $self->{'cache'}->{'locus_stats'}->{$locus}->{'allele_count'};
 	print qq(<tr class="td$options->{'td'}"><td>$display_name );
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
 	  . q(class="tooltip"><span class="fa fa-info-circle"></span></a>);
@@ -399,16 +444,11 @@ sub _print_locus_row {
 	}
 	my $products;
 	if ( $options->{'descs_exist'} ) {
-		my $desc = $self->{'datastore'}->run_query( 'SELECT full_name,product FROM locus_descriptions WHERE locus=?',
-			$locus, { fetch => 'row_hashref', cache => 'DownloadAllelesPage::print_locus_row::desc' } );
+		$self->_query_locus_descriptions;
+		my $desc = $self->{'cache'}->{'desc'}->{$locus};
 		my @names_product;
-		if ( $desc->{'full_name'} ) {
-			$desc->{'full_name'} =~ s/[\r\n]/ /gx;
-			push @names_product, $desc->{'full_name'};
-		}
-		if ( $desc->{'product'} ) {
-			$desc->{'product'} =~ s/[\r\n]/ /gx;
-			push @names_product, $desc->{'product'};
+		foreach my $field (qw (full_name product)) {
+			push @names_product, $desc->{$field} if $desc->{$field};
 		}
 		local $" = ' / ';
 		$products = qq(@names_product);
@@ -416,24 +456,22 @@ sub _print_locus_row {
 	}
 	my $aliases = [];
 	if ( $options->{'aliases_exist'} ) {
-		$aliases = $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
-			$locus, { fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_locus_row::aliases' } );
+		$self->_query_locus_aliases;
+		$aliases = $self->{'cache'}->{'aliases'}->{$locus} // [];
 		local $" = '; ';
-		print "<td>@$aliases</td>\n";
+		say "<td>@$aliases</td>";
 	}
 	my $curator_list;
 	if ( $options->{'curators_exist'} ) {
-		my $curator_ids =
-		  $self->{'datastore'}->run_query(
-			'SELECT curator_id FROM locus_curators WHERE locus=? AND (hide_public IS NULL OR NOT hide_public)',
-			$locus, { fetch => 'col_arrayref', cache => 'DownloadAllelesPage::print_locus_row::curators' } );
+		$self->_query_curators;
+		my $locus_curators = $self->{'cache'}->{'curators'}->{$locus} // [];
 		my $info;
-		foreach my $curator_id (@$curator_ids) {
+		foreach my $curator_id (@$locus_curators) {
 			$info->{$curator_id} = $self->{'datastore'}->get_user_info($curator_id);
 		}
 		my $first = 1;
 		print q(<td>);
-		foreach my $curator_id ( sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @$curator_ids ) {
+		foreach my $curator_id ( sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @$locus_curators ) {
 			print ', ' if !$first;
 			$curator_list .= '; ' if !$first;
 			my $first_initial =
@@ -446,26 +484,26 @@ sub _print_locus_row {
 		}
 		print q(</td>);
 	}
-	$last_updated //= '';
+	my $last_updated = $self->{'cache'}->{'locus_stats'}->{$locus}->{'datestamp'};
+	$last_updated //= q();
 	say "<td>$last_updated</td></tr>";
-	open( my $fh, '>>:encoding(utf8)', $self->{'outfile'} )
-	  || $logger->error("Can't open $self->{'outfile'} for appending");
-	if ( !-s $self->{'outfile'} ) {
-		say $fh ( $options->{'scheme'} ? "scheme\t" : '' )
+	if ( !$self->{'text_buffer'} ) {
+		$self->{'text_buffer'} .=
+		    ( $options->{'scheme'} ? "scheme\t" : '' )
 		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\t"
-		  . "max length\tfull name/product\taliases\tcurators";
+		  . "max length\tfull name/product\taliases\tcurators\n";
 	}
 	local $" = '; ';
-	say $fh ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
+	$self->{'text_buffer'} .=
+	    ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
 	  . "$locus\t$locus_info->{'data_type'}\t$count\t"
-	  . ( $locus_info->{'length_varies'} ? 'true' : 'false' ) . "\t"
-	  . ( $locus_info->{'length'}     // '' ) . "\t"
-	  . ( $locus_info->{'min_length'} // '' ) . "\t"
-	  . ( $locus_info->{'max_length'} // '' ) . "\t"
-	  . ( $products                   // '' ) . "\t"
-	  . ( "@$aliases"                 // '' ) . "\t"
-	  . ( $curator_list               // '' );
-	close $fh;
+	  . ( $locus_info->{'length_varies'} ? 'true' : 'false' ) . qq(\t)
+	  . ( $locus_info->{'length'}     // '' ) . qq(\t)
+	  . ( $locus_info->{'min_length'} // '' ) . qq(\t)
+	  . ( $locus_info->{'max_length'} // '' ) . qq(\t)
+	  . ( $products                   // '' ) . qq(\t)
+	  . ( "@$aliases"                 // '' ) . qq(\t)
+	  . ( $curator_list               // '' ) . qq(\n);
 	return;
 }
 
@@ -551,23 +589,5 @@ sub _get_loci_by_letter {
 		"$letter%",
 		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::aliases' } );
 	return ( $main, $common, $aliases );
-}
-
-sub _create_temp_allele_count_table {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $scheme_clause = '';
-	my $scheme_id     = $options->{'scheme_id'};
-	if ( $scheme_id && $scheme_id > 0 && BIGSdb::Utils::is_int($scheme_id) ) {
-		$scheme_clause = 'AND EXISTS (SELECT * FROM scheme_members WHERE sequences.locus=scheme_members.locus '
-		  . "AND scheme_id=$scheme_id)";
-	}
-	my $qry =
-	    q[CREATE TEMP TABLE allele_count AS (SELECT locus, COUNT(allele_id) AS allele_count, ]
-	  . q[MAX(datestamp) AS last_updated FROM sequences WHERE allele_id NOT IN ('N','0') ]
-	  . qq[$scheme_clause GROUP BY locus); CREATE INDEX i_tac ON allele_count (locus)];
-	eval { $self->{'db'}->do($qry) };
-	$logger->error($@) if $@;
-	return;
 }
 1;
