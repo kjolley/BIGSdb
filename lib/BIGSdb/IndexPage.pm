@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -258,7 +258,7 @@ sub _print_general_info_section {
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->_get_allele_count;
-		my $tables       = [qw (sequences profiles profile_refs accession)];
+		my $tables       = [qw (locus_stats profiles profile_refs accession)];
 		$max_date = $self->_get_max_date($tables);
 		say "<li>Number of sequences: $allele_count</li>";
 		if ( @$scheme_data == 1 ) {
