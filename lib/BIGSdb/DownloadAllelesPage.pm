@@ -358,7 +358,8 @@ sub _print_sequences {
 
 sub _print_table_header_row {
 	my ( $self, $options ) = @_;
-	say q(<tr><th>Locus</th><th>Download</th><th>Type</th><th>Alleles</th><th>Length</th>);
+	say q(<tr><th>Locus</th><th>Download</th><th>Type</th><th>Alleles</th><th>Length (setting)</th>)
+	  . q(<th>Min length</th><th>Max length</th>);
 	say q(<th>Full name/product</th>) if $options->{'descs_exist'};
 	say q(<th>Aliases</th>)           if $options->{'aliases_exist'};
 	say q(<th>Curator(s)</th>)        if $options->{'curators_exist'};
@@ -442,6 +443,10 @@ sub _print_locus_row {
 	} else {
 		say qq(<td>Fixed: $locus_info->{'length'} ) . ( $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'aa' ) . q(</td>);
 	}
+	$self->{'cache'}->{'locus_stats'}->{$locus}->{'min_length'} //= q();
+	$self->{'cache'}->{'locus_stats'}->{$locus}->{'max_length'} //= q();
+	print qq(<td>$self->{'cache'}->{'locus_stats'}->{$locus}->{'min_length'}</td>);
+	print qq(<td>$self->{'cache'}->{'locus_stats'}->{$locus}->{'max_length'}</td>);
 	my $products;
 	if ( $options->{'descs_exist'} ) {
 		$self->_query_locus_descriptions;
@@ -490,8 +495,8 @@ sub _print_locus_row {
 	if ( !$self->{'text_buffer'} ) {
 		$self->{'text_buffer'} .=
 		    ( $options->{'scheme'} ? "scheme\t" : '' )
-		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length\t"
-		  . "max length\tfull name/product\taliases\tcurators\n";
+		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length (setting)\t"
+		  . "max length (setting)\tmin length\tmax_length\tfull name/product\taliases\tcurators\n";
 	}
 	local $" = '; ';
 	$self->{'text_buffer'} .=
@@ -501,6 +506,8 @@ sub _print_locus_row {
 	  . ( $locus_info->{'length'}     // '' ) . qq(\t)
 	  . ( $locus_info->{'min_length'} // '' ) . qq(\t)
 	  . ( $locus_info->{'max_length'} // '' ) . qq(\t)
+	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'min_length'}. qq(\t)
+	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'max_length'}. qq(\t)
 	  . ( $products                   // '' ) . qq(\t)
 	  . ( "@$aliases"                 // '' ) . qq(\t)
 	  . ( $curator_list               // '' ) . qq(\n);
