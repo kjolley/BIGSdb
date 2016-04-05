@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -286,7 +286,7 @@ sub _upload {
 					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
 					  . q(unique field with duplicate values.</p>);
 				} else {
-					$logger->error("Insert failed: @inserts  $@");
+					$logger->error("Insert failed: $@");
 				}
 				say q(</div>);
 				$self->{'db'}->rollback;

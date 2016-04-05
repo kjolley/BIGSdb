@@ -75,3 +75,51 @@ $update_locus_stats$ LANGUAGE plpgsql;
 CREATE TRIGGER update_locus_stats AFTER INSERT OR DELETE ON sequences
 	FOR EACH ROW
 	EXECUTE PROCEDURE update_locus_stats();
+	
+CREATE TABLE retired_profiles (
+scheme_id int NOT NULL,
+profile_id text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (scheme_id, profile_id),
+CONSTRAINT rp_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT rp_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON retired_profiles TO apache;
+
+CREATE OR REPLACE FUNCTION check_retired_profiles() RETURNS TRIGGER AS $check_retired_profiles$
+	BEGIN
+		IF (TG_OP = 'UPDATE' OR TG_OP = 'INSERT') THEN
+			PERFORM * FROM retired_profiles WHERE (scheme_id,profile_id)=(NEW.scheme_id,NEW.profile_id);
+			IF FOUND THEN 
+				RAISE EXCEPTION 'Profile id (scheme=%,profile_id=%) has been retired.',NEW.scheme_id,NEW.profile_id;
+			END IF;
+		END IF;
+		RETURN NEW;
+	END;
+$check_retired_profiles$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_retired_alleles AFTER INSERT OR UPDATE ON profiles
+	FOR EACH ROW
+	EXECUTE PROCEDURE check_retired_profiles();
+	
+CREATE OR REPLACE FUNCTION check_profile_defined() RETURNS TRIGGER AS $check_profile_defined$
+	BEGIN
+		IF (TG_OP = 'UPDATE' OR TG_OP = 'INSERT') THEN
+			PERFORM * FROM profiles WHERE (scheme_id,profile_id)=(NEW.scheme_id,NEW.profile_id);
+			IF FOUND THEN 
+				RAISE EXCEPTION 'Profile (scheme_id=%,profile_id=%) still exists - delete it before retiring.',NEW.scheme_id,NEW.profile_id;
+			END IF;
+		END IF;
+		RETURN NEW;
+	END;
+$check_profile_defined$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_profile_defined AFTER INSERT OR UPDATE ON retired_profiles
+	FOR EACH ROW
+	EXECUTE PROCEDURE check_profile_defined();
