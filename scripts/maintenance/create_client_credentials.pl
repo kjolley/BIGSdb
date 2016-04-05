@@ -2,7 +2,7 @@
 #Populate authentication database with third party application (API client)
 #credentials.
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,6 +34,7 @@ GetOptions(
 	'c|curate'        => \$opts{'c'},
 	'h|help'          => \$opts{'h'},
 	'i|insert'        => \$opts{'i'},
+	'p|permission=s'  => \$opts{'permission'},
 	's|submit'        => \$opts{'s'},
 	'u|update'        => \$opts{'u'},
 	'v|version=s'     => \$opts{'v'}
