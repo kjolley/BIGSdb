@@ -179,7 +179,7 @@ sub _get_seqdef_links {
 	my $buffer     = q();
 	foreach (
 		qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
-		sequence_refs profiles profile_refs)
+		sequence_refs profiles profile_refs retired_profiles)
 	  )
 	{
 		if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
@@ -619,6 +619,28 @@ sub _print_retired_allele_ids {    ## no critic (ProhibitUnusedPrivateSubroutine
 			set_string => $set_string,
 			requires   => 'loci',
 			comments   => 'Allele ids defined here will be prevented from being used.'
+		}
+	);
+}
+
+sub _print_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	my $set_id = $self->get_set_id;
+	if ($set_id) {
+		my $schemes_in_set =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
+		return !$schemes_in_set;
+	} else {
+		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
+		return if !$scheme_count;
+	}
+	return $self->_print_table(
+		'retired_profiles',
+		$td,
+		{
+			set_string => $set_string,
+			requires   => 'schemes',
+			comments   => 'Scheme profiles defined here will be prevented from being used.'
 		}
 	);
 }

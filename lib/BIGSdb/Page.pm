@@ -1389,7 +1389,8 @@ sub get_record_name {
 		history                           => 'update record',
 		profile_history                   => 'profile update record',
 		sequence_attributes               => 'sequence attribute',
-		retired_allele_ids                => 'retired allele id'
+		retired_allele_ids                => 'retired allele id',
+		retired_profiles                  => 'retired profile'
 	);
 	return $names{$table};
 }

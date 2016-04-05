@@ -655,6 +655,24 @@ sub get_retired_allele_ids_table_attributes {
 	return $attributes;
 }
 
+sub get_retired_profiles_table_attributes {
+	my $attributes = [
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',  type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
 sub get_locus_extended_attributes_table_attributes {
 	my $attributes = [
 		{

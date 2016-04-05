@@ -235,7 +235,7 @@ sub _insert {
 		foreach my $att (@$attributes) {
 			push @table_fields, $att->{'name'};
 			push @placeholders, '?';
-			push @values, $newdata->{ $att->{'name'} };
+			push @values,       $newdata->{ $att->{'name'} };
 		}
 		local $" = ',';
 		my $qry      = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
@@ -826,35 +826,29 @@ sub next_id {
 
 sub _next_id_profiles {
 	my ( $self, $scheme_id ) = @_;
-	if ( !$self->{'sql'}->{'next_id_profiles'} ) {
-		my $qry = 'SELECT DISTINCT CAST(profile_id AS int) FROM profiles WHERE scheme_id = ? AND '
-		  . 'CAST(profile_id AS int)>0 ORDER BY CAST(profile_id AS int)';
-		$self->{'sql'}->{'next_id_profiles'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'next_id_profiles'}->execute($scheme_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	my $test = 0;
-	my $next = 0;
-	my $id   = 0;
-	while ( my @data = $self->{'sql'}->{'next_id_profiles'}->fetchrow_array ) {
-		if ( $data[0] != 0 ) {
-			$test++;
-			$id = $data[0];
-			if ( $test != $id ) {
-				$next = $test;
-				$self->{'sql'}->{'next_id_profiles'}->finish;
-				$logger->debug("Next id: $next");
-				return $next;
-			}
+	my $qry = 'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
+	  . 'WHERE scheme_id=? ORDER BY profile_id';
+	my $test     = 0;
+	my $next     = 0;
+	my $id       = 0;
+	my $profiles = $self->{'datastore'}->run_query(
+		$qry,
+		[ $scheme_id, $scheme_id ],
+		{ fetch => 'col_arrayref', cache => 'CurateAddPage::next_id_profiles' }
+	);
+	foreach my $profile_id (@$profiles) {
+		$test++;
+		$id = $profile_id;
+		if ( $test != $id ) {
+			$next = $test;
+			$logger->debug("Next id: $next");
+			return $next;
 		}
 	}
 	if ( $next == 0 ) {
 		$next = $id + 1;
 	}
-	$self->{'sql'}->{'next_id_profiles'}->finish;
 	$logger->debug("Next id: $next");
 	return $next;
 }
@@ -909,5 +903,4 @@ sub _copy_locus_config {
 	}
 	return;
 }
-
 1;
