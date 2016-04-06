@@ -144,6 +144,12 @@ sub _check_upload_data {
 	} elsif ( !BIGSdb::Utils::is_int( $newdata->{'field:sender'} ) ) {
 		push @bad_field_buffer, q(Field 'sender' is invalid.);
 	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	if ( $self->{'datastore'}->is_profile_retired( $scheme_id, $newdata->{"field:$scheme_info->{'primary_key'}"} ) )
+	{
+		push @bad_field_buffer,
+		  qq($scheme_info->{'primary_key'}-$newdata->{"field:$scheme_info->{'primary_key'}"} has been retired.);
+	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		$newdata->{"locus:$locus"} = $q->param("locus:$locus");

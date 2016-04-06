@@ -213,7 +213,7 @@ sub _insert {
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
-	  scheme_group_group_members sequences sequence_bin sequence_refs);
+	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles);
 
 	if (
 		defined $newdata->{'isolate_id'}
@@ -364,6 +364,27 @@ sub _check_profile_refs {     ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	if ( !$self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
 		push @$problems, "Profile $newdata->{'profile_id'} does not exist.";
 	}
+	$self->_check_if_scheme_curator( $newdata, $problems );
+	return;
+}
+
+sub _check_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+		push @$problems, "Profile $scheme_info->{'primary_key'}-$newdata->{'profile_id'} exists - "
+		  . 'you must delete it before it can be retired.';
+	}
+	$self->_check_if_scheme_curator( $newdata, $problems );
+	return;
+}
+
+sub _check_if_scheme_curator {
+	my ( $self, $newdata, $problems ) = @_;
+	return 1 if $self->is_admin;
+	if ( !$self->{'datastore'}->is_scheme_curator( $newdata->{'scheme_id'}, $self->get_curator_id ) ) {
+		push @$problems, 'You are not a curator for this scheme.';
+	}
 	return;
 }
 
@@ -446,9 +467,7 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 
 sub _check_sequence_retired {
 	my ( $self, $newdata, $problems ) = @_;
-	my $retired =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+	my $retired = $self->{'datastore'}->is_sequence_retired($newdata->{'locus'}, $newdata->{'allele_id'});
 	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
@@ -826,7 +845,8 @@ sub next_id {
 
 sub _next_id_profiles {
 	my ( $self, $scheme_id ) = @_;
-	my $qry = 'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+	my $qry =
+	    'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
 	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
 	  . 'WHERE scheme_id=? ORDER BY profile_id';
 	my $test     = 0;

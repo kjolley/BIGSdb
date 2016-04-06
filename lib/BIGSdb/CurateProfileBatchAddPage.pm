@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -217,12 +217,16 @@ sub _check {
 		$i = 0;
 		foreach my $field (@fieldorder) {
 			my $value;
+			my $problem;
 			if ( $field eq $primary_key ) {
 				$header_row .= "$primary_key\t"
 				  if $first_record && !$pk_included;
 				$value = $pk;
+				if ( $self->{'datastore'}->is_profile_retired( $scheme_id, $pk ) ) {
+					$problems{$pk} .= "$primary_key-$value has been retired.<br />";
+					$problem = 1;
+				}
 			}
-			my $problem;
 			if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 				$value = BIGSdb::Utils::get_datestamp();
 			} elsif ( $field eq 'sender' ) {

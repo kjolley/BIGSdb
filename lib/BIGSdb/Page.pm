@@ -2153,23 +2153,20 @@ sub get_all_foreign_key_fields_and_labels {
 	my ( $self, $attribute_hashref ) = @_;
 	my @fields;
 	my @values = split /\|/x, $attribute_hashref->{'labels'};
-	foreach (@values) {
-		if ( $_ =~ /\$(.*)/x ) {
+	foreach my $value (@values) {
+		if ($value =~ /\$(.*)/x ) {
 			push @fields, $1;
 		}
 	}
 	local $" = ',';
 	my $qry = "select id,@fields from $attribute_hashref->{'foreign_key'}";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $dataset = $self->{'datastore'}->run_query($qry,undef,{fetch=>'all_arrayref', slice=>{}});
 	my %desc;
-	while ( my $data = $sql->fetchrow_hashref ) {
+	foreach my $data ( @$dataset) {
 		my $temp = $attribute_hashref->{'labels'};
-		foreach (@fields) {
-			$temp =~ s/$_/$data->{$_}/x;
+		foreach my $field (@fields) {
+			$temp =~ s/\|\$$field\|/$data->{$field}/gx;
 		}
-		$temp =~ s/[\|\$]//gx;
 		$desc{ $data->{'id'} } = $temp;
 	}
 	return ( \@fields, \%desc );

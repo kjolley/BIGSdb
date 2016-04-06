@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -738,6 +738,9 @@ sub _run_table_specific_field_checks {
 		},
 		retired_allele_ids => sub {
 			$self->_check_retired_allele_ids($new_args);
+		},
+		retired_profiles => sub {
+			$self->_check_retired_profile_id($new_args);
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -1523,6 +1526,34 @@ sub _check_retired_allele_ids {
 		if ($exists) {
 			$arg_ref->{'problems'}->{$pk_combination} .=
 			  'This allele has already been defined - delete it before you retire the identifier.';
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	return;
+}
+
+sub _check_retired_profile_id {
+	my ( $self, $arg_ref ) = @_;
+	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	if ( $field eq 'profile_id' ) {
+		if (
+			$self->{'datastore'}->profile_exists(
+				$arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ],
+				$arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ]
+			)
+		  )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  'Profile has already been defined - delete it before you retire the identifier.';
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	if ( $field eq 'scheme_id' ) {
+		if (   !$self->is_admin
+			&& !$self->{'datastore'}
+			->is_scheme_curator( $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ], $self->get_curator_id ) )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= 'You are not a curator for this scheme.';
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}

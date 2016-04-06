@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -658,13 +658,15 @@ sub get_retired_allele_ids_table_attributes {
 sub get_retired_profiles_table_attributes {
 	my $attributes = [
 		{
-			name           => 'scheme_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'schemes',
-			labels         => '|$description|',
-			dropdown_query => 'yes'
+			name            => 'scheme_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'schemes',
+			labels          => '|$description| (id |$id|)',
+			dropdown_query  => 'yes',
+			with_pk_only    => 1,
+			is_curator_only => 1
 		},
 		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
 		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
@@ -993,13 +995,15 @@ sub get_allele_flags_table_attributes {
 sub get_profile_refs_table_attributes {
 	my $attributes = [
 		{
-			name           => 'scheme_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'schemes',
-			labels         => '|$description|',
-			dropdown_query => 'yes'
+			name            => 'scheme_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'schemes',
+			labels          => '|$description| (id |$id|)',
+			dropdown_query  => 'yes',
+			with_pk_only    => 1,
+			is_curator_only => 1
 		},
 		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
 		{ name => 'pubmed_id',  type => 'int',  required => 'yes', primary_key    => 'yes' },

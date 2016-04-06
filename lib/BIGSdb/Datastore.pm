@@ -1526,12 +1526,12 @@ sub sequence_exists {
 	);
 }
 
-sub sequence_retired {
+sub is_sequence_retired {
 	my ( $self, $locus, $allele_id ) = @_;
 	return $self->run_query(
 		'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
 		[ $locus, $allele_id ],
-		cache => 'sequence_retired'
+		cache => 'is_sequence_retired'
 	);
 }
 
@@ -1541,6 +1541,15 @@ sub get_profile_allele_designation {
 		'SELECT * FROM profile_members WHERE (scheme_id,profile_id,locus)=(?,?,?)',
 		[ $scheme_id, $profile_id, $locus ],
 		{ fetch => 'row_hashref', cache => 'get_profile_allele_designation' }
+	);
+}
+
+sub is_profile_retired {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id ],
+		cache => 'is_profile_retired'
 	);
 }
 

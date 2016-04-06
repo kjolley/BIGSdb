@@ -434,9 +434,18 @@ sub _get_foreign_key_dropdown_field {
 		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 		( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
-	} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id ) {
-		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		push @$values, $_->{'id'} foreach @$scheme_list;
+	} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' ) {
+		my $scheme_list =
+		  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $att->{'with_pk_only'} } );
+		foreach my $scheme (@$scheme_list) {
+			if ( $att->{'is_curator_only'} && !$self->is_admin ) {
+				my $curator_id = $self->get_curator_id;
+				my $is_curator = $self->{'datastore'}->is_scheme_curator( $scheme->{'id'}, $curator_id );
+				push @$values, $scheme->{'id'} if $is_curator;
+			} else {
+				push @$values, $scheme->{'id'};
+			}
+		}
 	} else {
 		local $" = ',';
 		$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
