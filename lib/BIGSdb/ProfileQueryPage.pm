@@ -215,6 +215,7 @@ sub _print_filter_fieldset {
 		say q(<ul>);
 		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 		say q(</ul></fieldset>);
+		$self->{'filters_present'} = 1;
 	}
 	return;
 }
@@ -291,7 +292,7 @@ sub _run_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
-	my ($qry, $list_file);
+	my ( $qry, $list_file );
 	my $errors = [];
 	my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	if ( !defined $q->param('query_file') ) {
@@ -343,8 +344,8 @@ sub _generate_query {
 	my $q = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my ( $qry, $errors ) = $self->_generate_query_from_locus_fields($scheme_id);
-	($qry, my $list_file) = $self->_modify_by_list( $scheme_id, $qry );
-	$q->param(datatype => 'text');
+	( $qry, my $list_file ) = $self->_modify_by_list( $scheme_id, $qry );
+	$q->param( datatype => 'text' );
 	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
 	my $primary_key   = $scheme_info->{'primary_key'};
 	my $order         = $q->param('order') || $primary_key;
@@ -483,10 +484,10 @@ sub _modify_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $field;
-	if ($q->param('attribute') =~ /^s_${scheme_id}_(.*)$/x){
+	if ( $q->param('attribute') =~ /^s_${scheme_id}_(.*)$/x ) {
 		$field = $1;
-		return $qry if !$self->{'datastore'}->is_scheme_field($scheme_id, $field);
-	} elsif ($q->param('attribute') =~ /^l_(.*)$/x){
+		return $qry if !$self->{'datastore'}->is_scheme_field( $scheme_id, $field );
+	} elsif ( $q->param('attribute') =~ /^l_(.*)$/x ) {
 		$field = $1;
 		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $field );
 	}
@@ -494,23 +495,23 @@ sub _modify_by_list {
 	@list = uniq @list;
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	my $list = $self->clean_list( 'text', \@list );
-	return $qry if !@list || (@list == 1 && $list[0] eq q()) ;
-	my $temp_table =
-	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', $list, { table => 'temp_list' } );
-	my $list_file = BIGSdb::Utils::get_random() . '.list';
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	return $qry if !@list || ( @list == 1 && $list[0] eq q() );
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $list, { table => 'temp_list' } );
+	my $list_file  = BIGSdb::Utils::get_random() . '.list';
+	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	say $fh $_ foreach @list;
 	close $fh;
 	my $scheme_view =
 	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 		$qry .= ' AND ';
 	} else {
 		$qry = "SELECT * FROM $scheme_view WHERE ";
 	}
 	$qry .= "($field IN (SELECT value FROM $temp_table))";
-	return ($qry, $list_file);
+	return ( $qry, $list_file );
 }
 
 sub _print_list_fieldset {
@@ -536,7 +537,13 @@ sub _print_list_fieldset {
 	say q(Field:);
 	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
 	say q(<br />);
-	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -style=> 'width:100%', -placeholder => 'Enter list of values...' );
+	say $q->textarea(
+		-name        => 'list',
+		-id          => 'list',
+		-rows        => 6,
+		-style       => 'width:100%',
+		-placeholder => 'Enter list of values...'
+	);
 	say q(</fieldset>);
 	return;
 }
@@ -595,10 +602,13 @@ sub _print_modify_search_fieldset {
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
-	my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
-	say q(Filters</li>);
+
+	if ( $self->{'filters_present'} ) {
+		my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+		  || $self->filters_selected ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say q(Filters</li>);
+	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)

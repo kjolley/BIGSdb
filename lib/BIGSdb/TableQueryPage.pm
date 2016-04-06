@@ -958,7 +958,6 @@ sub _process_allele_sequences_filters {
 	my $q = $self->{'cgi'};
 	my $qry2;
 	my @conditions;
-	$logger->error('here');
 	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
 		if ( $q->param('sequence_flag_list') ne '' ) {
 			if ( $q->param('sequence_flag_list') eq 'no flag' ) {

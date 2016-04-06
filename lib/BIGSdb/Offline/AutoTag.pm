@@ -119,7 +119,6 @@ sub _scan_loci_together {
 				);
 				last ISOLATE if $ret_val;
 			}
-			last if $EXIT || $self->_is_time_up;
 		}
 		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
 
@@ -128,6 +127,7 @@ sub _scan_loci_together {
 
 		#Delete locus working files
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+		last ISOLATE if $EXIT || $self->_is_time_up;
 	}
 	return;
 }
