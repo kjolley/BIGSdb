@@ -130,7 +130,10 @@ sub _check {
 		$mapped{$locus}          = $mapped;
 		$reverse_mapped{$mapped} = $locus;
 	}
-	map { $mapped{$_} = $_; $reverse_mapped{$_} = $_ } @$scheme_fields;
+	foreach my $field (@$scheme_fields){
+		$mapped{$field} = $field; 
+		$reverse_mapped{$field} = $field;
+	}
 	my $i          = 0;
 	my $td         = 1;
 	my $prefix     = BIGSdb::Utils::get_random();
@@ -223,11 +226,14 @@ sub _check {
 							} elsif ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
 								$problem = q(invalid field value (must be an integer));
 							} elsif ( $field[$i] eq $pk && $value[$i] ne $old_value ) {
-								my $new_pk_exists =
-								  $self->{'datastore'}
-								  ->run_query( "SELECT EXISTS(SELECT $pk FROM scheme_$scheme_id WHERE $pk=?)",
-									$value[$i], { cache => 'CurateBatchProfileUpdatePage::check::pkexists' } );
-								$problem = qq(new $pk already exists) if $new_pk_exists;
+								my $new_pk_exists = $self->{'datastore'}->run_query(
+									"SELECT EXISTS(SELECT $pk FROM scheme_$scheme_id WHERE $pk=? UNION "
+									  . 'SELECT profile_id FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))'
+									,
+									[ $value[$i], $scheme_id, $value[$i] ],
+									{ cache => 'CurateBatchProfileUpdatePage::check::pkexists' }
+								);
+								$problem = qq(new $pk already exists or has been retired) if $new_pk_exists;
 							}
 						}
 						if ($problem) {
@@ -367,11 +373,12 @@ sub _update {
 				  };
 			}
 			if ( $field eq $scheme_info->{'primary_key'} ) {
-				push @updates, {
+				push @updates,
+				  {
 					statement => 'UPDATE profiles SET (profile_id,curator,datestamp)=(?,?,?) WHERE '
 					  . '(scheme_id,profile_id)=(?,?)',
 					arguments => [ $value, $curator_id, 'now', $scheme_id, $id ]
-				};
+				  };
 			}
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id</td>);
@@ -387,8 +394,8 @@ sub _update {
 		} else {
 			$tablebuffer .= qq(<td class="statusgood">OK</td></tr>\n);
 			$old_value //= q();
-			$old_value = q()     if $old_value eq '&lt;blank&gt;';
-			$value     = q()     if $value     eq '&lt;blank&gt;';
+			$old_value = q()    if $old_value eq '&lt;blank&gt;';
+			$value     = q()    if $value     eq '&lt;blank&gt;';
 			$id        = $value if $field     eq $scheme_info->{'primary_key'};
 			push @history_updates, { id => $id, action => qq($field: '$old_value' -> '$value') };
 		}
