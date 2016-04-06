@@ -1665,68 +1665,49 @@ sub can_modify_table {
 	my $locus     = $q->param('locus');
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
-
-	#Users
-	return 1 if $table eq 'users' && $self->{'permissions'}->{'modify_users'};
-
-	#User groups
-	return 1
-	  if ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'};
-
-	#Loci
-	my %locus_tables = map { $_ => 1 } qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
+	my %general_permissions = (
+		users              => $self->{'permissions'}->{'modify_users'},
+		user_groups        => $self->{'permissions'}->{'modify_usergroups'},
+		user_group_members => $self->{'permissions'}->{'modify_usergroups'},
+	);
+	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
+	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
 	  locus_client_display_fields locus_extended_attributes locus_curators);
-	return 1 if $locus_tables{$table} && $self->{'permissions'}->{'modify_loci'};
+	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
+	  foreach qw(schemes scheme_members scheme_fields scheme_curators);
 
-	#Schemes
-	my %scheme_tables = map { $_ => 1 } qw(schemes scheme_members scheme_fields scheme_curators);
-	return 1 if $scheme_tables{$table} && $self->{'permissions'}->{'modify_schemes'};
-
-	#Isolate only tables
+	if ( $general_permissions{$table} ) {
+		return $general_permissions{$table};
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 
-		#Isolates
-		my %isolate_tables = map { $_ => 1 } qw (isolates isolate_aliases refs);
-		return 1 if $isolate_tables{$table} && $self->{'permissions'}->{'modify_isolates'};
-
-		#Allele designations
-		return 1 if $table eq 'allele_designations' && $self->{'permissions'}->{'designate_alleles'};
-
-		#Sequence bin
-		return 1 if $table eq 'sequence_bin' && $self->{'permissions'}->{'modify_sequences'};
-
-		#Experiments
-		my %exp_tables = map { $_ => 1 } qw (experiments experiment_sequences);
-		return 1 if $exp_tables{$table} && $self->{'permissions'}->{'modify_experiments'};
-
-		#Sequence tags
-		return 1 if $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'};
-
-		#Composite fields
-		my %comp_tables = map { $_ => 1 } qw (composite_fields composite_field_values);
-		return 1 if $comp_tables{$table} && $self->{'permissions'}->{'modify_composites'};
-
-		#Projects
-		my %project_tables = map { $_ => 1 } qw (projects project_members);
-		return 1 if $project_tables{$table} && $self->{'permissions'}->{'modify_projects'};
+		#Isolate only tables
+		my %isolate_permissions = (
+			allele_designations               => $self->{'permissions'}->{'designate_alleles'},
+			sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
+			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
+			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
+			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'}
+		);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
+		  foreach qw(isolates isolate_aliases refs);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
+		  foreach qw(experiments experiment_sequences);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}
+		  foreach qw(composite_fields composite_field_values);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_probes'}
+		  foreach qw(pcr pcr_locus probes probe_locus);
+		if ( $isolate_permissions{$table} ) {
+			return $isolate_permissions{$table};
+		}
 
 		#Samples
 		return 1
 		  if $table eq 'samples'
 		  && $self->{'permissions'}->{'sample_management'}
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
-
-		#Extended attributes
-		return 1
-		  if $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'};
-		return 1
-		  if $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'};
-
-		#Genome filtering
-		my %filter_tables = map { $_ => 1 } qw (pcr pcr_locus probes probe_locus);
-		return 1 if $filter_tables{$table} && $self->{'permissions'}->{'modify_probes'};
 	} else {
-
 		#Sequence definition database only tables
 		#Alleles and locus descriptions
 		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions retired_allele_ids);
@@ -1735,10 +1716,12 @@ sub can_modify_table {
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
 		}
 
-		#Profile refs
-		return $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)', $self->get_curator_id )
-		  if $table eq 'profile_refs';
+		#Profile refs and retired profiles
+		my %general_profile_tables = map { $_ => 1 } qw(profile_refs retired_profiles);
+		if ( $general_profile_tables{$table} ) {
+			return $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)', $self->get_curator_id );
+		}
 
 		#Profiles
 		my %profile_tables = map { $_ => 1 } qw (profiles profile_fields profile_members);
