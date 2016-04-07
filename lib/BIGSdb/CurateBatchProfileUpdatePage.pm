@@ -109,19 +109,12 @@ sub _check {
 	}
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
-	if ( !defined $pk ) {
+	my $pk_field    = $scheme_info->{'primary_key'};
+	if ( !defined $pk_field ) {
 		$logger->error("No primary key defined for scheme $scheme_id");
 		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
 		return;
 	}
-	my $buffer = qq(<div class="box" id="resultstable"><div class="scrollable">\n);
-	$buffer .=
-	    q(<p>The following changes will be made to the database.  Please check that this is what )
-	  . q(you intend and then press 'Submit'.  If you do not wish to make these changes, press your )
-	  . qq(browser's back button.</p><fieldset style="float:left"><legend>Updates</legend>\n);
-	$buffer .= qq(<table class="resultstable"><tr><th>Transaction</th><th>$scheme_info->{'primary_key'}</th>)
-	  . qq(<th>Field</th><th>New value</th><th>Value currently in database</th><th>Action</th></tr>\n);
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my ( %mapped, %reverse_mapped );
@@ -130,153 +123,105 @@ sub _check {
 		$mapped{$locus}          = $mapped;
 		$reverse_mapped{$mapped} = $locus;
 	}
-	foreach my $field (@$scheme_fields){
-		$mapped{$field} = $field; 
+	foreach my $field (@$scheme_fields) {
+		$mapped{$field}         = $field;
 		$reverse_mapped{$field} = $field;
 	}
-	my $i          = 0;
-	my $td         = 1;
-	my $prefix     = BIGSdb::Utils::get_random();
-	my $file       = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
-	my $table_rows = 0;
-	my ( @id, @field, @value, @update );
-	my %locus_changes_for_pk;
-
+	my @validated_actions;
+	shift @rows;    #Remove header
+	my $td = 1;
+	my $buffer;
 	foreach my $row (@rows) {
-		my @cols = split /\t/x, $row;
-		next if @cols < 3;
-		( $id[$i], $field[$i], $value[$i] ) = split /\t/x, $row;
-		$id[$i] =~ s/%20/ /gx;
-		if ( defined $value[$i] ) {
-			$value[$i] =~ s/\s*$//x;
-			$value[$i] =~ s/^\s*//x;
-		}
-		my $displayvalue = $value[$i];
-		my $bad_field    = 0;
-		my $field_type;
-		if ( any { $field[$i] eq $mapped{$_} } @$scheme_loci ) {
-			$field_type = 'locus';
-		} elsif (
-			any {
-				$field[$i] eq $_;
-			}
-			@$scheme_fields
-		  )
-		{
-			$field_type = 'field';
-		} else {
-			$bad_field = 1;
-		}
-		$update[$i] = 0;
-		my ( $old_value, $action );
-		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
-			if ( !$bad_field ) {
-				my @args;
-				push @args, $id[$i];
-				my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM scheme_$scheme_id WHERE $pk=?",
-					$id[$i], { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::check::select' } );
-				if ( !$profile_data ) {
-					$old_value = qq(<span class="statusbad">no editable record with $pk='$id[$i]');
-					$old_value .= q(</span>);
-					$action = q(<span class="statusbad">no action</span>);
-				} else {
-					$old_value = $profile_data->{ lc( $reverse_mapped{ $field[$i] } ) };
-					if (   !defined $old_value
-						|| $old_value eq ''
-						|| $q->param('overwrite') )
-					{
-						$old_value = q(&lt;blank&gt;)
-						  if !defined $old_value || $old_value eq '';
-						my $problem;
-						if ( $field_type eq 'locus' ) {
-							my $locus_info = $self->{'datastore'}->get_locus_info( $reverse_mapped{ $field[$i] } );
-							if ( $value[$i] eq '<blank>' ) {
-								$problem = q(this is a required field and cannot be left blank);
-							} elsif ( $locus_info->{'allele_id_format'} eq 'integer'
-								&& !BIGSdb::Utils::is_int( $value[$i] )
-								&& !( $scheme_info->{'allow_missing_loci'} && $value[$i] eq 'N' ) )
-							{
-								$problem = q(invalid allele id (must be an integer));
-							} elsif (
-								!$self->{'datastore'}->sequence_exists( $reverse_mapped{ $field[$i] }, $value[$i] ) )
-							{
-								$problem = q(allele has not been defined);
-							} elsif ( $value[$i] ne $old_value ) {
-								my %new_profile;
-								foreach my $locus (@$scheme_loci) {
-									$new_profile{"locus:$locus"} = $profile_data->{ lc($locus) };
-								}
-								$new_profile{"locus:$reverse_mapped{$field[$i]}"} = $value[$i];
-								$new_profile{"field:$pk"}                         = $id[$i];
-								my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $pk, \%new_profile );
-								if ($exists) {
-									$problem = qq(would result in duplicate profile. $msg);
-								}
-							}
-							$locus_changes_for_pk{ $id[$i] }++;
-							if ( $locus_changes_for_pk{ $id[$i] } > 1 ) {
+		my @columns = split /\t/x, $row;
+		BIGSdb::Utils::remove_trailing_spaces_from_list( \@columns );
+		my ( $pk, $display_field, $value ) = @columns;
+		my $field = $reverse_mapped{$display_field} // q();
+		my $display_value = $self->_get_display_value($value);
+		my $problem;
+		my $args = {
+			loci        => $scheme_loci,
+			fields      => $scheme_fields,
+			scheme_info => $scheme_info,
+			pk          => $pk,
+			field       => $field,
+			value       => $value,
+			problem     => \$problem
+		};
 
-								#too difficult to check if new profile already exists otherwise
-								$problem = q(profile updates are limited to one locus change);
-							}
-						} elsif ( $field_type eq 'field' ) {
-							my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field[$i] );
-							if ( $value[$i] eq '<blank>' && $field[$i] eq $pk ) {
-								$problem = q(this is a required field and cannot be left blank);
-							} elsif ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $value[$i] ) ) {
-								$problem = q(invalid field value (must be an integer));
-							} elsif ( $field[$i] eq $pk && $value[$i] ne $old_value ) {
-								my $new_pk_exists = $self->{'datastore'}->run_query(
-									"SELECT EXISTS(SELECT $pk FROM scheme_$scheme_id WHERE $pk=? UNION "
-									  . 'SELECT profile_id FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))'
-									,
-									[ $value[$i], $scheme_id, $value[$i] ],
-									{ cache => 'CurateBatchProfileUpdatePage::check::pkexists' }
-								);
-								$problem = qq(new $pk already exists or has been retired) if $new_pk_exists;
-							}
-						}
-						if ($problem) {
-							$action = qq(<span class="statusbad">no action - $problem</span>);
-						} else {
-							if ( $value[$i] eq $old_value
-								|| ( $value[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
-							{
-								$action = q(<span class="statusbad">no action - new value unchanged</span>);
-								$update[$i] = 0;
-							} else {
-								$action = q(<span class="statusgood">update field with new value</span>);
-								$update[$i] = 1;
-							}
-						}
-					} else {
-						$action = q(<span class="statusbad">no action - value already in db</span>);
-					}
-				}
-			} else {
-				$old_value = q(<span class="statusbad">field not recognised</span>);
-				$action    = q(<span class="statusbad">no action</span>);
-			}
-			$displayvalue =~ s/<blank>/&lt;blank&gt;/x;
-			$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$field[$i]</td><td>$displayvalue</td>)
-			  . qq(<td>$old_value</td><td>$action</td></tr>);
-			$table_rows++;
-			$td = $td == 1 ? 2 : 1;
+		#Check field is locus or scheme field
+		$args->{'field_type'} = $self->_check_field($args);
+
+		#Check record exists
+		$args->{'profile'} = $self->_check_profile($args);
+
+		#Identify old value
+		$args->{'old_value'} = $args->{'profile'}->{ lc($field) };
+
+		#Check if value already exists and 'overwrite' is not checked
+		$self->_check_overwrite($args);
+		$args->{'old_value'} //= q();
+
+		#If locus, check that a value is provided
+		$self->_check_locus_has_value($args);
+
+		#If integer locus, check value format - allow 'N' if missing_data allowed
+		$self->_check_locus_format($args);
+
+		#If locus, check allele exists
+		$self->_check_allele_exists($args);
+
+		#Check that new value is different from old
+		$self->_check_unchanged_value($args);
+
+		#If locus, check that new profile doesn't already exist
+		$self->_check_existing_profile($args);
+
+		#If locus, check that an allele hasn't already been changed
+		$self->_check_limited_profile_change($args);
+
+		#If pk, check that value is not blank
+		$self->_check_pk_field_not_empty($args);
+
+		#If int field, check field format
+		$self->_check_field_format($args);
+
+		#If pk, check that profile_id not already defined or retired
+		$self->_check_existing_profile_id($args);
+
+		#Rewrite <blank> or null to undef
+		if ( $value eq '<blank>' || $value eq 'null' ) {
+			undef $value;
 		}
-		$value[$i] =~ s/(<blank>|null)//x if defined $value[$i];
-		$i++;
+		my $action =
+		  $problem
+		  ? qq(<span class="statusbad">no action - $problem</span>)
+		  : q(<span class="statusgood">update field with new value</span>);
+		$buffer .= qq(<tr class="td$td"><td>$pk</td><td>$display_field</td><td>$display_value</td>)
+		  . qq(<td>$args->{'old_value'}</td><td>$action</td></tr>);
+		next if $problem;
+		push @validated_actions, { pk => $pk, field => $field, value => $value };
 	}
-	if ($table_rows) {
+	if ($buffer) {
+		say q(<div class="box" id="resultstable"><div class="scrollable">);
+		say q(<p>The following changes will be made to the database.  Please check that this is what )
+		  . q(you intend and then press 'Submit'.  If you do not wish to make these changes, press your )
+		  . q(browser's back button.</p><fieldset style="float:left"><legend>Updates</legend>);
+		say qq(<table class="resultstable"><tr><th>$scheme_info->{'primary_key'}</th>)
+		  . q(<th>Field</th><th>New value</th><th>Value currently in database</th><th>Action</th></tr>);
 		say $buffer;
 		say q(</table></fieldset>);
-		open( my $fh, '>', $file ) or $logger->error("Can't open temp file $file for writing");
-		foreach my $i ( 0 .. @rows - 1 ) {
-			say $fh qq($id[$i]\t$reverse_mapped{$field[$i]}\t$value[$i]) if $update[$i];
+		my $prefix = BIGSdb::Utils::get_random();
+		my $file   = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
+		open( my $fh, '>', $file ) or $logger->error("Cannot open temp file $file for writing");
+
+		foreach my $action (@validated_actions) {
+			$action->{'value'} //= q();
+			say $fh qq($action->{'pk'}\t$action->{'field'}\t$action->{'value'});
 		}
 		close $fh;
 		say $q->start_form;
 		$q->param( update => 1 );
-		$q->param( file   => "$prefix.txt" );
+		$q->param( file   => qq($prefix.txt) );
 		say $q->hidden($_) foreach qw (db page update file scheme_id);
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
 		say $q->endform;
@@ -285,6 +230,170 @@ sub _check {
 	}
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
 	  . q(Back to main page</a></p></div></div>);
+	return;
+}
+
+sub _get_display_value {
+	my ( $self, $value ) = @_;
+	$value =~ s/(<blank>|null)/&lt;blank&gt;/x;
+	return $value;
+}
+
+sub _check_field {
+	my ( $self, $args ) = @_;
+	my ( $field, $fields, $loci, $problem ) = @$args{qw(field fields loci problem)};
+	my %fields = map { $_ => 1 } @$fields;
+	return 'field' if $fields{$field};
+	my %loci = map { $_ => 1 } @$loci;
+	return 'locus' if $loci{$field};
+	$$problem = 'field not recognised';
+	return;
+}
+
+sub _check_profile {
+	my ( $self, $args ) = @_;
+	my ( $pk, $scheme_info, $problem ) = @$args{qw(pk scheme_info problem)};
+	return if $$problem;
+	my $profile_data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM scheme_$scheme_info->{'id'} WHERE $scheme_info->{'primary_key'}=?",
+		$pk, { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::check_profile' } );
+	if ( !$profile_data ) {
+		$$problem = "no editable record with $scheme_info->{'primary_key'}='$pk'";
+	}
+	return $profile_data;
+}
+
+sub _check_overwrite {
+	my ( $self,      $args )    = @_;
+	my ( $old_value, $problem ) = @$args{qw(old_value problem)};
+	return if $$problem;
+	return if $self->{'cgi'}->param('overwrite');
+	if ( defined $old_value ) {
+		$$problem = q(value already in db (select Overwrite checkbox if required));
+	}
+	return;
+}
+
+sub _check_locus_has_value {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $problem ) = @$args{qw(field_type field value problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'locus';
+	my $locus_info = $self->{'datastore'}->get_locus_info($field);
+	if ( $value eq '<blank>' || $value eq 'null' ) {
+		$$problem = q(this is a required field and cannot be left blank);
+	}
+	return;
+}
+
+sub _check_locus_format {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'locus';
+	my $locus_info = $self->{'datastore'}->get_locus_info($field);
+	if (   $locus_info->{'allele_id_format'} eq 'integer'
+		&& !BIGSdb::Utils::is_int($value)
+		&& !( $scheme_info->{'allow_missing_loci'} && $value eq 'N' ) )
+	{
+		$$problem = q(invalid allele id (must be an integer));
+	}
+	return;
+}
+
+sub _check_allele_exists {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $problem ) = @$args{qw(field_type field value problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'locus';
+	if ( !$self->{'datastore'}->sequence_exists( $field, $value ) ) {
+		$$problem = q(allele has not been defined);
+	}
+	return;
+}
+
+sub _check_unchanged_value {
+	my ( $self, $args ) = @_;
+	my ( $old_value, $value, $problem ) = @$args{qw(old_value value problem)};
+	return if $$problem;
+	if ( $old_value eq $value || ( $old_value eq q() && ( $value eq '<blank>' || $value eq 'null' ) ) ) {
+		$$problem = q(new value unchanged);
+	}
+	return;
+}
+
+sub _check_existing_profile {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $scheme_info, $loci, $profile, $pk, $problem ) =
+	  @$args{qw(field_type field value scheme_info loci profile pk problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'locus';
+	my %new_profile;
+	foreach my $locus (@$loci) {
+		$new_profile{"locus:$locus"} = $profile->{ lc($locus) };
+	}
+	$new_profile{"locus:$field"}                        = $value;
+	$new_profile{"field:$scheme_info->{'primary_key'}"} = $pk;
+	my ( $exists, $msg ) = $self->profile_exists( $scheme_info->{'id'}, $scheme_info->{'primary_key'}, \%new_profile );
+	if ($exists) {
+		$$problem = qq(would result in duplicate profile. $msg);
+	}
+	return;
+}
+
+sub _check_limited_profile_change {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $scheme_info, $pk, $problem ) = @$args{qw(field_type field scheme_info pk problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'locus';
+	$self->{'locus_changes_for_pk'}->{ $scheme_info->{'id'} }->{$pk}++;
+	if ( $self->{'locus_changes_for_pk'}->{ $scheme_info->{'id'} }->{$pk} > 1 ) {
+
+		#too difficult to check if new profile already exists otherwise
+		$$problem = q(profile updates are limited to one locus change);
+	}
+	return;
+}
+
+sub _check_pk_field_not_empty {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
+	return if $$problem;
+	return if $field ne $scheme_info->{'primary_key'};
+	if ( $value eq '<blank>' || $value eq 'null' ) {
+		$$problem = q(this is a required field and cannot be left blank);
+	}
+	return;
+}
+
+sub _check_field_format {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'field';
+	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_info->{'id'}, $field );
+	if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+		$$problem = q(invalid field value (must be an integer));
+	}
+	return;
+}
+
+sub _check_existing_profile_id {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'field';
+	my $new_pk_exists = $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT $scheme_info->{'primary_key'} FROM scheme_$scheme_info->{'id'} "
+		  . "WHERE $scheme_info->{'primary_key'}=? UNION SELECT profile_id FROM retired_profiles "
+		  . 'WHERE (scheme_id,profile_id)=(?,?))',
+		[ $value, $scheme_info->{'id'}, $value ],
+		{ cache => 'CurateBatchProfileUpdatePage::check::pkexists' }
+	);
+	if ($new_pk_exists) {
+		$$problem = qq(new $scheme_info->{'primary_key'} already exists or has been retired) if $new_pk_exists;
+	}
 	return;
 }
 
