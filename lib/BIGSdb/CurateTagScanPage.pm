@@ -485,6 +485,7 @@ sub _scan {
 				throw_busy_exception => 1
 			};
 			my $params = $q->Vars;
+			$params->{'scannew'} = 1;
 			try {
 				my $scan = BIGSdb::Offline::Scan->new(
 					{
