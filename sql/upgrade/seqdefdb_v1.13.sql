@@ -128,3 +128,7 @@ CREATE TRIGGER check_profile_defined AFTER INSERT OR UPDATE ON retired_profiles
 ALTER TABLE sequences ADD lock_exemplar boolean;
 ALTER TABLE sequences ADD type_allele boolean;
 ALTER TABLE sequences ADD lock_type boolean;
+
+ALTER TABLE allele_submission_sequences ADD databank text;
+ALTER TABLE allele_submission_sequences ADD databank_id text;
+ALTER TABLE allele_submission_sequences ADD pubmed_id int;
