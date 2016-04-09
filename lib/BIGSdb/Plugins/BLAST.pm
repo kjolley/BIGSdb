@@ -108,7 +108,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -750,7 +750,7 @@ sub _blast {
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
-			return;
+			return [];
 		}
 		$qry .= ' AND method=?';
 		push @criteria, $method;
@@ -759,7 +759,7 @@ sub _blast {
 	if ($project) {
 		if ( !BIGSdb::Utils::is_int($project) ) {
 			$logger->error("Invalid project $project");
-			return;
+			return [];
 		}
 		$qry .= ' AND project_id=?';
 		push @criteria, $project;
@@ -768,7 +768,7 @@ sub _blast {
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
-			return;
+			return [];
 		}
 		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
@@ -783,7 +783,7 @@ sub _blast {
 		say $fastafile_fh ">$id\n$seq";
 	}
 	close $fastafile_fh;
-	return if -z $temp_fastafile;
+	return [] if -z $temp_fastafile;
 	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1 : 11;
 	my $hits             = $form_params->{'hits'}      =~ /(\d+)/x ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
