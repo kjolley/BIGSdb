@@ -150,7 +150,7 @@ sub _upload {
 	my $attributes    = $self->{'datastore'}->get_table_field_attributes($table);
 	my $extra_inserts = [];
 	$self->format_data( $table, $newdata );
-	my @problems      = $self->check_record( $table, $newdata, 1, $data );
+	my @problems = $self->check_record( $table, $newdata, 1, $data );
 	my $status;
 	if (@problems) {
 		local $" = qq(<br />\n);
@@ -196,7 +196,7 @@ sub _upload {
 				push @table_fields, $att->{'name'};
 				push @placeholders, '?';
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' ) {
-					$scheme_structure_changed = 1 if $self->_has_scheme_structure_changed( $data, $newdata, $att );
+					$scheme_structure_changed = $self->_has_scheme_structure_changed( $data, $newdata, $att );
 				}
 				if ( $att->{'name'} =~ /sequence$/x && $newdata->{ $att->{'name'} } ) {
 					$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } );
@@ -729,12 +729,12 @@ sub _prepare_extra_inserts_for_seqbin {
 			}
 		} else {
 			if ( $value ne '' ) {
-				push @$extra_inserts, {
-					statement =>
-					  'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) '
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) '
 					  . 'VALUES (?,?,?,?,?)',
 					arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
-				};
+				  };
 			}
 		}
 	}

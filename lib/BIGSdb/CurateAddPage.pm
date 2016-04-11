@@ -250,16 +250,18 @@ sub _insert {
 				if ( $table eq 'schemes' ) {
 					$self->create_scheme_view( $newdata->{'id'} );
 				} elsif ( $modifies_scheme{$table} ) {
-					my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
-					my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-					my $field_count = @$scheme_fields + @$scheme_loci;
-					if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
-						$continue = 0;
-					} else {
-						$self->remove_profile_data( $newdata->{'scheme_id'} );
-						$self->drop_scheme_view( $newdata->{'scheme_id'} );
-						$self->create_scheme_view( $newdata->{'scheme_id'} );
+					if ( !$scheme_info->{'use_view'} ) {
+						my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
+						my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
+						my $field_count   = @$scheme_fields + @$scheme_loci;
+						if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
+							$continue = 0;
+						} else {
+							$self->remove_profile_data( $newdata->{'scheme_id'} );
+							$self->drop_scheme_view( $newdata->{'scheme_id'} );
+							$self->create_scheme_view( $newdata->{'scheme_id'} );
+						}
 					}
 				} elsif ( $table eq 'sequences' ) {
 					$self->{'datastore'}->mark_cache_stale;
@@ -467,7 +469,7 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 
 sub _check_sequence_retired {
 	my ( $self, $newdata, $problems ) = @_;
-	my $retired = $self->{'datastore'}->is_sequence_retired($newdata->{'locus'}, $newdata->{'allele_id'});
+	my $retired = $self->{'datastore'}->is_sequence_retired( $newdata->{'locus'}, $newdata->{'allele_id'} );
 	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
