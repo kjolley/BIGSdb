@@ -18,6 +18,7 @@ Version 1.11: Change of authentication database structure.
               New Perl modules: Net::Oauth and Crypt::Eksblowfish::Bcrypt 
               required.
 Version 1.12: Change of authentication and seqdef database structures.
+Version 1.13: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -273,3 +274,15 @@ The authentication database has also been modified to more flexibly support
 client software permissions when accessing authenticated resources via the
 RESTful API. Please run auth_v1.12.sql against your authentication database
 (bigsdb_auth by default).
+
+Version 1.13
+------------
+There are changes to the sequence definition database structure to support
+profile retirement. There is also a new locus_stats table and additional fields
+added to the sequences and allele_submission_sequences tables in preparation
+for future functionality. Please run the seqdefdb_v1.13.sql script, found in
+the sql/upgrade directory, against your seqdef database.
+
+The isolate database has also been modified to support future functionality.
+Please run isolatedb_v1.13.sql against your isolate databases.
+
