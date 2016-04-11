@@ -184,61 +184,20 @@ sub _get_form_fields {
 				date_entered   => sub { $self->_get_date_entered_field($args) },
 				curator        => sub { $self->_get_curator_field($args) },
 				boolean        => sub { $self->_get_boolean_field($args) },
-				optlist        => sub { $self->_get_optlist_field($args) }
+				optlist        => sub { $self->_get_optlist_field($args) },
+				text_field     => sub { $self->_get_text_field($args) },
 			);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist)
+				foreign_key datestamp date_entered curator boolean optlist text_field)
 			  )
 			{
 				my $check_buffer = $field_checks{$check}->();
 				$buffer .= $check_buffer;
-				next FIELD if $check_buffer;
-			}
-			if ( $length >= 256 ) {
-				$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
-				  if $att->{'name'} eq 'sequence';
-				$buffer .= $q->textarea(
-					-name    => $name,
-					-id      => $name,
-					-rows    => 6,
-					-cols    => 75,
-					-default => $newdata{ $att->{'name'} },
-					%$html5_args
-				);
-			} elsif ( $length >= 120 ) {
-				$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
-				  if $att->{'name'} eq 'sequence';
-				$buffer .= $q->textarea(
-					-name    => $name,
-					-id      => $name,
-					-rows    => 3,
-					-cols    => 75,
-					-default => $newdata{ $att->{'name'} },
-					%$html5_args
-				);
-			} else {
-				$buffer .= $self->textfield(
-					name      => $name,
-					id        => $name,
-					size      => ( $length > 75 ? 75 : $length ),
-					maxlength => $length,
-					value     => $newdata{ $att->{'name'} },
-					%$html5_args
-				);
-			}
-			if ( $att->{'tooltip'} ) {
-				$buffer .= qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}">)
-				  . q(<span class="fa fa-info-circle"></span></a>);
-			}
-			if ( $att->{'comments'} ) {
-				my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
-				$buffer .= qq( <span class="comment" style="padding-left:$padding">$att->{'comments'}</span>);
-			} elsif ( $att->{'type'} eq 'date'
-				&& lc( $att->{'name'} ne 'datestamp' )
-				&& lc( $att->{'name'} ne 'date_entered' ) )
-			{
-				$buffer .= q( <span class="comment">format: yyyy-mm-dd (or 'today')</span>);
+				if ($check_buffer) {
+					$buffer .= $self->_show_tooltip($args);
+					next FIELD;
+				}
 			}
 			$buffer .= qq(</li>\n);
 		}
@@ -513,6 +472,65 @@ sub _get_optlist_field {
 		-labels  => $labels,
 		%$html5_args
 	);
+}
+
+sub _get_text_field {
+	my ( $self, $args ) = @_;
+	my ( $name, $length, $newdata, $att, $options, $html5_args ) =
+	  @$args{qw(name length newdata att options html5_args)};
+	my $q = $self->{'cgi'};
+	if ( $length >= 256 ) {
+		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
+		  if $att->{'name'} eq 'sequence';
+		return $q->textarea(
+			-name    => $name,
+			-id      => $name,
+			-rows    => 6,
+			-cols    => 75,
+			-default => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	} elsif ( $length >= 120 ) {
+		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
+		  if $att->{'name'} eq 'sequence';
+		return $q->textarea(
+			-name    => $name,
+			-id      => $name,
+			-rows    => 3,
+			-cols    => 75,
+			-default => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	} else {
+		return $self->textfield(
+			name      => $name,
+			id        => $name,
+			size      => ( $length > 75 ? 75 : $length ),
+			maxlength => $length,
+			value     => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	}
+}
+
+sub _show_tooltip {
+	my ( $self, $args ) = @_;
+	my ( $name, $att )  = @$args{qw(name att)};
+	my $buffer = q();
+	if ( $att->{'tooltip'} ) {
+		$buffer .=
+		  qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}">) . q(<span class="fa fa-info-circle"></span></a>);
+	}
+	if ( $att->{'comments'} ) {
+		my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
+		$buffer .= qq( <span class="comment" style="padding-left:$padding">$att->{'comments'}</span>);
+	} elsif ( $att->{'type'} eq 'date'
+		&& lc( $att->{'name'} ne 'datestamp' )
+		&& lc( $att->{'name'} ne 'date_entered' ) )
+	{
+		$buffer .= q( <span class="comment">format: yyyy-mm-dd (or 'today')</span>);
+	}
+	return $buffer;
 }
 
 sub _get_foreign_key_label {
