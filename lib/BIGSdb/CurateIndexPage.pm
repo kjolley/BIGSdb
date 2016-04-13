@@ -703,7 +703,7 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 	if ( $self->is_admin ) {
 		$schemes = $self->{'datastore'}->run_query(
 			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
-			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key AND use_view',
+			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
 			undef,
 			{ fetch => 'col_arrayref' }
 		);

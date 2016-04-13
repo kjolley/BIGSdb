@@ -300,9 +300,6 @@ sub _get_no_update_field {
 				-default  => BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
 			);
 		}
-	} elsif ($att->{'type'} eq 'bool'){
-		my $value = $newdata->{$att->{'name'}} ? 'true' : 'false';
-		$buffer .= qq(<b>$value</b>);
 	} else {
 		$buffer .= qq(<b>$newdata->{$att->{'name'}}</b>);
 	}
@@ -1286,9 +1283,7 @@ sub create_scheme_view {
 	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	return if !@$loci || !@$fields;    #No point creating view if table doesn't have either loci or fields.
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	return
-	  if !$scheme_info->{'primary_key'}
-	  || !$scheme_info->{'use_view'};    #No point creating view without a primary key.
+	return if !$scheme_info->{'primary_key'};    #No point creating view without a primary key.
 	my $qry = "CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS "
 	  . "$scheme_info->{'primary_key'},profiles.sender,profiles.curator,profiles.date_entered,profiles.datestamp";
 

@@ -1157,24 +1157,7 @@ sub get_schemes_table_attributes {
 			type        => 'bool',
 			hide_public => 'yes',
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
-		}
-	  );
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, (
-			{
-				name     => 'use_view',
-				type     => 'bool',
-				required => 'no',
-				default  => 'true',
-				tooltip  => 'use_view - Set up database view of scheme. This should be done for small schemes '
-				  . '(<100 loci) with primary keys such as standard MLST. You should not attempt to use views '
-				  . 'for schemes containing a large number of loci such as cgMLST.',
-				user_update => 'no'
-			}
-		);
-	}
-	push @$attributes,
-	  (
+		},
 		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',    type => 'date', hide_public => 'yes', required => 'yes' },
 		{ name => 'date_entered', type => 'date', hide_public => 'yes', required => 'yes' }

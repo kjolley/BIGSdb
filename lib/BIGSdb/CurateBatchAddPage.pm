@@ -1772,7 +1772,6 @@ sub _regenerate_scheme_view_if_needed {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			next if !$scheme_info->{'use_view'};
 			my $field_count   = @$scheme_fields + @$scheme_loci;
 			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
 				say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
