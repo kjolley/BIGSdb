@@ -760,6 +760,11 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
+	if (!@$checked_buffer){
+		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say q(<p>No valid records to upload after filtering.</p></div>);
+		return;
+	}
 	my $q = $self->{'cgi'};
 	if (%$problems) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
