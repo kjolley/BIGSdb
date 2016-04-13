@@ -707,8 +707,7 @@ sub get_scheme_list {
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
 			  . q(scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.description);
 		} else {
-			$qry = q[SELECT id,description,display_order FROM schemes WHERE id IN (SELECT scheme_id FROM ]
-			  . q[scheme_members) ORDER BY display_order,description];
+			$qry = q[SELECT id,description,display_order FROM schemes ORDER BY display_order,description];
 		}
 	}
 	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
