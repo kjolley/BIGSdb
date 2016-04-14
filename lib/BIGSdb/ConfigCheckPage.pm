@@ -98,7 +98,7 @@ sub _check_locus_databases {
 	my $set_clause =
 	  $set_id
 	  ? 'AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
-	  . 'WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))'
+	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $loci =
 	  $self->{'datastore'}->run_query( "SELECT id FROM loci WHERE dbase_name IS NOT null $set_clause ORDER BY id",
