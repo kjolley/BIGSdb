@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -368,10 +368,9 @@ sub _generate_query_from_locus_fields {
 	my ( $self, $scheme_id ) = @_;
 	my $q      = $self->{'cgi'};
 	my $errors = [];
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $qry         = "SELECT * FROM $scheme_view WHERE (";
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $qry         = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $andor       = $q->param('c0');
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
@@ -407,7 +406,7 @@ sub _generate_query_from_locus_fields {
 		}
 		$qry .= $modifier;
 		if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
-			$qry .= $self->search_users( $field, $operator, $text, $scheme_view );
+			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
 		} else {
 			my $equals =
 			  $text eq 'null'
@@ -445,8 +444,8 @@ sub _modify_query_for_filters {
 	my ( $self, $scheme_id, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
@@ -460,7 +459,7 @@ sub _modify_query_for_filters {
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 				$qry .= " AND ($primary_key IN ('@$ids'))";
 			} else {
-				$qry = "SELECT * FROM $scheme_view WHERE ($primary_key IN ('@$ids'))";
+				$qry = "SELECT * FROM $scheme_warehouse WHERE ($primary_key IN ('@$ids'))";
 			}
 		}
 	}
@@ -472,7 +471,7 @@ sub _modify_query_for_filters {
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 				$qry .= " AND ($_ = '$value')";
 			} else {
-				$qry = "SELECT * FROM $scheme_view WHERE ($_ = '$value')";
+				$qry = "SELECT * FROM $scheme_warehouse WHERE ($_ = '$value')";
 			}
 		}
 	}

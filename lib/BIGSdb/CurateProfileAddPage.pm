@@ -200,9 +200,11 @@ sub _upload {
 
 	#Make sure profile not already entered
 	if ($insert) {
-		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, $newdata );
-		say qq(<div class="box" id="statusbad"><p>$msg</p></div>) if $msg;
-		$insert = 0 if $exists;
+		my %designations=map{$_ => $newdata->{"locus:$_"}} @$loci;
+		
+		my $ret = $self->{'datastore'}->new_check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
+		say qq(<div class="box" id="statusbad"><p>$ret->{'msg'}</p></div>) if $ret->{'msg'};
+		$insert = 0 if $ret->{'exists'};
 	}
 	if ($insert) {
 		my $pk_exists =
@@ -269,21 +271,6 @@ sub _upload {
 				{
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
-
-				#It is more efficient to directly add new records to the materialized view than
-				#to call $self->refresh_material_view($scheme_id).
-				if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-					my @placeholders = ('?') x ( @mv_fields + 4 );
-					local $" = q(,);
-					my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
-					  . "date_entered,datestamp) VALUES (@placeholders)";
-					$self->{'db'}->do(
-						$qry, undef, @mv_values,
-						$newdata->{'field:sender'},
-						$newdata->{'field:curator'},
-						'now', 'now'
-					);
-				}
 			};
 			if ($@) {
 				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
@@ -323,9 +310,7 @@ sub _upload {
 sub profile_exists {
 	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
 	my ( $profile_exists, $msg );
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $qry  = "SELECT $primary_key FROM $scheme_view WHERE ";
+	my $qry  = "SELECT $primary_key FROM mv_scheme_$scheme_id WHERE ";
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my ( @locus_temp, @values );
 	foreach my $locus (@$loci) {

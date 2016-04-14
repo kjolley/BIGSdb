@@ -220,8 +220,6 @@ sub _upload {
 				}
 				if ($scheme_structure_changed) {
 					$self->remove_profile_data( $data->{'scheme_id'} );
-					$self->drop_scheme_view( $data->{'scheme_id'} );
-					$self->create_scheme_view( $data->{'scheme_id'} );
 				}
 			};
 			if ($@) {

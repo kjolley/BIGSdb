@@ -34,7 +34,7 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 		pk text;
 		x RECORD;
 	BEGIN
-		scheme_table := 'scheme_warehouse_' || i_id;
+		scheme_table := 'mv_scheme_' || i_id;
 		PERFORM id FROM schemes WHERE id=i_id;
 		IF NOT FOUND THEN
 			RAISE EXCEPTION 'Scheme % does not exist', i_id;
@@ -59,7 +59,8 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 		EXECUTE FORMAT(
 		'%ssender int,curator int,date_entered date,datestamp date,profile text[] UNIQUE, PRIMARY KEY (%s))', 
 		create_command, pk);
-		EXECUTE FORMAT('GRANT ALL ON %I TO apache',scheme_table);
+		--We need to be able to drop and recreate as apache user.
+		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', scheme_table);
 	END;
 $$ LANGUAGE plpgsql;
 
@@ -74,7 +75,7 @@ CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int) RETURNS VOID AS $
 		x RECORD;
 	BEGIN
 		PERFORM create_scheme_warehouse(i_id);
-		scheme_table := 'scheme_warehouse_' || i_id;
+		scheme_table := 'mv_scheme_' || i_id;
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=i_id AND primary_key;
 		EXECUTE FORMAT(
 		'INSERT INTO %I (%s,sender,curator,date_entered,datestamp) '
@@ -113,7 +114,7 @@ CREATE OR REPLACE FUNCTION modify_scheme() RETURNS TRIGGER AS $modify_scheme$
 		IF NOT EXISTS(SELECT * FROM scheme_fields WHERE scheme_id=i_scheme_id AND primary_key) 
 		OR NOT EXISTS(SELECT * FROM scheme_members WHERE scheme_id=i_scheme_id) THEN	
 			IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
-				scheme_table := 'scheme_warehouse_' || i_scheme_id;
+				scheme_table := 'mv_scheme_' || i_scheme_id;
 				EXECUTE FORMAT('DROP TABLE IF EXISTS %I',scheme_table); 
 				DELETE FROM scheme_warehouse_indices WHERE scheme_id=i_scheme_id;
 			END IF;
@@ -139,14 +140,14 @@ CREATE OR REPLACE FUNCTION modify_profile() RETURNS TRIGGER AS $modify_profile$
 	BEGIN
 		IF (TG_OP = 'INSERT') THEN
 			SELECT field INTO pk FROM scheme_fields WHERE scheme_id=NEW.scheme_id AND primary_key;
-			scheme_table := 'scheme_warehouse_' || NEW.scheme_id;		
+			scheme_table := 'mv_scheme_' || NEW.scheme_id;		
 			EXECUTE FORMAT(
 			'INSERT INTO %I (%s,sender,curator,date_entered,datestamp) VALUES ($1,$2,$3,$4,$5)',
 			scheme_table,pk) USING 
 			NEW.profile_id,NEW.sender,NEW.curator,NEW.date_entered,NEW.datestamp;
 			RETURN NEW;
 		END IF;
-		scheme_table := 'scheme_warehouse_' || OLD.scheme_id;
+		scheme_table := 'mv_scheme_' || OLD.scheme_id;
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=OLD.scheme_id AND primary_key;
 		IF (TG_OP = 'DELETE') THEN			
 			EXECUTE FORMAT('DELETE FROM %I WHERE %s=$1',scheme_table,pk) USING OLD.profile_id;
@@ -173,7 +174,7 @@ CREATE OR REPLACE FUNCTION modify_profile_field() RETURNS TRIGGER AS $modify_pro
 			IF (pk = NEW.scheme_field) THEN
 				RETURN NEW;
 			END IF;
-			scheme_table := 'scheme_warehouse_' || NEW.scheme_id;		
+			scheme_table := 'mv_scheme_' || NEW.scheme_id;		
 			EXECUTE FORMAT('UPDATE %I SET %s=$1 WHERE %s=$2',scheme_table,NEW.scheme_field,pk) USING 
 			NEW.value,NEW.profile_id;
 			RETURN NEW;
@@ -181,7 +182,7 @@ CREATE OR REPLACE FUNCTION modify_profile_field() RETURNS TRIGGER AS $modify_pro
 		IF (pk = OLD.scheme_field) THEN
 			RETURN OLD;
 		END IF;
-		scheme_table := 'scheme_warehouse_' || OLD.scheme_id;
+		scheme_table := 'mv_scheme_' || OLD.scheme_id;
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=OLD.scheme_id AND primary_key;
 		IF (TG_OP = 'DELETE') THEN			
 			EXECUTE FORMAT('UPDATE %I SET %s=null WHERE %s=$1',scheme_table,OLD.scheme_field,pk) USING OLD.profile_id;
@@ -205,7 +206,7 @@ CREATE OR REPLACE FUNCTION modify_profile_member() RETURNS TRIGGER AS $modify_pr
 		locus_index int;
 	BEGIN
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=NEW.scheme_id AND primary_key;
-		scheme_table := 'scheme_warehouse_' || NEW.scheme_id;
+		scheme_table := 'mv_scheme_' || NEW.scheme_id;
 		SELECT index INTO locus_index FROM scheme_warehouse_indices WHERE scheme_id=NEW.scheme_id AND locus=NEW.locus;
 		EXECUTE FORMAT('UPDATE %I SET profile[$1]=$2 WHERE %s=$3',scheme_table,pk) USING 
 		locus_index,NEW.allele_id,NEW.profile_id;
@@ -216,3 +217,14 @@ $modify_profile_member$ LANGUAGE plpgsql;
 CREATE TRIGGER modify_profile_member AFTER INSERT OR UPDATE ON profile_members
 	FOR EACH ROW
 	EXECUTE PROCEDURE modify_profile_member();
+	
+--Remove old materialized view functions and triggers
+DROP FUNCTION create_matview(name,name);
+DROP FUNCTION drop_matview(name);
+DROP FUNCTION refresh_matview(name);
+DROP TABLE matviews;
+	
+--Set up scheme warehouses
+SELECT initiate_scheme_warehouse(scheme_id) FROM scheme_fields WHERE PRIMARY_KEY AND 
+scheme_id IN (SELECT scheme_id FROM scheme_members);
+

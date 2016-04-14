@@ -224,24 +224,11 @@ sub _refresh_db_views {
 	{
 		foreach (@$scheme_ids) {
 			$self->remove_profile_data($_);
-			$self->drop_scheme_view($_);
-			$self->create_scheme_view($_);
-		}
-		return;
-	}
-	if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		foreach (@$scheme_ids) {
-			$self->drop_scheme_view($_);
 		}
 		return;
 	}
 	if ( $table eq 'sequences' ) {
 		$self->{'datastore'}->mark_cache_stale;
-		return;
-	}
-	if ( $table eq 'profiles' ) {
-		my $scheme_id = $q->param('scheme_id');
-		$self->refresh_material_view($scheme_id);
 		return;
 	}
 	return;

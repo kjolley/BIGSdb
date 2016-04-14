@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,10 +41,10 @@ sub print_content {
 		return;
 	}
 	say q(<div class="box" id="queryform">);
-	say q(<h2>Rebuild scheme views</h2>);
-	say q(<p>Scheme views can become damaged if the database is modifed outside of the web interface. This )
+	say q(<h2>Rebuild scheme warehouse tables</h2>);
+	say q(<p>Schemes can become damaged if the database is modifed outside of the web interface. This )
 	  . q(is especially likely if loci that belong to schemes are renamed.</p>);
-	say q(<p>As materialized views are enabled for this database, these will also be (re)created.</p>)
+	say q(<p>Warehouse tables will be (re)created.</p>)
 	  if $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes';
 	my $schemes = $self->{'datastore'}->run_query(
 		'SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields '
@@ -78,8 +78,7 @@ sub print_content {
 sub _rebuild {
 	my ( $self, $scheme_id ) = @_;
 	eval {
-		$self->drop_scheme_view($scheme_id);
-		$self->create_scheme_view($scheme_id);
+		$self->{'datastore'}->run_query("SELECT initiate_scheme_warehouse($scheme_id)");
 	};
 	if ($@) {
 		$logger->error($@);

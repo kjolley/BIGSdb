@@ -191,19 +191,6 @@ sub _check_locus_descriptions {
 	return;
 }
 
-sub _too_many_cols {
-	my ( $self, $has_pk, $field_count ) = @_;
-	if ( $has_pk && $field_count > MAX_POSTGRES_COLS ) {
-		say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-		  . MAX_POSTGRES_COLS
-		  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's )
-		  . q(not really sensible to have indexed schemes (those with a primary key field) to have so )
-		  . q(many fields. Update failed.</p></div);
-		return 1;
-	}
-	return;
-}
-
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -247,20 +234,8 @@ sub _insert {
 			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				my %modifies_scheme = map { $_ => 1 } qw(scheme_members scheme_fields);
-				if ( $table eq 'schemes' ) {
-					$self->create_scheme_view( $newdata->{'id'} );
-				} elsif ( $modifies_scheme{$table} ) {
-					my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
-					my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
-					my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-					my $field_count = @$scheme_fields + @$scheme_loci;
-					if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
-						$continue = 0;
-					} else {
-						$self->remove_profile_data( $newdata->{'scheme_id'} );
-						$self->drop_scheme_view( $newdata->{'scheme_id'} );
-						$self->create_scheme_view( $newdata->{'scheme_id'} );
-					}
+				if ( $modifies_scheme{$table} ) {
+					$self->remove_profile_data( $newdata->{'scheme_id'} );
 				} elsif ( $table eq 'sequences' ) {
 					$self->{'datastore'}->mark_cache_stale;
 				}
@@ -467,7 +442,7 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 
 sub _check_sequence_retired {
 	my ( $self, $newdata, $problems ) = @_;
-	my $retired = $self->{'datastore'}->is_sequence_retired($newdata->{'locus'}, $newdata->{'allele_id'});
+	my $retired = $self->{'datastore'}->is_sequence_retired( $newdata->{'locus'}, $newdata->{'allele_id'} );
 	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}

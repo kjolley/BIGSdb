@@ -422,9 +422,90 @@ sub profile_exists {
 	);
 }
 
+#TODO Rename once we remove old method
+sub new_check_new_profile {
+	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $scheme_info      = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk               = $scheme_info->{'primary_key'};
+	my $loci = $self->run_query( 'SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=? ORDER BY index',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	my @profile;
+	my $empty_profile = 1;
+	foreach my $locus (@$loci) {
+		push @profile, $designations->{$locus};
+		$empty_profile = 0 if !( ( $designations->{$locus} // 'N' ) eq 'N' );
+	}
+	if ($empty_profile) {
+		return {
+			exists => 1,
+			msg    => q(You cannot define a profile with every locus set to be an arbitrary value (N).)
+		};
+	}
+	my $pg_array = BIGSdb::Utils::get_pg_array( \@profile );
+	if ( !$scheme_info->{'allow_missing_loci'} ) {
+		my $exact_match = $self->run_query( "SELECT $pk FROM $scheme_warehouse WHERE profile=?", $pg_array );
+		if ($exact_match) {
+			return {
+				exists   => 1,
+				assigned => [$exact_match],
+				msg      => qq(Profile has already been defined as $pk-$exact_match.)
+			};
+		}
+		return { exists => 0 };
+	}
+
+	#Check for matches where N may be used in the profile
+	my $i = 0;
+	my ( @locus_temp, @values );
+	foreach my $locus (@$loci) {
+
+		#N can be any allele so can not be used to differentiate profiles
+		$i++;
+		next if ( $designations->{$locus} // '' ) eq 'N';
+		push @locus_temp, "(profile[$i]=? OR profile[$i]='N')";
+		push @values,     $designations->{$locus};
+		
+	}
+	my $qry = "SELECT $pk FROM $scheme_warehouse WHERE ";
+	local $" = ' AND ';
+	$qry .= "(@locus_temp)";
+	my $locus_count = @locus_temp;
+	my $matching_profiles =
+	  $self->run_query( $qry, \@values,
+		{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$locus_count" } );
+	if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
+		my $msg;
+		if ( @locus_temp < @$loci ) {
+			my $first_match;
+			foreach my $profile_id (@$matching_profiles) {
+				if ( $profile_id ne $pk_value ) {
+					$first_match = $profile_id;
+					last;
+				}
+			}
+			$msg .=
+			    q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
+			  . q(with actual values at that locus and cannot therefore be defined.  This profile matches )
+			  . qq($pk-$first_match);
+			my $other_matches = @$matching_profiles - 1;
+			$other_matches-- if ( any { $pk_value eq $_ } @$matching_profiles );    #if updating don't match to self
+			if ($other_matches) {
+				$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
+			}
+			$msg .= q(.);
+		} else {
+			$msg .= qq(Profile has already been defined as $pk-$matching_profiles->[0].);
+		}
+		return { exists => 1, assigned => $matching_profiles, msg => $msg };
+	}
+	return { exists => 0 };
+}
+
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
 	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
+	$logger->error('This method is deprecated - move to Datastore::new_check_new_profile');
 	my ( $profile_exists, $msg );
 	my $scheme_view = $self->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -2365,12 +2446,5 @@ sub get_metadata_value {
 	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
 		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
 	return $data->{ lc($metafield) } // '';
-}
-
-sub materialized_view_exists {
-	my ( $self, $scheme_id ) = @_;
-	return 0 if ( ( $self->{'system'}->{'materialized_views'} // '' ) ne 'yes' );
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM matviews WHERE mv_name=?)',
-		"mv_scheme_$scheme_id", { cache => 'materialized_view_exists' } );
 }
 1;

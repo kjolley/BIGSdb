@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -363,10 +363,6 @@ sub _confirm {
 			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
 		{
 			$self->remove_profile_data( $data->{'scheme_id'} );
-			$self->drop_scheme_view( $data->{'scheme_id'} );
-			$self->create_scheme_view( $data->{'scheme_id'} );
-		} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$self->drop_scheme_view( $data->{'id'} );
 		}
 	};
 	if ($@) {

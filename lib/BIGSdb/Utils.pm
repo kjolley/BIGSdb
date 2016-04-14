@@ -561,4 +561,16 @@ sub get_datestamp {
 	my $day  = $date[3];
 	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
 }
+
+sub get_pg_array {
+	my ($profile) = @_;
+	my @cleaned_values;
+	foreach my $value (@$profile){
+		$value =~ s/"/\\"/gx;
+		$value =~ s/\\/\\\\/gx;
+		push @cleaned_values, $value;
+	}
+	local $" = q(",");
+	return qq({"@cleaned_values"});
+}
 1;

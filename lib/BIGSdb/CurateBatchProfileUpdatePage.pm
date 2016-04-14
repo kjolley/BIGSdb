@@ -521,7 +521,6 @@ sub _update {
 			say q(<p>Transaction failed - no changes made.</p>);
 		} else {
 			$self->{'db'}->commit;
-			$self->refresh_material_view($scheme_id);
 			$self->update_profile_history( $scheme_id, $_->{'id'}, $_->{'action'} ) foreach @history_updates;
 			say q(<p>Transaction complete - database updated.</p>);
 		}
