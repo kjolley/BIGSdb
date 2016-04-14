@@ -437,6 +437,12 @@ sub get_scheme_locus_indices {
 	return \%indices;
 }
 
+sub get_scheme_warehouse_locus_name {
+	my ($self, $scheme_id, $locus) = @_;
+	my $locus_indices = $self->get_scheme_locus_indices( $scheme_id, { pg_numbering => 1 } );
+	return "profile[$locus_indices->{$locus}]";
+}
+
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
 	my ( $self, $scheme_id, $designations, $pk_value ) = @_;

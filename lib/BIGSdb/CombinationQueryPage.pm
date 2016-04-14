@@ -325,7 +325,7 @@ sub _generate_query {
 	if (@lqry) {
 		local $" = ' OR ';
 		my $required_matches = $q->param('matches_list');
-		$required_matches = scalar @lqry if $required_matches == @loci;
+		$required_matches = @lqry if $required_matches == @loci;
 		my $lqry;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
