@@ -422,6 +422,21 @@ sub profile_exists {
 	);
 }
 
+sub get_scheme_locus_indices {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $data = $self->run_query( 'SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref' } );
+	#PostgreSQL numbers arrays from 1 - Perl numbers from 0.
+	my %indices;
+	if ($options->{'pg_numbering'}){
+		%indices= map { $_->[0] => $_->[1] } @$data;
+	} else {
+		%indices= map { $_->[0] => ($_->[1]-1) } @$data;
+	}
+	return \%indices;
+}
+
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
 	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
@@ -465,7 +480,6 @@ sub check_new_profile {
 		next if ( $designations->{$locus} // '' ) eq 'N';
 		push @locus_temp, "(profile[$i]=? OR profile[$i]='N')";
 		push @values,     $designations->{$locus};
-		
 	}
 	my $qry = "SELECT $pk FROM $scheme_warehouse WHERE ";
 	local $" = ' AND ';
@@ -501,8 +515,6 @@ sub check_new_profile {
 	}
 	return { exists => 0 };
 }
-
-
 ##############ISOLATE CLIENT DATABASE ACCESS FROM SEQUENCE DATABASE####################
 sub get_client_db_info {
 	my ( $self, $id ) = @_;

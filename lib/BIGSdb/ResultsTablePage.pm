@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -710,7 +710,7 @@ sub _print_isolate_table_header {
 		display_contig_count => 'Contigs',
 		display_publications => 'Publications'
 	);
-	foreach my $field ( qw (display_seqbin_main display_contig_count display_publications)) {
+	foreach my $field (qw (display_seqbin_main display_contig_count display_publications)) {
 		$fieldtype_header .= qq(<th rowspan="2">$pref_fields{$field}</th>) if $self->{'prefs'}->{$field};
 	}
 	my ( $scheme_field_type_header, $scheme_header ) = $self->_get_isolate_header_scheme_fields( $schemes, $limit_qry );
@@ -937,7 +937,6 @@ sub _print_profile_table {
 		my $offset = ( $page - 1 ) * $pagesize;
 		$qry_limit =~ s/;\s*$/ LIMIT $pagesize OFFSET $offset;/x;
 	}
-	$logger->debug("Passed query: $qry");
 	my ( $sql, $limit_sql );
 	$limit_sql = $self->{'db'}->prepare($qry_limit);
 	$logger->debug("Limit qry: $qry_limit");
@@ -981,8 +980,8 @@ sub _print_profile_table {
 		say qq(<th>$cleaned</th>);
 	}
 	say q(</tr>);
-	my $td = 1;
-
+	my $td            = 1;
+	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	#Run limited page query for display
 	while ( my $data = $limit_sql->fetchrow_hashref ) {
 		my $pk_value     = $data->{ lc($primary_key) };
@@ -999,9 +998,8 @@ sub _print_profile_table {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
 			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value">$pk_value</a></td>);
 		}
-		foreach (@$loci) {
-			( my $cleaned = $_ ) =~ s/'/_PRIME_/gx;
-			print qq(<td>$data->{lc($cleaned)}</td>);
+		foreach my $locus (@$loci) {
+			print qq(<td>$data->{'profile'}->[$locus_indices->{$locus}]</td>);
 		}
 		foreach (@$scheme_fields) {
 			next if $_ eq $primary_key;
