@@ -335,9 +335,11 @@ sub _check_existing_profile {
 	}
 	$new_profile{"locus:$field"}                        = $value;
 	$new_profile{"field:$scheme_info->{'primary_key'}"} = $pk;
-	my ( $exists, $msg ) = $self->profile_exists( $scheme_info->{'id'}, $scheme_info->{'primary_key'}, \%new_profile );
-	if ($exists) {
-		$$problem = qq(would result in duplicate profile. $msg);
+	my %designations = map { $_ => $new_profile{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
+	if ($ret->{'exists'}) {
+		$$problem = qq(would result in duplicate profile. $ret->{'msg'});
 	}
 	return;
 }

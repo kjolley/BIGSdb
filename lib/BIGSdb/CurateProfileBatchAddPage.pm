@@ -295,10 +295,12 @@ sub _check {
 		$first_record = 0;
 
 		#check if profile exists
-		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		if ($profile_exists) {
+		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
+		if ( $ret->{'exists'} ) {
 			next RECORD if $q->param('ignore_existing');
-			$problems{$pk} .= "$msg<br />";
+			$problems{$pk} .= "$ret->{'msg'}<br />";
 		}
 
 		#check if primary key already exists
