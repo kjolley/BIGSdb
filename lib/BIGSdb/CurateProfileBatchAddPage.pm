@@ -98,8 +98,9 @@ sub get_title {
 sub _is_pk_used {
 	my ( $self, $scheme_id, $profile_id ) = @_;
 	return $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
-		[ $scheme_id, $profile_id ],
+		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?)) OR '
+		. 'EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id,$scheme_id, $profile_id ],
 		{ cache => 'CurateProfileBatchAddPage::is_pk_used' }
 	);
 }
