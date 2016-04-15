@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS :submissions);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID :submissions);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');

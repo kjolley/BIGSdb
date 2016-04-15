@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID MAX_POSTGRES_COLS DATABANKS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS);
 use constant SUCCESS => 1;
 
 sub initiate {

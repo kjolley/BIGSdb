@@ -24,11 +24,10 @@ our @EXPORT_OK;
 our %EXPORT_TAGS;
 
 #Limits
-use constant MAX_POSTGRES_COLS => 1664;
 use constant MAX_SPLITS_TAXA   => 200;
 use constant MAX_MUSCLE_MB     => 4 * 1024;            #4GB
-push @EXPORT_OK, qw(MAX_POSTGRES_COLS MAX_SPLITS_TAXA MAX_MUSCLE_MB);
-$EXPORT_TAGS{'limits'} = [qw(MAX_POSTGRES_COLS MAX_SPLITS_TAXA MAX_MUSCLE_MB)];
+push @EXPORT_OK, qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB);
+$EXPORT_TAGS{'limits'} = [qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB)];
 
 #Methods
 use constant SEQ_METHODS =>
