@@ -223,7 +223,6 @@ sub _update {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my @matview;
 	foreach my $locus ( keys %$locus_changed ) {
 		eval {
 			$self->{'db'}->do(
@@ -236,13 +235,6 @@ sub _update {
 			$self->_handle_failure;
 			return;
 		}
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-		push @matview,
-		  {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($cleaned,datestamp,curator)=(?,?,?) WHERE "
-			  . "$locus_info->{'primary_key'}=?",
-			arguments => [ $newdata->{"locus:$locus"}, 'now', $curator_id, $profile_id ]
-		  };
 		push @$updated_field, qq($locus: '$allele_data->{$locus}' -> '$newdata->{"locus:$locus"}');
 	}
 	foreach my $field ( keys %$field_changed ) {
@@ -296,11 +288,6 @@ sub _update {
 		}
 		my $value = $newdata->{"field:$field"};
 		undef $value if $newdata->{"field:$field"} eq q();
-		push @matview, {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($field,datestamp,curator)=(?,?,?) WHERE "
-			  . "$locus_info->{'primary_key'}=?",
-			arguments => [ $value, 'now', $curator_id, $profile_id ]
-		};
 	}
 	if ( keys %$locus_changed || keys %$field_changed ) {
 		eval {
@@ -317,11 +304,6 @@ sub _update {
 		foreach my $insert (@$extra_inserts)
 		{
 			$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-		}
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			foreach my $insert (@matview) {
-				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-			}
 		}
 	};
 	if ($@) {

@@ -57,12 +57,10 @@ sub _pre_check_failed {
 		say q(<div class="box" id="warning"><p>Please be aware that any changes to the )
 		  . q(structure of a scheme will result in all data being removed from it. This )
 		  . q(will happen if you modify the type or change whether the field is a primary key. )
-		  . q(All other changes are ok.</p>);
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			say q(<p>If you change the index status of a field you will also need to rebuild the )
-			  . q(scheme table to reflect this change. This can be done by selecting 'Configuration )
-			  . q(repair' on the main curation page.</p>);
-		}
+		  . q(All other changes are ok.</p>)
+		  . q(<p>If you change the index status of a field you will also need to rebuild the )
+		  . q(scheme table to reflect this change. This can be done by selecting 'Configuration )
+		  . q(repair' on the main curation page.</p>);
 		say q(</div>);
 	}
 	return;
@@ -150,7 +148,7 @@ sub _upload {
 	my $attributes    = $self->{'datastore'}->get_table_field_attributes($table);
 	my $extra_inserts = [];
 	$self->format_data( $table, $newdata );
-	my @problems      = $self->check_record( $table, $newdata, 1, $data );
+	my @problems = $self->check_record( $table, $newdata, 1, $data );
 	my $status;
 	if (@problems) {
 		local $" = qq(<br />\n);
@@ -727,12 +725,12 @@ sub _prepare_extra_inserts_for_seqbin {
 			}
 		} else {
 			if ( $value ne '' ) {
-				push @$extra_inserts, {
-					statement =>
-					  'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) '
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) '
 					  . 'VALUES (?,?,?,?,?)',
 					arguments => [ $newdata->{'id'}, $attribute->{'key'}, $value, $newdata->{'curator'}, 'now' ]
-				};
+				  };
 			}
 		}
 	}

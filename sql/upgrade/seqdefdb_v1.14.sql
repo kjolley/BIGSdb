@@ -59,6 +59,11 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 		EXECUTE FORMAT(
 		'%ssender int,curator int,date_entered date,datestamp date,profile text[] UNIQUE, PRIMARY KEY (%s))', 
 		create_command, pk);
+		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
+			IF x.index THEN
+				EXECUTE FORMAT('CREATE INDEX ON %I(%s)',scheme_table,x.field);
+			END IF;
+		END LOOP;
 		--We need to be able to drop and recreate as apache user.
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', scheme_table);
 	END;
