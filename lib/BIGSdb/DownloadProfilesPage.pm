@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -62,11 +62,10 @@ sub print_content {
 	print $primary_key;
 	my @fields = ($primary_key);
 	foreach my $locus (@$loci) {
-		print qq(\t);
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
-		print $header_value;
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
+		print qq(\t$header_value);
+		my $cleaned = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
 		push @fields, $cleaned;
 	}
 	foreach my $field (@$scheme_fields) {
@@ -76,17 +75,16 @@ sub print_content {
 	}
 	print qq(\n);
 	local $" = q(,);
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? qq(mv_scheme_$scheme_id) : qq(scheme_$scheme_id);
-	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry = "SELECT @fields FROM $scheme_view ORDER BY "
+	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
+	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $qry              = "SELECT @fields FROM $scheme_warehouse ORDER BY "
 	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	local $" = qq(\t);
 	{
 		no warnings 'uninitialized';    #scheme field values may be undefined
 		foreach my $profile (@$data) {
-			say "@$profile";
+			say qq(@$profile);
 		}
 	}
 	return;

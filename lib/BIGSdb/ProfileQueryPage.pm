@@ -355,7 +355,7 @@ sub _generate_query {
 
 	if ( $self->{'datastore'}->is_locus($order) ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($order);
-		my $cleaned_order = $self->{'datastore'}->get_scheme_warehouse_locus_name($scheme_id,$order);
+		my $cleaned_order = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $order );
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$order = "to_number(textcat('0', $cleaned_order), text(99999999))";    #Handle arbitrary allele = 'N'
 		}
@@ -406,7 +406,7 @@ sub _generate_query_from_locus_fields {
 		$qry .= $modifier;
 		my $cleaned_field = $field;
 		if ($is_locus) {
-			$cleaned_field = $self->{'datastore'}->get_scheme_warehouse_locus_name($scheme_id,$field);
+			$cleaned_field = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $field );
 		}
 		if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
 			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
@@ -491,8 +491,9 @@ sub _modify_by_list {
 		$field = $1;
 		return $qry if !$self->{'datastore'}->is_scheme_field( $scheme_id, $field );
 	} elsif ( $q->param('attribute') =~ /^l_(.*)$/x ) {
-		$field = $1;
-		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $field );
+		my $locus = $1;
+		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $locus );
+		$field = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
 	}
 	my @list = split /\n/x, $q->param('list');
 	@list = uniq @list;
@@ -505,13 +506,12 @@ sub _modify_by_list {
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	say $fh $_ foreach @list;
 	close $fh;
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
 
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 		$qry .= ' AND ';
 	} else {
-		$qry = "SELECT * FROM $scheme_view WHERE ";
+		$qry = "SELECT * FROM $scheme_warehouse WHERE ";
 	}
 	$qry .= "($field IN (SELECT value FROM $temp_table))";
 	return ( $qry, $list_file );

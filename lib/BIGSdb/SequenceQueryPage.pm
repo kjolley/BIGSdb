@@ -523,16 +523,13 @@ sub _generate_batch_table {
 				local $" = q(; );
 				$self->{'batch_results'}->{$id}->{$scheme_locus} //= [];
 				push @args, "@{$self->{'batch_results'}->{$id}->{$scheme_locus}}";
-				( my $cleaned = $scheme_locus ) =~ s/'/_PRIME_/gx;
-				push @cleaned_loci, $cleaned;
+				push @cleaned_loci,
+				  $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $scheme_locus );
 			}
-			my $scheme_table =
-			  $self->{'datastore'}->materialized_view_exists($scheme_id)
-			  ? qq(mv_scheme_$scheme_id)
-			  : qq(scheme_$scheme_id);
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_warehouse = qq(mv_scheme_$scheme_id);
+			my $scheme_fields    = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			local $" = q(,);
-			my $qry = qq(SELECT @$scheme_fields FROM $scheme_table WHERE );
+			my $qry = qq(SELECT @$scheme_fields FROM $scheme_warehouse WHERE );
 			local $" = q( IN (?,'N') AND );
 			$qry .= qq(@cleaned_loci IN (?,'N'));
 			my $field_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'row_arrayref' } );

@@ -44,8 +44,7 @@ sub print_content {
 	say q(<h2>Rebuild scheme warehouse tables</h2>);
 	say q(<p>Schemes can become damaged if the database is modifed outside of the web interface. This )
 	  . q(is especially likely if loci that belong to schemes are renamed.</p>);
-	say q(<p>Warehouse tables will be (re)created.</p>)
-	  if $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes';
+	say q(<p>Warehouse tables will be (re)created.</p>);
 	my $schemes = $self->{'datastore'}->run_query(
 		'SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields '
 		  . 'WHERE primary_key) AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id',
