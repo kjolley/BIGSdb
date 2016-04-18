@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,8 +28,20 @@ sub new {    ## no critic (RequireArgUnpacking)
 	my $self  = {@_};
 	$self->{'sql'} = {};
 	bless( $self, $class );
+	$self->_initiate;
 	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) set up.");
 	return $self;
+}
+
+sub _initiate {
+	my ($self) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
+	eval { $sql->execute( $self->{'id'} ); };
+	$logger->error($@) if $@;
+	my $data = $sql->fetchall_arrayref;
+	my %indices = map { $_->[0] => $_->[1] } @$data;
+	$self->{'locus_index'} = \%indices;
+	return;
 }
 
 sub DESTROY {
@@ -49,9 +61,10 @@ sub get_profile_by_primary_keys {
 	return if !$self->{'db'};
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
-		s/'/_PRIME_/gx foreach @$loci;
+		my @locus_names;
+		push @locus_names, "profile[$self->{'locus_index'}->{$_}]" foreach @$loci;
 		local $" = ',';
-		my $qry = "SELECT @$loci FROM $self->{'dbase_table'} WHERE ";
+		my $qry = "SELECT @locus_names FROM $self->{'dbase_table'} WHERE ";
 		local $" = '=? AND ';
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
@@ -103,8 +116,7 @@ sub get_field_values_by_designations {
 		my @locus_list;
 		my $i = 0;
 		foreach my $locus (@$loci) {
-			my $locus_name = $locus;    #Don't nobble $locus - make a copy and use that.
-			$locus_name =~ s/'/_PRIME_/gx;
+			my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
 			push @locus_list, $locus_name;
 			my @temp_terms;
 			push @temp_terms, ("$locus_name=?") x $allele_count[$i];

@@ -187,7 +187,7 @@ sub _print_query_interface {
 	say qq(<tr>$header_row</tr>);
 	say qq(<tr>$form_row</tr>);
 	say q(</table></fieldset>);
-	if ($primary_key) {
+	if ($primary_key && $scheme_info->{'dbase_table'}) {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
 		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
