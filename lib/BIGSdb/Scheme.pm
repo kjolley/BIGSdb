@@ -36,12 +36,20 @@ sub new {    ## no critic (RequireArgUnpacking)
 sub _initiate {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
-	eval { $sql->execute( $self->{'id'} ); };
-	$logger->error($@) if $@;
-	my $data = $sql->fetchall_arrayref;
-	my %indices = map { $_->[0] => $_->[1] } @$data;
-	$self->{'locus_index'} = \%indices;
+	if ( $self->{'dbase_table'} =~ /scheme_(\d+)$/ ) {
+		my $scheme_id = $1;
+		eval { $sql->execute($scheme_id); };
+		$logger->error($@) if $@;
+		my $data = $sql->fetchall_arrayref;
+		my %indices = map { $_->[0] => $_->[1] } @$data;
+		$self->{'locus_index'} = \%indices;
+	}
 	return;
+}
+
+sub get_locus_indices {
+	my ($self) = @_;
+	return $self->{'locus_index'};
 }
 
 sub DESTROY {
