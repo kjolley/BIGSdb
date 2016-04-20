@@ -32,6 +32,7 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
 use IO::Handle;
+use Digest::MD5;
 
 sub new {
 	my ( $class, @atr ) = @_;
@@ -431,7 +432,7 @@ sub check_new_profile {
 	my $pk          = $scheme_info->{'primary_key'};
 	my $qry         = "SELECT $pk FROM $scheme_view WHERE ";
 	my $loci        = $self->get_scheme_loci($scheme_id);
-	my ( @locus_temp, @values );
+	my ( @locus_temp, @values, $temp_cache_key );
 
 	foreach my $locus (@$loci) {
 		next
@@ -439,15 +440,16 @@ sub check_new_profile {
 		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
 		push @locus_temp, "($cleaned=? OR $cleaned='N')";
 		push @values,     $designations->{$locus};
+		$temp_cache_key .= $locus;
 	}
+	my $cache_key = Digest::MD5::md5_hex($temp_cache_key);
 	local $" = ' AND ';
 	$qry .= "(@locus_temp)";
 	my $matching_profiles = [];
 	if (@locus_temp) {
-		my $locus_count = @locus_temp;
 		$matching_profiles =
 		  $self->run_query( $qry, \@values,
-			{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$locus_count" } );
+			{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$cache_key" } );
 		$pk_value //= '';
 		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
 			if ( @locus_temp < @$loci ) {
