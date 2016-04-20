@@ -16,81 +16,83 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_warehouse_indices TO apache;
 
-CREATE OR REPLACE FUNCTION create_isolate_scheme_array(scheme_id int,view text) RETURNS VOID AS $$
-	DECLARE
-		cache_table text;
-		isolate RECORD;
-		locus RECORD;
-		x RECORD;
-		locus_index int;
-		current_id int;
-		current_profile text[];
-	BEGIN
-		cache_table:='temp_' || view || '_scheme_profiles_' || scheme_id;
-		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
-			EXECUTE FORMAT('DROP TABLE %I', cache_table);
-		END IF;
-		EXECUTE(FORMAT('CREATE TABLE %s (id int, profile text[])',cache_table));
-		--Check isolates that have duplicate alleles.
-		FOR isolate IN EXECUTE(FORMAT('SELECT id FROM %I',view)) LOOP
-			FOR locus IN EXECUTE('SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=$1 ORDER BY index') USING scheme_id LOOP
---				RAISE NOTICE '% %', isolate.id, locus.locus;
-			END LOOP;
-		END LOOP;
-		
-		EXECUTE FORMAT('CREATE INDEX ON %I(id)', cache_table);
-		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', cache_table);
-		
-		--Create table of isolates with duplicate values???
-	END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION create_isolate_scheme_allele_cache(i_id int,s_view text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) RETURNS VOID AS $$
 	DECLARE
 		cache_table text;
 		scheme_table text;
-		allele_table text;
-		sql text;
-		x RECORD;
-		loci RECORD;
-		profile RECORD;
-		pk text;
-		pk_type text;
-		locus_indices text[];
-		i integer;
+		fields text[];
+		loci text[];
+		scheme_locus_count int;
+		scheme_info RECORD;
+		scheme_fields text;
+		locus_count int;
+		qry text;
+		allele_count int;
+		isolate RECORD;
 	BEGIN
-		cache_table:='temp_' || s_view || '_scheme_fields_' || i_id;
+		EXECUTE('SELECT * FROM schemes WHERE id=$1') INTO scheme_info USING scheme_id;
+		IF (scheme_info.id IS NULL) THEN
+			RAISE EXCEPTION 'Scheme % does not exist.', scheme_id;
+		END IF;
+		cache_table:='temp_' || view || '_scheme_fields_' || scheme_id;
+		scheme_table:='temp_scheme_' || scheme_id;
 		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
 			EXECUTE FORMAT('DROP TABLE %I', cache_table);
 		END IF;
-		allele_table:='temp_scheme_alleles_' || i_id;
-		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=allele_table) THEN
-			EXECUTE FORMAT('DROP TABLE %I', allele_table);
-		END IF;
-		sql:='CREATE TABLE %s (id int';
-		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
-			sql:=sql || ',' || x.field || ' ' || x.type;
-		END LOOP;
-		sql:=sql || ')';
-		EXECUTE FORMAT(sql,cache_table);
-		SELECT field,type INTO pk,pk_type FROM scheme_fields WHERE scheme_id=i_id AND primary_key;
-		EXECUTE FORMAT('CREATE TABLE %s (%s %s NOT NULL,locus text NOT NULL,allele_id text NOT NULL)',allele_table,pk,pk_type,pk);
-		scheme_table:='temp_scheme_' || i_id;
-		FOR x IN EXECUTE('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=$1 ORDER BY index') USING i_id LOOP
-			locus_indices[x.index]=x.locus;
-		END LOOP;
+		EXECUTE('SELECT ARRAY(SELECT field FROM scheme_fields WHERE scheme_id=$1 ORDER BY primary_key DESC )') 
+		INTO fields USING scheme_id;
+		scheme_fields:='';
 		
-		--TODO Optimise using COPY from STDOUT.
-		sql:=FORMAT('INSERT INTO %I VALUES ($1,$2,$3)',allele_table);
-		FOR profile IN EXECUTE(FORMAT('SELECT %s AS pk,profile FROM %I',pk,scheme_table)) LOOP
-			FOR i IN 1 .. array_upper(profile.profile, 1)
-			LOOP
-				EXECUTE(sql) USING profile.pk,locus_indices[i],profile.profile[i];
-			END LOOP;
+		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
+			IF i>1 THEN 
+				scheme_fields:=scheme_fields||',';
+			END IF;
+			scheme_fields:=scheme_fields||fields[i];
 		END LOOP;
-		EXECUTE FORMAT('ALTER TABLE %s ADD PRIMARY KEY(%s,locus)',allele_table,pk);
-		EXECUTE FORMAT('CREATE INDEX ON %s(locus)',allele_table);
+		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
+		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2;'
+		|| 'CREATE INDEX ON ad(isolate_id)') USING scheme_id,'ignore';
+		EXECUTE('SELECT ARRAY(SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=$1 ORDER BY index)') 
+		INTO loci USING scheme_id;
+		scheme_locus_count:=array_length(loci,1);
+			
+		IF scheme_info.allow_missing_loci THEN
+			--TODO handle schemes that allow missing values.
+		ELSE
+			--Complete profile and only one designation per locus
+			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
+			|| 'GROUP BY %I.id HAVING COUNT(DISTINCT(locus))=$1 AND COUNT(*)=$1',view,view,view)) USING scheme_locus_count;
+			EXECUTE('CREATE TEMP TABLE temp_isolate_profiles AS SELECT id,ARRAY(SELECT ad.allele_id FROM ad '
+			|| 'JOIN scheme_warehouse_indices AS sw ON ad.locus=sw.locus AND sw.scheme_id=$1 AND ad.isolate_id=temp_isolates.id '
+			|| 'ORDER BY index) AS profile FROM temp_isolates') USING scheme_id;
+			EXECUTE(FORMAT('CREATE TABLE %s AS SELECT id,%s FROM temp_isolate_profiles AS tip JOIN %I AS s ON '
+			|| 'tip.profile=s.profile',cache_table,scheme_fields,scheme_table));
+			DROP TABLE temp_isolates;
+			DROP TABLE temp_isolate_profiles;
+			
+			--Profiles with more than one designation at some loci
+			EXECUTE(FORMAT('CREATE TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
+			|| 'GROUP BY %I.id HAVING COUNT(DISTINCT(locus))=$1 AND COUNT(*)>$1',view,view,view)) USING scheme_locus_count;
+			FOR isolate IN SELECT id FROM temp_isolates LOOP
+				qry:=FORMAT('SELECT %s,%s FROM %I WHERE ',isolate.id,scheme_fields,scheme_table);
+				FOR i IN 1 .. ARRAY_UPPER(loci,1) LOOP
+					IF i>1 THEN
+						qry:=qry||' AND ';
+					END IF;
+					qry:=qry||FORMAT('profile[%s]=ANY(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=%s))',
+					i,loci[i],isolate.id);
+					
+				END LOOP;
+				EXECUTE(FORMAT('INSERT INTO %I (%s)',cache_table,qry));
+			END LOOP;			
+			DROP TABLE temp_isolates;
+		END IF;
+		EXECUTE FORMAT('CREATE INDEX on %I(id)',cache_table);
+		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
+			EXECUTE FORMAT('CREATE INDEX on %I(%s)',cache_table,fields[i]);
+		END LOOP;
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', cache_table);
-		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', allele_table);		
-	END; 
+		DROP TABLE ad;
+	END;
 $$ LANGUAGE plpgsql;
+
