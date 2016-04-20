@@ -32,6 +32,7 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
 use IO::Handle;
+use Digest::MD5;
 
 sub new {
 	my ( $class, @atr ) = @_;
@@ -304,7 +305,7 @@ sub get_scheme_field_values_by_designations {
 					next LOCUS;
 				}
 			}
-			$status = 'provisional';     #Locus is provisional
+			$status = 'provisional';    #Locus is provisional
 			last LOCUS;
 		}
 		foreach my $field (@$fields) {
@@ -414,7 +415,7 @@ sub check_new_profile {
 
 	#Check for matches where N may be used in the profile
 	my $i = 0;
-	my ( @locus_temp, @values );
+	my ( @locus_temp, @values, $temp_cache_key );
 	foreach my $locus (@$loci) {
 
 		#N can be any allele so can not be used to differentiate profiles
@@ -422,14 +423,15 @@ sub check_new_profile {
 		next if ( $designations->{$locus} // '' ) eq 'N';
 		push @locus_temp, "(profile[$i]=? OR profile[$i]='N')";
 		push @values,     $designations->{$locus};
+		$temp_cache_key .= $locus;
 	}
-	my $qry = "SELECT $pk FROM $scheme_warehouse WHERE ";
+	my $qry       = "SELECT $pk FROM $scheme_warehouse WHERE ";
+	my $cache_key = Digest::MD5::md5_hex($temp_cache_key);
 	local $" = ' AND ';
 	$qry .= "(@locus_temp)";
-	my $locus_count = @locus_temp;
 	my $matching_profiles =
 	  $self->run_query( $qry, \@values,
-		{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$locus_count" } );
+		{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$cache_key" } );
 	if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
 		my $msg;
 		if ( @locus_temp < @$loci ) {
@@ -818,34 +820,35 @@ sub is_scheme_field {
 sub create_temp_isolate_scheme_loci_view {
 	my ( $self, $scheme_id ) = @_;
 	$logger->fatal('Datastore::create_temp_isolate_scheme_loci_view no longer works');
-#	my $view  = $self->{'system'}->{'view'};
-#	my $table = "temp_$view\_scheme_loci_$scheme_id";
-#
-#	#Test if view already exists
-#	return $table
-#	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
-#	my $scheme_info  = $self->get_scheme_info($scheme_id);
-#	my $loci         = $self->get_scheme_loci($scheme_id);
-#	my $joined_query = "SELECT $view.id";
-#	my ( %cleaned, @cleaned, %named );
-#	foreach my $locus (@$loci) {
-#		( $cleaned{$locus} = $locus ) =~ s/'/\\'/gx;
-#		push @cleaned, $cleaned{$locus};
-#
-#		#	( $named{$locus} = $locus ) =~ s/'/_PRIME_/gx;
-#		$named{$locus} = $self->get_scheme_warehouse_locus_name( $scheme_id, $locus );
-#		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' "
-#		  . "THEN allele_designations.allele_id ELSE NULL END)) AS $named{$locus}";
-#	}
-#
-#	#Listing scheme loci rather than testing for scheme membership within query is quicker!
-#	local $" = q(',E');
-#	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id "
-#	  . "AND status != 'ignore' AND locus IN (E'@cleaned') GROUP BY $view.id";
-#
-#	eval { $self->{'db'}->do("CREATE TEMP VIEW $table AS $joined_query") };    #View seems quicker than temp table.
-#	$logger->error($@) if $@;
-#	return $table;
+
+	#	my $view  = $self->{'system'}->{'view'};
+	#	my $table = "temp_$view\_scheme_loci_$scheme_id";
+	#
+	#	#Test if view already exists
+	#	return $table
+	#	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	#	my $scheme_info  = $self->get_scheme_info($scheme_id);
+	#	my $loci         = $self->get_scheme_loci($scheme_id);
+	#	my $joined_query = "SELECT $view.id";
+	#	my ( %cleaned, @cleaned, %named );
+	#	foreach my $locus (@$loci) {
+	#		( $cleaned{$locus} = $locus ) =~ s/'/\\'/gx;
+	#		push @cleaned, $cleaned{$locus};
+	#
+	#		#	( $named{$locus} = $locus ) =~ s/'/_PRIME_/gx;
+	#		$named{$locus} = $self->get_scheme_warehouse_locus_name( $scheme_id, $locus );
+	#		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' "
+	#		  . "THEN allele_designations.allele_id ELSE NULL END)) AS $named{$locus}";
+	#	}
+	#
+	#	#Listing scheme loci rather than testing for scheme membership within query is quicker!
+	#	local $" = q(',E');
+	#	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id "
+	#	  . "AND status != 'ignore' AND locus IN (E'@cleaned') GROUP BY $view.id";
+	#
+	#	eval { $self->{'db'}->do("CREATE TEMP VIEW $table AS $joined_query") };    #View seems quicker than temp table.
+	#	$logger->error($@) if $@;
+	#	return $table;
 }
 
 sub create_temp_isolate_scheme_fields_view {
@@ -869,33 +872,34 @@ sub create_temp_isolate_scheme_fields_view {
 				$full_table );
 		}
 	}
-	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
-#	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
-#	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
+	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+
+	#	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
+	#	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
-	my $scheme_info   = $self->get_scheme_info($scheme_id,{get_pk=>1});
-	my $pk = $scheme_info->{'primary_key'};
-#	my @temp;
-#	foreach my $locus (@$scheme_loci) {
-#
-#		#		( my $cleaned = $locus ) =~ s/'/\\'/gx;
-#		#		( my $named   = $locus ) =~ s/'/_PRIME_/gx;
-#		my $named = $self->get_scheme_warehouse_locus_name( $scheme_id, $locus );
-#
-#		#Use correct cast to ensure that database indexes are used.
-#		my $locus_info = $self->get_locus_info($locus);
-#		if ( $scheme_info->{'allow_missing_loci'} ) {
-#			push @temp, "$scheme_table.$named=ANY($loci_table.$named || 'N'::text)";
-#		} else {
-#			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-#				push @temp, "$scheme_table.$named=ANY(CAST($loci_table.$named AS int[]))";
-#			} else {
-#				push @temp, "$scheme_table.$named=ANY($loci_table.$named)";
-#			}
-#		}
-#	}
-#	local $" = ",$scheme_table.";
-	
+	my $scheme_info   = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk            = $scheme_info->{'primary_key'};
+
+	#	my @temp;
+	#	foreach my $locus (@$scheme_loci) {
+	#
+	#		#		( my $cleaned = $locus ) =~ s/'/\\'/gx;
+	#		#		( my $named   = $locus ) =~ s/'/_PRIME_/gx;
+	#		my $named = $self->get_scheme_warehouse_locus_name( $scheme_id, $locus );
+	#
+	#		#Use correct cast to ensure that database indexes are used.
+	#		my $locus_info = $self->get_locus_info($locus);
+	#		if ( $scheme_info->{'allow_missing_loci'} ) {
+	#			push @temp, "$scheme_table.$named=ANY($loci_table.$named || 'N'::text)";
+	#		} else {
+	#			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+	#				push @temp, "$scheme_table.$named=ANY(CAST($loci_table.$named AS int[]))";
+	#			} else {
+	#				push @temp, "$scheme_table.$named=ANY($loci_table.$named)";
+	#			}
+	#		}
+	#	}
+	#	local $" = ",$scheme_table.";
 	my $table_type = 'TEMP VIEW';
 	my $rename_table;
 	if ( $options->{'cache'} ) {
@@ -903,44 +907,44 @@ sub create_temp_isolate_scheme_fields_view {
 		$rename_table = $table;
 		$table        = $table . '_' . int( rand(99999) );
 	}
+
 #	my $fields = $self->run_query('SELECT field,type FROM scheme_fields WHERE scheme_id=? ORDER BY primary_key desc',$scheme_id,{fetch=>'all_arrayref',slice=>{}});
 #	my @scheme_fields;
 #	foreach my $field(@$fields){
 #		push @scheme_fields, "$field->{'field'} $field->{'type'}";
 #	}
-	
 #	my $qry = "CREATE $table_type $table (id int, @scheme_fields); ALTER TABLE $table OWNER TO apache";
 	my $allele_table = "temp_scheme_alleles_$scheme_id";
 
-
-#	local $"=qq(,$scheme_table.);
-	my $qry="CREATE $table_type $table AS SELECT allele_designations.isolate_id,$scheme_table.$pk "
-		."FROM allele_designations INNER JOIN $allele_table ON allele_designations.locus=$allele_table.locus "
-		."INNER JOIN $scheme_table ON $allele_table.$pk=$scheme_table.$pk GROUP BY allele_designations.isolate_id,$scheme_table.$pk";
-	
+	#	local $"=qq(,$scheme_table.);
+	my $qry =
+	    "CREATE $table_type $table AS SELECT allele_designations.isolate_id,$scheme_table.$pk "
+	  . "FROM allele_designations INNER JOIN $allele_table ON allele_designations.locus=$allele_table.locus "
+	  . "INNER JOIN $scheme_table ON $allele_table.$pk=$scheme_table.$pk GROUP BY allele_designations.isolate_id,$scheme_table.$pk";
 	$logger->error($qry);
 
-#	my $qry = "CREATE $table_type $table AS SELECT $loci_table.id,$scheme_table.@$scheme_fields "
-#	  . "FROM $loci_table LEFT JOIN $scheme_table ON ";
-#	local $" = ' AND ';
-#	$qry .= "@temp";
+	#	my $qry = "CREATE $table_type $table AS SELECT $loci_table.id,$scheme_table.@$scheme_fields "
+	#	  . "FROM $loci_table LEFT JOIN $scheme_table ON ";
+	#	local $" = ' AND ';
+	#	$qry .= "@temp";
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
-#	my $isolates = $self->run_query("SELECT id FROM $view",undef,{fetch=>'col_arrayref'});
-#	foreach my $isolate_id (@$isolates){
-#		my $data = $self->get_scheme_field_values_by_isolate_id($isolate_id,$scheme_id);
-#	}
-	if ( $options->{'cache'} ) {
-#		foreach my $field (@$scheme_fields) {
-#			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
-#			if ( $scheme_field_info->{'type'} eq 'text' ) {
-#				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
-#			} else {
-#				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
-#			}
-#		}
-#		$self->{'db'}->do("CREATE INDEX i_$table\_id ON $table (id)");
 
+	#	my $isolates = $self->run_query("SELECT id FROM $view",undef,{fetch=>'col_arrayref'});
+	#	foreach my $isolate_id (@$isolates){
+	#		my $data = $self->get_scheme_field_values_by_isolate_id($isolate_id,$scheme_id);
+	#	}
+	if ( $options->{'cache'} ) {
+
+		#		foreach my $field (@$scheme_fields) {
+		#			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
+		#			if ( $scheme_field_info->{'type'} eq 'text' ) {
+		#				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
+		#			} else {
+		#				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
+		#			}
+		#		}
+		#		$self->{'db'}->do("CREATE INDEX i_$table\_id ON $table (id)");
 		#Create new temp table, then drop old and rename the new - this
 		#should minimize the time that the table is unavailable.
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };

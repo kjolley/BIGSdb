@@ -1128,11 +1128,13 @@ sub _parse_blast_partial {
 	}
 
 	#Only return the number of matches selected by 'partial_matches' parameter
-	@{ $matches->{$locus} } = sort { $b->{'quality'} <=> $a->{'quality'} } @{ $matches->{$locus} };
-	my $partial_matches = $params->{'partial_matches'};
-	$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
-	while ( @{ $matches->{$locus} } > $partial_matches ) {
-		pop @{ $matches->{$locus} };
+	if ( !$options->{'multiple_loci'} ) {
+		@{ $matches->{$locus} } = sort { $b->{'quality'} <=> $a->{'quality'} } @{ $matches->{$locus} };
+		my $partial_matches = $params->{'partial_matches'};
+		$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
+		while ( @{ $matches->{$locus} } > $partial_matches ) {
+			pop @{ $matches->{$locus} };
+		}
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
 	return $matches;
