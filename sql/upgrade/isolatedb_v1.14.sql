@@ -16,7 +16,7 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_warehouse_indices TO apache;
 
-CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text,temp_table boolean) RETURNS VOID AS $$
 	DECLARE
 		cache_table text;
 		scheme_table text;
@@ -31,10 +31,16 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 		qry text;
 		allele_count int;
 		isolate RECORD;
+		table_type text;
 	BEGIN
 		EXECUTE('SELECT * FROM schemes WHERE id=$1') INTO scheme_info USING scheme_id;
 		IF (scheme_info.id IS NULL) THEN
 			RAISE EXCEPTION 'Scheme % does not exist.', scheme_id;
+		END IF;
+		IF temp_table THEN
+			table_type:='TEMP TABLE';
+		ELSE
+			table_type:='TABLE';
 		END IF;
 		cache_table:='temp_' || view || '_scheme_fields_' || scheme_id;
 		scheme_table:='temp_scheme_' || scheme_id;
@@ -66,7 +72,7 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 			--Schemes that allow missing values. Can't do a simple array comparison.
 			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
 			|| 'GROUP BY %I.id HAVING COUNT(*)>0',view,view,view));
-			EXECUTE(FORMAT('CREATE TABLE %s (id int,%s)',cache_table,scheme_fields_type));
+			EXECUTE(FORMAT('CREATE %s %s (id int,%s)',table_type,cache_table,scheme_fields_type));
 			FOR isolate IN SELECT id FROM temp_isolates LOOP
 				qry:=FORMAT('SELECT %s,%s FROM %I WHERE ',isolate.id,scheme_fields,scheme_table);
 				FOR i IN 1 .. ARRAY_UPPER(loci,1) LOOP
@@ -87,13 +93,13 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 			EXECUTE('CREATE TEMP TABLE temp_isolate_profiles AS SELECT id,ARRAY(SELECT ad.allele_id FROM ad '
 			|| 'JOIN scheme_warehouse_indices AS sw ON ad.locus=sw.locus AND sw.scheme_id=$1 AND ad.isolate_id=temp_isolates.id '
 			|| 'ORDER BY index) AS profile FROM temp_isolates') USING scheme_id;
-			EXECUTE(FORMAT('CREATE TABLE %s AS SELECT id,%s FROM temp_isolate_profiles AS tip JOIN %I AS s ON '
-			|| 'tip.profile=s.profile',cache_table,scheme_fields,scheme_table));
+			EXECUTE(FORMAT('CREATE %s %s AS SELECT id,%s FROM temp_isolate_profiles AS tip JOIN %I AS s ON '
+			|| 'tip.profile=s.profile',table_type,cache_table,scheme_fields,scheme_table));
 			DROP TABLE temp_isolates;
 			DROP TABLE temp_isolate_profiles;
 			
 			--Profiles with more than one designation at some loci
-			EXECUTE(FORMAT('CREATE TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
+			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
 			|| 'GROUP BY %I.id HAVING COUNT(DISTINCT(locus))=$1 AND COUNT(*)>$1',view,view,view)) USING scheme_locus_count;
 			FOR isolate IN SELECT id FROM temp_isolates LOOP
 				qry:=FORMAT('SELECT %s,%s FROM %I WHERE ',isolate.id,scheme_fields,scheme_table);
