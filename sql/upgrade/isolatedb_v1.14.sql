@@ -80,9 +80,9 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 						qry:=qry||' AND ';
 					END IF;
 					qry:=qry||FORMAT('profile[%s]=ANY(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=%s))',
-					i,loci[i],isolate.id);
-					
+					i,replace(loci[i],'''',''''''),isolate.id);					
 				END LOOP;
+				RAISE NOTICE '%', qry;
 				EXECUTE(FORMAT('INSERT INTO %I (%s)',cache_table,qry));
 			END LOOP;			
 			DROP TABLE temp_isolates;
