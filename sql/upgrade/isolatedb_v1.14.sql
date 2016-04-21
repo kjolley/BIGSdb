@@ -24,7 +24,9 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 		loci text[];
 		scheme_locus_count int;
 		scheme_info RECORD;
+		field_info RECORD;
 		scheme_fields text;
+		scheme_fields_type text;
 		locus_count int;
 		qry text;
 		allele_count int;
@@ -42,12 +44,16 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 		EXECUTE('SELECT ARRAY(SELECT field FROM scheme_fields WHERE scheme_id=$1 ORDER BY primary_key DESC )') 
 		INTO fields USING scheme_id;
 		scheme_fields:='';
+		scheme_fields_type:='';
 		
 		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
 			IF i>1 THEN 
 				scheme_fields:=scheme_fields||',';
+				scheme_fields_type:=scheme_fields_type||',';
 			END IF;
 			scheme_fields:=scheme_fields||fields[i];
+			EXECUTE('SELECT * FROM scheme_fields WHERE scheme_id=$1 AND field=$2') INTO field_info USING scheme_id,fields[i];
+			scheme_fields_type:=scheme_fields_type||fields[i]||' '||field_info.type;
 		END LOOP;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
 		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2;'
@@ -57,7 +63,23 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 		scheme_locus_count:=array_length(loci,1);
 			
 		IF scheme_info.allow_missing_loci THEN
-			--TODO handle schemes that allow missing values.
+			--Schemes that allow missing values. Can't do a simple array comparison.
+			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
+			|| 'GROUP BY %I.id HAVING COUNT(*)>0',view,view,view));
+			EXECUTE(FORMAT('CREATE TABLE %s (id int,%s)',cache_table,scheme_fields_type));
+			FOR isolate IN SELECT id FROM temp_isolates LOOP
+				qry:=FORMAT('SELECT %s,%s FROM %I WHERE ',isolate.id,scheme_fields,scheme_table);
+				FOR i IN 1 .. ARRAY_UPPER(loci,1) LOOP
+					IF i>1 THEN
+						qry:=qry||' AND ';
+					END IF;
+					qry:=qry||FORMAT(
+					'(profile[%s]=ANY(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=%s)) OR profile[%s]=''N'')',
+					i,replace(loci[i],'''',''''''),isolate.id,i);					
+				END LOOP;
+				EXECUTE(FORMAT('INSERT INTO %I (%s)',cache_table,qry));
+			END LOOP;	
+			DROP TABLE temp_isolates;
 		ELSE
 			--Complete profile and only one designation per locus
 			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
@@ -82,7 +104,6 @@ CREATE OR REPLACE FUNCTION create_isolate_scheme_cache(scheme_id int,view text) 
 					qry:=qry||FORMAT('profile[%s]=ANY(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=%s))',
 					i,replace(loci[i],'''',''''''),isolate.id);					
 				END LOOP;
-				RAISE NOTICE '%', qry;
 				EXECUTE(FORMAT('INSERT INTO %I (%s)',cache_table,qry));
 			END LOOP;			
 			DROP TABLE temp_isolates;
