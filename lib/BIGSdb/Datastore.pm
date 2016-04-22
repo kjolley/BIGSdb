@@ -817,12 +817,6 @@ sub is_scheme_field {
 	return any { $_ eq $field } @$fields;
 }
 
-sub create_temp_isolate_scheme_loci_view {
-	my ( $self, $scheme_id ) = @_;
-	$logger->logcarp('Datastore::create_temp_isolate_scheme_loci_view no longer works!');
-	return;
-}
-
 sub create_temp_isolate_scheme_fields_view {
 	my ( $self, $scheme_id, $options ) = @_;
 
@@ -831,14 +825,14 @@ sub create_temp_isolate_scheme_fields_view {
 	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
 	$options = {} if ref $options ne 'HASH';
 	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_fields_$scheme_id";
+	my $table = "temp_${view}_scheme_fields_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 
 		#Check if cache of whole isolate table exists
 		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates\_scheme_fields_$scheme_id";
+			my $full_table = "temp_isolates_scheme_fields_$scheme_id";
 			return $full_table
 			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 				$full_table );

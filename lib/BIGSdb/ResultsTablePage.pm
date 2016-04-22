@@ -52,11 +52,8 @@ sub paged_display {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-				} elsif ( $qry =~ /temp_scheme_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
-					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
 				}
 			}
 		}
@@ -982,6 +979,7 @@ sub _print_profile_table {
 	say q(</tr>);
 	my $td            = 1;
 	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+
 	#Run limited page query for display
 	while ( my $data = $limit_sql->fetchrow_hashref ) {
 		my $pk_value     = $data->{ lc($primary_key) };

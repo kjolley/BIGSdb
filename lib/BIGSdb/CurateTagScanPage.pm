@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -430,6 +430,7 @@ sub _scan {
 	push @ids, @$pasted_cleaned_ids;
 	@ids = uniq sort { $a <=> $b } @ids;
 	$q->param( isolate_id => @ids );
+
 	if ( !@ids ) {
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		$self->_print_interface;
@@ -817,14 +818,13 @@ sub _add_scheme_loci {
 
 sub _create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
-	my $qry      = $$qry_ref;
-	my $schemes  = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $continue = 1;
+	my $qry        = $$qry_ref;
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $continue   = 1;
 	try {
-		foreach (@$schemes) {
-			if ( $qry =~ /temp_scheme_$_\s/x || $qry =~ /ORDER\ BY\ s_$_\_/x ) {
-				$self->{'datastore'}->create_temp_scheme_table($_);
-				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
+		foreach my $scheme_id (@$scheme_ids) {
+			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 			}
 		}
 	}
