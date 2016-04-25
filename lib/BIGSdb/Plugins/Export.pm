@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.7',
+		version     => '1.3.8',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -249,11 +249,8 @@ sub run_job {
 
 		#Convert list attribute field to ids.
 		my $view            = $self->{'system'}->{'view'};
-		my $ICASE_FIELD     = qr/UPPER\s*\($view.\w*?\)/x;
-		my $TEMP_LIST_VALUE = qr/\(SELECT\ value\ FROM\ temp_list\)/x;
-		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list))";
-		$params->{'qry'} =~ s/\($view.\w*?\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
-		$params->{'qry'} =~ s/\($ICASE_FIELD\s+IN\s+$TEMP_LIST_VALUE\)/$BY_ID/x;
+		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
+		$params->{'qry'} =~ s/FROM\ $view.*?ORDER\ BY/FROM $view WHERE $BY_ID/x;
 	}
 	my $limit =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
