@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1390,7 +1390,9 @@ sub get_record_name {
 		profile_history                   => 'profile update record',
 		sequence_attributes               => 'sequence attribute',
 		retired_allele_ids                => 'retired allele id',
-		retired_profiles                  => 'retired profile'
+		retired_profiles                  => 'retired profile',
+		classification_group_schemes      => 'classification group scheme',
+		classification_group_fields       => 'classification group field'
 	);
 	return $names{$table};
 }
@@ -1674,7 +1676,8 @@ sub can_modify_table {
 	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
 	  locus_client_display_fields locus_extended_attributes locus_curators);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
-	  foreach qw(schemes scheme_members scheme_fields scheme_curators);
+	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_group_schemes
+	  classification_group_fields);
 
 	if ( $general_permissions{$table} ) {
 		return $general_permissions{$table};
@@ -1708,6 +1711,7 @@ sub can_modify_table {
 		  && $self->{'permissions'}->{'sample_management'}
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
 	} else {
+
 		#Sequence definition database only tables
 		#Alleles and locus descriptions
 		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions retired_allele_ids);
@@ -2154,15 +2158,15 @@ sub get_all_foreign_key_fields_and_labels {
 	my @fields;
 	my @values = split /\|/x, $attribute_hashref->{'labels'};
 	foreach my $value (@values) {
-		if ($value =~ /\$(.*)/x ) {
+		if ( $value =~ /\$(.*)/x ) {
 			push @fields, $1;
 		}
 	}
 	local $" = ',';
 	my $qry = "select id,@fields from $attribute_hashref->{'foreign_key'}";
-	my $dataset = $self->{'datastore'}->run_query($qry,undef,{fetch=>'all_arrayref', slice=>{}});
+	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my %desc;
-	foreach my $data ( @$dataset) {
+	foreach my $data (@$dataset) {
 		my $temp = $attribute_hashref->{'labels'};
 		foreach my $field (@fields) {
 			$temp =~ s/\|\$$field\|/$data->{$field}/gx;

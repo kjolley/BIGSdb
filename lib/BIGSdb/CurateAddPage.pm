@@ -200,7 +200,7 @@ sub _insert {
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
-	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles);
+	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields);
 
 	if (
 		defined $newdata->{'isolate_id'}
@@ -601,7 +601,7 @@ sub _check_sequence_extended_attributes {
 	return;
 }
 
-sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_scheme_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 
 	#special case to check that only one primary key field is set for a scheme field
@@ -614,9 +614,26 @@ sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 
 	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
 	if ( $newdata->{'field'} eq 'id' ) {
-		push @$problems, q(Scheme fields can not be called 'id'.);
+		push @$problems, q(Scheme fields cannot be called 'id'.);
 	}
 	return;
+}
+
+sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	#special case to check that only one primary key field is set for a scheme field
+	if ( $newdata->{'primary_key'} eq 'true' && !@$problems ) {
+		my $existing_pk = $self->{'datastore'}->run_query('SELECT field FROM classification_group_fields WHERE cg_scheme_id=? AND primary_key',$newdata->{'cg_scheme_id'});
+		if ( $existing_pk ) {
+			push @$problems, "This scheme already has a primary key field set ($existing_pk).";
+		}
+	}
+
+	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
+	if ( $newdata->{'field'} eq 'id' ) {
+		push @$problems, q(Scheme fields cannot be called 'id'.);
+	}
+	return
 }
 
 sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

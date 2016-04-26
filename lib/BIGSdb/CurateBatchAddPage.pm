@@ -741,6 +741,9 @@ sub _run_table_specific_field_checks {
 		},
 		retired_profiles => sub {
 			$self->_check_retired_profile_id($new_args);
+		},
+		classification_group_fields => sub {
+			$self->_check_data_scheme_fields($new_args);
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};

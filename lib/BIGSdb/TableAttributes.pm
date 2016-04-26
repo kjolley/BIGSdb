@@ -1267,7 +1267,8 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1288,7 +1289,7 @@ sub get_scheme_fields_table_attributes {
 				type    => 'text',
 				tooltip => 'value regex - Regular expression that constrains value of field'
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
@@ -1905,6 +1906,97 @@ sub get_set_metadata_table_attributes {
 			primary_key    => 'yes',
 			optlist        => "@$metadata",
 			dropdown_query => 'yes'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub get_classification_group_schemes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
+		},
+		{
+			name     => 'description',
+			type     => 'text',
+			required => 'yes',
+			length   => 50,
+			unique   => 'yes',
+			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
+		},
+		{
+			name     => 'missing_loci_limit',
+			type     => 'int',
+			required => 'yes',
+			comments => 'Number of loci that must be designated before profile can be assigned.'
+		},
+		{
+			name     => 'inclusion_threshold',
+			type     => 'int',
+			required => 'yes',
+			comments => 'Number of alleles shared with group member required to become member.'
+		},
+		{
+			name     => 'use_relative_threshold',
+			type     => 'bool',
+			required => 'yes',
+			comments => 'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
+			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
+			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
+			  . 'scheme.',
+			default => 'false'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
+sub get_classification_group_fields_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name        => 'cg_scheme_id',
+			type        => 'int',
+			required    => 'yes',
+			primary_key => 'yes',
+			foreign_key => 'classification_group_schemes',
+			labels         => '|$description|',dropdown_query => 'yes'
+		},
+		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' },
+		{
+			name     => 'primary_key',
+			type     => 'bool',
+			required => 'yes',
+			default  => 'false',
+			tooltip  => 'primary key - Sets whether this field defines a group '
+			  . '(you can only have one primary key field).'
+		},
+		{
+			name    => 'value_regex',
+			type    => 'text',
+			tooltip => 'value regex - Regular expression that constrains value of field'
+		},
+		{ name => 'description', type => 'text', required => 'no', length => 64, },
+		{ name => 'field_order', type => 'int',  required => 'no' },
+		{
+			name     => 'dropdown',
+			type     => 'bool',
+			required => 'yes',
+			default  => 'false',
+			tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
+			  . '(can be overridden by user preference).'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }

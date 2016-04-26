@@ -217,7 +217,7 @@ sub _get_admin_links {
 		  sequence_attributes);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
-		  client_dbase_loci_fields);
+		  client_dbase_loci_fields classification_group_schemes classification_group_fields);
 	}
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		push @tables, 'sets';
@@ -1030,6 +1030,18 @@ sub _print_scheme_fields {     ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_fields', $td,
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
+}
+
+sub _print_classification_group_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table( 'classification_group_schemes', $td,
+		{ requires => 'schemes', comments => 'Defines classification group schemes.', set_string => $set_string } );
+}
+
+sub _print_classification_group_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table( 'classification_group_fields', $td,
+		{ requires => 'classification_group_schemes', comments => 'Defines which fields belong to a classification group scheme.', set_string => $set_string } );
 }
 
 sub _print_table {

@@ -2210,7 +2210,8 @@ sub get_tables {
 		  scheme_fields profiles profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history locus_aliases retired_allele_ids retired_profiles);
+		  profile_history locus_aliases retired_allele_ids retired_profiles classification_group_schemes
+		  classification_group_fields);
 	}
 	return @tables;
 }
@@ -2232,7 +2233,8 @@ sub get_tables_with_curator {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
-		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history);
+		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history classification_group_schemes
+		  classification_group_fields);
 	}
 	return @tables;
 }

@@ -235,7 +235,7 @@ scheme_id IN (SELECT scheme_id FROM scheme_members);
 
 --classification_group_schemes
 CREATE TABLE classification_group_schemes (
-cg_scheme_id int NOT NULL,
+id int NOT NULL,
 scheme_id int NOT NULL,
 description text NOT NULL,
 missing_loci_limit int NOT NULL,
@@ -243,7 +243,7 @@ inclusion_threshold int NOT NULL,
 use_relative_threshold boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(cg_scheme_id),
+PRIMARY KEY(id),
 CONSTRAINT cgs_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
 ON DELETE CASCADE
 ON UPDATE CASCADE,
@@ -253,7 +253,7 @@ ON UPDATE CASCADE
 );
 
 --Unique constraint necessary to set up foreign key on classification_group_profiles
-CREATE UNIQUE INDEX ON classification_group_schemes(cg_scheme_id,scheme_id);
+CREATE UNIQUE INDEX ON classification_group_schemes(id,scheme_id);
 GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_schemes TO apache;
 
 --classification_groups
@@ -309,7 +309,7 @@ PRIMARY KEY(cg_scheme_id,group_id,profile_id),
 CONSTRAINT cgp_cg_scheme_id_group_id FOREIGN KEY (cg_scheme_id,group_id) REFERENCES classification_groups
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_group_schemes(cg_scheme_id,scheme_id)
+CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_group_schemes(id,scheme_id)
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT cgp_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
