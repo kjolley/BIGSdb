@@ -233,3 +233,133 @@ DROP TABLE matviews;
 SELECT initiate_scheme_warehouse(scheme_id) FROM scheme_fields WHERE PRIMARY_KEY AND 
 scheme_id IN (SELECT scheme_id FROM scheme_members);
 
+--classification_group_schemes
+CREATE TABLE classification_group_schemes (
+cg_scheme_id int NOT NULL,
+scheme_id int NOT NULL,
+description text NOT NULL,
+missing_loci_limit int NOT NULL,
+inclusion_threshold int NOT NULL,
+use_relative_threshold boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id),
+CONSTRAINT cgs_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgs_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+--Unique constraint necessary to set up foreign key on classification_group_profiles
+CREATE UNIQUE INDEX ON classification_group_schemes(cg_scheme_id,scheme_id);
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_schemes TO apache;
+
+--classification_groups
+CREATE TABLE classification_groups (
+cg_scheme_id int NOT NULL,
+group_id int NOT NULL,
+active boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,group_id),
+CONSTRAINT cg_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_group_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cg_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_groups TO apache;
+
+--classification_group_fields
+CREATE TABLE classification_group_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+type text NOT NULL,
+primary_key boolean NOT NULL,
+value_regex text,
+description text,
+field_order int,
+dropdown boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field),
+CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_group_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_fields TO apache;
+
+--classification_group_profiles
+CREATE TABLE classification_group_profiles (
+cg_scheme_id int NOT NULL,
+group_id int NOT NULL,
+profile_id text NOT NULL,
+scheme_id int NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,group_id,profile_id),
+CONSTRAINT cgp_cg_scheme_id_group_id FOREIGN KEY (cg_scheme_id,group_id) REFERENCES classification_groups
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_group_schemes(cg_scheme_id,scheme_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profiles TO apache;
+
+--classification_group_profile_fields
+CREATE TABLE classification_group_profile_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+group_id int NOT NULL,
+profile_id text NOT NULL,
+value text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field,group_id,profile_id),
+CONSTRAINT cgpf_cg_scheme_id_field FOREIGN KEY (cg_scheme_id,field) REFERENCES classification_group_fields
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgpf_cg_scheme_id_group_profile_id FOREIGN KEY (cg_scheme_id,group_id,profile_id) REFERENCES classification_group_profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgpf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profile_fields TO apache;
+
+--classification_group_profile_history
+CREATE TABLE classification_group_profile_history (
+timestamp timestamp NOT NULL,
+scheme_id int NOT NULL,
+profile_id text NOT NULL,
+cg_scheme_id int NOT NULL,
+previous_group int NOT NULL,
+comment text,
+PRIMARY KEY(timestamp,scheme_id,profile_id),
+CONSTRAINT cgph_cg_scheme_id_previous_group FOREIGN KEY (cg_scheme_id,previous_group) REFERENCES classification_groups(cg_scheme_id,group_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgph_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profile_history TO apache;
