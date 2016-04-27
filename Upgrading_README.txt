@@ -302,3 +302,9 @@ This has necessitated a number of new tables in the database schemas.
 Please run the seqdefdb_v1.14.sql against sequence definition databases and
 isolatedb_v1.14.sql against isolate databases. These can be found in the 
 sql/upgrade directory.
+
+Any scheme views set up in the sequence definition database named 'scheme_1'
+etc. can be dropped as these are no longer used.  To do this log in to the
+database using psql, and type 'DROP VIEW scheme_1;'. Do this for each of the
+scheme views.
+

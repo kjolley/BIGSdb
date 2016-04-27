@@ -670,33 +670,35 @@ sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutine
 
 sub _print_set_loci {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_loci', $td, { comments => 'Add loci to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_loci', $td,
+		{ requires => 'sets,loci', comments => 'Add loci to sets.', set_string => $set_string } );
 }
 
 sub _print_set_schemes {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_schemes', $td, { comments => 'Add schemes to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_schemes', $td,
+		{ requires => 'sets,schemes', comments => 'Add schemes to sets.', set_string => $set_string } );
 }
 
 sub _print_set_metadata {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_metadata', $td,
-		{ comments => 'Add metadata collection to sets.', set_string => $set_string } );
+		{ requires => 'sets', comments => 'Add metadata collection to sets.', set_string => $set_string } );
 }
 
 sub _print_set_view {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_view', $td,
-		{ comments => 'Set database views linked to sets.', set_string => $set_string } );
+		{ requires => 'sets', comments => 'Set database views linked to sets.', set_string => $set_string } );
 }
 
-sub _print_sequence_refs {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_sequence_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'sequence_refs', $td,
 		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
 }
 
-sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_profiles {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $schemes;
 	my $set_id = $self->get_set_id;
