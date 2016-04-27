@@ -87,6 +87,7 @@ use constant SEQ_FLAGS => (
 	'frameshift',
 	'internal stop codon',
 	'no start codon',
+	'no stop codon',
 	'phase variable: off',
 	'truncated',
 	'upstream fusion'
@@ -98,6 +99,7 @@ use constant ALLELE_FLAGS => (
 	'frameshift',
 	'internal stop codon',
 	'no start codon',
+	'no stop codon',
 	'phase variable: off',
 	'truncated',
 	'upstream fusion'
