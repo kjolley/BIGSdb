@@ -151,7 +151,7 @@ sub print_content {
 	  . q[The first column should be an isolate identifier and the remaining ]
 	  . qq[columns should comprise the allele numbers (<a href="$self->{'system'}->{'script_name'}?]
 	  . qq[db=$self->{'instance'}&amp;page=batchProfiles&amp;function=col_order&amp;scheme_id=$scheme_id">]
-	  . q[show column order</a>. Click here for ]
+	  . q[show column order</a>). Click here for ]
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;]
 	  . qq[function=examples&amp;scheme_id=$scheme_id">example data</a>. Non-numerical characters will be ]
 	  . q[stripped out of the query.</p>];
@@ -191,9 +191,12 @@ sub _print_examples {
 	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
 	my $data = $self->{'datastore'}->run_query( "SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15",
 		undef, { fetch => 'all_arrayref' } );
+	if ( !@$data ) {
+		say q(No profiles have yet been defined for this scheme.);
+		return;
+	}
 	local $" = "\t";
 	my $i = 1;
-
 	foreach my $profile (@$data) {
 		say qq(isolate_$i\t@$profile);
 		$i++;
@@ -214,7 +217,7 @@ sub _print_col_order {
 	}
 	my @cleaned_loci;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
+	push @cleaned_loci, $self->clean_locus( $_, { text_output => 1 } ) foreach @$loci;
 	local $" = qq(\t);
 	say qq(id\t@cleaned_loci);
 	return;
