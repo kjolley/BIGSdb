@@ -272,8 +272,7 @@ sub get_loci_table_attributes {
 			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=alleleInfo&locus=PUT_LOCUS_NAME_HERE&allele_id=[?]';
 		}
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name        => 'reference_sequence',
 				type        => 'text',
@@ -286,14 +285,18 @@ sub get_loci_table_attributes {
 				name        => 'pcr_filter',
 				type        => 'bool',
 				hide_public => 'yes',
+				comments    => 'Do NOT set to true unless you define PCR reactions linked to this locus.',
 				tooltip     => 'pcr filter - Set to true to specify that sequences used for tagging are filtered '
-				  . 'to only include regions that are amplified by in silico PCR reaction.'
+				  . 'to only include regions that are amplified by <i>in silico</i> PCR reaction. If you do not also '
+				  . 'define the PCR reactions, and link them to this locus, you will prevent scan/tagging of '
+				  . 'this locus.'
 			},
 			{
 				name        => 'probe_filter',
 				type        => 'bool',
 				hide_public => 'yes',
-				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
+				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
+				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
 			},
 			{
@@ -445,7 +448,7 @@ sub get_loci_table_attributes {
 				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
 				  . 'template will become unwieldy.'
 			}
-		  );
+		);
 	} else {    #Seqdef database
 		push @$attributes,
 		  {
@@ -1156,6 +1159,7 @@ sub get_schemes_table_attributes {
 			name        => 'allow_missing_loci',
 			type        => 'bool',
 			hide_public => 'yes',
+			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		},
 		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
