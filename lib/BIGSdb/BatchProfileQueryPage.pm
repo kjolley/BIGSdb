@@ -33,7 +33,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('function') && $self->{'cgi'}->param('function') eq 'examples' ) {
+	if ( $self->{'cgi'}->param('function') ) {
 		$self->{'type'} = 'text';
 	} else {
 		$self->{'jQuery'} = 1;
@@ -44,8 +44,11 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('function') && $q->param('function') eq 'examples' ) {
+	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
+		return;
+	} elsif ( ( $q->param('function') // q() ) eq 'col_order' ) {
+		$self->_print_col_order;
 		return;
 	}
 	my $scheme_id = $q->param('scheme_id');
@@ -63,16 +66,17 @@ sub print_content {
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my @cleaned_loci;
-	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/x, $profiles;
+		my @cleaned_loci;
+		push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 		local $" = q(</th><th>);
 		say q(<div class="box" id="resultstable">);
 		say q(<div class="scrollable">);
 		say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+
 		foreach my $field (@$scheme_fields) {
 			my $cleaned = $field;
 			$cleaned =~ tr/_/ /;
@@ -146,7 +150,9 @@ sub print_content {
 	say q[<p>Enter allelic profiles below in tab-delimited text format using copy and paste ]
 	  . q[(for example directly from a spreadsheet). Columns can be separated by any amount of whitespace. ]
 	  . q[The first column should be an isolate identifier and the remaining ]
-	  . qq[columns should comprise the allele numbers (order: @cleaned_loci). Click here for ]
+	  . qq[columns should comprise the allele numbers (<a href="$self->{'system'}->{'script_name'}?]
+	  . qq[db=$self->{'instance'}&amp;page=batchProfiles&amp;function=col_order&amp;scheme_id=$scheme_id">]
+	  . q[show column order</a>. Click here for ]
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;]
 	  . qq[function=examples&amp;scheme_id=$scheme_id">example data</a>. Non-numerical characters will be ]
 	  . q[stripped out of the query.</p>];
@@ -192,6 +198,25 @@ sub _print_examples {
 		say qq(isolate_$i\t@alleles);
 		$i++;
 	}
+	return;
+}
+
+sub _print_col_order {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		$scheme_id = -1;
+	}
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		say q(This function is only available for sequence definition databases.);
+		return;
+	}
+	my @cleaned_loci;
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
+	local $" = qq(\t);
+	say qq(id\t@cleaned_loci);
 	return;
 }
 1;
