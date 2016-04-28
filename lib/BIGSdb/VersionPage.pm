@@ -63,8 +63,8 @@ http://www.gnu.org/licenses/gpl.html</a>.</p>
 <li>Details of this software and the latest version can be downloaded from 
 <a href="http://pubmlst.org/software/database/bigsdb/">
 http://pubmlst.org/software/database/bigsdb/</a>.</li>
-<li>Full documentation can be found at <a href="http://bigsdb.readthedocs.org/">
-http://bigsdb.readthedocs.org/</a>.</li></ul>
+<li>Full documentation can be found at <a href="http://bigsdb.readthedocs.io/">
+http://bigsdb.readthedocs.io/</a>.</li></ul>
 HTML
 	$self->_print_plugins;
 	$self->_print_software_versions;
