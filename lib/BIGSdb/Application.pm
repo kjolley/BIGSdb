@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2015, University of Oxford
+#(c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -341,7 +341,7 @@ sub read_config_file {
 		}
 	}
 	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
-	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.org/en/latest';
+	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
 	$self->{'config'}->{'max_upload_size'} //= 32;
 	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
 	return;

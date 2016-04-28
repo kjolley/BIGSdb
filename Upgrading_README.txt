@@ -23,7 +23,7 @@ Version 1.13: Change of seqdef and isolate database structures.
 Details can be found below.
 
 More details about the upgrade process can be found at
-http://bigsdb.readthedocs.org/en/latest/installation.html#upgrading-bigsdb.
+http://bigsdb.readthedocs.io/en/latest/installation.html#upgrading-bigsdb.
 
 Version 1.1
 -----------

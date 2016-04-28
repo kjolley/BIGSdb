@@ -19,4 +19,4 @@ schemes so that types can be defined by combinations of allelic profiles, a
 concept analagous to MLST.
 
 The latest version of the BIGSdb documentation can be found at 
-http://bigsdb.readthedocs.org.
+http://bigsdb.readthedocs.io.
