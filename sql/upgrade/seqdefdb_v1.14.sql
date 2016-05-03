@@ -1,3 +1,5 @@
+CREATE INDEX i_s2 ON sequences(exemplar);
+
 CREATE TABLE scheme_warehouse_indices (
 scheme_id int NOT NULL,
 locus text NOT NULL,

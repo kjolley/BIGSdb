@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -166,27 +166,35 @@ sub run_script {
 }
 
 sub get_isolates_with_linked_seqs {
+	my ($self) = @_;
+	return $self->get_isolates( { with_seqbin => 1 } );
+}
+
+sub get_isolates {
 
 	#options set in $self->{'options}
 	#$self->{'options}->{'p'}: comma-separated list of projects
 	#$self->{'options}->{'i'}: comma-separated list of isolate ids (ignored if 'p' used)
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
-	my $qry =
-	  "SELECT $view.id FROM $view WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)";
+	my $qry  = "SELECT $view.id FROM $view";
+	$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)"
+	  if $options->{'with_seqbin'};
+	my $where_or_and = $options->{'with_seqbin'} ? 'AND' : 'WHERE';
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
-		$qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
+		$qry .= " $where_or_and $view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
 	} elsif ( $self->{'options'}->{'i'} ) {
 		my @ids = split( ',', $self->{'options'}->{'i'} );
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
-		$qry .= " AND $view.id IN (@ids)";
+		$qry .= " $where_or_and $view.id IN (@ids)";
 	} elsif ( $self->{'options'}->{'isolate_list_file'} ) {
 		my $ids = $self->_read_ids_from_file( $self->{'options'}->{'isolate_list_file'} );
 		die "No valid isolate ids in list file.\n" if !@$ids;
-		$qry .= " AND $view.id IN (@$ids)";
+		$qry .= " $where_or_and $view.id IN (@$ids)";
 	}
 	$qry .= " ORDER BY $view.id";
 	return $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
