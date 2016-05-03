@@ -57,10 +57,8 @@ sub DESTROY {
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
 			$self->{'sql'}->{$_}->finish;
-			$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle '$_' finished.");
 		}
 	}
-	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) destroyed.");
 	return;
 }
 
