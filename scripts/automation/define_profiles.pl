@@ -1,0 +1,427 @@
+#!/usr/bin/perl
+#Define scheme profiles found in isolate database.
+#Designed for uploading cgMLST profiles to the seqdef database.
+#Written by Keith Jolley
+#Copyright (c) 2016, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+use strict;
+use warnings;
+use 5.010;
+###########Local configuration#############################################
+use constant {
+	CONFIG_DIR       => '/etc/bigsdb',
+	LIB_DIR          => '/usr/local/lib',
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
+	PASSWORD         => undef
+};
+#######End Local configuration#############################################
+use lib (LIB_DIR);
+use BIGSdb::Offline::Script;
+use Getopt::Long qw(:config no_ignore_case);
+use Term::Cap;
+use Error qw(:try);
+
+#User id for definer (there needs to be a record in the users table of the seqdef database)
+use constant DEFINER_USER     => -1;
+use constant DEFINER_USERNAME => 'autodefiner';
+
+#Direct all library logging calls to screen
+my $log_conf =
+    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Scheme        = WARN, Screen\n)
+  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
+  . qq(log4perl.appender.Screen.stderr        = 1\n)
+  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+Log::Log4perl->init( \$log_conf );
+my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
+my %opts;
+GetOptions(
+	'database=s'           => \$opts{'database'},
+	'exclude_isolates=s'   => \$opts{'I'},
+	'exclude_projects=s'   => \$opts{'P'},
+	'help'                 => \$opts{'help'},
+	'ignore_multiple_hits' => \$opts{'ignore_multiple_hits'},
+	'isolates=s'           => \$opts{'i'},
+	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
+	'max=i'                => \$opts{'y'},
+	'min=i'                => \$opts{'x'},
+	'min_size=i'           => \$opts{'m'},
+	'missing=i'            => \$opts{'missing'},
+	'projects=s'           => \$opts{'p'},
+	'scheme=i'             => \$opts{'scheme_id'},
+) or die("Error in command line arguments\n");
+if ( $opts{'help'} ) {
+	show_help();
+	exit;
+}
+if ( !$opts{'database'} || !$opts{'scheme_id'} ) {
+	say "\nUsage: define_profiles.pl --database <NAME> --scheme <SCHEME ID>\n";
+	say 'Help: define_profiles.pl --help';
+	exit;
+}
+my $script = BIGSdb::Offline::Script->new(
+	{
+		config_dir       => CONFIG_DIR,
+		lib_dir          => LIB_DIR,
+		dbase_config_dir => DBASE_CONFIG_DIR,
+		host             => HOST,
+		port             => PORT,
+		user             => USER,
+		password         => PASSWORD,
+		options          => \%opts,
+		instance         => $opts{'database'},
+		logger           => $logger
+	}
+);
+die "This script can only be run against an isolate database.\n"
+  if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+perform_sanity_checks();
+main();
+
+sub main {
+	my $isolates     = $script->get_isolates;
+	my $isolate_list = $script->filter_and_sort_isolates($isolates);
+	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
+	foreach my $isolate_id (@$isolate_list) {
+		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
+		next if $missing > $opts{'missing'};
+		my $field_values = $scheme->get_field_values_by_designations($designations);
+		next if @$field_values;    #Already defined
+		define_new_profile($designations);
+	}
+	return;
+}
+
+sub define_new_profile {
+	my ($designations) = @_;
+	my $db             = get_seqdef_db();
+	my $scheme_id      = get_remote_scheme_id();
+	my $next_pk        = get_next_pk();
+	my $failed;
+	eval {
+		$db->do(
+			'INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?)',
+			undef, $scheme_id, $next_pk, DEFINER_USER, DEFINER_USER, 'now', 'now' );
+		$db->do(
+			'INSERT INTO profile_fields (scheme_id,scheme_field,profile_id,value,curator,datestamp) '
+			  . 'VALUES (?,?,?,?,?,?)',
+			undef, $scheme_id, $script->{'primary_key'}, $next_pk, $next_pk, DEFINER_USER, 'now'
+		);
+		my $loci = $script->{'datastore'}->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=?',
+			$opts{'scheme_id'}, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $locus (@$loci) {
+			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
+			my $allele_id = $designations->{ $locus->{'locus'} }->[0]->{'allele_id'};
+			if ( allele_exists( $locus_name, $allele_id ) ) {
+				$db->do(
+					'INSERT INTO profile_members (locus,scheme_id,profile_id,allele_id,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?,?)',
+					undef, $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now'
+				);
+			} else {
+				say "Allele $locus->{'locus'}-$allele_id has not been defined.";
+				$failed = 1;
+			}
+			last if $failed;
+		}
+	};
+	if ( $@ || $failed ) {
+		$logger->error($@) if $@;
+		$db->rollback;
+		return;
+	}
+	$db->commit;
+	say "$script->{'primary_key'}-$next_pk assigned.";
+	return;
+}
+
+sub allele_exists {
+	my ( $locus, $allele_id ) = @_;
+	my $db     = get_seqdef_db();
+	my $exists = $script->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+		[ $locus, $allele_id ],
+		{ db => $db, cache => 'allele_exists' }
+	);
+	return 1 if $exists;
+	if ( $allele_id eq 'N' ) {
+		define_missing_allele($locus);
+		return 1;
+	}
+	return;
+}
+
+sub define_missing_allele {
+	my ($locus) = @_;
+	my $db = get_seqdef_db();
+	$db->do(
+		'INSERT INTO sequences (locus,allele_id,sequence,sender,curator,date_entered,datestamp,status) '
+		  . 'VALUES (?,?,?,?,?,?,?,?)',
+		undef, $locus, 'N', 'arbitrary allele', 0, 0, 'now', 'now', ''
+	);
+
+	#Don't commit here - this is part of the transaction and errors are trapped in calling method.
+	return;
+}
+
+sub get_next_pk {
+	my $db        = get_seqdef_db();
+	my $scheme_id = get_remote_scheme_id();
+	my $qry =
+	    'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
+	  . 'WHERE scheme_id=? ORDER BY profile_id';
+	my $test = 0;
+	my $next = 0;
+	my $id   = 0;
+	my $profiles =
+	  $script->{'datastore'}
+	  ->run_query( $qry, [ $scheme_id, $scheme_id ], { db => $db, fetch => 'col_arrayref', cache => 'get_next_pk' } );
+	foreach my $profile_id (@$profiles) {
+		$test++;
+		$id = $profile_id;
+		if ( $test != $id ) {
+			$next = $test;
+			return $next;
+		}
+	}
+	if ( $next == 0 ) {
+		$next = $id + 1;
+	}
+	return $next;
+}
+
+sub get_profile {
+	my ($isolate_id) = @_;
+	my $all_designations = $script->{'datastore'}->get_scheme_allele_designations( $isolate_id, $opts{'scheme_id'} );
+	my @profile;
+	my $designations = {};
+	my $missing      = 0;
+	if ( !$script->{'cache'}->{'scheme_loci'} ) {
+		$script->{'cache'}->{'scheme_loci'} = [];
+		my $db               = get_seqdef_db();
+		my $remote_scheme_id = get_remote_scheme_id();
+		my $loci =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=? ORDER BY index',
+			$remote_scheme_id, { db => $db, fetch => 'col_arrayref', cache => 'get_profile:loci' } );
+		foreach my $profile_locus (@$loci) {
+			my $locus_name = $script->{'datastore'}->run_query(
+				'SELECT locus FROM scheme_members WHERE (scheme_id,profile_name)=(?,?)',
+				[ $opts{'scheme_id'}, $profile_locus ],
+				{ cache => 'get_profile:profile_name' }
+			);
+			push @{ $script->{'cache'}->{'scheme_loci'} }, ( $locus_name // $profile_locus );
+		}
+	}
+	foreach my $locus ( @{ $script->{'cache'}->{'scheme_loci'} } ) {
+		my $value;
+		my $locus_designations = $all_designations->{$locus};
+		$locus_designations //= [];
+		if ( @$locus_designations == 0 ) {
+			$value = 'N';
+		} elsif ( @$locus_designations == 1 ) {
+			$value = $locus_designations->[0]->{'allele_id'};
+		} else {
+			$value = $opts{'ignore_multiple_hits'} ? 'N' : $locus_designations->[0]->{'allele_id'};
+		}
+		push @profile, $value;
+		$missing++ if $value eq 'N';
+		$designations->{$locus} = [ { allele_id => $value, status => 'confirmed' } ];
+	}
+	return \@profile, $designations, $missing;
+}
+
+sub perform_sanity_checks {
+	check_scheme_exists();
+	check_user_exists();
+	check_scheme_properly_defined();
+	check_allowed_missing();
+	return;
+}
+
+sub check_scheme_exists {
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
+	die "Scheme $opts{'scheme_id'} does not exist.\n" if !$scheme_info;
+	return;
+}
+
+sub check_user_exists {
+	my $db     = get_seqdef_db();
+	my $exists = $script->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM users WHERE (id,user_name)=(?,?))',
+		[ DEFINER_USER, DEFINER_USERNAME ],
+		{ db => $db }
+	);
+	die "The autodefiner user does not exist in the seqdef users table.\n" if !$exists;
+	return;
+}
+
+sub get_remote_scheme_id {
+	my $db = get_seqdef_db();
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $remote_scheme_id;
+	if ( $scheme_info->{'dbase_table'} =~ /mv_scheme_(\d+)/x ) {
+		return $1;
+	}
+	die "The scheme table in the seqdef database is not properly set for this scheme in the isolate database.\n";
+}
+
+sub check_scheme_properly_defined {
+	my $db               = get_seqdef_db();
+	my $scheme_info      = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $remote_scheme_id = get_remote_scheme_id();
+	if ( !$scheme_info->{'primary_key'} ) {
+		die "No primary key field has been set for this scheme in the isolate database.\n";
+	}
+	$script->{'primary_key'} = $scheme_info->{'primary_key'};
+	my $remote_scheme =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM schemes WHERE id=?', $opts{'scheme_id'}, { db => $db, fetch => 'row_hashref' } );
+	die "The scheme does not exist in the seqdef database.\n" if !$remote_scheme;
+	my $loci = $script->{'datastore'}->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=?',
+		$opts{'scheme_id'}, { fetch => 'all_arrayref', slice => {} } );
+	my $remote_loci = $script->{'datastore'}->run_query( 'SELECT locus FROM scheme_members WHERE scheme_id=?',
+		$remote_scheme_id, { db => $db, fetch => 'col_arrayref' } );
+	my ( $remote_count, $local_count ) = ( scalar @$remote_loci, scalar @$loci );
+	die "The scheme in the isolate database has $local_count loci\n"
+	  . "while the scheme in the seqdef database has $remote_count loci.\n"
+	  if $remote_count != $local_count;
+
+	foreach my $locus (@$loci) {
+		my $locus_exists_in_seqdef_scheme = $script->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM scheme_members WHERE (scheme_id,locus)=(?,?))',
+			[ $remote_scheme_id, ( $locus->{'profile_name'} // $locus->{'locus'} ) ],
+			{ db => $db, cache => 'check_scheme_properly_defined::loci' }
+		);
+		die "Locus $locus->{'locus'} does not exist in the seqdef database scheme.\n"
+		  if !$locus_exists_in_seqdef_scheme;
+	}
+	my $remote_pk = $script->{'datastore'}->run_query( 'SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key',
+		$remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
+	die "No primary key field is set for the scheme in the seqdef database.\n" if !$remote_pk;
+	die "Remote primary key is not an integer field.\n" if $remote_pk->{'type'} ne 'integer';
+	die "The primary key fields do not match in the isolate and seqdef databases.\n"
+	  if $scheme_info->{'primary_key'} ne $remote_pk->{'field'};
+	return;
+}
+
+sub check_allowed_missing {
+	my $db               = get_seqdef_db();
+	my $remote_scheme_id = get_remote_scheme_id();
+	my $remote_scheme =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM schemes WHERE id=?', $remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
+	if ( !$remote_scheme->{'allow_missing_loci'} && $opts{'missing'} ) {
+		say "The remote scheme does not allow missing alleles in the profile - \n" . 'setting --missing to 0.';
+		$opts{'missing'} = 0;
+	}
+	$opts{'missing'} //= 0;
+	return;
+}
+
+sub get_seqdef_db {
+	my $data_connector = $script->{'datastore'}->get_data_connector;
+	my $scheme_info    = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
+	my $seqdef_db;
+	try {
+		$seqdef_db = $data_connector->get_connection(
+			{
+				host       => $scheme_info->{'dbase_host'},
+				port       => $scheme_info->{'dbase_port'},
+				user       => $scheme_info->{'dbase_user'},
+				password   => $scheme_info->{'dbase_password'},
+				dbase_name => $scheme_info->{'dbase_name'}
+			}
+		);
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$script->{'logger'}->error('Cannot connect to seqdef database');
+		say 'Cannot connect to seqdef database';
+	};
+	exit(1) if !$seqdef_db;
+	return $seqdef_db;
+}
+
+sub show_help {
+	my $termios = POSIX::Termios->new;
+	$termios->getattr;
+	my $ospeed = $termios->getospeed;
+	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
+	say << "HELP";
+${bold}NAME$norm
+    ${bold}define_profiles.pl$norm - Define scheme profiles found in isolate database
+    
+${bold}SYNOPSIS$norm
+    ${bold}define_profiles.pl --database ${under}NAME$norm${bold} --scheme ${under}SCHEME_ID$norm [${under}options$norm]
+
+${bold}OPTIONS$norm
+
+${bold}--database$norm ${under}NAME$norm
+    Database configuration name.
+    
+${bold}--help$norm
+    This help page.
+    
+${bold}--exclude_isolates$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to ignore.
+    
+${bold}--exclude_projects$norm ${under}LIST$norm
+    Comma-separated list of projects whose isolates will be excluded.
+    
+${bold}--ignore_multiple_hits
+    Set allele designation to 'N' if there are multiple designations set for
+    a locus. The default is to use the lowest allele value in the profile
+    definition.
+ 
+${bold}--isolates$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to scan (ignored if -p used).
+    
+${bold}--isolate_list_file$norm ${under}FILE$norm  
+    File containing list of isolate ids (ignored if -i or -p used).
+             
+${bold}--max$norm ${under}ID$norm
+    Maximum isolate id.
+    
+${bold}--min$norm ${under}ID$norm
+    Minimum isolate id.
+    
+${bold}--min_size$norm ${under}SIZE$norm
+    Minimum size of seqbin (bp) - limit search to isolates with at least this
+    much sequence.
+    
+${bold}--missing$norm ${under}NUMBER$norm
+    Set the number of loci that are allowed to be missing in the profile. If
+    the remote scheme does not allow missing loci then this number will be set
+    to 0.  Default=0.
+    
+${bold}--projects$norm ${under}LIST$norm
+    Comma-separated list of project isolates to scan.
+ 
+${bold}--scheme$norm ${under}SCHEME_ID$norm
+    Scheme id number.
+         
+HELP
+	return;
+}
