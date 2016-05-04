@@ -1011,6 +1011,10 @@ CREATE OR REPLACE FUNCTION set_scheme_warehouse_indices(i_id int) RETURNS VOID A
 	END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION md5(text_array text []) RETURNS text AS $$
+	SELECT md5(array_to_string(text_array,','));
+$$ LANGUAGE sql IMMUTABLE;
+
 CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 	DECLARE
 		scheme_table text;
@@ -1040,14 +1044,16 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 			END IF;
 			create_command := create_command || ',';
 		END LOOP;
-		EXECUTE FORMAT(
-		'%ssender int,curator int,date_entered date,datestamp date,profile text[] UNIQUE, PRIMARY KEY (%s))', 
+		EXECUTE FORMAT('%ssender int NOT NULL,curator int NOT NULL,date_entered date NOT NULL,'
+		|| 'datestamp date NOT NULL,profile text[], PRIMARY KEY (%s))', 
 		create_command, pk);
 		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
 			IF x.index THEN
 				EXECUTE FORMAT('CREATE INDEX ON %I(%s)',scheme_table,x.field);
 			END IF;
 		END LOOP;
+		EXECUTE FORMAT('CREATE UNIQUE INDEX ON %I(md5(profile))',scheme_table);
+		EXECUTE FORMAT('CREATE INDEX ON %I USING gin(profile)',scheme_table);
 		--We need to be able to drop and recreate as apache user.
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', scheme_table);
 	END;
