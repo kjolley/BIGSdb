@@ -96,6 +96,7 @@ my $script = BIGSdb::Offline::Script->new(
 die "This script can only be run against an isolate database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 perform_sanity_checks();
+get_existing_alleles();
 main();
 
 sub main {
@@ -108,6 +109,22 @@ sub main {
 		my $field_values = $scheme->get_field_values_by_designations($designations);
 		next if @$field_values;    #Already defined
 		define_new_profile($designations);
+		last;
+	}
+	return;
+}
+
+sub get_existing_alleles {
+	my $db        = get_seqdef_db();
+	my $scheme_id = get_remote_scheme_id();
+	my $data      = $script->{'datastore'}->run_query(
+		'SELECT locus,allele_id FROM sequences WHERE locus IN '
+		  . '(SELECT locus FROM scheme_members WHERE scheme_id=?)',
+		$scheme_id,
+		{ db => $db, fetch => 'all_arrayref' }
+	);
+	foreach my $allele (@$data) {
+		$script->{'existing'}->{ $allele->[0] }->{ $allele->[1] } = 1;
 	}
 	return;
 }
@@ -129,20 +146,25 @@ sub define_new_profile {
 		);
 		my $loci = $script->{'datastore'}->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=?',
 			$opts{'scheme_id'}, { fetch => 'all_arrayref', slice => {} } );
+		my @allele_data;
 		foreach my $locus (@$loci) {
 			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
 			my $allele_id = $designations->{ $locus->{'locus'} }->[0]->{'allele_id'};
 			if ( allele_exists( $locus_name, $allele_id ) ) {
-				$db->do(
-					'INSERT INTO profile_members (locus,scheme_id,profile_id,allele_id,curator,datestamp) '
-					  . 'VALUES (?,?,?,?,?,?)',
-					undef, $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now'
-				);
+				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
 				say "Allele $locus->{'locus'}-$allele_id has not been defined.";
 				$failed = 1;
 			}
 			last if $failed;
+		}
+		if ( @allele_data && !$failed ) {
+			$db->do('COPY profile_members(locus,scheme_id,profile_id,allele_id,curator,datestamp) FROM STDIN');
+			local $" = "\t";
+			foreach my $alleles (@allele_data) {
+				$db->pg_putcopydata("@$alleles\n");
+			}
+			$db->pg_putcopyend;
 		}
 	};
 	if ( $@ || $failed ) {
@@ -157,13 +179,7 @@ sub define_new_profile {
 
 sub allele_exists {
 	my ( $locus, $allele_id ) = @_;
-	my $db     = get_seqdef_db();
-	my $exists = $script->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-		[ $locus, $allele_id ],
-		{ db => $db, cache => 'allele_exists' }
-	);
-	return 1 if $exists;
+	return 1 if $script->{'existing'}->{$locus}->{$allele_id};
 	if ( $allele_id eq 'N' ) {
 		define_missing_allele($locus);
 		return 1;
