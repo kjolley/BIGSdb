@@ -581,6 +581,7 @@ CREATE INDEX i_pm1 ON profile_members (scheme_id,profile_id);
 CREATE INDEX i_pm3 ON profile_members (allele_id);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_members TO apache;
+ALTER TABLE profile_members OWNER TO apache;
 
 CREATE TABLE profile_fields (
 scheme_id int NOT NULL,
