@@ -130,10 +130,11 @@ sub get_existing_alleles {
 }
 
 sub define_new_profile {
-	my ($designations) = @_;
-	my $db             = get_seqdef_db();
-	my $scheme_id      = get_remote_scheme_id();
-	my $next_pk        = get_next_pk();
+	my ($designations)   = @_;
+	my $db               = get_seqdef_db();
+	my $scheme_id        = get_remote_scheme_id();
+	my $next_pk          = get_next_pk();
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $failed;
 	eval {
 		$db->do(
@@ -159,16 +160,29 @@ sub define_new_profile {
 			last if $failed;
 		}
 		if ( @allele_data && !$failed ) {
+			$db->do('ALTER TABLE profile_members DISABLE TRIGGER modify_profile_member');
 			$db->do('COPY profile_members(locus,scheme_id,profile_id,allele_id,curator,datestamp) FROM STDIN');
 			local $" = "\t";
 			foreach my $alleles (@allele_data) {
 				$db->pg_putcopydata("@$alleles\n");
 			}
 			$db->pg_putcopyend;
+			$db->do(
+				"UPDATE $scheme_warehouse SET profile=ARRAY(SELECT allele_id FROM profile_members WHERE "
+				  . "(scheme_id,profile_id)=(?,?) ORDER BY locus) WHERE $script->{'primary_key'}=?",
+				undef, $scheme_id, $next_pk, $next_pk
+			);
+			$db->do('ALTER TABLE profile_members ENABLE TRIGGER modify_profile_member');
 		}
 	};
 	if ( $@ || $failed ) {
-		$logger->error($@) if $@;
+		if ($@){
+			if ($@ =~ /must\ be\ owner\ of\ relation\ profile_members/x){
+				$logger->error('The profile_members table must be owned by apache.');
+			} else {
+				$logger->error($@);
+			}
+		}
 		$db->rollback;
 		return;
 	}
