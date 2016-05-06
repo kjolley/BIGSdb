@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -187,8 +187,8 @@ sub _run_burst {
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
 	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
 	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
-	my ( $loci, $profiles_ref, $profile_freq_ref, $num_profiles ) = $self->_get_profile_array( $scheme_id, $pk, $list );
-	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $loci, $num_profiles, $profiles_ref );
+	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) = $self->_get_profile_array( $scheme_id, $pk, $list );
+	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $locus_count, $num_profiles, $profiles_ref );
 	if ($error) {
 		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
 		return;
@@ -200,7 +200,7 @@ sub _run_burst {
 	}
 	$self->_recursive_search(
 		{
-			loci             => $loci,
+			locus_count             => $locus_count,
 			num_profiles     => $num_profiles,
 			profiles_ref     => $profiles_ref,
 			matrix_ref       => $matrix_ref,
@@ -217,15 +217,15 @@ sub _get_profile_array {
 	my %st_frequency;
 	my $num_profiles = 0;
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	foreach (@$loci) {
-		$_ =~ s/'/_PRIME_/gx;
-	}
+	my $locus_count = @$loci;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $i = 0;
 		foreach my $st (@$list) {
 			local $" = ',';
-			my @profile = $self->{'datastore'}->run_query( "SELECT $pk,@$loci FROM scheme_$scheme_id WHERE $pk=?",
+			my ( $pk_value, $profile_ref ) =
+			  $self->{'datastore'}->run_query( "SELECT $pk,profile FROM mv_scheme_$scheme_id WHERE $pk=?",
 				$st, { cache => 'BURST::get_profile_array' } );
+			my @profile = ( $pk_value, @$profile_ref );
 			my $j = 0;
 			if ( $st_frequency{ $profile[0] } ) {
 				$st_frequency{ $profile[0] }++;
@@ -273,24 +273,24 @@ sub _get_profile_array {
 		}
 		@profiles = sort { @{$a}[0] <=> @{$b}[0] } @profiles;
 	}
-	return ( $loci, \@profiles, \%st_frequency, $num_profiles );
+	return ( $locus_count, \@profiles, \%st_frequency, $num_profiles );
 }
 
 sub _generate_distance_matrix {
-	my ( $self, $loci, $num_profiles, $profiles_ref ) = @_;
+	my ( $self, $locus_count, $num_profiles, $profiles_ref ) = @_;
 	my @profiles = @{$profiles_ref};
 	my @matrix;
 	my $error;
 	for ( my $i = 0 ; $i < $num_profiles ; $i++ ) {
 		for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 			my $same = 0;
-			for ( my $k = 1 ; $k < @$loci + 1 ; $k++ ) {
+			for ( my $k = 1 ; $k < $locus_count + 1 ; $k++ ) {
 				if ( defined $profiles[$i][$k] && defined $profiles[$j][$k] && $profiles[$i][$k] eq $profiles[$j][$k] )
 				{
 					$same++;
 				}
 				$matrix[$i][$j] = $same;
-				if ( $same == @$loci ) {
+				if ( $same == $locus_count ) {
 					if ( $profiles[$i][0] != $profiles[$j][0] ) {
 						$error = "STs $profiles[$i][0] and $profiles[$j][0] have the same profile.";
 						last;
@@ -304,8 +304,8 @@ sub _generate_distance_matrix {
 
 sub _recursive_search {
 	my ( $self, $args ) = @_;
-	my ( $loci, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk ) =
-	  @{$args}{qw (loci num_profiles profiles_ref matrix_ref profile_freq_ref primary_key)};
+	my ( $locus_count, $num_profiles, $profiles_ref, $matrix_ref, $profile_freq_ref, $pk ) =
+	  @{$args}{qw (locus_count num_profiles profiles_ref matrix_ref profile_freq_ref primary_key)};
 	$pk //= 'ST';
 	my @profiles = @{$profiles_ref};
 	my @matrix   = @{$matrix_ref};
@@ -314,11 +314,11 @@ sub _recursive_search {
 	my $grpdef = $self->{'cgi'}->param('grpdef') || 'n-2';
 
 	if ( $grpdef =~ /n\-(\d+)/x ) {
-		$grpdef = @$loci - $1;
+		$grpdef = $locus_count - $1;
 	}
 	if (   !BIGSdb::Utils::is_int($grpdef)
 		|| $grpdef < 1
-		|| $grpdef > @$loci - 1 )
+		|| $grpdef > $locus_count - 1 )
 	{
 		say q(<div class="box" id="statusbad"><p>Invalid group definition selected.</p></div>);
 		return;
@@ -368,11 +368,11 @@ sub _recursive_search {
 			$grp[$i] ||= 0;
 			for ( my $j = 0 ; $j < $num_profiles ; $j++ ) {
 				if ( ( $grp[$i] == $group ) && ( $grp[$j] == $group ) ) {
-					if ( $matrix[$i][$j] == @$loci ) {
+					if ( $matrix[$i][$j] == $locus_count ) {
 						next;
-					} elsif ( $matrix[$i][$j] == ( @$loci - 1 ) ) {
+					} elsif ( $matrix[$i][$j] == ( $locus_count - 1 ) ) {
 						$result[0][$i]++;
-					} elsif ( $matrix[$i][$j] == ( @$loci - 2 ) ) {
+					} elsif ( $matrix[$i][$j] == ( $locus_count - 2 ) ) {
 						$result[1][$i]++;
 					} else {
 						$result[2][$i]++;
@@ -469,7 +469,7 @@ sub _recursive_search {
 
 					for ( my $j = 0 ; $j < $i ; $j++ ) {
 						if ( $grp[$j] == $group ) {
-							$grpDisMat[$stCount][$stCount2] = ( @$loci - $matrix[$i][$j] );
+							$grpDisMat[$stCount][$stCount2] = ( $locus_count - $matrix[$i][$j] );
 							$st[$stCount] = $profiles[$i][0];
 							$stCount2++;
 						}
