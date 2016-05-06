@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.3',
+		version          => '1.3.4',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -571,11 +571,13 @@ sub _site_explorer {
 			say qq(<br />($cleaned-@sortedalleles));
 		}
 		say qq(</td><td>$pc</td>);
-		local $" = "' OR $locus='";
-		foreach (@schemes) {
-			my $qry      = "SELECT COUNT(*) FROM scheme_$_ WHERE $locus='@allelelist'";
+
+		foreach my $scheme_id (@schemes) {
+			my $locus_name = $self->{'datastore'}->get_scheme_warehouse_locus_name($scheme_id,$locus);
+			local $" = "' OR $locus_name='";
+			my $qry      = "SELECT COUNT(*) FROM mv_scheme_$scheme_id WHERE $locus_name='@allelelist'";
 			my $numSTs   = $self->{'datastore'}->run_query($qry);
-			my $totalSTs = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM scheme_$_");
+			my $totalSTs = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM mv_scheme_$scheme_id");
 			print "<td>$numSTs / $totalSTs";
 			my $pcST;
 			if ( $totalSTs == 0 ) {
