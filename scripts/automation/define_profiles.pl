@@ -109,7 +109,6 @@ sub main {
 		my $field_values = $scheme->get_field_values_by_designations($designations);
 		next if @$field_values;    #Already defined
 		define_new_profile($designations);
-		last;
 	}
 	return;
 }
@@ -209,6 +208,7 @@ sub define_missing_allele {
 		  . 'VALUES (?,?,?,?,?,?,?,?)',
 		undef, $locus, 'N', 'arbitrary allele', 0, 0, 'now', 'now', ''
 	);
+	$script->{'existing'}->{$locus}->{'N'} = 1;
 
 	#Don't commit here - this is part of the transaction and errors are trapped in calling method.
 	return;
