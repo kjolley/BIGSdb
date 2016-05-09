@@ -61,9 +61,10 @@ sub get_allele_id_from_sequence {
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$qry =
 			    "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE "
-			  . "($self->{'dbase_seq_field'},$self->{'dbase_id2_field'})=(?,?)";
+			  . "(md5($self->{'dbase_seq_field'}),$self->{'dbase_id2_field'})=(md5(?),?)";
 		} else {
-			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_seq_field'}=?";
+			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} "
+			  . "WHERE md5($self->{'dbase_seq_field'})=md5(?)";
 		}
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
 	}
