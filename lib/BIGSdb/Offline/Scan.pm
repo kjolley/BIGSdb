@@ -289,10 +289,11 @@ sub _create_fasta_index {
 			my $ok = 1;
 			try {
 				my $seqs_ref =
-				  $self->{'datastore'}->get_locus($locus)->get_all_sequences( { exemplar => $options->{'exemplar'} } );
+				  $self->{'datastore'}->get_locus($locus)
+				  ->get_all_sequences( { exemplar => $options->{'exemplar'}, no_temp_table => 1 } );
 				if ( $options->{'exemplar'} && !keys %$seqs_ref ) {
 					$logger->info("Locus $locus has no exemplars set - using all alleles.");
-					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences;
+					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences( { no_temp_table => 1 } );
 				} else {
 					undef $self->{'no_exemplars'};
 				}
@@ -910,7 +911,8 @@ sub _parse_blast_exact {
 	my $matched_already        = {};
 	my $region_matched_already = {};
 	my $locus_info             = {};
-	my $allele_lengths         = {};
+
+	#	my $allele_lengths         = {};
 	$pcr_filter    //= {};
 	$probe_filter  //= {};
 	$pcr_products  //= {};
@@ -929,14 +931,14 @@ sub _parse_blast_exact {
 				$allele_id = $record->[1];
 			}
 			if ( !$locus_info->{$locus} ) {
-				$locus_info->{$locus}     = $self->{'datastore'}->get_locus_info($locus);
-				$allele_lengths->{$locus} = $self->{'datastore'}->get_locus($locus)->get_all_allele_lengths;
+				$locus_info->{$locus} = $self->{'datastore'}->get_locus_info($locus);
 			}
 			my $ref_length;
 			if ( $allele_id eq 'ref' ) {
 				$ref_length = length( $locus_info->{$locus}->{'reference_sequence'} );
 			} else {
-				$ref_length = $allele_lengths->{$locus}->{$allele_id};
+				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+				$ref_length = length($$ref_seq);
 			}
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
