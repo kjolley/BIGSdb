@@ -56,6 +56,7 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
+	'cache' => \$opts{'cache'},
 	'database=s'           => \$opts{'database'},
 	'exclude_isolates=s'   => \$opts{'I'},
 	'exclude_projects=s'   => \$opts{'P'},
@@ -97,6 +98,7 @@ die "This script can only be run against an isolate database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 perform_sanity_checks();
 get_existing_alleles();
+local $| = 1;
 main();
 
 sub main {
@@ -104,12 +106,14 @@ sub main {
 	my $isolate_list = $script->filter_and_sort_isolates($isolates);
 	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
 	foreach my $isolate_id (@$isolate_list) {
+		next if defined_in_cache($isolate_id);
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
 		next if $missing > $opts{'missing'};
 		my $field_values = $scheme->get_field_values_by_designations($designations);
 		next if @$field_values;    #Already defined
 		define_new_profile($designations);
 	}
+	refresh_caches();
 	return;
 }
 
@@ -175,8 +179,8 @@ sub define_new_profile {
 		}
 	};
 	if ( $@ || $failed ) {
-		if ($@){
-			if ($@ =~ /must\ be\ owner\ of\ relation\ profile_members/x){
+		if ($@) {
+			if ( $@ =~ /must\ be\ owner\ of\ relation\ profile_members/x ) {
 				$logger->error('The profile_members table must be owned by apache.');
 			} else {
 				$logger->error($@);
@@ -393,6 +397,25 @@ sub get_seqdef_db {
 	return $seqdef_db;
 }
 
+sub refresh_caches {
+	return if !$opts{'cache'};
+	say 'Refreshing caches...';
+	$script->{'datastore'}->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1 } );
+	$script->{'datastore'}->create_temp_scheme_status_table( $opts{'scheme_id'}, { cache => 1 } );
+	return;
+}
+
+sub defined_in_cache {
+	my ($isolate_id) = @_;
+	my $table = "temp_isolates_scheme_fields_$opts{'scheme_id'}";
+	my $cache_exists =
+	  $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+		$table, { cache => 'defined_in_cache::table_exists' } );
+	return if !$cache_exists;
+	return $script->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)",
+		$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
+}
+
 sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
@@ -407,6 +430,9 @@ ${bold}SYNOPSIS$norm
     ${bold}define_profiles.pl --database ${under}NAME$norm${bold} --scheme ${under}SCHEME_ID$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
+
+${bold}--cache$norm
+    Update scheme field cache in isolate database.
 
 ${bold}--database$norm ${under}NAME$norm
     Database configuration name.
