@@ -272,7 +272,8 @@ sub get_loci_table_attributes {
 			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=alleleInfo&locus=PUT_LOCUS_NAME_HERE&allele_id=[?]';
 		}
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name        => 'reference_sequence',
 				type        => 'text',
@@ -296,7 +297,7 @@ sub get_loci_table_attributes {
 				type        => 'bool',
 				hide_public => 'yes',
 				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
-				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
+				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
 			},
 			{
@@ -448,7 +449,7 @@ sub get_loci_table_attributes {
 				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
 				  . 'template will become unwieldy.'
 			}
-		);
+		  );
 	} else {    #Seqdef database
 		push @$attributes,
 		  {
@@ -1928,7 +1929,8 @@ sub get_classification_group_schemes_table_attributes {
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
 			labels         => '|$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 'yes',
+			with_pk_only   => 1,
 		},
 		{
 			name     => 'description',
@@ -1937,12 +1939,6 @@ sub get_classification_group_schemes_table_attributes {
 			length   => 50,
 			unique   => 'yes',
 			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
-		},
-		{
-			name     => 'missing_loci_limit',
-			type     => 'int',
-			required => 'yes',
-			comments => 'Number of loci that must be designated before profile can be assigned.'
 		},
 		{
 			name     => 'inclusion_threshold',
@@ -1970,12 +1966,13 @@ sub get_classification_group_fields_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
 		{
-			name        => 'cg_scheme_id',
-			type        => 'int',
-			required    => 'yes',
-			primary_key => 'yes',
-			foreign_key => 'classification_group_schemes',
-			labels         => '|$description|',dropdown_query => 'yes'
+			name           => 'cg_scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'classification_group_schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes'
 		},
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
 		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' },
