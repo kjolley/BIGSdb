@@ -61,9 +61,10 @@ sub get_allele_id_from_sequence {
 		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 			$qry =
 			    "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE "
-			  . "($self->{'dbase_seq_field'},$self->{'dbase_id2_field'})=(?,?)";
+			  . "(md5($self->{'dbase_seq_field'}),$self->{'dbase_id2_field'})=(md5(?),?)";
 		} else {
-			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_seq_field'}=?";
+			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} "
+			  . "WHERE md5($self->{'dbase_seq_field'})=md5(?)";
 		}
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
 	}
@@ -125,7 +126,7 @@ sub get_all_sequences {
 	}
 	$options = {} if ref $options ne 'HASH';
 
-	#It is significantly quicker, on large databases, to create a temporary table of
+	#It can be quicker, on large databases, to create a temporary table of
 	#all alleles for a locus, and then to return all of this, than to simply return
 	#the values from the sequences table directly.
 	my $temp_table = "temp_locus_$self->{'id'}";
@@ -141,10 +142,18 @@ sub get_all_sequences {
 	}
 	my @args;
 	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args ) };
-	$logger->error($@) if $@;
-	my $sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
-	eval { $sql->execute };
+	my $sql;
+	eval {
+		if ( $options->{'no_temp_table'} )
+		{
+			$sql = $self->{'db'}->prepare($qry);
+			$sql->execute(@args);
+		} else {
+			$self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args );
+			$sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
+			$sql->execute;
+		}
+	};
 	if ($@) {
 		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
 			  . qq(locus table for locus '$self->{'id'}'!. $@)
@@ -152,42 +161,18 @@ sub get_all_sequences {
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
 	my $data = $sql->fetchall_arrayref;
+	if ( !$options->{'no_temp_table'} ) {
 
-	#Explicitly drop temp table as some offline jobs can be long-running and we
-	#shouldn't call this method multiple times anyway.
-	$self->{'db'}->do("DROP TABLE $temp_table");
+		#Explicitly drop temp table as some offline jobs can be long-running and we
+		#shouldn't call this method multiple times anyway.
+		$self->{'db'}->do("DROP TABLE $temp_table");
+	}
 	my %seqs = map { $_->[0] => $_->[1] } @$data;
 	delete $seqs{$_} foreach qw(N 0);
 
 	#Prevent table lock on long offline jobs
 	$self->{'db'}->commit;
 	return \%seqs;
-}
-
-sub get_all_allele_lengths {
-	my ($self) = @_;
-	if ( !$self->{'db'} ) {
-		$logger->info("No connection to locus $self->{'id'} database");
-		return;
-	}
-	my $qry;
-	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-		$qry = "SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'} "
-		  . "WHERE $self->{'dbase_id2_field'}=?";
-	} else {
-		$qry = "SELECT $self->{'dbase_id_field'},length($self->{'dbase_seq_field'}) FROM $self->{'dbase_table'}";
-	}
-	my $sql = $self->{'db'}->prepare($qry);
-	my @args;
-	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $sql->execute(@args) };
-	if ($@) {
-		$logger->error($@);
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
-	}
-	my $data = $sql->fetchall_arrayref;
-	my %lengths = map { $_->[0] => $_->[1] } @$data;
-	return \%lengths;
 }
 
 sub get_sequence_count {
