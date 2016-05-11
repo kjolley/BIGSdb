@@ -100,6 +100,7 @@ perform_sanity_checks();
 get_existing_alleles();
 local $| = 1;
 main();
+$script->db_disconnect;
 
 sub main {
 	my $isolates     = $script->get_isolates;

@@ -244,6 +244,20 @@ DROP TABLE matviews;
 SELECT initiate_scheme_warehouse(scheme_id) FROM scheme_fields WHERE PRIMARY_KEY AND 
 scheme_id IN (SELECT scheme_id FROM scheme_members);
 
+--Functions for profile comparison
+CREATE OR REPLACE FUNCTION profile_diff(i_scheme_id int, profile_id1 text, profile_id2 text) RETURNS bigint AS $$
+	SELECT COUNT(*) FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND 
+		p1.scheme_id=p2.scheme_id AND p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND 
+		p2.profile_id=profile_id2 AND p1.allele_id!=p2.allele_id AND p1.allele_id!='N' AND p2.allele_id!='N';
+$$ LANGUAGE sql;
+
+CREATE OR REPLACE FUNCTION matching_profiles(i_scheme_id int, profile_id1 text, threshold int) RETURNS setof text AS $$
+	SELECT p2.profile_id FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND 
+	p1.scheme_id=p2.scheme_id AND p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND p1.profile_id!=p2.profile_id AND
+	(p1.allele_id=p2.allele_id OR p1.allele_id='N' OR p2.allele_id='N') 
+	GROUP BY p2.profile_id HAVING COUNT(*) >= ((SELECT COUNT(*) FROM scheme_members WHERE scheme_id=i_scheme_id)-threshold) 
+$$ LANGUAGE sql;
+
 --classification_group_schemes
 CREATE TABLE classification_group_schemes (
 id int NOT NULL,
