@@ -258,6 +258,24 @@ CREATE OR REPLACE FUNCTION matching_profiles(i_scheme_id int, profile_id1 text, 
 	GROUP BY p2.profile_id HAVING COUNT(*) >= ((SELECT COUNT(*) FROM scheme_members WHERE scheme_id=i_scheme_id)-threshold) 
 $$ LANGUAGE sql;
 
+CREATE OR REPLACE FUNCTION matching_profiles_with_relative_threshold(i_scheme_id int, profile_id1 text, i_threshold int) 
+RETURNS setof text AS $$
+	DECLARE
+		total int;
+	BEGIN
+		SELECT COUNT(*) INTO total FROM scheme_members WHERE scheme_id=i_scheme_id;
+		CREATE TEMP TABLE loci_in_common AS SELECT p2.profile_id AS profile_id,COUNT(*) AS loci,
+		COUNT(CASE WHEN p1.allele_id=p2.allele_id THEN 1 ELSE NULL END) AS matched,
+		ROUND((CAST(COUNT(*) AS float)*(total-i_threshold))/total) AS threshold 
+		FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND p1.scheme_id=p2.scheme_id AND 
+		p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND p1.profile_id!=p2.profile_id AND p1.allele_id!='N' 
+		AND p2.allele_id!='N' GROUP BY p2.profile_id;
+
+		RETURN QUERY SELECT profile_id FROM loci_in_common WHERE matched>=threshold;
+		DROP TABLE loci_in_common;	
+	END;
+$$ LANGUAGE plpgsql;
+
 --classification_group_schemes
 CREATE TABLE classification_group_schemes (
 id int NOT NULL,
@@ -303,7 +321,6 @@ CREATE TABLE classification_group_fields (
 cg_scheme_id int NOT NULL,
 field text NOT NULL,
 type text NOT NULL,
-primary_key boolean NOT NULL,
 value_regex text,
 description text,
 field_order int,

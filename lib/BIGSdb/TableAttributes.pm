@@ -1977,14 +1977,6 @@ sub get_classification_group_fields_table_attributes {
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
 		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' },
 		{
-			name     => 'primary_key',
-			type     => 'bool',
-			required => 'yes',
-			default  => 'false',
-			tooltip  => 'primary key - Sets whether this field defines a group '
-			  . '(you can only have one primary key field).'
-		},
-		{
 			name    => 'value_regex',
 			type    => 'text',
 			tooltip => 'value regex - Regular expression that constrains value of field'
