@@ -112,6 +112,7 @@ sub main {
 		next if $missing > $opts{'missing'};
 		my $field_values = $scheme->get_field_values_by_designations($designations);
 		next if @$field_values;    #Already defined
+		print "Isolate id: $isolate_id; ";
 		define_new_profile($designations);
 	}
 	refresh_caches();
@@ -155,6 +156,7 @@ sub define_new_profile {
 		foreach my $locus (@$loci) {
 			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
 			my $allele_id = $designations->{ $locus->{'locus'} }->[0]->{'allele_id'};
+			$allele_id='N' if $allele_id eq '0';
 			if ( allele_exists( $locus_name, $allele_id ) ) {
 				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
