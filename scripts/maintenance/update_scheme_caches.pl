@@ -39,6 +39,7 @@ GetOptions(
 	'h|help'       => \$opts{'h'},
 	'm|method=s'   => \$opts{'method'},
 	'q|quiet'      => \$opts{'q'},
+	's|schemes=s'  => \$opts{'schemes'}
 ) or die("Error in command line arguments\n");
 
 if ( $opts{'h'} ) {
@@ -93,6 +94,10 @@ ${bold}--method$norm ${under}METHOD$norm
        
 ${bold}--quiet$norm
     Don't output progress messages.
+    
+${bold}--schemes$norm ${under}SCHEMES$norm
+    Comma-separated list of scheme ids to use.
+    If left empty, all schemes will be updated.
    
 HELP
 	return;

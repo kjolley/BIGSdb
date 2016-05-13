@@ -30,12 +30,27 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $schemes =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
-		undef, { fetch => 'col_arrayref' } );
+	my $schemes = [];
+	if ( $self->{'options'}->{'schemes'} ) {
+		@$schemes = split /,/x, $self->{'options'}->{'schemes'};
+		foreach my $scheme_id (@$schemes) {
+			if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+				die "Scheme id must be an integer - $scheme_id is not.\n";
+			}
+		}
+	} else {
+		$schemes =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
+			undef, { fetch => 'col_arrayref' } );
+	}
 	foreach my $scheme_id (@$schemes) {
+		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		if (!$scheme_info){
+			say "Scheme $scheme_id does not exist";
+			next;
+		}
 		if ( !defined $scheme_info->{'primary_key'} ) {
 			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.";
 			next;
@@ -44,7 +59,9 @@ sub run_script {
 		say "Updating scheme $scheme_id cache ($scheme_info->{'description'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
+		$self->{'logger'}->error('Creating scheme status');
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
+		$self->{'logger'}->error('Finished');
 	}
 	return;
 }

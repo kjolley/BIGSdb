@@ -838,15 +838,18 @@ sub create_temp_isolate_scheme_fields_view {
 				$full_table );
 		}
 	}
-	local $| =1;
+	local $| = 1;
+	$logger->error('Creating scheme table');
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
+	$logger->error('Creating scheme field table');
 	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
-	if ($@){
+
+	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-	} 
+	}
 	if ( $options->{'cache'} ) {
 		$self->{'db'}->commit;
 	} else {
@@ -912,7 +915,7 @@ sub create_temp_scheme_table {
 	$create .= ')';
 	$self->{'db'}->do($create);
 	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
-	my $data         = $self->run_query( "SELECT @$fields,profile FROM $seqdef_table",
+	my $data         = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM $seqdef_table",
 		undef, { db => $scheme_db, fetch => 'all_arrayref' } );
 	eval { $self->{'db'}->do("COPY $table(@$fields,profile) FROM STDIN"); };
 
@@ -920,14 +923,10 @@ sub create_temp_scheme_table {
 		$logger->error('Cannot start copying data into temp table');
 	}
 	local $" = "\t";
+	#TODO Test what happens if alleles can have commas in their ids.
 	foreach my $values (@$data) {
+		$values->[-1] = "{$values->[-1]}";
 		foreach my $value (@$values) {
-			if ( ref $value eq 'ARRAY' ) {
-
-				#TODO Escape " in allele identifiers.
-				local $" = q(",");
-				$value = qq({"@$value"});
-			}
 			$value = '\N' if !defined $value || $value eq '';
 		}
 		eval { $self->{'db'}->pg_putcopydata("@$values\n"); };
@@ -993,7 +992,7 @@ sub create_temp_scheme_status_table {
 	my $create_table =
 	    qq[CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));]
 	  . qq[INSERT INTO $table SELECT $view.id, COUNT(DISTINCT locus) FROM ]
-	  . qq[$view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
+	  . qq[$view JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
 	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id=]
 	  . qq[$scheme_id) GROUP BY $view.id;]
 	  . qq[CREATE INDEX ON $table (locus_count);];
