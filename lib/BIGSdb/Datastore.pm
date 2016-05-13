@@ -838,12 +838,18 @@ sub create_temp_isolate_scheme_fields_view {
 				$full_table );
 		}
 	}
+	local $| =1;
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
-	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,$method)") };
-	$logger->error($@) if $@;
-	if ( !$options->{'cache'} ) {
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
+	if ($@){
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} 
+	if ( $options->{'cache'} ) {
+		$self->{'db'}->commit;
+	} else {
 		$self->{'scheme_not_cached'} = 1;
 	}
 	return $table;

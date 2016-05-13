@@ -22,7 +22,8 @@ RETURNS VOID AS $$
 	--full (default): Recreate full cache.
 	--incremental:    Only add to the cache, do not replace existing values. If cache does not already exist, a
 	--                full refresh will be performed.
-	--daily:          Add cache for isolates added today.
+	--daily:          Add cache for isolates updated today.
+	--daily_replace:  Replace cache for isolates updated today.
 	DECLARE
 		cache_table text;
 		cache_table_temp text;
@@ -49,7 +50,7 @@ RETURNS VOID AS $$
 		ELSE
 			table_type:='TABLE';
 		END IF;
-		IF _method NOT IN ('full','incremental','daily') THEN
+		IF _method NOT IN ('full','incremental','daily','daily_replace') THEN
 			RAISE EXCEPTION 'Unrecognized method.';
 		END IF;
 		IF _method != 'full' AND _temp_table THEN
@@ -57,7 +58,11 @@ RETURNS VOID AS $$
 		END IF;
 		--Create table with a temporary name so we don't nobble cache - rename at end.
 		cache_table:='temp_' || _view || '_scheme_fields_' || _scheme_id;
-		IF NOT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
+		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
+			IF _method='daily_replace' THEN
+				EXECUTE(FORMAT('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE datestamp=''today'')',cache_table,_view));
+			END IF;
+		ELSE
 			_method='full';
 		END IF;
 		cache_table_temp:=cache_table || floor(random()*9999999);
@@ -65,6 +70,9 @@ RETURNS VOID AS $$
 
 		EXECUTE('SELECT ARRAY(SELECT field FROM scheme_fields WHERE scheme_id=$1 ORDER BY primary_key DESC )') 
 		INTO fields USING _scheme_id;
+		IF ARRAY_UPPER(fields,1) IS NULL THEN
+			RAISE EXCEPTION 'Scheme has no fields.';
+		END IF;
 		scheme_fields:='';
 		scheme_fields_type:='';
 		
@@ -79,7 +87,7 @@ RETURNS VOID AS $$
 		END LOOP;
 		IF _method='incremental' THEN
 			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) ',cache_table);
-		ELSIF _method='daily' THEN
+		ELSIF _method='daily' OR _method='daily_replace' THEN
 			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) AND isolate_id IN (SELECT id FROM %I WHERE datestamp=''today'') ',
 			cache_table,_view);
 		ELSE
