@@ -59,9 +59,7 @@ sub run_script {
 		say "Updating scheme $scheme_id cache ($scheme_info->{'description'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
-		$self->{'logger'}->error('Creating scheme status');
-		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
-		$self->{'logger'}->error('Finished');
+		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
 	}
 	return;
 }

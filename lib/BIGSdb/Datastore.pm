@@ -839,11 +839,9 @@ sub create_temp_isolate_scheme_fields_view {
 		}
 	}
 	local $| = 1;
-	$logger->error('Creating scheme table');
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
-	$logger->error('Creating scheme field table');
 	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
 
 	if ($@) {
@@ -969,44 +967,30 @@ sub create_temp_scheme_status_table {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_completion_$scheme_id";
+	my $table = "temp_${view}_scheme_completion_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 
 		#Check if cache of whole isolate table exists
 		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates\_scheme_completion_$scheme_id";
+			my $full_table = "temp_isolates_scheme_completion_$scheme_id";
 			return $full_table
 			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 				$full_table );
 		}
 	}
-	my $table_type = 'TEMP TABLE';
-	my $rename_table;
-	if ( $options->{'cache'} ) {
-		$table_type   = 'TABLE';
-		$rename_table = $table;
-		$table        = $table . '_' . int( rand(99999) );
-	}
-	my $create_table =
-	    qq[CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));]
-	  . qq[INSERT INTO $table SELECT $view.id, COUNT(DISTINCT locus) FROM ]
-	  . qq[$view JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
-	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id=]
-	  . qq[$scheme_id) GROUP BY $view.id;]
-	  . qq[CREATE INDEX ON $table (locus_count);];
-	eval { $self->{'db'}->do($create_table) };
-	$logger->error($@) if $@;
+	my $temp_table = $options->{'cache'} ? 'false' : 'true';
+	my $method = $options->{'method'} // 'full';
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_status_table($scheme_id,'$view',$temp_table,'$method')") };
 
-	#If run from cache script, create new temp table, then drop old and rename the new -
-	#this should minimize the time that the table is unavailable.
-	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		$logger->error($@) if $@;
-		$self->{'db'}->commit;
-		$table = $rename_table;
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
 	}
+	if ( $options->{'cache'} ) {
+		$self->{'db'}->commit;
+	} 
 	return $table;
 }
 
