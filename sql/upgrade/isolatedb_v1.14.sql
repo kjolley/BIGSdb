@@ -34,11 +34,9 @@ RETURNS VOID AS $$
 		field_info RECORD;
 		scheme_fields text;
 		scheme_fields_type text;
-		locus_count int;
 		isolate_qry text;
 		modify_qry text;
 		qry text;
-		allele_count int;
 		isolate RECORD;
 		table_type text;
 	BEGIN
