@@ -843,7 +843,6 @@ sub create_temp_isolate_scheme_fields_view {
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
 	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
-
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -921,6 +920,7 @@ sub create_temp_scheme_table {
 		$logger->error('Cannot start copying data into temp table');
 	}
 	local $" = "\t";
+
 	#TODO Test what happens if alleles can have commas in their ids.
 	foreach my $values (@$data) {
 		$values->[-1] = "{$values->[-1]}";
@@ -947,6 +947,9 @@ sub create_temp_scheme_table {
 		}
 	}
 	$self->{'db'}->do("CREATE INDEX ON $table using GIN(profile)");
+
+	#Just indexing the first element of the profile array will help searches based on partial profiles.
+	$self->{'db'}->do("CREATE INDEX ON $table ((profile[1]))");
 
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
@@ -983,14 +986,13 @@ sub create_temp_scheme_status_table {
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
 	eval { $self->{'db'}->do("SELECT create_isolate_scheme_status_table($scheme_id,'$view',$temp_table,'$method')") };
-
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	}
 	if ( $options->{'cache'} ) {
 		$self->{'db'}->commit;
-	} 
+	}
 	return $table;
 }
 

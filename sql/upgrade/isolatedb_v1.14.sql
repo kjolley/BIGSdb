@@ -224,7 +224,7 @@ RETURNS VOID AS $$
 			EXECUTE(FORMAT('INSERT INTO %I (SELECT * FROM %I)',cache_table_temp,cache_table)); 
 		END IF;
 		EXECUTE FORMAT('CREATE INDEX on %I(id)',cache_table_temp);
-
+		EXECUTE FORMAT('CREATE INDEX ON %I(locus_count)',cache_table_temp);
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', cache_table_temp);
 		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
 			EXECUTE FORMAT('DROP TABLE %I', cache_table);
