@@ -763,7 +763,7 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
-	if (!@$checked_buffer){
+	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
 		return;
@@ -1570,9 +1570,9 @@ sub _check_retired_profile_id {
 
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
-	my $table = $arg_ref->{'table'};
-	my $locus = $arg_ref->{'locus'};
-	my $q     = $self->{'cgi'};
+	my $table   = $arg_ref->{'table'};
+	my $locus   = $arg_ref->{'locus'};
+	my $q       = $self->{'cgi'};
 	my $records = $self->_extract_checked_records;
 	return if !@$records;
 	my $field_order = $self->_get_field_order($records);
@@ -2054,7 +2054,8 @@ sub _update_scheme_caches {
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
-					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'}
+					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'},
+					options          => { method => 'daily' }
 				}
 			);
 			CORE::exit(0);
