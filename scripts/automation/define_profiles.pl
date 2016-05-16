@@ -56,7 +56,7 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
-	'cache' => \$opts{'cache'},
+	'cache'                => \$opts{'cache'},
 	'database=s'           => \$opts{'database'},
 	'exclude_isolates=s'   => \$opts{'I'},
 	'exclude_projects=s'   => \$opts{'P'},
@@ -140,6 +140,7 @@ sub define_new_profile {
 	my $scheme_id        = get_remote_scheme_id();
 	my $next_pk          = get_next_pk();
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	$script->{'new_missing_awaiting_commit'} = [];
 	my $failed;
 	eval {
 		$db->do(
@@ -156,7 +157,7 @@ sub define_new_profile {
 		foreach my $locus (@$loci) {
 			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
 			my $allele_id = $designations->{ $locus->{'locus'} }->[0]->{'allele_id'};
-			$allele_id='N' if $allele_id eq '0';
+			$allele_id = 'N' if $allele_id eq '0';
 			if ( allele_exists( $locus_name, $allele_id ) ) {
 				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
@@ -193,6 +194,12 @@ sub define_new_profile {
 		return;
 	}
 	$db->commit;
+	if ( @{ $script->{'new_missing_awaiting_commit'} } ) {
+		foreach my $locus ( @{ $script->{'new_missing_awaiting_commit'} } ) {
+			$script->{'existing'}->{$locus}->{'N'} = 1;
+		}
+		$script->{'new_missing_awaiting_commit'} = [];
+	}
 	say "$script->{'primary_key'}-$next_pk assigned.";
 	return;
 }
@@ -215,7 +222,7 @@ sub define_missing_allele {
 		  . 'VALUES (?,?,?,?,?,?,?,?)',
 		undef, $locus, 'N', 'arbitrary allele', 0, 0, 'now', 'now', ''
 	);
-	$script->{'existing'}->{$locus}->{'N'} = 1;
+	push @{ $script->{'new_missing_awaiting_commit'} }, $locus;
 
 	#Don't commit here - this is part of the transaction and errors are trapped in calling method.
 	return;
