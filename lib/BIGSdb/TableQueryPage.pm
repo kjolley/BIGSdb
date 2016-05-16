@@ -640,7 +640,7 @@ sub _generate_query {
 		my $modifier = ( $i > 1 && !$first_value ) ? qq( $andor ) : q();
 		$first_value = 0;
 		my %table_without_isolate_id = map { $_ => 1 } qw (allele_sequences experiment_sequences);
-		if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
+		if ( $table_without_isolate_id{$table} && $field eq 'isolate_id' ) {
 			$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
 			next;
 		}
@@ -651,7 +651,7 @@ sub _generate_query {
 		}
 		my %table_linked_to_isolate = map { $_ => 1 }
 		  qw (allele_sequences allele_designations experiment_sequences sequence_bin
-		  project_members isolate_aliases samples history);
+		  project_members isolate_aliases samples history refs);
 		if ( $table_linked_to_isolate{$table} && $field eq $self->{'system'}->{'labelfield'} ) {
 			$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
 			next;
@@ -875,7 +875,7 @@ sub _search_by_isolate {
 		any {
 			$table eq $_;
 		}
-		qw (allele_designations project_members isolate_aliases samples history)
+		qw (allele_designations project_members isolate_aliases samples history refs)
 	  )
 	{
 		$qry = "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
