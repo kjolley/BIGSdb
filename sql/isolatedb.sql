@@ -614,6 +614,7 @@ ON UPDATE CASCADE
 -- Index i_ad2 (locus) removed as not necessary (covered by i_ad3)
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
 CREATE INDEX i_ad4 ON allele_designations (datestamp);
+CREATE INDEX i_ad5 ON allele_designations (UPPER(locus));
 GRANT USAGE, SELECT ON SEQUENCE allele_designations_id_seq TO apache;
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
 
