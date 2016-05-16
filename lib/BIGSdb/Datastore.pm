@@ -948,9 +948,11 @@ sub create_temp_scheme_table {
 	}
 	$self->{'db'}->do("CREATE INDEX ON $table using GIN(profile)");
 
-	#Just indexing the first element of the profile array will help searches based on partial profiles.
-	$self->{'db'}->do("CREATE INDEX ON $table ((profile[1]))");
-
+	#Index up to 5 elements
+	my $index_count = keys %$locus_indices >= 5 ? 5 : keys %$locus_indices;
+	foreach my $element (1 .. $index_count){
+		$self->{'db'}->do("CREATE INDEX ON $table ((profile[$element]))");
+	}
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
@@ -959,6 +961,7 @@ sub create_temp_scheme_table {
 		$self->{'db'}->commit;
 		$table = $rename_table;
 	}
+	
 	return $table;
 }
 

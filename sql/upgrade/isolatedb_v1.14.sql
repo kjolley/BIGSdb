@@ -34,9 +34,7 @@ RETURNS VOID AS $$
 		loci text[];
 		scheme_locus_count int;
 		scheme_info RECORD;
-		field_info RECORD;
 		scheme_fields text;
-		scheme_fields_type text;
 		isolate_qry text;
 		modify_qry text;
 		qry text;
@@ -76,16 +74,12 @@ RETURNS VOID AS $$
 			RAISE EXCEPTION 'Scheme has no fields.';
 		END IF;
 		scheme_fields:='';
-		scheme_fields_type:='';
 		
 		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
 			IF i>1 THEN 
 				scheme_fields:=scheme_fields||',';
-				scheme_fields_type:=scheme_fields_type||',';
 			END IF;
-			scheme_fields:=scheme_fields||fields[i];
-			EXECUTE('SELECT * FROM scheme_fields WHERE scheme_id=$1 AND field=$2') INTO field_info USING _scheme_id,fields[i];
-			scheme_fields_type:=scheme_fields_type||fields[i]||' '||field_info.type;
+			scheme_fields:=scheme_fields||'st.'||fields[i];
 		END LOOP;
 		IF _method='incremental' THEN
 			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) ',cache_table);
@@ -107,19 +101,18 @@ RETURNS VOID AS $$
 			--Schemes that allow missing values. Can't do a simple array comparison.
 			isolate_qry:='CREATE TEMP TABLE temp_isolates AS SELECT DISTINCT(isolate_id) AS id FROM ad' || modify_qry;
 			EXECUTE(isolate_qry);
-			EXECUTE(FORMAT('CREATE %s %s (id int,%s)',table_type,cache_table_temp,scheme_fields_type));
-			qry:=FORMAT('SELECT $1,%s FROM %I WHERE ',scheme_fields,scheme_table);
+			qry:=FORMAT('CREATE %s %s AS SELECT ti.id,%s FROM temp_isolates AS ti JOIN ad ON ti.id=ad.isolate_id JOIN %I AS st ON ',
+			table_type,cache_table_temp,scheme_fields,scheme_table);
 			FOR i IN 1 .. ARRAY_UPPER(loci,1) LOOP
 				IF i>1 THEN
 					qry:=qry||' AND ';
 				END IF;
 				qry:=qry||FORMAT(
-				'(profile[%s]=ANY(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=$1)) OR profile[%s]=''N'')',
-				i,replace(loci[i],'''',''''''),i);					
+				'(profile[%s]=ANY(array_append(ARRAY(SELECT allele_id FROM ad WHERE locus=''%s'' AND isolate_id=ti.id),''N'')))',
+				i,replace(loci[i],'''',''''''));					
 			END LOOP;
-			FOR isolate IN SELECT id FROM temp_isolates ORDER BY id LOOP
-				EXECUTE(FORMAT('INSERT INTO %I (%s)',cache_table_temp,qry)) USING isolate.id;
-			END LOOP;	
+			qry:=qry||FORMAT(' GROUP BY ti.id,%s',scheme_fields);
+			EXECUTE qry;	
 			DROP TABLE temp_isolates;
 		ELSE
 			--Complete profile and only one designation per locus
@@ -129,8 +122,8 @@ RETURNS VOID AS $$
 			EXECUTE('CREATE TEMP TABLE temp_isolate_profiles AS SELECT id,ARRAY(SELECT ad.allele_id FROM ad '
 			|| 'JOIN scheme_warehouse_indices AS sw ON ad.locus=sw.locus AND sw.scheme_id=$1 AND ad.isolate_id=temp_isolates.id '
 			|| 'ORDER BY index) AS profile FROM temp_isolates') USING _scheme_id;
-			EXECUTE(FORMAT('CREATE %s %s AS SELECT id,%s FROM temp_isolate_profiles AS tip JOIN %I AS s ON '
-			|| 'tip.profile=s.profile',table_type,cache_table_temp,scheme_fields,scheme_table));
+			EXECUTE(FORMAT('CREATE %s %s AS SELECT id,%s FROM temp_isolate_profiles AS tip JOIN %I AS st ON '
+			|| 'tip.profile=st.profile',table_type,cache_table_temp,scheme_fields,scheme_table));
 			DROP TABLE temp_isolates;
 			DROP TABLE temp_isolate_profiles;
 			
@@ -138,7 +131,7 @@ RETURNS VOID AS $$
 			EXECUTE(FORMAT('CREATE TEMP TABLE temp_isolates AS SELECT id FROM %I JOIN ad ON %I.id=ad.isolate_id '
 			|| '%sGROUP BY %I.id HAVING COUNT(DISTINCT(locus))=$1 AND COUNT(*)>$1',_view,_view,modify_qry,_view)) USING scheme_locus_count;
 			FOR isolate IN SELECT id FROM temp_isolates LOOP
-				qry:=FORMAT('SELECT %s,%s FROM %I WHERE ',isolate.id,scheme_fields,scheme_table);
+				qry:=FORMAT('SELECT %s,%s FROM %I AS st WHERE ',isolate.id,scheme_fields,scheme_table);
 				FOR i IN 1 .. ARRAY_UPPER(loci,1) LOOP
 					IF i>1 THEN
 						qry:=qry||' AND ';
@@ -236,4 +229,43 @@ RETURNS VOID AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+
+--classification_group_schemes
+CREATE TABLE classification_group_schemes (
+id int NOT NULL,
+scheme_id int NOT NULL,
+description text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(id),
+CONSTRAINT cgs_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgs_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_schemes TO apache;
+
+--classification_group_fields
+CREATE TABLE classification_group_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+type text NOT NULL,
+description text,
+field_order int,
+dropdown boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field),
+CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_group_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_fields TO apache;
 
