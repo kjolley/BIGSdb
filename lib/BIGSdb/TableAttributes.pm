@@ -1939,26 +1939,35 @@ sub get_classification_group_schemes_table_attributes {
 			length   => 50,
 			unique   => 'yes',
 			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
-		},
-		{
-			name     => 'inclusion_threshold',
-			type     => 'int',
-			required => 'yes',
-			comments => 'Number of alleles shared with group member required to become member.'
-		},
-		{
-			name     => 'use_relative_threshold',
-			type     => 'bool',
-			required => 'yes',
-			comments => 'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
-			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
-			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
-			  . 'scheme.',
-			default => 'false'
-		},
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name     => 'inclusion_threshold',
+				type     => 'int',
+				required => 'yes',
+				comments => 'Number of alleles shared with group member required to become member.'
+			},
+			{
+				name     => 'use_relative_threshold',
+				type     => 'bool',
+				required => 'yes',
+				comments =>
+				  'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
+				tooltip => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
+				  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
+				  . 'scheme.',
+				default => 'false'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	];
+	  );
 	return $attributes;
 }
 
@@ -1975,12 +1984,20 @@ sub get_classification_group_fields_table_attributes {
 			dropdown_query => 'yes'
 		},
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
-		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' },
-		{
-			name    => 'value_regex',
-			type    => 'text',
-			tooltip => 'value regex - Regular expression that constrains value of field'
-		},
+		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' }
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name    => 'value_regex',
+				type    => 'text',
+				tooltip => 'value regex - Regular expression that constrains value of field'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'description', type => 'text', required => 'no', length => 64, },
 		{ name => 'field_order', type => 'int',  required => 'no' },
 		{
@@ -1993,7 +2010,7 @@ sub get_classification_group_fields_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	];
+	  );
 	return $attributes;
 }
 

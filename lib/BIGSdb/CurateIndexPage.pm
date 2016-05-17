@@ -217,7 +217,7 @@ sub _get_admin_links {
 		  sequence_attributes);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
-		  client_dbase_loci_fields classification_group_schemes classification_group_fields);
+		  client_dbase_loci_fields);
 	}
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		push @tables, 'sets';
@@ -233,7 +233,7 @@ sub _get_admin_links {
 	}
 	my $set_string = $self->_get_set_string;
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
-	  scheme_group_group_members);
+	  scheme_group_group_members classification_group_schemes classification_group_fields);
 	foreach my $table (@tables) {
 		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 			my $function = "_print_$table";
