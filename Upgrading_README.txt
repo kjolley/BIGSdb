@@ -308,3 +308,16 @@ etc. can be dropped as these are no longer used.  To do this log in to the
 database using psql, and type 'DROP VIEW scheme_1;'. Do this for each of the
 scheme views.
 
+If you are planning to use cgMLST schemes, you should ensure that your database
+configuration has a temp_buffers setting of at least 64MB. This can be done by 
+editing bigsdb.conf and setting:
+
+temp_buffers=64
+
+Alternatively, this can be set globally in the postgresql.conf file (probably 
+/etc/postgresql/9.x/main/postgresql.conf) with the following line:
+
+SET temp_buffers=64MB
+
+Without this, the database engine is likely to run out of memory during cache
+renewal.

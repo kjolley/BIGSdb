@@ -109,6 +109,9 @@ sub get_connection {
 			$logger->debug(
 				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}
+		if (BIGSdb::Utils::is_int($self->{'config'}->{'temp_buffers'})){
+			$db->do("SET temp_buffers='$self->{'config'}->{'temp_buffers'}MB'");
+		}
 	}
 
 	#Properly handle forked environment (used for scanning)
