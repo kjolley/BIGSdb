@@ -97,9 +97,10 @@ sub main {
 	my $cg_info     = get_cg_scheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_info->{'scheme_id'}, { get_pk => 1 } );
 	$script->{'pk'} = $scheme_info->{'primary_key'};
+	$script->{'grouped_profiles'} = { map { $_ => 1 } @{ get_grouped_profiles() } };
   ITERATION: while (1) {
 	  PROFILE: foreach my $profile_id (@$profiles) {
-			next PROFILE if profile_in_group($profile_id);
+			next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
 			my $pg_method =
 			  $cg_info->{'use_relative_threshold'} ? 'matching_profiles_with_relative_threshold' : 'matching_profiles';
 			my $possible_groups = $script->{'datastore'}->run_query(
@@ -203,13 +204,10 @@ sub get_group_size {
 	);
 }
 
-sub profile_in_group {
-	my ($profile_id) = @_;
-	return $script->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?))',
-		[ $opts{'cscheme_id'}, $profile_id ],
-		{ cache => 'profile_in_group' }
-	);
+sub get_grouped_profiles {
+	return $script->{'datastore'}
+	  ->run_query( 'SELECT profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',
+		$opts{'cscheme_id'}, { fetch => 'col_arrayref' } );
 }
 
 sub create_group {
@@ -248,6 +246,7 @@ sub add_profile_to_group {
 		$logger->logdie($@);
 	}
 	$script->{'db'}->commit;
+	$script->{'grouped_profiles'}->{$profile_id} = 1;
 	return;
 }
 
