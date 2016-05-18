@@ -1948,7 +1948,7 @@ sub get_classification_group_schemes_table_attributes {
 				name     => 'inclusion_threshold',
 				type     => 'int',
 				required => 'yes',
-				comments => 'Number of alleles shared with group member required to become member.'
+				comments => 'Maximum number of different alleles allowed between profile and at least one group member profile.'
 			},
 			{
 				name     => 'use_relative_threshold',

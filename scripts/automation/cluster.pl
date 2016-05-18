@@ -20,6 +20,7 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 use strict;
 use warnings;
+use List::Util qw(min);
 use 5.010;
 ###########Local configuration#############################################
 use constant {
@@ -91,43 +92,115 @@ sub perform_sanity_checks {
 	return;
 }
 
-#TODO Remove primary_key field from classification_group_fields
 sub main {
 	my $profiles    = get_ungrouped_profiles();
 	my $cg_info     = get_cg_scheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_info->{'scheme_id'}, { get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
+	$script->{'pk'} = $scheme_info->{'primary_key'};
   ITERATION: while (1) {
 	  PROFILE: foreach my $profile_id (@$profiles) {
 			next PROFILE if profile_in_group($profile_id);
-			my $pg_method = $cg_info->{'use_relative_threshold'} ? 'matching_profiles_with_relative_threshold' : 'matching_profiles';
+			my $pg_method =
+			  $cg_info->{'use_relative_threshold'} ? 'matching_profiles_with_relative_threshold' : 'matching_profiles';
 			my $possible_groups = $script->{'datastore'}->run_query(
 				'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
-				  . "(SELECT $pg_method(?,?,?))",
+				  . "(SELECT $pg_method(?,?,?)) ORDER BY group_id",
 				[ $opts{'cscheme_id'}, $cg_info->{'scheme_id'}, $profile_id, $cg_info->{'inclusion_threshold'} ],
 				{ fetch => 'col_arrayref', cache => 'matching_profiles' }
 			);
 			if (@$possible_groups) {
 				if ( @$possible_groups == 1 ) {
 					add_profile_to_group( $possible_groups->[0], $profile_id );
-					say "Adding $pk-$profile_id to exisiting group $possible_groups->[0].";
 					next ITERATION;
 				} else {
 					local $" = ',';
-					say "$pk-$profile_id: multiple possible groups: @$possible_groups";
-
-					#TODO Assign to correct group and merge groups
+					say "$script->{'pk'}-$profile_id: multiple possible groups: @$possible_groups";
+					my $largest_groups = get_largest_groups($possible_groups);
+					if ( @$largest_groups == 1 ) {
+						add_profile_to_group( $largest_groups->[0], $profile_id );
+						merge_groups( $possible_groups, $largest_groups->[0],
+							"Merging due to $script->{'pk'}-$profile_id" );
+					} else {
+						my $smallest_group_id = min @$largest_groups;
+						add_profile_to_group( $smallest_group_id, $profile_id );
+						merge_groups( $possible_groups, $smallest_group_id,
+							"Merging due to $script->{'pk'}-$profile_id" );
+					}
 				}
 			} else {
 				my $new_group = create_group($profile_id);
 				add_profile_to_group( $new_group, $profile_id );
-				say "New group: $new_group. Adding $pk-$profile_id";
 				next ITERATION;
 			}
 		}
 		last ITERATION;
 	}
 	return;
+}
+
+sub merge_groups {
+	my ( $groups, $merged_group_id, $comment ) = @_;
+	my $scheme_id = get_cg_scheme_info()->{'scheme_id'};
+	foreach my $group_id (@$groups) {
+		next if $group_id == $merged_group_id;
+		my $profiles = get_profiles_in_group($group_id);
+		foreach my $profile_id (@$profiles) {
+			eval {
+				$script->{'db'}
+				  ->do( 'UPDATE classification_group_profiles SET group_id=? WHERE (cg_scheme_id,profile_id)=(?,?)',
+					undef, $merged_group_id, $opts{'cscheme_id'}, $profile_id );
+				$script->{'db'}
+				  ->do( 'UPDATE classification_groups SET active=false WHERE (cg_scheme_id,group_id)=(?,?)',
+					undef, $opts{'cscheme_id'}, $group_id );
+				$script->{'db'}->do(
+					'INSERT INTO classification_group_profile_history (timestamp,scheme_id,profile_id,'
+					  . 'cg_scheme_id,previous_group,comment) VALUES (?,?,?,?,?,?)',
+					undef, 'now', $scheme_id, $profile_id, $opts{'cscheme_id'}, $group_id, $comment
+				);
+			};
+			if ($@) {
+				$script->{'db'}->rollback;
+				die "$@\n";
+			}
+		}
+		$script->{'db'}->commit;
+		say "Group $group_id merged in to group $merged_group_id.";
+	}
+	return;
+}
+
+sub get_profiles_in_group {
+	my ($group_id) = @_;
+	return $script->{'datastore'}->run_query(
+		'SELECT profile_id FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+		[ $opts{'cscheme_id'}, $group_id ],
+		{ fetch => 'col_arrayref', cache => 'get_profiles_in_group' }
+	);
+}
+
+sub get_largest_groups {
+	my ($groups) = @_;
+	my @largest_groups;
+	my $largest_size = 0;
+	foreach my $group_id (@$groups) {
+		my $size = get_group_size($group_id);
+		if ( $size == $largest_size ) {
+			push @largest_groups, $group_id;
+		} elsif ( $size > $largest_size ) {
+			@largest_groups = ($group_id);
+			$largest_size   = $size;
+		}
+	}
+	return \@largest_groups;
+}
+
+sub get_group_size {
+	my ($group_id) = @_;
+	return $script->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+		[ $opts{'cscheme_id'}, $group_id ],
+		{ cache => 'get_group_size' }
+	);
 }
 
 sub profile_in_group {
@@ -145,6 +218,7 @@ sub create_group {
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT COALESCE((MAX(group_id)+1),1) FROM classification_groups WHERE cg_scheme_id=?',
 		$opts{'cscheme_id'}, { cache => 'create_group:next_id' } );
+	say "New group: $new_group_id.";
 	eval {
 		$script->{'db'}
 		  ->do( 'INSERT INTO classification_groups (cg_scheme_id,group_id,active,curator,datestamp) VALUES (?,?,?,?,?)',
@@ -161,6 +235,7 @@ sub create_group {
 sub add_profile_to_group {
 	my ( $group_id, $profile_id ) = @_;
 	my $cg_scheme_info = get_cg_scheme_info();
+	say "Adding $script->{'pk'}-$profile_id to group $group_id.";
 	eval {
 		$script->{'db'}->do(
 			'INSERT INTO classification_group_profiles (cg_scheme_id,group_id,profile_id,'
@@ -187,8 +262,8 @@ sub check_cscheme_properly_defined {
 
 sub get_ungrouped_profiles {
 	if ( !$script->{'cache'}->{'get_ungrouped_profiles'} ) {
-		my $scheme_id = get_cg_scheme_info()->{'scheme_id'};
-		my $scheme_info = $script->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_id     = get_cg_scheme_info()->{'scheme_id'};
+		my $scheme_info   = $script->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $pk_field_info = $script->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 		my $qry           = "SELECT profile_id FROM profiles WHERE scheme_id=$scheme_id AND profile_id NOT IN "
 		  . '(SELECT profile_id FROM classification_group_profiles WHERE cg_scheme_id=?) ORDER BY ';
