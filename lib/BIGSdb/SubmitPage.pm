@@ -637,7 +637,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my ( $self, $submission_id ) = @_;
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return if !$submission;
+	return if !$submission || $submission->{'status'} ne 'started';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		if ( $submission->{'type'} eq 'alleles' )
