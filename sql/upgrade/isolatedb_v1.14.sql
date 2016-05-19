@@ -229,12 +229,14 @@ RETURNS VOID AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
-
 --classification_group_schemes
 CREATE TABLE classification_group_schemes (
 id int NOT NULL,
 scheme_id int NOT NULL,
-description text NOT NULL,
+name text NOT NULL,
+description text,
+inclusion_threshold int NOT NULL,
+use_relative_threshold boolean NOT NULL,
 seqdef_cg_scheme_id int,
 curator int NOT NULL,
 datestamp date NOT NULL,

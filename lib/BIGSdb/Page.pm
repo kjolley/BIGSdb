@@ -651,110 +651,112 @@ sub get_field_selection_list {
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
+	#classification_groups: include classification group ids and field, prefix with cg_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$logger->logdie('Invalid option hashref') if ref $options ne 'HASH';
 	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
-	my @values;
+	my $values = [];
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
-		push @values, @$isolate_fields;
+		push @$values, @$isolate_fields;
 	}
 	if ( $options->{'loci'} ) {
-		if ( !$self->{'cache'}->{'loci'} ) {
-			my @locus_list;
-			my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
-			eval { $cn_sql->execute };
-			$logger->error($@) if $@;
-			my $common_names = $cn_sql->fetchall_hashref('id');
-			my $set_id       = $self->get_set_id;
-			my $loci         = $self->{'datastore'}->get_loci(
-				{
-					query_pref    => $options->{'query_pref'},
-					analysis_pref => $options->{'analysis_pref'},
-					seq_defined   => 0,
-					do_not_order  => 1,
-					set_id        => $set_id
-				}
-			);
-			my $set_loci = {};
-
-			if ($set_id) {
-				my $set_loci_sql = $self->{'db'}->prepare('SELECT * FROM set_loci WHERE set_id=?');
-				eval { $set_loci_sql->execute($set_id) };
-				$logger->error($@) if $@;
-				$set_loci = $set_loci_sql->fetchall_hashref('locus');
-			}
-			foreach my $locus (@$loci) {
-				push @locus_list, "l_$locus";
-				$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
-				my $set_name_is_set;
-				if ($set_id) {
-					my $set_locus = $set_loci->{$locus};
-					if ( $set_locus->{'set_name'} ) {
-						$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
-						if ( $set_locus->{'set_common_name'} ) {
-							$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
-							push @locus_list, "cn_$locus";
-							$self->{'cache'}->{'labels'}->{"cn_$locus"} =
-							  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
-						}
-						$set_name_is_set = 1;
-					}
-				}
-				if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
-					$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
-					push @locus_list, "cn_$locus";
-					$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
-				}
-			}
-			if ( $self->{'prefs'}->{'locus_alias'} ) {
-				my $alias_sql = $self->{'db'}->prepare('SELECT locus,alias FROM locus_aliases');
-				eval { $alias_sql->execute };
-				if ($@) {
-					$logger->error($@);
-				} else {
-					my $array_ref = $alias_sql->fetchall_arrayref;
-					foreach (@$array_ref) {
-						my ( $locus, $alias ) = @$_;
-
-						#if there is no label for the primary name it is because the locus
-						#should not be displayed
-						next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
-						$alias =~ tr/_/ /;
-						push @locus_list, "la_$locus||$alias";
-						$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} =
-						  "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
-					}
-				}
-			}
-			@locus_list =
-			  sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) }
-			  @locus_list;
-			@locus_list = uniq @locus_list;
-			$self->{'cache'}->{'loci'} = \@locus_list;
-		}
-		if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
-			push @values, @{ $self->{'cache'}->{'loci'} };
-		}
+		my $loci = $self->_get_loci_list($options);
+		push @$values, @$loci;
 	}
 	if ( $options->{'scheme_fields'} ) {
 		my $scheme_fields = $self->_get_scheme_fields($options);
-		push @values, @$scheme_fields;
+		push @$values, @$scheme_fields;
+	}
+	if ( $options->{'classification_groups'} ) {
+		my $classification_group_fields = $self->_get_classification_groups_fields;
+		push @$values, @$classification_group_fields;
 	}
 	if ( $options->{'sort_labels'} ) {
-
-		#dictionary sort
-		@values = map { $_->[0] }
-		  sort { $a->[1] cmp $b->[1] }
-		  map {
-			my $d = lc( $self->{'cache'}->{'labels'}->{$_} );
-			$d =~ s/[\W_]+//gx;
-			[ $_, $d ]
-		  } uniq @values;
+		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
 	}
-	return \@values, $self->{'cache'}->{'labels'};
+	return $values, $self->{'cache'}->{'labels'};
+}
+
+sub _get_loci_list {
+	my ( $self, $options ) = @_;
+	if ( !$self->{'cache'}->{'loci'} ) {
+		my @locus_list;
+		my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
+		eval { $cn_sql->execute };
+		$logger->error($@) if $@;
+		my $common_names = $cn_sql->fetchall_hashref('id');
+		my $set_id       = $self->get_set_id;
+		my $loci         = $self->{'datastore'}->get_loci(
+			{
+				query_pref    => $options->{'query_pref'},
+				analysis_pref => $options->{'analysis_pref'},
+				seq_defined   => 0,
+				do_not_order  => 1,
+				set_id        => $set_id
+			}
+		);
+		my $set_loci =
+		    $set_id
+		  ? $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM set_loci WHERE set_id=?', $set_id, { fetch => 'all_hashref', key => 'locus' } )
+		  : {};
+
+		foreach my $locus (@$loci) {
+			push @locus_list, "l_$locus";
+			$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
+			my $set_name_is_set;
+			if ($set_id) {
+				my $set_locus = $set_loci->{$locus};
+				if ( $set_locus->{'set_name'} ) {
+					$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
+					if ( $set_locus->{'set_common_name'} ) {
+						$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
+						push @locus_list, "cn_$locus";
+						$self->{'cache'}->{'labels'}->{"cn_$locus"} =
+						  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
+					}
+					$set_name_is_set = 1;
+				}
+			}
+			if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
+				$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
+				push @locus_list, "cn_$locus";
+				$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
+			}
+		}
+		if ( $self->{'prefs'}->{'locus_alias'} ) {
+			my $alias_sql = $self->{'db'}->prepare('SELECT locus,alias FROM locus_aliases');
+			eval { $alias_sql->execute };
+			if ($@) {
+				$logger->error($@);
+			} else {
+				my $array_ref = $alias_sql->fetchall_arrayref;
+				foreach (@$array_ref) {
+					my ( $locus, $alias ) = @$_;
+
+					#if there is no label for the primary name it is because the locus
+					#should not be displayed
+					next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
+					$alias =~ tr/_/ /;
+					push @locus_list, "la_$locus||$alias";
+					$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} =
+					  "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
+				}
+			}
+		}
+		@locus_list =
+		  sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) } @locus_list;
+		@locus_list = uniq @locus_list;
+		$self->{'cache'}->{'loci'} = \@locus_list;
+	}
+	my $values = [];
+	if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
+		push @$values, @{ $self->{'cache'}->{'loci'} };
+	}
+	return $values;
 }
 
 sub _get_provenance_fields {
@@ -833,6 +835,21 @@ sub _get_scheme_fields {
 		$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
 	}
 	return $self->{'cache'}->{'scheme_fields'};
+}
+
+sub _get_classification_groups_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
+		my $list     = [];
+		my $cg_pkeys = $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_group_schemes',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $key (@$cg_pkeys){
+			push @$list, "cg_$key->{'id'}";
+			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}"} = "$key->{'name'} group";
+		}
+		$self->{'cache'}->{'classification_group_fields'} = $list;
+	}
+	return $self->{'cache'}->{'classification_group_fields'};
 }
 
 sub _print_footer {

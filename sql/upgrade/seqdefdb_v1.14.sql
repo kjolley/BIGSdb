@@ -281,7 +281,8 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE classification_group_schemes (
 id int NOT NULL,
 scheme_id int NOT NULL,
-description text NOT NULL,
+name text NOT NULL,
+description text,
 inclusion_threshold int NOT NULL,
 use_relative_threshold boolean NOT NULL,
 curator int NOT NULL,

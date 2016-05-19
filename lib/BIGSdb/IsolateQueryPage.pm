@@ -198,7 +198,7 @@ sub _print_designations_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
+	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
 		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
@@ -1504,7 +1504,6 @@ sub _modify_query_for_designations {
 	my $q           = $self->{'cgi'};
 	my $view        = $self->{'system'}->{'view'};
 	my $andor       = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
-	my $qry_started = $qry =~ /\(\)$/x ? 0 : 1;
 	my ( $lqry_ref, $lqry_blank_ref ) = $self->_get_allele_designations( $errors_ref, $andor );
 	my %lqry       = %$lqry_ref;
 	my @lqry_blank = @$lqry_blank_ref;
@@ -1520,7 +1519,7 @@ sub _modify_query_for_designations {
 			$modify = "GROUP BY $view.id HAVING count($view.id)=" . scalar keys %lqry;
 		}
 		my @lqry = values %lqry;
-		my $lqry = "$view.id IN (select distinct($view.id) FROM $view LEFT JOIN allele_designations ON $view.id="
+		my $lqry = "$view.id IN (select distinct($view.id) FROM $view JOIN allele_designations ON $view.id="
 		  . "allele_designations.isolate_id WHERE @lqry $modify)";
 		if ( $qry =~ /\(\)$/x ) {
 			$qry = "SELECT * FROM $view WHERE $brace$lqry";

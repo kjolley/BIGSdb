@@ -1933,38 +1933,39 @@ sub get_classification_group_schemes_table_attributes {
 			with_pk_only   => 1,
 		},
 		{
-			name     => 'description',
+			name     => 'name',
 			type     => 'text',
 			required => 'yes',
 			length   => 50,
 			unique   => 'yes',
-			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
+			tooltip  => 'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
+		},
+		{
+			name     => 'description',
+			type     => 'text',
+			length   => 256
+		},
+		{
+			name     => 'inclusion_threshold',
+			type     => 'int',
+			required => 'yes',
+			comments =>
+			  'Maximum number of different alleles allowed between profile and at least one group member profile.'
+		},
+		{
+			name     => 'use_relative_threshold',
+			type     => 'bool',
+			required => 'yes',
+			comments => 'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
+			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
+			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
+			  . 'scheme.',
+			default => 'false'
 		}
 	];
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
-			{
-				name     => 'inclusion_threshold',
-				type     => 'int',
-				required => 'yes',
-				comments =>
-				  'Maximum number of different alleles allowed between profile and at least one group member profile.'
-			},
-			{
-				name     => 'use_relative_threshold',
-				type     => 'bool',
-				required => 'yes',
-				comments =>
-				  'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
-				tooltip => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
-				  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
-				  . 'scheme.',
-				default => 'false'
-			}
-		  );
-	} else {
-		push @$attributes, (
 			{
 				name     => 'seqdef_cg_scheme_id',
 				type     => 'int',
@@ -1972,7 +1973,7 @@ sub get_classification_group_schemes_table_attributes {
 				tooltip =>
 				  'seqdef_cg_scheme_id - The id used in the isolate database will be used if this is not defined.'
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (

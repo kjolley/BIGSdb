@@ -429,6 +429,7 @@ sub print_content {
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 		if (@$loci) {
+			say $self->_get_classification_group_data($isolate_id);
 			say qq(<h2>Schemes and loci$tree_button$aliases_button</h2>);
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
 				my $schemes =
@@ -464,6 +465,12 @@ sub _close_divs {
 		}
 		$self->{'open_divs'} = 0;
 	}
+	return;
+}
+
+sub _get_classification_group_data {
+	my ($self, $isolate_id) = @_;
+	
 	return;
 }
 
