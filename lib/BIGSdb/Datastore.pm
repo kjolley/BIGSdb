@@ -2196,7 +2196,7 @@ sub get_tables {
 		  isolate_aliases curator_permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
-		  samples isolates history sequence_attributes);
+		  samples isolates history sequence_attributes classification_group_schemes classification_group_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

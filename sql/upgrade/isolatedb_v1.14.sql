@@ -235,6 +235,7 @@ CREATE TABLE classification_group_schemes (
 id int NOT NULL,
 scheme_id int NOT NULL,
 description text NOT NULL,
+seqdef_cg_scheme_id int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(id),

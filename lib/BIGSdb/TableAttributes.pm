@@ -1948,7 +1948,8 @@ sub get_classification_group_schemes_table_attributes {
 				name     => 'inclusion_threshold',
 				type     => 'int',
 				required => 'yes',
-				comments => 'Maximum number of different alleles allowed between profile and at least one group member profile.'
+				comments =>
+				  'Maximum number of different alleles allowed between profile and at least one group member profile.'
 			},
 			{
 				name     => 'use_relative_threshold',
@@ -1962,6 +1963,16 @@ sub get_classification_group_schemes_table_attributes {
 				default => 'false'
 			}
 		  );
+	} else {
+		push @$attributes, (
+			{
+				name     => 'seqdef_cg_scheme_id',
+				type     => 'int',
+				comments => 'cg_scheme_id number defined in seqdef database',
+				tooltip =>
+				  'seqdef_cg_scheme_id - The id used in the isolate database will be used if this is not defined.'
+			}
+		);
 	}
 	push @$attributes,
 	  (
