@@ -198,7 +198,8 @@ sub _print_designations_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, scheme_fields => 1, classification_groups => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
 		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
@@ -382,7 +383,7 @@ sub _modify_query_by_list {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	my %sql = (
-		    labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
+		labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
 		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
 		  . 'WHERE UPPER(alias) IN (SELECT value FROM temp_list))',
 		provenance => ( $data_type eq 'text' ? "UPPER($view.$field)" : "$view.$field" )
@@ -1500,54 +1501,36 @@ sub _modify_query_by_membership {
 }
 
 sub _modify_query_for_designations {
-	my ( $self, $qry, $errors_ref ) = @_;
-	my $q           = $self->{'cgi'};
-	my $view        = $self->{'system'}->{'view'};
-	my $andor       = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
-	my ( $lqry_ref, $lqry_blank_ref ) = $self->_get_allele_designations( $errors_ref, $andor );
-	my %lqry       = %$lqry_ref;
-	my @lqry_blank = @$lqry_blank_ref;
-	my ( $sqry_ref, $sqry_blank_ref ) = $self->_get_scheme_designations($errors_ref);
-	my @sqry = @$sqry_ref;
-	push @lqry_blank, @$sqry_blank_ref;
-	my $brace = @sqry ? '(' : '';
+	my ( $self, $qry, $errors ) = @_;
+	my $q     = $self->{'cgi'};
+	my $view  = $self->{'system'}->{'view'};
+	my $andor = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+	my ( $queries_by_locus, $locus_null_queries ) = $self->_get_allele_designations( $errors, $andor );
+	my @null_queries = @$locus_null_queries;
+	my ( $scheme_queries, $scheme_null_queries ) = $self->_get_scheme_designations($errors);
+	push @null_queries, @$scheme_null_queries;
+	my @designation_queries;
 
-	if ( keys %lqry ) {
+	if ( keys %$queries_by_locus ) {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
-			$modify = "GROUP BY $view.id HAVING count($view.id)=" . scalar keys %lqry;
+			$modify = "GROUP BY $view.id HAVING count($view.id)=" . keys %$queries_by_locus;
 		}
-		my @lqry = values %lqry;
-		my $lqry = "$view.id IN (select distinct($view.id) FROM $view JOIN allele_designations ON $view.id="
-		  . "allele_designations.isolate_id WHERE @lqry $modify)";
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $brace$lqry";
-		} else {
-			$qry .= " AND $brace($lqry)";
-		}
+		my @allele_queries = values %$queries_by_locus;
+		my $combined_allele_queries =
+		    "$view.id IN (select distinct($view.id) FROM $view JOIN allele_designations ON $view.id="
+		  . "allele_designations.isolate_id WHERE @allele_queries $modify)";
+		push @designation_queries, "$combined_allele_queries";
 	}
-	if (@lqry_blank) {
-		local $" = ' ' . $q->param('designation_andor') . ' ';
-		my $modify = scalar keys %lqry ? $q->param('designation_andor') : 'AND';
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $brace@lqry_blank";
-		} else {
-			$qry .= keys %lqry ? " $modify" : ' AND';
-			$qry .= " $brace(@lqry_blank)";
-		}
-	}
-	if (@sqry) {
-		local $" = " $andor ";
-		my $sqry = "@sqry";
-		if ( $qry =~ /\(\)$/x ) {
-			$qry = "SELECT * FROM $view WHERE $sqry";
-		} else {
-			$qry .= ( keys %lqry || @lqry_blank ) ? " $andor" : ' AND';
-			$qry .= " ($sqry)";
-			$qry .= ')' if keys %lqry;
-			$qry .= ')' if @lqry_blank;
-		}
+	local $" = $andor;
+	push @designation_queries, "@null_queries"    if @null_queries;
+	push @designation_queries, "@$scheme_queries" if @$scheme_queries;
+	return $qry if !@designation_queries;
+	if ( $qry =~ /\(\)$/x ) {
+		$qry = "SELECT * FROM $view WHERE (@designation_queries)";
+	} else {
+		$qry .= " AND (@designation_queries)";
 	}
 	return $qry;
 }
