@@ -40,7 +40,8 @@ sub _ajax_content {
 		},
 		loci => sub {
 			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list( { loci => 1, scheme_fields => 1, sort_labels => 1 } );
+			  $self->get_field_selection_list(
+				{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		allele_count => sub {
@@ -199,7 +200,7 @@ sub _print_designations_fieldset {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
-		{ loci => 1, scheme_fields => 1, classification_groups => 0, sort_labels => 1 } );
+		{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $display = $q->param('no_js') ? 'block' : 'none';
 		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
@@ -1509,6 +1510,8 @@ sub _modify_query_for_designations {
 	my @null_queries = @$locus_null_queries;
 	my ( $scheme_queries, $scheme_null_queries ) = $self->_get_scheme_designations($errors);
 	push @null_queries, @$scheme_null_queries;
+	my ( $cgroup_queries, $cgroup_null_queries ) = $self->_get_classification_group_designations($errors);
+	push @null_queries, @$cgroup_null_queries;
 	my @designation_queries;
 
 	if ( keys %$queries_by_locus ) {
@@ -1526,12 +1529,14 @@ sub _modify_query_for_designations {
 	local $" = $andor;
 	push @designation_queries, "@null_queries"    if @null_queries;
 	push @designation_queries, "@$scheme_queries" if @$scheme_queries;
+	push @designation_queries, "@$cgroup_queries" if @$cgroup_queries;
 	return $qry if !@designation_queries;
 	if ( $qry =~ /\(\)$/x ) {
 		$qry = "SELECT * FROM $view WHERE (@designation_queries)";
 	} else {
 		$qry .= " AND (@designation_queries)";
 	}
+	$logger->error($qry);
 	return $qry;
 }
 
@@ -1741,6 +1746,98 @@ sub _get_scheme_designations {
 		}
 	}
 	return ( \@sqry, \@sqry_blank );
+}
+
+#This is just for querying group ids
+sub _get_classification_group_designations {
+	my ( $self, $errors_ref ) = @_;
+	my $q = $self->{'cgi'};
+	my ( @qry, @null_qry );
+	my $view = $self->{'system'}->{'view'};
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+			if ( $q->param("designation_field$i") =~ /^cg_(\d+)_group/x ) {
+				my ( $cscheme_id, $field ) = ( $1, $2 );
+				my $operator     = $q->param("designation_operator$i") // '=';
+				my $text         = $q->param("designation_value$i");
+				my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
+				if ( !$cscheme_info ) {
+					push @$errors_ref, 'Invalid classification group scheme selected.';
+					next;
+				}
+				my $scheme_info =
+				  $self->{'datastore'}->get_scheme_info( $cscheme_info->{'scheme_id'}, { get_pk => 1 } );
+				my $pk = $scheme_info->{'primary_key'};
+				$self->process_value( \$text );
+				if ( $text ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+					push @$errors_ref, "$field is an integer field.";
+					next;
+				} elsif ( !$self->is_valid_operator($operator) ) {
+					push @$errors_ref, "$operator is not a valid operator.";
+					next;
+				}
+				my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
+				my $isolate_scheme_field_view =
+				  $self->{'datastore'}->create_temp_isolate_scheme_fields_view( $cscheme_info->{'scheme_id'} );
+				my $temp_qry = "SELECT $isolate_scheme_field_view.id FROM $isolate_scheme_field_view";
+				$text =~ s/'/\\'/gx;
+				my %methods = (
+					'NOT' => sub {
+						if ( $text eq 'null' ) {
+							push @qry, "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id FROM $cscheme_table)))";
+						} else {
+							push @qry,
+							  "($view.id IN ($temp_qry WHERE $pk NOT IN (SELECT profile_id "
+							  . "FROM $cscheme_table WHERE group_id=$text)))";
+						}
+					},
+					'contains' => sub {
+						push @qry,
+						  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+						  . "FROM $cscheme_table WHERE CAST(group_id AS text) ~ '$text')))";
+					},
+					'starts with' => sub {
+						push @qry,
+						  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+						  . "FROM $cscheme_table WHERE CAST(group_id AS text) LIKE '$text\%')))";
+					},
+					'ends with' => sub {
+						push @qry,
+						  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+						  . "FROM $cscheme_table WHERE CAST(group_id AS text) LIKE '\%$text')))";
+					},
+					'NOT contain' => sub {
+						push @qry,
+						  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+						  . "FROM $cscheme_table WHERE CAST(group_id AS text) !~ '$text')))";
+					},
+					'=' => sub {
+						if ( $text eq 'null' ) {
+							push @null_qry,
+							  "($view.id IN ($temp_qry WHERE $pk NOT IN (SELECT profile_id FROM $cscheme_table)) OR "
+							  . "$view.id NOT IN (SELECT id FROM $isolate_scheme_field_view))";
+						} else {
+							push @qry,
+							  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+							  . "FROM $cscheme_table WHERE group_id=$text)))";
+						}
+					}
+				);
+				if ( $methods{$operator} ) {
+					$methods{$operator}->();
+				} else {
+					if ( $text eq 'null' ) {
+						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						next;
+					}
+					push @qry,
+					  "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id "
+					  . "FROM $cscheme_table WHERE group_id $operator $text)))";
+				}
+			}
+		}
+	}
+	return ( \@qry, \@null_qry );
 }
 
 sub _modify_query_for_tags {

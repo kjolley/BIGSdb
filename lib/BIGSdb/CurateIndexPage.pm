@@ -233,7 +233,7 @@ sub _get_admin_links {
 	}
 	my $set_string = $self->_get_set_string;
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
-	  scheme_group_group_members classification_group_schemes classification_group_fields);
+	  scheme_group_group_members classification_schemes classification_group_fields);
 	foreach my $table (@tables) {
 		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 			my $function = "_print_$table";
@@ -1034,16 +1034,16 @@ sub _print_scheme_fields {     ## no critic (ProhibitUnusedPrivateSubroutines) #
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
 }
 
-sub _print_classification_group_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_classification_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'classification_group_schemes', $td,
-		{ requires => 'schemes', comments => 'Defines classification group schemes.', set_string => $set_string } );
+	return $self->_print_table( 'classification_schemes', $td,
+		{ requires => 'schemes', comments => 'Defines classification schemes.', set_string => $set_string } );
 }
 
 sub _print_classification_group_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'classification_group_fields', $td,
-		{ requires => 'classification_group_schemes', comments => 'Defines which fields belong to a classification group scheme.', set_string => $set_string } );
+		{ requires => 'classification_schemes', comments => 'Defines which fields belong to a classification scheme.', set_string => $set_string } );
 }
 
 sub _print_table {

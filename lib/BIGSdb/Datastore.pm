@@ -855,6 +855,35 @@ sub create_temp_isolate_scheme_fields_view {
 	return $table;
 }
 
+sub create_temp_cscheme_table {
+	my ( $self, $cscheme_id ) = @_;
+	my $table = "temp_cscheme_$cscheme_id";
+	return $table
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
+	my $cscheme      = $self->get_classification_scheme($cscheme_id);
+	my $db           = $cscheme->get_db;
+	my $group_profiles = $self->run_query('SELECT group_id,profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',$cscheme_info->{'seqdef_cscheme_id'},
+	{db=>$db,fetch=>'all_arrayref'});
+	eval {
+		$self->{'db'}->do("CREATE TEMP TABLE $table (group_id int, profile_id int)");
+		$self->{'db'}->do("COPY $table(group_id,profile_id) FROM STDIN");
+		local $" = "\t";
+		foreach my $values (@$group_profiles){
+			$self->{'db'}->pg_putcopydata("@$values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do("CREATE INDEX ON $table(group_id)");
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
 sub create_temp_scheme_table {
 	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -950,9 +979,10 @@ sub create_temp_scheme_table {
 
 	#Index up to 3 elements
 	my $index_count = keys %$locus_indices >= 3 ? 3 : keys %$locus_indices;
-	foreach my $element (1 .. $index_count){
+	foreach my $element ( 1 .. $index_count ) {
 		$self->{'db'}->do("CREATE INDEX ON $table ((profile[$element]))");
 	}
+
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
@@ -961,7 +991,6 @@ sub create_temp_scheme_table {
 		$self->{'db'}->commit;
 		$table = $rename_table;
 	}
-	
 	return $table;
 }
 
@@ -1048,6 +1077,24 @@ sub get_scheme_group_info {
 	my ( $self, $group_id ) = @_;
 	return $self->run_query( 'SELECT * FROM scheme_groups WHERE id=?',
 		$group_id, { fetch => 'row_hashref', cache => 'get_scheme_group_info' } );
+}
+
+sub get_classification_scheme {
+	my ( $self, $cscheme_id ) = @_;
+	if ( !$self->{'cscheme'}->{$cscheme_id} ) {
+		my $attributes = $self->get_classification_scheme_info($cscheme_id);
+		$attributes->{'db'} = $self->get_scheme( $attributes->{'seqdef_cscheme_id'} )->get_db;
+		$self->{'cscheme'}->{$cscheme_id} = BIGSdb::ClassificationScheme->new(%$attributes);
+	}
+	return $self->{'cscheme'}->{$cscheme_id};
+}
+
+sub get_classification_scheme_info {
+	my ( $self, $cg_scheme_id ) = @_;
+	my $info = $self->run_query( 'SELECT * FROM classification_schemes WHERE id=?',
+		$cg_scheme_id, { fetch => 'row_hashref', cache => 'get_classification_scheme_info' } );
+	$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
+	return $info;
 }
 ##############LOCI#####################################################################
 #options passed as hashref:
@@ -2196,7 +2243,7 @@ sub get_tables {
 		  isolate_aliases curator_permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
-		  samples isolates history sequence_attributes classification_group_schemes classification_group_fields);
+		  samples isolates history sequence_attributes classification_schemes classification_group_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2205,7 +2252,7 @@ sub get_tables {
 		  scheme_fields profiles profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history locus_aliases retired_allele_ids retired_profiles classification_group_schemes
+		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
 		  classification_group_fields);
 	}
 	return @tables;
@@ -2220,7 +2267,7 @@ sub get_tables_with_curator {
 		  scheme_members locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases
 		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
-		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history);
+		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2228,7 +2275,7 @@ sub get_tables_with_curator {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
-		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history classification_group_schemes
+		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history classification_schemes
 		  classification_group_fields);
 	}
 	return @tables;

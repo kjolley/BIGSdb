@@ -94,7 +94,7 @@ sub perform_sanity_checks {
 
 sub main {
 	my $profiles    = get_ungrouped_profiles();
-	my $cg_info     = get_cg_scheme_info();
+	my $cg_info     = get_cscheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_info->{'scheme_id'}, { get_pk => 1 } );
 	$script->{'pk'} = $scheme_info->{'primary_key'};
 	$script->{'grouped_profiles'} = { map { $_ => 1 } @{ get_grouped_profiles() } };
@@ -141,7 +141,7 @@ sub main {
 
 sub merge_groups {
 	my ( $groups, $merged_group_id, $comment ) = @_;
-	my $scheme_id = get_cg_scheme_info()->{'scheme_id'};
+	my $scheme_id = get_cscheme_info()->{'scheme_id'};
 	foreach my $group_id (@$groups) {
 		next if $group_id == $merged_group_id;
 		my $profiles = get_profiles_in_group($group_id);
@@ -232,7 +232,7 @@ sub create_group {
 
 sub add_profile_to_group {
 	my ( $group_id, $profile_id ) = @_;
-	my $cg_scheme_info = get_cg_scheme_info();
+	my $cg_scheme_info = get_cscheme_info();
 	say "Adding $script->{'pk'}-$profile_id to group $group_id.";
 	eval {
 		$script->{'db'}->do(
@@ -251,7 +251,7 @@ sub add_profile_to_group {
 }
 
 sub check_cscheme_properly_defined {
-	my $cg_scheme_info = get_cg_scheme_info();
+	my $cg_scheme_info = get_cscheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_scheme_info->{'scheme_id'}, { get_pk => 1 } );
 	if ( !$scheme_info->{'primary_key'} ) {
 		die "No primary key field has been set for scheme $scheme_info->{'id'} ($scheme_info->{'description'}).\n";
@@ -261,7 +261,7 @@ sub check_cscheme_properly_defined {
 
 sub get_ungrouped_profiles {
 	if ( !$script->{'cache'}->{'get_ungrouped_profiles'} ) {
-		my $scheme_id     = get_cg_scheme_info()->{'scheme_id'};
+		my $scheme_id     = get_cscheme_info()->{'scheme_id'};
 		my $scheme_info   = $script->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $pk_field_info = $script->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 		my $qry           = "SELECT profile_id FROM profiles WHERE scheme_id=$scheme_id AND profile_id NOT IN "
@@ -276,15 +276,15 @@ sub get_ungrouped_profiles {
 		$opts{'cscheme_id'}, { fetch => 'col_arrayref', cache => 'get_ungrouped_profiles' } );
 }
 
-sub get_cg_scheme_info {
-	return $script->{'datastore'}->run_query( 'SELECT * FROM classification_group_schemes WHERE id=?',
+sub get_cscheme_info {
+	return $script->{'datastore'}->run_query( 'SELECT * FROM classification_schemes WHERE id=?',
 		$opts{'cscheme_id'}, { fetch => 'row_hashref' } );
 }
 
 sub check_cscheme_exists {
 	my $exists =
 	  $script->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_group_schemes WHERE id=?)', $opts{'cscheme_id'} );
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes WHERE id=?)', $opts{'cscheme_id'} );
 	die "Scheme $opts{'cscheme_id'} does not exist.\n" if !$exists;
 	return;
 }

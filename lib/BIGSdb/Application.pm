@@ -27,6 +27,7 @@ use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::ChangePasswordPage;
+use BIGSdb::ClassificationScheme;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;

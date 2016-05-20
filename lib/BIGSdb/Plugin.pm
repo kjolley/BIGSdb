@@ -136,6 +136,7 @@ sub create_temp_tables {
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $cschemes = $self->{'datastore'}->run_query('SELECT id FROM classification_schemes',undef,{fetch=>'col_arrayref'});
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
@@ -146,6 +147,11 @@ sub create_temp_tables {
 				}
 				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+				}
+			}
+			foreach my $cscheme_id (@$cschemes){
+				if ($qry =~ /temp_cscheme_$cscheme_id\D/x){
+					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
 			}
 		}

@@ -234,7 +234,7 @@ sub _delete {
 	if ( $table eq 'users' ) {
 		$self->_delete_user( $data, \$nogo_buffer, \$proceed );
 	}
-	my %dont_check = map{$_ => 1} qw(composite_fields schemes classification_group_schemes);
+	my %dont_check = map{$_ => 1} qw(composite_fields schemes classification_schemes);
 
 	#Check if record is a foreign key in another table
 	if ( $proceed && !$dont_check{$table} ) {

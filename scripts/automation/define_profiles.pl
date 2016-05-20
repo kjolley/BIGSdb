@@ -456,7 +456,7 @@ ${bold}--exclude_isolates$norm ${under}LIST$norm
 ${bold}--exclude_projects$norm ${under}LIST$norm
     Comma-separated list of projects whose isolates will be excluded.
     
-${bold}--ignore_multiple_hits
+${bold}--ignore_multiple_hits$norm
     Set allele designation to 'N' if there are multiple designations set for
     a locus. The default is to use the lowest allele value in the profile
     definition.

@@ -47,6 +47,7 @@ sub paged_display {
 		$passed_qry      = $qry;
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $cschemes = $self->{'datastore'}->run_query('SELECT id FROM classification_schemes',undef,{fetch=>'col_arrayref'});
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
@@ -54,6 +55,11 @@ sub paged_display {
 			foreach my $scheme_id (@$schemes) {
 				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				}
+			}
+			foreach my $cscheme_id (@$cschemes){
+				if ($qry =~ /temp_cscheme_$cscheme_id\D/x){
+					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
 			}
 		}

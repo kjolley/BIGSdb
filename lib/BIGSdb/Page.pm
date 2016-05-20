@@ -841,11 +841,11 @@ sub _get_classification_groups_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
 		my $list     = [];
-		my $cg_pkeys = $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_group_schemes',
+		my $cg_pkeys = $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes',
 			undef, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $key (@$cg_pkeys){
-			push @$list, "cg_$key->{'id'}";
-			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}"} = "$key->{'name'} group";
+			push @$list, "cg_$key->{'id'}_group";
+			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}_group"} = "$key->{'name'} group";
 		}
 		$self->{'cache'}->{'classification_group_fields'} = $list;
 	}
@@ -1408,7 +1408,7 @@ sub get_record_name {
 		sequence_attributes               => 'sequence attribute',
 		retired_allele_ids                => 'retired allele id',
 		retired_profiles                  => 'retired profile',
-		classification_group_schemes      => 'classification group scheme',
+		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field'
 	);
 	return $names{$table};
@@ -1693,7 +1693,7 @@ sub can_modify_table {
 	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
 	  locus_client_display_fields locus_extended_attributes locus_curators);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
-	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_group_schemes
+	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields);
 
 	if ( $general_permissions{$table} ) {

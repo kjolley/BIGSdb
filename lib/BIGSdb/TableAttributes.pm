@@ -1918,7 +1918,7 @@ sub get_set_metadata_table_attributes {
 	return $attributes;
 }
 
-sub get_classification_group_schemes_table_attributes {
+sub get_classification_schemes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
@@ -1967,11 +1967,11 @@ sub get_classification_group_schemes_table_attributes {
 		push @$attributes,
 		  (
 			{
-				name     => 'seqdef_cg_scheme_id',
+				name     => 'seqdef_cscheme_id',
 				type     => 'int',
-				comments => 'cg_scheme_id number defined in seqdef database',
+				comments => 'cscheme_id number defined in seqdef database',
 				tooltip =>
-				  'seqdef_cg_scheme_id - The id used in the isolate database will be used if this is not defined.'
+				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
 			}
 		  );
 	}
@@ -1991,7 +1991,7 @@ sub get_classification_group_fields_table_attributes {
 			type           => 'int',
 			required       => 'yes',
 			primary_key    => 'yes',
-			foreign_key    => 'classification_group_schemes',
+			foreign_key    => 'classification_schemes',
 			labels         => '|$description|',
 			dropdown_query => 'yes'
 		},

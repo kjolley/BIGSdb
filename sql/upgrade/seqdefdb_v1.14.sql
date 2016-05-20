@@ -277,8 +277,8 @@ RETURNS setof text AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
---classification_group_schemes
-CREATE TABLE classification_group_schemes (
+--classification_schemes
+CREATE TABLE classification_schemes (
 id int NOT NULL,
 scheme_id int NOT NULL,
 name text NOT NULL,
@@ -297,8 +297,8 @@ ON UPDATE CASCADE
 );
 
 --Unique constraint necessary to set up foreign key on classification_group_profiles
-CREATE UNIQUE INDEX ON classification_group_schemes(id,scheme_id);
-GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_schemes TO apache;
+CREATE UNIQUE INDEX ON classification_schemes(id,scheme_id);
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_schemes TO apache;
 
 --classification_groups
 CREATE TABLE classification_groups (
@@ -308,7 +308,7 @@ active boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(cg_scheme_id,group_id),
-CONSTRAINT cg_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_group_schemes
+CONSTRAINT cg_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_schemes
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT cg_curator FOREIGN KEY (curator) REFERENCES users
@@ -330,7 +330,7 @@ dropdown boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(cg_scheme_id,field),
-CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_group_schemes
+CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_schemes
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT cgf_curator FOREIGN KEY (curator) REFERENCES users
@@ -352,7 +352,7 @@ PRIMARY KEY(cg_scheme_id,group_id,profile_id),
 CONSTRAINT cgp_cg_scheme_id_group_id FOREIGN KEY (cg_scheme_id,group_id) REFERENCES classification_groups
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_group_schemes(id,scheme_id)
+CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_schemes(id,scheme_id)
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT cgp_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
