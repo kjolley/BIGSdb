@@ -30,24 +30,32 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $schemes = [];
+	my $schemes  = [];
+	my $cschemes = [];
 	if ( $self->{'options'}->{'schemes'} ) {
 		@$schemes = split /,/x, $self->{'options'}->{'schemes'};
 		foreach my $scheme_id (@$schemes) {
 			if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 				die "Scheme id must be an integer - $scheme_id is not.\n";
 			}
+			my $cschemes_using_this_scheme =
+			  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes WHERE scheme_id=?',
+				$scheme_id, { fetch => 'col_arrayref', cache => 'get_cschemes_from_scheme' } );
+			push @$cschemes, @$cschemes_using_this_scheme if @$cschemes_using_this_scheme;
 		}
 	} else {
 		$schemes =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
 			undef, { fetch => 'col_arrayref' } );
+		$cschemes =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	}
 	foreach my $scheme_id (@$schemes) {
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		if (!$scheme_info){
+		if ( !$scheme_info ) {
 			say "Scheme $scheme_id does not exist";
 			next;
 		}
@@ -60,6 +68,9 @@ sub run_script {
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+	}
+	foreach my $cscheme_id (@$cschemes){
+		$self->{'datastore'}->create_temp_cscheme_table($cscheme_id,{ cache => 1});
 	}
 	return;
 }

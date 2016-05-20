@@ -856,17 +856,26 @@ sub create_temp_isolate_scheme_fields_view {
 }
 
 sub create_temp_cscheme_table {
-	my ( $self, $cscheme_id ) = @_;
+	my ( $self, $cscheme_id, $options ) = @_;
 	my $table = "temp_cscheme_$cscheme_id";
+	if ( !$options->{'cache'} ) {
 	return $table
 	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	}
+	my $table_type = 'TEMP TABLE';
+	my $rename_table;
+	if ( $options->{'cache'} ) {
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		$table        = $table . '_' . int( rand(99999) );
+	}
 	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
 	my $cscheme      = $self->get_classification_scheme($cscheme_id);
 	my $db           = $cscheme->get_db;
 	my $group_profiles = $self->run_query('SELECT group_id,profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',$cscheme_info->{'seqdef_cscheme_id'},
 	{db=>$db,fetch=>'all_arrayref'});
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE $table (group_id int, profile_id int)");
+		$self->{'db'}->do("CREATE $table_type $table (group_id int, profile_id int)");
 		$self->{'db'}->do("COPY $table(group_id,profile_id) FROM STDIN");
 		local $" = "\t";
 		foreach my $values (@$group_profiles){
@@ -880,6 +889,14 @@ sub create_temp_cscheme_table {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+	}
+	#Create new temp table, then drop old and rename the new - this
+	#should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		$logger->error($@) if $@;
+		$self->{'db'}->commit;
+		$table = $rename_table;
 	}
 	return $table;
 }
