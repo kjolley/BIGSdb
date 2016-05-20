@@ -1938,13 +1938,10 @@ sub get_classification_schemes_table_attributes {
 			required => 'yes',
 			length   => 50,
 			unique   => 'yes',
-			tooltip  => 'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
+			tooltip =>
+'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
 		},
-		{
-			name     => 'description',
-			type     => 'text',
-			length   => 256
-		},
+		{ name => 'description', type => 'text', length => 256 },
 		{
 			name     => 'inclusion_threshold',
 			type     => 'int',
@@ -1964,16 +1961,19 @@ sub get_classification_schemes_table_attributes {
 		}
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name     => 'seqdef_cscheme_id',
 				type     => 'int',
 				comments => 'cscheme_id number defined in seqdef database',
 				tooltip =>
 				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
+			},
+			{
+				name => 'display_order',
+				type => 'int'
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (

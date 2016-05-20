@@ -1536,7 +1536,6 @@ sub _modify_query_for_designations {
 	} else {
 		$qry .= " AND (@designation_queries)";
 	}
-	$logger->error($qry);
 	return $qry;
 }
 

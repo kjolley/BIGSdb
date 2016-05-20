@@ -469,9 +469,53 @@ sub _close_divs {
 }
 
 sub _get_classification_group_data {
-	my ($self, $isolate_id) = @_;
-	
-	return;
+	my ( $self, $isolate_id ) = @_;
+	my $view = $self->{'system'}->{'view'};
+	my $buffer = q();
+	my $classification_schemes =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $cscheme (@$classification_schemes) {
+		my $cg_buffer;
+		my $scheme_id = $cscheme->{'seqdef_cscheme_id'} // $cscheme->{'scheme_id'};
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+		my $pk            = $scheme_info->{'primary_key'};
+		my $pk_values     = $scheme_values->{ lc $pk };
+		if ( keys %$pk_values ) {
+			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
+			my $scheme_table  = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+
+			#You may get multiple groups if you have a mixed sample
+			foreach my $pk_value ( keys %$pk_values ) {
+				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+					$pk_value, { fetch => 'col_arrayref', cache => 'IsolateInfoPage::get_classification_group_data' } );
+				foreach my $group_id (@$groups) {
+					my $isolate_count = $self->{'datastore'}->run_query(
+						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM "
+						  . "$scheme_table WHERE $pk IN (SELECT profile_id FROM $cscheme_table WHERE group_id=?))",
+						$group_id,
+						{ cache => 'IsolateInfoPage::get_classification_group_isolates' }
+					);
+					if ($isolate_count > 1){
+						my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
+						. "designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;submit=1";
+					$cg_buffer .= qq(<dt>group</dt><dd><a href="$url">$group_id</a> ($isolate_count isolates)</dd>\n);
+					}
+				}
+			}
+		}
+		if ($cg_buffer) {
+			$cg_buffer = qq(<div style="float:left"><h3>Scheme: $cscheme->{'name'}</h3>\n)
+			  . qq(<dl class="data">$cg_buffer</dl></div>\n);
+			$buffer .= $cg_buffer;
+		}
+	}
+	if ($buffer) {
+		$buffer = qq(<div><h2>Similar isolates (determined by classification schemes)</h2>\n$buffer</div>)
+		  . q(<div style="clear:both"></div>);
+	}
+	return $buffer;
 }
 
 sub _print_other_schemes {
@@ -954,7 +998,7 @@ sub _should_display_scheme {
 		return if !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 	}
 	my $designations_exist = $self->{'datastore'}->run_query(
-		    q[SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON ]
+		q[SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON ]
 		  . q[scheme_members.locus=allele_designations.locus WHERE (isolate_id,scheme_id)=(?,?) ]
 		  . q[AND allele_id != '0')],
 		[ $isolate_id, $scheme_id ],
