@@ -470,7 +470,7 @@ sub _close_divs {
 
 sub _get_classification_group_data {
 	my ( $self, $isolate_id ) = @_;
-	my $view = $self->{'system'}->{'view'};
+	my $view   = $self->{'system'}->{'view'};
 	my $buffer = q();
 	my $classification_schemes =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
@@ -478,16 +478,27 @@ sub _get_classification_group_data {
 	foreach my $cscheme (@$classification_schemes) {
 		my $cg_buffer;
 		my $scheme_id = $cscheme->{'seqdef_cscheme_id'} // $cscheme->{'scheme_id'};
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
-		my $pk            = $scheme_info->{'primary_key'};
-		my $pk_values     = $scheme_values->{ lc $pk };
-		if ( keys %$pk_values ) {
+		my $cache_table_exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
+			[ "temp_isolates_scheme_fields_$scheme_id", "temp_${view}_scheme_fields_$scheme_id" ]
+		);
+		if ( !$cache_table_exists ) {
+			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
+				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '
+				  . 'database to create these caches.' );
+			return $buffer;
+		}
+		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		my $pk           = $scheme_info->{'primary_key'};
+		my $pk_values =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $pk FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		if (@$pk_values) {
 			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
-			my $scheme_table  = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 
 			#You may get multiple groups if you have a mixed sample
-			foreach my $pk_value ( keys %$pk_values ) {
+			foreach my $pk_value (@$pk_values) {
 				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
 					$pk_value, { fetch => 'col_arrayref', cache => 'IsolateInfoPage::get_classification_group_data' } );
 				foreach my $group_id (@$groups) {
@@ -497,10 +508,11 @@ sub _get_classification_group_data {
 						$group_id,
 						{ cache => 'IsolateInfoPage::get_classification_group_isolates' }
 					);
-					if ($isolate_count > 1){
+					if ( $isolate_count > 1 ) {
 						my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-						. "designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;submit=1";
-					$cg_buffer .= qq(<dt>group</dt><dd><a href="$url">$group_id</a> ($isolate_count isolates)</dd>\n);
+						  . "designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;submit=1";
+						$cg_buffer .=
+						  qq(<dt>group</dt><dd><a href="$url">$group_id</a> ($isolate_count isolates)</dd>\n);
 					}
 				}
 			}

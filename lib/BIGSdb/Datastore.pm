@@ -859,8 +859,9 @@ sub create_temp_cscheme_table {
 	my ( $self, $cscheme_id, $options ) = @_;
 	my $table = "temp_cscheme_$cscheme_id";
 	if ( !$options->{'cache'} ) {
-	return $table
-	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+		if ( $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table ) ) {
+			return $table;
+		}
 	}
 	my $table_type = 'TEMP TABLE';
 	my $rename_table;
@@ -869,16 +870,19 @@ sub create_temp_cscheme_table {
 		$rename_table = $table;
 		$table        = $table . '_' . int( rand(99999) );
 	}
-	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
-	my $cscheme      = $self->get_classification_scheme($cscheme_id);
-	my $db           = $cscheme->get_db;
-	my $group_profiles = $self->run_query('SELECT group_id,profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',$cscheme_info->{'seqdef_cscheme_id'},
-	{db=>$db,fetch=>'all_arrayref'});
+	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
+	my $cscheme        = $self->get_classification_scheme($cscheme_id);
+	my $db             = $cscheme->get_db;
+	my $group_profiles = $self->run_query(
+		'SELECT group_id,profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',
+		$cscheme_info->{'seqdef_cscheme_id'},
+		{ db => $db, fetch => 'all_arrayref' }
+	);
 	eval {
 		$self->{'db'}->do("CREATE $table_type $table (group_id int, profile_id int)");
 		$self->{'db'}->do("COPY $table(group_id,profile_id) FROM STDIN");
 		local $" = "\t";
-		foreach my $values (@$group_profiles){
+		foreach my $values (@$group_profiles) {
 			$self->{'db'}->pg_putcopydata("@$values\n");
 		}
 		$self->{'db'}->pg_putcopyend;
@@ -890,6 +894,7 @@ sub create_temp_cscheme_table {
 	} else {
 		$self->{'db'}->commit;
 	}
+
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
