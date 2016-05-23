@@ -500,13 +500,12 @@ sub _get_classification_group_data {
 			#You may get multiple groups if you have a mixed sample
 			foreach my $pk_value (@$pk_values) {
 				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
-					$pk_value, { fetch => 'col_arrayref', cache => 'IsolateInfoPage::get_classification_group_data' } );
+					$pk_value, { fetch => 'col_arrayref' } );
 				foreach my $group_id (@$groups) {
 					my $isolate_count = $self->{'datastore'}->run_query(
-						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM "
-						  . "$scheme_table WHERE $pk IN (SELECT profile_id FROM $cscheme_table WHERE group_id=?))",
-						$group_id,
-						{ cache => 'IsolateInfoPage::get_classification_group_isolates' }
+						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
+						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
+						$group_id
 					);
 					if ( $isolate_count > 1 ) {
 						my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
