@@ -504,21 +504,25 @@ sub _get_classification_group_data {
 				foreach my $group_id (@$groups) {
 					my $isolate_count = $self->{'datastore'}->run_query(
 						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
-						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
+						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL"
+						,
 						$group_id
 					);
 					if ( $isolate_count > 1 ) {
 						my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 						  . "designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;submit=1";
-						$cg_buffer .=
-						  qq(<dt>group</dt><dd><a href="$url">$group_id</a> ($isolate_count isolates)</dd>\n);
+						$cg_buffer .= qq(group: <a href="$url">$group_id ($isolate_count isolates)</a><br />\n);
 					}
 				}
 			}
 		}
 		if ($cg_buffer) {
-			$cg_buffer = qq(<div style="float:left"><h3>Scheme: $cscheme->{'name'}</h3>\n)
-			  . qq(<dl class="data">$cg_buffer</dl></div>\n);
+			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
+			$cg_buffer =
+			    qq(<div style="float:left;margin-right:2em"><h3>Scheme: $cscheme->{'name'}</h3>\n)
+			  . qq(<p>$scheme_info->{'description'}<br />$cscheme->{'inclusion_threshold'} mismatch$plural.)
+			  . q(<br />Single-linkage cluster.<br />)
+			  . qq($cg_buffer</div>\n);
 			$buffer .= $cg_buffer;
 		}
 	}
