@@ -475,6 +475,7 @@ sub _get_classification_group_data {
 	my $classification_schemes =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $td = 1;
 	foreach my $cscheme (@$classification_schemes) {
 		my $cg_buffer;
 		my $scheme_id = $cscheme->{'seqdef_cscheme_id'} // $cscheme->{'scheme_id'};
@@ -486,7 +487,7 @@ sub _get_classification_group_data {
 			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
 				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '
 				  . 'database to create these caches.' );
-			return $buffer;
+			return q();
 		}
 		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
@@ -504,31 +505,39 @@ sub _get_classification_group_data {
 				foreach my $group_id (@$groups) {
 					my $isolate_count = $self->{'datastore'}->run_query(
 						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
-						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL"
-						,
+						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
 						$group_id
 					);
 					if ( $isolate_count > 1 ) {
-						my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-						  . "designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;submit=1";
+						my $url =
+						    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
+						  . q(submit=1);
 						$cg_buffer .= qq(group: <a href="$url">$group_id ($isolate_count isolates)</a><br />\n);
 					}
 				}
 			}
 		}
 		if ($cg_buffer) {
+			my $desc = $cscheme->{'description'};
+			my $tooltip =
+			  $desc
+			  ? qq( <a class="tooltip" title="$cscheme->{'name'} - $desc"> )
+			  . q(<span class="fa fa-info-circle"></span></a>)
+			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
-			$cg_buffer =
-			    qq(<div style="float:left;margin-right:2em"><h3>Scheme: $cscheme->{'name'}</h3>\n)
-			  . qq(<p>$scheme_info->{'description'}<br />$cscheme->{'inclusion_threshold'} mismatch$plural.)
-			  . q(<br />Single-linkage cluster.<br />)
-			  . qq($cg_buffer</div>\n);
-			$buffer .= $cg_buffer;
+			$buffer .= qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
+			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cg_buffer</td></tr>);
+			$td = $td == 1 ? 2 : 1;
 		}
 	}
 	if ($buffer) {
-		$buffer = qq(<div><h2>Similar isolates (determined by classification schemes)</h2>\n$buffer</div>)
-		  . q(<div style="clear:both"></div>);
+		$buffer =
+		    q(<h2>Similar isolates (determined by classification schemes)</h2>)
+		  . q(<div class="scrollable">)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
+		  . qq(<th>Mismatch threshold</th><th>Group</th></tr>$buffer</table></div></div>);
 	}
 	return $buffer;
 }
