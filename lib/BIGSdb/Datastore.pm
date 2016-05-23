@@ -1105,7 +1105,7 @@ sub get_classification_scheme {
 	my ( $self, $cscheme_id ) = @_;
 	if ( !$self->{'cscheme'}->{$cscheme_id} ) {
 		my $attributes = $self->get_classification_scheme_info($cscheme_id);
-		$attributes->{'db'} = $self->get_scheme( $attributes->{'seqdef_cscheme_id'} )->get_db;
+		$attributes->{'db'} = $self->get_scheme( $attributes->{'scheme_id'} )->get_db;
 		$self->{'cscheme'}->{$cscheme_id} = BIGSdb::ClassificationScheme->new(%$attributes);
 	}
 	return $self->{'cscheme'}->{$cscheme_id};
