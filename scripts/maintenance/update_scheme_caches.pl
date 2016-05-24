@@ -87,7 +87,7 @@ ${bold}--help$norm
     
 ${bold}--method$norm ${under}METHOD$norm
     Update method - the following values are allowed:
-    full: Completely recreate caches
+    full: Completely recreate caches (default)
     incremental: Only add values for records not in cache.
     daily: Only add values for records not in cache updated today.
     daily_replace: Refresh values only for records updated today.
