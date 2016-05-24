@@ -75,7 +75,7 @@ ${bold}NAME$norm
     ${bold}update_scheme_caches.pl$norm - Update scheme field caches
 
 ${bold}SYNOPSIS$norm
-    ${bold}update_scheme_caches.pl --database ${under}NAME$norm ${bold} $norm [${under}options$norm]
+    ${bold}update_scheme_caches.pl --database ${under}NAME$norm ${bold} ${norm}[${under}options$norm]
 
 ${bold}OPTIONS$norm
 
@@ -97,8 +97,7 @@ ${bold}--quiet$norm
     
 ${bold}--schemes$norm ${under}SCHEMES$norm
     Comma-separated list of scheme ids to use.
-    If left empty, all schemes will be updated.
-   
+    If left empty, all schemes will be updated.  
 HELP
 	return;
 }
