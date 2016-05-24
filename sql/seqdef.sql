@@ -1215,3 +1215,165 @@ CREATE TRIGGER modify_profile_member AFTER INSERT OR UPDATE ON profile_members
 	FOR EACH ROW
 	EXECUTE PROCEDURE modify_profile_member();
 	
+--Functions for profile comparison
+CREATE OR REPLACE FUNCTION profile_diff(i_scheme_id int, profile_id1 text, profile_id2 text) RETURNS bigint AS $$
+	SELECT COUNT(*) FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND 
+		p1.scheme_id=p2.scheme_id AND p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND 
+		p2.profile_id=profile_id2 AND p1.allele_id!=p2.allele_id AND p1.allele_id!='N' AND p2.allele_id!='N';
+$$ LANGUAGE sql;
+
+CREATE OR REPLACE FUNCTION matching_profiles(i_scheme_id int, profile_id1 text, threshold int) RETURNS setof text AS $$
+	SELECT p2.profile_id FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND 
+	p1.scheme_id=p2.scheme_id AND p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND p1.profile_id!=p2.profile_id AND
+	(p1.allele_id=p2.allele_id OR p1.allele_id='N' OR p2.allele_id='N') 
+	GROUP BY p2.profile_id HAVING COUNT(*) >= ((SELECT COUNT(*) FROM scheme_members WHERE scheme_id=i_scheme_id)-threshold) 
+$$ LANGUAGE sql;
+
+CREATE OR REPLACE FUNCTION matching_profiles_with_relative_threshold(i_scheme_id int, profile_id1 text, i_threshold int) 
+RETURNS setof text AS $$
+	DECLARE
+		total int;
+	BEGIN
+		SELECT COUNT(*) INTO total FROM scheme_members WHERE scheme_id=i_scheme_id;
+		CREATE TEMP TABLE loci_in_common AS SELECT p2.profile_id AS profile_id,COUNT(*) AS loci,
+		COUNT(CASE WHEN p1.allele_id=p2.allele_id THEN 1 ELSE NULL END) AS matched,
+		ROUND((CAST(COUNT(*) AS float)*(total-i_threshold))/total) AS threshold 
+		FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND p1.scheme_id=p2.scheme_id AND 
+		p1.scheme_id=i_scheme_id WHERE p1.profile_id=profile_id1 AND p1.profile_id!=p2.profile_id AND p1.allele_id!='N' 
+		AND p2.allele_id!='N' GROUP BY p2.profile_id;
+
+		RETURN QUERY SELECT profile_id FROM loci_in_common WHERE matched>=threshold;
+		DROP TABLE loci_in_common;	
+	END;
+$$ LANGUAGE plpgsql;
+
+--classification_schemes
+CREATE TABLE classification_schemes (
+id int NOT NULL,
+scheme_id int NOT NULL,
+name text NOT NULL,
+description text,
+inclusion_threshold int NOT NULL,
+use_relative_threshold boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(id),
+CONSTRAINT cgs_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgs_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+--Unique constraint necessary to set up foreign key on classification_group_profiles
+CREATE UNIQUE INDEX ON classification_schemes(id,scheme_id);
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_schemes TO apache;
+
+--classification_groups
+CREATE TABLE classification_groups (
+cg_scheme_id int NOT NULL,
+group_id int NOT NULL,
+active boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,group_id),
+CONSTRAINT cg_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cg_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_groups TO apache;
+
+--classification_group_fields
+CREATE TABLE classification_group_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+type text NOT NULL,
+value_regex text,
+description text,
+field_order int,
+dropdown boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field),
+CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_fields TO apache;
+
+--classification_group_profiles
+CREATE TABLE classification_group_profiles (
+cg_scheme_id int NOT NULL,
+group_id int NOT NULL,
+profile_id text NOT NULL,
+scheme_id int NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,group_id,profile_id),
+CONSTRAINT cgp_cg_scheme_id_group_id FOREIGN KEY (cg_scheme_id,group_id) REFERENCES classification_groups
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_cg_scheme_id_scheme_id FOREIGN KEY (cg_scheme_id,scheme_id) REFERENCES classification_schemes(id,scheme_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgp_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profiles TO apache;
+
+--classification_group_profile_fields
+CREATE TABLE classification_group_profile_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+group_id int NOT NULL,
+profile_id text NOT NULL,
+value text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field,group_id,profile_id),
+CONSTRAINT cgpf_cg_scheme_id_field FOREIGN KEY (cg_scheme_id,field) REFERENCES classification_group_fields
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgpf_cg_scheme_id_group_profile_id FOREIGN KEY (cg_scheme_id,group_id,profile_id) REFERENCES classification_group_profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgpf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profile_fields TO apache;
+
+--classification_group_profile_history
+CREATE TABLE classification_group_profile_history (
+timestamp timestamp NOT NULL,
+scheme_id int NOT NULL,
+profile_id text NOT NULL,
+cg_scheme_id int NOT NULL,
+previous_group int NOT NULL,
+comment text,
+PRIMARY KEY(timestamp,scheme_id,profile_id),
+CONSTRAINT cgph_cg_scheme_id_previous_group FOREIGN KEY (cg_scheme_id,previous_group) REFERENCES classification_groups(cg_scheme_id,group_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgph_scheme_id_profile_id FOREIGN KEY (scheme_id,profile_id) REFERENCES profiles
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profile_history TO apache;
+

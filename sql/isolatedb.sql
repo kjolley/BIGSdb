@@ -1238,4 +1238,48 @@ RETURNS VOID AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+--classification_schemes
+CREATE TABLE classification_schemes (
+id int NOT NULL,
+scheme_id int NOT NULL,
+name text NOT NULL,
+description text,
+inclusion_threshold int NOT NULL,
+use_relative_threshold boolean NOT NULL,
+seqdef_cscheme_id int,
+display_order int,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(id),
+CONSTRAINT cgs_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgs_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_schemes TO apache;
+
+--classification_group_fields
+CREATE TABLE classification_group_fields (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+type text NOT NULL,
+description text,
+field_order int,
+dropdown boolean NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field),
+CONSTRAINT cgf_cg_scheme_id FOREIGN KEY (cg_scheme_id) REFERENCES classification_schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgf_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_fields TO apache;
+
 
