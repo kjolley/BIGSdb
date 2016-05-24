@@ -621,13 +621,6 @@ sub _check_scheme_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 
 sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
-	#special case to check that only one primary key field is set for a scheme field
-	if ( $newdata->{'primary_key'} eq 'true' && !@$problems ) {
-		my $existing_pk = $self->{'datastore'}->run_query('SELECT field FROM classification_group_fields WHERE cg_scheme_id=? AND primary_key',$newdata->{'cg_scheme_id'});
-		if ( $existing_pk ) {
-			push @$problems, "This scheme already has a primary key field set ($existing_pk).";
-		}
-	}
 
 	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
 	if ( $newdata->{'field'} eq 'id' ) {

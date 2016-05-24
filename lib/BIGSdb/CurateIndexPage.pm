@@ -233,7 +233,7 @@ sub _get_admin_links {
 	}
 	my $set_string = $self->_get_set_string;
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
-	  scheme_group_group_members classification_schemes classification_group_fields);
+	  scheme_group_group_members classification_schemes);
 	foreach my $table (@tables) {
 		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 			my $function = "_print_$table";

@@ -1992,7 +1992,7 @@ sub get_classification_group_fields_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'classification_schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
