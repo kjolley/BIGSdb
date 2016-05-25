@@ -1550,7 +1550,6 @@ sub _print_profile_table {
 		foreach my $locus (@$loci) {
 			say qq(<td>$profile->{'designations'}->{$locus}</td>);
 		}
-		my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 		my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $profile->{'designations'} );
 		my $assigned;
 		if ( !$profile_status->{'exists'} ) {
