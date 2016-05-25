@@ -35,6 +35,7 @@ RETURNS VOID AS $$
 		scheme_locus_count int;
 		scheme_info RECORD;
 		scheme_fields text;
+		unqual_scheme_fields text;
 		isolate_qry text;
 		modify_qry text;
 		qry text;
@@ -74,12 +75,15 @@ RETURNS VOID AS $$
 			RAISE EXCEPTION 'Scheme has no fields.';
 		END IF;
 		scheme_fields:='';
+		unqual_scheme_fields:='';
 		
 		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
 			IF i>1 THEN 
 				scheme_fields:=scheme_fields||',';
+				unqual_scheme_fields:=unqual_scheme_fields||',';
 			END IF;
 			scheme_fields:=scheme_fields||'st.'||fields[i];
+			unqual_scheme_fields:=unqual_scheme_fields||fields[i];
 		END LOOP;
 		IF _method='incremental' THEN
 			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) ',cache_table);
@@ -144,7 +148,7 @@ RETURNS VOID AS $$
 			DROP TABLE temp_isolates;
 		END IF;
 		IF _method != 'full' THEN
-			EXECUTE(FORMAT('INSERT INTO %I (SELECT * FROM %I)',cache_table_temp,cache_table)); 
+			EXECUTE(FORMAT('INSERT INTO %I (SELECT id,%s FROM %I)',cache_table_temp,unqual_scheme_fields,cache_table)); 
 		END IF;
 		EXECUTE FORMAT('CREATE INDEX on %I(id)',cache_table_temp);
 		FOR i IN 1 .. ARRAY_UPPER(fields,1) LOOP
