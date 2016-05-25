@@ -28,6 +28,7 @@ use List::MoreUtils qw(any none);
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
+use List::MoreUtils qw(uniq);
 use autouse 'Time::Local'  => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
 use Log::Log4perl qw(get_logger);
@@ -560,5 +561,30 @@ sub get_datestamp {
 	my $mon  = $date[4] + 1;
 	my $day  = $date[3];
 	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
+}
+
+sub get_pg_array {
+	my ($profile) = @_;
+	my @cleaned_values;
+	foreach my $value (@$profile) {
+		$value =~ s/"/\\"/gx;
+		$value =~ s/\\/\\\\/gx;
+		push @cleaned_values, $value;
+	}
+	local $" = q(",");
+	return qq({"@cleaned_values"});
+}
+
+#Uses Schwartzian transform https://en.wikipedia.org/wiki/Schwartzian_transform
+sub dictionary_sort {
+	my ( $values, $labels ) = @_;
+	my @ret_values = map { $_->[0] }
+	  sort { $a->[1] cmp $b->[1] }
+	  map {    ## no critic(ProhibitComplexMappings)
+		my $d = lc( $labels->{$_} );
+		$d =~ s/[\W_]+//gx;
+		[ $_, $d ]
+	  } uniq @$values;
+	return \@ret_values;
 }
 1;

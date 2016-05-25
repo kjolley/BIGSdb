@@ -523,16 +523,12 @@ sub _generate_batch_table {
 				local $" = q(; );
 				$self->{'batch_results'}->{$id}->{$scheme_locus} //= [];
 				push @args, "@{$self->{'batch_results'}->{$id}->{$scheme_locus}}";
-				( my $cleaned = $scheme_locus ) =~ s/'/_PRIME_/gx;
-				push @cleaned_loci, $cleaned;
+				push @cleaned_loci, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $scheme_locus );
 			}
-			my $scheme_table =
-			  $self->{'datastore'}->materialized_view_exists($scheme_id)
-			  ? qq(mv_scheme_$scheme_id)
-			  : qq(scheme_$scheme_id);
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+			my $scheme_warehouse = qq(mv_scheme_$scheme_id);
+			my $scheme_fields    = $self->{'datastore'}->get_scheme_fields($scheme_id);
 			local $" = q(,);
-			my $qry = qq(SELECT @$scheme_fields FROM $scheme_table WHERE );
+			my $qry = qq(SELECT @$scheme_fields FROM $scheme_warehouse WHERE );
 			local $" = q( IN (?,'N') AND );
 			$qry .= qq(@cleaned_loci IN (?,'N'));
 			my $field_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'row_arrayref' } );
@@ -787,13 +783,13 @@ sub _get_scheme_table {
 	return q() if !defined $scheme_info->{'primary_key'};
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	foreach (@$scheme_loci) {
-		( my $cleaned_locus = $_ ) =~ s/'/_PRIME_/gx;
-		push @profile, $designations->{$_};
-		$designations->{$_} //= 0;
-		$designations->{$_} =~ s/'/\\'/gx;
-		my $temp_qry = "$cleaned_locus=E'$designations->{$_}'";
-		$temp_qry .= " OR $cleaned_locus='N'" if $scheme_info->{'allow_missing_loci'};
+	foreach my $locus (@$scheme_loci) {
+		push @profile, $designations->{$locus};
+		$designations->{$locus} //= 0;
+		$designations->{$locus} =~ s/'/\\'/gx;
+		my $locus_profile_name = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
+		my $temp_qry = "$locus_profile_name=E'$designations->{$locus}'";
+		$temp_qry .= " OR $locus_profile_name='N'" if $scheme_info->{'allow_missing_loci'};
 		push @temp_qry, $temp_qry;
 	}
 	if ( none { !defined $_ } @profile || $scheme_info->{'allow_missing_loci'} ) {
@@ -801,7 +797,7 @@ sub _get_scheme_table {
 		my $temp_qry_string = "@temp_qry";
 		local $" = ',';
 		my $values =
-		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE ($temp_qry_string)",
+		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM mv_scheme_$scheme_id WHERE ($temp_qry_string)",
 			undef, { fetch => 'row_hashref' } );
 		my $buffer;
 		$buffer .= qq(<h2>$scheme_info->{'description'}</h2>) if $self->{'cgi'}->param('locus') eq '0';

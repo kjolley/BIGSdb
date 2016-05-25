@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,7 +60,7 @@ sub print_content {
 		  if $scheme_id
 		  && $self->is_scheme_invalid( $scheme_id, { with_pk => $with_pk, all_loci => $all_loci } );
 		$self->print_scheme_section( { with_pk => $with_pk, all_loci => $all_loci } );
-		$scheme_id = $q->param('scheme_id');                     #Will be set by scheme section method
+		$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
 		$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
 		$self->_print_query_interface($scheme_id);
 	}
@@ -97,20 +97,12 @@ sub _autofill {
 				push @errors, 'Error retrieving information from remote database - check configuration.';
 			};
 		} else {
-			my @cleaned_loci = @$loci;
-			foreach my $locus (@cleaned_loci) {
-				$locus =~ s/'/_PRIME_/gx;
-			}
-			local $" = ',';
-			my $scheme_view =
-			  $self->{'datastore'}->materialized_view_exists($scheme_id)
-			  ? "mv_scheme_$scheme_id"
-			  : "scheme_$scheme_id";
-			my $qry = "SELECT @cleaned_loci FROM $scheme_view WHERE $primary_key=?";
-			my $loci_values = $self->{'datastore'}->run_query( $qry, $pk_value, { fetch => 'row_hashref' } );
+			my $scheme_warehouse = "mv_scheme_$scheme_id";
+			my $qry              = "SELECT profile FROM $scheme_warehouse WHERE $primary_key=?";
+			my $profile          = $self->{'datastore'}->run_query( $qry, $pk_value );
+			my $locus_indices    = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 			foreach my $locus (@$loci) {
-				( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-				$q->param( "l_$locus", $loci_values->{ lc($cleaned) } );
+				$q->param( "l_$locus", $profile->[ $locus_indices->{$locus} ] );
 			}
 		}
 	}
@@ -195,7 +187,12 @@ sub _print_query_interface {
 	say qq(<tr>$header_row</tr>);
 	say qq(<tr>$form_row</tr>);
 	say q(</table></fieldset>);
-	if ($primary_key) {
+	if (
+		$primary_key
+		&& ( ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'dbase_table'} )
+			|| $self->{'system'}->{'dbtype'} eq 'sequences' )
+	  )
+	{
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
 		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
@@ -264,22 +261,12 @@ sub _print_query_interface {
 	return;
 }
 
-sub _get_scheme_view {
-	my ( $self, $scheme_id ) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		return $self->{'datastore'}->materialized_view_exists($scheme_id)
-		  ? "mv_scheme_$scheme_id"
-		  : "scheme_$scheme_id";
-	}
-	return;
-}
-
 sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $scheme_view = $self->_get_scheme_view($scheme_id);
-	my $q           = $self->{'cgi'};
-	my @params      = $q->param;
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $q                = $self->{'cgi'};
+	my @params           = $q->param;
 	my @errors;
 	my $msg;
 	my $qry;
@@ -343,7 +330,7 @@ sub _generate_query {
 	if (@lqry) {
 		local $" = ' OR ';
 		my $required_matches = $q->param('matches_list');
-		$required_matches = scalar @lqry if $required_matches == @loci;
+		$required_matches = @lqry if $required_matches == @loci;
 		my $lqry;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
@@ -353,7 +340,7 @@ sub _generate_query {
 			    '(SELECT DISTINCT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON '
 			  . 'profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id '
 			  . "AND profile_members.scheme_id=$scheme_id WHERE "
-			  . "$scheme_view.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
+			  . "$scheme_warehouse.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
 		}
 		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
 			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
@@ -369,7 +356,7 @@ sub _generate_query {
 		$qry =
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
-		  : "SELECT * FROM $scheme_view WHERE EXISTS $lqry";
+		  : "SELECT * FROM $scheme_warehouse WHERE EXISTS $lqry";
 	}
 	$self->_modify_qry_by_filters( \$qry );
 	$self->_add_query_ordering( \$qry, $scheme_id );

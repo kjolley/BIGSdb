@@ -272,7 +272,8 @@ sub get_loci_table_attributes {
 			$defaults{'url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=alleleInfo&locus=PUT_LOCUS_NAME_HERE&allele_id=[?]';
 		}
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name        => 'reference_sequence',
 				type        => 'text',
@@ -296,7 +297,7 @@ sub get_loci_table_attributes {
 				type        => 'bool',
 				hide_public => 'yes',
 				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
-				tooltip => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
+				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
 			},
 			{
@@ -448,7 +449,7 @@ sub get_loci_table_attributes {
 				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
 				  . 'template will become unwieldy.'
 			}
-		);
+		  );
 	} else {    #Seqdef database
 		push @$attributes,
 		  {
@@ -1271,20 +1272,15 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			push @$attributes,
-			  (
-				{
-					name     => 'index',
-					type     => 'bool',
-					required => 'no',
-					tooltip  => 'index - Sets whether the field is indexed in the database.  This setting '
-					  . 'is ignored for primary key fields which are always indexed.'
-				}
-			  );
-		}
 		push @$attributes,
 		  (
+			{
+				name     => 'index',
+				type     => 'bool',
+				required => 'no',
+				tooltip  => 'index - Sets whether the field is indexed in the database.  This setting '
+				  . 'is ignored for primary key fields which are always indexed.'
+			},
 			{
 				name     => 'dropdown',
 				type     => 'bool',
@@ -1292,10 +1288,7 @@ sub get_scheme_fields_table_attributes {
 				default  => 'false',
 				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
 				  . '(can be overridden by user preference).'
-			}
-		  );
-		push @$attributes,
-		  (
+			},
 			{
 				name    => 'value_regex',
 				type    => 'text',
@@ -1922,6 +1915,114 @@ sub get_set_metadata_table_attributes {
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
+	return $attributes;
+}
+
+sub get_classification_schemes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes',
+			with_pk_only   => 1,
+		},
+		{
+			name     => 'name',
+			type     => 'text',
+			required => 'yes',
+			length   => 50,
+			unique   => 'yes',
+			tooltip =>
+'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
+		},
+		{ name => 'description', type => 'text', length => 256 },
+		{
+			name     => 'inclusion_threshold',
+			type     => 'int',
+			required => 'yes',
+			comments =>
+			  'Maximum number of different alleles allowed between profile and at least one group member profile.'
+		},
+		{
+			name     => 'use_relative_threshold',
+			type     => 'bool',
+			required => 'yes',
+			comments => 'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
+			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
+			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
+			  . 'scheme.',
+			default => 'false'
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @$attributes, (
+			{
+				name     => 'seqdef_cscheme_id',
+				type     => 'int',
+				comments => 'cscheme_id number defined in seqdef database',
+				tooltip =>
+				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
+			},
+			{
+				name => 'display_order',
+				type => 'int'
+			}
+		);
+	}
+	push @$attributes,
+	  (
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	  );
+	return $attributes;
+}
+
+sub get_classification_group_fields_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name           => 'cg_scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'classification_schemes',
+			labels         => '|$name|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' }
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name    => 'value_regex',
+				type    => 'text',
+				tooltip => 'value regex - Regular expression that constrains value of field'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
+		{ name => 'description', type => 'text', required => 'no', length => 64, },
+		{ name => 'field_order', type => 'int',  required => 'no' },
+		{
+			name     => 'dropdown',
+			type     => 'bool',
+			required => 'yes',
+			default  => 'false',
+			tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
+			  . '(can be overridden by user preference).'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	  );
 	return $attributes;
 }
 

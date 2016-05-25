@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -234,9 +234,10 @@ sub _delete {
 	if ( $table eq 'users' ) {
 		$self->_delete_user( $data, \$nogo_buffer, \$proceed );
 	}
+	my %dont_check = map{$_ => 1} qw(composite_fields schemes classification_schemes);
 
 	#Check if record is a foreign key in another table
-	if ( $proceed && $table ne 'composite_fields' && $table ne 'schemes' ) {
+	if ( $proceed && !$dont_check{$table} ) {
 		my %tables_to_check = $self->_get_tables_which_reference_table($table);
 		foreach my $table_to_check ( keys %tables_to_check ) {
 
@@ -363,10 +364,6 @@ sub _confirm {
 			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
 		{
 			$self->remove_profile_data( $data->{'scheme_id'} );
-			$self->drop_scheme_view( $data->{'scheme_id'} );
-			$self->create_scheme_view( $data->{'scheme_id'} );
-		} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			$self->drop_scheme_view( $data->{'id'} );
 		}
 	};
 	if ($@) {
@@ -386,20 +383,6 @@ sub _confirm {
 		  . q(page=compositeQuery">Query another</a>);
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $profile_id = $q->param('profile_id');
-			eval {
-				$self->{'db'}
-				  ->do( "DELETE FROM mv_scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?", undef, $profile_id );
-			};
-			if ($@) {
-				$logger->error($@);
-				$self->{'db'}->rollback;
-			} else {
-				$self->{'db'}->commit;
-			}
-		}
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(scheme_id=$scheme_id">Query another</a>);
 	} else {

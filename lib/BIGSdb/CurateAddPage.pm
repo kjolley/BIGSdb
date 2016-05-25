@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID MAX_POSTGRES_COLS DATABANKS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -191,19 +191,6 @@ sub _check_locus_descriptions {
 	return;
 }
 
-sub _too_many_cols {
-	my ( $self, $has_pk, $field_count ) = @_;
-	if ( $has_pk && $field_count > MAX_POSTGRES_COLS ) {
-		say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-		  . MAX_POSTGRES_COLS
-		  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's )
-		  . q(not really sensible to have indexed schemes (those with a primary key field) to have so )
-		  . q(many fields. Update failed.</p></div);
-		return 1;
-	}
-	return;
-}
-
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
@@ -213,7 +200,7 @@ sub _insert {
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
-	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles);
+	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields);
 
 	if (
 		defined $newdata->{'isolate_id'}
@@ -247,20 +234,8 @@ sub _insert {
 			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				my %modifies_scheme = map { $_ => 1 } qw(scheme_members scheme_fields);
-				if ( $table eq 'schemes' ) {
-					$self->create_scheme_view( $newdata->{'id'} );
-				} elsif ( $modifies_scheme{$table} ) {
-					my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
-					my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
-					my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-					my $field_count = @$scheme_fields + @$scheme_loci;
-					if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
-						$continue = 0;
-					} else {
-						$self->remove_profile_data( $newdata->{'scheme_id'} );
-						$self->drop_scheme_view( $newdata->{'scheme_id'} );
-						$self->create_scheme_view( $newdata->{'scheme_id'} );
-					}
+				if ( $modifies_scheme{$table} ) {
+					$self->remove_profile_data( $newdata->{'scheme_id'} );
 				} elsif ( $table eq 'sequences' ) {
 					$self->{'datastore'}->mark_cache_stale;
 				}
@@ -467,7 +442,7 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 
 sub _check_sequence_retired {
 	my ( $self, $newdata, $problems ) = @_;
-	my $retired = $self->{'datastore'}->is_sequence_retired($newdata->{'locus'}, $newdata->{'allele_id'});
+	my $retired = $self->{'datastore'}->is_sequence_retired( $newdata->{'locus'}, $newdata->{'allele_id'} );
 	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
@@ -626,7 +601,7 @@ sub _check_sequence_extended_attributes {
 	return;
 }
 
-sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_scheme_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 
 	#special case to check that only one primary key field is set for a scheme field
@@ -639,9 +614,19 @@ sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 
 	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
 	if ( $newdata->{'field'} eq 'id' ) {
-		push @$problems, q(Scheme fields can not be called 'id'.);
+		push @$problems, q(Scheme fields cannot be called 'id'.);
 	}
 	return;
+}
+
+sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+
+	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
+	if ( $newdata->{'field'} eq 'id' ) {
+		push @$problems, q(Scheme fields cannot be called 'id'.);
+	}
+	return
 }
 
 sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

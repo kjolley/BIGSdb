@@ -131,6 +131,7 @@ sub _check {
 	shift @rows;    #Remove header
 	my $td = 1;
 	my $buffer;
+	my $indices = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $row (@rows) {
 		my @columns = split /\t/x, $row;
 		BIGSdb::Utils::remove_trailing_spaces_from_list( \@columns );
@@ -155,7 +156,7 @@ sub _check {
 		$args->{'profile'} = $self->_check_profile($args);
 
 		#Identify old value
-		$args->{'old_value'} = $args->{'profile'}->{ lc($field) };
+		$args->{'old_value'} = $args->{'profile'}->{'profile'}->[ $indices->{$field} ];
 
 		#Check if value already exists and 'overwrite' is not checked
 		$self->_check_overwrite($args);
@@ -256,7 +257,7 @@ sub _check_profile {
 	return if $$problem;
 	my $profile_data =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM scheme_$scheme_info->{'id'} WHERE $scheme_info->{'primary_key'}=?",
+	  ->run_query( "SELECT * FROM mv_scheme_$scheme_info->{'id'} WHERE $scheme_info->{'primary_key'}=?",
 		$pk, { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::check_profile' } );
 	if ( !$profile_data ) {
 		$$problem = "no editable record with $scheme_info->{'primary_key'}='$pk'";
@@ -330,14 +331,16 @@ sub _check_existing_profile {
 	return if $$problem;
 	return if ( $field_type // q() ) ne 'locus';
 	my %new_profile;
+	my $indices = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $locus (@$loci) {
-		$new_profile{"locus:$locus"} = $profile->{ lc($locus) };
+		$new_profile{"locus:$locus"} = $profile->{'profile'}->[ $indices->{$locus} ];
 	}
 	$new_profile{"locus:$field"}                        = $value;
 	$new_profile{"field:$scheme_info->{'primary_key'}"} = $pk;
-	my ( $exists, $msg ) = $self->profile_exists( $scheme_info->{'id'}, $scheme_info->{'primary_key'}, \%new_profile );
-	if ($exists) {
-		$$problem = qq(would result in duplicate profile. $msg);
+	my %designations = map { $_ => $new_profile{"locus:$_"} } @$loci;
+	my $ret = $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
+	if ( $ret->{'exists'} ) {
+		$$problem = qq(would result in duplicate profile. $ret->{'msg'});
 	}
 	return;
 }
@@ -385,7 +388,7 @@ sub _check_existing_profile_id {
 	return if $$problem;
 	return if ( $field_type // q() ) ne 'field';
 	my $new_pk_exists = $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT $scheme_info->{'primary_key'} FROM scheme_$scheme_info->{'id'} "
+		"SELECT EXISTS(SELECT $scheme_info->{'primary_key'} FROM mv_scheme_$scheme_info->{'id'} "
 		  . "WHERE $scheme_info->{'primary_key'}=? UNION SELECT profile_id FROM retired_profiles "
 		  . 'WHERE (scheme_id,profile_id)=(?,?))',
 		[ $value, $scheme_info->{'id'}, $value ],
@@ -435,15 +438,21 @@ sub _update {
 	my $changes      = 0;
 	my $update_error = 0;
 	my @history_updates;
+	my $indices = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 
 	foreach my $i ( sort { $a <=> $b } keys %$transaction ) {
 		my ( $id, $field, $value ) =
 		  ( $transaction->{$i}->{'id'}, $transaction->{$i}->{'field'}, $transaction->{$i}->{'value'} );
 		my $old_record =
-		  $self->{'datastore'}->run_query( "SELECT * FROM scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?",
+		  $self->{'datastore'}->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?",
 			$id, { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::update::select' } );
-		my $old_value = $old_record->{ lc($field) };
+		my $old_value;
 		my $is_locus  = $self->{'datastore'}->is_locus($field);
+		if ($is_locus){
+			$old_value = $old_record->{'profile'}->[$indices->{$field}];
+		} else {
+			$old_value = $old_record->{ lc($field) };
+		}
 		my @updates;
 		if ($is_locus) {
 			push @updates,
@@ -521,7 +530,6 @@ sub _update {
 			say q(<p>Transaction failed - no changes made.</p>);
 		} else {
 			$self->{'db'}->commit;
-			$self->refresh_material_view($scheme_id);
 			$self->update_profile_history( $scheme_id, $_->{'id'}, $_->{'action'} ) foreach @history_updates;
 			say q(<p>Transaction complete - database updated.</p>);
 		}

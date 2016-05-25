@@ -1,6 +1,5 @@
 Important notes about upgrading
--------------------------------
-
+===============================
 Version 1.1:  Offline job manager - set up new user account and cron job.
 Version 1.2:  Change of isolate database structure. New package 'exonerate'
               required.
@@ -19,6 +18,7 @@ Version 1.11: Change of authentication database structure.
               required.
 Version 1.12: Change of authentication and seqdef database structures.
 Version 1.13: Change of seqdef and isolate database structures.
+Version 1.14: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -286,3 +286,38 @@ the sql/upgrade directory, against your seqdef database.
 The isolate database has also been modified to support future functionality.
 Please run isolatedb_v1.13.sql against your isolate databases.
 
+Version 1.14
+------------
+There are large-scale changes to both the sequence definition and isolate 
+database structures to support cgMLST schemes with primary key indexing. The
+previous method of caching scheme profiles did not support schemes with a ST
+value and more than ~1600 loci due to PostgreSQL column limits. This did not
+apply to schemes that were simply a collection of loci. Even before this limit
+was reached, such large schemes would suffer performance penalties. The new 
+structure has no such limits.
+
+Classification groups for cgMLST schemes are also introduced with this version.
+This has necessitated a number of new tables in the database schemas.
+
+Please run the seqdefdb_v1.14.sql against sequence definition databases and
+isolatedb_v1.14.sql against isolate databases. These can be found in the 
+sql/upgrade directory.
+
+Any scheme views set up in the sequence definition database named 'scheme_1'
+etc. can be dropped as these are no longer used.  To do this log in to the
+database using psql, and type 'DROP VIEW scheme_1;'. Do this for each of the
+scheme views.
+
+If you are planning to use cgMLST schemes, you should ensure that your database
+configuration has a temp_buffers setting of at least 64MB. This can be done by 
+editing bigsdb.conf and setting:
+
+temp_buffers=64
+
+Alternatively, this can be set globally in the postgresql.conf file (probably 
+/etc/postgresql/9.x/main/postgresql.conf) with the following line:
+
+SET temp_buffers=64MB
+
+Without this, the database engine is likely to run out of memory during cache
+renewal.

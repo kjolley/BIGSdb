@@ -99,8 +99,8 @@ sub _is_pk_used {
 	my ( $self, $scheme_id, $profile_id ) = @_;
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?)) OR '
-		. 'EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
-		[ $scheme_id, $profile_id,$scheme_id, $profile_id ],
+		  . 'EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id, $scheme_id, $profile_id ],
 		{ cache => 'CurateProfileBatchAddPage::is_pk_used' }
 	);
 }
@@ -295,10 +295,12 @@ sub _check {
 		$first_record = 0;
 
 		#check if profile exists
-		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		if ($profile_exists) {
+		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
+		if ( $ret->{'exists'} ) {
 			next RECORD if $q->param('ignore_existing');
-			$problems{$pk} .= "$msg<br />";
+			$problems{$pk} .= "$ret->{'msg'}<br />";
 		}
 
 		#check if primary key already exists
@@ -471,16 +473,6 @@ sub _upload {
 			  };
 			push @mv_fields, $field;
 			push @mv_values, $data[ $fieldorder{$field} ];
-		}
-
-		#It is more efficient to directly add new records to the materialized view than
-		#to call $self->refresh_material_view($scheme_id).
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			my @placeholders = ('?') x ( @mv_fields + 4 );
-			local $" = q(,);
-			my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
-			  . "date_entered,datestamp) VALUES (@placeholders)";
-			push @inserts, { statement => $qry, arguments => [ @mv_values, $curator, $sender, 'now', 'now' ] };
 		}
 		eval {
 			foreach my $insert (@inserts)

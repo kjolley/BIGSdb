@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS :submissions);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID :submissions);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -741,6 +741,9 @@ sub _run_table_specific_field_checks {
 		},
 		retired_profiles => sub {
 			$self->_check_retired_profile_id($new_args);
+		},
+		classification_group_fields => sub {
+			$self->_check_data_scheme_fields($new_args);
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -760,7 +763,7 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
-	if (!@$checked_buffer){
+	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
 		return;
@@ -1567,10 +1570,9 @@ sub _check_retired_profile_id {
 
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
-	my $table = $arg_ref->{'table'};
-	my $locus = $arg_ref->{'locus'};
-	my $q     = $self->{'cgi'};
-	my %schemes;
+	my $table   = $arg_ref->{'table'};
+	my $locus   = $arg_ref->{'locus'};
+	my $q       = $self->{'cgi'};
 	my $records = $self->_extract_checked_records;
 	return if !@$records;
 	my $field_order = $self->_get_field_order($records);
@@ -1601,9 +1603,6 @@ sub _upload_data {
 						user_status => ( $user_info->{'status'} // undef )
 					}
 				  ) // undef;
-				if ( $field eq 'scheme_id' ) {
-					$schemes{ $data[ $field_order->{'scheme_id'} ] } = 1;
-				}
 			}
 			if ( $table eq 'loci' || $table eq 'isolates' ) {
 				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
@@ -1689,7 +1688,6 @@ sub _upload_data {
 			}
 		}
 	}
-	$self->_regenerate_scheme_view_if_needed( $table, \%schemes );
 	$self->{'db'}->commit && say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
@@ -1765,32 +1763,6 @@ sub _display_update_footer_links {
 		  . qq(ignore_similarity=$ignore_similarity">Add more</a>);
 	}
 	say q(</p>);
-	return;
-}
-
-sub _regenerate_scheme_view_if_needed {
-	my ( $self, $table, $schemes ) = @_;
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-	{
-		foreach my $scheme_id ( keys %$schemes ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $field_count   = @$scheme_fields + @$scheme_loci;
-			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
-				say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-				  . MAX_POSTGRES_COLS
-				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
-				  . q(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
-				$self->{'db'}->rollback;
-				return;
-			}
-			$self->remove_profile_data($scheme_id);
-			$self->drop_scheme_view($scheme_id);
-			$self->create_scheme_view($scheme_id);
-		}
-	}
 	return;
 }
 
@@ -2082,7 +2054,8 @@ sub _update_scheme_caches {
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
-					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'}
+					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'},
+					options          => { method => 'daily' }
 				}
 			);
 			CORE::exit(0);

@@ -429,6 +429,7 @@ sub print_content {
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 		if (@$loci) {
+			say $self->_get_classification_group_data($isolate_id);
 			say qq(<h2>Schemes and loci$tree_button$aliases_button</h2>);
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
 				my $schemes =
@@ -465,6 +466,80 @@ sub _close_divs {
 		$self->{'open_divs'} = 0;
 	}
 	return;
+}
+
+sub _get_classification_group_data {
+	my ( $self, $isolate_id ) = @_;
+	my $view   = $self->{'system'}->{'view'};
+	my $buffer = q();
+	my $classification_schemes =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $td = 1;
+	foreach my $cscheme (@$classification_schemes) {
+		my $cg_buffer;
+		my $scheme_id = $cscheme->{'seqdef_cscheme_id'} // $cscheme->{'scheme_id'};
+		my $cache_table_exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
+			[ "temp_isolates_scheme_fields_$scheme_id", "temp_${view}_scheme_fields_$scheme_id" ]
+		);
+		if ( !$cache_table_exists ) {
+			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
+				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '
+				  . 'database to create these caches.' );
+			return q();
+		}
+		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		my $pk           = $scheme_info->{'primary_key'};
+		my $pk_values =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $pk FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		if (@$pk_values) {
+			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
+
+			#You may get multiple groups if you have a mixed sample
+			foreach my $pk_value (@$pk_values) {
+				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+					$pk_value, { fetch => 'col_arrayref' } );
+				foreach my $group_id (@$groups) {
+					my $isolate_count = $self->{'datastore'}->run_query(
+						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
+						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
+						$group_id
+					);
+					if ( $isolate_count > 1 ) {
+						my $url =
+						    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
+						  . q(submit=1);
+						$cg_buffer .= qq(group: <a href="$url">$group_id ($isolate_count isolates)</a><br />\n);
+					}
+				}
+			}
+		}
+		if ($cg_buffer) {
+			my $desc = $cscheme->{'description'};
+			my $tooltip =
+			  $desc
+			  ? qq( <a class="tooltip" title="$cscheme->{'name'} - $desc"> )
+			  . q(<span class="fa fa-info-circle"></span></a>)
+			  : q();
+			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
+			$buffer .= qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
+			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cg_buffer</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	if ($buffer) {
+		$buffer =
+		    q(<h2>Similar isolates (determined by classification schemes)</h2>)
+		  . q(<div class="scrollable">)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
+		  . qq(<th>Mismatch threshold</th><th>Group</th></tr>$buffer</table></div></div>);
+	}
+	return $buffer;
 }
 
 sub _print_other_schemes {
@@ -947,7 +1022,7 @@ sub _should_display_scheme {
 		return if !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 	}
 	my $designations_exist = $self->{'datastore'}->run_query(
-		    q[SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON ]
+		q[SELECT EXISTS(SELECT isolate_id FROM allele_designations LEFT JOIN scheme_members ON ]
 		  . q[scheme_members.locus=allele_designations.locus WHERE (isolate_id,scheme_id)=(?,?) ]
 		  . q[AND allele_id != '0')],
 		[ $isolate_id, $scheme_id ],

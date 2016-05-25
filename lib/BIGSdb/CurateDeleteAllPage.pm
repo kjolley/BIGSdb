@@ -84,10 +84,9 @@ sub print_content {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
-			if ( $query =~ /temp_scheme_$scheme_id\s/x ) {
+			if ( $query =~ /temp_isolates_scheme_fields_$scheme_id\s/x ) {
 				try {
-					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say q[<div class="box" id="statusbad"><p>Can't copy data into temporary table - please ]
@@ -224,24 +223,11 @@ sub _refresh_db_views {
 	{
 		foreach (@$scheme_ids) {
 			$self->remove_profile_data($_);
-			$self->drop_scheme_view($_);
-			$self->create_scheme_view($_);
-		}
-		return;
-	}
-	if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		foreach (@$scheme_ids) {
-			$self->drop_scheme_view($_);
 		}
 		return;
 	}
 	if ( $table eq 'sequences' ) {
 		$self->{'datastore'}->mark_cache_stale;
-		return;
-	}
-	if ( $table eq 'profiles' ) {
-		my $scheme_id = $q->param('scheme_id');
-		$self->refresh_material_view($scheme_id);
 		return;
 	}
 	return;
