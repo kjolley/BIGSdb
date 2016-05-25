@@ -100,7 +100,7 @@ CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int) RETURNS VOID AS $
 		|| 'profiles WHERE scheme_id=%s',scheme_table,pk,i_id);
 		FOR x IN SELECT * FROM profile_fields WHERE scheme_id=i_id AND scheme_field NOT IN 
 		(SELECT field FROM scheme_fields WHERE scheme_id=i_id AND primary_key) LOOP
-			EXECUTE FORMAT('UPDATE %I SET %I=$1 WHERE %s=$2',
+			EXECUTE FORMAT('UPDATE %I SET %s=$1 WHERE %s=$2',
 			scheme_table,x.scheme_field,pk) USING x.value,x.profile_id;
 		END LOOP;
 		
