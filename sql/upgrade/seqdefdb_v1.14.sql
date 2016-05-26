@@ -1,4 +1,4 @@
-CREATE INDEX i_s2 ON sequences(exemplar);
+CREATE INDEX i_s2 ON sequences(exemplar) WHERE exemplar;
 
 --Change owner of profile_members to apache (needed so that triggers can be disabled for batch upload).
 ALTER TABLE profile_members OWNER TO apache;
