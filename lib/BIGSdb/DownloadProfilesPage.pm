@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -60,13 +61,14 @@ sub print_content {
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	print $primary_key;
-	my @fields = ($primary_key);
+	my @fields = ( $primary_key, 'profile' );
+	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	my @order;
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
 		print qq(\t$header_value);
-		my $cleaned = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
-		push @fields, $cleaned;
+		push @order, $locus_indices->{$locus};
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
@@ -83,8 +85,10 @@ sub print_content {
 	local $" = qq(\t);
 	{
 		no warnings 'uninitialized';    #scheme field values may be undefined
-		foreach my $profile (@$data) {
-			say qq(@$profile);
+		foreach my $definition (@$data) {
+			my $pk      = shift @$definition;
+			my $profile = shift @$definition;
+			say qq($pk\t@$profile[@order]\t@$definition);
 		}
 	}
 	return;
