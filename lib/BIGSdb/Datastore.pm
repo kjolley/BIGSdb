@@ -997,7 +997,6 @@ sub create_temp_scheme_table {
 			$self->{'db'}->do("CREATE INDEX i_${table}_$field ON $table (UPPER($field))");
 		}
 	}
-	$self->{'db'}->do("CREATE INDEX ON $table using GIN(profile)");
 
 	#Index up to 3 elements
 	my $index_count = keys %$locus_indices >= 3 ? 3 : keys %$locus_indices;

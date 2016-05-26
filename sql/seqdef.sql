@@ -1054,7 +1054,6 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 			END IF;
 		END LOOP;
 		EXECUTE FORMAT('CREATE UNIQUE INDEX ON %I(md5(profile))',scheme_table);
-		EXECUTE FORMAT('CREATE INDEX ON %I USING gin(profile)',scheme_table);
 		EXECUTE FORMAT('CREATE INDEX ON %I ((profile[1]))',scheme_table);
 		--We need to be able to drop and recreate as apache user.
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', scheme_table);
