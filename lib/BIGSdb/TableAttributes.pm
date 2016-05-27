@@ -1953,7 +1953,7 @@ sub get_classification_schemes_table_attributes {
 			name     => 'use_relative_threshold',
 			type     => 'bool',
 			required => 'yes',
-			comments => 'Calculate threshold using ratio of shared/present in both isolates in pairwise comparison.',
+			comments => 'Calculate threshold using ratio of shared/present in both profiles in pairwise comparison.',
 			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
 			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
 			  . 'scheme.',
