@@ -159,12 +159,12 @@ sub get_distinct_fields {
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
 	#If scheme uses a materialized view (prefixed with mv_) then it will be quicker to check this.
 	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^scheme_(\d+)$/x ) {
+	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^mv_scheme_(\d+)$/x ) {
 		my $scheme_id = $1;
-		$qry = qq(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
+		$qry = qq(SELECT DISTINCT value FROM profile_fields WHERE scheme_field='$field' )
 		  . qq(AND scheme_id=$scheme_id ORDER BY value);
 	} else {
-		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} ORDER BY $field);
+		$qry = qq(SELECT DISTINCT $field FROM $self->{'dbase_table'} WHERE $field IS NOT NULL ORDER BY $field);
 	}
 	my $values = [];
 	eval { $values = $self->{'db'}->selectcol_arrayref($qry) };
