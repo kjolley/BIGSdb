@@ -343,8 +343,7 @@ ${bold}--help$norm
     This help page.
     
 ${bold}--reset$norm
-    Remove all groups and profiles currently defined for classification group.
-           
+    Remove all groups and profiles currently defined for classification group.          
 HELP
 	return;
 }
