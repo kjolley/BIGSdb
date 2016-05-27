@@ -534,6 +534,8 @@ sub _get_classification_group_data {
 	if ($buffer) {
 		$buffer =
 		    q(<h2>Similar isolates (determined by classification schemes)</h2>)
+		  . q(<p>Please note that group numbers are subject to change and are not a stable part )
+		  . q(of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
