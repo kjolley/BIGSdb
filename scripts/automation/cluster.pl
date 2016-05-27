@@ -54,8 +54,12 @@ my $log_conf =
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
-GetOptions( 'cscheme=i' => \$opts{'cscheme_id'}, 'database=s' => \$opts{'database'}, 'help' => \$opts{'help'}, )
-  or die("Error in command line arguments\n");
+GetOptions(
+	'cscheme=i'  => \$opts{'cscheme_id'},
+	'database=s' => \$opts{'database'},
+	'help'       => \$opts{'help'},
+	'reset'      => \$opts{'reset'}
+) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
 	show_help();
 	exit;
@@ -82,6 +86,10 @@ my $script = BIGSdb::Offline::Script->new(
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 perform_sanity_checks();
+if ( $opts{'reset'} ) {
+	reset_scheme();
+	exit;
+}
 main();
 $script->db_disconnect;
 
@@ -136,6 +144,19 @@ sub main {
 		}
 		last ITERATION;
 	}
+	return;
+}
+
+sub reset_scheme {
+	eval {
+		$script->{'db'}->do( 'DELETE FROM classification_groups WHERE cg_scheme_id=?', undef, $opts{'cscheme_id'} );
+	};
+	if ($@) {
+		$script->{'db'}->rollback;
+		die "$@\n";
+	}
+	$script->{'db'}->commit;
+	say "Classification group $opts{'cscheme_id'} reset.";
 	return;
 }
 
@@ -277,8 +298,8 @@ sub get_ungrouped_profiles {
 }
 
 sub get_cscheme_info {
-	return $script->{'datastore'}->run_query( 'SELECT * FROM classification_schemes WHERE id=?',
-		$opts{'cscheme_id'}, { fetch => 'row_hashref' } );
+	return $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $opts{'cscheme_id'}, { fetch => 'row_hashref' } );
 }
 
 sub check_cscheme_exists {
@@ -320,6 +341,9 @@ ${bold}--database$norm ${under}NAME$norm
     
 ${bold}--help$norm
     This help page.
+    
+${bold}--reset$norm
+    Remove all groups and profiles currently defined for classification group.
            
 HELP
 	return;
