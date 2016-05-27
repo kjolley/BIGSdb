@@ -658,23 +658,25 @@ sub _get_profile_filters {
 		foreach my $field (@$scheme_fields) {
 			if ( $self->{'prefs'}->{'dropdown_scheme_fields'}->{ $scheme->{'id'} }->{$field} ) {
 				my $values = $self->{'datastore'}->get_scheme( $scheme->{'id'} )->get_distinct_fields($field);
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
-				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					@$values = sort { $a <=> $b } @$values;
-				}
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-				push @filters,
-				  $self->get_filter(
-					"scheme\_$scheme->{'id'}\_$field",
-					$values,
-					{
-						text => "$field ($scheme->{'description'})",
-						tooltip =>
-						  "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
-						  . "to only those isolates that match the selected $field.",
-						capitalize_first => 1
+				if (@$values) {
+					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
+					if ( $scheme_field_info->{'type'} eq 'integer' ) {
+						@$values = sort { $a <=> $b } @$values;
 					}
-				  ) if @$values;
+					my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
+					push @filters,
+					  $self->get_filter(
+						"scheme\_$scheme->{'id'}\_$field",
+						$values,
+						{
+							text => "$field ($scheme->{'description'})",
+							tooltip =>
+							  "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
+							  . "to only those isolates that match the selected $field.",
+							capitalize_first => 1
+						}
+					  );
+				}
 			}
 		}
 	}
