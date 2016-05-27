@@ -1961,7 +1961,8 @@ sub get_classification_schemes_table_attributes {
 		}
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'seqdef_cscheme_id',
 				type     => 'int',
@@ -1969,17 +1970,20 @@ sub get_classification_schemes_table_attributes {
 				tooltip =>
 				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
 			},
-			{
-				name => 'display_order',
-				type => 'int'
-			}
-		);
+			{ name => 'display_order', type => 'int' }
+		  );
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
+		{
+			name     => 'status',
+			type     => 'text',
+			required => 'yes',
+			optlist  => 'experimental;stable',
+			default  => 'experimental'
+		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	  );
+	);
 	return $attributes;
 }
 

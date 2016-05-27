@@ -527,19 +527,19 @@ sub _get_classification_group_data {
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
 			$buffer .= qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
-			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cg_buffer</td></tr>);
+			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
+			  . qq($cg_buffer</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
 	if ($buffer) {
 		$buffer =
 		    q(<h2>Similar isolates (determined by classification schemes)</h2>)
-		  . q(<p>Please note that group numbers are subject to change and are not a stable part )
-		  . q(of the nomenclature.</p>)
+		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
-		  . qq(<th>Mismatch threshold</th><th>Group</th></tr>$buffer</table></div></div>);
+		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th></tr>$buffer</table></div></div>);
 	}
 	return $buffer;
 }
