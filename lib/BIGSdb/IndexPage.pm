@@ -367,6 +367,6 @@ sub _get_allele_count {
 	  ? ' WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
 	  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
 	  : q();
-	return $self->{'datastore'}->run_query("SELECT SUM(allele_count) FROM locus_stats$set_clause");
+	return $self->{'datastore'}->run_query("SELECT SUM(allele_count) FROM locus_stats$set_clause") // 0;
 }
 1;
