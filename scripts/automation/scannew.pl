@@ -65,6 +65,7 @@ GetOptions(
 	'n|new_only'           => \$opts{'n'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
+	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
@@ -238,6 +239,14 @@ ${bold}-t, --time$norm ${under}MINS$norm
 
 ${bold}--threads$norm ${under}THREADS$norm
     Maximum number of threads to use.
+    
+${bold}--type_alleles$norm
+    Only use alleles with the 'type_allele' flag set to identify locus.
+    If a partial match is found then a full database lookup will be performed
+    to identify any known alleles. Using this option will constrain the search
+    space so that allele definitions don't become more variable over time. Note
+    that you must have at least one allele defined as a type allele for a locus
+    if you use this option otherwise you will not find any matches!
 
 ${bold}-T, --already_tagged$norm
     Scan even when sequence tagged (no designation).

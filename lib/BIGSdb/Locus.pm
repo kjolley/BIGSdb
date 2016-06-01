@@ -136,7 +136,10 @@ sub get_all_sequences {
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
 		  . "$self->{'dbase_id2_field'}=?";
 		$qry .= ' AND exemplar' if $options->{'exemplar'};
+		$qry .= ' AND type_allele' if $options->{'type_alleles'};
 	} else {
+		#TODO Remove support for non-BIGSdb seqdef databases
+		$logger->logwarn('Use of non-BIGSdb sequence definition databases is deprecated.');
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
 		$qry .= ' WHERE exemplar' if $options->{'exemplar'};
 	}

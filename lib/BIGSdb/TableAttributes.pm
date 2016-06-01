@@ -1462,13 +1462,18 @@ sub get_sequences_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 'yes'
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'sequence',  type => 'text', required => 'yes', length         => 32768, user_update => 'no' },
-		{ name => 'status',    type => 'text', required => 'yes', optlist        => "@optlist", hide_public => 'yes' },
-		{ name => 'sender',    type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes', hide_public => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public => 'yes' }
+		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'sequence',  type => 'text', required => 'yes', length      => 32768, user_update => 'no' },
+		{ name => 'status',    type => 'text', required => 'yes', optlist     => "@optlist", hide_public => 'yes' },
+		{
+			name     => 'type_allele',
+			type     => 'bool',
+			comments => 'New allele searches can be constrained to use just type alleles in comparisons',
+		},
+		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
+		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
+		{ name => 'date_entered', type => 'date', required => 'yes', hide_public    => 'yes' },
+		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public    => 'yes' }
 	];
 	if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
 		push @$attributes, ( { name => 'comments', type => 'text', required => 'no', length => 120 } );
@@ -1973,7 +1978,8 @@ sub get_classification_schemes_table_attributes {
 			{ name => 'display_order', type => 'int' }
 		  );
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{
 			name     => 'status',
 			type     => 'text',
@@ -1983,7 +1989,7 @@ sub get_classification_schemes_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
-	);
+	  );
 	return $attributes;
 }
 

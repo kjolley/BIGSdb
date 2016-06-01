@@ -168,7 +168,8 @@ sub blast {
 	$temp_fastafile =~ s/\\/\\\\/gx;
 	$temp_fastafile =~ s/'/__prime__/gx;
 	my $outfile_url = "$file_prefix\_$$\_outfile.txt";
-	$self->_create_fasta_index( [$locus], $temp_fastafile, { exemplar => $params->{'exemplar'} } );
+	$self->_create_fasta_index( [$locus], $temp_fastafile,
+		{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'} } );
 	$self->_create_query_fasta_file( $isolate_id, $temp_infile, $params );
 	my ( $probe_matches, $pcr_products );
 	my $continue = 1;
@@ -182,7 +183,7 @@ sub blast {
 	return if !$continue;
 	$self->{'db'}->commit;    #prevent idle in transaction table locks
 	return if !-e $temp_fastafile || -z $temp_fastafile;
-	$params->{'exact_matches_only'} = 1 if ( $self->{'no_exemplars'} && !$params->{'scannew'} );
+	$params->{'exact_matches_only'} = $self->exact_matches_only($params);
 	my $word_size = $self->_get_word_size( $program, $locus, $params );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -221,7 +222,11 @@ sub blast {
 			}
 		);
 		if (
-			( !@{ $exact_matches->{$locus} } || $params->{'partial_when_exact'} || $params->{'exemplar'} )
+			(
+				   !@{ $exact_matches->{$locus} }
+				|| $params->{'partial_when_exact'}
+				|| $self->_always_lookup_partials($params)
+			)
 			|| (   $locus_info->{'pcr_filter'}
 				&& !$params->{'pcr_filter'}
 				&& $locus_info->{'probe_filter'}
@@ -241,7 +246,7 @@ sub blast {
 				}
 			);
 		}
-		if ( $params->{'exemplar'} ) {
+		if ( $self->_always_lookup_partials($params) ) {
 			$self->_lookup_partial_matches( $locus, $exact_matches, $partial_matches );
 		}
 		return ( $exact_matches->{$locus}, $partial_matches->{$locus} );
@@ -252,19 +257,38 @@ sub blast {
 	return;
 }
 
+sub _always_lookup_partials {
+	my ( $self, $params ) = @_;
+	if ( $params->{'exemplar'} || $params->{'type_alleles'} ) {
+		return 1;
+	}
+	return;
+}
+
+sub exact_matches_only {
+	my ( $self, $params ) = @_;
+	if ( $self->{'no_exemplars'} && !$params->{'scannew'} && !$params->{'type_alleles'} ) {
+		return 1;
+	}
+	return;
+}
+
 #If we are BLASTing against a subset of the database, lookup partial matches against complete
 #set of alleles.
 sub _lookup_partial_matches {
 	my ( $self, $locus, $exact_matches, $partial_matches ) = @_;
 	$partial_matches->{$locus} //= [];
 	return if !@{ $partial_matches->{$locus} };
+	
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	foreach my $match ( @{ $partial_matches->{$locus} } ) {
 		my $seq       = $self->extract_seq_from_match($match);
 		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
-			$match->{'identity'} = 100;
-			$match->{'allele'}   = $allele_id;
+			$match->{'from_partial'}         = 1;
+			$match->{'partial_match_allele'} = $match->{'allele'};
+			$match->{'identity'}             = 100;
+			$match->{'allele'}               = $allele_id;
 			push @{ $exact_matches->{$locus} }, $match;
 		}
 	}
@@ -288,9 +312,13 @@ sub _create_fasta_index {
 		if ( $locus_info->{'dbase_name'} ) {
 			my $ok = 1;
 			try {
-				my $seqs_ref =
-				  $self->{'datastore'}->get_locus($locus)
-				  ->get_all_sequences( { exemplar => $options->{'exemplar'}, no_temp_table => 1 } );
+				my $seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences(
+					{
+						exemplar      => $options->{'exemplar'},
+						type_alleles  => $options->{'type_alleles'},
+						no_temp_table => 1
+					}
+				);
 				if ( $options->{'exemplar'} && !keys %$seqs_ref ) {
 					$logger->info("Locus $locus has no exemplars set - using all alleles.");
 					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences( { no_temp_table => 1 } );
@@ -751,10 +779,15 @@ sub _get_row {
 	$buffer .= q(</td>);
 	$tooltip //= q();
 	$buffer .= qq(<td$class>$match->{'allele'}$tooltip</td>);
-	$buffer .= qq(<td>$match->{'identity'}</td>);
-	$buffer .= qq(<td>$match->{'alignment'}</td>);
-	$buffer .= qq(<td>$match->{'length'}</td>);
-	$buffer .= qq(<td>$match->{'e-value'}</td>);
+	if ( $match->{'from_partial'} ) {
+		$buffer .= q(<td>100.00</td>);
+		$buffer .= qq(<td colspan="3">Initial partial BLAST match to allele $match->{'partial_match_allele'}</td>);
+	} else {
+		$buffer .= qq(<td>$match->{'identity'}</td>);
+		$buffer .= qq(<td>$match->{'alignment'}</td>);
+		$buffer .= qq(<td>$match->{'length'}</td>);
+		$buffer .= qq(<td>$match->{'e-value'}</td>);
+	}
 	$buffer .= qq(<td>$match->{'seqbin_id'}</td>);
 	$buffer .= qq(<td>$match->{'start'}</td>);
 	$buffer .= qq(<td>$match->{'end'} </td>);
@@ -1079,7 +1112,7 @@ sub _parse_blast_partial {
 				$match->{'start'} = $record->[7];
 				$match->{'end'}   = $record->[6];
 			}
-			if ( $length > $match->{'alignment'} ) {
+			if ( $length != $match->{'alignment'} ) {
 				if ( $match->{'reverse'} ) {
 					if ( $record->[8] < $record->[9] ) {
 						$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
