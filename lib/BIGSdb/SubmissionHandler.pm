@@ -824,7 +824,7 @@ sub _is_field_bad_other {
 		}
 	}
 	$thisfield->{'type'} ||= 'text';
-	my @checks_by_attribute = qw(required integer float regex optlist length);
+	my @checks_by_attribute = qw(required integer boolean float regex optlist length);
 	foreach my $check (@checks_by_attribute) {
 		my $method = "_check_other_$check";
 		my $message = $self->$method( $thisfield, $value );
@@ -909,6 +909,16 @@ sub _check_other_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return if !defined $value || $value eq q();
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
 		return 'must be a floating point number';
+	}
+	return;
+}
+
+#Make sure boolean fields really are boolean
+sub _check_other_boolean {
+	my ( $self, $thisfield, $value ) = @_;
+	return if !defined $value || $value eq q();
+	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
+		return 'must be a boolean value (true/false or 1/0)';
 	}
 	return;
 }
