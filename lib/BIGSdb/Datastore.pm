@@ -386,6 +386,7 @@ sub get_scheme_warehouse_locus_name {
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
 	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
+	$pk_value //= q();
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $scheme_info      = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $pk               = $scheme_info->{'primary_key'};
