@@ -943,6 +943,9 @@ sub create_temp_scheme_table {
 	}
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
+	
+	use Data::Dumper;
+	$logger->error(Dumper $locus_indices);
 	eval {
 		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?', undef, $id );
 		foreach my $profile_locus ( keys %$locus_indices ) {
