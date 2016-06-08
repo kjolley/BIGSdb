@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2015, University of Oxford
+#(c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,8 @@ use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
 use BIGSdb::BIGSException;
 use BIGSdb::ChangePasswordPage;
+use BIGSdb::ClassificationScheme;
 use BIGSdb::CombinationQueryPage;
-use BIGSdb::Constants qw(:limits);
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::Dataconnector;
@@ -79,9 +79,6 @@ sub new {
 	my $self = {};
 	$self->{'system'}           = {};
 	$self->{'config'}           = {};
-	$CGI::POST_MAX              = MAX_UPLOAD_SIZE;
-	$CGI::DISABLE_UPLOADS       = 0;
-	$self->{'cgi'}              = CGI->new;
 	$self->{'instance'}         = undef;
 	$self->{'xmlHandler'}       = undef;
 	$self->{'page'}             = undef;
@@ -98,6 +95,10 @@ sub new {
 	$self->{'lib_dir'}          = $lib_dir;
 	$self->{'dbase_config_dir'} = $dbase_config_dir;
 	bless( $self, $class );
+	$self->read_config_file($config_dir);
+	$CGI::POST_MAX        = $self->{'config'}->{'max_upload_size'};
+	$CGI::DISABLE_UPLOADS = 0;
+	$self->{'cgi'}        = CGI->new;
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
@@ -133,7 +134,6 @@ sub _initiate {
 	my ( $self, $config_dir, $dbase_config_dir ) = @_;
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
-	$self->read_config_file($config_dir);
 	$self->read_host_mapping_file($config_dir);
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $content_length = defined $ENV{'CONTENT_LENGTH'} ? $ENV{'CONTENT_LENGTH'} : 0;
@@ -299,32 +299,52 @@ sub read_config_file {
 	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $config = Config::Tiny->new();
 	$config = Config::Tiny->read("$config_dir/bigsdb.conf");
-	foreach (
+	foreach my $param (
 		qw ( prefs_db auth_db jobs_db rest_db max_load emboss_path tmp_dir secure_tmp_dir submission_dir
 		blast+_path blast_threads muscle_path max_muscle_mb mafft_path mafft_threads mogrify_path ipcress_path
 		splitstree_path reference refdb ref_db chartdirector disable_updates disable_update_message intranet
 		debug results_deleted_days cache_days doclink rest_behind_proxy bcrypt_cost curate_script query_script
-		submissions_deleted_days smtp_server stylesheet domain)
+		submissions_deleted_days smtp_server stylesheet domain max_upload_size temp_buffers)
 	  )
 	{
-		$self->{'config'}->{$_} = $config->{_}->{$_};
+		$self->{'config'}->{$param} = $config->{_}->{$param};
+	}
+
+	#Check integer values
+	foreach my $param (
+		qw(max_load blast_threads bcrypt_cost mafft_threads results_deleted_days cache_days submissions_deleted_days) )
+	{
+		if ( defined $self->{'config'}->{$param} && !BIGSdb::Utils::is_int( $self->{'config'}->{$param} ) ) {
+			$logger->error("Parameter $param in bigsdb.conf should be an integer - default value used.");
+			undef $self->{'config'}->{$param};
+		}
+	}
+
+	#Check float values
+	foreach my $param (qw(max_upload_size max_muscle_mb)) {
+		if ( defined $self->{'config'}->{$param} && !BIGSdb::Utils::is_float( $self->{'config'}->{$param} ) ) {
+			$logger->error("Parameter $param in bigsdb.conf should be a number - default value used.");
+			undef $self->{'config'}->{$param};
+		}
 	}
 	$self->{'config'}->{'intranet'} ||= 'no';
 	$self->{'config'}->{'cache_days'} //= 7;
 	if ( $self->{'config'}->{'chartdirector'} ) {
-		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)
+		eval 'use perlchartdir';                               ## no critic (ProhibitStringyEval)
 		if ($@) {
 			$logger->error(q(Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf));
 			$self->{'config'}->{'chartdirector'} = 0;
 		} else {
-			eval 'use BIGSdb::Charts';    ## no critic (ProhibitStringyEval)
+			eval 'use BIGSdb::Charts';                         ## no critic (ProhibitStringyEval)
 			if ($@) {
 				$logger->error('Charts.pm not installed!');
 			}
 		}
 	}
 	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
-	$self->{'config'}->{'doclink'} //= 'http://bigsdb.readthedocs.org/en/latest';
+	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
+	$self->{'config'}->{'max_upload_size'} //= 32;
+	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
 	return;
 }
 

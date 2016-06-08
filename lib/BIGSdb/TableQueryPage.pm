@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -443,14 +443,14 @@ sub _run_query {
 		if (   ( $q->param('scheme_id_list') // '' ) ne ''
 			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
 			&& any { $table eq $_ }
-			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations allele_sequences) )
+			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
 		{
+			#Don't do this for allele_sequences as this has its own method
 			my $scheme_id = $q->param('scheme_id_list');
 			my ( $identifier, $field );
 			my %set_id_and_field = (
 				loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
 				allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
-				allele_sequences    => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
 				schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
 			);
 			if ( $set_id_and_field{$table} ) {
@@ -640,7 +640,7 @@ sub _generate_query {
 		my $modifier = ( $i > 1 && !$first_value ) ? qq( $andor ) : q();
 		$first_value = 0;
 		my %table_without_isolate_id = map { $_ => 1 } qw (allele_sequences experiment_sequences);
-		if ( ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) && $field eq 'isolate_id' ) {
+		if ( $table_without_isolate_id{$table} && $field eq 'isolate_id' ) {
 			$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
 			next;
 		}
@@ -651,7 +651,7 @@ sub _generate_query {
 		}
 		my %table_linked_to_isolate = map { $_ => 1 }
 		  qw (allele_sequences allele_designations experiment_sequences sequence_bin
-		  project_members isolate_aliases samples history);
+		  project_members isolate_aliases samples history refs);
 		if ( $table_linked_to_isolate{$table} && $field eq $self->{'system'}->{'labelfield'} ) {
 			$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
 			next;
@@ -875,7 +875,7 @@ sub _search_by_isolate {
 		any {
 			$table eq $_;
 		}
-		qw (allele_designations project_members isolate_aliases samples history)
+		qw (allele_designations project_members isolate_aliases samples history refs)
 	  )
 	{
 		$qry = "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";

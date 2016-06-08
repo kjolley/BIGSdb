@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -148,8 +148,8 @@ sub _get_isolate_links {
 	my ( $self, $td_ref, $can_do_something ) = @_;
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
-	my $buffer = q();
-	my @tables = qw (isolates);
+	my $buffer     = q();
+	my @tables     = qw (isolates);
 	push @tables, qw (isolate_value_extended_attributes projects project_members isolate_aliases refs
 	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
 	foreach (@tables) {
@@ -176,10 +176,10 @@ sub _get_seqdef_links {
 	my ( $self, $td_ref, $can_do_something ) = @_;
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
-	my $buffer = q();
+	my $buffer     = q();
 	foreach (
 		qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
-		sequence_refs profiles profile_refs)
+		sequence_refs profiles profile_refs retired_profiles)
 	  )
 	{
 		if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
@@ -205,7 +205,7 @@ sub _get_admin_links {
 	my ( $self, $can_do_something ) = @_;
 	my $set_id = $self->get_set_id;
 	my $buffer = q();
-	my $td = 1;
+	my $td     = 1;
 
 	#Only modify schemes/loci etc. when sets not selected.
 	return q() if $set_id;
@@ -233,7 +233,7 @@ sub _get_admin_links {
 	}
 	my $set_string = $self->_get_set_string;
 	push @tables, qw (schemes scheme_members scheme_fields scheme_groups scheme_group_scheme_members
-	  scheme_group_group_members);
+	  scheme_group_group_members classification_schemes);
 	foreach my $table (@tables) {
 		if ( $self->can_modify_table($table) && ( !@skip_table || none { $table eq $_ } @skip_table ) ) {
 			my $function = "_print_$table";
@@ -315,9 +315,9 @@ sub _get_admin_list_links {
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=configCheck">Configuration check</a> - Checks database connectivity for loci and schemes )
-		  . qq(and that required helper applications are properly installed.</li>\n);
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
+		  . q(show_probs_only=1">Configuration check</a> - Checks database connectivity for loci and schemes and )
+		  . qq(that required helper applications are properly installed.</li>\n);
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$list_buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=configRepair">Configuration repair</a> - Rebuild scheme tables</li>\n);
@@ -623,6 +623,28 @@ sub _print_retired_allele_ids {    ## no critic (ProhibitUnusedPrivateSubroutine
 	);
 }
 
+sub _print_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	my $set_id = $self->get_set_id;
+	if ($set_id) {
+		my $schemes_in_set =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
+		return !$schemes_in_set;
+	} else {
+		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
+		return if !$scheme_count;
+	}
+	return $self->_print_table(
+		'retired_profiles',
+		$td,
+		{
+			set_string => $set_string,
+			requires   => 'schemes',
+			comments   => 'Scheme profiles defined here will be prevented from being used.'
+		}
+	);
+}
+
 sub _print_locus_descriptions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	if ( !$self->is_admin ) {
@@ -648,33 +670,35 @@ sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutine
 
 sub _print_set_loci {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_loci', $td, { comments => 'Add loci to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_loci', $td,
+		{ requires => 'sets,loci', comments => 'Add loci to sets.', set_string => $set_string } );
 }
 
 sub _print_set_schemes {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'set_schemes', $td, { comments => 'Add schemes to sets.', set_string => $set_string } );
+	return $self->_print_table( 'set_schemes', $td,
+		{ requires => 'sets,schemes', comments => 'Add schemes to sets.', set_string => $set_string } );
 }
 
 sub _print_set_metadata {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_metadata', $td,
-		{ comments => 'Add metadata collection to sets.', set_string => $set_string } );
+		{ requires => 'sets', comments => 'Add metadata collection to sets.', set_string => $set_string } );
 }
 
 sub _print_set_view {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_view', $td,
-		{ comments => 'Set database views linked to sets.', set_string => $set_string } );
+		{ requires => 'sets', comments => 'Set database views linked to sets.', set_string => $set_string } );
 }
 
-sub _print_sequence_refs {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_sequence_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'sequence_refs', $td,
 		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
 }
 
-sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_profiles {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $schemes;
 	my $set_id = $self->get_set_id;
@@ -1008,6 +1032,18 @@ sub _print_scheme_fields {     ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'scheme_fields', $td,
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
+}
+
+sub _print_classification_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table( 'classification_schemes', $td,
+		{ requires => 'schemes', comments => 'Defines classification schemes.', set_string => $set_string } );
+}
+
+sub _print_classification_group_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table( 'classification_group_fields', $td,
+		{ requires => 'classification_schemes', comments => 'Defines which fields belong to a classification scheme.', set_string => $set_string } );
 }
 
 sub _print_table {

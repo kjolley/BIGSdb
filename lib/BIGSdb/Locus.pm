@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,6 +51,41 @@ sub DESTROY {
 	return;
 }
 
+sub get_allele_id_from_sequence {
+	my ( $self, $seq_ref ) = @_;
+	if ( !$self->{'db'} ) {
+		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
+	}
+	if ( !$self->{'sql'}->{'lookup_sequence'} ) {
+		my $qry;
+		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
+			$qry =
+			    "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE "
+			  . "(md5($self->{'dbase_seq_field'}),$self->{'dbase_id2_field'})=(md5(?),?)";
+		} else {
+			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} "
+			  . "WHERE md5($self->{'dbase_seq_field'})=md5(?)";
+		}
+		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
+	}
+	my @args = ($$seq_ref);
+	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
+	eval { $self->{'sql'}->{'lookup_sequence'}->execute(@args) };
+	if ($@) {
+		$logger->error( q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
+			  . qq (locus table for locus '$self->{'id'}'! Statement was )
+			  . qq('$self->{'sql'}->{lookup_sequence}->{Statement}'. $@ )
+			  . $self->{'db'}->errstr );
+		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+	} else {
+		my ($allele_id) = $self->{'sql'}->{'lookup_sequence'}->fetchrow_array;
+
+		#Prevent table lock on long offline jobs
+		$self->{'db'}->commit;
+		return $allele_id;
+	}
+}
+
 sub get_allele_sequence {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'db'} ) {
@@ -84,13 +119,14 @@ sub get_allele_sequence {
 }
 
 sub get_all_sequences {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return;
 	}
+	$options = {} if ref $options ne 'HASH';
 
-	#It is significantly quicker, on large databases, to create a temporary table of
+	#It can be quicker, on large databases, to create a temporary table of
 	#all alleles for a locus, and then to return all of this, than to simply return
 	#the values from the sequences table directly.
 	my $temp_table = "temp_locus_$self->{'id'}";
@@ -99,28 +135,41 @@ sub get_all_sequences {
 	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
 		  . "$self->{'dbase_id2_field'}=?";
+		$qry .= ' AND exemplar' if $options->{'exemplar'};
+		$qry .= ' AND type_allele' if $options->{'type_alleles'};
 	} else {
+		#TODO Remove support for non-BIGSdb seqdef databases
+		$logger->logwarn('Use of non-BIGSdb sequence definition databases is deprecated.');
 		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
+		$qry .= ' WHERE exemplar' if $options->{'exemplar'};
 	}
 	my @args;
 	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args ) };
-	$logger->error($@) if $@;
-	my $sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
-	eval { $sql->execute };
+	my $sql;
+	eval {
+		if ( $options->{'no_temp_table'} )
+		{
+			$sql = $self->{'db'}->prepare($qry);
+			$sql->execute(@args);
+		} else {
+			$self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args );
+			$sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
+			$sql->execute;
+		}
+	};
 	if ($@) {
-		$logger->error(
-			    q(Cannot query all sequence temporary table. Check database attributes in the )
+		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
 			  . qq(locus table for locus '$self->{'id'}'!. $@)
-			  . $self->{'db'}->errstr
-		);
+			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
 	}
 	my $data = $sql->fetchall_arrayref;
+	if ( !$options->{'no_temp_table'} ) {
 
-	#Explicitly drop temp table as some offline jobs can be long-running and we
-	#shouldn't call this method multiple times anyway.
-	$self->{'db'}->do("DROP TABLE $temp_table");
+		#Explicitly drop temp table as some offline jobs can be long-running and we
+		#shouldn't call this method multiple times anyway.
+		$self->{'db'}->do("DROP TABLE $temp_table");
+	}
 	my %seqs = map { $_->[0] => $_->[1] } @$data;
 	delete $seqs{$_} foreach qw(N 0);
 

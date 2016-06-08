@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,6 +53,9 @@ sub _print_interface {
 	$desc{0} = 'All schemes';
 	say $q->popup_menu( -name => 'scheme', -values => [ 0, @$schemes ], -labels => \%desc );
 	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Select method</legend>);
+	say $q->popup_menu( -name => 'method', -values => [qw(full incremental daily daily_replace)] );
+	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Refresh cache' } );
 	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
@@ -103,7 +106,13 @@ sub _refresh_caches {
 	} else {
 		@selected_schemes = @$schemes;
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id          = $self->get_set_id;
+	my $method          = $q->param('method');
+	my %allowed_methods = map { $_ => 1 } qw(full incremental daily daily_replace);
+	if ( !$allowed_methods{$method} ) {
+		$logger->error("Invalid method '$method' selected. Using 'full'.");
+		$method = 'full';
+	}
 	local $| = 1;
 	foreach my $scheme_id (@selected_schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
@@ -115,8 +124,10 @@ sub _refresh_caches {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
-			$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1 } );
-			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1 } );
+			$self->{'datastore'}
+			  ->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
+			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } )
+			  ;
 			say q(done.<br />);
 		}
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -118,7 +118,7 @@ sub _set_submission_params {
 	return;
 }
 
-sub _clean_field {
+sub clean_field {
 	my ( $self, $value_ref ) = @_;
 	$$value_ref =~ s/^\s*//x;
 	$$value_ref =~ s/\s*$//x;
@@ -132,7 +132,7 @@ sub _check_upload_data {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$scheme_fields) {
 		$newdata->{"field:$field"} = $q->param("field:$field");
-		$self->_clean_field( \$newdata->{"field:$field"} );
+		$self->clean_field( \$newdata->{"field:$field"} );
 		push @fields_with_values, $field if $newdata->{"field:$field"};
 		my $field_bad = $self->_is_scheme_field_bad( $scheme_id, $field, $newdata->{"field:$field"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
@@ -144,10 +144,15 @@ sub _check_upload_data {
 	} elsif ( !BIGSdb::Utils::is_int( $newdata->{'field:sender'} ) ) {
 		push @bad_field_buffer, q(Field 'sender' is invalid.);
 	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	if ( $self->{'datastore'}->is_profile_retired( $scheme_id, $newdata->{"field:$scheme_info->{'primary_key'}"} ) ) {
+		push @bad_field_buffer,
+		  qq($scheme_info->{'primary_key'}-$newdata->{"field:$scheme_info->{'primary_key'}"} has been retired.);
+	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		$newdata->{"locus:$locus"} = $q->param("locus:$locus");
-		$self->_clean_field( \$newdata->{"locus:$locus"} );
+		$self->clean_field( \$newdata->{"locus:$locus"} );
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata->{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 	}
@@ -194,9 +199,11 @@ sub _upload {
 
 	#Make sure profile not already entered
 	if ($insert) {
-		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, $newdata );
-		say qq(<div class="box" id="statusbad"><p>$msg</p></div>) if $msg;
-		$insert = 0 if $exists;
+		my %designations = map { $_ => $newdata->{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
+		say qq(<div class="box" id="statusbad"><p>$ret->{'msg'}</p></div>) if $ret->{'msg'};
+		$insert = 0 if $ret->{'exists'};
 	}
 	if ($insert) {
 		my $pk_exists =
@@ -263,21 +270,6 @@ sub _upload {
 				{
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
-
-				#It is more efficient to directly add new records to the materialized view than
-				#to call $self->refresh_material_view($scheme_id).
-				if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-					my @placeholders = ('?') x ( @mv_fields + 4 );
-					local $" = q(,);
-					my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
-					  . "date_entered,datestamp) VALUES (@placeholders)";
-					$self->{'db'}->do(
-						$qry, undef, @mv_values,
-						$newdata->{'field:sender'},
-						$newdata->{'field:curator'},
-						'now', 'now'
-					);
-				}
 			};
 			if ($@) {
 				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
@@ -286,7 +278,7 @@ sub _upload {
 					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
 					  . q(unique field with duplicate values.</p>);
 				} else {
-					$logger->error("Insert failed: @inserts  $@");
+					$logger->error("Insert failed: $@");
 				}
 				say q(</div>);
 				$self->{'db'}->rollback;
@@ -311,64 +303,6 @@ sub _upload {
 		}
 	}
 	return;
-}
-
-#TODO Migrate to Datastore::check_new_profile so we don't have to subclass.
-sub profile_exists {
-	my ( $self, $scheme_id, $primary_key, $newdata ) = @_;
-	my ( $profile_exists, $msg );
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $qry  = "SELECT $primary_key FROM $scheme_view WHERE ";
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my ( @locus_temp, @values );
-	foreach my $locus (@$loci) {
-		next if $newdata->{"locus:$locus"} eq 'N';    #N can be any allele so can not be used to differentiate profiles
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-		push @locus_temp, "($cleaned=? OR $cleaned='N')";
-		push @values,     $newdata->{"locus:$locus"};
-	}
-	local $" = ' AND ';
-	$qry .= "(@locus_temp)";
-	if (@locus_temp) {
-		my $locus_count = @locus_temp;
-		my $matching_profiles =
-		  $self->{'datastore'}->run_query( $qry, \@values,
-			{ fetch => 'col_arrayref', cache => "CurateProfileAddPage:profile_exists::${scheme_id}::$locus_count" } );
-		$newdata->{"field:$primary_key"} //= '';
-		if ( @$matching_profiles
-			&& !( @$matching_profiles == 1 && $matching_profiles->[0] eq $newdata->{"field:$primary_key"} ) )
-		{
-			if ( @locus_temp < @$loci ) {
-				my $first_match;
-				foreach (@$matching_profiles) {
-					if ( $_ ne $newdata->{"field:$primary_key"} ) {
-						$first_match = $_;
-						last;
-					}
-				}
-				$msg .=
-				    q[Profiles containing an arbitrary allele (N) at a particular locus may match profiles with ]
-				  . q[actual values at that locus and cannot therefore be defined.  This profile matches ]
-				  . qq[$primary_key-$first_match];
-				my $other_matches = @$matching_profiles - 1;
-				$other_matches--
-				  if ( any { $newdata->{"field:$primary_key"} eq $_ } @$matching_profiles )
-				  ;    #if updating don't match to self
-				if ($other_matches) {
-					$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
-				}
-				$msg .= '.';
-			} else {
-				$msg .= "This allelic profile has already been defined as $primary_key-$matching_profiles->[0].";
-			}
-			$profile_exists = 1;
-		}
-	} else {
-		$msg .= 'You cannot define a profile with every locus set to be an arbitrary value (N).';
-		$profile_exists = 1;
-	}
-	return ( $profile_exists, $msg );
 }
 
 sub _print_interface {

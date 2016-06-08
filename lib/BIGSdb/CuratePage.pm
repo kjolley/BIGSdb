@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
 
@@ -152,252 +152,383 @@ sub _get_form_fields {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	$self->_populate_submission_params if $q->param('submission_id');
-	my %newdata   = %{$newdata_ref};
-	my $buffer    = '';
-	my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions);
+	my %newdata = %{$newdata_ref};
+	my $buffer  = q();
 	foreach my $required (qw(1 0)) {
-
-		foreach my $att (@$attributes) {
-			next if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
-
-			#Removed by KJ, 2015-11-05.
-			#Project description can include HTML - don't escape.   We may need to exclude other tables too.
-			#$newdata{ $att->{'name'} } = BIGSdb::Utils::escape_html( $newdata{ $att->{'name'} } )
-			#  if $table ne 'projects';
-			my %html5_args;
-			$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
-			if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
-				@html5_args{qw(type min step)} = qw(number 1 1);
-			}
+	  FIELD: foreach my $att (@$attributes) {
+			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
+			my $html5_args = $self->_get_html5_args($att);
+			next FIELD if !$self->_show_field( $required, $att );
 			my $name = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
-			if (   ( $att->{'required'} eq 'yes' && $required )
-				|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$required ) )
+			my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
+			my $args = {
+				table      => $table,
+				newdata    => $newdata_ref,
+				name       => $name,
+				att        => $att,
+				options    => $options,
+				width      => $width,
+				length     => $length,
+				html5_args => $html5_args
+			};
+			my $label = $self->_get_label($args);
+			$buffer .= qq(<li>$label);
+			my %field_checks = (
+				primary_key    => sub { $self->_get_primary_key_field($args) },
+				no_user_update => sub { $self->_get_no_update_field($args) },
+				sender         => sub { $self->_get_sender_field($args) },
+				allele_id      => sub { $self->_get_allele_id_field($args) },
+				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
+				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
+				datestamp      => sub { $self->_get_datestamp_field($args) },
+				date_entered   => sub { $self->_get_date_entered_field($args) },
+				curator        => sub { $self->_get_curator_field($args) },
+				boolean        => sub { $self->_get_boolean_field($args) },
+				optlist        => sub { $self->_get_optlist_field($args) },
+				text_field     => sub { $self->_get_text_field($args) },
+			);
+		  FIELD_CHECK: foreach my $check (
+				qw(primary_key no_user_update sender allele_id non_admin_loci
+				foreign_key datestamp date_entered curator boolean optlist text_field)
+			  )
 			{
-				my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
-				( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
-				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 24 );
-				my $title_attribute = $title ? qq( title="$title") : q();
+				my $check_buffer = $field_checks{$check}->();
+				$buffer .= $check_buffer;
+				if ($check_buffer) {
+					$buffer .= $self->_show_tooltip($args);
+					next FIELD;
+				}
+			}
+			$buffer .= qq(</li>\n);
+		}
+	}
+	return $buffer;
+}
 
-				#Associate label with form element (element has to exist)
-				my $for =
-				     ( none { $att->{'name'} eq $_ } qw (curator date_entered datestamp) )
-				  && $att->{'type'} ne 'bool'
-				  && !(( $options->{'update'} && $att->{'primary_key'} )
-					|| ( $options->{'newdata_readonly'} && $newdata{ $att->{'name'} } ) )
-				  ? qq( for="$name")
-				  : q();
-				$buffer .= qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
-				$buffer .= qq($label:);
-				$buffer .= q(!) if $att->{'required'} eq 'yes';
-				$buffer .= q(</label>);
-				if (   ( $options->{'update'} && $att->{'primary_key'} )
-					|| ( $options->{'newdata_readonly'} && $newdata{ $att->{'name'} } ) )
-				{
-					my $desc;
-					if (
-						!$self->{'curate'}
-						&& (   ( $att->{'name'} eq 'locus' && $table ne 'set_loci' )
-							|| ( $table eq 'loci' && $att->{'name'} eq 'id' ) )
-					  )
-					{
-						$desc = $self->clean_locus( $newdata{ $att->{'name'} } );
-					} elsif ( $att->{'labels'} ) {
-						$desc = $self->_get_foreign_key_label( $name, $newdata_ref, $att );
-					} else {
-						( $desc = $newdata{ $att->{'name'} } ) =~ tr/_/ /;
-					}
-					$buffer .= "<b>$desc";
-					if ( $table eq 'samples' && $att->{'name'} eq 'isolate_id' ) {
-						$buffer .= ') ' . $self->get_isolate_name_from_id( $newdata{ $att->{'name'} } );
-					}
-					$buffer .= '</b>';
-					$buffer .= $q->hidden( $name, $newdata{ $att->{'name'} } );
-				} elsif ( $q->param('page') eq 'update' && ( $att->{'user_update'} // '' ) eq 'no' ) {
-					$buffer .= qq(<span id="$att->{'name'}">\n);
-					if ( $att->{'name'} eq 'sequence' ) {
-						my $data_length = length( $newdata{ $att->{'name'} } );
-						if ( $data_length > 5000 ) {
-							$buffer .=
-							    q[<span class="seq"><b>]
-							  . BIGSdb::Utils::truncate_seq( \$newdata{ $att->{'name'} }, 40 )
-							  . qq[</b></span><br />sequence is $data_length characters (too long to display)];
-						} else {
-							$buffer .= $q->textarea(
-								-name     => $att->{'name'},
-								-rows     => 6,
-								-cols     => 40,
-								-disabled => 'disabled',
-								-default  => BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
-							);
-						}
-					} else {
-						$buffer .= "<b>$newdata{$att->{'name'}}</b>";
-					}
-					$buffer .= "</span>\n";
-				} elsif ( $att->{'name'} eq 'sender' ) {
-					my ( $users, $user_names ) = $self->get_user_list_and_labels;
-					$buffer .= $q->popup_menu(
-						-name    => $name,
-						-id      => $name,
-						-values  => [ '', @$users ],
-						-labels  => $user_names,
-						-default => $newdata{ $att->{'name'} },
-						%html5_args
-					);
-				} elsif ( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') ) {
-					my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
-					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						my $default = $q->param('allele_id')
-						  // $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
-						$buffer .= $self->textfield(
-							name      => $name,
-							id        => $name,
-							size      => $length,
-							maxlength => $length,
-							value     => $default,
-							%html5_args
-						);
-					} else {
-						$buffer .= $self->textfield(
-							name      => $name,
-							id        => $name,
-							size      => $length,
-							maxlength => $length,
-							value     => $newdata{ $att->{'name'} },
-							%html5_args
-						);
-					}
-				} elsif ( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin ) {
-					my $set_id = $self->get_set_id;
-					my ( $values, $desc ) =
-					  $self->{'datastore'}->get_locus_list(
-						{ set_id => $set_id, no_list_by_common_name => 1, locus_curator => $self->get_curator_id } );
-					$values = [] if ref $values ne 'ARRAY';
-					$buffer .= $q->popup_menu(
-						-name    => $name,
-						-id      => $name,
-						-values  => [ '', @$values ],
-						-labels  => $desc,
-						-default => $newdata{ $att->{'name'} },
-						%html5_args
-					);
-				} elsif ( ( $att->{'dropdown_query'} // '' ) eq 'yes'
-					&& $att->{'foreign_key'} )
-				{
-					my @fields_to_query;
-					my $desc;
-					if ( $att->{'labels'} ) {
-						( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
-						@fields_to_query = @$fields_ref;
-					} else {
-						push @fields_to_query, 'id';
-					}
-					my $qry;
-					my $set_id = $self->get_set_id;
-					my $values;
-					if ( $att->{'foreign_key'} eq 'users' ) {
-						local $" = ',';
-						$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-					} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
-						( $values, $desc ) =
-						  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
-					} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' && $set_id ) {
-						my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-						push @$values, $_->{'id'} foreach @$scheme_list;
-					} else {
-						local $" = ',';
-						$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
-						$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-					}
-					$values = [] if ref $values ne 'ARRAY';
-					$buffer .= $q->popup_menu(
-						-name    => $name,
-						-id      => $name,
-						-values  => [ '', @$values ],
-						-labels  => $desc,
-						-default => $newdata{ $att->{'name'} },
-						%html5_args
-					);
-				} elsif ( $att->{'name'} eq 'datestamp' ) {
-					$buffer .= '<b>' . BIGSdb::Utils::get_datestamp() . "</b>\n";
-				} elsif ( $att->{'name'} eq 'date_entered' ) {
-					if ( $q->param('page') eq 'update' or $q->param('page') eq 'alleleUpdate' ) {
-						$buffer .= '<b>' . $newdata{ $att->{'name'} } . "</b>\n";
-					} else {
-						$buffer .= '<b>' . BIGSdb::Utils::get_datestamp() . "</b>\n";
-					}
-				} elsif ( $att->{'name'} eq 'curator' ) {
-					$buffer .= '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ")</b>\n";
-				} elsif ( $att->{'type'} eq 'bool' ) {
-					$buffer .= $self->_get_boolean_field( $name, $newdata_ref, $att );
-				} elsif ( $att->{'optlist'} ) {
-					my @optlist;
-					if ( $att->{'optlist'} eq 'isolate_fields' ) {
-						@optlist = @{ $self->{'xmlHandler'}->get_field_list() };
-					} else {
-						@optlist = split /;/x, $att->{'optlist'};
-					}
-					unshift @optlist, '';
-					my $labels = { '' => ' ' };    #Required for HTML5 validation
-					$buffer .= $q->popup_menu(
-						-name    => $name,
-						-id      => $name,
-						-values  => [@optlist],
-						-default => $options->{'update'} ? $newdata{ $att->{'name'} } : $att->{'default'},
-						-labels  => $labels,
-						%html5_args
-					);
-				} else {
-					if ( $length >= 256 ) {
-						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
-						  if $att->{'name'} eq 'sequence';
-						$buffer .= $q->textarea(
-							-name    => $name,
-							-id      => $name,
-							-rows    => 6,
-							-cols    => 75,
-							-default => $newdata{ $att->{'name'} },
-							%html5_args
-						);
-					} elsif ( $length >= 120 ) {
-						$newdata{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata{ $att->{'name'} } )
-						  if $att->{'name'} eq 'sequence';
-						$buffer .= $q->textarea(
-							-name    => $name,
-							-id      => $name,
-							-rows    => 3,
-							-cols    => 75,
-							-default => $newdata{ $att->{'name'} },
-							%html5_args
-						);
-					} else {
-						$buffer .= $self->textfield(
-							name      => $name,
-							id        => $name,
-							size      => ( $length > 75 ? 75 : $length ),
-							maxlength => $length,
-							value     => $newdata{ $att->{'name'} },
-							%html5_args
-						);
-					}
-				}
-				if ( $att->{'tooltip'} ) {
-					$buffer .= qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}">)
-					  . q(<span class="fa fa-info-circle"></span></a>);
-				}
-				if ( $att->{'comments'} ) {
-					my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
-					$buffer .= qq( <span class="comment" style="padding-left:$padding">$att->{'comments'}</span>);
-				} elsif ( $att->{'type'} eq 'date'
-					&& lc( $att->{'name'} ne 'datestamp' )
-					&& lc( $att->{'name'} ne 'date_entered' ) )
-				{
-					$buffer .= q( <span class="comment">format: yyyy-mm-dd (or 'today')</span>);
-				}
-				$buffer .= qq(</li>\n);
+sub _show_field {
+	my ( $self, $showing_required, $att ) = @_;
+	if (   ( $att->{'required'} eq 'yes' && $showing_required )
+		|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$showing_required ) )
+	{
+		return 1;
+	}
+	return;
+}
+
+sub _get_label {
+	my ( $self, $args ) = @_;
+	my ( $newdata, $name, $att, $options, $width ) = @$args{qw(newdata name att options width)};
+	( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
+	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 24 );
+	my $title_attribute = $title ? qq( title="$title") : q();
+
+	#Associate label with form element (element has to exist)
+	my %auto_field = map { $_ => 1 } qw (curator date_entered datestamp);
+	my $for =
+	    !$auto_field{ $att->{'name'} }
+	  && $att->{'type'} ne 'bool'
+	  && !(( $options->{'update'} && $att->{'primary_key'} )
+		|| ( $options->{'newdata_readonly'} && $newdata->{ $att->{'name'} } ) )
+	  ? qq( for="$name")
+	  : q();
+	my $buffer = qq(<label$for class="form" style="width:${width}em"$title_attribute>);
+	$buffer .= qq($label:);
+	$buffer .= q(!) if $att->{'required'} eq 'yes';
+	$buffer .= q(</label>);
+	return $buffer;
+}
+
+#Client side form validation for required fields and integer values
+sub _get_html5_args {
+	my ( $self, $att ) = @_;
+	my %html5_args;
+	$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
+	if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
+		@html5_args{qw(type min step)} = qw(number 0 1);
+	}
+	return \%html5_args;
+}
+
+sub _get_primary_key_field {
+	my ( $self, $args ) = @_;
+	my ( $table, $name, $newdata, $att, $options ) = @$args{qw(table name newdata att options)};
+	return q()
+	  if !(( $options->{'update'} && $att->{'primary_key'} )
+		|| ( $options->{'newdata_readonly'} && $newdata->{ $att->{'name'} } ) );
+	my $q = $self->{'cgi'};
+	my $desc;
+	if (
+		!$self->{'curate'}
+		&& (   ( $att->{'name'} eq 'locus' && $table ne 'set_loci' )
+			|| ( $table eq 'loci' && $att->{'name'} eq 'id' ) )
+	  )
+	{
+		$desc = $self->clean_locus( $newdata->{ $att->{'name'} } );
+	} elsif ( $att->{'labels'} ) {
+		$desc = $self->_get_foreign_key_label( $name, $newdata, $att );
+	} else {
+		( $desc = $newdata->{ $att->{'name'} } ) =~ tr/_/ /;
+	}
+	my $buffer = "<b>$desc";
+	if ( $table eq 'samples' && $att->{'name'} eq 'isolate_id' ) {
+		$buffer .= ') ' . $self->get_isolate_name_from_id( $newdata->{ $att->{'name'} } );
+	}
+	$buffer .= '</b>';
+	$buffer .= $q->hidden( $name, $newdata->{ $att->{'name'} } );
+	return $buffer;
+}
+
+sub _get_no_update_field {
+	my ( $self,    $args ) = @_;
+	my ( $newdata, $att )  = @$args{qw(newdata att)};
+	my $q = $self->{'cgi'};
+	return q() if !( $q->param('page') eq 'update' && ( $att->{'user_update'} // '' ) eq 'no' );
+	my $buffer = qq(<span id="$att->{'name'}">\n);
+	if ( $att->{'name'} eq 'sequence' ) {
+		my $data_length = length( $newdata->{ $att->{'name'} } );
+		if ( $data_length > 5000 ) {
+			$buffer .=
+			    q[<span class="seq"><b>]
+			  . BIGSdb::Utils::truncate_seq( \$newdata->{ $att->{'name'} }, 40 )
+			  . qq[</b></span><br />sequence is $data_length characters (too long to display)];
+		} else {
+			$buffer .= $q->textarea(
+				-name     => $att->{'name'},
+				-rows     => 6,
+				-cols     => 40,
+				-disabled => 'disabled',
+				-default  => BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
+			);
+		}
+	} else {
+		$buffer .= qq(<b>$newdata->{$att->{'name'}}</b>);
+	}
+	$buffer .= qq(</span>\n);
+	return $buffer;
+}
+
+sub _get_sender_field {
+	my ( $self, $args ) = @_;
+	my ( $name, $newdata, $att, $html5_args ) = @$args{qw(name newdata att html5_args)};
+	return q() if $att->{'name'} ne 'sender';
+	my ( $users, $user_names ) = $self->get_user_list_and_labels;
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $name,
+		-id      => $name,
+		-values  => [ '', @$users ],
+		-labels  => $user_names,
+		-default => $newdata->{ $att->{'name'} },
+		%$html5_args
+	);
+}
+
+sub _get_allele_id_field {
+	my ( $self, $args ) = @_;
+	my ( $table, $name, $newdata, $att, $length, $html5_args ) = @$args{qw(table name newdata att length html5_args)};
+	my $q = $self->{'cgi'};
+	return q() if !( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') );
+	my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
+	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
+		my $default = $q->param('allele_id') // $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
+		return $self->textfield(
+			name      => $name,
+			id        => $name,
+			size      => $length,
+			maxlength => $length,
+			value     => $default,
+			%$html5_args
+		);
+	} else {
+		return $self->textfield(
+			name      => $name,
+			id        => $name,
+			size      => $length,
+			maxlength => $length,
+			value     => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	}
+}
+
+sub _get_non_admin_locus_field {
+	my ( $self, $args ) = @_;
+	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
+	my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions);
+	return q() if !( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin );
+	my $set_id = $self->get_set_id;
+	my ( $values, $desc ) =
+	  $self->{'datastore'}
+	  ->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1, locus_curator => $self->get_curator_id } );
+	$values = [] if ref $values ne 'ARRAY';
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $name,
+		-id      => $name,
+		-values  => [ '', @$values ],
+		-labels  => $desc,
+		-default => $newdata->{ $att->{'name'} },
+		%$html5_args
+	);
+}
+
+sub _get_foreign_key_dropdown_field {
+	my ( $self, $args ) = @_;
+	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
+	return q() if !( ( $att->{'dropdown_query'} // '' ) eq 'yes' && $att->{'foreign_key'} );
+	my @fields_to_query;
+	my $desc;
+	if ( $att->{'labels'} ) {
+		( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
+		@fields_to_query = @$fields_ref;
+	} else {
+		push @fields_to_query, 'id';
+	}
+	my $qry;
+	my $set_id = $self->get_set_id;
+	my $values;
+	if ( $att->{'foreign_key'} eq 'users' ) {
+		local $" = ',';
+		$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
+		( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' ) {
+		my $scheme_list =
+		  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $att->{'with_pk_only'} } );
+		foreach my $scheme (@$scheme_list) {
+			if ( $att->{'is_curator_only'} && !$self->is_admin ) {
+				my $curator_id = $self->get_curator_id;
+				my $is_curator = $self->{'datastore'}->is_scheme_curator( $scheme->{'id'}, $curator_id );
+				push @$values, $scheme->{'id'} if $is_curator;
+			} else {
+				push @$values, $scheme->{'id'};
 			}
 		}
+	} else {
+		local $" = ',';
+		$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	}
+	$values = [] if ref $values ne 'ARRAY';
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $name,
+		-id      => $name,
+		-values  => [ '', @$values ],
+		-labels  => $desc,
+		-default => $newdata->{ $att->{'name'} },
+		%$html5_args
+	);
+}
+
+sub _get_datestamp_field {
+	my ( $self, $args ) = @_;
+	my ($att) = @$args{qw(att)};
+	return q() if $att->{'name'} ne 'datestamp';
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	return qq(<b>$datestamp</b>\n);
+}
+
+sub _get_date_entered_field {
+	my ( $self,    $args ) = @_;
+	my ( $newdata, $att )  = @$args{qw(newdata att)};
+	return q() if $att->{'name'} ne 'date_entered';
+	my $q = $self->{'cgi'};
+	if ( $q->param('page') eq 'update' or $q->param('page') eq 'alleleUpdate' ) {
+		return qq(<b>$newdata->{ $att->{'name'} }</b>\n);
+	} else {
+		my $datestamp = BIGSdb::Utils::get_datestamp();
+		return qq(<b>$datestamp</b>\n);
+	}
+}
+
+sub _get_curator_field {
+	my ( $self, $args ) = @_;
+	my ($att) = @$args{qw(att)};
+	return q() if $att->{'name'} ne 'curator';
+	my $name = $self->get_curator_name;
+	return qq(<b>$name ($self->{'username'})</b>\n);
+}
+
+sub _get_optlist_field {
+	my ( $self, $args ) = @_;
+	my ( $name, $newdata, $att, $options, $html5_args ) = @$args{qw(name newdata att options html5_args)};
+	return q() if !$att->{'optlist'};
+	my @optlist;
+	if ( $att->{'optlist'} eq 'isolate_fields' ) {
+		@optlist = @{ $self->{'xmlHandler'}->get_field_list() };
+	} else {
+		@optlist = split /;/x, $att->{'optlist'};
+	}
+	unshift @optlist, '';
+	my $labels = { '' => ' ' };    #Required for HTML5 validation
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $name,
+		-id      => $name,
+		-values  => [@optlist],
+		-default => $options->{'update'} ? $newdata->{ $att->{'name'} } : $att->{'default'},
+		-labels  => $labels,
+		%$html5_args
+	);
+}
+
+sub _get_text_field {
+	my ( $self, $args ) = @_;
+	my ( $name, $length, $newdata, $att, $options, $html5_args ) =
+	  @$args{qw(name length newdata att options html5_args)};
+	my $q = $self->{'cgi'};
+	if ( $length >= 256 ) {
+		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
+		  if $att->{'name'} eq 'sequence';
+		return $q->textarea(
+			-name    => $name,
+			-id      => $name,
+			-rows    => 6,
+			-cols    => 75,
+			-default => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	} elsif ( $length >= 120 ) {
+		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
+		  if $att->{'name'} eq 'sequence';
+		return $q->textarea(
+			-name    => $name,
+			-id      => $name,
+			-rows    => 3,
+			-cols    => 75,
+			-default => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	} else {
+		return $self->textfield(
+			name      => $name,
+			id        => $name,
+			size      => ( $length > 75 ? 75 : $length ),
+			maxlength => $length,
+			value     => $newdata->{ $att->{'name'} },
+			%$html5_args
+		);
+	}
+}
+
+sub _show_tooltip {
+	my ( $self, $args ) = @_;
+	my ( $name, $att )  = @$args{qw(name att)};
+	my $buffer = q();
+	if ( $att->{'tooltip'} ) {
+		$buffer .=
+		  qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}">) . q(<span class="fa fa-info-circle"></span></a>);
+	}
+	if ( $att->{'comments'} ) {
+		my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
+		$buffer .= qq( <span class="comment" style="padding-left:$padding">$att->{'comments'}</span>);
+	} elsif ( $att->{'type'} eq 'date'
+		&& lc( $att->{'name'} ne 'datestamp' )
+		&& lc( $att->{'name'} ne 'date_entered' ) )
+	{
+		$buffer .= q( <span class="comment">format: yyyy-mm-dd (or 'today')</span>);
 	}
 	return $buffer;
 }
@@ -424,19 +555,19 @@ sub _get_foreign_key_label {
 }
 
 sub _get_boolean_field {
-	my ( $self, $name, $newdata_ref, $att ) = @_;
-	my $q      = $self->{'cgi'};
-	my $buffer = '';
+	my ( $self, $args ) = @_;
+	my ( $name, $newdata, $att ) = @$args{qw(name newdata att)};
+	return q() if $att->{'type'} ne 'bool';
+	my $q = $self->{'cgi'};
 	my $default;
-	if ( $q->param('page') eq 'update' && ( $newdata_ref->{ $att->{'name'} } // '' ) ne '' ) {
-		$default = $newdata_ref->{ $att->{'name'} } ? 'true' : 'false';
+	if ( $q->param('page') eq 'update' && ( $newdata->{ $att->{'name'} } // '' ) ne '' ) {
+		$default = $newdata->{ $att->{'name'} } ? 'true' : 'false';
 	} else {
-		$default = $newdata_ref->{ $att->{'name'} };
+		$default = $newdata->{ $att->{'name'} };
 	}
 	$default //= '-';
 	local $" = ' ';
-	$buffer .= $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
-	return $buffer;
+	return $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
 }
 
 sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -523,51 +654,23 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			if ( $format eq 'integer' && !$optlist ) {
 				@html5_args{qw(type min step)} = qw(number 1 1);
 			}
-			if ( $format eq 'boolean' ) {
-				$buffer .= $q->popup_menu(
-					-name    => $field,
-					-id      => $field,
-					-values  => [ '', qw (true false) ],
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ($optlist) {
-				my @options = split /\|/x, $optlist;
-				unshift @options, '';
-				$buffer .= $q->popup_menu(
-					-name    => $field,
-					-id      => $field,
-					-values  => \@options,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ( $length > 256 ) {
-				$buffer .= $q->textarea(
-					-name    => $field,
-					-id      => $field,
-					-rows    => 6,
-					-cols    => 70,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} elsif ( $length > 60 ) {
-				$buffer .= $q->textarea(
-					-name    => $field,
-					-id      => $field,
-					-rows    => 3,
-					-cols    => 70,
-					-default => $newdata->{$field},
-					%html5_args
-				);
-			} else {
-				$buffer .= $self->textfield(
-					name      => $field,
-					id        => $field,
-					size      => $length,
-					maxlength => $length,
-					value     => $newdata->{$field},
-					%html5_args
-				);
+			my $args = {
+				format     => $format,
+				optlist    => $optlist,
+				newdata    => $newdata,
+				field      => $field,
+				length     => $length,
+				html5_args => \%html5_args
+			};
+			my %field_checks = (
+				boolean => sub { $self->_get_extra_seq_field_boolean($args) },
+				optlist => sub { $self->_get_extra_seq_field_optlist($args) },
+				text    => sub { $self->_get_extra_seq_field_text($args) }
+			);
+		  FIELD_CHECK: foreach my $check (qw(boolean optlist text)) {
+				my $check_buffer = $field_checks{$check}->();
+				$buffer .= $check_buffer;
+				last FIELD_CHECK if $check_buffer;
 			}
 			$buffer .= qq(<span class="comment"> $desc</span>\n) if $desc;
 			$buffer .= qq(</li>\n);
@@ -585,6 +688,69 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	$buffer .= $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
 	$buffer .= qq(</li>\n);
 	return $buffer;
+}
+
+sub _get_extra_seq_field_boolean {
+	my ( $self, $args ) = @_;
+	my ( $format, $newdata, $field, $html5_args ) = @$args{qw(format newdata field html5_args)};
+	return q() if $format ne 'boolean';
+	my $q = $self->{'cgi'};
+	return $q->radio_group(
+		-name    => $field,
+		-values  => [qw (true false)],
+		-default => $newdata->{$field} // '-',
+		%$html5_args
+	);
+}
+
+sub _get_extra_seq_field_optlist {
+	my ( $self, $args ) = @_;
+	my ( $optlist, $newdata, $field, $html5_args ) = @$args{qw(optlist newdata field html5_args)};
+	return q() if !$optlist;
+	my @options = split /\|/x, $optlist;
+	unshift @options, '';
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name    => $field,
+		-id      => $field,
+		-values  => \@options,
+		-default => $newdata->{$field},
+		%$html5_args
+	);
+}
+
+sub _get_extra_seq_field_text {
+	my ( $self, $args ) = @_;
+	my ( $newdata, $field, $html5_args, $length ) = @$args{qw( newdata field html5_args length)};
+	my $q = $self->{'cgi'};
+	if ( $length > 256 ) {
+		return $q->textarea(
+			-name    => $field,
+			-id      => $field,
+			-rows    => 6,
+			-cols    => 70,
+			-default => $newdata->{$field},
+			%$html5_args
+		);
+	} elsif ( $length > 60 ) {
+		return $q->textarea(
+			-name    => $field,
+			-id      => $field,
+			-rows    => 3,
+			-cols    => 70,
+			-default => $newdata->{$field},
+			%$html5_args
+		);
+	} else {
+		return $self->textfield(
+			name      => $field,
+			id        => $field,
+			size      => $length,
+			maxlength => $length,
+			value     => $newdata->{$field},
+			%$html5_args
+		);
+	}
 }
 
 sub _create_extra_fields_for_locus_descriptions {
@@ -1021,12 +1187,33 @@ sub _check_retired_allele_id {
 	return;
 }
 
+sub format_data {
+	my ( $self, $table, $data_ref ) = @_;
+	if ( $table eq 'pcr' ) {
+		$data_ref->{$_} =~ s/[\r\n]//gx foreach qw (primer1 primer2);
+	}
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	foreach my $att (@$attributes) {
+		next if !defined $data_ref->{ $att->{'name'} };
+		if ( $att->{'name'} eq 'affiliation' ) {
+			$data_ref->{ $att->{'name'} } =~ s/,?\s*\r?\n/, /gx;
+		}
+		$data_ref->{ $att->{'name'} } = $self->clean_value( $data_ref->{ $att->{'name'} }, { no_escape => 1 } );
+		if ( $att->{'name'} =~ /sequence$/x ) {
+			$data_ref->{ $att->{'name'} } = uc( $data_ref->{ $att->{'name'} } );
+			$data_ref->{ $att->{'name'} } =~ s/\s//gx;
+		}
+	}
+	return;
+}
+
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
+	return if !defined $value;
 	$options = {} if ref $options ne 'HASH';
 	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
 	$value =~ s/\r//gx;
-	$value =~ s/\n/ /gx;
+	$value =~ s/[\n\t]/ /gx;
 	$value =~ s/^\s*//x;
 	$value =~ s/\s*$//x;
 	return $value;
@@ -1064,113 +1251,6 @@ sub remove_profile_data {
 	my $qry = "DELETE FROM profiles WHERE scheme_id = $scheme_id";
 	eval { $self->{'db'}->do($qry) };
 	$logger->error($@) if $@;
-	return;
-}
-
-sub drop_scheme_view {
-
-	#Change needs to be committed outside of subroutine (to allow drop as part of transaction)
-	my ( $self, $scheme_id ) = @_;
-	my $qry = "DROP VIEW IF EXISTS scheme_$scheme_id";
-	eval {
-		$self->{'db'}->do($qry);
-		if ( $self->{'system'}->{'materialized_views'} && $self->{'system'}->{'materialized_views'} eq 'yes' ) {
-			my $view_exists =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT EXISTS(SELECT * FROM matviews WHERE v_name=?)', "scheme_$scheme_id" );
-			$self->{'db'}->do("SELECT drop_matview('mv_scheme_$scheme_id')") if $view_exists;
-		}
-	};
-	$logger->error($@) if $@;
-	return;
-}
-
-sub create_scheme_view {
-
-	#Used for profiles database.  A scheme view is created from the normalized data stored
-	#in profiles, profile_members and profile_fields.  Searching by profile from the normalized
-	#tables was too slow.
-	#Needs to be committed outside of subroutine (to allow creation as part of transaction)
-	my ( $self, $scheme_id ) = @_;
-	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	return if !@$loci || !@$fields;    #No point creating view if table doesn't have either loci or fields.
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	return if !$scheme_info->{'primary_key'};    #No point creating view without a primary key.
-	my $qry = "CREATE OR REPLACE VIEW scheme_$scheme_id AS SELECT profiles.profile_id AS "
-	  . "$scheme_info->{'primary_key'},profiles.sender,profiles.curator,profiles.date_entered,profiles.datestamp";
-
-	foreach (@$fields) {
-		$qry .= ",$_.value AS $_" if $_ ne $scheme_info->{'primary_key'};
-	}
-	foreach (@$loci) {
-		( my $cleaned = $_ ) =~ s/'/_PRIME_/gx;
-		$qry .= ",$cleaned.allele_id AS $cleaned";
-	}
-	$qry .= ' FROM profiles';
-	foreach (@$loci) {
-		( my $cleaned  = $_ ) =~ s/'/_PRIME_/gx;
-		( my $cleaned2 = $_ ) =~ s/'/\\'/gx;
-		$qry .= " INNER JOIN profile_members AS $cleaned ON profiles.profile_id=$cleaned.profile_id AND "
-		  . "$cleaned.locus=E'$cleaned2' AND profiles.scheme_id=$cleaned.scheme_id";
-	}
-	foreach (@$fields) {
-		next if $_ eq $scheme_info->{'primary_key'};
-		$qry .=
-		    " LEFT JOIN profile_fields AS $_ ON profiles.profile_id=$_.profile_id AND $_.scheme_field=E'$_' AND "
-		  . "profiles.scheme_id=$_.scheme_id";
-	}
-	$qry .= " WHERE profiles.scheme_id = $scheme_id";
-	eval {
-		$self->{'db'}->do($qry);
-		$self->{'db'}->do("GRANT SELECT ON scheme_$scheme_id TO $self->{'system'}->{'user'}");
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			$self->{'db'}->do("SELECT create_matview('mv_scheme_$scheme_id', 'scheme_$scheme_id')");
-			$self->{'db'}
-			  ->do("CREATE UNIQUE INDEX i_mv$scheme_id\_1 ON mv_scheme_$scheme_id ($scheme_info->{'primary_key'})");
-			$self->_create_mv_indexes( $scheme_id, $fields, $loci );
-		}
-	};
-	$logger->error($@) if $@;
-	return;
-}
-
-sub refresh_material_view {
-
-	#Needs to be committed outside of subroutine (to allow refresh as part of transaction)
-	my ( $self, $scheme_id ) = @_;
-	return if !( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' );
-	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	return if !@$loci || !@$fields;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	return if !$scheme_info->{'primary_key'};    #No point creating view without a primary key.
-	eval { $self->{'db'}->do("SELECT refresh_matview('mv_scheme_$scheme_id')"); };
-	$logger->error($@) if $@;
-	return;
-}
-
-sub _create_mv_indexes {
-	my ( $self, $scheme_id, $fields, $loci ) = @_;
-
-	#We don't need to index every loci.  The first three will do.
-	my $i = 0;
-	foreach my $locus (@$loci) {
-		$i++;
-		$locus =~ s/'/_PRIME_/gx;
-		eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$locus ON mv_scheme_$scheme_id ($locus)"); };
-		$logger->warn("Can't create index $@") if $@;
-		last if $i == 3;
-	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	foreach my $field (@$fields) {
-		next if $field eq $scheme_info->{'primary_key'};
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		if ( $scheme_field_info->{'index'} ) {
-			eval { $self->{'db'}->do("CREATE INDEX i_mv$scheme_id\_$field ON mv_scheme_$scheme_id ($field)") };
-			$logger->warn("Can't create index $@") if $@;
-		}
-	}
 	return;
 }
 

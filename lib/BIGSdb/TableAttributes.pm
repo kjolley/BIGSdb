@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -286,13 +286,17 @@ sub get_loci_table_attributes {
 				name        => 'pcr_filter',
 				type        => 'bool',
 				hide_public => 'yes',
+				comments    => 'Do NOT set to true unless you define PCR reactions linked to this locus.',
 				tooltip     => 'pcr filter - Set to true to specify that sequences used for tagging are filtered '
-				  . 'to only include regions that are amplified by in silico PCR reaction.'
+				  . 'to only include regions that are amplified by <i>in silico</i> PCR reaction. If you do not also '
+				  . 'define the PCR reactions, and link them to this locus, you will prevent scan/tagging of '
+				  . 'this locus.'
 			},
 			{
 				name        => 'probe_filter',
 				type        => 'bool',
 				hide_public => 'yes',
+				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
 				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
 			},
@@ -655,6 +659,26 @@ sub get_retired_allele_ids_table_attributes {
 	return $attributes;
 }
 
+sub get_retired_profiles_table_attributes {
+	my $attributes = [
+		{
+			name            => 'scheme_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'schemes',
+			labels          => '|$description| (id |$id|)',
+			dropdown_query  => 'yes',
+			with_pk_only    => 1,
+			is_curator_only => 1
+		},
+		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',  type => 'date', required => 'yes' }
+	];
+	return $attributes;
+}
+
 sub get_locus_extended_attributes_table_attributes {
 	my $attributes = [
 		{
@@ -975,13 +999,15 @@ sub get_allele_flags_table_attributes {
 sub get_profile_refs_table_attributes {
 	my $attributes = [
 		{
-			name           => 'scheme_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'schemes',
-			labels         => '|$description|',
-			dropdown_query => 'yes'
+			name            => 'scheme_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'schemes',
+			labels          => '|$description| (id |$id|)',
+			dropdown_query  => 'yes',
+			with_pk_only    => 1,
+			is_curator_only => 1
 		},
 		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
 		{ name => 'pubmed_id',  type => 'int',  required => 'yes', primary_key    => 'yes' },
@@ -1134,6 +1160,7 @@ sub get_schemes_table_attributes {
 			name        => 'allow_missing_loci',
 			type        => 'bool',
 			hide_public => 'yes',
+			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		},
 		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
@@ -1245,20 +1272,15 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			push @$attributes,
-			  (
-				{
-					name     => 'index',
-					type     => 'bool',
-					required => 'no',
-					tooltip  => 'index - Sets whether the field is indexed in the database.  This setting '
-					  . 'is ignored for primary key fields which are always indexed.'
-				}
-			  );
-		}
 		push @$attributes,
 		  (
+			{
+				name     => 'index',
+				type     => 'bool',
+				required => 'no',
+				tooltip  => 'index - Sets whether the field is indexed in the database.  This setting '
+				  . 'is ignored for primary key fields which are always indexed.'
+			},
 			{
 				name     => 'dropdown',
 				type     => 'bool',
@@ -1266,10 +1288,7 @@ sub get_scheme_fields_table_attributes {
 				default  => 'false',
 				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
 				  . '(can be overridden by user preference).'
-			}
-		  );
-		push @$attributes,
-		  (
+			},
 			{
 				name    => 'value_regex',
 				type    => 'text',
@@ -1443,13 +1462,18 @@ sub get_sequences_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 'yes'
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'sequence',  type => 'text', required => 'yes', length         => 32768, user_update => 'no' },
-		{ name => 'status',    type => 'text', required => 'yes', optlist        => "@optlist", hide_public => 'yes' },
-		{ name => 'sender',    type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes', hide_public => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public => 'yes' }
+		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'sequence',  type => 'text', required => 'yes', length      => 32768, user_update => 'no' },
+		{ name => 'status',    type => 'text', required => 'yes', optlist     => "@optlist", hide_public => 'yes' },
+		{
+			name     => 'type_allele',
+			type     => 'bool',
+			comments => 'New allele searches can be constrained to use just type alleles in comparisons',
+		},
+		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
+		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
+		{ name => 'date_entered', type => 'date', required => 'yes', hide_public    => 'yes' },
+		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public    => 'yes' }
 	];
 	if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
 		push @$attributes, ( { name => 'comments', type => 'text', required => 'no', length => 120 } );
@@ -1896,6 +1920,119 @@ sub get_set_metadata_table_attributes {
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
 	];
+	return $attributes;
+}
+
+sub get_classification_schemes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'schemes',
+			labels         => '|$description|',
+			dropdown_query => 'yes',
+			with_pk_only   => 1,
+		},
+		{
+			name     => 'name',
+			type     => 'text',
+			required => 'yes',
+			length   => 50,
+			unique   => 'yes',
+			tooltip =>
+'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
+		},
+		{ name => 'description', type => 'text', length => 256 },
+		{
+			name     => 'inclusion_threshold',
+			type     => 'int',
+			required => 'yes',
+			comments =>
+			  'Maximum number of different alleles allowed between profile and at least one group member profile.'
+		},
+		{
+			name     => 'use_relative_threshold',
+			type     => 'bool',
+			required => 'yes',
+			comments => 'Calculate threshold using ratio of shared/present in both profiles in pairwise comparison.',
+			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
+			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
+			  . 'scheme.',
+			default => 'false'
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @$attributes,
+		  (
+			{
+				name     => 'seqdef_cscheme_id',
+				type     => 'int',
+				comments => 'cscheme_id number defined in seqdef database',
+				tooltip =>
+				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
+			},
+			{ name => 'display_order', type => 'int' }
+		  );
+	}
+	push @$attributes,
+	  (
+		{
+			name     => 'status',
+			type     => 'text',
+			required => 'yes',
+			optlist  => 'experimental;stable',
+			default  => 'experimental'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	  );
+	return $attributes;
+}
+
+sub get_classification_group_fields_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name           => 'cg_scheme_id',
+			type           => 'int',
+			required       => 'yes',
+			primary_key    => 'yes',
+			foreign_key    => 'classification_schemes',
+			labels         => '|$name|',
+			dropdown_query => 'yes'
+		},
+		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' }
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name    => 'value_regex',
+				type    => 'text',
+				tooltip => 'value regex - Regular expression that constrains value of field'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
+		{ name => 'description', type => 'text', required => 'no', length => 64, },
+		{ name => 'field_order', type => 'int',  required => 'no' },
+		{
+			name     => 'dropdown',
+			type     => 'bool',
+			required => 'yes',
+			default  => 'false',
+			tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
+			  . '(can be overridden by user preference).'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	  );
 	return $attributes;
 }
 

@@ -32,6 +32,7 @@ use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
 use IO::Handle;
+use Digest::MD5;
 
 sub new {
 	my ( $class, @atr ) = @_;
@@ -73,7 +74,7 @@ sub get_data_connector {
 
 sub get_user_info {
 	my ( $self, $id ) = @_;
-	return $self->run_query( 'SELECT first_name,surname,affiliation,email FROM users WHERE id=?',
+	return $self->run_query( 'SELECT id,first_name,surname,affiliation,email FROM users WHERE id=?',
 		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 }
 
@@ -282,80 +283,15 @@ sub get_scheme_field_values_by_designations {
 	my $loci       = $self->get_scheme_loci($scheme_id);
 	my $fields     = $self->get_scheme_fields($scheme_id);
 	my $field_data = [];
-	if ( ( $self->{'system'}->{'use_temp_scheme_table'} // '' ) eq 'yes' ) {
-
-		#TODO This almost identical to code in Scheme.pm - look at refactoring
-		#Import all profiles from seqdef database into indexed scheme table.  Under some circumstances
-		#this can be considerably quicker than querying the seqdef scheme view (a few ms compared to
-		#>10s if the seqdef database contains multiple schemes with an uneven distribution of a large
-		#number of profiles so that the Postgres query planner picks a sequential rather than index scan).
-		#
-		#This scheme table can also be generated periodically using the update_scheme_cache.pl
-		#script to create a persistent cache.  This is particularly useful for large schemes (>10000
-		#profiles) but data will only be as fresh as the cache so ensure that the update script
-		#is run periodically.
-		if ( !$self->{'cache'}->{'scheme_cache'}->{$scheme_id} ) {
-			try {
-				$self->create_temp_scheme_table($scheme_id);
-				$self->{'cache'}->{'scheme_cache'}->{$scheme_id} = 1;
-			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->error('Cannot create temporary table');
-			};
+	my $scheme     = $self->get_scheme($scheme_id);
+	$self->_convert_designations_to_profile_names( $scheme_id, $designations );
+	{
+		try {
+			$field_data = $scheme->get_field_values_by_designations($designations);
 		}
-		my ( @allele_count, @allele_ids );
-		foreach my $locus (@$loci) {
-			if ( !defined $designations->{$locus} ) {
-
-				#Define a null designation if one doesn't exist for the purposes of looking up profile.
-				#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
-				#on an incomplete set of designations.
-				push @allele_ids,   '-999';
-				push @allele_count, 1;
-			} else {
-				push @allele_count,
-				  scalar
-				  @{ $designations->{$locus} };  #We need a different query depending on number of designations at loci.
-				foreach my $designation ( @{ $designations->{$locus} } ) {
-					push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
-				}
-			}
-		}
-		local $" = ',';
-		my $query_key = "@allele_count";
-		my $qry;
-		my $cache_key = "field_values_$scheme_id\_$query_key";
-		if ( !$self->{'sql'}->{$cache_key} ) {    #Will be defined by Datastore::run_query
-			my $scheme_info = $self->get_scheme_info($scheme_id);
-			my @locus_terms;
-			my $i = 0;
-			foreach my $locus (@$loci) {
-				$locus =~ s/'/_PRIME_/gx;
-				my @temp_terms;
-				push @temp_terms, ("$locus=?") x $allele_count[$i];
-				push @temp_terms, "$locus='N'" if $scheme_info->{'allow_missing_loci'};
-				local $" = ' OR ';
-				push @locus_terms, "(@temp_terms)";
-				$i++;
-			}
-			local $" = ' AND ';
-			my $locus_term_string = "@locus_terms";
-			local $" = ',';
-			$qry = "SELECT @$loci,@$fields FROM temp_scheme_$scheme_id WHERE $locus_term_string";
-		}
-		$field_data =
-		  $self->run_query( $qry, \@allele_ids, { fetch => 'all_arrayref', slice => {}, cache => $cache_key } );
-	} else {
-		my $scheme = $self->get_scheme($scheme_id);
-		$self->_convert_designations_to_profile_names( $scheme_id, $designations );
-		{
-			try {
-				$field_data = $scheme->get_field_values_by_designations($designations);
-			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$logger->warn("Scheme $scheme_id database is not configured correctly");
-			};
-		}
+		catch BIGSdb::DatabaseConfigurationException with {
+			$logger->warn("Scheme $scheme_id database is not configured correctly");
+		};
 	}
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
@@ -422,62 +358,110 @@ sub profile_exists {
 	);
 }
 
+sub get_scheme_locus_indices {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $data = $self->run_query( 'SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref' } );
+
+	#PostgreSQL numbers arrays from 1 - Perl numbers from 0.
+	my %indices;
+	if ( $options->{'pg_numbering'} ) {
+		%indices = map { $_->[0] => $_->[1] } @$data;
+	} else {
+		%indices = map { $_->[0] => ( $_->[1] - 1 ) } @$data;
+	}
+	return \%indices;
+}
+
+sub get_scheme_warehouse_locus_name {
+	my ( $self, $scheme_id, $locus ) = @_;
+	if ( !$self->{'cache'}->{'scheme_warehouse_locus_indices'}->{$scheme_id} ) {
+		$self->{'cache'}->{'scheme_warehouse_locus_indices'}->{$scheme_id} =
+		  $self->get_scheme_locus_indices( $scheme_id, { pg_numbering => 1 } );
+	}
+	return "profile[$self->{'cache'}->{'scheme_warehouse_locus_indices'}->{$scheme_id}->{$locus}]";
+}
+
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
 	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
-	my ( $profile_exists, $msg );
-	my $scheme_view = $self->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
-	my $qry         = "SELECT $pk FROM $scheme_view WHERE ";
-	my $loci        = $self->get_scheme_loci($scheme_id);
-	my ( @locus_temp, @values );
-
+	$pk_value //= q();
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $scheme_info      = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk               = $scheme_info->{'primary_key'};
+	my $loci = $self->run_query( 'SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=? ORDER BY index',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	my @profile;
+	my $empty_profile = 1;
 	foreach my $locus (@$loci) {
-		next
-		  if ( $designations->{$locus} // '' ) eq 'N'; #N can be any allele so can not be used to differentiate profiles
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-		push @locus_temp, "($cleaned=? OR $cleaned='N')";
-		push @values,     $designations->{$locus};
+		push @profile, $designations->{$locus};
+		$empty_profile = 0 if !( ( $designations->{$locus} // 'N' ) eq 'N' );
 	}
+	if ($empty_profile) {
+		return {
+			exists => 1,
+			msg    => q(You cannot define a profile with every locus set to be an arbitrary value (N).)
+		};
+	}
+	my $pg_array = BIGSdb::Utils::get_pg_array( \@profile );
+	if ( !$scheme_info->{'allow_missing_loci'} ) {
+		my $exact_match = $self->run_query( "SELECT $pk FROM $scheme_warehouse WHERE profile=?", $pg_array );
+		if ($exact_match) {
+			return {
+				exists   => 1,
+				assigned => [$exact_match],
+				msg      => qq(Profile has already been defined as $pk-$exact_match.)
+			};
+		}
+		return { exists => 0 };
+	}
+
+	#Check for matches where N may be used in the profile
+	my $i = 0;
+	my ( @locus_temp, @values, $temp_cache_key );
+	foreach my $locus (@$loci) {
+
+		#N can be any allele so can not be used to differentiate profiles
+		$i++;
+		next if ( $designations->{$locus} // '' ) eq 'N';
+		push @locus_temp, "(profile[$i]=? OR profile[$i]='N')";
+		push @values,     $designations->{$locus};
+		$temp_cache_key .= $locus;
+	}
+	my $qry       = "SELECT $pk FROM $scheme_warehouse WHERE ";
+	my $cache_key = Digest::MD5::md5_hex($temp_cache_key);
 	local $" = ' AND ';
 	$qry .= "(@locus_temp)";
-	my $matching_profiles = [];
-	if (@locus_temp) {
-		my $locus_count = @locus_temp;
-		$matching_profiles =
-		  $self->run_query( $qry, \@values,
-			{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$locus_count" } );
-		$pk_value //= '';
-		if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
-			if ( @locus_temp < @$loci ) {
-				my $first_match;
-				foreach (@$matching_profiles) {
-					if ( $_ ne $pk_value ) {
-						$first_match = $_;
-						last;
-					}
+	my $matching_profiles =
+	  $self->run_query( $qry, \@values,
+		{ fetch => 'col_arrayref', cache => "check_new_profile::${scheme_id}::$cache_key" } );
+	if ( @$matching_profiles && !( @$matching_profiles == 1 && $matching_profiles->[0] eq $pk_value ) ) {
+		my $msg;
+		if ( @locus_temp < @$loci ) {
+			my $first_match;
+			foreach my $profile_id (@$matching_profiles) {
+				if ( $profile_id ne $pk_value ) {
+					$first_match = $profile_id;
+					last;
 				}
-				$msg .=
-				    q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
-				  . q(with actual values at that locus and cannot therefore be defined.  This profile matches )
-				  . qq($pk-$first_match);
-				my $other_matches = @$matching_profiles - 1;
-				$other_matches-- if ( any { $pk_value eq $_ } @$matching_profiles );    #if updating don't match to self
-				if ($other_matches) {
-					$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
-				}
-				$msg .= q(.);
-			} else {
-				$msg .= qq(Profile has already been defined as $pk-$matching_profiles->[0].);
 			}
-			$profile_exists = 1;
+			$msg .=
+			    q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
+			  . q(with actual values at that locus and cannot therefore be defined.  This profile matches )
+			  . qq($pk-$first_match);
+			my $other_matches = @$matching_profiles - 1;
+			$other_matches-- if ( any { $pk_value eq $_ } @$matching_profiles );    #if updating don't match to self
+			if ($other_matches) {
+				$msg .= " and $other_matches other" . ( $other_matches > 1 ? 's' : '' );
+			}
+			$msg .= q(.);
+		} else {
+			$msg .= qq(Profile has already been defined as $pk-$matching_profiles->[0].);
 		}
-	} else {
-		$msg .= 'You cannot define a profile with every locus set to be an arbitrary value (N).';
-		$profile_exists = 1;
+		return { exists => 1, assigned => $matching_profiles, msg => $msg };
 	}
-	return { exists => $profile_exists, assigned => $matching_profiles, msg => $msg };
+	return { exists => 0 };
 }
 ##############ISOLATE CLIENT DATABASE ACCESS FROM SEQUENCE DATABASE####################
 sub get_client_db_info {
@@ -707,8 +691,7 @@ sub get_scheme_list {
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
 			  . q(scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.description);
 		} else {
-			$qry = q[SELECT id,description,display_order FROM schemes WHERE id IN (SELECT scheme_id FROM ]
-			  . q[scheme_members) ORDER BY display_order,description];
+			$qry = q[SELECT id,description,display_order FROM schemes ORDER BY display_order,description];
 		}
 	}
 	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
@@ -838,35 +821,6 @@ sub is_scheme_field {
 	return any { $_ eq $field } @$fields;
 }
 
-sub create_temp_isolate_scheme_loci_view {
-	my ( $self, $scheme_id ) = @_;
-	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_loci_$scheme_id";
-
-	#Test if view already exists
-	return $table
-	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
-	my $scheme_info  = $self->get_scheme_info($scheme_id);
-	my $loci         = $self->get_scheme_loci($scheme_id);
-	my $joined_query = "SELECT $view.id";
-	my ( %cleaned, @cleaned, %named );
-	foreach my $locus (@$loci) {
-		( $cleaned{$locus} = $locus ) =~ s/'/\\'/gx;
-		push @cleaned, $cleaned{$locus};
-		( $named{$locus} = $locus ) =~ s/'/_PRIME_/gx;
-		$joined_query .= ",ARRAY_AGG(DISTINCT(CASE WHEN allele_designations.locus=E'$cleaned{$locus}' "
-		  . "THEN allele_designations.allele_id ELSE NULL END)) AS $named{$locus}";
-	}
-
-	#Listing scheme loci rather than testing for scheme membership within query is quicker!
-	local $" = q(',E');
-	$joined_query .= " FROM $view INNER JOIN allele_designations ON $view.id = allele_designations.isolate_id "
-	  . "AND status != 'ignore' AND locus IN (E'@cleaned') GROUP BY $view.id";
-	eval { $self->{'db'}->do("CREATE TEMP VIEW $table AS $joined_query") };    #View seems quicker than temp table.
-	$logger->error($@) if $@;
-	return $table;
-}
-
 sub create_temp_isolate_scheme_fields_view {
 	my ( $self, $scheme_id, $options ) = @_;
 
@@ -875,75 +829,83 @@ sub create_temp_isolate_scheme_fields_view {
 	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
 	$options = {} if ref $options ne 'HASH';
 	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_fields_$scheme_id";
+	my $table = "temp_${view}_scheme_fields_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 
 		#Check if cache of whole isolate table exists
 		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates\_scheme_fields_$scheme_id";
+			my $full_table = "temp_isolates_scheme_fields_$scheme_id";
 			return $full_table
 			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 				$full_table );
 		}
 	}
-	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
-	my $loci_table    = $self->create_temp_isolate_scheme_loci_view($scheme_id);
-	my $scheme_loci   = $self->get_scheme_loci($scheme_id);
-	my $scheme_fields = $self->get_scheme_fields($scheme_id);
-	my $scheme_info   = $self->get_scheme_info($scheme_id);
-	my @temp;
-	foreach my $locus (@$scheme_loci) {
-		( my $cleaned = $locus ) =~ s/'/\\'/gx;
-		( my $named   = $locus ) =~ s/'/_PRIME_/gx;
+	local $| = 1;
+	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+	my $temp_table = $options->{'cache'} ? 'false' : 'true';
+	my $method = $options->{'method'} // 'full';
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	}
+	if ( $options->{'cache'} ) {
+		$self->{'db'}->commit;
+	} else {
+		$self->{'scheme_not_cached'} = 1;
+	}
+	return $table;
+}
 
-		#Use correct cast to ensure that database indexes are used.
-		my $locus_info = $self->get_locus_info($locus);
-		if ( $scheme_info->{'allow_missing_loci'} ) {
-			push @temp, "$scheme_table.$named=ANY($loci_table.$named || 'N'::text)";
-		} else {
-			if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-				push @temp, "$scheme_table.$named=ANY(CAST($loci_table.$named AS int[]))";
-			} else {
-				push @temp, "$scheme_table.$named=ANY($loci_table.$named)";
-			}
+sub create_temp_cscheme_table {
+	my ( $self, $cscheme_id, $options ) = @_;
+	my $table = "temp_cscheme_$cscheme_id";
+	if ( !$options->{'cache'} ) {
+		if ( $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table ) ) {
+			return $table;
 		}
 	}
-	local $" = ",$scheme_table.";
-	s/'/\\'/gx foreach @$scheme_fields;
-	my $table_type = 'TEMP VIEW';
+	my $table_type = 'TEMP TABLE';
 	my $rename_table;
 	if ( $options->{'cache'} ) {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
 		$table        = $table . '_' . int( rand(99999) );
 	}
-	my $qry = "CREATE $table_type $table AS SELECT $loci_table.id,$scheme_table.@$scheme_fields "
-	  . "FROM $loci_table LEFT JOIN $scheme_table ON ";
-	local $" = ' AND ';
-	$qry .= "@temp";
-	eval { $self->{'db'}->do($qry) };
-	$logger->error($@) if $@;
-	if ( $options->{'cache'} ) {
-		foreach my $field (@$scheme_fields) {
-			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
-			if ( $scheme_field_info->{'type'} eq 'text' ) {
-				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
-			} else {
-				$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
-			}
+	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
+	my $cscheme        = $self->get_classification_scheme($cscheme_id);
+	my $db             = $cscheme->get_db;
+	my $group_profiles = $self->run_query(
+		'SELECT group_id,profile_id FROM classification_group_profiles WHERE cg_scheme_id=?',
+		$cscheme_info->{'seqdef_cscheme_id'},
+		{ db => $db, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}->do("CREATE $table_type $table (group_id int, profile_id int)");
+		$self->{'db'}->do("COPY $table(group_id,profile_id) FROM STDIN");
+		local $" = "\t";
+		foreach my $values (@$group_profiles) {
+			$self->{'db'}->pg_putcopydata("@$values\n");
 		}
-		$self->{'db'}->do("CREATE INDEX i_$table\_id ON $table (id)");
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do("CREATE INDEX ON $table(group_id)");
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 
-		#Create new temp table, then drop old and rename the new - this
-		#should minimize the time that the table is unavailable.
+	#Create new temp table, then drop old and rename the new - this
+	#should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
 		$logger->error($@) if $@;
 		$self->{'db'}->commit;
 		$table = $rename_table;
-	} else {
-		$self->{'scheme_not_cached'} = 1;
 	}
 	return $table;
 }
@@ -952,7 +914,8 @@ sub create_temp_scheme_table {
 	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $scheme_info = $self->get_scheme_info($id);
-	my $scheme_db   = $self->get_scheme($id)->get_db;
+	my $scheme      = $self->get_scheme($id);
+	my $scheme_db   = $scheme->get_db;
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
 		throw BIGSdb::DatabaseConnectionException('Database does not exist');
@@ -965,7 +928,6 @@ sub create_temp_scheme_table {
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	}
 	my $fields     = $self->get_scheme_fields($id);
-	my $loci       = $self->get_scheme_loci($id);
 	my $table_type = 'TEMP TABLE';
 	my $rename_table;
 	if ( $options->{'cache'} ) {
@@ -979,39 +941,50 @@ sub create_temp_scheme_table {
 		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
 		push @table_fields, "$_ $type";
 	}
-	my @query_loci;
-	foreach my $locus (@$loci) {
-		my $type = $scheme_info->{'allow_missing_loci'} ? 'text' : $self->get_locus_info($locus)->{'allele_id_format'};
-		my $profile_name = $self->run_query(
-			'SELECT profile_name FROM scheme_members WHERE locus=? AND scheme_id=?',
-			[ $locus, $id ],
-			{ cache => 'create_temp_scheme_table_profile_name' }
-		);
-		$locus =~ s/'/_PRIME_/gx;
-		$profile_name =~ s/'/_PRIME_/gx if defined $profile_name;
-		push @table_fields, "$locus $type";
-		push @query_loci, $profile_name || $locus;
+	push @table_fields, 'profile text[]';
+	my $locus_indices = $scheme->get_locus_indices;
+	eval {
+		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?', undef, $id );
+		foreach my $profile_locus ( keys %$locus_indices ) {
+			my $locus_name = $self->run_query(
+				'SELECT locus FROM scheme_members WHERE profile_name=? AND scheme_id=?',
+				[ $profile_locus, $id ],
+				{ cache => 'create_temp_scheme_table_profile_name' }
+			);
+			$locus_name //= $profile_locus;
+			$self->{'db'}->do( 'INSERT INTO scheme_warehouse_indices (scheme_id,locus,index) VALUES (?,?,?)',
+				undef, $id, $locus_name, $locus_indices->{$profile_locus} );
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
 	}
 	local $" = ',';
 	$create .= "@table_fields";
 	$create .= ')';
 	$self->{'db'}->do($create);
 	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
-	my $data         = $self->run_query( "SELECT @$fields,@query_loci FROM $seqdef_table",
+	my $data         = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM $seqdef_table",
 		undef, { db => $scheme_db, fetch => 'all_arrayref' } );
-	eval { $self->{'db'}->do("COPY $table(@$fields,@$loci) FROM STDIN"); };
+	eval { $self->{'db'}->do("COPY $table(@$fields,profile) FROM STDIN"); };
 
 	if ($@) {
 		$logger->error('Cannot start copying data into temp table');
 	}
 	local $" = "\t";
-	foreach (@$data) {
-		foreach (@$_) {
-			$_ = '\N' if !defined $_ || $_ eq '';
+
+	#TODO Test what happens if alleles can have commas in their ids.
+	foreach my $values (@$data) {
+		$values->[-1] = "{$values->[-1]}";
+		foreach my $value (@$values) {
+			$value = '\N' if !defined $value || $value eq '';
 		}
-		eval { $self->{'db'}->pg_putcopydata("@$_\n"); };
+		eval { $self->{'db'}->pg_putcopydata("@$values\n"); };
 		if ($@) {
-			$logger->warn("Can't put data into temp table @$_");
+			$logger->warn("Can't put data into temp table @$values");
 		}
 	}
 	eval { $self->{'db'}->pg_putcopyend; };
@@ -1020,14 +993,19 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
-	$self->_create_profile_indices( $table, $id );
 	foreach my $field (@$fields) {
 		my $field_info = $self->get_scheme_field_info( $id, $field );
 		if ( $field_info->{'type'} eq 'integer' ) {
-			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table ($field)");
+			$self->{'db'}->do("CREATE INDEX i_${table}_$field ON $table ($field)");
 		} else {
-			$self->{'db'}->do("CREATE INDEX i_$table\_$field ON $table (UPPER($field))");
+			$self->{'db'}->do("CREATE INDEX i_${table}_$field ON $table (UPPER($field))");
 		}
+	}
+
+	#Index up to 3 elements
+	my $index_count = keys %$locus_indices >= 3 ? 3 : keys %$locus_indices;
+	foreach my $element ( 1 .. $index_count ) {
+		$self->{'db'}->do("CREATE INDEX ON $table ((profile[$element]))");
 	}
 
 	#Create new temp table, then drop old and rename the new - this
@@ -1049,43 +1027,28 @@ sub create_temp_scheme_status_table {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_$view\_scheme_completion_$scheme_id";
+	my $table = "temp_${view}_scheme_completion_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 
 		#Check if cache of whole isolate table exists
 		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates\_scheme_completion_$scheme_id";
+			my $full_table = "temp_isolates_scheme_completion_$scheme_id";
 			return $full_table
 			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 				$full_table );
 		}
 	}
-	my $table_type = 'TEMP TABLE';
-	my $rename_table;
-	if ( $options->{'cache'} ) {
-		$table_type   = 'TABLE';
-		$rename_table = $table;
-		$table        = $table . '_' . int( rand(99999) );
+	my $temp_table = $options->{'cache'} ? 'false' : 'true';
+	my $method = $options->{'method'} // 'full';
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_status_table($scheme_id,'$view',$temp_table,'$method')") };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
 	}
-	my $create_table =
-	    qq[CREATE $table_type $table (id INTEGER,locus_count INTEGER NOT NULL,PRIMARY KEY(id));]
-	  . qq[INSERT INTO $table SELECT $view.id, COUNT(DISTINCT locus) FROM ]
-	  . qq[$view LEFT JOIN allele_designations ON $view.id=allele_designations.isolate_id AND ]
-	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id=]
-	  . qq[$scheme_id) GROUP BY $view.id;]
-	  . qq[CREATE INDEX ON $table (locus_count);];
-	eval { $self->{'db'}->do($create_table) };
-	$logger->error($@) if $@;
-
-	#If run from cache script, create new temp table, then drop old and rename the new -
-	#this should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		$logger->error($@) if $@;
 		$self->{'db'}->commit;
-		$table = $rename_table;
 	}
 	return $table;
 }
@@ -1135,26 +1098,28 @@ sub create_temp_list_table_from_array {
 	return $table;
 }
 
-sub _create_profile_indices {
-	my ( $self, $table, $scheme_id ) = @_;
-	my $loci = $self->get_scheme_loci($scheme_id);
-
-	#We don't need to index every field.  The first three will do.
-	my $i = 0;
-	foreach my $locus (@$loci) {
-		$i++;
-		$locus =~ s/'/_PRIME_/gx;
-		eval { $self->{'db'}->do("CREATE INDEX i_$table\_$locus ON $table ($locus)"); };
-		$logger->warn("Can't create index $@") if $@;
-		last if $i == 3;
-	}
-	return;
-}
-
 sub get_scheme_group_info {
 	my ( $self, $group_id ) = @_;
 	return $self->run_query( 'SELECT * FROM scheme_groups WHERE id=?',
 		$group_id, { fetch => 'row_hashref', cache => 'get_scheme_group_info' } );
+}
+
+sub get_classification_scheme {
+	my ( $self, $cscheme_id ) = @_;
+	if ( !$self->{'cscheme'}->{$cscheme_id} ) {
+		my $attributes = $self->get_classification_scheme_info($cscheme_id);
+		$attributes->{'db'} = $self->get_scheme( $attributes->{'scheme_id'} )->get_db;
+		$self->{'cscheme'}->{$cscheme_id} = BIGSdb::ClassificationScheme->new(%$attributes);
+	}
+	return $self->{'cscheme'}->{$cscheme_id};
+}
+
+sub get_classification_scheme_info {
+	my ( $self, $cg_scheme_id ) = @_;
+	my $info = $self->run_query( 'SELECT * FROM classification_schemes WHERE id=?',
+		$cg_scheme_id, { fetch => 'row_hashref', cache => 'get_classification_scheme_info' } );
+	$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
+	return $info;
 }
 ##############LOCI#####################################################################
 #options passed as hashref:
@@ -1526,12 +1491,12 @@ sub sequence_exists {
 	);
 }
 
-sub sequence_retired {
+sub is_sequence_retired {
 	my ( $self, $locus, $allele_id ) = @_;
 	return $self->run_query(
 		'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
 		[ $locus, $allele_id ],
-		cache => 'sequence_retired'
+		cache => 'is_sequence_retired'
 	);
 }
 
@@ -1541,6 +1506,15 @@ sub get_profile_allele_designation {
 		'SELECT * FROM profile_members WHERE (scheme_id,profile_id,locus)=(?,?,?)',
 		[ $scheme_id, $profile_id, $locus ],
 		{ fetch => 'row_hashref', cache => 'get_profile_allele_designation' }
+	);
+}
+
+sub is_profile_retired {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id ],
+		cache => 'is_profile_retired'
 	);
 }
 
@@ -2294,7 +2268,7 @@ sub get_tables {
 		  isolate_aliases curator_permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
-		  samples isolates history sequence_attributes);
+		  samples isolates history sequence_attributes classification_schemes classification_group_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2303,7 +2277,8 @@ sub get_tables {
 		  scheme_fields profiles profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
-		  profile_history locus_aliases retired_allele_ids);
+		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
+		  classification_group_fields);
 	}
 	return @tables;
 }
@@ -2317,7 +2292,7 @@ sub get_tables_with_curator {
 		  scheme_members locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases
 		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
-		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history);
+		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2325,7 +2300,8 @@ sub get_tables_with_curator {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
-		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history);
+		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history classification_schemes
+		  classification_group_fields);
 	}
 	return @tables;
 }
@@ -2357,12 +2333,5 @@ sub get_metadata_value {
 	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
 		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
 	return $data->{ lc($metafield) } // '';
-}
-
-sub materialized_view_exists {
-	my ( $self, $scheme_id ) = @_;
-	return 0 if ( ( $self->{'system'}->{'materialized_views'} // '' ) ne 'yes' );
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM matviews WHERE mv_name=?)',
-		"mv_scheme_$scheme_id", { cache => 'materialized_view_exists' } );
 }
 1;

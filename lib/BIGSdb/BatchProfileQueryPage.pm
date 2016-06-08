@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('function') && $self->{'cgi'}->param('function') eq 'examples' ) {
+	if ( $self->{'cgi'}->param('function') ) {
 		$self->{'type'} = 'text';
 	} else {
 		$self->{'jQuery'} = 1;
@@ -44,8 +44,11 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('function') && $q->param('function') eq 'examples' ) {
+	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
+		return;
+	} elsif ( ( $q->param('function') // q() ) eq 'col_order' ) {
+		$self->_print_col_order;
 		return;
 	}
 	my $scheme_id = $q->param('scheme_id');
@@ -63,27 +66,29 @@ sub print_content {
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my @cleaned_loci;
-	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 	if ( $q->param('profiles') ) {
 		my $profiles = $q->param('profiles');
 		my @rows = split /\n/x, $profiles;
+		my @cleaned_loci;
+		push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 		local $" = q(</th><th>);
 		say q(<div class="box" id="resultstable">);
 		say q(<div class="scrollable">);
 		say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+
 		foreach my $field (@$scheme_fields) {
 			my $cleaned = $field;
 			$cleaned =~ tr/_/ /;
 			print qq(<th>$cleaned</th>);
 		}
 		local $" = ',';
-		my $scheme_view =
-		  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-		my $qry             = "SELECT @$scheme_fields FROM $scheme_view WHERE ";
-		my @cleaned_loci_db = @$loci;
-		$_ =~ s/'/_PRIME_/gx foreach @cleaned_loci_db;
+		my $scheme_warehouse = "mv_scheme_$scheme_id";
+		my $qry              = "SELECT @$scheme_fields FROM $scheme_warehouse WHERE ";
+		my @cleaned_loci_db;
+		foreach my $locus (@$loci) {
+			push @cleaned_loci_db, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
+		}
 		my $set_id = $self->get_set_id;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
@@ -145,7 +150,9 @@ sub print_content {
 	say q[<p>Enter allelic profiles below in tab-delimited text format using copy and paste ]
 	  . q[(for example directly from a spreadsheet). Columns can be separated by any amount of whitespace. ]
 	  . q[The first column should be an isolate identifier and the remaining ]
-	  . qq[columns should comprise the allele numbers (order: @cleaned_loci). Click here for ]
+	  . qq[columns should comprise the allele numbers (<a href="$self->{'system'}->{'script_name'}?]
+	  . qq[db=$self->{'instance'}&amp;page=batchProfiles&amp;function=col_order&amp;scheme_id=$scheme_id">]
+	  . q[show column order</a>). Click here for ]
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;]
 	  . qq[function=examples&amp;scheme_id=$scheme_id">example data</a>. Non-numerical characters will be ]
 	  . q[stripped out of the query.</p>];
@@ -158,10 +165,9 @@ sub print_content {
 	return;
 }
 
+#Generate example data file for batch profile query
+#Get up to 15 random profiles from the database
 sub _print_examples {
-
-	#Generate example data file for batch profile query
-	#Get up to 15 random profiles from the database
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
@@ -177,21 +183,44 @@ sub _print_examples {
 		print "Invalid scheme selected.\n";
 		return;
 	}
-	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my @cleaned_loci = @$loci;
-	$_ =~ s/'/_PRIME_/gx foreach @cleaned_loci;
-	local $" = ',';
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $data = $self->{'datastore'}->run_query( "SELECT @cleaned_loci FROM $scheme_view ORDER BY random() LIMIT 15",
-		undef, { fetch => 'all_arrayref' } );
+	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $data = $self->{'datastore'}->run_query( "SELECT profile FROM $scheme_warehouse ORDER BY random() LIMIT 15",
+		undef, { fetch => 'col_arrayref' } );
+	if ( !@$data ) {
+		say q(No profiles have yet been defined for this scheme.);
+		return;
+	}
+	my $i       = 1;
+	my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	local $" = "\t";
-	my $i = 1;
-
 	foreach my $profile (@$data) {
-		say qq(isolate_$i\t@$profile);
+		my @alleles;
+		foreach my $locus (@$loci) {
+			push @alleles, $profile->[ $indices->{$locus} ];
+		}
+		say qq(isolate_$i\t@alleles);
 		$i++;
 	}
+	return;
+}
+
+sub _print_col_order {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		$scheme_id = -1;
+	}
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		say q(This function is only available for sequence definition databases.);
+		return;
+	}
+	my @cleaned_loci;
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	push @cleaned_loci, $self->clean_locus( $_, { text_output => 1 } ) foreach @$loci;
+	local $" = qq(\t);
+	say qq(id\t@cleaned_loci);
 	return;
 }
 1;

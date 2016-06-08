@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,8 +24,8 @@ use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID MAX_POSTGRES_COLS DATABANKS);
+use List::MoreUtils qw(any none uniq);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -191,29 +191,16 @@ sub _check_locus_descriptions {
 	return;
 }
 
-sub _too_many_cols {
-	my ( $self, $has_pk, $field_count ) = @_;
-	if ( $has_pk && $field_count > MAX_POSTGRES_COLS ) {
-		say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-		  . MAX_POSTGRES_COLS
-		  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's )
-		  . q(not really sensible to have indexed schemes (those with a primary key field) to have so )
-		  . q(many fields. Update failed.</p></div);
-		return 1;
-	}
-	return;
-}
-
 sub _insert {
 	my ( $self, $table, $newdata ) = @_;
 	my $q          = $self->{'cgi'};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @problems;
-	$self->_format_data( $table, $newdata );
+	$self->format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
-	  scheme_group_group_members sequences sequence_bin sequence_refs);
+	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields);
 
 	if (
 		defined $newdata->{'isolate_id'}
@@ -232,14 +219,10 @@ sub _insert {
 		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
 	} else {
 		my ( @table_fields, @placeholders, @values );
-		foreach (@$attributes) {
-			push @table_fields, $_->{'name'};
+		foreach my $att (@$attributes) {
+			push @table_fields, $att->{'name'};
 			push @placeholders, '?';
-			if ( $_->{'name'} =~ /sequence$/x && $newdata->{ $_->{'name'} } ) {
-				$newdata->{ $_->{'name'} } = uc( $newdata->{ $_->{'name'} } );
-				$newdata->{ $_->{'name'} } =~ s/\s//gx;
-			}
-			push @values, $newdata->{ $_->{'name'} };
+			push @values,       $newdata->{ $att->{'name'} };
 		}
 		local $" = ',';
 		my $qry      = "INSERT INTO $table (@table_fields) VALUES (@placeholders)";
@@ -251,20 +234,8 @@ sub _insert {
 			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				my %modifies_scheme = map { $_ => 1 } qw(scheme_members scheme_fields);
-				if ( $table eq 'schemes' ) {
-					$self->create_scheme_view( $newdata->{'id'} );
-				} elsif ( $modifies_scheme{$table} ) {
-					my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $newdata->{'scheme_id'} );
-					my $scheme_loci   = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
-					my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
-					my $field_count = @$scheme_fields + @$scheme_loci;
-					if ( $self->_too_many_cols( $scheme_info->{'primary_key'}, $field_count ) ) {
-						$continue = 0;
-					} else {
-						$self->remove_profile_data( $newdata->{'scheme_id'} );
-						$self->drop_scheme_view( $newdata->{'scheme_id'} );
-						$self->create_scheme_view( $newdata->{'scheme_id'} );
-					}
+				if ( $modifies_scheme{$table} ) {
+					$self->remove_profile_data( $newdata->{'scheme_id'} );
 				} elsif ( $table eq 'sequences' ) {
 					$self->{'datastore'}->mark_cache_stale;
 				}
@@ -368,6 +339,27 @@ sub _check_profile_refs {     ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	if ( !$self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
 		push @$problems, "Profile $newdata->{'profile_id'} does not exist.";
 	}
+	$self->_check_if_scheme_curator( $newdata, $problems );
+	return;
+}
+
+sub _check_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
+		push @$problems, "Profile $scheme_info->{'primary_key'}-$newdata->{'profile_id'} exists - "
+		  . 'you must delete it before it can be retired.';
+	}
+	$self->_check_if_scheme_curator( $newdata, $problems );
+	return;
+}
+
+sub _check_if_scheme_curator {
+	my ( $self, $newdata, $problems ) = @_;
+	return 1 if $self->is_admin;
+	if ( !$self->{'datastore'}->is_scheme_curator( $newdata->{'scheme_id'}, $self->get_curator_id ) ) {
+		push @$problems, 'You are not a curator for this scheme.';
+	}
 	return;
 }
 
@@ -450,9 +442,7 @@ sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSu
 
 sub _check_sequence_retired {
 	my ( $self, $newdata, $problems ) = @_;
-	my $retired =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-		[ $newdata->{'locus'}, $newdata->{'allele_id'} ] );
+	my $retired = $self->{'datastore'}->is_sequence_retired( $newdata->{'locus'}, $newdata->{'allele_id'} );
 	if ($retired) {
 		push @$problems, "Allele $newdata->{'allele_id'} has been retired.";
 	}
@@ -611,7 +601,7 @@ sub _check_sequence_extended_attributes {
 	return;
 }
 
-sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_scheme_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 
 	#special case to check that only one primary key field is set for a scheme field
@@ -624,9 +614,19 @@ sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 
 	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
 	if ( $newdata->{'field'} eq 'id' ) {
-		push @$problems, q(Scheme fields can not be called 'id'.);
+		push @$problems, q(Scheme fields cannot be called 'id'.);
 	}
 	return;
+}
+
+sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+
+	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
+	if ( $newdata->{'field'} eq 'id' ) {
+		push @$problems, q(Scheme fields cannot be called 'id'.);
+	}
+	return
 }
 
 sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -830,35 +830,30 @@ sub next_id {
 
 sub _next_id_profiles {
 	my ( $self, $scheme_id ) = @_;
-	if ( !$self->{'sql'}->{'next_id_profiles'} ) {
-		my $qry = 'SELECT DISTINCT CAST(profile_id AS int) FROM profiles WHERE scheme_id = ? AND '
-		  . 'CAST(profile_id AS int)>0 ORDER BY CAST(profile_id AS int)';
-		$self->{'sql'}->{'next_id_profiles'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'next_id_profiles'}->execute($scheme_id) };
-	if ($@) {
-		$logger->error($@);
-		return;
-	}
-	my $test = 0;
-	my $next = 0;
-	my $id   = 0;
-	while ( my @data = $self->{'sql'}->{'next_id_profiles'}->fetchrow_array ) {
-		if ( $data[0] != 0 ) {
-			$test++;
-			$id = $data[0];
-			if ( $test != $id ) {
-				$next = $test;
-				$self->{'sql'}->{'next_id_profiles'}->finish;
-				$logger->debug("Next id: $next");
-				return $next;
-			}
+	my $qry =
+	    'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
+	  . 'WHERE scheme_id=? ORDER BY profile_id';
+	my $test     = 0;
+	my $next     = 0;
+	my $id       = 0;
+	my $profiles = $self->{'datastore'}->run_query(
+		$qry,
+		[ $scheme_id, $scheme_id ],
+		{ fetch => 'col_arrayref', cache => 'CurateAddPage::next_id_profiles' }
+	);
+	foreach my $profile_id (@$profiles) {
+		$test++;
+		$id = $profile_id;
+		if ( $test != $id ) {
+			$next = $test;
+			$logger->debug("Next id: $next");
+			return $next;
 		}
 	}
 	if ( $next == 0 ) {
 		$next = $id + 1;
 	}
-	$self->{'sql'}->{'next_id_profiles'}->finish;
 	$logger->debug("Next id: $next");
 	return $next;
 }
@@ -910,14 +905,6 @@ sub _copy_locus_config {
 			$value = $locus_info->{$field} ? 'true' : 'false';
 		}
 		$newdata_ref->{$field} = $value;
-	}
-	return;
-}
-
-sub _format_data {
-	my ( $self, $table, $data_ref ) = @_;
-	if ( $table eq 'pcr' ) {
-		$data_ref->{$_} =~ s/[\r\n]//gx foreach qw (primer1 primer2);
 	}
 	return;
 }

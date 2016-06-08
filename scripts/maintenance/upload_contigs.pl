@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Upload contigs to isolate records
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,8 +104,7 @@ my $curator_exists =
   $script->{'datastore'}
   ->run_query( q(SELECT EXISTS(SELECT * FROM users WHERE id=? AND status IN ('curator','admin'))), $opts{'c'} );
 exit_cleanly("Curator id-$opts{'c'} does not exist (or user is not a curator).") if !$curator_exists;
-$opts{'m'} //= 'unknown';
-exit_cleanly("Method '$opts{'m'}' is invalid.") if none { $opts{'m'} eq $_ } SEQ_METHODS;
+exit_cleanly("Method '$opts{'m'}' is invalid.") if $opts{'m'} && none { $opts{'m'} eq $_ } SEQ_METHODS;
 main();
 $script->db_disconnect;
 exit;

@@ -29,6 +29,7 @@ use Apache2::Connection ();
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 2000;
+use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
 	no warnings 'qw';
@@ -91,7 +92,7 @@ use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
-	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -107,7 +108,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.3.4',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -157,6 +158,13 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		return;
 	}
+	if ( length $q->param('sequence') > MAX_QUERY_LENGTH ) {
+		$self->_print_interface;
+		my $limit = BIGSdb::Utils::commify(MAX_QUERY_LENGTH);
+		say q(<div class="box" id="statusbad"><p>Query sequence is limited to a )
+		  . qq(maximum of $limit characters.</p></div>);
+		return;
+	}
 	my @includes = $q->param('includes');
 	my $seq      = $q->param('sequence');
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
@@ -199,19 +207,22 @@ sub run {
 
 sub _get_headers {
 	my ( $self, $includes ) = @_;
-	my %meta_labels;
+	my %labels;
 	foreach my $field (@$includes) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$meta_labels{$field} = $metafield;
+		$labels{$field} = $metafield;
 	}
+	my ( $scheme_fields, $scheme_labels ) =
+	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1, ignore_prefs => 1 } );
+	$labels{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
 	my $html_buffer   = qq(<table class="resultstable">\n);
 	my $display_label = ucfirst( $self->{'system'}->{'labelfield'} );
 	$html_buffer .= qq(<tr><th>Isolate id</th><th>$display_label</th>);
-	$html_buffer .= q(<th>) . ( $meta_labels{$_} // $_ ) . q(</th>) foreach @$includes;
+	$html_buffer .= q(<th>) . ( $labels{$_} // $_ ) . q(</th>) foreach @$includes;
 	$html_buffer .= q(<th>% identity</th><th>Alignment length</th><th>Mismatches</th><th>Gaps</th><th>Seqbin id</th>)
 	  . qq(<th>Start</th><th>End</th><th>Orientation</th><th>E-value</th><th>Bit score</th></tr>\n);
 	my $text_buffer = "Isolate id\t$display_label\t";
-	$text_buffer .= ( $meta_labels{$_} // $_ ) . "\t" foreach @$includes;
+	$text_buffer .= ( $labels{$_} // $_ ) . "\t" foreach @$includes;
 	$text_buffer .=
 	  "% identity\tAlignment length\tMismatches\tGaps\tSeqbin id\tStart\tEnd\tOrientation\tE-value\tBit score\n";
 	return ( $html_buffer, $text_buffer );
@@ -315,7 +326,7 @@ sub run_job {
 	#Terminate cleanly on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
-	my @includes = split /\|\|/x, ($params->{'includes'} // q());
+	my @includes = split /\|\|/x, ( $params->{'includes'} // q() );
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
 	my $out_file                 = "$job_id.txt";
 	my $out_file_flanking        = "${job_id}_flanking.txt";
@@ -561,7 +572,24 @@ sub _get_include_values {
 			if ( defined $metaset ) {
 				$value = $self->{'datastore'}->get_metadata_value( $isolate_id, $metaset, $metafield );
 			} else {
-				$value = $include_data->{$field} // '';
+				if ( $field =~ /s_(\d+)_(\w+)/x ) {
+					my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+					my $scheme_field_values =
+					  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+					no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+					my @values =
+					  sort {
+						$scheme_field_values->{ lc($scheme_field) }->{$a}
+						  cmp $scheme_field_values->{ lc($scheme_field) }->{$b}
+						  || $a <=> $b
+						  || $a cmp $b
+					  }
+					  keys %{ $scheme_field_values->{ lc($scheme_field) } };
+					local $" = q(,);
+					$value = "@values" // q();
+				} else {
+					$value = $include_data->{$field} // q();
+				}
 			}
 			push @include_values, $value;
 		}
@@ -606,6 +634,10 @@ sub _print_interface {
 		push @fields, $field;
 		( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
 	}
+	my ( $scheme_fields, $scheme_labels ) =
+	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1 } );
+	push @fields, @$scheme_fields;
+	$labels->{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
 	say $q->scrolling_list(
 		-name     => 'includes',
 		-id       => 'includes',
@@ -718,7 +750,7 @@ sub _blast {
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
-			return;
+			return [];
 		}
 		$qry .= ' AND method=?';
 		push @criteria, $method;
@@ -727,7 +759,7 @@ sub _blast {
 	if ($project) {
 		if ( !BIGSdb::Utils::is_int($project) ) {
 			$logger->error("Invalid project $project");
-			return;
+			return [];
 		}
 		$qry .= ' AND project_id=?';
 		push @criteria, $project;
@@ -736,7 +768,7 @@ sub _blast {
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
 			$logger->error("Invalid experiment $experiment");
-			return;
+			return [];
 		}
 		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
@@ -751,7 +783,7 @@ sub _blast {
 		say $fastafile_fh ">$id\n$seq";
 	}
 	close $fastafile_fh;
-	return if -z $temp_fastafile;
+	return [] if -z $temp_fastafile;
 	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1 : 11;
 	my $hits             = $form_params->{'hits'}      =~ /(\d+)/x ? $1 : 1;
 	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;

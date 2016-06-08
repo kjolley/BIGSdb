@@ -136,20 +136,22 @@ sub create_temp_tables {
 	my $q        = $self->{'cgi'};
 	my $format   = $q->param('format') || 'html';
 	my $schemes  = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $cschemes = $self->{'datastore'}->run_query('SELECT id FROM classification_schemes',undef,{fetch=>'col_arrayref'});
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/x ) {
+				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
-				if ( $qry =~ /temp_scheme_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
-					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+			}
+			foreach my $cscheme_id (@$cschemes){
+				if ($qry =~ /temp_cscheme_$cscheme_id\D/x){
+					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
 			}
 		}
@@ -661,7 +663,8 @@ sub print_includes_fieldset {
 				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 				foreach my $field (@$scheme_fields) {
 					push @fields, "s_$scheme->{'id'}_$field";
-					$labels->{"s_$scheme->{'id'}_$field"} = "$scheme->{'description'}: $field";
+					$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'description'})";
+					$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
 				}
 			}
 		}

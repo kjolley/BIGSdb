@@ -126,7 +126,8 @@ sub _check {
 				} else {
 					$newdata{$field} = $q->param($field);
 				}
-				my $bad_field = $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata{$field}, undef, $set_id );
+				my $bad_field =
+				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata{$field}, undef, $set_id );
 				if ($bad_field) {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field.);
 				}
@@ -195,7 +196,7 @@ sub _update {
 	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
-		chomp $new;
+		$new = $self->clean_value( $new, { no_escape => 1 } );
 		next if $new eq '';
 		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
 			push @alias_update,

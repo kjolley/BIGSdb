@@ -96,20 +96,9 @@ sub _get_locus {
 	} else {
 
 		#Isolate databases - attempt to link to seqdef definitions
-		#We probably need to have a specific field in the loci table to
-		#define this as there are too many cases where this won't work.
-		if (
-			   $locus_info->{'description_url'}
-			&& $locus_info->{'description_url'} =~ /page=locusInfo/x
-			&& $locus_info->{'description_url'} =~ /^\//x              #Relative URL so on same server
-			&& $locus_info->{'description_url'} =~ /locus=(\w+)/x
-		  )
-		{
-			my $seqdef_locus = $1;
-			if ( $locus_info->{'description_url'} =~ /db=(\w+)/x ) {
-				my $seqdef_config = $1;
-				$values->{'seqdef_definition'} = request->uri_for("/db/$seqdef_config/loci/$seqdef_locus");
-			}
+		my $seqdef_definition = _get_seqdef_definition($locus_name);
+		if ($seqdef_definition) {
+			$values->{'seqdef_definition'} = request->uri_for($seqdef_definition);
 		}
 	}
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
@@ -138,6 +127,30 @@ sub _get_locus {
 		}
 	}
 	return $values;
+}
+
+#We probably need to have a specific field in the loci table to
+#define this as there are too many cases where this won't work.
+sub _get_seqdef_definition {
+	my ($locus)    = @_;
+	my $self       = setting('self');
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	foreach my $url (qw(description_url url)) {
+		if (
+			$locus_info->{$url}
+			&& $locus_info->{$url} =~ /page=(?:locusInfo|alleleInfo)/x
+			&& $locus_info->{$url} =~ /^\//x                             #Relative URL so on same server
+			&& $locus_info->{$url} =~ /locus=(\w+)/x
+		  )
+		{
+			my $seqdef_locus = $1;
+			if ( $locus_info->{$url} =~ /db=(\w+)/x ) {
+				my $seqdef_config = $1;
+				return "/db/$seqdef_config/loci/$seqdef_locus";
+			}
+		}
+	}
+	return;
 }
 
 sub _get_extended_attributes {

@@ -129,7 +129,7 @@ sub get_isolate_loci {
 	my %include = map { $_ => 1 } @$loci_with_flag;
 	foreach my $locus (@$loci) {
 		next if !$include{$locus};
-		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
+		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1, keep_underscores => 1 } );
 		push @headers, $cleaned_name;
 	}
 	return \@headers;

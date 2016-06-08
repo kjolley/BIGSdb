@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,12 +24,10 @@ our @EXPORT_OK;
 our %EXPORT_TAGS;
 
 #Limits
-use constant MAX_UPLOAD_SIZE   => 32 * 1024 * 1024;    #32Mb
-use constant MAX_POSTGRES_COLS => 1664;
 use constant MAX_SPLITS_TAXA   => 200;
 use constant MAX_MUSCLE_MB     => 4 * 1024;            #4GB
-push @EXPORT_OK, qw(MAX_UPLOAD_SIZE MAX_POSTGRES_COLS MAX_SPLITS_TAXA MAX_MUSCLE_MB);
-$EXPORT_TAGS{'limits'} = [qw(MAX_UPLOAD_SIZE MAX_POSTGRES_COLS MAX_SPLITS_TAXA MAX_MUSCLE_MB)];
+push @EXPORT_OK, qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB);
+$EXPORT_TAGS{'limits'} = [qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB)];
 
 #Methods
 use constant SEQ_METHODS =>
@@ -88,6 +86,7 @@ use constant SEQ_FLAGS => (
 	'frameshift',
 	'internal stop codon',
 	'no start codon',
+	'no stop codon',
 	'phase variable: off',
 	'truncated',
 	'upstream fusion'
@@ -99,6 +98,7 @@ use constant ALLELE_FLAGS => (
 	'frameshift',
 	'internal stop codon',
 	'no start codon',
+	'no stop codon',
 	'phase variable: off',
 	'truncated',
 	'upstream fusion'

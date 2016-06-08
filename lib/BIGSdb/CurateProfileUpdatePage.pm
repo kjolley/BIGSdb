@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -118,7 +118,7 @@ sub _prepare_update {
 
 	foreach my $locus (@$loci) {
 		$newdata{"locus:$locus"} = $q->param("locus:$locus");
-		$self->_clean_field( \$newdata{"locus:$locus"} );
+		$self->clean_field( \$newdata{"locus:$locus"} );
 		my $field_bad = $self->is_locus_field_bad( $scheme_id, $locus, $newdata{"locus:$locus"} );
 		push @bad_field_buffer, $field_bad if $field_bad;
 		if ( $allele_data->{$locus} ne $newdata{"locus:$locus"} ) {
@@ -128,13 +128,15 @@ sub _prepare_update {
 	}
 	if ( !@bad_field_buffer && $profile_changed ) {
 		$newdata{"field:$primary_key"} = $profile_id;
-		my ( $exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		push @bad_field_buffer, $msg if $exists;
+		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
+		push @bad_field_buffer, $ret->{'msg'} if $ret->{'exists'};
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
 		$newdata{"field:$field"} = $q->param("field:$field");
-		$self->_clean_field( \$newdata{"field:$field"} );
+		$self->clean_field( \$newdata{"field:$field"} );
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if (   $field_info->{'type'} eq 'integer'
 			&& $newdata{"field:$field"} ne ''
@@ -221,7 +223,6 @@ sub _update {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my @matview;
 	foreach my $locus ( keys %$locus_changed ) {
 		eval {
 			$self->{'db'}->do(
@@ -234,13 +235,6 @@ sub _update {
 			$self->_handle_failure;
 			return;
 		}
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-		push @matview,
-		  {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($cleaned,datestamp,curator)=(?,?,?) WHERE "
-			  . "$locus_info->{'primary_key'}=?",
-			arguments => [ $newdata->{"locus:$locus"}, 'now', $curator_id, $profile_id ]
-		  };
 		push @$updated_field, qq($locus: '$allele_data->{$locus}' -> '$newdata->{"locus:$locus"}');
 	}
 	foreach my $field ( keys %$field_changed ) {
@@ -294,11 +288,6 @@ sub _update {
 		}
 		my $value = $newdata->{"field:$field"};
 		undef $value if $newdata->{"field:$field"} eq q();
-		push @matview, {
-			statement => "UPDATE mv_scheme_$scheme_id SET ($field,datestamp,curator)=(?,?,?) WHERE "
-			  . "$locus_info->{'primary_key'}=?",
-			arguments => [ $value, 'now', $curator_id, $profile_id ]
-		};
 	}
 	if ( keys %$locus_changed || keys %$field_changed ) {
 		eval {
@@ -315,11 +304,6 @@ sub _update {
 		foreach my $insert (@$extra_inserts)
 		{
 			$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-		}
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			foreach my $insert (@matview) {
-				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-			}
 		}
 	};
 	if ($@) {

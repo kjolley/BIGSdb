@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,6 +40,7 @@ my $TBLASTX            = 'off';
 my $HUNT               = 'off';
 my $RESCAN_ALLELES     = 'off';
 my $RESCAN_SEQS        = 'off';
+my $TYPE_ALLELES       = 'off';
 my $MARK_MISSING       = 'off';
 
 sub get_javascript {
@@ -67,6 +68,7 @@ function use_defaults() {
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
 	\$("#rescan_seqs").prop(\"checked\",$check_values{$RESCAN_SEQS});
+	\$("#type_alleles").prop(\"checked\",$check_values{$TYPE_ALLELES});
 	\$("#mark_missing").prop(\"checked\",$check_values{$MARK_MISSING});
 }
 	
@@ -397,6 +399,20 @@ sub _print_parameter_fieldset {
 	);
 	say q(</li><li>);
 	say $q->checkbox(
+		-name    => 'type_alleles',
+		-id      => 'type_alleles',
+		-label   => 'Use only type alleles to identify locus',
+		-checked => ( $general_prefs->{'scan_type_alleles'} && $general_prefs->{'scan_type_alleles'} eq 'on' )
+		? 'checked'
+		: q()
+	);
+	say q( <a class="tooltip" title="Type alleles - Constrain the search space to contain only type alleles. These )
+	  . q(are defined in the sequence record. This can prevent more variable alleles being defined over time. )
+	  . q(If the locus region is identified then a full database lookup will be used to identify a known allele. )
+	  . q(<br /><br />)
+	  . q(Note that if no type alleles have been defined then you will not find any matches!">)
+	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
+	say $q->checkbox(
 		-name    => 'mark_missing',
 		-id      => 'mark_missing',
 		-label   => q(Mark missing sequences as provisional allele '0'),
@@ -430,6 +446,7 @@ sub _scan {
 	push @ids, @$pasted_cleaned_ids;
 	@ids = uniq sort { $a <=> $b } @ids;
 	$q->param( isolate_id => @ids );
+
 	if ( !@ids ) {
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
 		$self->_print_interface;
@@ -447,7 +464,7 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt rescan_alleles rescan_seqs mark_missing)
+			tblastx hunt rescan_alleles rescan_seqs type_alleles mark_missing)
 		  )
 		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
@@ -485,6 +502,7 @@ sub _scan {
 				throw_busy_exception => 1
 			};
 			my $params = $q->Vars;
+			$params->{'scannew'} = 1;
 			try {
 				my $scan = BIGSdb::Offline::Scan->new(
 					{
@@ -816,14 +834,13 @@ sub _add_scheme_loci {
 
 sub _create_temp_tables {
 	my ( $self, $qry_ref ) = @_;
-	my $qry      = $$qry_ref;
-	my $schemes  = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $continue = 1;
+	my $qry        = $$qry_ref;
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $continue   = 1;
 	try {
-		foreach (@$schemes) {
-			if ( $qry =~ /temp_scheme_$_\s/x || $qry =~ /ORDER\ BY\ s_$_\_/x ) {
-				$self->{'datastore'}->create_temp_scheme_table($_);
-				$self->{'datastore'}->create_temp_isolate_scheme_loci_view($_);
+		foreach my $scheme_id (@$scheme_ids) {
+			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2015, University of Oxford
+#Copyright (c) 2013-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -237,7 +237,7 @@ sub _check_sequence {
 			do {
 				$allele_id++;
 				$exists = $self->{'datastore'}->sequence_exists( $locus, $allele_id );
-				$retired = $self->{'datastore'}->sequence_retired( $locus, $allele_id );
+				$retired = $self->{'datastore'}->is_sequence_retired( $locus, $allele_id );
 			} while $exists || $retired;
 			$self->{'last_id'} = $allele_id;
 		}
@@ -280,7 +280,7 @@ sub _check_allele_id {
 	if ( $self->{'datastore'}->sequence_exists( $locus, $allele_id ) ) {
 		return 'Allele id already exists.';
 	}
-	if ( $self->{'datastore'}->sequence_retired( $locus, $allele_id ) ) {
+	if ( $self->{'datastore'}->is_sequence_retired( $locus, $allele_id ) ) {
 		return 'Allele id has been retired.';
 	}
 

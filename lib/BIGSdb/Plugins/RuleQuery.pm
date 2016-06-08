@@ -26,7 +26,6 @@ use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_UPLOAD_SIZE => 32 * 1024 * 1024;    #32Mb
 
 sub get_attributes {
 	my ($self) = @_;
@@ -40,7 +39,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.5',
+		version          => '1.0.6',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -138,7 +137,7 @@ sub _upload_fasta_file {
 	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
 	binmode $fh2;
 	binmode $fh;
-	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	print $fh $buffer;
 	close $fh;
 	return "${temp}_upload.fas";
@@ -331,10 +330,11 @@ sub _scan_scheme {
 		push @placeholders, '?' foreach (@$scheme_loci);
 		if ( @$scheme_fields && $scheme_loci ) {
 			local $" = ',';
-			my $field_values =
-			  $self->{'datastore'}
-			  ->run_query( "SELECT @$scheme_fields FROM scheme_$scheme_id WHERE (@$scheme_loci) = (@placeholders)",
-				\@profiles, { fetch => 'row_hashref' } );
+			my $field_values = $self->{'datastore'}->run_query(
+				"SELECT @$scheme_fields FROM mv_scheme_$scheme_id WHERE profile=?",
+				BIGSdb::Utils::get_pg_array( \@profiles ),
+				{ fetch => 'row_hashref' }
+			);
 			foreach my $field (@$scheme_fields) {
 				$self->{'results'}->{'scheme'}->{$scheme_id}->{$field} = $field_values->{ lc($field) }
 				  if defined $field_values->{ lc($field) };

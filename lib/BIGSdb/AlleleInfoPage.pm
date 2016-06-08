@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -89,7 +89,7 @@ sub print_content {
 		say q(<dt>description</dt><dd>This is an arbitrary allele.  When included )
 		  . q(in a profile it means that this locus is ignored.</dd>);
 	} else {
-		say qq(<dt>sequences</dt><dd style="text-align:left" class="seq">$seq</dd>)
+		say qq(<dt>sequence</dt><dd style="text-align:left" class="seq">$seq</dd>)
 		  . qq(<dt>length</dt><dd>$length</dd>)
 		  . qq(<dt>status</dt><dd>$seq_ref->{'status'}</dd>)
 		  . qq(<dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>)

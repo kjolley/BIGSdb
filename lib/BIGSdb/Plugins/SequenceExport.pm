@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.8',
+		version          => '1.5.9',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -236,15 +236,6 @@ sub _get_limit {
 	return $limit;
 }
 
-sub _get_scheme_view {
-	my ( $self, $scheme_id ) = @_;
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id)
-	  ? "mv_scheme_$scheme_id"
-	  : "scheme_$scheme_id";
-	return $scheme_view;
-}
-
 sub _run_job_profiles {
 	my ( $self, $job_id, $params ) = @_;
 	my $scheme_id = $params->{'scheme_id'};
@@ -257,12 +248,12 @@ sub _run_job_profiles {
 	my %problem_id_checked;
 	my $start = 1;
 	my $end;
-	my $no_output     = 1;
-	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
-	my $selected_loci = $self->order_loci( $loci, { scheme_id => $scheme_id } );
-	my $ids           = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
-	my $limit         = $self->_get_limit;
-	my $scheme_view   = $self->_get_scheme_view($scheme_id);
+	my $no_output        = 1;
+	my $loci             = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci    = $self->order_loci( $loci, { scheme_id => $scheme_id } );
+	my $ids              = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
+	my $limit            = $self->_get_limit;
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
 
 	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html =
@@ -291,7 +282,7 @@ sub _run_job_profiles {
 		foreach my $id (@$ids) {
 			last if $count == $limit && $params->{'align'};
 			$count++;
-			my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM $scheme_view WHERE $pk=?",
+			my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM $scheme_warehouse WHERE $pk=?",
 				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_profiles::profile_data' } );
 			my $profile_id = $profile_data->{ lc($pk) };
 			my $header;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,9 @@ sub print_content {
 	my $table      = $q->param('table');
 	my $query_file = $q->param('query_file');
 	my $query      = $self->get_query_from_temp_file($query_file);
+	if ( $q->param('datatype') && $q->param('list_file') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say "<h1>Delete multiple $record_name records</h1>";
@@ -77,16 +80,13 @@ sub print_content {
 		  . qq(from the $table table.</p></div>);
 		return;
 	}
-	if ( $q->param('datatype') && $q->param('list_file') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
-	}
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
-			if ( $query =~ /temp_scheme_$scheme_id\s/x ) {
+			if ( $query =~ /temp_isolates_scheme_fields_$scheme_id\s/x ) {
 				try {
-					$self->{'datastore'}->create_temp_scheme_table($scheme_id);
-					$self->{'datastore'}->create_temp_isolate_scheme_loci_view($scheme_id);
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 					say q[<div class="box" id="statusbad"><p>Can't copy data into temporary table - please ]
@@ -109,48 +109,21 @@ sub _delete {
 	my $delete_qry = $query;
 	my $q          = $self->{'cgi'};
 	$delete_qry =~ s/ORDER\ BY.*//x;
-	if ( $table eq 'loci' && $delete_qry =~ /JOIN\ scheme_members/x && $delete_qry =~ /scheme_id\ is\ null/x ) {
-		$delete_qry = "DELETE FROM loci WHERE id IN ($delete_qry)";
-		$delete_qry =~ s/SELECT\ \*/SELECT id/x;
-	} elsif ( $table eq 'sequence_bin' && $delete_qry =~ /JOIN experiment_sequences/ ) {
-		$delete_qry = "DELETE FROM sequence_bin WHERE id IN ($delete_qry)";
-		$delete_qry =~ s/SELECT\ \*/SELECT id/x;
-	} elsif (
-		$table eq 'allele_sequences'
-		&& (   $delete_qry =~ /JOIN\ sequence_flags/x
-			|| $delete_qry =~ /JOIN\ sequence_bin/x
-			|| $delete_qry =~ /JOIN\ scheme_members/x )
-	  )
-	{
-		$delete_qry =~ s/SELECT\ \*/SELECT allele_sequences.id/x;
-		$delete_qry = "DELETE FROM allele_sequences WHERE id IN ($delete_qry)";
-	} elsif ( $table eq 'allele_designations' && ( $delete_qry =~ /JOIN scheme_members/ ) ) {
-		$delete_qry =~
-		  s/SELECT\ \*/SELECT allele_designations.isolate_id,allele_designations.locus,allele_designations.allele_id/x;
-		$delete_qry = "DELETE FROM allele_designations WHERE (isolate_id,locus,allele_id) IN ($delete_qry)";
+	my %subs = (
+		sequence_bin     => sub { $self->_sub_sequence_bin( \$delete_qry ) },
+		allele_sequences => sub { $self->_sub_allele_sequences( \$delete_qry ) }
+	);
+	if ( $subs{$table} ) {
+		$subs{$table}->();
 	}
 	$delete_qry =~ s/^SELECT\ \*/DELETE/x;
-	my $scheme_ids;
-	my $schemes_affected;
 	my $ids_affected = [];
-	if ( $table eq 'loci' && $delete_qry =~ /JOIN scheme_members/ && $delete_qry !~ /scheme_id is null/ ) {
-		$schemes_affected = 1;
-	}
 	my @allele_designations;
 	my @history;
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
-		#Find what schemes are affected, then recreate scheme view
-		my $scheme_qry = $query;
-		$scheme_qry =~ s/SELECT\ \*/SELECT scheme_id/x;
-		$scheme_qry =~ s/ORDER\ BY.*//x;
-		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
-	} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $scheme_qry = $query;
-		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
-		$scheme_qry =~ s/ORDER\ BY.*//x;
-		$scheme_ids = $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
-	} elsif ( $table eq 'allele_designations' ) {
+	#Find what schemes are affected, then recreate scheme view
+	my $scheme_ids = $self->_get_affected_schemes( $table, $query );
+	if ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
 		my $check_qry = $query;
@@ -166,11 +139,6 @@ sub _delete {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
-	}
-	if ($schemes_affected) {
-		say q(<div class="box" id="statusbad"><p>Deleting these loci would affect scheme )
-		  . q(definitions - cannot delete!</p></div>);
-		return;
 	}
 	eval {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
@@ -196,24 +164,7 @@ sub _delete {
 		} else {
 			$self->{'db'}->do($delete_qry);
 		}
-		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-		{
-			foreach (@$scheme_ids) {
-				$self->remove_profile_data($_);
-				$self->drop_scheme_view($_);
-				$self->create_scheme_view($_);
-			}
-		} elsif ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			foreach (@$scheme_ids) {
-				$self->drop_scheme_view($_);
-			}
-		} elsif ( $table eq 'sequences' ) {
-			$self->{'datastore'}->mark_cache_stale;
-		} elsif ( $table eq 'profiles' ) {
-			my $scheme_id = $q->param('scheme_id');
-			$self->refresh_material_view($scheme_id);
-		}
+		$self->_refresh_db_views( $table, $scheme_ids );
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
@@ -262,6 +213,62 @@ sub _delete {
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
 	}
 	return;
+}
+
+sub _refresh_db_views {
+	my ( $self, $table, $scheme_ids ) = @_;
+	my $q = $self->{'cgi'};
+	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
+		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
+	{
+		foreach (@$scheme_ids) {
+			$self->remove_profile_data($_);
+		}
+		return;
+	}
+	if ( $table eq 'sequences' ) {
+		$self->{'datastore'}->mark_cache_stale;
+		return;
+	}
+	return;
+}
+
+sub _sub_sequence_bin {
+	my ( $self, $qry ) = @_;
+	if ( $$qry =~ /JOIN experiment_sequences/ ) {
+		$$qry = "DELETE FROM sequence_bin WHERE id IN ($$qry)";
+		$$qry =~ s/SELECT\ \*/SELECT id/x;
+	}
+	return;
+}
+
+sub _sub_allele_sequences {
+	my ( $self, $qry ) = @_;
+	if (   $$qry =~ /JOIN\ sequence_flags/x
+		|| $$qry =~ /JOIN\ sequence_bin/x
+		|| $$qry =~ /JOIN\ scheme_members/x )
+	{
+		$$qry =~ s/SELECT\ \*/SELECT allele_sequences.id/x;
+		$$qry = "DELETE FROM allele_sequences WHERE id IN ($$qry)";
+	}
+	return;
+}
+
+sub _get_affected_schemes {
+	my ( $self, $table, $query ) = @_;
+	return [] if $self->{'system'}->{'dbtype'} ne 'sequences';
+	if ( $table eq 'scheme_members' || $table eq 'scheme_fields' ) {
+		my $scheme_qry = $query;
+		$scheme_qry =~ s/SELECT\ \*/SELECT scheme_id/x;
+		$scheme_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	} elsif ( $table eq 'schemes' ) {
+		my $scheme_qry = $query;
+		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
+		$scheme_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	}
+	return [];
 }
 
 sub _print_interface {

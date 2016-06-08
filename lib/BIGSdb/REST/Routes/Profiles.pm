@@ -37,15 +37,14 @@ sub _get_profiles {
 	my $allowed_filters = [qw(added_after updated_after)];
 	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $profile_view =
-	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $qry           = $self->add_filters( "SELECT COUNT(*) FROM $profile_view", $allowed_filters );
-	my $profile_count = $self->{'datastore'}->run_query($qry);
-	my $pages         = ceil( $profile_count / $self->{'page_size'} );
-	my $offset        = ( $page - 1 ) * $self->{'page_size'};
-	my $pk_info       = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $profile_view", $allowed_filters );
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $qry              = $self->add_filters( "SELECT COUNT(*) FROM $scheme_warehouse", $allowed_filters );
+	my $profile_count    = $self->{'datastore'}->run_query($qry);
+	my $pages            = ceil( $profile_count / $self->{'page_size'} );
+	my $offset           = ( $page - 1 ) * $self->{'page_size'};
+	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $scheme_warehouse", $allowed_filters );
 	$qry .= ' ORDER BY '
 	  . (
 		$pk_info->{'type'} eq 'integer'
@@ -74,24 +73,21 @@ sub _get_profiles_csv {
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
 	my $allowed_filters = [qw(added_after updated_after)];
 	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $set_id      = $self->get_set_id;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $primary_key = $scheme_info->{'primary_key'};
-	if ( !$scheme_info ) {
-		send_error( "Scheme $scheme_id does not exist.", 404 );
-	} elsif ( !$primary_key ) {
-		send_error( "Scheme $scheme_id does not have a primary key field.", 404 );
-	}
+	my $set_id        = $self->get_set_id;
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $primary_key   = $scheme_info->{'primary_key'};
 	my @heading       = ( $scheme_info->{'primary_key'} );
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my @fields        = ( $scheme_info->{'primary_key'} );
+	my @fields        = ( $scheme_info->{'primary_key'}, 'profile' );
+	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	my @order;
+
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
 		push @heading, $header_value;
-		( my $cleaned = $locus ) =~ s/'/_PRIME_/gx;
-		push @fields, $cleaned;
+		push @order,   $locus_indices->{$locus};
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $scheme_info->{'primary_key'};
@@ -101,12 +97,10 @@ sub _get_profiles_csv {
 	local $" = "\t";
 	my $buffer = "@heading\n";
 	local $" = ',';
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_view", $allowed_filters );
-	$qry .= ' ORDER BY '
-	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $qry              = $self->add_filters( "SELECT @fields FROM $scheme_warehouse", $allowed_filters );
+	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 
 	if ( !@$data ) {
@@ -115,8 +109,10 @@ sub _get_profiles_csv {
 	local $" = "\t";
 	{
 		no warnings 'uninitialized';    #scheme field values may be undefined
-		foreach my $profile (@$data) {
-			$buffer .= "@$profile\n";
+		foreach my $definition (@$data) {
+			my $pk      = shift @$definition;
+			my $profile = shift @$definition;
+			$buffer .= qq($pk\t@$profile[@order]\t@$definition\n);
 		}
 	}
 	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
@@ -135,20 +131,20 @@ sub _get_profile {
 	if ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
 	}
-	my $profile_view =
-	  ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $profile = $self->{'datastore'}->run_query( "SELECT * FROM $profile_view WHERE $scheme_info->{'primary_key'}=?",
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $profile =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $scheme_warehouse WHERE $scheme_info->{'primary_key'}=?",
 		$profile_id, { fetch => 'row_hashref' } );
 	if ( !$profile ) {
 		send_error( "Profile $scheme_info->{'primary_key'}-$profile_id does not exist.", 404 );
 	}
-	my $values       = {};
-	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $allele_links = [];
+	my $values        = {};
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $allele_links  = [];
+	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
-		( my $profile_name = $locus ) =~ s/'/_PRIME_/gx;
-		my $allele_id = $profile->{ lc($profile_name) };
+		my $allele_id     = $profile->{'profile'}->[ $locus_indices->{$locus} ];
 		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;

@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Bio::DB::GenBank;
 use Error qw(:try);
-use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub print_content {
 	my ($self) = @_;
@@ -555,7 +555,7 @@ sub _upload_fasta_file {
 	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
 	binmode $fh2;
 	binmode $fh;
-	read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	print $fh $buffer;
 	close $fh;
 	return "$temp\_upload.fas";

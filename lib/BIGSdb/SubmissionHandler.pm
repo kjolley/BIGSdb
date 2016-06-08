@@ -76,6 +76,35 @@ sub _delete_submission_files {
 	return;
 }
 
+sub set_allele_status {
+	my ( $self, $submission_id, $seq_id, $status, $assigned_id ) = @_;
+	eval {
+		$self->{'db'}
+		  ->do( 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)',
+			undef, $status, $assigned_id, $submission_id, $seq_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub update_submission_datestamp {
+	my ( $self, $submission_id ) = @_;
+	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub get_submission {
 	my ( $self, $submission_id ) = @_;
 	$logger->logcarp('No submission_id passed') if !$submission_id;
@@ -706,6 +735,7 @@ sub _check_isolate_date_entered {    ## no critic (ProhibitUnusedPrivateSubrouti
 sub _check_isolate_id_exists {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'id';
+	return "$value is not an integer" if !BIGSdb::Utils::is_int($value);
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)',
 		$value, { cache => 'CuratePage::is_field_bad_isolates::id_exists' } );
 	if ($exists) {
@@ -794,7 +824,7 @@ sub _is_field_bad_other {
 		}
 	}
 	$thisfield->{'type'} ||= 'text';
-	my @checks_by_attribute = qw(required integer float regex optlist length);
+	my @checks_by_attribute = qw(required integer boolean float regex optlist length);
 	foreach my $check (@checks_by_attribute) {
 		my $method = "_check_other_$check";
 		my $message = $self->$method( $thisfield, $value );
@@ -879,6 +909,16 @@ sub _check_other_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return if !defined $value || $value eq q();
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
 		return 'must be a floating point number';
+	}
+	return;
+}
+
+#Make sure boolean fields really are boolean
+sub _check_other_boolean {
+	my ( $self, $thisfield, $value ) = @_;
+	return if !defined $value || $value eq q();
+	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
+		return 'must be a boolean value (true/false or 1/0)';
 	}
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -98,8 +98,9 @@ sub get_title {
 sub _is_pk_used {
 	my ( $self, $scheme_id, $profile_id ) = @_;
 	return $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
-		[ $scheme_id, $profile_id ],
+		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?)) OR '
+		  . 'EXISTS(SELECT * FROM retired_profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $profile_id, $scheme_id, $profile_id ],
 		{ cache => 'CurateProfileBatchAddPage::is_pk_used' }
 	);
 }
@@ -217,12 +218,16 @@ sub _check {
 		$i = 0;
 		foreach my $field (@fieldorder) {
 			my $value;
+			my $problem;
 			if ( $field eq $primary_key ) {
 				$header_row .= "$primary_key\t"
 				  if $first_record && !$pk_included;
 				$value = $pk;
+				if ( $self->{'datastore'}->is_profile_retired( $scheme_id, $pk ) ) {
+					$problems{$pk} .= "$primary_key-$value has been retired.<br />";
+					$problem = 1;
+				}
 			}
-			my $problem;
 			if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 				$value = BIGSdb::Utils::get_datestamp();
 			} elsif ( $field eq 'sender' ) {
@@ -290,10 +295,12 @@ sub _check {
 		$first_record = 0;
 
 		#check if profile exists
-		my ( $profile_exists, $msg ) = $self->profile_exists( $scheme_id, $primary_key, \%newdata );
-		if ($profile_exists) {
+		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
+		my $ret =
+		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
+		if ( $ret->{'exists'} ) {
 			next RECORD if $q->param('ignore_existing');
-			$problems{$pk} .= "$msg<br />";
+			$problems{$pk} .= "$ret->{'msg'}<br />";
 		}
 
 		#check if primary key already exists
@@ -466,16 +473,6 @@ sub _upload {
 			  };
 			push @mv_fields, $field;
 			push @mv_values, $data[ $fieldorder{$field} ];
-		}
-
-		#It is more efficient to directly add new records to the materialized view than
-		#to call $self->refresh_material_view($scheme_id).
-		if ( ( $self->{'system'}->{'materialized_views'} // '' ) eq 'yes' ) {
-			my @placeholders = ('?') x ( @mv_fields + 4 );
-			local $" = q(,);
-			my $qry = "INSERT INTO mv_scheme_$scheme_id (@mv_fields,sender,curator,"
-			  . "date_entered,datestamp) VALUES (@placeholders)";
-			push @inserts, { statement => $qry, arguments => [ @mv_values, $curator, $sender, 'now', 'now' ] };
 		}
 		eval {
 			foreach my $insert (@inserts)

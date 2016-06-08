@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -651,110 +651,112 @@ sub get_field_selection_list {
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
+	#classification_groups: include classification group ids and field, prefix with cg_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$logger->logdie('Invalid option hashref') if ref $options ne 'HASH';
 	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
-	my @values;
+	my $values = [];
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
-		push @values, @$isolate_fields;
+		push @$values, @$isolate_fields;
 	}
 	if ( $options->{'loci'} ) {
-		if ( !$self->{'cache'}->{'loci'} ) {
-			my @locus_list;
-			my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
-			eval { $cn_sql->execute };
-			$logger->error($@) if $@;
-			my $common_names = $cn_sql->fetchall_hashref('id');
-			my $set_id       = $self->get_set_id;
-			my $loci         = $self->{'datastore'}->get_loci(
-				{
-					query_pref    => $options->{'query_pref'},
-					analysis_pref => $options->{'analysis_pref'},
-					seq_defined   => 0,
-					do_not_order  => 1,
-					set_id        => $set_id
-				}
-			);
-			my $set_loci = {};
-
-			if ($set_id) {
-				my $set_loci_sql = $self->{'db'}->prepare('SELECT * FROM set_loci WHERE set_id=?');
-				eval { $set_loci_sql->execute($set_id) };
-				$logger->error($@) if $@;
-				$set_loci = $set_loci_sql->fetchall_hashref('locus');
-			}
-			foreach my $locus (@$loci) {
-				push @locus_list, "l_$locus";
-				$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
-				my $set_name_is_set;
-				if ($set_id) {
-					my $set_locus = $set_loci->{$locus};
-					if ( $set_locus->{'set_name'} ) {
-						$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
-						if ( $set_locus->{'set_common_name'} ) {
-							$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
-							push @locus_list, "cn_$locus";
-							$self->{'cache'}->{'labels'}->{"cn_$locus"} =
-							  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
-						}
-						$set_name_is_set = 1;
-					}
-				}
-				if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
-					$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
-					push @locus_list, "cn_$locus";
-					$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
-				}
-			}
-			if ( $self->{'prefs'}->{'locus_alias'} ) {
-				my $alias_sql = $self->{'db'}->prepare('SELECT locus,alias FROM locus_aliases');
-				eval { $alias_sql->execute };
-				if ($@) {
-					$logger->error($@);
-				} else {
-					my $array_ref = $alias_sql->fetchall_arrayref;
-					foreach (@$array_ref) {
-						my ( $locus, $alias ) = @$_;
-
-						#if there is no label for the primary name it is because the locus
-						#should not be displayed
-						next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
-						$alias =~ tr/_/ /;
-						push @locus_list, "la_$locus||$alias";
-						$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} =
-						  "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
-					}
-				}
-			}
-			@locus_list =
-			  sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) }
-			  @locus_list;
-			@locus_list = uniq @locus_list;
-			$self->{'cache'}->{'loci'} = \@locus_list;
-		}
-		if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
-			push @values, @{ $self->{'cache'}->{'loci'} };
-		}
+		my $loci = $self->_get_loci_list($options);
+		push @$values, @$loci;
 	}
 	if ( $options->{'scheme_fields'} ) {
 		my $scheme_fields = $self->_get_scheme_fields($options);
-		push @values, @$scheme_fields;
+		push @$values, @$scheme_fields;
+	}
+	if ( $options->{'classification_groups'} ) {
+		my $classification_group_fields = $self->_get_classification_groups_fields;
+		push @$values, @$classification_group_fields;
 	}
 	if ( $options->{'sort_labels'} ) {
-
-		#dictionary sort
-		@values = map { $_->[0] }
-		  sort { $a->[1] cmp $b->[1] }
-		  map {
-			my $d = lc( $self->{'cache'}->{'labels'}->{$_} );
-			$d =~ s/[\W_]+//gx;
-			[ $_, $d ]
-		  } uniq @values;
+		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
 	}
-	return \@values, $self->{'cache'}->{'labels'};
+	return $values, $self->{'cache'}->{'labels'};
+}
+
+sub _get_loci_list {
+	my ( $self, $options ) = @_;
+	if ( !$self->{'cache'}->{'loci'} ) {
+		my @locus_list;
+		my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
+		eval { $cn_sql->execute };
+		$logger->error($@) if $@;
+		my $common_names = $cn_sql->fetchall_hashref('id');
+		my $set_id       = $self->get_set_id;
+		my $loci         = $self->{'datastore'}->get_loci(
+			{
+				query_pref    => $options->{'query_pref'},
+				analysis_pref => $options->{'analysis_pref'},
+				seq_defined   => 0,
+				do_not_order  => 1,
+				set_id        => $set_id
+			}
+		);
+		my $set_loci =
+		    $set_id
+		  ? $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM set_loci WHERE set_id=?', $set_id, { fetch => 'all_hashref', key => 'locus' } )
+		  : {};
+
+		foreach my $locus (@$loci) {
+			push @locus_list, "l_$locus";
+			$self->{'cache'}->{'labels'}->{"l_$locus"} = $locus;
+			my $set_name_is_set;
+			if ($set_id) {
+				my $set_locus = $set_loci->{$locus};
+				if ( $set_locus->{'set_name'} ) {
+					$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
+					if ( $set_locus->{'set_common_name'} ) {
+						$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
+						push @locus_list, "cn_$locus";
+						$self->{'cache'}->{'labels'}->{"cn_$locus"} =
+						  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
+					}
+					$set_name_is_set = 1;
+				}
+			}
+			if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
+				$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
+				push @locus_list, "cn_$locus";
+				$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
+			}
+		}
+		if ( $self->{'prefs'}->{'locus_alias'} ) {
+			my $alias_sql = $self->{'db'}->prepare('SELECT locus,alias FROM locus_aliases');
+			eval { $alias_sql->execute };
+			if ($@) {
+				$logger->error($@);
+			} else {
+				my $array_ref = $alias_sql->fetchall_arrayref;
+				foreach (@$array_ref) {
+					my ( $locus, $alias ) = @$_;
+
+					#if there is no label for the primary name it is because the locus
+					#should not be displayed
+					next if !$self->{'cache'}->{'labels'}->{"l_$locus"};
+					$alias =~ tr/_/ /;
+					push @locus_list, "la_$locus||$alias";
+					$self->{'cache'}->{'labels'}->{"la_$locus||$alias"} =
+					  "$alias [" . ( $self->{'cache'}->{'labels'}->{"l_$locus"} ) . ']';
+				}
+			}
+		}
+		@locus_list =
+		  sort { lc( $self->{'cache'}->{'labels'}->{$a} ) cmp lc( $self->{'cache'}->{'labels'}->{$b} ) } @locus_list;
+		@locus_list = uniq @locus_list;
+		$self->{'cache'}->{'loci'} = \@locus_list;
+	}
+	my $values = [];
+	if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
+		push @$values, @{ $self->{'cache'}->{'loci'} };
+	}
+	return $values;
 }
 
 sub _get_provenance_fields {
@@ -812,9 +814,13 @@ sub _get_scheme_fields {
 			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
 
 			#No point using scheme fields if no scheme database is available.
-			next if !( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} && $scheme_db );
+			next
+			  if !( ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} || $options->{'ignore_prefs'} )
+				&& $scheme_db );
 			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
-				if ( $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field} ) {
+				if (   $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field}
+					|| $options->{'ignore_prefs'} )
+				{
 					if ($set_id) {
 						eval { $set_sql->execute( $set_id, $scheme_id ) };
 						$logger->error($@) if $@;
@@ -829,6 +835,21 @@ sub _get_scheme_fields {
 		$self->{'cache'}->{'scheme_fields'} = \@scheme_field_list;
 	}
 	return $self->{'cache'}->{'scheme_fields'};
+}
+
+sub _get_classification_groups_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
+		my $list     = [];
+		my $cg_pkeys = $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $key (@$cg_pkeys){
+			push @$list, "cg_$key->{'id'}_group";
+			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}_group"} = "$key->{'name'} group";
+		}
+		$self->{'cache'}->{'classification_group_fields'} = $list;
+	}
+	return $self->{'cache'}->{'classification_group_fields'};
 }
 
 sub _print_footer {
@@ -1191,7 +1212,7 @@ sub clean_locus {
 
 		#Locus names can't begin with a digit, so people can use an underscore,
 		#but this looks untidy in the interface.
-		$locus =~ s/^_//x;
+		$locus =~ s/^_//x if !$options->{'keep_underscores'};
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
@@ -1385,7 +1406,10 @@ sub get_record_name {
 		history                           => 'update record',
 		profile_history                   => 'profile update record',
 		sequence_attributes               => 'sequence attribute',
-		retired_allele_ids                => 'retired allele id'
+		retired_allele_ids                => 'retired allele id',
+		retired_profiles                  => 'retired profile',
+		classification_schemes            => 'classification scheme',
+		classification_group_fields       => 'classification group field'
 	);
 	return $names{$table};
 }
@@ -1660,66 +1684,49 @@ sub can_modify_table {
 	my $locus     = $q->param('locus');
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
-
-	#Users
-	return 1 if $table eq 'users' && $self->{'permissions'}->{'modify_users'};
-
-	#User groups
-	return 1
-	  if ( $table eq 'user_groups' || $table eq 'user_group_members' ) && $self->{'permissions'}->{'modify_usergroups'};
-
-	#Loci
-	my %locus_tables = map { $_ => 1 } qw (loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
+	my %general_permissions = (
+		users              => $self->{'permissions'}->{'modify_users'},
+		user_groups        => $self->{'permissions'}->{'modify_usergroups'},
+		user_group_members => $self->{'permissions'}->{'modify_usergroups'},
+	);
+	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
+	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
 	  locus_client_display_fields locus_extended_attributes locus_curators);
-	return 1 if $locus_tables{$table} && $self->{'permissions'}->{'modify_loci'};
+	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
+	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
+	  classification_group_fields);
 
-	#Schemes
-	my %scheme_tables = map { $_ => 1 } qw(schemes scheme_members scheme_fields scheme_curators);
-	return 1 if $scheme_tables{$table} && $self->{'permissions'}->{'modify_schemes'};
-
-	#Isolate only tables
+	if ( $general_permissions{$table} ) {
+		return $general_permissions{$table};
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 
-		#Isolates
-		my %isolate_tables = map { $_ => 1 } qw (isolates isolate_aliases refs);
-		return 1 if $isolate_tables{$table} && $self->{'permissions'}->{'modify_isolates'};
-
-		#Allele designations
-		return 1 if $table eq 'allele_designations' && $self->{'permissions'}->{'designate_alleles'};
-
-		#Sequence bin
-		return 1 if $table eq 'sequence_bin' && $self->{'permissions'}->{'modify_sequences'};
-
-		#Experiments
-		my %exp_tables = map { $_ => 1 } qw (experiments experiment_sequences);
-		return 1 if $exp_tables{$table} && $self->{'permissions'}->{'modify_experiments'};
-
-		#Sequence tags
-		return 1 if $table eq 'allele_sequences' && $self->{'permissions'}->{'tag_sequences'};
-
-		#Composite fields
-		my %comp_tables = map { $_ => 1 } qw (composite_fields composite_field_values);
-		return 1 if $comp_tables{$table} && $self->{'permissions'}->{'modify_composites'};
-
-		#Projects
-		my %project_tables = map { $_ => 1 } qw (projects project_members);
-		return 1 if $project_tables{$table} && $self->{'permissions'}->{'modify_projects'};
+		#Isolate only tables
+		my %isolate_permissions = (
+			allele_designations               => $self->{'permissions'}->{'designate_alleles'},
+			sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
+			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
+			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
+			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'}
+		);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
+		  foreach qw(isolates isolate_aliases refs);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
+		  foreach qw(experiments experiment_sequences);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}
+		  foreach qw(composite_fields composite_field_values);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);
+		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_probes'}
+		  foreach qw(pcr pcr_locus probes probe_locus);
+		if ( $isolate_permissions{$table} ) {
+			return $isolate_permissions{$table};
+		}
 
 		#Samples
 		return 1
 		  if $table eq 'samples'
 		  && $self->{'permissions'}->{'sample_management'}
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
-
-		#Extended attributes
-		return 1
-		  if $table eq 'isolate_field_extended_attributes' && $self->{'permissions'}->{'modify_field_attributes'};
-		return 1
-		  if $table eq 'isolate_value_extended_attributes' && $self->{'permissions'}->{'modify_value_attributes'};
-
-		#Genome filtering
-		my %filter_tables = map { $_ => 1 } qw (pcr pcr_locus probes probe_locus);
-		return 1 if $filter_tables{$table} && $self->{'permissions'}->{'modify_probes'};
 	} else {
 
 		#Sequence definition database only tables
@@ -1730,10 +1737,12 @@ sub can_modify_table {
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
 		}
 
-		#Profile refs
-		return $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)', $self->get_curator_id )
-		  if $table eq 'profile_refs';
+		#Profile refs and retired profiles
+		my %general_profile_tables = map { $_ => 1 } qw(profile_refs retired_profiles);
+		if ( $general_profile_tables{$table} ) {
+			return $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)', $self->get_curator_id );
+		}
 
 		#Profiles
 		my %profile_tables = map { $_ => 1 } qw (profiles profile_fields profile_members);
@@ -2165,23 +2174,20 @@ sub get_all_foreign_key_fields_and_labels {
 	my ( $self, $attribute_hashref ) = @_;
 	my @fields;
 	my @values = split /\|/x, $attribute_hashref->{'labels'};
-	foreach (@values) {
-		if ( $_ =~ /\$(.*)/x ) {
+	foreach my $value (@values) {
+		if ( $value =~ /\$(.*)/x ) {
 			push @fields, $1;
 		}
 	}
 	local $" = ',';
 	my $qry = "select id,@fields from $attribute_hashref->{'foreign_key'}";
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my %desc;
-	while ( my $data = $sql->fetchrow_hashref ) {
+	foreach my $data (@$dataset) {
 		my $temp = $attribute_hashref->{'labels'};
-		foreach (@fields) {
-			$temp =~ s/$_/$data->{$_}/x;
+		foreach my $field (@fields) {
+			$temp =~ s/\|\$$field\|/$data->{$field}/gx;
 		}
-		$temp =~ s/[\|\$]//gx;
 		$desc{ $data->{'id'} } = $temp;
 	}
 	return ( \@fields, \%desc );

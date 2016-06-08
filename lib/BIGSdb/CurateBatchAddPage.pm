@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID MAX_POSTGRES_COLS :submissions);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID :submissions);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -738,6 +738,12 @@ sub _run_table_specific_field_checks {
 		},
 		retired_allele_ids => sub {
 			$self->_check_retired_allele_ids($new_args);
+		},
+		retired_profiles => sub {
+			$self->_check_retired_profile_id($new_args);
+		},
+		classification_group_fields => sub {
+			$self->_check_data_scheme_fields($new_args);
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -757,6 +763,11 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
+	if ( !@$checked_buffer ) {
+		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say q(<p>No valid records to upload after filtering.</p></div>);
+		return;
+	}
 	my $q = $self->{'cgi'};
 	if (%$problems) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
@@ -1260,8 +1271,9 @@ sub _check_sequence_allele_id {
 			do {
 				${ $args->{'value'} }++;
 				$exists = $self->{'datastore'}->run_query(
-					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-					[ $locus, ${ $args->{'value'} } ],
+					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)) OR '
+					  . 'EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+					[ $locus, ${ $args->{'value'} }, $locus, ${ $args->{'value'} } ],
 					{ cache => 'CurateBatchAddPage::allele_id_exists' }
 				);
 			} while $exists;
@@ -1528,12 +1540,39 @@ sub _check_retired_allele_ids {
 	return;
 }
 
+sub _check_retired_profile_id {
+	my ( $self, $arg_ref ) = @_;
+	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	if ( $field eq 'profile_id' ) {
+		if (
+			$self->{'datastore'}->profile_exists(
+				$arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ],
+				$arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ]
+			)
+		  )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .=
+			  'Profile has already been defined - delete it before you retire the identifier.';
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	if ( $field eq 'scheme_id' ) {
+		if (   !$self->is_admin
+			&& !$self->{'datastore'}
+			->is_scheme_curator( $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ], $self->get_curator_id ) )
+		{
+			$arg_ref->{'problems'}->{$pk_combination} .= 'You are not a curator for this scheme.';
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+	}
+	return;
+}
+
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
-	my $table = $arg_ref->{'table'};
-	my $locus = $arg_ref->{'locus'};
-	my $q     = $self->{'cgi'};
-	my %schemes;
+	my $table   = $arg_ref->{'table'};
+	my $locus   = $arg_ref->{'locus'};
+	my $q       = $self->{'cgi'};
 	my $records = $self->_extract_checked_records;
 	return if !@$records;
 	my $field_order = $self->_get_field_order($records);
@@ -1564,9 +1603,6 @@ sub _upload_data {
 						user_status => ( $user_info->{'status'} // undef )
 					}
 				  ) // undef;
-				if ( $field eq 'scheme_id' ) {
-					$schemes{ $data[ $field_order->{'scheme_id'} ] } = 1;
-				}
 			}
 			if ( $table eq 'loci' || $table eq 'isolates' ) {
 				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
@@ -1589,7 +1625,6 @@ sub _upload_data {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my $isolate_name = $data[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
 				$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
-				
 				my $meta_inserts = $self->_prepare_metaset_insert( $meta_fields, $field_order, \@data );
 				push @inserts, @$meta_inserts;
 				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
@@ -1605,7 +1640,7 @@ sub _upload_data {
 				);
 				push @inserts, @$isolate_extra_inserts;
 				try {
-					my ($contigs_extra_inserts, $message) = $self->_prepare_contigs_extra_inserts(
+					my ( $contigs_extra_inserts, $message ) = $self->_prepare_contigs_extra_inserts(
 						{
 							id          => $id,
 							sender      => $sender,
@@ -1615,7 +1650,6 @@ sub _upload_data {
 						}
 					);
 					push @inserts, @$contigs_extra_inserts;
-					
 				}
 				catch BIGSdb::DataException with {
 					$upload_err  = 'Invalid FASTA file';
@@ -1623,7 +1657,6 @@ sub _upload_data {
 				};
 				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";
-				
 			} elsif ( $table eq 'loci' ) {
 				my $loci_extra_inserts = $self->_prepare_loci_extra_inserts(
 					{ id => $id, curator => $curator, data => \@data, field_order => $field_order, extras => \@extras }
@@ -1655,7 +1688,6 @@ sub _upload_data {
 			}
 		}
 	}
-	$self->_regenerate_scheme_view_if_needed( $table, \%schemes );
 	$self->{'db'}->commit && say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
@@ -1734,32 +1766,6 @@ sub _display_update_footer_links {
 	return;
 }
 
-sub _regenerate_scheme_view_if_needed {
-	my ( $self, $table, $schemes ) = @_;
-	if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
-		&& $self->{'system'}->{'dbtype'} eq 'sequences' )
-	{
-		foreach my $scheme_id ( keys %$schemes ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $field_count   = @$scheme_fields + @$scheme_loci;
-			if ( $scheme_info->{'primary_key'} && $field_count > MAX_POSTGRES_COLS ) {
-				say q(<div class="box" id="statusbad"><p>Indexed scheme tables are limited to a maximum of )
-				  . MAX_POSTGRES_COLS
-				  . qq( columns - yours would have $field_count.  This is a limitation of PostgreSQL, but it's not really sensible )
-				  . q(to have indexed schemes (those with a primary key field) to have so many fields. Update failed.</p></div);
-				$self->{'db'}->rollback;
-				return;
-			}
-			$self->remove_profile_data($scheme_id);
-			$self->drop_scheme_view($scheme_id);
-			$self->create_scheme_view($scheme_id);
-		}
-	}
-	return;
-}
-
 sub _get_locus_list {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'loci'} ) {
@@ -1827,8 +1833,9 @@ sub _prepare_contigs_extra_inserts {
 	my $fasta   = BIGSdb::Utils::slurp($filename);
 	my $seq_ref = BIGSdb::Utils::read_fasta($fasta);
 	my @inserts;
-	my $size = BIGSdb::Utils::get_nice_size(-s $filename);
+	my $size = BIGSdb::Utils::get_nice_size( -s $filename );
 	$self->{'submission_message'} .= " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size) uploaded.";
+
 	foreach my $contig_name ( keys %$seq_ref ) {
 		push @inserts,
 		  {
@@ -2047,7 +2054,8 @@ sub _update_scheme_caches {
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
-					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'}
+					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'},
+					options          => { method => 'daily' }
 				}
 			);
 			CORE::exit(0);

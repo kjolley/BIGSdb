@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,15 +67,10 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Profile information for $primary_key-$profile_id ($scheme_info->{'description'})</h1>);
-	my $sql = $self->{'db'}->prepare("SELECT * FROM scheme_$scheme_id WHERE $primary_key=?");
-	eval { $sql->execute($profile_id) };
-	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Invalid query.</p></div>);
-		$logger->error($@);
-		return;
-	}
-	my $data = $sql->fetchrow_hashref;
-	if ( !defined $data ) {
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
+	if ( !$data ) {
 		say q(<div class="box statusbad"><p>This profile does not exist!</p></div>);
 		return;
 	}
@@ -94,7 +89,8 @@ sub print_content {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?',
 			$scheme_id, { fetch => 'all_arrayref' } );
-		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 		if (@$clients) {
 			my $buffer;
 			foreach my $client (@$clients) {
@@ -108,7 +104,8 @@ sub print_content {
 						{ cache => 'ProfileInfoPage::client_dbase_loci' }
 					);
 					if ($c_locus) {
-						$alleles{ $c_alias || $c_locus } = $data->{ lc($locus) } if $data->{ lc($locus) } ne 'N';
+						$alleles{ $c_alias || $c_locus } = $data->{'profile'}->[ $indices->{$locus} ]
+						  if $data->{'profile'}->[ $indices->{$locus} ] ne 'N';
 					}
 				}
 				my $count;
@@ -177,7 +174,7 @@ sub _print_profile {
 	my $primary_key = $scheme_info->{'primary_key'};
 	my $data =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
+	  ->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
 	say qq(<dl class="profile"><dt>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( $scheme_field_info->{'description'} ) {
@@ -187,12 +184,13 @@ sub _print_profile {
 	say qq(</dt><dd>$profile_id</dd></dl>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $locus (@$loci) {
 		my $cleaned = $self->clean_locus($locus);
-		( my $cleaned2 = $locus ) =~ s/'/_PRIME_/gx;
+		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
 		say qq(<dl class="profile"><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$data->{lc($cleaned2)}">)
-		  . qq($data->{lc($cleaned2)}</a></dd></dl>);
+		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
+		  . qq($value</a></dd></dl>);
 	}
 	foreach my $field (@$scheme_fields) {
 		my $cleaned = $field;

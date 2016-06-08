@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
 use BIGSdb::BIGSException;
-use BIGSdb::Constants qw(MAX_UPLOAD_SIZE SEQ_METHODS :submissions :interface);
+use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
 
@@ -637,7 +637,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my ( $self, $submission_id ) = @_;
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return if !$submission;
+	return if !$submission || $submission->{'status'} ne 'started';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		if ( $submission->{'type'} eq 'alleles' )
@@ -1044,7 +1044,7 @@ sub _check_new_alleles {
 	$q->param( locus => $locus );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$locus_info ) {
-		return { err => ['Locus $locus is not recognized.'] };
+		return { err => ["Locus $locus is not recognized."] };
 	}
 	if ( $q->param('fasta') ) {
 		my $fasta_string = $q->param('fasta');
@@ -1235,7 +1235,7 @@ sub _print_file_upload_fieldset {
 		}
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
-	my $nice_file_size = BIGSdb::Utils::get_nice_size(MAX_UPLOAD_SIZE);
+	my $nice_file_size = BIGSdb::Utils::get_nice_size($self->{'config'}->{'max_upload_size'});
 	if ( $options->{'genomes'} ) {
 		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
 	} else {
@@ -1449,6 +1449,7 @@ sub _print_sequence_table {
 		}
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
+		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(
 			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
 			uc( $seq->{'sequence'} ),
@@ -1459,12 +1460,13 @@ sub _print_sequence_table {
 				$self->_clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
 			}
 			if ( $seq->{'status'} eq 'assigned' ) {
-				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
+				$self->{'submissionHandler'}->set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
 		} else {
 			if ( $seq->{'status'} eq 'pending' ) {
-				$self->_set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
+				$self->{'submissionHandler'}
+				  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
 				$seq->{'status'} = 'assigned';
 			}
 			$all_rejected = 0;
@@ -1548,7 +1550,6 @@ sub _print_profile_table {
 		foreach my $locus (@$loci) {
 			say qq(<td>$profile->{'designations'}->{$locus}</td>);
 		}
-		my $scheme = $self->{'datastore'}->get_scheme($scheme_id);
 		my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $profile->{'designations'} );
 		my $assigned;
 		if ( !$profile_status->{'exists'} ) {
@@ -1746,6 +1747,7 @@ sub _print_update_button {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _clear_assigned_seq_id {
 	my ( $self, $submission_id, $seq_id ) = @_;
 	eval {
@@ -1762,6 +1764,7 @@ sub _clear_assigned_seq_id {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _clear_assigned_profile_id {
 	my ( $self, $submission_id, $profile_id ) = @_;
 	eval {
@@ -1779,23 +1782,7 @@ sub _clear_assigned_profile_id {
 	return;
 }
 
-sub _set_allele_status {
-	my ( $self, $submission_id, $seq_id, $status, $assigned_id ) = @_;
-	eval {
-		$self->{'db'}
-		  ->do( 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)',
-			undef, $status, $assigned_id, $submission_id, $seq_id );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_update_submission_datestamp($submission_id);
-	}
-	return;
-}
-
+#TODO Move to SubmissionHandler.pm.
 sub _set_profile_status {
 	my ( $self, $submission_id, $profile_id, $status, $assigned_id ) = @_;
 	eval {
@@ -1814,6 +1801,8 @@ sub _set_profile_status {
 	return;
 }
 
+#TODO Use SubmissionHandler::update_submission_datestamp.
+#Then remove this.
 sub _update_submission_datestamp {
 	my ( $self, $submission_id ) = @_;
 	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };
@@ -1826,6 +1815,7 @@ sub _update_submission_datestamp {
 	return;
 }
 
+#TODO Move to SubmissionHandler.pm.
 sub _update_submission_outcome {
 	my ( $self, $submission_id, $outcome ) = @_;
 	eval { $self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, $outcome, $submission_id ) };
@@ -2021,7 +2011,7 @@ sub _upload_files {
 		open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 		binmode $fh2;
 		binmode $fh;
-		read( $fh2, $buffer, MAX_UPLOAD_SIZE );
+		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 		print $fh $buffer;
 		close $fh;
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,8 +28,29 @@ sub new {    ## no critic (RequireArgUnpacking)
 	my $self  = {@_};
 	$self->{'sql'} = {};
 	bless( $self, $class );
+	$self->_initiate;
 	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) set up.");
 	return $self;
+}
+
+sub _initiate {
+	my ($self) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
+	if ( $self->{'dbase_table'} =~ /scheme_(\d+)$/x ) {
+		my $scheme_id = $1;
+		$logger->error($scheme_id);
+		eval { $sql->execute($scheme_id); };
+		$logger->error($@) if $@;
+		my $data = $sql->fetchall_arrayref;
+		my %indices = map { $_->[0] => $_->[1] } @$data;
+		$self->{'locus_index'} = \%indices;
+	}
+	return;
+}
+
+sub get_locus_indices {
+	my ($self) = @_;
+	return $self->{'locus_index'};
 }
 
 sub DESTROY {
@@ -37,10 +58,8 @@ sub DESTROY {
 	foreach ( keys %{ $self->{'sql'} } ) {
 		if ( $self->{'sql'}->{$_} ) {
 			$self->{'sql'}->{$_}->finish;
-			$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle '$_' finished.");
 		}
 	}
-	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) destroyed.");
 	return;
 }
 
@@ -49,9 +68,10 @@ sub get_profile_by_primary_keys {
 	return if !$self->{'db'};
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
-		s/'/_PRIME_/gx foreach @$loci;
+		my @locus_names;
+		push @locus_names, "profile[$self->{'locus_index'}->{$_}]" foreach @$loci;
 		local $" = ',';
-		my $qry = "SELECT @$loci FROM $self->{'dbase_table'} WHERE ";
+		my $qry = "SELECT @locus_names FROM $self->{'dbase_table'} WHERE ";
 		local $" = '=? AND ';
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
@@ -103,8 +123,7 @@ sub get_field_values_by_designations {
 		my @locus_list;
 		my $i = 0;
 		foreach my $locus (@$loci) {
-			my $locus_name = $locus;    #Don't nobble $locus - make a copy and use that.
-			$locus_name =~ s/'/_PRIME_/gx;
+			my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
 			push @locus_list, $locus_name;
 			my @temp_terms;
 			push @temp_terms, ("$locus_name=?") x $allele_count[$i];
@@ -141,12 +160,12 @@ sub get_distinct_fields {
 	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
 	#If scheme uses a materialized view (prefixed with mv_) then it will be quicker to check this.
 	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^scheme_(\d+)$/x ) {
+	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^mv_scheme_(\d+)$/x ) {
 		my $scheme_id = $1;
-		$qry = qq(SELECT distinct value FROM profile_fields WHERE scheme_field='$field' )
+		$qry = qq(SELECT DISTINCT value FROM profile_fields WHERE scheme_field='$field' )
 		  . qq(AND scheme_id=$scheme_id ORDER BY value);
 	} else {
-		$qry = qq(SELECT distinct $field FROM $self->{'dbase_table'} ORDER BY $field);
+		$qry = qq(SELECT DISTINCT $field FROM $self->{'dbase_table'} WHERE $field IS NOT NULL ORDER BY $field);
 	}
 	my $values = [];
 	eval { $values = $self->{'db'}->selectcol_arrayref($qry) };

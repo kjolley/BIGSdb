@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,17 +21,17 @@
 use strict;
 use warnings;
 use 5.010;
-###########Local configuration################################
+###########Local configuration#############################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'apache',
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
 	PASSWORD         => undef
 };
-#######End Local configuration################################
+#######End Local configuration#############################################
 use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -40,6 +40,8 @@ use BIGSdb::Offline::AutoTag;
 my %opts;
 GetOptions(
 	'd|database=s'         => \$opts{'d'},
+	'e|exemplar'           => \$opts{'exemplar'},
+	'f|fast'               => \$opts{'fast'},
 	'i|isolates=s'         => \$opts{'i'},
 	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
 	'I|exclude_isolates=s' => \$opts{'I'},
@@ -66,7 +68,6 @@ GetOptions(
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
-
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
@@ -92,8 +93,10 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	);
 	local @SIG{qw (INT TERM HUP)} =
-	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autotagger kill signal detected.  Waiting for child processes.") } ) x 3;
-	die "Script initialization failed - check logs (authentication problems or server too busy?).\n" if !defined $script->{'db'};
+	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autotagger kill signal detected.  Waiting for child processes.") } )
+	  x 3;
+	die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+	  if !defined $script->{'db'};
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
 	$script->{'db'}->commit;    #Prevent idle in transaction table locks
@@ -152,7 +155,7 @@ sub show_help {
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
 	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
-	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
+	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm
     ${bold}autotag.pl$norm - BIGSdb automated allele tagger
@@ -166,6 +169,19 @@ ${bold}-0, --missing$norm
            
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
+    
+${bold}-e, --exemplar$norm
+    Only use alleles with the 'exemplar' flag set in BLAST searches to identify
+    locus within genome. Specific allele is then identified using a database 
+    lookup. This may be quicker than using all alleles for the BLAST search, 
+    but will be at the expense of sensitivity. If no exemplar alleles are set 
+    for a locus then all alleles will be used. Sets default word size to 15.
+
+${bold}-f --fast$norm
+    Perform single BLAST query against all selected loci together. This will
+    take longer to return any results but the overall scan should finish 
+    quicker. This method will also use more memory - this can be used with
+    --exemplar to mititgate against this.
 
 ${bold}-h, --help$norm
     This help page.

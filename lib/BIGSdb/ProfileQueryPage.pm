@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -215,6 +215,7 @@ sub _print_filter_fieldset {
 		say q(<ul>);
 		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 		say q(</ul></fieldset>);
+		$self->{'filters_present'} = 1;
 	}
 	return;
 }
@@ -291,7 +292,7 @@ sub _run_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
-	my ($qry, $list_file);
+	my ( $qry, $list_file );
 	my $errors = [];
 	my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	if ( !defined $q->param('query_file') ) {
@@ -343,8 +344,8 @@ sub _generate_query {
 	my $q = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my ( $qry, $errors ) = $self->_generate_query_from_locus_fields($scheme_id);
-	($qry, my $list_file) = $self->_modify_by_list( $scheme_id, $qry );
-	$q->param(datatype => 'text');
+	( $qry, my $list_file ) = $self->_modify_by_list( $scheme_id, $qry );
+	$q->param( datatype => 'text' );
 	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
 	my $primary_key   = $scheme_info->{'primary_key'};
 	my $order         = $q->param('order') || $primary_key;
@@ -354,9 +355,9 @@ sub _generate_query {
 
 	if ( $self->{'datastore'}->is_locus($order) ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($order);
-		$order =~ s/'/_PRIME_/gx;
+		my $cleaned_order = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $order );
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-			$order = "to_number(textcat('0', $order), text(99999999))";    #Handle arbitrary allele = 'N'
+			$order = "to_number(textcat('0', $cleaned_order), text(99999999))";    #Handle arbitrary allele = 'N'
 		}
 	}
 	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
@@ -365,20 +366,18 @@ sub _generate_query {
 
 sub _generate_query_from_locus_fields {
 	my ( $self, $scheme_id ) = @_;
-	my $q      = $self->{'cgi'};
-	my $errors = [];
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $qry         = "SELECT * FROM $scheme_view WHERE (";
-	my $andor       = $q->param('c0');
-	my $first_value = 1;
+	my $q                = $self->{'cgi'};
+	my $errors           = [];
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
+	my $andor            = $q->param('c0');
+	my $first_value      = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
 		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
 		my $type;
-		( my $cleaned = $field ) =~ s/'/_PRIME_/gx;
 		if ($is_locus) {
 			$type = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 		} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
@@ -405,20 +404,24 @@ sub _generate_query_from_locus_fields {
 			next;
 		}
 		$qry .= $modifier;
+		my $cleaned_field = $field;
+		if ($is_locus) {
+			$cleaned_field = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $field );
+		}
 		if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
-			$qry .= $self->search_users( $field, $operator, $text, $scheme_view );
+			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
 		} else {
 			my $equals =
 			  $text eq 'null'
-			  ? "$cleaned is null"
-			  : ( $type eq 'text' ? "upper($cleaned) = upper('$text')" : "$cleaned = '$text'" );
-			$equals .= " OR $cleaned = 'N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
+			  ? "$cleaned_field is null"
+			  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
+			$equals .= " OR $cleaned_field='N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
 			my %modify = (
-				'NOT' => $text eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned IS NULL)",
-				'contains'    => "(upper($cleaned) LIKE upper('\%$text\%'))",
-				'starts with' => "(upper($cleaned) LIKE upper('$text\%'))",
-				'ends with'   => "(upper($cleaned) LIKE upper('\%$text'))",
-				'NOT contain' => "(NOT upper($cleaned) LIKE upper('\%$text\%') OR $cleaned IS NULL)",
+				'NOT' => $text eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
+				'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
+				'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
+				'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
+				'NOT contain' => "(NOT UPPER($cleaned_field) LIKE UPPER('\%$text\%') OR $cleaned_field IS NULL)",
 				'='           => "($equals)"
 			);
 			if ( $modify{$operator} ) {
@@ -430,9 +433,11 @@ sub _generate_query_from_locus_fields {
 					$clean_operator =~ s/</&lt;/x;
 					push @$errors, "$clean_operator is not a valid operator for comparing null values.";
 				}
-				$qry .=
-				  ( $type eq 'integer' ? "(to_number(textcat('0', $cleaned), text(99999999))" : "($cleaned" )
-				  . " $operator '$text')";
+				$qry .= (
+					$type eq 'integer'
+					? "(to_number(textcat('0', $cleaned_field), text(99999999))"
+					: "($cleaned_field"
+				) . " $operator '$text')";
 			}
 		}
 	}
@@ -442,11 +447,10 @@ sub _generate_query_from_locus_fields {
 
 sub _modify_query_for_filters {
 	my ( $self, $scheme_id, $qry ) = @_;
-	my $q = $self->{'cgi'};
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
-	my $primary_key = $scheme_info->{'primary_key'};
+	my $q                = $self->{'cgi'};
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $primary_key      = $scheme_info->{'primary_key'};
 	if ( defined $q->param('publication_list') && $q->param('publication_list') ne '' ) {
 		my $pmid = $q->param('publication_list');
 		my $ids  = $self->{'datastore'}->run_query(
@@ -459,7 +463,7 @@ sub _modify_query_for_filters {
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 				$qry .= " AND ($primary_key IN ('@$ids'))";
 			} else {
-				$qry = "SELECT * FROM $scheme_view WHERE ($primary_key IN ('@$ids'))";
+				$qry = "SELECT * FROM $scheme_warehouse WHERE ($primary_key IN ('@$ids'))";
 			}
 		}
 	}
@@ -471,7 +475,7 @@ sub _modify_query_for_filters {
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 				$qry .= " AND ($_ = '$value')";
 			} else {
-				$qry = "SELECT * FROM $scheme_view WHERE ($_ = '$value')";
+				$qry = "SELECT * FROM $scheme_warehouse WHERE ($_ = '$value')";
 			}
 		}
 	}
@@ -483,34 +487,34 @@ sub _modify_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $field;
-	if ($q->param('attribute') =~ /^s_${scheme_id}_(.*)$/x){
+	if ( $q->param('attribute') =~ /^s_${scheme_id}_(.*)$/x ) {
 		$field = $1;
-		return $qry if !$self->{'datastore'}->is_scheme_field($scheme_id, $field);
-	} elsif ($q->param('attribute') =~ /^l_(.*)$/x){
-		$field = $1;
-		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $field );
+		return $qry if !$self->{'datastore'}->is_scheme_field( $scheme_id, $field );
+	} elsif ( $q->param('attribute') =~ /^l_(.*)$/x ) {
+		my $locus = $1;
+		return $qry if !$self->_is_locus_in_scheme( $scheme_id, $locus );
+		$field = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
 	}
 	my @list = split /\n/x, $q->param('list');
 	@list = uniq @list;
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	my $list = $self->clean_list( 'text', \@list );
-	return $qry if !@list || (@list == 1 && $list[0] eq q()) ;
-	my $temp_table =
-	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', $list, { table => 'temp_list' } );
-	my $list_file = BIGSdb::Utils::get_random() . '.list';
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	return $qry if !@list || ( @list == 1 && $list[0] eq q() );
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $list, { table => 'temp_list' } );
+	my $list_file  = BIGSdb::Utils::get_random() . '.list';
+	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	say $fh $_ foreach @list;
 	close $fh;
-	my $scheme_view =
-	  $self->{'datastore'}->materialized_view_exists($scheme_id) ? "mv_scheme_$scheme_id" : "scheme_$scheme_id";
+	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
+
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 		$qry .= ' AND ';
 	} else {
-		$qry = "SELECT * FROM $scheme_view WHERE ";
+		$qry = "SELECT * FROM $scheme_warehouse WHERE ";
 	}
 	$qry .= "($field IN (SELECT value FROM $temp_table))";
-	return ($qry, $list_file);
+	return ( $qry, $list_file );
 }
 
 sub _print_list_fieldset {
@@ -536,7 +540,13 @@ sub _print_list_fieldset {
 	say q(Field:);
 	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
 	say q(<br />);
-	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -style=> 'width:100%', -placeholder => 'Enter list of values...' );
+	say $q->textarea(
+		-name        => 'list',
+		-id          => 'list',
+		-rows        => 6,
+		-style       => 'width:100%',
+		-placeholder => 'Enter list of values...'
+	);
 	say q(</fieldset>);
 	return;
 }
@@ -595,10 +605,13 @@ sub _print_modify_search_fieldset {
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
-	my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
-	say q(Filters</li>);
+
+	if ( $self->{'filters_present'} ) {
+		my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+		  || $self->filters_selected ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say q(Filters</li>);
+	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
