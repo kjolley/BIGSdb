@@ -187,10 +187,10 @@ sub _initiate {
 	$q->param( page => 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
-	$self->{'system'}->{'host'}        //= 'localhost';
-	$self->{'system'}->{'port'}        //= 5432;
-	$self->{'system'}->{'user'}        //= 'apache';
-	$self->{'system'}->{'password'}    //= 'remote';
+        $self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} //= 'localhost';
+        $self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} //= 5432;
+        $self->{'system'}->{'user'}        //= $self->{'config'}->{'dbuser'} //= 'apache';
+        $self->{'system'}->{'password'}    //= $self->{'config'}->{'dbpassword'} //= 'remote';
 	$self->{'system'}->{'privacy'}     //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
@@ -345,6 +345,27 @@ sub read_config_file {
 	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
 	$self->{'config'}->{'max_upload_size'} //= 32;
 	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
+	$self->_read_db_config($config_dir);
+	return;
+}
+
+sub _read_db_config_file {
+        my ( $self, $config_dir ) = @_;
+	my $logger = get_logger('BIGSdb.Application_Initiate');
+	my $db_file = "$config_dir/db.conf";
+	if ( ! -e $db_file ){
+	    return;
+	}
+	my $config = Config::Tiny->new();
+	$config = Config::Tiny->read("$db_file");
+
+	foreach my $param (qw (dbhost dbuser dbpassword) ){
+	    $self->{'config'}->{$param} = $config->{_}->{$param};
+	}
+	if (  defined $self->{'config'}->{'dbport'} && !BIGSdb::Utils::is_int( $self->{'config'}->{'dbport'} ) ){
+	    $logger->error("Parameter dbport in db.conf should be an integer - default value used.");
+	    undef $self->{'config'}->{'dbport'};
+	}
 	return;
 }
 
