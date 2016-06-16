@@ -38,7 +38,6 @@ sub _initiate {
 	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
 	if ( $self->{'dbase_table'} =~ /scheme_(\d+)$/x ) {
 		my $scheme_id = $1;
-		$logger->error($scheme_id);
 		eval { $sql->execute($scheme_id); };
 		$logger->error($@) if $@;
 		my $data = $sql->fetchall_arrayref;
