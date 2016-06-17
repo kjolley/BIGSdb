@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -228,7 +228,7 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, '';
-	print $q->startform;
+	print $q->start_form;
 	$cleaned->{''} = 'Please select ...';
 	say q(<p><b>Locus: </b>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
@@ -269,7 +269,7 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { locus => $locus } );
 	$self->_print_modify_search_fieldset;
-	say $q->endform;
+	say $q->end_form;
 	say q(</div></div>);
 	return;
 }

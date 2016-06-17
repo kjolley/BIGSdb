@@ -6,6 +6,7 @@ use warnings;
 
 BEGIN {
 	use CGI; # 3.47;    # earlier versions have a UTF-8 double-decoding bug
+	$CGI::LIST_CONTEXT_WARN = 0;
 	{
 		no warnings 'redefine';
 		my $param_org    = \&CGI::param;

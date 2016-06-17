@@ -255,7 +255,7 @@ sub _get_pagebar {
 			$buffer .= q(</td>);
 		}
 		$buffer .= qq(</tr></table>\n);
-		$buffer .= $q->endform;
+		$buffer .= $q->end_form;
 	}
 	return \$buffer;
 }

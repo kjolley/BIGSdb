@@ -800,7 +800,7 @@ sub _report_check {
 		  complete_CDS ignore_similarity submission_id);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
-		say $q->endform;
+		say $q->end_form;
 		say q(</div>);
 	}
 	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);

@@ -85,7 +85,7 @@ sub run {
 	}
 	say q(</ul></fieldset>);
 	$self->print_action_fieldset( { name => 'SequenceComparison', no_reset => 1 } );
-	say $q->endform;
+	say $q->end_form;
 	say q(</div>);
 	return if !$sent;
 	my $displaylocus = $self->clean_locus($locus);

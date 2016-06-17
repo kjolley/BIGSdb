@@ -249,7 +249,7 @@ sub _print_interface {
 		  . q(able to update their display and query settings.);
 	}
 	say q(</p>);
-	say $q->startform;
+	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page table no_js);
 	say q(<fieldset style="float:left"><legend>Search criteria</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
@@ -411,7 +411,7 @@ sub _print_interface {
 		say q(</ul></div></fieldset>);
 	}
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table } );
-	say $q->endform;
+	say $q->end_form;
 	say q(</div></div>);
 	return;
 }

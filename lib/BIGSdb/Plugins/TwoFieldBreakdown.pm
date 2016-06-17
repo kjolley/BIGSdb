@@ -275,7 +275,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	say q(<p>Here you can create a table breaking down one field by another, )
 	  . q(e.g. breakdown of serogroup by year.</p>);
-	say $q->startform;
+	say $q->start_form;
 	$q->param( function => 'breakdown' );
 	say $q->hidden($_) foreach qw (db page name function query_file list_file datatype);
 	my $set_id = $self->get_set_id;
@@ -314,7 +314,7 @@ sub _print_interface {
 	);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { name => 'TwoFieldBreakdown' } );
-	say $q->endform;
+	say $q->end_form;
 	say q(</div></div>);
 	return;
 }
@@ -332,7 +332,7 @@ sub _reverse {
 sub _print_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say $q->startform;
+	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Axes</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 	say $q->submit(
@@ -341,8 +341,8 @@ sub _print_controls {
 		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
 	);
 	say q(</fieldset>);
-	say $q->endform;
-	say $q->startform;
+	say $q->end_form;
+	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Show</legend>);
 	say $q->hidden($_) foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
 	my %display_toggle = (
@@ -353,10 +353,10 @@ sub _print_controls {
 	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') },
 		-class => BUTTON_CLASS );
 	say q(</fieldset>);
-	say $q->endform;
+	say $q->end_form;
 
 	if ( $q->param('display') ne 'values only' ) {
-		say $q->startform;
+		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Calculate percentages</legend>);
 		say $q->hidden($_)
 		  foreach qw (db page name function query_file field1 field2 display calcpc list_file datatype);
@@ -368,7 +368,7 @@ sub _print_controls {
 			-class => BUTTON_CLASS,
 		);
 		say q(</span></fieldset>);
-		say $q->endform;
+		say $q->end_form;
 	}
 	return;
 }
