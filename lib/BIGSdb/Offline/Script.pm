@@ -70,7 +70,6 @@ sub new {
 
 sub initiate {
 	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
