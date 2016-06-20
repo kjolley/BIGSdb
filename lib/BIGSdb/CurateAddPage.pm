@@ -200,10 +200,12 @@ sub _insert {
 	@problems = $self->check_record( $table, $newdata );
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
-	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields);
+	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
+	  retired_isolates);
 
 	if (
-		defined $newdata->{'isolate_id'}
+		   $table ne 'retired_isolates'
+		&& defined $newdata->{'isolate_id'}
 		&& (   !BIGSdb::Utils::is_int( $newdata->{'isolate_id'} )
 			|| !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) )
 	  )
@@ -351,6 +353,14 @@ sub _check_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines)
 		  . 'you must delete it before it can be retired.';
 	}
 	$self->_check_if_scheme_curator( $newdata, $problems );
+	return;
+}
+
+sub _check_retired_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	if ( $self->{'datastore'}->isolate_exists( $newdata->{'isolate_id'} ) ) {
+		push @$problems, "Isolate id-$newdata->{'isolate_id'} exists - you must delete it before it can be retired.";
+	}
 	return;
 }
 
@@ -601,7 +611,7 @@ sub _check_sequence_extended_attributes {
 	return;
 }
 
-sub _check_scheme_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_scheme_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 
 	#special case to check that only one primary key field is set for a scheme field
@@ -626,10 +636,10 @@ sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateS
 	if ( $newdata->{'field'} eq 'id' ) {
 		push @$problems, q(Scheme fields cannot be called 'id'.);
 	}
-	return
+	return;
 }
 
-sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_locus_aliases {                  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @$problems, 'Locus alias can not be set the same as the locus name.';
@@ -801,30 +811,21 @@ sub _next_sample_id {
 }
 
 sub next_id {
-	my ( $self, $table, $scheme_id, $last_id ) = @_;
+	my ( $self, $table, $scheme_id ) = @_;
 	if ( $table eq 'profiles' ) {
 		return $self->_next_id_profiles($scheme_id);
+	} elsif ( $table eq 'isolates' ) {
+		return $self->_next_id_isolates;
 	}
-	if ($last_id) {
-		my $next = $last_id + 1;
-		my $used = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)",
-			$next, { cache => "CurateAddPage::next_id::used::$table" } );
-		return $next if !$used;
-	}
-	my $start_id =
-	  ( $table eq 'isolates' && BIGSdb::Utils::is_int( $self->{'system'}->{'start_id'} ) )
-	  ? $self->{'system'}->{'start_id'}
-	  : 1;
-	my $start_id_clause = ( $table eq 'isolates' && $start_id > 1 ) ? " AND l.id >= $start_id" : '';
 
 	#this will find next id except when id 1 is missing
 	my $next = $self->{'datastore'}->run_query(
 		"SELECT l.id + 1 AS start FROM $table AS l LEFT OUTER JOIN $table AS r ON l.id+1=r.id "
-		  . "WHERE r.id is null AND l.id > 0$start_id_clause ORDER BY l.id LIMIT 1",
+		  . 'WHERE r.id is null AND l.id > 0 ORDER BY l.id LIMIT 1',
 		undef,
 		{ cache => "CurateAddPage::next_id::next::$table" }
 	);
-	$next = $start_id if !$next;
+	$next = 1 if !$next;
 	return $next;
 }
 
@@ -835,7 +836,6 @@ sub _next_id_profiles {
 	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
 	  . 'WHERE scheme_id=? ORDER BY profile_id';
 	my $test     = 0;
-	my $next     = 0;
 	my $id       = 0;
 	my $profiles = $self->{'datastore'}->run_query(
 		$qry,
@@ -846,22 +846,46 @@ sub _next_id_profiles {
 		$test++;
 		$id = $profile_id;
 		if ( $test != $id ) {
-			$next = $test;
-			$logger->debug("Next id: $next");
-			return $next;
+			return $test;
 		}
 	}
-	if ( $next == 0 ) {
-		$next = $id + 1;
+	return $id + 1;
+}
+
+sub _next_id_isolates {
+	my ($self) = @_;
+	my $start_id =
+	  ( BIGSdb::Utils::is_int( $self->{'system'}->{'start_id'} ) )
+	  ? $self->{'system'}->{'start_id'}
+	  : 1;
+	my $start_id_clause = $start_id > 1 ? " AND id >= $start_id" : '';
+	my $qry = "SELECT id FROM isolates WHERE id>0 $start_id_clause UNION SELECT isolate_id AS id "
+	  . 'FROM retired_isolates ORDER BY id';
+	my $test     = $start_id - 1 // 0;
+	my $id       = 0;
+	my $isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	foreach my $isolate_id (@$isolates) {
+		$test++;
+		$id = $isolate_id;
+		if ( $test != $id ) {
+			return $test;
+		}
 	}
-	$logger->debug("Next id: $next");
-	return $next;
+	return $id + 1;
 }
 
 sub id_exists {
 	my ( $self, $id ) = @_;
 	my $num =
 	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $id );
+	return $num;
+}
+
+sub retired_id_exists {
+	my ( $self, $id ) = @_;
+	my $num =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)', $id )
+	  ;
 	return $num;
 }
 

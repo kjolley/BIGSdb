@@ -149,7 +149,12 @@ sub _check {
 			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has already been defined - )
 			  . q(please choose a different id number.</p></div>);
 			$insert = 0;
-		}
+		} elsif ( $self->retired_id_exists( $newdata->{'id'} ) ) {
+			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has been retired - )
+			  . q(please choose a different id number.</p></div>);
+			$insert = 0;
+		} 
+		
 		return $self->_insert($newdata) if $insert;
 	}
 	return;

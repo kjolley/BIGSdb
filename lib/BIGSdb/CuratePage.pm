@@ -54,7 +54,10 @@ sub create_record_table {
 	} elsif ( defined $newdata->{'isolate_id'} && !BIGSdb::Utils::is_int( $newdata->{'isolate_id'} ) ) {
 		say q(<div class="box" id="statusbad"><p>Invalid isolate_id submitted.</p></div>);
 		return q();
-	} elsif ( defined $newdata->{'isolate_id'} && !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
+	} elsif ( defined $newdata->{'isolate_id'}
+		&& $table ne 'retired_isolates'
+		&& !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) )
+	{
 		say q(<div class="box" id="statusbad"><p>Your account is not allowed to modify values for isolate )
 		  . qq(id-$newdata->{'isolate_id'}.</p></div>);
 		return q();

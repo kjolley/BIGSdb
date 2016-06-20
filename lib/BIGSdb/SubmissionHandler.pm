@@ -670,14 +670,15 @@ sub _is_field_bad_isolates {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
-	my @insert_checks = qw(date_entered id_exists);
+	my @insert_checks = qw(date_entered);
 	foreach my $insert_check (@insert_checks) {
 		next if !( ( $flag // q() ) eq 'insert' );
 		my $method = "_check_isolate_$insert_check";
+		$logger->error($method);
 		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
-	my @checks = qw(sender regex datestamp integer date float boolean optlist length);
+	my @checks = qw(sender regex datestamp integer date float boolean optlist length id_exists);
 	foreach my $check (@checks) {
 		my $method = "_check_isolate_$check";
 		my $message = $self->$method( $fieldname, $value );
@@ -741,10 +742,15 @@ sub _check_isolate_id_exists {       ## no critic (ProhibitUnusedPrivateSubrouti
 	if ($exists) {
 		return "$value is already in database";
 	}
+	$exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
+		$value, { cache => 'CuratePage::is_field_bad_isolates::retired_id_exists' } );
+	if ($exists) {
+		return "$value has been retired";
+	}
 	return;
 }
 
-sub _check_isolate_integer {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	return if $thisfield->{'type'} ne 'int';
@@ -924,7 +930,7 @@ sub _check_other_boolean {
 }
 
 #Make sure sender is in database
-sub _check_other_sender {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	if ( $field eq 'sender' or $field eq 'sequenced_by' ) {
 		my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)',

@@ -278,6 +278,7 @@ sub _check {
 					$self->_display_error($@);
 					return;
 				}
+
 				#Check if id exists
 				eval {
 					$sql->execute(@args);
@@ -565,6 +566,9 @@ sub _update {
 				}
 				$self->update_history( $isolate_id, "$display_field: new designation '$value'" );
 			} else {
+				if ( $field eq 'id' ) {
+					$isolate_id = $value;
+				}
 				$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" )
 				  if $old_value ne $value;
 			}
