@@ -1,6 +1,6 @@
-#Export.pm - Export plugin for BIGSdb
+#CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -17,661 +17,407 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::Export;
+package BIGSdb::Plugins::CodonUsage;
 use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
-use Apache2::Connection ();
-use Bio::Tools::SeqStats;
-use constant MAX_INSTANT_RUN         => 2000;
-use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
+use constant DEFAULT_LIMIT => 500;
 
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'PhyloViz',
-		author      => 'Emmanuel Quevillon',
-		affiliation => 'Institut Pasteur, ParisUniversity of Oxford, UK',
-		email       => 'tuco@pasteur.fr',
-		description => 'Create phylogenetic inference and data visualization for sequence based typing methods',
+		name        => 'Codon Usage',
+		author      => 'Keith Jolley',
+		affiliation => 'University of Oxford, UK',
+		email       => 'keith.jolley@zoo.ox.ac.uk',
+		description => 'Determine codon usage for specified loci for an isolate database query',
 		category    => 'Analysis',
-		buttontext  => 'PhyloViz',
-		menutext    => 'View dataset as phylogenetic tree',
-		module      => 'PhyloViz',
-		version     => '0.0.1',
+		buttontext  => 'Codons',
+		menutext    => 'Codon usage',
+		module      => 'CodonUsage',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
+		version     => '1.2.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis_html#phyloviz",
 		input       => 'query',
-		system_flag => 'PhyloViz',
-		requires    => 'ref_db,js_tree',
 		help        => 'tooltips',
-		order       => 33
+		requires    => 'offline_jobs,js_tree',
+		system_flag => 'CodonUsage',
+		order       => 13
 	);
 	return \%att;
 }
 
-sub get_plugin_javascript {
-	my $js = << "END";
-function enable_controls(){
-	if (\$("#m_references").prop("checked")){
-		\$("input:radio[name='ref_type']").prop("disabled", false);
-	} else {
-		\$("input:radio[name='ref_type']").prop("disabled", true);
-	}
-}
-
-\$(document).ready(function(){ 
-	enable_controls();
-}); 
-END
-	return $js;
-}
-
-sub print_extra_fields {
+sub set_pref_requirements {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>References</legend><ul><li>);
-	say $q->checkbox(
-		-name     => 'm_references',
-		-id       => 'm_references',
-		-value    => 'checked',
-		-label    => 'references',
-		-onChange => 'enable_controls()'
-	);
-	say q(</li><li>);
-	say $q->radio_group(
-		-name      => 'ref_type',
-		-values    => [ 'PubMed id', 'Full citation' ],
-		-default   => 'PubMed id',
-		-linebreak => 'true'
-	);
-	say q(</li></ul></fieldset>);
-	return;
-}
-
-sub print_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
-	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
-	say q(</li><li>);
-	say $q->checkbox( -name => 'alleles', -id => 'alleles', -label => 'Export allele numbers', -checked => 'checked' );
-	say q(</li><li>);
-	say $q->checkbox( -name => 'oneline', -id => 'oneline', -label => 'Use one row per field' );
-	say q(</li><li>);
-	say $q->checkbox(
-		-name  => 'labelfield',
-		-id    => 'labelfield',
-		-label => "Include $self->{'system'}->{'labelfield'} field in row (used only with 'one row' option)"
-	);
-	say q(</li><li>);
-	say $q->checkbox(
-		-name  => 'info',
-		-id    => 'info',
-		-label => q(Export full allele designation record (used only with 'one row' option))
-	);
-	say q(</li></ul></fieldset>);
-	return;
-}
-
-sub print_extra_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
-	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
-	say q(</li><li>);
-	say $q->checkbox(
-		-name    => 'met',
-		-id      => 'met',
-		-label   => 'GTG/TTG at start codes for methionine',
-		-checked => 'checked'
-	);
-	say q(</li></ul></fieldset>);
+	$self->{'pref_requirements'} =
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<h1>Export dataset</h1>);
-	return if $self->has_set_changed;
+	say q(<h1>PhyloViz: phylogenetic tree vizualisation</h1>);
 	if ( $q->param('submit') ) {
-		my $selected_fields = $self->get_selected_fields;
-		push @$selected_fields, 'm_references' if $q->param('m_references');
-		if ( !@$selected_fields ) {
-			say q(<div class="box" id="statusbad"><p>No fields have been selected!</p></div>);
+		my $loci_selected = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
+		$q->delete('locus');
+		push @$loci_selected, @$pasted_cleaned_loci;
+		@$loci_selected = uniq @$loci_selected;
+		$self->add_scheme_loci($loci_selected);
+		if (@$invalid_loci) {
+			local $" = q(, );
+			say q(<div class="box" id="statusbad"><p>The following loci in your pasted )
+			  . qq(list are invalid: @$invalid_loci.</p></div>);
+		} elsif ( !@$loci_selected ) {
+			say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
 		} else {
-			my $prefix     = BIGSdb::Utils::get_random();
-			my $filename   = "$prefix.txt";
-			my $query_file = $q->param('query_file');
-			my $qry_ref    = $self->get_query($query_file);
-			return if ref $qry_ref ne 'SCALAR';
-			my $fields = $self->{'xmlHandler'}->get_field_list;
-			my $view   = $self->{'system'}->{'view'};
-			local $" = ",$view.";
-			my $field_string = "$view.@$fields";
-			$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
-			my $set_id = $self->get_set_id;
-			$self->rewrite_query_ref_order_by($qry_ref);
-			my $ids    = $self->get_ids_from_query($qry_ref);
+			$self->set_scheme_param;
 			my $params = $q->Vars;
-			$params->{'set_id'}      = $set_id if $set_id;
-			$params->{'script_name'} = $self->{'system'}->{'script_name'};
-			$params->{'qry'}         = $$qry_ref;
-			local $" = '||';
-			$params->{'selected_fields'} = "@$selected_fields";
-
-			#We only need the isolate count to calculate the %progress.  The isolate list is not uploaded
-			#to the job database because we have included the query as a parameter.  The query has ordering
-			#information so the output will be in the same order as requested, which it wouldn't be if we
-			#used the isolate id list from the job database.
-			#If we did a list query though, we should upload the list.
-			$params->{'isolate_count'} = scalar @$ids;
-			if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
-				my $att       = $self->get_attributes;
-				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-				my $job_id    = $self->{'jobManager'}->add_job(
-					{
-						dbase_config => $self->{'instance'},
-						ip_address   => $q->remote_host,
-						module       => $att->{'module'},
-						priority     => $att->{'priority'},
-						parameters   => $params,
-						username     => $self->{'username'},
-						email        => $user_info->{'email'},
-						isolates     => $$qry_ref =~ /temp_list/x ? $ids : undef
-					}
-				);
-				say $self->get_job_redirect($job_id);
-				return;
+			my @list = split /[\r\n]+/x, $q->param('list');
+			@list = uniq @list;
+			if ( !@list ) {
+				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+				my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+				@list = @$id_list;
 			}
-			say q(<div class="box" id="resultstable">);
-			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
-			print q(<p>Output files being generated ...);
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			$self->_write_tab_text(
+			$q->delete('list');
+			$params->{'set_id'} = $self->get_set_id;
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $job_id    = $self->{'jobManager'}->add_job(
 				{
-					qry_ref  => $qry_ref,
-					fields   => $selected_fields,
-					filename => $full_path,
-					set_id   => $set_id,
-					params   => $params
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => 'CodonUsage',
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'},
+					isolates     => \@list,
+					loci         => $loci_selected
 				}
 			);
-			say q( done</p>);
-			say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
-			my $excel =
-			  BIGSdb::Utils::text2excel( $full_path,
-				{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-			say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
-			say q( (right-click to save)</p>);
-			say q(</div>);
+			say $self->get_job_redirect($job_id);
 			return;
 		}
 	}
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>This plugin will be used to create and visualize dataset as phylogenetic inference tree.
-Select which fields you would like included.  Select loci either from the locus list or by selecting one or
-more schemes to include all loci (and/or fields) from a scheme.</p>
-HTML
-	foreach (qw (shtml html)) {
-		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
-		if ( -e $policy ) {
-			say q(<p>Use of exported data is subject to the terms of the )
-			  . qq(<a href='$self->{'system'}->{'webroot'}/policy.$_'>policy document</a>!</p>);
-			last;
-		}
-	}
-	$self->print_field_export_form( 1, { include_composites => 1, extended_attributes => 1 } );
+	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	say q[<div class="box" id="queryform"><p>PHYLOViZ: This plugin allows the analysis of sequence-based ]
+	  . q[typing methods that generate allelic profiles and their associated epidemiological data.</p>   ];
+	# This method prints the isolates fields and other stuff.
+	# args: 1 => Select all fields by default
+	# args: {} => Some options linked to isolates
+	# After that, the method calls:
+	# - print_extra_fields (to be defined in this module) Not needed
+	# - print_isolates_locus_fieldset (Page.pm) Not needed
+	# - print_scheme_fieldset (Plugin.pm) Needed (option: fields_or_loci => 1)
+	# - print_options (to be defined in this module) Needed ?
+	# - print_extra_options
+	# - print_action_fieldset Needed (submit/cancel button)
+	$self->print_field_export_form(1, {});
 	say q(</div>);
+	return;
+}
+
+sub print_extra_form_elements {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left"><legend>Codons</legend>);
+	say q(<p>Select codon order:</p>);
+	say $q->radio_group(
+		-name      => 'codonorder',
+		-values    => [ 'alphabetical', 'cg_ending_first' ],
+		-labels    => { cg_ending_first => 'C or G ending codons first' },
+		-linebreak => 'true'
+	);
+	say q(</fieldset>);
 	return;
 }
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	$self->{'exit'} = 0;
-
-	#Terminate cleanly on kill signals
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
-	$self->{'system'}->{'script_name'} = $params->{'script_name'};
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my @fields = split /\|\|/x, $params->{'selected_fields'};
-	$params->{'job_id'} = $job_id;
-	if ( $params->{'qry'} =~ /temp_list/x ) {
-		my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
-		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
-
-		#Convert list attribute field to ids.
-		my $view            = $self->{'system'}->{'view'};
-		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
-		$params->{'qry'} =~ s/FROM\ $view.*?ORDER\ BY/FROM $view WHERE $BY_ID/x;
+	$self->set_offline_view($params);
+	my $rscu_by_isolate   = "$self->{'config'}->{'tmp_dir'}/${job_id}_rscu_by_isolate.txt";
+	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_isolate.txt";
+	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/${job_id}_rscu_by_locus.txt";
+	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_locus.txt";
+	my @includes;
+	if ( $params->{'includes'} ) {
+		my $separator = '\|\|';
+		@includes = split /$separator/x, $params->{'includes'};
 	}
-	my $limit =
-	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
-	  ? $self->{'system'}->{'export_limit'}
-	  : MAX_DEFAULT_DATA_POINTS;
-	my $data_points = $params->{'isolate_count'} * @fields;
-	if ( $data_points > $limit ) {
-		my $nice_data_points = BIGSdb::Utils::commify($data_points);
-		my $nice_limit       = BIGSdb::Utils::commify($limit);
-		my $msg = qq(<p>The submitted job is too big - you requested output containing $nice_data_points data points )
-		  . qq((isolates x fields). Jobs are limited to $nice_limit data points.</p>);
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $msg } );
-		return;
+	my $start         = 1;
+	my $no_output     = 1;
+	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci = $self->order_loci($loci);
+	my $limit         = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	if ( @$list > $limit ) {
+		my $message_html =
+		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
-	$self->_write_tab_text(
-		{
-			qry_ref  => \$params->{'qry'},
-			fields   => \@fields,
-			filename => $filename,
-			set_id   => $params->{'set_id'},
-			offline  => 1,
-			params   => $params
+	my $data = $self->_calculate( $job_id, $selected_loci, $list, \@includes, $params );
+	my ( $bad_ids, $includes_by_id, $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count ) =
+	  @{$data}{qw(bad_ids includes_by_id locus_codon_count locus_aa_count total_codon_count total_aa_count)};
+	my $message_html;
+	local $" = "\t";
+	my @codons = $self->_get_codons;
+	if ( $params->{'codonorder'} eq 'alphabetical' ) {
+		@codons = sort @codons;
+	}
+	open( my $fh_rscu_by_isolate, '>', $rscu_by_isolate )
+	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
+	open( my $fh_number_by_isolate, '>', $number_by_isolate )
+	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
+	open( my $fh_rscu_by_locus, '>', $rscu_by_locus )
+	  or $logger->error("Can't open output file $rscu_by_locus for writing");
+	open( my $fh_number_by_locus, '>', $number_by_locus )
+	  or $logger->error("Can't open output file $number_by_isolate for writing");
+	print $fh_rscu_by_isolate "Isolate\t@codons\n";
+	print $fh_number_by_isolate "Isolate\t@codons\n";
+	my $progress = 0;
+	my $count    = 0;
+
+	foreach my $id (@$list) {
+		last if $count == $limit;
+		$count++;
+		next if $bad_ids->{$id};
+		$no_output = 0;
+		$includes_by_id->{$id} ||= '';
+		print $fh_rscu_by_isolate "$id$includes_by_id->{$id}";
+		print $fh_number_by_isolate "$id$includes_by_id->{$id}";
+		foreach my $codon (@codons) {
+			$total_codon_count->{$id}->{$codon} ||= 0;
+			#my $aa = $translate{$codon};
+			my $aa;
+			$total_aa_count->{$id}->{$aa} ||= 0;
+			#my $expected = $total_aa_count->{$id}->{$aa} / $codons_per_aa{$aa};
+			my $expected;
+			my $rscu = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
+			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
+			print $fh_rscu_by_isolate "\t$rscu";
+			print $fh_number_by_isolate "\t$total_codon_count->{$id}->{$codon}";
 		}
-	);
-	return if $self->{'exit'};
-	if ( -e $filename ) {
-		$self->{'jobManager'}->update_job_output(
-			$job_id,
-			{
-				filename      => "$job_id.txt",
-				description   => '01_Export table (text)',
-				compress      => 1,
-				keep_original => 1                           #Original needed to generate Excel file
-			}
-		);
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
-		$self->{'db'}->commit;                               #prevent idle in transaction table locks
-		my $excel_file =
-		  BIGSdb::Utils::text2excel( $filename,
-			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-		if ( -e $excel_file ) {
-			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "$job_id.xlsx", description => '02_Export table (Excel)', compress => 1 } );
-		}
-		unlink $filename if -e "$filename.gz";
+		print $fh_rscu_by_isolate "\n";
+		print $fh_number_by_isolate "\n";
+		$progress++;
+		my $complete = 90 + int( 5 * $progress / @$list );    #go up to 95%
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	return;
-}
-
-sub _write_tab_text {
-	my ( $self, $args ) = @_;
-	my ( $qry_ref, $fields, $filename, $set_id, $offline, $params ) =
-	  @{$args}{qw(qry_ref fields filename set_id offline params)};
-	$self->create_temp_tables($qry_ref);
-	open( my $fh, '>:encoding(utf8)', $filename )
-	  || $logger->error("Can't open temp file $filename for writing");
-	if ( $params->{'oneline'} ) {
-		print $fh "id\t";
-		print $fh $self->{'system'}->{'labelfield'} . "\t" if $params->{'labelfield'};
-		print $fh "Field\tValue";
-		print $fh "\tCurator\tDatestamp\tComments" if $params->{'info'};
+	local $" = "\t";
+	print $fh_rscu_by_locus "Locus\t@codons\n";
+	print $fh_number_by_locus "Locus\t@codons\n";
+	$progress = 0;
+	my $set_id = $self->get_set_id;
+	foreach my $locus (@$selected_loci) {
+		my $display_locus = $self->clean_locus( $locus, { text_output => 1 } );
+		$no_output = 0;
+		print $fh_rscu_by_locus "$display_locus";
+		print $fh_number_by_locus "$display_locus";
+		foreach my $codon (@codons) {
+			#my $aa       = $translate{$codon};
+			my $aa;
+			#my $expected = ( $locus_aa_count->{$locus}->{$aa} // 0 ) / $codons_per_aa{$aa};
+			my $expected; 
+			my $rscu     = $expected ? ( $locus_codon_count->{$locus}->{$codon} / $expected ) : 1;
+			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
+			print $fh_rscu_by_locus "\t$rscu";
+			print $fh_number_by_locus "\t" . ( $locus_codon_count->{$locus}->{$codon} // 0 );
+		}
+		print $fh_rscu_by_locus "\n";
+		print $fh_number_by_locus "\n";
+		$progress++;
+		my $complete = 95 + int( 5 * $progress / scalar @$selected_loci );    #go up to 100%
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
+	}
+	close $fh_rscu_by_isolate;
+	close $fh_number_by_isolate;
+	close $fh_rscu_by_locus;
+	close $fh_number_by_locus;
+	if ( keys %$bad_ids ) {
+		local $" = ', ';
+		my @bad_ids = sort keys %$bad_ids;
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @bad_ids</p>\n);
+	}
+	if ($no_output) {
+		$message_html .= q(<p>No output generated.  Please ensure that your )
+		  . qq(sequences have been defined for these isolates.</p>\n);
 	} else {
-		my $first = 1;
-		my %schemes;
-		foreach (@$fields) {
-			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x ) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
-				$field .= " ($scheme_info->{'description'})"
-				  if $scheme_info->{'description'};
-				$schemes{$1} = 1;
-			}
-			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
-			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//x;    #strip off prefix for header row
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$field =~ s/^.*___//x;
-			if ($is_locus) {
-				$field =
-				  $self->clean_locus( $field,
-					{ text_output => 1, ( no_common_name => $params->{'common_names'} ? 0 : 1 ) } );
-				if ( $params->{'alleles'} ) {
-					print $fh "\t" if !$first;
-					print $fh $field;
-					$first = 0;
-				}
-				if ( $params->{'molwt'} ) {
-					print $fh "\t" if !$first;
-					print $fh "$field Mwt";
-					$first = 0;
-				}
-			} else {
-				print $fh "\t" if !$first;
-				print $fh $metafield // $field;
-				$first = 0;
-			}
+		my %file_desc = (
+			rscu_by_isolate   => 'Relative synonymous codon usage (RSCU) by isolate',
+			number_by_isolate => 'Absolute frequency of codon usage by isolate',
+			rscu_by_locus     => 'Relative synonymous codon usage (RSCU) by locus',
+			number_by_locus   => 'Absolute frequency of codon usage by locus'
+		);
+		my $i = 0;
+		foreach my $file ( sort keys %file_desc ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}_$file.txt", description => "0${i}_$file_desc{$file} (text)" } );
+			$i++;
 		}
-		my $scheme_field_pos;
-		foreach my $scheme_id ( keys %schemes ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $i             = 0;
-			foreach (@$scheme_fields) {
-				$scheme_field_pos->{$scheme_id}->{$_} = $i;
+		foreach my $file ( sort keys %file_desc ) {
+			my $excel = BIGSdb::Utils::text2excel(
+				"$self->{'config'}->{'tmp_dir'}/${job_id}_$file.txt",
+				{ tmp_dir => $self->{'config'}->{'secure_tmp_dir'} }
+			);
+			if ( -e $excel ) {
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => "${job_id}_$file.xlsx",
+						description => "0${i}_$file_desc{$file} (Excel)"
+					}
+				);
 				$i++;
 			}
 		}
-		if ($first) {
-			say $fh 'Make sure you select an option for locus export (see options in the top-right corner).';
-			return;
-		}
 	}
-	print $fh "\n";
-	my $sql = $self->{'db'}->prepare($$qry_ref);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	my %data           = ();
-	my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
-	$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
-	my $i = 0;
-	my $j = 0;
-	local $| = 1;
-	my %id_used;
-	my $total    = 0;
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $message_html } ) if $message_html;
+	return;
+}
+
+sub _calculate {
+	my ( $self, $job_id, $loci, $ids, $includes, $params ) = @_;
 	my $progress = 0;
-
-	while ( $sql->fetchrow_arrayref ) {
-		next
-		  if $id_used{ $data{ 'id'
-		  } };    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
-		$id_used{ $data{'id'} } = 1;
-		if ( !$offline ) {
-			print q(.) if !$i;
-			print q( ) if !$j;
-		}
-		if ( !$i && $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
-			return if $self->{'mod_perl_request'}->connection->aborted;
-		}
-		my $first          = 1;
-		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
-		foreach (@$fields) {
-			if ( $_ =~ /^f_(.*)/x ) {
-				$self->_write_field( $fh, $1, \%data, $first, $params );
-			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/x ) {
-				$self->_write_allele(
-					{
-						fh             => $fh,
-						locus          => $2,
-						data           => \%data,
-						all_allele_ids => $all_allele_ids,
-						first          => $first,
-						params         => $params
-					}
-				);
-			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/x ) {
-				$self->_write_scheme_field(
-					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params } );
-			} elsif ( $_ =~ /^c_(.*)/x ) {
-				$self->_write_composite( $fh, $1, \%data, $first, $params );
-			} elsif ( $_ =~ /^m_references/x ) {
-				$self->_write_ref( $fh, \%data, $first, $params );
-			}
-			$first = 0;
-		}
-		print $fh "\n" if !$params->{'oneline'};
-		$i++;
-		if ( $i == 50 ) {
-			$i = 0;
-			$j++;
-		}
-		$j = 0 if $j == 10;
-		$total++;
-		if ( $offline && $params->{'job_id'} && $params->{'isolate_count'} ) {
-			my $new_progress = int( $total / $params->{'isolate_count'} * 100 );
-
-			#Only update when progress percentage changes when rounded to nearest 1 percent
-			if ( $new_progress > $progress ) {
-				$progress = $new_progress;
-				$self->{'jobManager'}->update_job_status( $params->{'job_id'}, { percent_complete => $progress } );
-			}
-			last if $self->{'exit'};
-		}
-	}
-	close $fh;
-	return;
-}
-
-sub _get_id_one_line {
-	my ( $self, $data, $params ) = @_;
-	my $buffer = "$data->{'id'}\t";
-	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $params->{'labelfield'};
-	return $buffer;
-}
-
-sub _write_field {
-	my ( $self, $fh, $field, $data, $first, $params ) = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	if ( defined $metaset ) {
-		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$metafield\t";
-			print $fh $value;
-			print $fh "\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $value;
-		}
-	} elsif ( $field eq 'aliases' ) {
-		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
-		local $" = '; ';
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "aliases\t@$aliases\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh "@$aliases";
-		}
-	} elsif ( $field =~ /(.*)___(.*)/x ) {
-		my ( $isolate_field, $attribute ) = ( $1, $2 );
-		if ( !$self->{'sql'}->{'attribute'} ) {
-			$self->{'sql'}->{'attribute'} =
-			  $self->{'db'}->prepare( 'SELECT value FROM isolate_value_extended_attributes WHERE '
-				  . '(isolate_field,attribute,field_value)=(?,?,?)' );
-		}
-		eval { $self->{'sql'}->{'attribute'}->execute( $isolate_field, $attribute, $data->{$isolate_field} ) };
-		$logger->error($@) if $@;
-		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$attribute\t";
-			print $fh $value if defined $value;
-			print $fh "\n";
-		} else {
-			print $fh "\t"   if !$first;
-			print $fh $value if defined $value;
-		}
-	} else {
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$field\t";
-			print $fh "$data->{$field}" if defined $data->{$field};
-			print $fh "\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $data->{$field} if defined $data->{$field};
-		}
-	}
-	return;
-}
-
-sub _sort_alleles {
-	my ( $self, $locus, $allele_ids ) = @_;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	return $allele_ids if !$locus_info;
-	my @list = $locus_info->{'allele_id_format'} eq 'integer' ? sort { $a <=> $b } @$allele_ids : sort @$allele_ids;
-	return \@list;
-}
-
-sub _write_allele {
-	my ( $self, $args ) = @_;
-	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
-	  @{$args}{qw(fh locus data all_allele_ids first params)};
-	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ('');
-	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
-	if ( $params->{'alleles'} ) {
-		my $first_allele = 1;
-		foreach my $allele_id (@$allele_ids) {
-			if ( $params->{'oneline'} ) {
-				print $fh $self->_get_id_one_line( $data, $params );
-				print $fh "$locus\t";
-				print $fh $allele_id;
-				if ( $params->{'info'} ) {
-					my $allele_info = $self->{'datastore'}->run_query(
-						'SELECT allele_designations.datestamp AS des_datestamp,first_name,'
-						  . 'surname,comments FROM allele_designations LEFT JOIN users ON '
-						  . 'allele_designations.curator = users.id WHERE (isolate_id,locus,allele_id)=(?,?,?)',
-						[ $data->{'id'}, $locus, $allele_id ],
-						{ fetch => 'row_hashref', cache => 'Export::write_allele::info' }
-					);
-					if ( defined $allele_info ) {
-						print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
-						print $fh "$allele_info->{'des_datestamp'}\t";
-						print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
-					}
-				}
-				print $fh "\n";
-			} else {
-				if ( !$first_allele ) {
-					print $fh ';';
-				} elsif ( !$first_col ) {
-					print $fh "\t";
-				}
-				print $fh "$allele_id";
-			}
-			$first_allele = 0;
-		}
-	}
-	if ( $params->{'molwt'} ) {
-		my $first_allele = 1;
-		foreach my $allele_id (@$allele_ids) {
-			if ( $params->{'oneline'} ) {
-				print $fh $self->_get_id_one_line( $data, $params );
-				print $fh "$locus MolWt\t";
-				print $fh $self->_get_molwt( $locus, $allele_id, $params->{'met'} );
-				print $fh "\n";
-			} else {
-				if ( !$first_allele ) {
-					print $fh ',';
-				} elsif ( !$first_col ) {
-					print $fh "\t";
-				}
-				print $fh $self->_get_molwt( $locus, $allele_id, $params->{'met'} );
-			}
-			$first_allele = 0;
-		}
-	}
-	return;
-}
-
-sub _write_scheme_field {
-	my ( $self, $args ) = @_;
-	my ( $fh, $scheme_id, $field, $data, $first_col, $params ) = @{$args}{qw(fh scheme_id field data first params )};
-	my $scheme_info  = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $scheme_field = lc($field);
-	my $values =
-	  $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
-	@$values = ('') if !@$values;
-	my $first_allele = 1;
-	foreach my $value (@$values) {
-
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$field ($scheme_info->{'description'})\t";
-			print $fh $value if defined $value;
-			print $fh "\n";
-		} else {
-			if ( !$first_allele ) {
-				print $fh ';';
-			} elsif ( !$first_col ) {
-				print $fh "\t";
-			}
-			print $fh $value if defined $value;
-		}
-		$first_allele = 0;
-	}
-	return;
-}
-
-sub _write_composite {
-	my ( $self, $fh, $composite_field, $data, $first, $params ) = @_;
-	my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $composite_field, $data, { no_format => 1 } );
-	if ( $params->{'oneline'} ) {
-		print $fh $self->_get_id_one_line( $data, $params );
-		print $fh "$composite_field\t";
-		print $fh $value if defined $value;
-		print $fh "\n";
-	} else {
-		print $fh "\t"   if !$first;
-		print $fh $value if defined $value;
-	}
-	return;
-}
-
-sub _write_ref {
-	my ( $self, $fh, $data, $first, $params ) = @_;
-	my $values = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
-	if ( ( $params->{'ref_type'} // '' ) eq 'Full citation' ) {
-		my $citation_hash = $self->{'datastore'}->get_citation_hash($values);
-		my @citations;
-		push @citations, $citation_hash->{$_} foreach @$values;
-		$values = \@citations;
-	}
-	if ( $params->{'oneline'} ) {
-		foreach my $value (@$values) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "references\t";
-			print $fh "$value";
-			print $fh "\n";
-		}
-	} else {
-		print $fh "\t" if !$first;
-		local $" = ';';
-		print $fh "@$values";
-	}
-	return;
-}
-
-sub _get_molwt {
-	my ( $self, $locus_name, $allele, $met ) = @_;
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
-	my $peptide;
-	my $locus = $self->{'datastore'}->get_locus($locus_name);
-	if ( $locus_info->{'data_type'} eq 'DNA' ) {
-		my $seq_ref;
+	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	my %bad_ids;
+	my %includes_by_id;
+	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
+	foreach my $locus_name (@$loci) {
+		my $locus;
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		try {
-			$seq_ref = $locus->get_allele_sequence($allele);
+			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-
-			#do nothing
+		catch BIGSdb::DataException with {
+			$logger->warn("Invalid locus '$locus_name' passed.");
 		};
-		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
-		if ($met) {
-			$seq =~ s/^(TTG|GTG)/ATG/x;
+		my $temp      = BIGSdb::Utils::get_random();
+		my $temp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
+		my $cusp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.cusp";
+		local $" = '|';
+		my $count = 0;
+		foreach my $id (@$ids) {
+			last if $count == $limit;
+			$count++;
+			my @include_values;
+			next if $bad_ids{$id};
+			my $id_exists =
+			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+				$id, { cache => 'CodonUsage::run_job_id_exists' } );
+			if ( !$id_exists ) {
+				$bad_ids{$id} = 1;
+				next;
+			}
+			if (@$includes) {
+				my $include_data =
+				  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+					$id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
+				foreach my $field (@$includes) {
+					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+					my $value;
+					if ( defined $metaset ) {
+						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
+					} else {
+						$value = $include_data->{$field} // '';
+					}
+					$value =~ tr/ /_/;
+					push @include_values, $value;
+					$includes_by_id{$id} = "|@include_values";
+				}
+			}
+			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
+			my $allele_seq;
+			if ( $locus_info->{'data_type'} eq 'DNA' ) {
+				foreach my $allele_id (@$allele_ids) {
+					try {
+						my $seq = $locus->get_allele_sequence($allele_id);
+						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} // 1 );
+					}
+					catch BIGSdb::DatabaseConnectionException with {    #do nothing
+					};
+				}
+			}
+			my $seqbin_seq;
+			my $ignore_seqflag;
+			if ( $params->{'ignore_seqflags'} ) {
+				$ignore_seqflag = 'AND flag IS NULL';
+			}
+			my $data = $self->{'datastore'}->run_query(
+				'SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-'
+				  . 'allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON '
+				  . 'allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id='
+				  . 'sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? '
+				  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1",
+				[ $id, $locus_name ],
+				{ fetch => 'all_arrayref', cache => 'CodonUsage::run_job_seqbin' }
+			);
+			foreach (@$data) {
+				my ( $seq, $reverse ) = @$_;
+				if ($reverse) {
+					$seq = BIGSdb::Utils::reverse_complement($seq);
+				}
+				$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
+			}
+			my $seq;
+			if ( $allele_seq && $seqbin_seq ) {
+				$seq = $params->{'chooseseq'} eq 'seqbin' ? $seqbin_seq : $allele_seq;
+			} elsif ( $allele_seq && !$seqbin_seq ) {
+				$seq = $allele_seq;
+			} elsif ($seqbin_seq) {
+				$seq = $seqbin_seq;
+			} else {    #no sequence
+			}
+			$seq //= '';
+			open( my $fh_cusp_in, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
+			print $fh_cusp_in ">$id\n$seq\n";
+			close $fh_cusp_in;
+			system( "$self->{'config'}->{'emboss_path'}/cusp -sequence $temp_file "
+				  . "-outfile $cusp_file -warning false 2>/dev/null" );
+			if ( -e $cusp_file ) {
+				open( my $fh_cusp, '<', $cusp_file ) || $logger->error("Can't open $cusp_file for reading");
+				while (<$fh_cusp>) {
+					next if $_ =~ /^\#/x || $_ eq q();
+					my ( $codon, $aa, undef, undef, $number ) = split /\s+/x, $_;
+					$number ||= 0;
+					$locus_codon_count->{$locus_name}->{$codon} += $number;
+					$locus_aa_count->{$locus_name}->{$aa}       += $number;
+					$total_codon_count->{$id}->{$codon}         += $number;
+					$total_aa_count->{$id}->{$aa}               += $number;
+				}
+				close $fh_cusp;
+			}
+			unlink $cusp_file, $temp_file;
 		}
-		$peptide = Bio::Perl::translate_as_string($seq) if $seq;
-	} else {
-		$peptide = ${ $locus->get_allele_sequence($allele) };
+		$progress++;
+		my $complete = int( 90 * $progress / @$loci );    #go up to 90%
+		$self->{'jobManager'}->update_job_status( $job_id, { 'percent_complete' => $complete } );
 	}
-	return if !$peptide;
-	my $weight;
-	try {
-		my $seqobj    = Bio::PrimarySeq->new( -seq => $peptide, -id => $allele, -alphabet => 'protein', );
-		my $seq_stats = Bio::Tools::SeqStats->new($seqobj);
-		my $stats     = $seq_stats->get_mol_wt;
-		$weight = $stats->[0];
-	}
-	catch Bio::Root::Exception with {
-		$weight = q(-);
+	return {
+		bad_ids           => \%bad_ids,
+		includes_by_ids   => \%includes_by_id,
+		locus_codon_count => $locus_codon_count,
+		locus_aa_count    => $locus_aa_count,
+		total_codon_count => $total_codon_count,
+		total_aa_count    => $total_aa_count
 	};
-	return $weight;
+}
+
+sub _get_codons {
+	my @codons;
+	foreach my $third (qw (C G A T)) {
+		foreach my $second (qw (C G A T)) {
+			foreach my $first (qw (C G A T)) {
+				push @codons, "$first$second$third";
+			}
+		}
+	}
+	return @codons;
 }
 1;
