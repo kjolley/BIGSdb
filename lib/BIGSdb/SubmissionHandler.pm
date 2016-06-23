@@ -670,7 +670,7 @@ sub _is_field_bad_isolates {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
-	my @insert_checks = qw(date_entered);
+	my @insert_checks = qw(date_entered id_exists);
 	foreach my $insert_check (@insert_checks) {
 		next if !( ( $flag // q() ) eq 'insert' );
 		my $method = "_check_isolate_$insert_check";
@@ -678,7 +678,7 @@ sub _is_field_bad_isolates {
 		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
-	my @checks = qw(sender regex datestamp integer date float boolean optlist length id_exists);
+	my @checks = qw(sender regex datestamp integer date float boolean optlist length);
 	foreach my $check (@checks) {
 		my $method = "_check_isolate_$check";
 		my $message = $self->$method( $fieldname, $value );
