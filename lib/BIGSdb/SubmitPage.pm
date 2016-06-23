@@ -142,6 +142,7 @@ sub print_content {
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
 		if ( $q->param($type) ) {
+			last if $self->_user_over_quota;
 			my $method = "_handle_$type";
 			$self->$method;
 			return;
@@ -176,6 +177,38 @@ sub print_content {
 		  . qq(for $days days.);
 		say $closed_buffer;
 		say q(</div></div>);
+	}
+	return;
+}
+
+sub _user_over_quota {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $total_limit =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'total_pending_submissions'} )
+	  ? $self->{'system'}->{'total_pending_submissions'}
+	  : TOTAL_PENDING_LIMIT;
+	my $total_pending =
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?)',
+		[ $user_info->{'id'}, 'pending' ] );
+	if ( $total_pending >= $total_limit ) {
+		say q(<div class="box" id="statusbad"><p>Your account has too many pending submissions. )
+		  . q(You will not be able to submit any more until these have been curated.</p></div>);
+		return 1;
+	}
+	my $daily_limit =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'daily_pending_submissions'} )
+	  ? $self->{'system'}->{'daily_pending_submissions'}
+	  : DAILY_PENDING_LIMIT;
+	my $daily_pending =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status,date_submitted)=(?,?,?)',
+		[ $user_info->{'id'}, 'pending', 'now' ] );
+	if ( $daily_pending >= $daily_limit ) {
+		say q(<div class="box" id="statusbad"><p>Your account has too many pending submissions )
+		  . q(submitted today. You will not be able to submit any more until either tomorrow or )
+		  . q(when these have been curated.</p></div>);
+		return 1;
 	}
 	return;
 }
@@ -1235,7 +1268,7 @@ sub _print_file_upload_fieldset {
 		}
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
-	my $nice_file_size = BIGSdb::Utils::get_nice_size($self->{'config'}->{'max_upload_size'});
+	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
 	if ( $options->{'genomes'} ) {
 		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
 	} else {
