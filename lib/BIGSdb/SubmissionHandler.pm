@@ -674,7 +674,6 @@ sub _is_field_bad_isolates {
 	foreach my $insert_check (@insert_checks) {
 		next if !( ( $flag // q() ) eq 'insert' );
 		my $method = "_check_isolate_$insert_check";
-		$logger->error($method);
 		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
