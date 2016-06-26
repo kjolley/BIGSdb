@@ -65,7 +65,7 @@ if ( $opts{'help'} ) {
 	exit;
 }
 if ( !$opts{'database'} || !$opts{'cscheme_id'} ) {
-	say "\nUsage: define_profiles.pl --database <NAME> --cscheme_id <SCHEME ID>\n";
+	say "\nUsage: define_profiles.pl --database <NAME> --cscheme <SCHEME ID>\n";
 	say 'Help: cluster.pl --help';
 	exit;
 }
@@ -329,7 +329,7 @@ ${bold}NAME$norm
     ${bold}cluster.pl$norm - Cluster cgMLST profiles using classification groups.
     
 ${bold}SYNOPSIS$norm
-    ${bold}cluster.pl --database ${under}NAME$norm${bold} --cscheme_id ${under}SCHEME_ID$norm [${under}options$norm]
+    ${bold}cluster.pl --database ${under}NAME$norm${bold} --cscheme ${under}SCHEME_ID$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
 
