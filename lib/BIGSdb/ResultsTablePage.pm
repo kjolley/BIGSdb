@@ -47,7 +47,8 @@ sub paged_display {
 		$passed_qry      = $qry;
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $cschemes = $self->{'datastore'}->run_query('SELECT id FROM classification_schemes',undef,{fetch=>'col_arrayref'});
+	my $cschemes =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
@@ -57,8 +58,8 @@ sub paged_display {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 			}
-			foreach my $cscheme_id (@$cschemes){
-				if ($qry =~ /temp_cscheme_$cscheme_id\D/x){
+			foreach my $cscheme_id (@$cschemes) {
+				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
 			}
@@ -1358,7 +1359,9 @@ sub _print_record_field {
 	}
 	if ( $field eq 'isolate_id' ) {
 		my $isolate_name = $self->get_isolate_name_from_id( $data->{'isolate_id'} );
-		print qq[<td>$data->{'isolate_id'}) $isolate_name</td>];
+		print $isolate_name
+		  ? qq[<td>$data->{'isolate_id'}) $isolate_name</td>]
+		  : qq[<td>$data->{'isolate_id'}</td>];
 	} else {
 		my $value = $data->{ lc($field) };
 		if ( !$self->{'curate'}
