@@ -150,13 +150,10 @@ a.cds {
 }
 
 a.action {
-	color:black;
-	border:1px solid #c0c0c0;	
 	text-decoration:none;
-	background:#d5e0d5;
 }
 
-a.action:hover {background:#d0f5d0}
+a.action:hover {background:#d0f5d0; border:1px solid #c0c0c0}
 
 a.delete {
 	color:black;

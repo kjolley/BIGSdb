@@ -1475,10 +1475,7 @@ sub _print_sequence_table {
 		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->{'sequence'}, 40 );
 		$cds = '';
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			$cds =
-			  BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'}
-			  ? q(<td><span class="fa fa-check fa-lg" style="color:green"></span></td>)
-			  : q(<td><span class="fa fa-times fa-lg" style="color:red"></span></td>);
+			$cds = q(<td>) . ( BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'} ? GOOD : BAD ) . q(</td>);
 		}
 		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
@@ -1525,7 +1522,8 @@ sub _print_sequence_table {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
 			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;index=$seq->{'index'}&amp;)
 			  . qq(sender=$submission->{'submitter'}&amp;status=unchecked">)
-			  . q(<span class="fa fa-lg fa-edit"></span>Curate</a></td>);
+			  . EDIT
+			  . q(Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}
@@ -1624,7 +1622,8 @@ sub _print_profile_table {
 		if ( $options->{'curate'} && $profile->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
 			  . qq(scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;index=$index">)
-			  . q(<span class="fa fa-lg fa-edit"></span>Curate</a></td>);
+			  . EDIT
+			  . q(Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}

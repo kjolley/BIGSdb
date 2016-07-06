@@ -537,19 +537,27 @@ sub _print_isolate_id_links {
 	my ( $self, $id, $data ) = @_;
 	if ( $self->{'curate'} ) {
 		say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=isolateDelete&amp;id=$id" class="delete">delete</a></td>)
+		  . qq(page=isolateDelete&amp;id=$id" class="action">)
+		  . DELETE
+		  . q(</a></td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=isolateUpdate&amp;id=$id" class="action">update</a></td>);
+		  . qq(page=isolateUpdate&amp;id=$id" class="action">)
+		  . EDIT
+		  . q(</a></td>);
 		if ( $self->can_modify_table('sequence_bin') ) {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$id" class="action">upload</a></td>);
+			  . qq(page=batchAddSeqbin&amp;isolate_id=$id" class="action">)
+			  . UPLOAD
+			  . q(</a></td>);
 		}
 		if ( $self->{'system'}->{'view'} eq 'isolates' ) {
 			print $data->{'new_version'}
 			  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 			  . qq(&amp;page=info&amp;id=$data->{'new_version'}">$data->{'new_version'}</a></td>)
 			  : qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-			  . qq(&amp;page=newVersion&amp;id=$id" class="action">create</a></td>);
+			  . qq(&amp;page=newVersion&amp;id=$id" class="action">)
+			  . ADD
+			  . q(</a></td>);
 		}
 	}
 	say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
@@ -881,9 +889,9 @@ sub _print_isolate_table_scheme {
 		print qq(<td>@display_values);
 		print $self->get_seq_detail_tooltips( $isolate_id, $locus, { allele_flags => 1 } )
 		  if $self->{'prefs'}->{'sequence_details_main'};
-		my $action = @display_values ? 'update' : 'add';
+		my $action = @display_values ? EDIT : ADD;
 		print qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
-		  . qq(isolate_id=$isolate_id&amp;locus=$locus" class="update">$action</a>)
+		  . qq(isolate_id=$isolate_id&amp;locus=$locus">$action</a>)
 		  if $self->{'curate'};
 		print q(</td>);
 	}
@@ -994,9 +1002,13 @@ sub _print_profile_table {
 		print qq(<tr class="td$td">);
 		if ( $self->{'curate'} ) {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=delete&amp;table=profiles&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value">Delete</a></td>)
+			  . qq(page=delete&amp;table=profiles&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value" class="action">)
+			  . DELETE
+			  . q(</a></td>)
 			  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value">Update</a></td>);
+			  . qq(page=profileUpdate&amp;scheme_id=$scheme_id&amp;profile_id=$pk_value" class="action">)
+			  . EDIT
+			  . q(</a></td>);
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
 			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value&amp;curate=1">$pk_value</a></td>);
 		} else {
@@ -1233,13 +1245,19 @@ sub _print_record_table {
 		print qq(<tr class="td$td">);
 		if ( $self->{'curate'} ) {
 			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=delete&amp;table=$table&amp;@query_values">Delete</a></td>);
+			  . qq(page=delete&amp;table=$table&amp;@query_values" class="action">)
+			  . DELETE
+			  . q(</a></td>);
 			if ( $table eq 'allele_sequences' ) {
 				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=tagUpdate&amp;@query_values">Update</a></td>);
+				  . qq(page=tagUpdate&amp;@query_values" class="action">)
+				  . EDIT
+				  . q(</a></td>);
 			} elsif ( $table !~ /refs$/x ) {    #no editable values in ref tables
 				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=update&amp;table=$table&amp;@query_values">Update</a></td>);
+				  . qq(page=update&amp;table=$table&amp;@query_values" class="action">)
+				  . EDIT
+				  . q(</a></td>);
 			}
 		}
 		my $set_id = $self->get_set_id;
