@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Constants qw(GOOD BAD);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -69,15 +70,10 @@ sub _check_helpers {
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
-		  . (
-			-e ( $helpers{$program} ) ? q(<span class="statusgood fa fa-check"></span>)
-			: q(<span class="statusbad fa fa-times"></span>)
-		  )
+		  . ( -e ( $helpers{$program} ) ? GOOD : BAD )
 		  . q(</td><td>)
-		  . (
-			-x ( $helpers{$program} ) ? q(<span class="statusgood fa fa-check"></span>)
-			: q(<span class="statusbad fa fa-times"></span>)
-		  ) . q(</td></tr>);
+		  . ( -x ( $helpers{$program} ) ? GOOD : BAD )
+		  . q(</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div></div>);
@@ -137,9 +133,9 @@ sub _check_locus_databases {
 			  . ( $locus_info->{'dbase_seq_field'} // q() )
 			  . q(</td><td>);
 			if ( !$locus_db ) {
-				$buffer .= q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= BAD;
 			} else {
-				$buffer .= q(<span class="statusgood fa fa-check"></span>);
+				$buffer .= GOOD;
 			}
 			$buffer .= q(</td><td>);
 			my $seq;
@@ -149,17 +145,17 @@ sub _check_locus_databases {
 
 				#seq can contain opening brace if sequence_field = table by mistake
 				$logger->debug("$locus; $@");
-				$buffer .= q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= BAD;
 				$seq_query_ok = 0;
 			} else {
-				$buffer .= q(<span class="statusgood fa fa-check"></span>);
+				$buffer .= GOOD;
 			}
 			$buffer .= q(</td><td>);
 			my $seq_count;
 			eval { $seq_count = $self->{'datastore'}->get_locus($locus)->get_sequence_count; };
 			if ( $@ || ( $seq_count == 0 ) ) {
 				$logger->debug("$locus; $@");
-				$buffer .= q(<span class="statusbad fa fa-times"></span>);
+				$buffer .= BAD;
 			} else {
 				$buffer .= qq(<span class="statusgood">$seq_count</span>);
 				next LOCUS if $q->param('show_probs_only') && $seq_query_ok;
@@ -202,16 +198,16 @@ sub _check_scheme_databases {
 			  . ( $scheme_info->{'dbase_table'} // q() )
 			  . q(</td><td>);
 			if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
-				print q(<span class="statusgood fa fa-check"></span>);
+				print GOOD;
 			} else {
-				print q(<span class="statusbad fa fa-times"></span>);
+				print BAD;
 			}
 			print q(</td><td>);
 			eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };
 			if ($@) {
-				print q(<span class="statusbad fa fa-times"></span>);
+				print BAD;
 			} else {
-				print q(<span class="statusgood fa fa-check"></span>);
+				print GOOD;
 			}
 			say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -252,9 +248,9 @@ sub _check_classification_scheme_databases {
 			  . ( $scheme_info->{'dbase_table'} // q() )
 			  . q(</td><td>);
 			if ( $self->{'datastore'}->get_classification_scheme($cscheme_id)->get_db ) {
-				print q(<span class="statusgood fa fa-check"></span>);
+				print GOOD;
 			} else {
-				print q(<span class="statusbad fa fa-times"></span>);
+				print BAD;
 			}
 			print qq(</td><td>$cscheme_info->{'seqdef_cscheme_id'}</td><td>);
 			my $seqdef_db = $self->{'datastore'}->get_scheme( $cscheme_info->{'scheme_id'} )->get_db;
@@ -264,9 +260,9 @@ sub _check_classification_scheme_databases {
 				{ db => $seqdef_db }
 			);
 			if ($exists) {
-				print q(<span class="statusgood fa fa-check"></span>);
+				print GOOD;
 			} else {
-				print q(<span class="statusbad fa fa-times"></span>);
+				print BAD;
 			}
 			my $classification_data = say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -299,11 +295,11 @@ sub _check_client_databases {
 			$sql->execute;
 		};
 		if ($@) {
-			$buffer .= q(<span class="statusbad fa fa-times"></span>);
+			$buffer .= BAD;
 		} else {
-			$buffer .= q(<span class="statusgood fa fa-check"></span>);
+			$buffer .= GOOD;
 		}
-		$buffer .= "</td></tr>\n";
+		$buffer .= qq(</td></tr>\n);
 	}
 	if ($buffer) {
 		say q(<div class="box resultstable">);
