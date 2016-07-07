@@ -62,7 +62,8 @@ sub print_content {
 		my $cleaned_locus = $self->clean_locus($locus);
 		say qq(<h1>Batch insert $cleaned_locus sequences</h1>);
 	} else {
-		say qq(<h1>Batch insert $cleaned_table</h1>);
+		my $icon = $self->get_form_icon($table,'plus');
+		say qq(<h1>Batch insert $cleaned_table</h1>$icon);
 	}
 	if ( !$self->can_modify_table($table) ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )

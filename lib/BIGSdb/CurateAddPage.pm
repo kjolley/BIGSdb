@@ -78,7 +78,8 @@ sub print_content {
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
 	return if !$self->_table_exists($table);
-	say qq(<h1>Add new $record_name</h1>);
+	my $icon = $self->get_form_icon($table,'plus');
+	say qq(<h1>Add new $record_name</h1>$icon);
 	if ( !$self->can_modify_table($table) ) {
 		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
 		if ( $seq_table{$table} && $q->param('locus') || $table eq 'locus_descriptions' ) {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -55,9 +56,13 @@ sub _create_query_table {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $data (@$composite_fields) {
 		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=delete&amp;&amp;table=composite_fields&amp;id=$data->{'id'}">Delete</a></td>)
+		  . qq(page=delete&amp;&amp;table=composite_fields&amp;id=$data->{'id'}" class="action">)
+		  . DELETE
+		  . q(</a></td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeUpdate&amp;)
-		  . qq(id=$data->{'id'}">Update</a></td>);
+		  . qq(id=$data->{'id'}" class="action">)
+		  . EDIT
+		  . q(</a></td>);
 		say qq(<td>$data->{'id'}</td><td>$data->{'position_after'}</td><td>)
 		  . ( $data->{'main_display'} ? q(true) : q(false) )
 		  . q(</td>);

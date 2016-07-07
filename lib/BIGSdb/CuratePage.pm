@@ -522,7 +522,7 @@ sub _show_tooltip {
 	my $buffer = q();
 	if ( $att->{'tooltip'} ) {
 		$buffer .=
-		  qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}">) . q(<span class="fa fa-info-circle"></span></a>);
+		  qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}"><span class="fa fa-info-circle"></span></a>);
 	}
 	if ( $att->{'comments'} ) {
 		my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
@@ -1287,5 +1287,21 @@ sub update_blast_caches {
 		}
 	}
 	return;
+}
+
+sub get_form_icon {
+	my ( $self, $table, $highlight ) = @_;
+	my $icons = { users => 'fa-user', user_groups => 'fa-users', experiments => 'fa-flask' };
+	my $highlight_class = {
+		plus  => 'fa-plus form_icon_plus',
+		edit  => 'fa-pencil form_icon_edit',
+		trash => 'fa-times form_icon_trash'
+	};
+	my $icon = $icons->{$table} // 'fa-file-text';
+	my $bordered =
+	    q(<span class="form_icon"><span class="fa-stack fa-3x">)
+	  . qq(<span class="fa $icon fa-stack-2x form_icon_main"></span>)
+	  . qq(<span class="fa $highlight_class->{$highlight} fa-stack-1x" style="left:0.5em;"></span></span></span>);
+	return $bordered;
 }
 1;

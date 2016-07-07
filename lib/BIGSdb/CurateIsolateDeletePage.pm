@@ -35,7 +35,8 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	my $buffer;
-	say q(<h1>Delete isolate</h1>);
+	my $icon = $self->get_form_icon('isolates','trash');
+	say qq(<h1>Delete isolate</h1>$icon);
 	if ( !$id ) {
 		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
 		return;
@@ -54,7 +55,7 @@ sub print_content {
 		  . q(delete records in the isolates table.</p></div>);
 		return;
 	}
-	$buffer .= qq(<div class="box" id="resultstable">\n);
+	$buffer .= qq(<div class="box" id="resultspanel">\n);
 	$buffer .= q(<p>You have chosen to delete the following record:</p>);
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);

@@ -29,7 +29,8 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<h1>Update profile</h1>);
+	my $icon = $self->get_form_icon( 'profiles', 'edit' );
+	say qq(<h1>Update profile</h1>$icon);
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
 		say q(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);

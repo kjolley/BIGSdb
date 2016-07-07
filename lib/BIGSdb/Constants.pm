@@ -50,11 +50,11 @@ use constant UP       => q(<span class="fa fa-lg fa-arrow-up" style="color:blue"
 use constant DOWN     => q(<span class="fa fa-lg fa-arrow-down" style="color:blue"></span>);
 use constant LEFT     => q(<span class="fa fa-lg fa-arrow-left" style="color:blue"></span>);
 use constant RIGHT    => q(<span class="fa fa-lg fa-arrow-right" style="color:blue"></span>);
-use constant EDIT     => q(<span class="fa fa-lg fa-edit" style="color:green"></span>);
-use constant DELETE   => q(<span class="fa fa-lg fa-times" style="color:red"></span>);
-use constant ADD      => q(<span class="fa fa-lg fa-plus" style="color:green"></span>);
-use constant COMPARE  => q(<span class="fa fa-lg fa-balance-scale" style="color:navy"></span>);
-use constant UPLOAD   => q(<span class="fa fa-lg fa-upload" style="color:green"></span>);
+use constant EDIT     => q(<span class="fa fa-lg fa-pencil" style="color:#44a"></span>);
+use constant DELETE   => q(<span class="fa fa-lg fa-times" style="color:#a44"></span>);
+use constant ADD      => q(<span class="fa fa-lg fa-plus" style="color:#4a4"></span>);
+use constant COMPARE  => q(<span class="fa fa-lg fa-balance-scale" style="color:#44a"></span>);
+use constant UPLOAD   => q(<span class="fa fa-lg fa-upload" style="color:#4a4"></span>);
 use constant GOOD     => q(<span class="statusgood fa fa-lg fa-check"></span>);
 use constant BAD      => q(<span class="statusbad fa fa-lg fa-times"></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);

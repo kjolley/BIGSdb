@@ -31,7 +31,8 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table) // q();
-	say qq(<h1>Delete $record_name</h1>);
+	my $icon = $self->get_form_icon($table,'trash');
+	say qq(<h1>Delete $record_name</h1>$icon);
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{

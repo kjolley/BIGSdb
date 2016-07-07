@@ -55,7 +55,8 @@ sub print_content {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	print "<h1>Batch insert $scheme_info->{'description'} profiles</h1>\n";
+	my $icon = $self->get_form_icon( 'profiles', 'plus' );
+	say qq(<h1>Batch insert $scheme_info->{'description'} profiles</h1>$icon);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $scheme_info->{'primary_key'};

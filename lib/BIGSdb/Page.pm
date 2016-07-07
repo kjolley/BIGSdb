@@ -212,8 +212,8 @@ sub _initiate_plugin {
 
 sub get_file_icon {
 	my ( $self, $type ) = @_;
-	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em">);
-	$buffer .= qq(<span class="fa-stack-1x filetype-text">$type</span>);
+	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em;top">);
+	$buffer .= qq(<span class="fa-stack-1x filetype-text" style="top:0.25em">$type</span>);
 	$buffer .= q(<span class="fa fa-file-o fa-stack-2x"></span>);
 	$buffer .= q(</span>);
 	return $buffer;
@@ -342,7 +342,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20160706';
+	my $version   = '20160707';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -485,7 +485,7 @@ sub print_action_fieldset {
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $legend       = $options->{'legend'}       // 'Action';
-	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
+	my $buffer       = qq(<fieldset style="float:left" id="action"><legend>$legend</legend>\n);
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
 	my @fields = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id modify);
 
