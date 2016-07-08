@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,8 +35,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	my $buffer;
-	my $icon = $self->get_form_icon('isolates','trash');
-	say qq(<h1>Delete isolate</h1>$icon);
+	say q(<h1>Delete isolate</h1>);
 	if ( !$id ) {
 		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
 		return;
@@ -55,8 +54,11 @@ sub print_content {
 		  . q(delete records in the isolates table.</p></div>);
 		return;
 	}
+	my $icon = $self->get_form_icon( 'isolates', 'trash' );
+	$buffer .= $icon;
 	$buffer .= qq(<div class="box" id="resultspanel">\n);
-	$buffer .= q(<p>You have chosen to delete the following record:</p>);
+	$buffer .= q(<p>You have chosen to delete the following record. Select 'Delete and Retire' )
+	  . q(to prevent the isolate id being reused.</p>);
 	$buffer .= $q->start_form;
 	$buffer .= $q->hidden($_) foreach qw (page db id);
 	$buffer .= $q->end_form;
@@ -80,12 +82,20 @@ sub print_content {
 	$buffer .= $q->start_form;
 	$q->param( page => 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Delete' } );
+	$buffer .= $self->print_action_fieldset(
+		{
+			get_only      => 1,
+			no_reset      => 0,
+			submit_label  => 'Delete',
+			submit2       => 'delete_and_retire',
+			submit2_label => 'Delete and Retire'
+		}
+	);
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
 
-	if ( $q->param('submit') ) {
-		$self->_delete( $data->{'id'} );
+	if ( $q->param('submit') || $q->param('delete_and_retire') ) {
+		$self->_delete( $data->{'id'}, { retire => $q->param('delete_and_retire') ? 1 : 0 } );
 		return;
 	}
 	print $buffer;
@@ -93,7 +103,8 @@ sub print_content {
 }
 
 sub _delete {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
 	my @actions;
 	my $old_version = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
 		$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
@@ -110,6 +121,14 @@ sub _delete {
 		push @actions, { statement => 'UPDATE isolates SET new_version=NULL WHERE id=?', arguments => [$old_version] };
 	}
 	push @actions, { statement => 'DELETE FROM isolates WHERE id=?', arguments => [$isolate_id] };
+	if ( $options->{'retire'} ) {
+		my $curator_id = $self->get_curator_id;
+		push @actions,
+		  {
+			statement => 'INSERT INTO retired_isolates (isolate_id,curator,datestamp) VALUES (?,?,?)',
+			arguments => [ $isolate_id, $curator_id, 'now' ]
+		  };
+	}
 	eval {
 		foreach my $action (@actions)
 		{

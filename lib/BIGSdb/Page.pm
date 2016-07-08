@@ -504,6 +504,15 @@ sub print_action_fieldset {
 		  . qq(<span class="ui-button-text">$reset_label</span></a>\n);
 	}
 	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
+	if ( $options->{'submit2'} ) {
+		$options->{'submit2_label'} //= $options->{'submit2'};
+		$buffer .= $q->submit(
+			-name  => $options->{'submit2'},
+			-label => $options->{'submit2_label'},
+			-class => BUTTON_CLASS,
+			-style => 'margin-left:0.2em'
+		);
+	}
 	$buffer .= q(</fieldset><div style="clear:both"></div>);
 	return $buffer if $options->{'get_only'};
 	say $buffer;
