@@ -199,7 +199,7 @@ sub _display_record {
 	$buffer .= $q->start_form;
 	$buffer .= q(<div class="box" id="resultspanel">);
 	$buffer .= q(<div class="scrollable">);
-	my %retire_table = map { $_ => 1 } qw(sequences);
+	my %retire_table = map { $_ => 1 } qw(sequences profiles);
 	$buffer .= q(<p>You have chosen to delete the following record.);
 	if ( $retire_table{$table} ) {
 		$buffer .= q( Select 'Delete and Retire' to prevent the identifier being reused.);
@@ -398,7 +398,8 @@ sub _confirm {
 	my @placeholders = (q(?)) x @$query_fields;
 	my $qry          = qq(DELETE FROM $table WHERE (@$query_fields)=(@placeholders));
 	my @queries      = ( { statement => $qry, arguments => $query_values } );
-	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
+	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') )
+	{
 		push @queries,
 		  {
 			statement => q[DELETE FROM allele_sequences WHERE seqbin_id IN ]
@@ -412,6 +413,12 @@ sub _confirm {
 			push @queries,
 			  {
 				statement => q(INSERT INTO retired_allele_ids (locus,allele_id,curator,datestamp) VALUES (?,?,?,?)),
+				arguments => [ @$query_values, $curator_id, 'now' ]
+			  };
+		} elsif ( $table eq 'profiles' ) {
+			push @queries,
+			  {
+				statement => q(INSERT INTO retired_profiles (scheme_id,profile_id,curator,datestamp) VALUES (?,?,?,?)),
 				arguments => [ @$query_values, $curator_id, 'now' ]
 			  };
 		}
