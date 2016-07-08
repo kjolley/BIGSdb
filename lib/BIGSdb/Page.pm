@@ -503,6 +503,7 @@ sub print_action_fieldset {
 		$buffer .= qq(<a href="$url" class="$class ui-button-text-only">)
 		  . qq(<span class="ui-button-text">$reset_label</span></a>\n);
 	}
+	local $" = q( );
 	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
