@@ -75,7 +75,7 @@ sub print_content {
 	return;
 }
 
-sub _display_record {
+sub _show_modification_warning {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	if (   ( $table eq 'scheme_fields' || $table eq 'scheme_members' )
@@ -86,10 +86,14 @@ sub _display_record {
 		  . q(this scheme will result in the removal of all data from it. This is done to ensure data integrity. )
 		  . q(This does not affect allele designations, but any profiles will have to be reloaded.</p></div>);
 	}
-	my $icon       = $self->get_form_icon( $table, 'trash' );
-	my $buffer     = $icon;
+	return;
+}
+
+sub _get_fields_and_values {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	my ( @query_fields, @query_values, $err );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my ( @query_fields, @query_values );
 	my %primary_keys;
 	foreach my $att (@$attributes) {
 		if ( $att->{'primary_key'} ) {
@@ -98,19 +102,96 @@ sub _display_record {
 			push @query_values, $value;
 			$primary_keys{ $att->{'name'} } = 1 if defined $q->param( $att->{'name'} );
 			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int( $q->param( $att->{'name'} ) ) ) {
-				say qq(<div class="box" id="statusbad"><p>Field $att->{'name'} must be an integer.</p></div>);
-				return;
+				$err = qq(Field $att->{'name'} must be an integer.);
 			}
 		}
 	}
 	if ( @query_fields != keys %primary_keys ) {
-		say q(<div class="box" id="statusbad"><p>Insufficient identifying attributes sent.</p></div>);
+		$err = q(Insufficient identifying attributes sent.);
+	}
+	return ( \@query_fields, \@query_values, $err );
+}
+
+sub get_display_values {
+	my ( $self, $table, $primary_key, $data, $att ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $field, $value );
+	( my $field_name = $att->{'name'} ) =~ tr/_/ /;
+	if ( $table eq 'profiles' && $att->{'name'} eq 'profile_id' ) {
+		$field = $primary_key;
+	} else {
+		$field = $field_name;
+	}
+	if ( $att->{'type'} eq 'bool' ) {
+		$value = $data->{ $att->{'name'} } ? 'true' : 'false';
+	} else {
+		$value = $data->{ $att->{'name'} };
+	}
+	$value = BIGSdb::Utils::escape_html($value);
+	if ( $att->{'name'} =~ /sequence$/x && $att->{'name'} ne 'coding_sequence' ) {
+		$value //= ' ';
+		my $value_length = length($value);
+		if ( $value_length > 5000 ) {
+			my $seq = BIGSdb::Utils::truncate_seq( \$value, 30 );
+			return ( $field,
+				qq(<span class="seq">$seq</span><br />Sequence is $value_length characters (too long to display)) );
+		} else {
+			my $seq = BIGSdb::Utils::split_line($value) || '';
+			return ( $field, qq(<span class="seq">$seq</span>) );
+		}
+	}
+	if ( $att->{'name'} eq 'curator' or $att->{'name'} eq 'sender' ) {
+		my $user = $self->{'datastore'}->get_user_info($value);
+		$user->{'first_name'} //= '';
+		$user->{'surname'}    //= '';
+		return ( $field, qq($user->{'first_name'} $user->{'surname'}) );
+	}
+	if ( $att->{'name'} eq 'scheme_id' ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
+		return ( $field, qq[$value) $scheme_info->{'description'}] );
+	}
+	if ( $att->{'foreign_key'} && $att->{'labels'} ) {
+		my @fields_to_query;
+		my @values = split /\|/x, $att->{'labels'};
+		foreach my $value (@values) {
+			if ( $value =~ /\$(.*)/x ) {
+				push @fields_to_query, $1;
+			}
+		}
+		local $" = ',';
+		my $labels = $self->{'datastore'}->run_query( "SELECT @fields_to_query FROM $att->{'foreign_key'} WHERE id=?",
+			$value, { fetch => 'row_hashref' } );
+		my $label_value = $att->{'labels'};
+		foreach my $field (@fields_to_query) {
+			$label_value =~ s/$field/$labels->{lc $field}/x;
+		}
+		$label_value =~ s/[\|\$]//gx;
+		return ( $field, $label_value );
+	}
+	if ( $att->{'name'} eq 'locus' ) {
+		$value = $self->clean_locus($value);
+		return ( $field, $value // q(&nbsp;) );
+	}
+	$value = '&nbsp;' if !defined $value || $value eq '';
+	return ( $field, $value // q(&nbsp;) );
+}
+
+sub _display_record {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	$self->_show_modification_warning($table);
+	my $icon       = $self->get_form_icon( $table, 'trash' );
+	my $buffer     = $icon;
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	my ( $query_fields, $query_values, $err ) = $self->_get_fields_and_values($table);
+	if ($err) {
+		say qq(<div class="box" id="statusbad"><p>$err</p></div>);
 		return;
 	}
 	local $" = q(,);
-	my @placeholders = (q(?)) x @query_fields;
-	my $qry          = qq(SELECT * FROM $table WHERE (@query_fields)=(@placeholders));
-	my $data         = $self->{'datastore'}->run_query( $qry, \@query_values, { fetch => 'row_hashref' } );
+	my @placeholders = (q(?)) x @$query_fields;
+	my $qry          = qq(SELECT * FROM $table WHERE (@$query_fields)=(@placeholders));
+	my $data         = $self->{'datastore'}->run_query( $qry, $query_values, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		say q(<div class="box" id="statusbad"><p>Selected record does not exist.</p></div>);
 		return;
@@ -139,68 +220,8 @@ sub _display_record {
 	}
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'} eq 'yes';
-		( my $field_name = $att->{'name'} ) =~ tr/_/ /;
-		if ( $table eq 'profiles' && $att->{'name'} eq 'profile_id' ) {
-			$buffer .= "<dt>$primary_key</dt>";
-		} else {
-			$buffer .= "<dt>$field_name</dt>";
-		}
-		my $value;
-		if ( $att->{'type'} eq 'bool' ) {
-			$value = $data->{ $att->{'name'} } ? 'true' : 'false';
-		} else {
-			$value = $data->{ $att->{'name'} };
-		}
-		$value = BIGSdb::Utils::escape_html($value);
-		if ( $att->{'name'} =~ /sequence$/x && $att->{'name'} ne 'coding_sequence' ) {
-			$value //= ' ';
-			my $value_length = length($value);
-			if ( $value_length > 5000 ) {
-				$value = BIGSdb::Utils::truncate_seq( \$value, 30 );
-				$buffer .= qq(<dd><span class="seq">$value</span> Sequence is $value_length )
-				  . qq(characters (too long to display)</dd>\n);
-			} else {
-				$value = BIGSdb::Utils::split_line($value) || '';
-				$buffer .= qq(<dd class="seq">$value</dd>\n);
-			}
-		} elsif ( $att->{'name'} eq 'curator' or $att->{'name'} eq 'sender' ) {
-			my $user = $self->{'datastore'}->get_user_info($value);
-			$user->{'first_name'} //= '';
-			$user->{'surname'}    //= '';
-			$buffer .= "<dd>$user->{'first_name'} $user->{'surname'}</dd>\n";
-		} elsif ( $att->{'name'} eq 'scheme_id' ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
-			$buffer .= "<dd>$value) $scheme_info->{'description'}</dd>\n";
-		} elsif ( $att->{'foreign_key'} && $att->{'labels'} ) {
-			my @fields_to_query;
-			my @values = split /\|/x, $att->{'labels'};
-			foreach my $value (@values) {
-				if ( $value =~ /\$(.*)/x ) {
-					push @fields_to_query, $1;
-				}
-			}
-			local $" = ',';
-			my $foreign_key_sql =
-			  $self->{'db'}->prepare("SELECT @fields_to_query FROM $att->{'foreign_key'} WHERE id=?");
-			eval { $foreign_key_sql->execute($value) };
-			$logger->error($@) if $@;
-			while ( my @labels = $foreign_key_sql->fetchrow_array ) {
-				my $label_value = $att->{'labels'};
-				my $i           = 0;
-				foreach my $field (@fields_to_query) {
-					$label_value =~ s/$field/$labels[$i]/x;
-					$i++;
-				}
-				$label_value =~ s/[\|\$]//gx;
-				$buffer .= qq(<dd>$label_value</dd>);
-			}
-		} elsif ( $att->{'name'} eq 'locus' ) {
-			$value = $self->clean_locus($value);
-			$buffer .= defined $value ? qq(<dd>$value</dd>) : q(<dd>&nbsp;</dd>);
-		} else {
-			$value = '&nbsp;' if !defined $value || $value eq '';
-			$buffer .= defined $value ? qq(<dd>$value</dd>) : q(<dd>&nbsp;</dd>);
-		}
+		my ( $field, $value ) = $self->get_display_values( $table, $primary_key, $data, $att );
+		$buffer .= qq(<dt>$field</dt><dd>$value</dd>);
 		if ( $table eq 'profiles' && $att->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
 			$buffer .= $self->_get_profile_fields( $scheme_id, $primary_key, $data->{'profile_id'} );
@@ -237,7 +258,7 @@ sub _display_record {
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
 		$buffer .=
-		  $self->_delete( $table, $data, \@query_fields, \@query_values,
+		  $self->_delete( $table, $data, $query_fields, $query_values,
 			{ retire => $q->param('delete_and_retire') ? 1 : 0 } )
 		  || '';
 		return if $q->param('submit') || $q->param('delete_and_retire');
