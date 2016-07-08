@@ -31,8 +31,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table) // q();
-	my $icon = $self->get_form_icon($table,'trash');
-	say qq(<h1>Delete $record_name</h1>$icon);
+	say qq(<h1>Delete $record_name</h1>);
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
@@ -87,7 +86,8 @@ sub _display_record {
 		  . q(this scheme will result in the removal of all data from it. This is done to ensure data integrity. )
 		  . q(This does not affect allele designations, but any profiles will have to be reloaded.</p></div>);
 	}
-	my $buffer;
+	my $icon       = $self->get_form_icon( $table, 'trash' );
+	my $buffer     = $icon;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @query_values;
 	my %primary_keys;
@@ -235,7 +235,7 @@ sub _delete {
 	if ( $table eq 'users' ) {
 		$self->_delete_user( $data, \$nogo_buffer, \$proceed );
 	}
-	my %dont_check = map{$_ => 1} qw(composite_fields schemes classification_schemes);
+	my %dont_check = map { $_ => 1 } qw(composite_fields schemes classification_schemes);
 
 	#Check if record is a foreign key in another table
 	if ( $proceed && !$dont_check{$table} ) {

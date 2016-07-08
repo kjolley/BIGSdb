@@ -78,8 +78,7 @@ sub print_content {
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
 	return if !$self->_table_exists($table);
-	my $icon = $self->get_form_icon($table,'plus');
-	say qq(<h1>Add new $record_name</h1>$icon);
+	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
 		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
 		if ( $seq_table{$table} && $q->param('locus') || $table eq 'locus_descriptions' ) {
@@ -114,7 +113,8 @@ sub print_content {
 		return;
 	}
 	$self->_warn_about_scheme_modification($table);
-	my $buffer;
+	my $icon = $self->get_form_icon( $table, 'plus' );
+	my $buffer = $icon;
 	my %newdata;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	foreach (@$attributes) {
@@ -885,8 +885,7 @@ sub id_exists {
 sub retired_id_exists {
 	my ( $self, $id ) = @_;
 	my $num =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)', $id )
-	  ;
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)', $id );
 	return $num;
 }
 

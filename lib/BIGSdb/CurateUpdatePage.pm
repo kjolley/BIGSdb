@@ -71,8 +71,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
 	my $record_name = $self->get_record_name($table) // 'record';
-	my $icon = $self->get_form_icon($table,'edit');
-	say qq(<h1>Update $record_name</h1>$icon);
+	say qq(<h1>Update $record_name</h1>);
 	return if $self->_pre_check_failed($table);
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @query_terms, @query_values );
@@ -109,7 +108,9 @@ sub print_content {
 			$data->{ $ext_data->{'field'} } = $ext_data->{'value'};
 		}
 	}
-	my $buffer = $self->create_record_table( $table, $data, { update => 1 } );
+	my $icon = $self->get_form_icon( $table, 'edit' );
+	my $buffer = $icon;
+	$buffer .= $self->create_record_table( $table, $data, { update => 1 } );
 	my %newdata;
 	foreach (@$attributes) {
 		if ( defined $q->param( $_->{'name'} ) && $q->param( $_->{'name'} ) ne '' ) {

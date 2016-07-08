@@ -29,8 +29,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $icon = $self->get_form_icon( 'profiles', 'edit' );
-	say qq(<h1>Update profile</h1>$icon);
+	say qq(<h1>Update profile</h1>);
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
 		say q(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);
@@ -130,8 +129,7 @@ sub _prepare_update {
 	if ( !@bad_field_buffer && $profile_changed ) {
 		$newdata{"field:$primary_key"} = $profile_id;
 		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
-		my $ret =
-		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
+		my $ret = $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
 		push @bad_field_buffer, $ret->{'msg'} if $ret->{'exists'};
 	}
 	foreach my $field (@$scheme_fields) {
@@ -341,10 +339,11 @@ sub _print_interface {
 	  @{$args}{qw(scheme_id profile_id profile_data field_data primary_key allele_data)};
 	my $q           = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	say q(<div class="box" id="queryform">);
+	my $icon        = $self->get_form_icon( 'profiles', 'edit' );
+	say qq($icon<div class="box" id="queryform">);
 	say q(<div class="scrollable" style="white-space:nowrap">);
 	my ( $users, $usernames ) = $self->get_user_list_and_labels;
-	$usernames->{''} = ' ';    #Required for HTML5 validation.
+	$usernames->{''} = ' ';                           #Required for HTML5 validation.
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $longest_name  = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$scheme_fields ] );

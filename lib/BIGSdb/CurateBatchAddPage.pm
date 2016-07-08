@@ -62,8 +62,7 @@ sub print_content {
 		my $cleaned_locus = $self->clean_locus($locus);
 		say qq(<h1>Batch insert $cleaned_locus sequences</h1>);
 	} else {
-		my $icon = $self->get_form_icon($table,'plus');
-		say qq(<h1>Batch insert $cleaned_table</h1>$icon);
+		say qq(<h1>Batch insert $cleaned_table</h1>);
 	}
 	if ( !$self->can_modify_table($table) ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
@@ -120,6 +119,8 @@ sub print_content {
 		if ( $q->param('submission_id') ) {
 			$self->_set_submission_params( $q->param('submission_id') );
 		}
+		my $icon = $self->get_form_icon($table,'plus');
+		say $icon;
 		$self->_print_interface($args);
 	}
 	return;

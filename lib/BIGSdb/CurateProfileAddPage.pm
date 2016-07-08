@@ -63,8 +63,7 @@ sub print_content {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $icon = $self->get_form_icon( 'profiles', 'plus' );
-	say qq(<h1>Add new $scheme_info->{'description'} profile</h1>$icon);
+	say qq(<h1>Add new $scheme_info->{'description'} profile</h1>);
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
@@ -93,6 +92,8 @@ sub print_content {
 	if ( $q->param('sent') ) {
 		return if $self->_upload( $scheme_id, \%newdata );
 	}
+	my $icon = $self->get_form_icon( 'profiles', 'plus' );
+	say $icon;
 	$self->_print_interface( $scheme_id, \%newdata );
 	return;
 }
