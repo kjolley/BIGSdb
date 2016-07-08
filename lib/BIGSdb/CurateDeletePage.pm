@@ -89,13 +89,13 @@ sub _display_record {
 	my $icon       = $self->get_form_icon( $table, 'trash' );
 	my $buffer     = $icon;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	my @query_values;
+	my ( @query_fields, @query_values );
 	my %primary_keys;
 	foreach my $att (@$attributes) {
 		if ( $att->{'primary_key'} ) {
 			my $value = $q->param( $att->{'name'} ) // '';
-			$value =~ s/'/\\'/gx;
-			push @query_values, "$att->{'name'} = E'$value'";
+			push @query_fields, $att->{'name'};
+			push @query_values, $value;
 			$primary_keys{ $att->{'name'} } = 1 if defined $q->param( $att->{'name'} );
 			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int( $q->param( $att->{'name'} ) ) ) {
 				say qq(<div class="box" id="statusbad"><p>Field $att->{'name'} must be an integer.</p></div>);
@@ -103,13 +103,14 @@ sub _display_record {
 			}
 		}
 	}
-	if ( @query_values != keys %primary_keys ) {
+	if ( @query_fields != keys %primary_keys ) {
 		say q(<div class="box" id="statusbad"><p>Insufficient identifying attributes sent.</p></div>);
 		return;
 	}
-	local $" = ' AND ';
-	my $qry = "SELECT * FROM $table WHERE @query_values";
-	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'row_hashref' } );
+	local $" = q(,);
+	my @placeholders = (q(?)) x @query_fields;
+	my $qry          = qq(SELECT * FROM $table WHERE (@query_fields)=(@placeholders));
+	my $data         = $self->{'datastore'}->run_query( $qry, \@query_values, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		say q(<div class="box" id="statusbad"><p>Selected record does not exist.</p></div>);
 		return;
@@ -117,11 +118,15 @@ sub _display_record {
 	$buffer .= $q->start_form;
 	$buffer .= q(<div class="box" id="resultspanel">);
 	$buffer .= q(<div class="scrollable">);
-	$buffer .= q(<p>You have chosen to delete the following record:</p>);
+	my %retire_table = map { $_ => 1 } qw(sequences);
+	$buffer .= q(<p>You have chosen to delete the following record.);
+	if ( $retire_table{$table} ) {
+		$buffer .= q( Select 'Delete and Retire' to prevent the identifier being reused.);
+	}
+	$buffer .= q(</p>);
 	$buffer .= $q->hidden($_) foreach qw(page db table);
 	$buffer .= $q->hidden( sent => 1 );
 	foreach my $att (@$attributes) {
-
 		if ( $att->{'primary_key'} ) {
 			$buffer .= $q->hidden( $att->{'name'}, $data->{ $att->{'name'} } );
 		}
@@ -215,19 +220,34 @@ sub _display_record {
 		}
 		$buffer .= qq(</ul></fieldset></div>\n);
 	}
-	$buffer .= $self->print_action_fieldset( { submit_label => 'Delete', no_reset => 1, get_only => 1 } );
+	if ( $retire_table{$table} ) {
+		$buffer .= $self->print_action_fieldset(
+			{
+				submit_label  => 'Delete',
+				submit2       => 'delete_and_retire',
+				submit2_label => 'Delete and Retire',
+				no_reset      => 1,
+				get_only      => 1
+			}
+		);
+	} else {
+		$buffer .= $self->print_action_fieldset( { submit_label => 'Delete', no_reset => 1, get_only => 1 } );
+	}
 	$buffer .= q(</div>);
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
-		$buffer .= $self->_delete( $table, $data, \@query_values ) || '';
-		return if $q->param('submit');
+		$buffer .=
+		  $self->_delete( $table, $data, \@query_fields, \@query_values,
+			{ retire => $q->param('delete_and_retire') ? 1 : 0 } )
+		  || '';
+		return if $q->param('submit') || $q->param('delete_and_retire');
 	}
 	say $buffer;
 	return;
 }
 
 sub _delete {
-	my ( $self, $table, $data, $query_values_ref ) = @_;
+	my ( $self, $table, $data, $query_fields, $query_values, $options ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	my $proceed = 1;
@@ -296,8 +316,8 @@ sub _delete {
 		return;
 	}
 	$buffer .= "</p>\n";
-	if ( $q->param('submit') && $proceed ) {
-		$self->_confirm( $table, $data, $query_values_ref );
+	if ( ( $q->param('submit') || $q->param('delete_and_retire') ) && $proceed ) {
+		$self->_confirm( $table, $data, $query_fields, $query_values, $options );
 		return;
 	}
 	return $buffer;
@@ -351,16 +371,35 @@ sub _delete_user {
 }
 
 sub _confirm {
-	my ( $self, $table, $data, $query_values_ref ) = @_;
+	my ( $self, $table, $data, $query_fields, $query_values, $options ) = @_;
 	my $q = $self->{'cgi'};
-	local $" = ' AND ';
-	my $qry = "DELETE FROM $table WHERE @$query_values_ref";
+	local $" = q(,);
+	my @placeholders = (q(?)) x @$query_fields;
+	my $qry          = qq(DELETE FROM $table WHERE (@$query_fields)=(@placeholders));
+	my @queries      = ( { statement => $qry, arguments => $query_values } );
 	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
-		$qry .= ';DELETE FROM allele_sequences WHERE seqbin_id IN (SELECT id FROM sequence_bin WHERE '
-		  . "$query_values_ref->[0]) AND $query_values_ref->[1]";
+		push @queries,
+		  {
+			statement => q[DELETE FROM allele_sequences WHERE seqbin_id IN ]
+			  . qq[(SELECT id FROM sequence_bin WHERE $query_fields->[0]=?) AND $query_fields->[1]=?],
+			arguments => [ $query_values->[0], $query_values->[1] ]
+		  };
+	}
+	if ( $options->{'retire'} ) {
+		my $curator_id = $self->get_curator_id;
+		if ( $table eq 'sequences' ) {
+			push @queries,
+			  {
+				statement => q(INSERT INTO retired_allele_ids (locus,allele_id,curator,datestamp) VALUES (?,?,?,?)),
+				arguments => [ @$query_values, $curator_id, 'now' ]
+			  };
+		}
 	}
 	eval {
-		$self->{'db'}->do($qry);
+		foreach my $qry (@queries)
+		{
+			$self->{'db'}->do( $qry->{'statement'}, undef, @{ $qry->{'arguments'} } );
+		}
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )
 			&& $self->{'system'}->{'dbtype'} eq 'sequences' )
 		{
