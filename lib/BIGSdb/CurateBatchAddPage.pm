@@ -119,7 +119,7 @@ sub print_content {
 		if ( $q->param('submission_id') ) {
 			$self->_set_submission_params( $q->param('submission_id') );
 		}
-		my $icon = $self->get_form_icon($table,'plus');
+		my $icon = $self->get_form_icon( $table, 'plus' );
 		say $icon;
 		$self->_print_interface($args);
 	}
@@ -2226,6 +2226,12 @@ sub _get_field_table_header {
 
 sub _is_id_used {
 	my ( $self, $table, $id ) = @_;
+	if ( $table eq 'isolates' ) {
+		my $qry =
+		    'SELECT EXISTS(SELECT * FROM isolates WHERE id=?) OR '
+		  . 'EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)';
+		return $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
+	}
 	my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
 	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
