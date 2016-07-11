@@ -127,6 +127,12 @@ sub new {
 	$self->initiate_plugins($lib_dir);
 	$self->print_page;
 	$self->_db_disconnect;
+
+	#Prevent apache appending its own error pages.
+	if ( $self->{'handled_error'} && $ENV{'MOD_PERL'} ) {
+		$self->{'mod_perl_request'}->rflush;
+		$self->{'mod_perl_request'}->status(200);
+	}
 	return $self;
 }
 
@@ -148,7 +154,7 @@ sub _initiate {
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	if ( !-e $full_path ) {
 		$logger->fatal("Database config file for '$self->{'instance'}' does not exist.");
-		$self->{'error'} = 'invalidXML';
+		$self->{'error'} = 'missingXML';
 		return;
 	}
 	$self->{'xmlHandler'} = BIGSdb::Parser->new;
@@ -176,9 +182,12 @@ sub _initiate {
 			$self->{'error'} = 'invalidScriptPath';
 		}
 	}
-	$self->{'error'} = 'noAuthenticationSet' if !$self->{'system'}->{'authentication'};
-	$self->{'error'} = 'invalidAuthenticationSet'
-	  if $self->{'system'}->{'authentication'} ne 'apache' && $self->{'system'}->{'authentication'} ne 'builtin';
+	if ( !$self->{'system'}->{'authentication'} ) {
+		$self->{'error'} = 'noAuthenticationSet';
+	} elsif ( $self->{'system'}->{'authentication'} ne 'apache' && $self->{'system'}->{'authentication'} ne 'builtin' )
+	{
+		$self->{'error'} = 'invalidAuthenticationSet';
+	}
 	$self->{'system'}->{'script_name'} = $self->{'script_name'};
 	$self->{'system'}->{'query_script'}  //= $self->{'config'}->{'query_script'}  // 'bigsdb.pl';
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
@@ -253,7 +262,7 @@ sub initiate_authdb {
 		$logger->info("Connected to authentication database '$self->{'config'}->{'auth_db'}'");
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Can not connect to authentication database '$self->{'config'}->{'auth_db'}'");
+		$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
 		$self->{'error'} = 'noAuth';
 	};
 	return;
@@ -400,7 +409,7 @@ sub _setup_prefstore {
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Prefs');
-		$logger->fatal("Can not connect to preferences database '$self->{'config'}->{'prefs_db'}'");
+		$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
 	};
 	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
 	return;
@@ -445,7 +454,8 @@ sub db_connect {
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Application_Initiate');
-		$logger->error("Can not connect to database '$self->{'system'}->{'db'}'");
+		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+		$self->{'error'} = 'noConnect';
 	};
 	return;
 }
@@ -533,6 +543,9 @@ sub print_page {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
+		if ( $page_attributes{'error'} ) {
+			$self->{'handled_error'} = 1;
+		}
 		return;
 	}
 	if (   $self->{'system'}->{'read_access'} ne 'public'
@@ -573,6 +586,9 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
 	$page->print_page_content;
+	if ( $page_attributes{'error'} ) {
+		$self->{'handled_error'} = 1;
+	}
 	return;
 }
 

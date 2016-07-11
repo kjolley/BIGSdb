@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -101,7 +101,7 @@ sub get_connection {
 			$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
 		};
 		if ($@) {
-			$logger->error("Can not connect to database '$attributes->{'dbase_name'}' ($host). $@");
+			$logger->error("Cannot connect to database '$attributes->{'dbase_name'}' ($host). $@");
 			throw BIGSdb::DatabaseConnectionException(
 				"Can not connect to database '$attributes->{'dbase_name'}' ($host)");
 		} else {

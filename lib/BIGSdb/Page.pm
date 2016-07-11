@@ -272,8 +272,9 @@ sub print_page_content {
 			$self->{'setOptions'} = 1;
 		}
 		my %header_options;
-		$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
-		$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
+		$header_options{'-cookie'}  = $self->{'cookies'} if $self->{'cookies'};
+		$header_options{'-expires'} = '+1h'              if !$self->{'noCache'};
+		$header_options{'-status'}  = $self->{'status'}  if $self->{'status'};
 		print $q->header(%header_options);
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
