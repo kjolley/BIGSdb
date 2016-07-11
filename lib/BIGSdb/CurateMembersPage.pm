@@ -108,11 +108,11 @@ sub _print_interface {
 		my $labels = $self->_get_labels($table);
 		say $q->start_form;
 		say qq(<table><tr><th>Available</th><td></td><th>Selected</th></tr>\n<tr><td>);
-		say $q->popup_menu(
+		say $self->popup_menu(
 			-name     => 'available',
 			-id       => 'available',
 			-values   => $available,
-			-multiple => 'multiple',
+			-multiple => 'true',
 			-labels   => $labels,
 			-style    => 'min-width:10em; min-height:15em'
 		);
@@ -122,11 +122,11 @@ sub _print_interface {
 		say q(<br />);
 		say qq(<button type="submit" name="remove" value="remove" class="smallbutton">$remove</button>);
 		say q(</td><td>);
-		say $q->popup_menu(
+		say $self->popup_menu(
 			-name     => 'selected',
 			-id       => 'selected',
 			-values   => $selected,
-			-multiple => 'multiple',
+			-multiple => 'true',
 			-labels   => $labels,
 			-style    => 'min-width:10em; min-height:15em'
 		);
