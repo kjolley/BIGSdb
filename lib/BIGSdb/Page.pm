@@ -2265,7 +2265,7 @@ sub print_seqbin_isolate_fieldset {
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	if (@$ids) {
 		say q(<div style="float:left">);
-		if ( @$ids <= MAX_ISOLATES_DROPDOWN && $options->{'isolate_paste_list'} ) {
+		if ( @$ids <= MAX_ISOLATES_DROPDOWN || !$options->{'isolate_paste_list'} ) {
 			say $self->popup_menu(
 				-name     => 'isolate_id',
 				-id       => 'isolate_id',
