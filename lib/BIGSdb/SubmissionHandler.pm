@@ -362,16 +362,18 @@ sub check_new_alleles_fasta {
 		}
 		my $seq_length = length $sequence;
 		my $units = $locus_info->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
-		if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
-			push @err,
-			  qq(Sequence "$seq_id" has a length of $seq_length $units while this locus has a )
-			  . qq(non-variable length of $locus_info->{'length'} $units.);
-		} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
-			push @err, qq(Sequence "$seq_id" has a length of $seq_length $units while this locus )
-			  . qq(has a minimum length of $locus_info->{'min_length'} $units.);
-		} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
-			push @err, qq(Sequence "$seq_id" has a length of $seq_length $units while this locus )
-			  . qq(has a maximum length of $locus_info->{'max_length'} $units.);
+		if ( !$options->{'ignore_length'} ) {
+			if ( !$locus_info->{'length_varies'} && $seq_length != $locus_info->{'length'} ) {
+				push @err,
+				  qq(Sequence "$seq_id" has a length of $seq_length $units while this locus has a )
+				  . qq(non-variable length of $locus_info->{'length'} $units.);
+			} elsif ( $locus_info->{'min_length'} && $seq_length < $locus_info->{'min_length'} ) {
+				push @err, qq(Sequence "$seq_id" has a length of $seq_length $units while this locus )
+				  . qq(has a minimum length of $locus_info->{'min_length'} $units.);
+			} elsif ( $locus_info->{'max_length'} && $seq_length > $locus_info->{'max_length'} ) {
+				push @err, qq(Sequence "$seq_id" has a length of $seq_length $units while this locus )
+				  . qq(has a maximum length of $locus_info->{'max_length'} $units.);
+			}
 		}
 		my $existing_allele =
 		  $self->{'datastore'}->run_query( "SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
@@ -919,7 +921,7 @@ sub _check_other_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #C
 }
 
 #Make sure boolean fields really are boolean
-sub _check_other_boolean {
+sub _check_other_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	return if !defined $value || $value eq q();
 	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
@@ -929,7 +931,7 @@ sub _check_other_boolean {
 }
 
 #Make sure sender is in database
-sub _check_other_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_sender {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	if ( $field eq 'sender' or $field eq 'sequenced_by' ) {
 		my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)',

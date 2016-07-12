@@ -109,7 +109,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips);
 	return;
 }
 
@@ -722,6 +722,7 @@ sub _submit_alleles {
 			$fasta_string .= "$seq->{'sequence'}\n";
 		}
 		if ( !$q->param('no_check') ) {
+			$logger->error( $q->param('ignore_length') );
 			$ret =
 			  $self->{'submissionHandler'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
 			$self->_print_allele_warnings( $ret->{'info'} );
@@ -963,6 +964,11 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
+	say q(</li><li>);
+	say $q->checkbox( -name => 'ignore_length', -label => 'Sequence length outside usual range' );
+	say q( <a class="tooltip" title="Length check - If you select this checkbox your sequence must still be )
+	  . q(trimmed to the standard start and end sites or it will be rejected by the curator.">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
 	return;
@@ -1084,7 +1090,8 @@ sub _check_new_alleles {
 		$fasta_string =~ s/^\s*//x;
 		$fasta_string =~ s/\n\s*/\n/xg;
 		$fasta_string = ">seq\n$fasta_string" if $fasta_string !~ /^\s*>/x;
-		return $self->{'submissionHandler'}->check_new_alleles_fasta( $locus, \$fasta_string );
+		return $self->{'submissionHandler'}
+		  ->check_new_alleles_fasta( $locus, \$fasta_string, { ignore_length => ( $q->param('ignore_length') // 0 ) } );
 	}
 	return;
 }
