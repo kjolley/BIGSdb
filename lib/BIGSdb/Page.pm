@@ -2246,7 +2246,7 @@ sub popup_menu {
 	$buffer .= qq( style="$style")     if defined $style;
 	$buffer .= q( required="required") if defined $required;
 	$buffer .= q( multiple="multiple") if ( $multiple // '' ) eq 'true';
-	$buffer .= ">\n";
+	$buffer .= qq(>\n);
 
 	foreach (@$values) {
 		next if !defined;
@@ -2255,7 +2255,7 @@ sub popup_menu {
 		my $select = $default{$_} ? q( selected="selected") : '';
 		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
 	}
-	$buffer .= "</select>\n";
+	$buffer .= qq(</select>\n);
 	return $buffer;
 }
 
