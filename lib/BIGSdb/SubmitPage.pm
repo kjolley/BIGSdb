@@ -722,7 +722,6 @@ sub _submit_alleles {
 			$fasta_string .= "$seq->{'sequence'}\n";
 		}
 		if ( !$q->param('no_check') ) {
-			$logger->error( $q->param('ignore_length') );
 			$ret =
 			  $self->{'submissionHandler'}->check_new_alleles_fasta( $allele_submission->{'locus'}, \$fasta_string );
 			$self->_print_allele_warnings( $ret->{'info'} );
