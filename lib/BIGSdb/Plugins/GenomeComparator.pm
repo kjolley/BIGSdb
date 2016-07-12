@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.8',
+		version     => '1.7.9',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -386,13 +386,11 @@ sub _print_interface {
 		return;
 	}
 	$self->print_set_section if $q->param('select_sets');
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>Please select the required isolate ids and loci for comparison - use ctrl or shift to make multiple 
-selections. In addition to selecting individual loci, you can choose to include all loci defined in schemes 
-by selecting the appropriate scheme description. Alternatively, you can enter the accession number for an 
-annotated reference genome and compare using the loci defined in that.</p>
-HTML
+	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
+	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
+	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description. )
+	  . q(Alternatively, you can enter the accession number for an annotated reference genome and compare using )
+	  . q(the loci defined in that.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset(
@@ -695,8 +693,8 @@ sub _get_identifier {
 			my $field_value;
 			if ( $field =~ /s_(\d+)_([\w_]+)/x ) {
 				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
-				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id($id, $scheme_id);
-				my @field_values = keys %{$scheme_values->{lc $scheme_field}};
+				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $id, $scheme_id );
+				my @field_values = keys %{ $scheme_values->{ lc $scheme_field } };
 				local $" = q(_);
 				$field_value = qq(@field_values);
 			} else {
@@ -906,8 +904,8 @@ sub _analyse_by_reference {
 	  ? $self->{'system'}->{'genome_comparator_max_ref_loci'}
 	  : MAX_REF_LOCI;
 	if ( @cds > $max_ref_loci ) {
-		my $nice_limit = BIGSdb::Utils::get_nice_size($self->{'config'}->{'max_upload_size'});
-		my $cds_count = @cds;
+		my $nice_limit = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
+		my $cds_count  = @cds;
 		throw BIGSdb::PluginException( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );

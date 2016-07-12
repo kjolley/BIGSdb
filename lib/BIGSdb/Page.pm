@@ -24,7 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Constants qw(:interface SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -1337,9 +1337,8 @@ sub get_isolate_id_and_name_from_seqbin_id {
 	);
 }
 
+#Return list and formatted labels
 sub get_isolates_with_seqbin {
-
-	#Return list and formatted labels
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $view = $self->{'system'}->{'view'};
@@ -1347,9 +1346,8 @@ sub get_isolates_with_seqbin {
 	if ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
-		$qry =
-"SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS (SELECT * FROM seqbin_stats "
-		  . "WHERE $view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
+		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS "
+		  . "(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id) ORDER BY $view.id";
 	}
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my @ids;
@@ -2267,41 +2265,54 @@ sub print_seqbin_isolate_fieldset {
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	if (@$ids) {
 		say q(<div style="float:left">);
-		say $self->popup_menu(
-			-name     => 'isolate_id',
-			-id       => 'isolate_id',
-			-values   => $ids,
-			-labels   => $labels,
-			-size     => $options->{'size'} // 8,
-			-multiple => 'true',
-			-default  => $options->{'selected_ids'},
-			-required => $options->{'isolate_paste_list'} ? undef : 'required'
-		);
-		my $list_button = q();
-		if ( $options->{'isolate_paste_list'} ) {
-			my $show_button_display = $q->param('isolate_paste_list') ? 'none'    : 'display';
-			my $hide_button_display = $q->param('isolate_paste_list') ? 'display' : 'none';
-			$list_button =
-			    q(<input type="button" id="isolate_list_show_button" onclick='isolate_list_show()' value="Paste list" )
-			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
-			  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
-			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
-		}
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" />)
-		  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-		  . qq(style="margin-top:1em" class="smallbutton" />$list_button</div></div>);
-		if ( $options->{'isolate_paste_list'} ) {
-			my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
-			say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
+		if ( @$ids <= MAX_ISOLATES_DROPDOWN && $options->{'isolate_paste_list'} ) {
+			say $self->popup_menu(
+				-name     => 'isolate_id',
+				-id       => 'isolate_id',
+				-values   => $ids,
+				-labels   => $labels,
+				-size     => $options->{'size'} // 8,
+				-multiple => 'true',
+				-default  => $options->{'selected_ids'},
+				-required => $options->{'isolate_paste_list'} ? undef : 'required'
+			);
+			my $list_button = q();
+			if ( $options->{'isolate_paste_list'} ) {
+				my $show_button_display = $q->param('isolate_paste_list') ? 'none'    : 'display';
+				my $hide_button_display = $q->param('isolate_paste_list') ? 'display' : 'none';
+				$list_button =
+				    q(<input type="button" id="isolate_list_show_button" )
+				  . q(onclick='isolate_list_show()' value="Paste list" )
+				  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
+				  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
+				  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
+			}
+			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
+			  . q(value="All" style="margin-top:1em" class="smallbutton" />)
+			  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
+			  . qq(style="margin-top:1em" class="smallbutton" />$list_button</div></div>);
+			if ( $options->{'isolate_paste_list'} ) {
+				my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
+				say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
+				say $q->textarea(
+					-name        => 'isolate_paste_list',
+					-id          => 'isolate_paste_list',
+					-cols        => 12,
+					-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+					-placeholder => 'Paste list of isolate ids...'
+				);
+				say q(</div>);
+			}
+		} else {
+			local $" = qq(\n);
 			say $q->textarea(
 				-name        => 'isolate_paste_list',
 				-id          => 'isolate_paste_list',
 				-cols        => 12,
 				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+				-default     => "@{$options->{'selected_ids'}}",
 				-placeholder => 'Paste list of isolate ids...'
 			);
-			say q(</div>);
 		}
 	} else {
 		say q(No isolates available<br />for analysis);
