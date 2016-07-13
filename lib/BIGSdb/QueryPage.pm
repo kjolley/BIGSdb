@@ -25,7 +25,7 @@ use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(:interface OPERATORS);
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_INT   => 2147483647;
+use constant MAX_INT => 2147483647;
 
 sub initiate {
 	my ($self) = @_;
@@ -62,7 +62,7 @@ sub get_javascript_panel {
 		tags                => q[$('[id^="tag"]').val('')],
 		tag_count           => q[$('[id^="tag_count"]').val('')],
 	);
-	my ($show,$hide,$save,$saving) = (SHOW,HIDE,SAVE,SAVING);
+	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	foreach my $fieldset (@fieldsets) {
 		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == '$show' ? 0 : 1;\n);
 		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
@@ -193,42 +193,53 @@ sub search_users {
 	return "($table.$field = '@$ids')";
 }
 
+#returns 1 if error
 sub check_format {
-
-	#returns 1 if error
 	my ( $self, $data, $error_ref ) = @_;
 	my $clean_fieldname = $data->{'clean_fieldname'} // $data->{'field'};
 	my $error;
-	if ( lc($data->{'text'}) ne 'null' && defined $data->{'type'} ) {
+	if ( lc( $data->{'text'} ) ne 'null' && defined $data->{'type'} ) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
-		if ( $data->{'type'} =~ /int/ ) {
-			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
-				$error = ( $metafield // $clean_fieldname ) . ' is an integer field.';
-			} elsif ( $data->{'text'} > MAX_INT ) {
-				$error =
-				  ( $metafield // $clean_fieldname ) . ' is too big (largest allowed integer is ' . MAX_INT . ').';
-			}
-		} elsif ( $data->{'type'} =~ /bool/ && !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . ' is a boolean (true/false) field.';
-		} elsif ( $data->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname ) . ' is a floating point number field.';
-		} elsif (
-			$data->{'type'} eq 'date' && (
-				any {
-					$data->{'operator'} eq $_;
+		my $display_field = ( $metafield // $clean_fieldname );
+		my %checks = (
+			int => sub {
+				if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
+					$error = qq($display_field is an integer field.);
+				} elsif ( $data->{'text'} > MAX_INT ) {
+					my $max = MAX_INT;
+					$error = qq($display_field is too big (largest allowed integer is $max).);
 				}
-				( 'contains', 'NOT contain', 'starts with', 'ends with' )
-			)
-		  )
-		{
-			$error = "Searching a date field can not be done for the '$data->{'operator'}' operator.";
-		} elsif ( $data->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
-			$error = ( $metafield // $clean_fieldname )
-			  . q( is a date field - should be in yyyy-mm-dd format (or 'today' / 'yesterday').);
+			},
+			bool => sub {
+				if ( !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
+					$error = qq($display_field is a boolean (true/false) field.);
+				}
+			},
+			float => sub {
+				if ( !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
+					$error = qq($display_field is a floating point number field.);
+				}
+			},
+			date => sub {
+				my %invalid_operator = map { $_ => 1 } ( 'contains', 'NOT contain', 'starts with', 'ends with' );
+				my $operator = $data->{'operator'};
+				if ( $invalid_operator{$operator} ) {
+					$error = qq(Searching a date field cannot be done for the '$operator' operator.);
+				} elsif ( !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
+					$error = qq($display_field is a date field - )
+					  . q(should be in yyyy-mm-dd format (or 'today' / 'yesterday').);
+				}
+			}
+		);
+		foreach my $type (qw(int bool float date)) {
+			if ( $data->{'type'} =~ /$type/x ) {
+				$checks{$type}->();
+				last;
+			}
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
-		$error = "$data->{'operator'} is not a valid operator.";
+		$error = qq($data->{'operator'} is not a valid operator.);
 	}
 	push @$error_ref, $error if $error;
 	return $error ? 1 : 0;
