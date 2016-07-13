@@ -278,31 +278,12 @@ sub print_page_content {
 		print $q->header(%header_options);
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
-
-		#META tag inclusion code written by Andreas Tille.
-		$self->{'instance'} //= q();
-		my $meta_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html";
-		my %meta_content;
-		my %shortcut_icon;
-		if ( -e $meta_file ) {
-			if ( open( my $fh, '<', $meta_file ) ) {
-				while (<$fh>) {
-					if ( $_ =~ /<meta\s+name="([^"]+)"\s+content="([^"]+)"\s*\/?>/x ) {
-						$meta_content{$1} = $2;
-					}
-					if ( $_ =~ /<link\s+rel="shortcut\ icon"\s+href="([^"]+)"\s+type="([^"]+)"\s*\/?>/x ) {
-						$shortcut_icon{'-rel'}  = 'shortcut icon';
-						$shortcut_icon{'-href'} = $1;
-						$shortcut_icon{'-type'} = $2;
-					}
-				}
-				close $fh;
-			}
-		}
+		my ( $meta_content, $shortcut_icon ) = $self->_get_meta_data;
 		my $http_equiv = q(<meta name="viewport" content="width=device-width" />);
+
 		if ( $self->{'refresh'} ) {
-			my $refresh_page = $self->{'refresh_page'} ? "; URL=$self->{'refresh_page'}" : '';
-			$http_equiv .= "<meta http-equiv=\"refresh\" content=\"$self->{'refresh'}$refresh_page\" />";
+			my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
+			$http_equiv .= qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		my $stylesheets = $self->get_stylesheets;
@@ -310,13 +291,13 @@ sub print_page_content {
 		push @styles, { -src => $_, -media => 'Screen' } foreach @$stylesheets;
 		my @args = (
 			-title    => $title,
-			-meta     => {%meta_content},
+			-meta     => $meta_content,
 			-style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
 			-script   => $javascript,
 			-encoding => 'utf-8'
 		);
-		if (%shortcut_icon) {
-			push @args, ( -head => [ CGI->Link( {%shortcut_icon} ), $http_equiv ] );
+		if (%$shortcut_icon) {
+			push @args, ( -head => [ CGI->Link($shortcut_icon), $http_equiv ] );
 		} else {
 			push @args, ( -head => $http_equiv );
 		}
@@ -337,6 +318,34 @@ sub print_page_content {
 		print $q->end_html;
 	}
 	return;
+}
+
+#META tag inclusion code written by Andreas Tille.
+sub _get_meta_data {
+	my ($self) = @_;
+	$self->{'instance'} //= q();
+	my $meta_file     = "$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html";
+	my $meta_content  = {};
+	my $shortcut_icon = {};
+	if ( -e $meta_file ) {
+		if ( open( my $fh, '<', $meta_file ) ) {
+			while ( my $line = <$fh> ) {
+				if ( $line =~ /<meta\s+name="([^"]+)"\s+content="([^"]+)"\s*\/?>/x ) {
+					$meta_content->{$1} = $2;
+				}
+				my $REL  = qr/rel="shortcut\ icon"\s+/x;
+				my $HREF = qr/href="([^"]+)"\s+/x;
+				my $TYPE = qr/type="([^"]+)"/x;
+				if ( $line =~ /<link\s+ $REL $HREF $TYPE\s*\/?>/x ) {
+					$shortcut_icon->{'-rel'}  = 'shortcut icon';
+					$shortcut_icon->{'-href'} = $1;
+					$shortcut_icon->{'-type'} = $2;
+				}
+			}
+			close $fh;
+		}
+	}
+	return ( $meta_content, $shortcut_icon );
 }
 
 sub get_stylesheets {
