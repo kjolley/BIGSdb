@@ -190,7 +190,7 @@ sub _check {
 		$self->_check_existing_profile_id($args);
 
 		#Rewrite <blank> or null to undef
-		if ( $value eq '<blank>' || $value eq 'null' ) {
+		if ( $value eq '<blank>' || lc($value) eq 'null' ) {
 			undef $value;
 		}
 		my $action =
@@ -282,7 +282,7 @@ sub _check_locus_has_value {
 	return if $$problem;
 	return if ( $field_type // q() ) ne 'locus';
 	my $locus_info = $self->{'datastore'}->get_locus_info($field);
-	if ( $value eq '<blank>' || $value eq 'null' ) {
+	if ( $value eq '<blank>' || lc($value) eq 'null' ) {
 		$$problem = q(this is a required field and cannot be left blank);
 	}
 	return;
@@ -318,7 +318,7 @@ sub _check_unchanged_value {
 	my ( $self, $args ) = @_;
 	my ( $old_value, $value, $problem ) = @$args{qw(old_value value problem)};
 	return if $$problem;
-	if ( $old_value eq $value || ( $old_value eq q() && ( $value eq '<blank>' || $value eq 'null' ) ) ) {
+	if ( $old_value eq $value || ( $old_value eq q() && ( $value eq '<blank>' || lc($value) eq 'null' ) ) ) {
 		$$problem = q(new value unchanged);
 	}
 	return;
@@ -364,7 +364,7 @@ sub _check_pk_field_not_empty {
 	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
 	return if $$problem;
 	return if $field ne $scheme_info->{'primary_key'};
-	if ( $value eq '<blank>' || $value eq 'null' ) {
+	if ( $value eq '<blank>' || lc($value) eq 'null' ) {
 		$$problem = q(this is a required field and cannot be left blank);
 	}
 	return;
@@ -447,9 +447,9 @@ sub _update {
 		  $self->{'datastore'}->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $scheme_info->{'primary_key'}=?",
 			$id, { fetch => 'row_hashref', cache => 'CurateBatchProfileUpdatePage::update::select' } );
 		my $old_value;
-		my $is_locus  = $self->{'datastore'}->is_locus($field);
-		if ($is_locus){
-			$old_value = $old_record->{'profile'}->[$indices->{$field}];
+		my $is_locus = $self->{'datastore'}->is_locus($field);
+		if ($is_locus) {
+			$old_value = $old_record->{'profile'}->[ $indices->{$field} ];
 		} else {
 			$old_value = $old_record->{ lc($field) };
 		}

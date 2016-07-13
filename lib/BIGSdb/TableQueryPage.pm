@@ -511,7 +511,7 @@ sub _run_query {
 					$qry2 = "SELECT * FROM $table WHERE ";
 				}
 				$value =~ s/'/\\'/gx;
-				$qry2 .= ( $value eq 'null' ? "$_ is null" : "$field = E'$value'" );
+				$qry2 .= ( lc($value) eq 'null' ? "$_ is null" : "$field = E'$value'" );
 			}
 		}
 		if ( $table eq 'sequences' ) {
@@ -673,7 +673,7 @@ sub _generate_query {
 		$qry .= $modifier;
 		my %methods = (
 			'NOT' => sub {
-				if ( $text eq 'null' ) {
+				if ( lc($text) eq 'null' ) {
 					$qry .= "$table.$field is not null";
 				} else {
 					$qry .=
@@ -710,9 +710,10 @@ sub _generate_query {
 			},
 			'=' => sub {
 				if ( $thisfield->{'type'} eq 'text' ) {
-					$qry .= ( $text eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
+					$qry .=
+					  ( lc($text) eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 				} else {
-					$qry .= ( $text eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
+					$qry .= ( lc($text) eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 				}
 			}
 		);
@@ -831,8 +832,7 @@ sub _search_by_isolate_id {
 sub _modify_search_by_sequence_attributes {
 	my ( $self, $field, $type, $operator, $text ) = @_;
 	$field =~ s/^ext_//x;
-	
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
 		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
 	}
@@ -885,7 +885,7 @@ sub _search_by_isolate {
 	}
 	my %methods = (
 		NOT => sub {
-			if ( $text eq '<blank>' || $text eq 'null' ) {
+			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
 				$qry .= "$field is not null";
 			} else {
 				if ( $att->{'type'} eq 'int' ) {
@@ -934,13 +934,13 @@ sub _search_by_isolate {
 		'=' => sub {
 			if ( lc( $att->{'type'} ) eq 'text' ) {
 				$qry .= (
-					( $text eq '<blank>' || $text eq 'null' )
+					( $text eq '<blank>' || lc($text) eq 'null' )
 					? "$field is null"
 					: "upper($field) = upper(E'$text') OR $self->{'system'}->{'view'}.id IN "
 					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))"
 				);
 			} else {
-				$qry .= ( ( $text eq '<blank>' || $text eq 'null' ) ? "$field is null" : "$field = E'$text'" );
+				$qry .= ( ( $text eq '<blank>' || lc($text) eq 'null' ) ? "$field is null" : "$field = E'$text'" );
 			}
 		}
 	);

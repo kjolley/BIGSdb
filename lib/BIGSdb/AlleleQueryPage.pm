@@ -537,7 +537,7 @@ sub _modify_by_filter {
 			} else {
 				$$qry_ref = "SELECT * FROM sequences WHERE locus=E'$locus' AND ";
 			}
-			$$qry_ref .= $value eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
+			$$qry_ref .= lc($value) eq 'null' ? "$_->{'name'} is null" : "$_->{'name'} = E'$value'";
 		}
 	}
 	return;
@@ -556,7 +556,7 @@ sub _ext_not {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dis
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		$$qry_ref .= '))';
 	} else {
 		$$qry_ref .=
@@ -615,7 +615,7 @@ sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $modifier, $field, $locus ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text modifier field locus)};
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		$$qry_ref .= "$modifier (allele_id NOT IN (select allele_id FROM sequence_extended_attributes "
 		  . "WHERE locus=E'$locus' AND field='$field'))";
 	} else {
@@ -632,7 +632,7 @@ sub _ext_other {
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $operator, $errors ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text operator errors)};
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		push @$errors, "$operator is not a valid operator for comparing null values.";
 		next;
 	}
@@ -647,7 +647,7 @@ sub _ext_other {
 sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		$$qry_ref .= "$field IS NOT null";
 	} else {
 		$$qry_ref .=
@@ -701,7 +701,7 @@ sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		$$qry_ref .= "$field is null";
 	} else {
 		$$qry_ref .=
@@ -716,9 +716,9 @@ sub _other {
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text, $locus, $operator, $errors ) =
 	  @{$args}{qw(qry_ref this_field field text locus operator errors)};
-	if ( $text eq 'null' ) {
+	if ( lc($text) eq 'null' ) {
 		push @$errors, "$operator is not a valid operator for comparing null values.";
-		next;
+		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $field eq 'allele_id' && $locus_info->{'allele_id_format'} eq 'integer' ) {

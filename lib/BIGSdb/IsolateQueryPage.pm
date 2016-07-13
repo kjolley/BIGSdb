@@ -1113,7 +1113,7 @@ sub _grouped_field_query {
 		'NOT' => sub {
 			foreach my $field (@$groupedfields) {
 				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-				if ( $text eq 'null' ) {
+				if ( lc($text) eq 'null' ) {
 					$buffer .= ' OR ' if $field ne $groupedfields->[0];
 					$buffer .= "($view.$field IS NOT NULL)";
 				} else {
@@ -1169,7 +1169,7 @@ sub _grouped_field_query {
 			foreach my $field (@$groupedfields) {
 				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 				$buffer .= ' OR ' if $field ne $groupedfields->[0];
-				if ( $text eq 'null' ) {
+				if ( lc($text) eq 'null' ) {
 					$buffer .= "$view.$field IS NULL";
 				} else {
 					$buffer .=
@@ -1214,7 +1214,7 @@ sub _provenance_equals_type_operator {
 		  $parent_field_type eq 'int'
 		  ? "CAST($view.$extended_isolate_field AS text) "
 		  : "$view.$extended_isolate_field ";
-		if ( $text eq 'null' ) {
+		if ( lc($text) eq 'null' ) {
 			$buffer .= "$inv_not IN (SELECT field_value FROM isolate_value_extended_attributes "
 			  . "WHERE isolate_field='$extended_isolate_field' AND attribute='$field')";
 		} else {
@@ -1231,7 +1231,7 @@ sub _provenance_equals_type_operator {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( defined $metaset ) {
 			my $andor = $not ? 'AND' : 'OR';
-			if ( $text eq 'null' ) {
+			if ( lc($text) eq 'null' ) {
 				$buffer .=
 				    "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id "
 				  . "$inv_not IN (SELECT isolate_id FROM meta_$metaset)";
@@ -1246,9 +1246,12 @@ sub _provenance_equals_type_operator {
 			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 			if ( lc($type) eq 'text' ) {
 				$buffer .=
-				  ( $text eq 'null' ? "$field IS $not null" : "($not UPPER($field) = UPPER(E'$text') $null_clause)" );
+				  (
+					lc($text) eq 'null'
+					? "$field IS $not null"
+					: "($not UPPER($field) = UPPER(E'$text') $null_clause)" );
 			} else {
-				$buffer .= ( $text eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
+				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
 			}
 		}
 	}
@@ -1314,9 +1317,9 @@ sub _provenance_ltmt_type_operator {
 		$buffer .= "($field $operator '$text' OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
 		  . "WHERE alias $operator E'$text'))";
 	} else {
-		if ( $text eq 'null' ) {
+		if ( lc($text) eq 'null' ) {
 			push @$errors, "$operator is not a valid operator for comparing null values.";
-			next;
+			return q();
 		}
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
 		if ( defined $metaset ) {
@@ -1346,14 +1349,16 @@ sub _modify_query_for_filters {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
 				$qry .= (
-					( $value eq '<blank>' || $value eq 'null' )
+					( $value eq '<blank>' || lc($value) eq 'null' )
 					? "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR $view.id "
 					  . "NOT IN (SELECT isolate_id FROM meta_$metaset))"
 					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
 				$qry .=
-				  ( ( $value eq '<blank>' || $value eq 'null' ) ? "$view.$field is null" : "$view.$field = '$value'" );
+				  ( ( $value eq '<blank>' || lc($value) eq 'null' )
+					? "$view.$field is null"
+					: "$view.$field = '$value'" );
 			}
 		}
 		my $extatt = $extended->{$field};
@@ -1565,7 +1570,7 @@ sub _get_allele_designations {
 				$combo{"$locus\_$operator\_$text"} = 1;
 				$self->process_value( \$text );
 
-				if (   $text ne 'null'
+				if (   lc($text) ne 'null'
 					&& ( $locus_info->{'allele_id_format'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1579,7 +1584,7 @@ sub _get_allele_designations {
 					'NOT' => sub {
 						$lqry{$locus} .= $andor if $lqry{$locus};
 						$lqry{$locus} .= (
-							( $text eq 'null' )
+							( lc($text) eq 'null' )
 							? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
 							: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id)="
 							  . "upper(E'$text'))"
@@ -1610,7 +1615,7 @@ sub _get_allele_designations {
 						  . "LIKE upper(E'\%$text\%'))";
 					},
 					'=' => sub {
-						if ( $text eq 'null' ) {
+						if ( lc($text) eq 'null' ) {
 							push @lqry_blank,
 							  "($view.id NOT IN (SELECT isolate_id FROM allele_designations "
 							  . "WHERE locus=E'$locus'))";
@@ -1627,7 +1632,7 @@ sub _get_allele_designations {
 				if ( $methods{$operator} ) {
 					$methods{$operator}->();
 				} else {
-					if ( $text eq 'null' ) {
+					if ( lc($text) eq 'null' ) {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 						next;
 					}
@@ -1664,7 +1669,7 @@ sub _get_scheme_designations {
 				}
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$self->process_value( \$text );
-				if (   $text ne 'null'
+				if (   lc($text) ne 'null'
 					&& ( $scheme_field_info->{'type'} eq 'integer' )
 					&& !BIGSdb::Utils::is_int($text) )
 				{
@@ -1682,7 +1687,7 @@ sub _get_scheme_designations {
 				$text =~ s/'/\\'/gx;
 				my %methods = (
 					'NOT' => sub {
-						if ( $text eq 'null' ) {
+						if ( lc($text) eq 'null' ) {
 							push @sqry,
 							  "($view.id NOT IN ($temp_qry WHERE $field IS NULL) AND $view.id IN ($temp_qry))";
 						} else {
@@ -1719,7 +1724,7 @@ sub _get_scheme_designations {
 						  : "($view.id IN ($temp_qry WHERE $field !~* E'$text'))";
 					},
 					'=' => sub {
-						if ( $text eq 'null' ) {
+						if ( lc($text) eq 'null' ) {
 							push @sqry_blank,
 							  "($view.id IN ($temp_qry WHERE $field IS NULL) OR $view.id NOT IN ($temp_qry))";
 						} else {
@@ -1733,7 +1738,7 @@ sub _get_scheme_designations {
 				if ( $methods{$operator} ) {
 					$methods{$operator}->();
 				} else {
-					if ( $text eq 'null' ) {
+					if ( lc($text) eq 'null' ) {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 						next;
 					}
@@ -1770,7 +1775,7 @@ sub _get_classification_group_designations {
 				  $self->{'datastore'}->get_scheme_info( $cscheme_info->{'scheme_id'}, { get_pk => 1 } );
 				my $pk = $scheme_info->{'primary_key'};
 				$self->process_value( \$text );
-				if ( $text ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+				if ( lc($text) ne 'null' && !BIGSdb::Utils::is_int($text) ) {
 					push @$errors_ref, "$field is an integer field.";
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
@@ -1784,7 +1789,7 @@ sub _get_classification_group_designations {
 				$text =~ s/'/\\'/gx;
 				my %methods = (
 					'NOT' => sub {
-						if ( $text eq 'null' ) {
+						if ( lc($text) eq 'null' ) {
 							push @qry, "($view.id IN ($temp_qry WHERE $pk IN (SELECT profile_id FROM $cscheme_table)))";
 						} else {
 							push @qry,
@@ -1813,7 +1818,7 @@ sub _get_classification_group_designations {
 						  . "FROM $cscheme_table WHERE CAST(group_id AS text) !~ '$text')))";
 					},
 					'=' => sub {
-						if ( $text eq 'null' ) {
+						if ( lc($text) eq 'null' ) {
 							push @null_qry,
 							  "($view.id IN ($temp_qry WHERE $pk NOT IN (SELECT profile_id FROM $cscheme_table)) OR "
 							  . "$view.id NOT IN (SELECT id FROM $isolate_scheme_field_view))";
@@ -1827,7 +1832,7 @@ sub _get_classification_group_designations {
 				if ( $methods{$operator} ) {
 					$methods{$operator}->();
 				} else {
-					if ( $text eq 'null' ) {
+					if ( lc($text) eq 'null' ) {
 						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
 						next;
 					}

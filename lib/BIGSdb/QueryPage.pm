@@ -199,7 +199,7 @@ sub check_format {
 	my ( $self, $data, $error_ref ) = @_;
 	my $clean_fieldname = $data->{'clean_fieldname'} // $data->{'field'};
 	my $error;
-	if ( $data->{'text'} ne 'null' && defined $data->{'type'} ) {
+	if ( lc($data->{'text'}) ne 'null' && defined $data->{'type'} ) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
 		if ( $data->{'type'} =~ /int/ ) {
 			if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {

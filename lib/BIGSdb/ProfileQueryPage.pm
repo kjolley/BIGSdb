@@ -412,12 +412,12 @@ sub _generate_query_from_locus_fields {
 			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
 		} else {
 			my $equals =
-			  $text eq 'null'
+			  lc($text) eq 'null'
 			  ? "$cleaned_field is null"
 			  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
 			$equals .= " OR $cleaned_field='N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
 			my %modify = (
-				'NOT' => $text eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
+				'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
 				'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
 				'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
 				'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
@@ -427,7 +427,7 @@ sub _generate_query_from_locus_fields {
 			if ( $modify{$operator} ) {
 				$qry .= $modify{$operator};
 			} else {
-				if ( $text eq 'null' ) {
+				if ( lc($text) eq 'null' ) {
 					my $clean_operator = $operator;
 					$clean_operator =~ s/>/&gt;/x;
 					$clean_operator =~ s/</&lt;/x;
