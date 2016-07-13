@@ -478,7 +478,7 @@ sub _get_classification_group_data {
 	my $td = 1;
 	foreach my $cscheme (@$classification_schemes) {
 		my $cg_buffer;
-		my $scheme_id = $cscheme->{'scheme_id'};
+		my $scheme_id          = $cscheme->{'scheme_id'};
 		my $cache_table_exists = $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
 			[ "temp_isolates_scheme_fields_$scheme_id", "temp_${view}_scheme_fields_$scheme_id" ]
@@ -526,7 +526,8 @@ sub _get_classification_group_data {
 			  . q(<span class="fa fa-info-circle"></span></a>)
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
-			$buffer .= qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
+			$buffer .=
+			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
 			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
 			  . qq($cg_buffer</td></tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -605,17 +606,24 @@ sub _print_action_panel {
 		isolateDelete  => 'Delete record',
 		isolateUpdate  => 'Update record',
 		batchAddSeqbin => 'Sequence bin',
-		newVersion     => 'New version'
+		newVersion     => 'New version',
+		tagScan        => 'Sequence tags'
 	);
 	my %labels = (
 		isolateDelete  => 'Delete',
 		isolateUpdate  => 'Update',
 		batchAddSeqbin => 'Upload contigs',
-		newVersion     => 'Create'
+		newVersion     => 'Create',
+		tagScan        => 'Scan'
 	);
 	$q->param( isolate_id => $isolate_id );
 	my $page = $q->param('page');
-	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion)) {
+	my $seqbin_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id )
+	  ;
+
+	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
+		next if $action eq 'tagScan' && !$seqbin_exists;
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
 		$q->param( page => $action );
