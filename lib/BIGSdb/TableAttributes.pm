@@ -681,9 +681,9 @@ sub get_retired_profiles_table_attributes {
 
 sub get_retired_isolates_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int', required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',    type => 'int', required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes' },
+		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp',  type => 'date', required => 'yes' }
 	];
 	return $attributes;
 }
@@ -1607,13 +1607,14 @@ sub get_scheme_curators_table_attributes {
 			dropdown_query => 'yes'
 		},
 		{
-			name           => 'curator_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'users',
-			labels         => '|$surname|, |$first_name| (|$user_name|)',
-			dropdown_query => 'yes'
+			name            => 'curator_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'users',
+			is_curator_only => 1,
+			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			dropdown_query  => 'yes'
 		}
 	];
 	return $attributes;
@@ -1630,13 +1631,14 @@ sub get_locus_curators_table_attributes {
 			dropdown_query => 'yes'
 		},
 		{
-			name           => 'curator_id',
-			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
-			foreign_key    => 'users',
-			labels         => '|$surname|, |$first_name| (|$user_name|)',
-			dropdown_query => 'yes'
+			name            => 'curator_id',
+			type            => 'int',
+			required        => 'yes',
+			primary_key     => 'yes',
+			foreign_key     => 'users',
+			is_curator_only => 1,
+			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			dropdown_query  => 'yes'
 		},
 		{
 			name     => 'hide_public',

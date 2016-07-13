@@ -644,7 +644,7 @@ sub _get_update_history {
 	my ( $history, $num_changes ) = $self->_get_history($isolate_id);
 	my $buffer = q();
 	if ($num_changes) {
-		$buffer .= qq(<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n);
+		$buffer .= qq(<table class="resultstable"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n);
 		my $td = 1;
 		foreach (@$history) {
 			my $curator_info = $self->{'datastore'}->get_user_info( $_->{'curator'} );

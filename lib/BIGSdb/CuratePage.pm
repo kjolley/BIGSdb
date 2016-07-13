@@ -392,7 +392,9 @@ sub _get_foreign_key_dropdown_field {
 	my $values;
 	if ( $att->{'foreign_key'} eq 'users' ) {
 		local $" = ',';
-		$qry = "SELECT id FROM users WHERE id>0 ORDER BY @fields_to_query";
+		$qry = q(SELECT id FROM users WHERE id>0 );
+		$qry .= q(AND status!='user' ) if $att->{'is_curator_only'};
+		$qry .= qq(ORDER BY @fields_to_query);
 		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 		( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
@@ -521,8 +523,7 @@ sub _show_tooltip {
 	my ( $name, $att )  = @$args{qw(name att)};
 	my $buffer = q();
 	if ( $att->{'tooltip'} ) {
-		$buffer .=
-		  qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}"><span class="fa fa-info-circle"></span></a>);
+		$buffer .= qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}"><span class="fa fa-info-circle"></span></a>);
 	}
 	if ( $att->{'comments'} ) {
 		my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
@@ -1292,11 +1293,8 @@ sub update_blast_caches {
 sub get_form_icon {
 	my ( $self, $table, $highlight ) = @_;
 	my $icons = { users => 'fa-user', user_groups => 'fa-users', experiments => 'fa-flask' };
-	my $highlight_class = {
-		plus  => 'fa-plus form_icon_plus',
-		edit  => 'fa-pencil form_icon_edit',
-		trash => 'fa-times form_icon_trash'
-	};
+	my $highlight_class =
+	  { plus => 'fa-plus form_icon_plus', edit => 'fa-pencil form_icon_edit', trash => 'fa-times form_icon_trash' };
 	my $icon = $icons->{$table} // 'fa-file-text';
 	my $bordered =
 	    q(<span class="form_icon"><span class="fa-stack fa-3x">)
