@@ -349,19 +349,15 @@ sub get_stylesheets {
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
-			if ( -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ) {
-				$stylesheet = "/css/$filename";
-			} else {
-				$stylesheet = "/$filename";
-			}
-		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$system->{'db'}/$filename" ) {
-			$stylesheet = "$system->{'webroot'}/$system->{'db'}/$vfilename";
-		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}$system->{'webroot'}/$filename" ) {
-			$stylesheet = "$system->{'webroot'}/$vfilename";
-		} elsif ( -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ) {
-			$stylesheet = "/css/$vfilename";
+			$stylesheet = -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ? "/css/$vfilename" : "/$vfilename";
 		} else {
-			$stylesheet = "/$vfilename";
+			my @css_paths = ( "$system->{'webroot'}/$system->{'db'}", $system->{'webroot'}, '/css', '' );
+			foreach my $path (@css_paths) {
+				if ( -e "$ENV{'DOCUMENT_ROOT'}$path/$filename" ) {
+					$stylesheet = "$path/$vfilename";
+					last;
+				}
+			}
 		}
 		push @paths, $stylesheet;
 	}
