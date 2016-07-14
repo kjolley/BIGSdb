@@ -114,26 +114,6 @@ sub create_record_table {
 	return $buffer;
 }
 
-sub _populate_submission_params {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	return if !$q->param('submission_id');
-	return if $q->param('page') ne 'add';
-	if ( $q->param('table') eq 'sequences' && $q->param('index') && !$q->param('sequence') ) {
-		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
-		$q->param( sequence => $submission_seq );
-	}
-	return;
-}
-
-sub _get_allele_submission_sequence {
-	my ( $self, $submission_id, $index ) = @_;
-	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	return $self->{'datastore'}
-	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
-		[ $submission_id, $index ] );
-}
-
 sub get_user_list_and_labels {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -154,7 +134,7 @@ sub _get_form_fields {
 	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	$self->_populate_submission_params if $q->param('submission_id');
+	$self->populate_submission_params;
 	my %newdata = %{$newdata_ref};
 	my $buffer  = q();
 	foreach my $required (qw(1 0)) {

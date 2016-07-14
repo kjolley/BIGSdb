@@ -2426,4 +2426,23 @@ sub get_loci_from_pasted_list {
 	}
 	return ( \@cleaned_loci, \@invalid_loci );
 }
+
+sub populate_submission_params {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('submission_id');
+	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
+		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
+		$q->param( sequence => $submission_seq );
+	}
+	return;
+}
+
+sub _get_allele_submission_sequence {
+	my ( $self, $submission_id, $index ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
+		[ $submission_id, $index ] );
+}
 1;

@@ -1497,7 +1497,8 @@ sub _print_sequence_table {
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	say q(<table class="resultstable">);
-	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
+	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
+	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $td              = 1;
 	my $pending_seqs    = [];
@@ -1552,12 +1553,16 @@ sub _print_sequence_table {
 		} else {
 			say qq(<td>$seq->{'status'}</td>);
 		}
+		my $query = QUERY;
+		say qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=sequenceQuery&amp;)
+		  . qq(locus=$locus&amp;submission_id=$submission_id&amp;populate_seqs=1&amp;index=$seq->{'index'}&amp;)
+		  . qq(submit=1" target="_blank">$query</a></td>);
+		my $edit = EDIT;
 		if ( $options->{'curate'} && $seq->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
-			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;index=$seq->{'index'}&amp;)
-			  . qq(sender=$submission->{'submitter'}&amp;status=unchecked">)
-			  . EDIT
-			  . q(Curate</a></td>);
+			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;populate_seqs=1&amp;)
+			  . qq(index=$seq->{'index'}&amp;sender=$submission->{'submitter'}&amp;status=unchecked">)
+			  . qq(${edit}Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}
