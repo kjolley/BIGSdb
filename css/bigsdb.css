@@ -683,7 +683,7 @@ button.plugin:hover {color:#c8c}
 .form_icon_edit {color:#77a;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_trash {color:#a77;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 @media (max-width: 600px){
-	.form_icon {display:none};
+	.form_icon {display:none}
 }
 
 @media (max-width: 800px) {
