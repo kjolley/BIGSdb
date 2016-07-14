@@ -455,7 +455,7 @@ div#pluginoptions, div#curatetools {
 	position:absolute;
 	top:4.5em;
 	right:5px;
-	z-index:3;
+	z-index:9;
 	padding:10px;
 	font-size:0.8em;
 	margin-bottom: 0.5em;
