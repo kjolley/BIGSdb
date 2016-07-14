@@ -763,8 +763,8 @@ sub _submit_alleles {
 		say $q->submit( -name => 'filter', -id => 'filter', -label => 'Filter', -class => 'submit' );
 		say q(</fieldset>);
 		my @selected_schemes;
-		foreach ( @$schemes, 0 ) {
-			push @selected_schemes, $_ if $q->param("s_$_");
+		foreach my $scheme_id ( @$schemes, 0 ) {
+			push @selected_schemes, $scheme_id if $q->param("s_$scheme_id");
 		}
 		my $scheme_loci = @selected_schemes ? $self->_get_scheme_loci( \@selected_schemes ) : undef;
 		( $loci, $labels ) =
@@ -772,6 +772,7 @@ sub _submit_alleles {
 	} else {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	}
+	$loci = $self->_filter_loci_not_accepting_submissions($loci);
 	say q(<fieldset style="float:left"><legend>Select locus</legend>);
 	say $q->popup_menu(
 		-name     => 'locus',
@@ -791,6 +792,19 @@ sub _submit_alleles {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+#TODO When version 1.15 has been released, we can modify Datastore::get_locus_list to filter out loci with
+#the no_submissions flag set. Until then we cannot assume that this field is present.
+sub _filter_loci_not_accepting_submissions {
+	my ($self, $loci) = @_;
+	my @new_list;
+	foreach my $locus (@$loci){
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		next if $locus_info->{'no_submissions'};
+		push @new_list, $locus;
+	}
+	return \@new_list;
 }
 
 sub _submit_profiles {
