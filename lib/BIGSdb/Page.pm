@@ -1484,14 +1484,14 @@ sub get_update_details_tooltip {
 	my $buffer;
 	my $sender  = $self->{'datastore'}->get_user_info( $allele_ref->{'sender'} );
 	my $curator = $self->{'datastore'}->get_user_info( $allele_ref->{'curator'} );
-	$buffer = "$locus:$allele_ref->{'allele_id'} - ";
-	$buffer .= "sender: $sender->{'first_name'} $sender->{'surname'}<br />";
-	$buffer .= "status: $allele_ref->{'status'}<br />" if $allele_ref->{'status'};
-	$buffer .= "method: $allele_ref->{'method'}<br />";
-	$buffer .= "curator: $curator->{'first_name'} $curator->{'surname'}<br />";
-	$buffer .= "first entered: $allele_ref->{'date_entered'}<br />";
-	$buffer .= "last updated: $allele_ref->{'datestamp'}<br />";
-	$buffer .= "comments: $allele_ref->{'comments'}<br />" if $allele_ref->{'comments'};
+	$buffer = qq($locus:$allele_ref->{'allele_id'} - ) . qq(sender: $sender->{'first_name'} $sender->{'surname'}<br />);
+	$buffer .= qq(status: $allele_ref->{'status'}<br />) if $allele_ref->{'status'};
+	$buffer .=
+	    qq(method: $allele_ref->{'method'}<br />)
+	  . qq(curator: $curator->{'first_name'} $curator->{'surname'}<br />)
+	  . qq(first entered: $allele_ref->{'date_entered'}<br />)
+	  . qq(last updated: $allele_ref->{'datestamp'}<br />);
+	$buffer .= qq(comments: $allele_ref->{'comments'}<br />) if $allele_ref->{'comments'};
 	return $buffer;
 }
 
@@ -1500,17 +1500,17 @@ sub _get_seq_detail_tooltip_text {
 	my @allele_ids;
 	push @allele_ids, $_->{'allele_id'} foreach @$allele_designations;
 	local $" = ', ';
-	my $buffer = @allele_ids ? "$locus:@allele_ids - " : "$locus - ";
+	my $buffer = @allele_ids ? qq($locus:@allele_ids - ) : qq($locus - );
 	my $i = 0;
 	local $" = '; ';
 	foreach (@$allele_sequences) {
-		$buffer .= '<br />'      if $i;
-		$buffer .= "Seqbin id:$_->{'seqbin_id'}: $_->{'start_pos'} &rarr; $_->{'end_pos'}";
-		$buffer .= ' (reverse)'  if $_->{'reverse'};
-		$buffer .= ' incomplete' if !$_->{'complete'};
+		$buffer .= q(<br />)      if $i;
+		$buffer .= qq(Seqbin id:$_->{'seqbin_id'}: $_->{'start_pos'} &rarr; $_->{'end_pos'});
+		$buffer .= q( (reverse))  if $_->{'reverse'};
+		$buffer .= q( incomplete) if !$_->{'complete'};
 		if ( ref $flags_ref->[$i] eq 'ARRAY' ) {
 			my @flags = sort @{ $flags_ref->[$i] };
-			$buffer .= "<br />@flags" if @flags;
+			$buffer .= qq(<br />@flags) if @flags;
 		}
 		$i++;
 	}
@@ -1526,44 +1526,12 @@ sub get_seq_detail_tooltips {
 	my ( $self, $isolate_id, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $buffer           = '';
-	my $allele_sequences = [];
-	if ( $options->{'get_all'} ) {
-		if ( !$self->{'cache'}->{'allele_sequences'}->{$isolate_id} ) {
-			$self->{'cache'}->{'allele_sequences'}->{$isolate_id} =
-			  $self->{'datastore'}->get_all_allele_sequences( $isolate_id, { keys => [qw(locus id)] } );
-		}
-		my $locus_allele_sequences = $self->{'cache'}->{'allele_sequences'}->{$isolate_id}->{$locus};
-		foreach my $allele_sequence_id (
-			sort { $locus_allele_sequences->{$a}->{'complete'} cmp $locus_allele_sequences->{$b}->{'complete'} }
-			keys %$locus_allele_sequences
-		  )
-		{
-			push @$allele_sequences, $locus_allele_sequences->{$allele_sequence_id};
-		}
-	} else {
-		$allele_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
-	}
-	my $designations = [];
-	if ( $options->{'get_all'} ) {
-		if ( !$self->{'cache'}->{'allele_designations'}->{$isolate_id} ) {
-			$self->{'cache'}->{'allele_designations'}->{$isolate_id} =
-			  $self->{'datastore'}->get_all_allele_designations($isolate_id);
-		}
-		my $locus_allele_designations = $self->{'cache'}->{'allele_designations'}->{$isolate_id}->{$locus};
-		no warnings 'numeric';    #sort by status, then by numeric values, then by alphabetical value.
-		foreach my $allele_id (
-			sort { $locus_allele_designations->{$a} cmp $locus_allele_designations->{$b} || $a <=> $b || $a cmp $b }
-			keys %$locus_allele_designations
-		  )
-		{
-			push @$designations, { allele_id => $allele_id };
-		}
-	} else {
-		$designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
-	}
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $allele_sequences = $self->_get_isolate_allele_sequence( $isolate_id, $locus, $options );
+	my $designations     = $self->_get_isolate_allele_designation( $isolate_id, $locus, $options );
+	my $locus_info       = $self->{'datastore'}->get_locus_info($locus);
 	my $designation_flags;
 	my ( @all_flags, %flag_from_designation, %flag_from_alleleseq );
+
 	if ( $options->{'allele_flags'} && $locus_info->{'flag_table'} ) {
 		foreach my $designation (@$designations) {
 			$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation->{'allele_id'} );
@@ -1616,20 +1584,65 @@ sub get_seq_detail_tooltips {
 			$text .= $flag;
 			if ( $options->{'allele_flags'} ) {
 				if ( $flag_from_designation{$flag} && !$flag_from_alleleseq{$flag} ) {
-					$text .= ' (allele designation)<br />';
+					$text .= q( (allele designation)<br />);
 				} elsif ( !$flag_from_designation{$flag} && $flag_from_alleleseq{$flag} ) {
-					$text .= ' (sequence tag)<br />';
+					$text .= q( (sequence tag)<br />);
 				} else {
-					$text .= ' (designation + tag)<br />';
+					$text .= q( (designation + tag)<br />);
 				}
 			} else {
-				$text .= '<br />';
+				$text .= q(<br />);
 			}
 		}
-		local $" = "</a> <a class=\"seqflag_tooltip\" title=\"$text\">";
-		$buffer .= "<a class=\"seqflag_tooltip\" title=\"$text\">@all_flags</a>";
+		local $" = qq(</a> <a class="seqflag_tooltip" title="$text">);
+		$buffer .= qq(<a class="seqflag_tooltip" title="$text">@all_flags</a>);
 	}
 	return $buffer;
+}
+
+sub _get_isolate_allele_sequence {
+	my ( $self, $isolate_id, $locus, $options ) = @_;
+	my $allele_sequences = [];
+	if ( $options->{'get_all'} ) {
+		if ( !$self->{'cache'}->{'allele_sequences'}->{$isolate_id} ) {
+			$self->{'cache'}->{'allele_sequences'}->{$isolate_id} =
+			  $self->{'datastore'}->get_all_allele_sequences( $isolate_id, { keys => [qw(locus id)] } );
+		}
+		my $locus_allele_sequences = $self->{'cache'}->{'allele_sequences'}->{$isolate_id}->{$locus};
+		foreach my $allele_sequence_id (
+			sort { $locus_allele_sequences->{$a}->{'complete'} cmp $locus_allele_sequences->{$b}->{'complete'} }
+			keys %$locus_allele_sequences
+		  )
+		{
+			push @$allele_sequences, $locus_allele_sequences->{$allele_sequence_id};
+		}
+	} else {
+		$allele_sequences = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+	}
+	return $allele_sequences;
+}
+
+sub _get_isolate_allele_designation {
+	my ( $self, $isolate_id, $locus, $options ) = @_;
+	my $designations = [];
+	if ( $options->{'get_all'} ) {
+		if ( !$self->{'cache'}->{'allele_designations'}->{$isolate_id} ) {
+			$self->{'cache'}->{'allele_designations'}->{$isolate_id} =
+			  $self->{'datastore'}->get_all_allele_designations($isolate_id);
+		}
+		my $locus_allele_designations = $self->{'cache'}->{'allele_designations'}->{$isolate_id}->{$locus};
+		no warnings 'numeric';    #sort by status, then by numeric values, then by alphabetical value.
+		foreach my $allele_id (
+			sort { $locus_allele_designations->{$a} cmp $locus_allele_designations->{$b} || $a <=> $b || $a cmp $b }
+			keys %$locus_allele_designations
+		  )
+		{
+			push @$designations, { allele_id => $allele_id };
+		}
+	} else {
+		$designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
+	}
+	return $designations;
 }
 
 sub make_temp_file {
