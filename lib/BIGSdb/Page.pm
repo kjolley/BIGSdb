@@ -1441,11 +1441,6 @@ sub rewrite_query_ref_order_by {
 		$$qry_ref =~ s/ORDER\ BY\ s_(\d+)_/ORDER BY ordering\./x;
 	} elsif ( $$qry_ref =~ /ORDER\ BY\ l_(\S+)\s/x ) {
 		my $locus = $1;
-
-		#Removed 2015-05-13.  Seems to serve no purpose and breaks when both searching and ordering on
-		#designations with multiple hits.
-		#		my $locus_join = $self->_create_join_sql_for_locus($locus);
-		#		$$qry_ref =~ s/(SELECT .* FROM $view)/$1 $locus_join/;
 		( my $cleaned_locus = $locus ) =~ s/'/\\'/gx;
 		my $join = qq(LEFT JOIN allele_designations AS ordering ON ordering.isolate_id=$view.id )
 		  . qq(AND ordering.locus=E'$cleaned_locus');
@@ -1478,17 +1473,6 @@ sub is_allowed_to_view_isolate {
 	return $allowed;
 }
 
-#Removed 2015-05-13.
-#sub _create_join_sql_for_locus {
-#	my ( $self, $locus ) = @_;
-#	( my $clean_locus_name = $locus ) =~ s/'/_PRIME_/g;
-#	$clean_locus_name =~ s/-/_/g;
-#	( my $escaped_locus = $locus ) =~ s/'/\\'/g;
-#	my $qry =
-#	    " LEFT JOIN allele_designations AS l_$clean_locus_name ON l_$clean_locus_name\.isolate_id=$self->{'system'}->{'view'}.id "
-#	  . "AND l_$clean_locus_name.locus=E'$escaped_locus'";
-#	return $qry;
-#}
 sub _create_join_sql_for_metafield {
 	my ( $self, $metaset ) = @_;
 	my $qry = " LEFT JOIN meta_$metaset AS ordering ON ordering.isolate_id = $self->{'system'}->{'view'}.id";
