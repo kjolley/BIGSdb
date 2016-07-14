@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -169,12 +170,13 @@ sub _print_download_section {
 	my $first = 1;
 	my $i     = 0;
 	if ( @$scheme_data > 1 ) {
-		$scheme_buffer .= q(<li>);
+		$scheme_buffer .= q(<li style="white-space:nowrap">);
 		$scheme_buffer .= $q->start_form;
 		$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
 		$scheme_buffer .= $q->hidden('db');
+		my $download = DOWNLOAD;
 		$scheme_buffer .= q( <button type="submit" name="page" value="downloadProfiles" )
-		  . qq(class="smallbutton">Download profiles</button>\n);
+		  . qq(class="smallbutton">$download Profiles</button>\n);
 		$scheme_buffer .= $q->end_form;
 		$scheme_buffer .= q(</li>);
 	} elsif ( @$scheme_data == 1 ) {
