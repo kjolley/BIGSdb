@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,6 +68,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
 		return;
 	}
+	$self->update_prefs if $q->param('reload');
 	my @name          = $self->get_name($isolate_id);
 	my $display_locus = $self->clean_locus($locus);
 	print qq(<h1>$display_locus allele sequence: id-$isolate_id);
@@ -89,6 +90,7 @@ sub print_content {
 			    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
 			  . qq($id" class="smallbutton">Update</a>\n);
 		}
+		$buffer .= q(<div style="float:left">);
 		$buffer .= qq(<h2>Contig position$update_buffer</h2>\n);
 		$buffer .= q(<dl class="data">);
 		$buffer .= qq(<dt class="dontend">sequence bin id</dt><dd>$seqbin_id</dd>);
@@ -113,7 +115,9 @@ sub print_content {
 				orf       => $orf
 			}
 		);
-		$buffer .= q(</dl>);
+		$buffer .= q(</dl></div>);
+		$buffer .= $self->get_option_fieldset;
+		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
 		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
 
