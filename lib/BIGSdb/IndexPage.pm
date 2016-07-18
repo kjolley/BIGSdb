@@ -102,7 +102,7 @@ sub print_content {
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects WHERE list');
+		my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
 		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {

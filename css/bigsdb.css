@@ -449,6 +449,42 @@ div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background:#d5d5e0}
 div#curatetools { background: #e5e5f0}
 
+div#menubutton {
+	float:right;
+	font-size:1.2em;
+	position:absolute;
+	top:4px;
+	right:5px;
+	z-index:3;		
+}
+
+div#menubutton a  {
+	border:1px solid transparent;
+	border-radius: 3px;
+	box-shadow: 1px 1px 1px transparent;
+	padding:0 0.1em;
+	color:black
+}
+div#menubutton a:hover {
+	border:1px solid #ccc;
+	box-shadow: 1px 1px 1px #dfdfdf;
+}
+div#menupanel {
+	background:#f0f0f0;
+	color:black;
+	float:right;
+	position:absolute;
+	top:23px;
+	right:0px;
+	padding:1em;
+	z-index:10;		
+	border-radius:10px;
+	border:1px solid #ccc;
+	box-shadow:3px 3px 3px #dfdfdf;
+	display:none;
+}
+div#menupanel ul.menu {margin-left:12px}
+
 div#pluginoptions, div#curatetools {
 	background:#ddd;
 	float:right;
@@ -484,7 +520,7 @@ div#fieldvalueshelp {
 	font-size:0.7em;
 	position:absolute;
 	top:3px;
-	right:5px;
+	right:27px;
 	z-index:3;	
 }
 

@@ -20,6 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
+use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
@@ -474,6 +475,7 @@ sub print_page {
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
+		ajaxMenu           => 'AjaxMenu',
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
 		alleleSequence     => 'AlleleSequencePage',
@@ -538,7 +540,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

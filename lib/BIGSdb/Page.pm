@@ -311,6 +311,7 @@ sub print_page_content {
 		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
 		  || $self->{'curate'}
 		  || $self->{'needs_authentication'};
+		$self->_print_menu;
 		$self->_print_help_panel;
 		$self->print_content;
 		$self->_print_footer;
@@ -576,7 +577,7 @@ sub get_help_url {
 sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print q(<div id="fieldvalueshelp">);
+	say q(<div id="fieldvalueshelp">);
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
@@ -604,21 +605,33 @@ sub _print_help_panel {
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
 
 		#open new page unless already on field values help page
-		print $q->param('page') eq 'fieldValues'
+		say $q->param('page') eq 'fieldValues'
 		  ? $q->start_form( -style => 'display:inline' )
 		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
-		print q(<b>Field help: </b>);
+		say q(<b>Field help: </b>);
 		my ( $values, $labels ) =
 		  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, locus_limit => 100, scheme_fields => 1 } );
-		print $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
-		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
+		say $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
+		say $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
 		my $refer_page = $q->param('page');
 		$q->param( page => 'fieldValues' );
-		print $q->hidden($_) foreach qw (db page);
-		print $q->end_form;
+		say $q->hidden($_) foreach qw (db page);
+		say $q->end_form;
 		$q->param( page => $refer_page );
 	}
 	say q(</div>);
+	return;
+}
+
+sub _print_menu {
+	my ($self) = @_;
+
+	#Don't show on log in or log out pages
+	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
+	say q(<div id="menubutton">);
+	say q(<a style="cursor:pointer"><span class="fa fa-bars"></span></a>);
+	say q(</div>);
+	say q(<div id="menupanel"></div>);
 	return;
 }
 
