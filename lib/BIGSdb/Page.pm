@@ -117,7 +117,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
 		}
-		push @javascript, ( { src => '/javascript/bigsdb.js?v20130615', @language } );
+		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
 			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
 			'jQuery.jstree'       => [qw(jquery.jstree.js jquery.cookie.js jquery.hotkeys.js)],
