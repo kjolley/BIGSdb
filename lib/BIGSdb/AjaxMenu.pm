@@ -37,6 +37,12 @@ sub print_content {
 		$self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? $self->_isolate_curate_items
 		  : $self->_seqdef_curate_items;
+		my $base_url = $self->_get_base_url;
+		say q(<span class="main_icon fa fa-info-circle fa-lg pull-left"></span>);
+		say q(<ul class="menu">);
+		say qq(<li><a href="$self->{'config'}->{'doclink'}/curator_guide.html" target="_blank">)
+		  . q(Curators' guide</a></li>);
+		say q(</ul>);
 	} else {
 		$self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? $self->_isolate_items
