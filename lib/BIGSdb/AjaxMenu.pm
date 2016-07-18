@@ -91,6 +91,10 @@ sub _home {
 		if ( $self->{'system'}->{'curator_home'} ) {
 			say qq(<li><a href="$self->{'system'}->{'curator_home'}">Curator home</a></li>);
 		}
+	} else {
+		if ( $self->{'system'}->{'curate_link'} ) {
+			say qq(<li><a href="$self->{'system'}->{'curate_link'}">Curate</a></li>);
+		}
 	}
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Contents</a></li>);
 	say q(</ul>);
@@ -224,7 +228,7 @@ sub _sequences_link {
 	my ( $loci, undef ) =
 	  $self->{'datastore'}
 	  ->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator, no_list_by_common_name => 1 } );
-	return if !$self->is_admin && !@$loci;
+	return q() if !$self->is_admin && !@$loci;
 	my $base_url = $self->_get_base_url;
 	return qq(<li><a href="$base_url&amp;page=add&amp;table=sequences">Add sequence</a></li>);
 }
@@ -251,7 +255,7 @@ sub _profiles_link {
 		$desc{$scheme_id} = $scheme_info->{'description'};
 	}
 	my $base_url = $self->_get_base_url;
-	my $buffer;
+	my $buffer   = q();
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
