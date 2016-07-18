@@ -4,6 +4,7 @@
  db="DATABASE_NAME"
  dbtype="isolates"
  webroot=""
+ curator_home="/private"
  indexpage=""
  view="isolates"
  script_path_includes="/bigsdb/"
