@@ -327,9 +327,8 @@ sub _print_plugin_section {
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em">);
-			say q(<span style="white-space:nowrap">)
-			  . qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
-			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2></span><ul class="toplevel">);
+			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
+			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
 				my $menuitem = $att->{'menutext'};

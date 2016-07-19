@@ -306,15 +306,19 @@ sub print_page_content {
 		$head =~ s/<!DOCTYPE.*?>/$dtd/sx;    #CGI.pm doesn't support HTML5 DOCTYPE
 		$head =~ s/<html[^>]*>/<html>/x;
 		say $head;
-		$self->_print_header;
-		$self->_print_login_details
-		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
-		  || $self->{'curate'}
-		  || $self->{'needs_authentication'};
-		$self->_print_menu;
-		$self->_print_help_panel;
-		$self->print_content;
-		$self->_print_footer;
+		if ( $self->{'system'}->{'db'} ) {
+			$self->_print_header;
+			$self->_print_login_details
+			  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
+			  || $self->{'curate'}
+			  || $self->{'needs_authentication'};
+			$self->_print_menu;
+			$self->_print_help_panel;
+			$self->print_content;
+			$self->_print_footer;
+		} else {
+			$self->print_content;
+		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		print $q->end_html;
 	}
@@ -536,10 +540,23 @@ sub _debug {
 sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
-	my $filename = $self->{'curate'} ? 'curate_header.html' : 'header.html';
 	return if !$self->{'instance'};
-	my $header_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
-	$self->print_file($header_file) if ( -e $header_file );
+	my @potential_headers;
+	if ( $self->{'curate'} ) {
+		push @potential_headers,
+		  (
+			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_header.html",
+			"$self->{'config_dir'}/curate_header.html"
+		  );
+	}
+	push @potential_headers,
+	  ( "$self->{'dbase_config_dir'}/$self->{'instance'}/header.html", "$self->{'config_dir'}/header.html" );
+	foreach my $file (@potential_headers) {
+		if ( -e $file ) {
+			$self->print_file($file);
+			return;
+		}
+	}
 	return;
 }
 
@@ -870,8 +887,28 @@ sub _print_footer {
 	my $system = $self->{'system'};
 	my $filename = $self->{'curate'} ? 'curate_footer.html' : 'footer.html';
 	return if !$self->{'instance'};
-	my $footer_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
-	$self->print_file($footer_file) if ( -e $footer_file );
+	my @potential_footers;
+	if ( $self->{'curate'} ) {
+		push @potential_footers,
+		  (
+			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_footer.html",
+			"$self->{'config_dir'}/curate_footer.html"
+		  );
+	}
+	push @potential_footers,
+	  ( "$self->{'dbase_config_dir'}/$self->{'instance'}/footer.html", "$self->{'config_dir'}/footer.html" );
+	foreach my $file (@potential_footers) {
+		if ( -e $file ) {
+			$self->print_file($file);
+			return;
+		}
+	}
+	foreach my $file (@potential_footers) {
+		if ( -e $file ) {
+			$self->print_file($file);
+			return;
+		}
+	}
 	return;
 }
 
