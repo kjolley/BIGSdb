@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,10 +25,11 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use BIGSdb::Constants qw(LOCUS_PATTERN);
+use constant LOCUS_LIMIT => 2000;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(field_help jQuery jQuery.tablesort jQuery.columnizer);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.columnizer);
 	return;
 }
 
@@ -72,6 +73,8 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>Allowed/submitted field values</h1>);
 	my $q = $self->{'cgi'};
+	$self->_print_interface;
+	return if !$q->param('field');
 	my ( $field, $field_type, $scheme_id ) = $self->_get_field_and_type( $q->param('field') );
 	if ( !defined $field_type ) {
 		say q(<div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
@@ -86,6 +89,25 @@ sub print_content {
 	return;
 }
 
+sub _print_interface {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<p>This page will display all values defined in the database for a selected field.</p>);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Select field</legend>);
+	my ( $values, $labels ) =
+	  $self->get_field_selection_list(
+		{ isolate_fields => 1, loci => 1, locus_limit => LOCUS_LIMIT, scheme_fields => 1 } );
+	say $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->hidden($_) foreach qw (db page);
+	say $q->end_form;
+	say q(</div></div>);
+	return;
+}
+
 sub _print_isolate_field {
 	my ( $self, $field ) = @_;
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
@@ -94,7 +116,7 @@ sub _print_isolate_field {
 	}
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	( my $cleaned = $metafield // $field ) =~ tr/_/ /;
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Field: $cleaned</h2>);
 	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
 	my %type = ( int => 'integer', float => 'floating point number' );
@@ -207,7 +229,7 @@ sub _print_scheme_field {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	my $cleaned     = qq($field ($scheme_info->{'description'}));
 	$cleaned =~ tr/_/ /;
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Field: $cleaned</h2>);
 	my $info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 	my $is_pk = $info->{'primary_key'} ? q(yes) : q(no);
@@ -247,18 +269,18 @@ sub _print_locus {
 		return;
 	}
 	my $cleaned = $self->clean_locus($locus);
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Locus: $cleaned</h2>);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $length_varies = $locus_info->{'length_varies'} ? q(yes) : q(no);
 	say q(<dl class="data">);
 	say qq(<dt>Data type</dt><dd>$locus_info->{'data_type'}</dd>);
 	say qq(<dt>Allele id format</dt><dd>$locus_info->{'allele_id_format'}</dd>);
-	
-	say qq(<dt>Common name</dt><dd>$locus_info->{'common_name'}</dd>) if $locus_info->{'common_name'};
+	say qq(<dt>Common name</dt><dd>$locus_info->{'common_name'}</dd>)         if $locus_info->{'common_name'};
 	say qq(<dt>Allele id regex</dt><dd>$locus_info->{'allele_id_regex'}</dd>) if $locus_info->{'allele_id_regex'};
-	say qq(<dt>Length</dt><dd>$locus_info->{'length'}</dd>) if $locus_info->{'length'};
+	say qq(<dt>Length</dt><dd>$locus_info->{'length'}</dd>)                   if $locus_info->{'length'};
 	say qq(<dt>Variable length</dt><dd>$length_varies</dd>);
+
 	if ( $locus_info->{'reference_sequence'} ) {
 		my $truncate = BIGSdb::Utils::truncate_seq( \$locus_info->{'reference_sequence'}, 100 );
 		say qq(<dt>Reference seq</dt><dd class="seq">$truncate</dd>);
@@ -266,7 +288,6 @@ sub _print_locus {
 	say q(</dl>);
 	say q(</div><div class="box" id="resultstable">);
 	say q(<h2>Values</h2>);
-
 	my $allele_id = $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS integer)) : q(allele_id);
 	my $used_list = $self->{'datastore'}->run_query(
 		"SELECT DISTINCT $allele_id FROM allele_designations WHERE locus=? AND isolate_id "

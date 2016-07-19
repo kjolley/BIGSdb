@@ -288,6 +288,10 @@ sub _print_general_info_section {
 		print qq(<li>Isolates: $isolate_count</li>);
 	}
 	say qq(<li>Last updated: $max_date</li>) if $max_date;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=fieldValues">Defined field values</a></li>);
+	}
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
 	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)

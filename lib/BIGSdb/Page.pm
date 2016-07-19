@@ -602,23 +602,6 @@ sub _print_help_panel {
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
 		  . q(<span class="fa fa-info-circle fa-lg"></span></a>);
 	}
-	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
-
-		#open new page unless already on field values help page
-		say $q->param('page') eq 'fieldValues'
-		  ? $q->start_form( -style => 'display:inline' )
-		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
-		say q(<b>Field help: </b>);
-		my ( $values, $labels ) =
-		  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, locus_limit => 100, scheme_fields => 1 } );
-		say $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
-		say $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
-		my $refer_page = $q->param('page');
-		$q->param( page => 'fieldValues' );
-		say $q->hidden($_) foreach qw (db page);
-		say $q->end_form;
-		$q->param( page => $refer_page );
-	}
 	say q(</div>);
 	return;
 }

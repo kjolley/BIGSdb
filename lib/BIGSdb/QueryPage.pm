@@ -33,7 +33,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect);
 	return;
 }
 

@@ -155,6 +155,7 @@ sub _isolate_items {
 	say qq(<li><a href="$base_url&amp;page=version">About BIGSdb</a></li>);
 	say q(<li><a href="http://bigsdb.readthedocs.io" target="_blank">User guide</a></li>);
 	say qq(<li><a href="$base_url&amp;page=plugin&amp;name=DatabaseFields">Field descriptions</a></li>);
+	say qq(<li><a href="$base_url&amp;page=fieldValues">Defined field values</a></li>);
 	say q(</ul>);
 	return;
 }
