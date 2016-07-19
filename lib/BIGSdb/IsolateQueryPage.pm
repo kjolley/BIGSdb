@@ -345,7 +345,7 @@ sub _print_list_fieldset {
 	  || $q->param('list') ? 'inline' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
-	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
