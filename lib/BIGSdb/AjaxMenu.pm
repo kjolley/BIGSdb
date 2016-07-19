@@ -66,6 +66,7 @@ sub print_content {
 sub _menu_header {
 	my ($self) = @_;
 	my @possible_header_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/menu_header.html",
 		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/menu_header.html",
 		"$ENV{'DOCUMENT_ROOT'}/menu_header.html",
 		"$self->{'config_dir'}/menu_header.html"

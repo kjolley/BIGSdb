@@ -546,11 +546,18 @@ sub _print_header {
 		push @potential_headers,
 		  (
 			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_header.html",
+			"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/curate_header.html",
+			"$ENV{'DOCUMENT_ROOT'}/curate_header.html",
 			"$self->{'config_dir'}/curate_header.html"
 		  );
 	}
 	push @potential_headers,
-	  ( "$self->{'dbase_config_dir'}/$self->{'instance'}/header.html", "$self->{'config_dir'}/header.html" );
+	  (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/header.html",
+		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/header.html",
+		"$ENV{'DOCUMENT_ROOT'}/header.html",
+		"$self->{'config_dir'}/header.html"
+	  );
 	foreach my $file (@potential_headers) {
 		if ( -e $file ) {
 			$self->print_file($file);
@@ -892,17 +899,17 @@ sub _print_footer {
 		push @potential_footers,
 		  (
 			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_footer.html",
+			"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/curate_footer.html",
+			"$ENV{'DOCUMENT_ROOT'}/curate_footer.html",
 			"$self->{'config_dir'}/curate_footer.html"
 		  );
 	}
-	push @potential_footers,
-	  ( "$self->{'dbase_config_dir'}/$self->{'instance'}/footer.html", "$self->{'config_dir'}/footer.html" );
-	foreach my $file (@potential_footers) {
-		if ( -e $file ) {
-			$self->print_file($file);
-			return;
-		}
-	}
+	push @potential_footers, (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/footer.html",
+		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/footer.html",
+		"$ENV{'DOCUMENT_ROOT'}/footer.html",
+		"$self->{'config_dir'}/footer.html"
+	);
 	foreach my $file (@potential_footers) {
 		if ( -e $file ) {
 			$self->print_file($file);

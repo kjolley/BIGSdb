@@ -6,7 +6,10 @@ and curate_header.html files are used in the same way in the curation interface.
 These files should be placed in the database configuration directory, e.g.
 /etc/bigsdb/dbases/DBASE_NAME along with the config.xml file.
 
+Alternatively you can put the header files in the web site root directory for
+site-wide templates.
+
 You can also put header.html, curate_header.html, footer.html and 
 curate_footer.html files in the configuration directory (/etc/bigsdb) for use
-as site-wide templates. These will be used if database-specific files are not
-present.
+as installation-wide templates. These will be used if database-specific files 
+are not present.
