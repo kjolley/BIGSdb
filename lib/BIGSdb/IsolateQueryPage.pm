@@ -1245,11 +1245,11 @@ sub _provenance_equals_type_operator {
 		} else {
 			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 			if ( lc($type) eq 'text' ) {
-				$buffer .=
-				  (
+				$buffer .= (
 					lc($text) eq 'null'
 					? "$field IS $not null"
-					: "($not UPPER($field) = UPPER(E'$text') $null_clause)" );
+					: "($not UPPER($field) = UPPER(E'$text') $null_clause)"
+				);
 			} else {
 				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
 			}
@@ -1355,10 +1355,11 @@ sub _modify_query_for_filters {
 					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
-				$qry .=
-				  ( ( $value eq '<blank>' || lc($value) eq 'null' )
+				$qry .= (
+					( $value eq '<blank>' || lc($value) eq 'null' )
 					? "$view.$field is null"
-					: "$view.$field = '$value'" );
+					: "$view.$field = '$value'"
+				);
 			}
 		}
 		my $extatt = $extended->{$field};
@@ -2132,19 +2133,31 @@ sub _modify_query_for_designation_status {
 	return $qry;
 }
 
+sub _should_display_fieldset {
+	my ( $self, $fieldset ) = @_;
+	my %fields = (
+		allele_designations => 'loci',
+		allele_count        => 'allele_count',
+		allele_status       => 'allele_status',
+		tag_count           => 'tag_count',
+		tags                => 'tags'
+	);
+	return if !$fields{$fieldset};
+	if ( $self->{'prefs'}->{"${fieldset}_fieldset"} || $self->_highest_entered_fields( $fields{$fieldset} ) ) {
+		return 1;
+	}
+	return;
+}
+
 sub get_javascript {
 	my ($self) = @_;
-	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
-	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
-	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
-	  || $self->_highest_entered_fields('allele_count') ? 'inline' : 'none';
-	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
-	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
-	my $tag_count_fieldset_display = $self->{'prefs'}->{'tag_count_fieldset'}
-	  || $self->_highest_entered_fields('tag_count') ? 'inline' : 'none';
-	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
-	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	my $allele_designations_fieldset_display =
+	  $self->_should_display_fieldset('allele_designations') ? 'inline' : 'none';
+	my $allele_count_fieldset_display  = $self->_should_display_fieldset('allele_count')  ? 'inline' : 'none';
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? 'inline' : 'none';
+	my $tag_count_fieldset_display     = $self->_should_display_fieldset('tag_count')     ? 'inline' : 'none';
+	my $tags_fieldset_display          = $self->_should_display_fieldset('tags')          ? 'inline' : 'none';
+	my $filters_fieldset_display       = $self->{'prefs'}->{'filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
