@@ -31,7 +31,12 @@ sub _ajax_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $row    = $q->param('row');
+	if ( $q->param('fieldset') ) {
+		my %method = ( allele_designations => sub { $self->_get_designations_fieldset_contents } );
+		$method{ $q->param('fieldset') }->() if $method{ $q->param('fieldset') };
+		return;
+	}
+	my $row = $q->param('row');
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
 	my %method = (
 		provenance => sub {
@@ -196,28 +201,41 @@ sub _print_display_fieldset {
 }
 
 sub _print_designations_fieldset {
-	my ($self)  = @_;
-	my $q       = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $display = $q->param('no_js') ? 'block' : 'none';
+	say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
+	say q(<legend>Allele designations/scheme fields</legend><div>);
+
+	#Get contents now if fieldset is visible, otherwise load via AJAX call
+	if ( $self->_should_display_fieldset('allele_designations') ) {
+		$self->_get_designations_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _get_designations_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
 		{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 	if (@$locus_list) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
-		say q(<legend>Allele designations/scheme fields</legend><div>);
 		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
 		  . q(<label for="c1">Combine with: </label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
 		say q(</span><ul id="loci">);
-
 		for ( 1 .. $locus_fields ) {
 			say q(<li>);
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
-		say q(</ul></div></fieldset>);
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
 	return;
 }
@@ -587,7 +605,7 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
-	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance')? HIDE : SHOW;
+	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
@@ -2159,6 +2177,14 @@ sub get_javascript {
 		qw(provenance allele_designations allele_count allele_status
 		  tag_count tags list filters)
 	);
+	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
+	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
+	if ( $allele_designations_fieldset_display eq 'none' ) {
+		$ajax_load .=
+		    q($('fieldset#allele_designations_fieldset div').)
+		  . q(html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
+		  . q(load(fieldset_url + '&fieldset=allele_designations'));
+	}
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -2179,6 +2205,7 @@ sub get_javascript {
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
 $panel_js
+	$ajax_load
  });
  
 function loadContent(url) {
