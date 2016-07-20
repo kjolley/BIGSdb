@@ -195,6 +195,10 @@ sub _initiate {
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( page => 'index' ) if !defined $q->param('page');
+
+	#Prevent cross-site scripting vulnerability
+	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
+	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';                                       #everyone can view by default
 	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} //= 'localhost';
@@ -540,6 +544,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
