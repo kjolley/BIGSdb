@@ -930,6 +930,8 @@ sub print_file {
 	#and the database access has been closed, so we cannot check admin status or
 	#perform a database query.  This is likely to only be the case for the footer
 	#HTML file.
+	
+	#TODO Remove this section when the new header files are introduced.
 	if ( $self->{'curate'} && !$self->{'update_blast_caches'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->is_admin ) {
 			my $qry = 'SELECT id FROM loci';
@@ -970,12 +972,13 @@ sub print_file {
 			s/\$webroot/$system->{'webroot'}/x;
 			s/\$dbase/$system->{'db'}/x;
 			s/\$indexpage/$system->{'indexpage'}/x;
+			s/\$contents/$system->{'script_name'}?db=$self->{'instance'}/x;
 			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				if ( @$loci < 30 ) {
 					s/\$lociAdd/$lociAdd/x;
 				} else {
 					my $link =
-					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;" . 'page=add&amp;table=sequences';
+					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
 					s/\$lociAdd/<a href="$link">Add<\/a>/x;
 				}
 			}
