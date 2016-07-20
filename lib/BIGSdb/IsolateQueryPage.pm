@@ -196,8 +196,8 @@ sub _print_display_fieldset {
 }
 
 sub _print_designations_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
 		{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
@@ -587,30 +587,24 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
-	my $provenance_fieldset_display = $self->{'prefs'}->{'provenance_fieldset'}
-	  || $self->_highest_entered_fields('provenance') ? HIDE : SHOW;
+	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance')? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
-	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
-	  || $self->_highest_entered_fields('loci') ? HIDE : SHOW;
+	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
-	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
-	  || $self->_highest_entered_fields('allele_count') ? HIDE : SHOW;
+	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
-	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
-	  || $self->_highest_entered_fields('allele_status') ? HIDE : SHOW;
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
 	if ( $self->{'tags_fieldset_exists'} ) {
-		my $tag_count_fieldset_display = $self->{'prefs'}->{'tag_count_fieldset'}
-		  || $self->_highest_entered_fields('tag_count') ? HIDE : SHOW;
+		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
 		say q(Tagged sequence counts</li>);
-		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
-		  || $self->_highest_entered_fields('tags') ? HIDE : SHOW;
+		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
@@ -2136,6 +2130,7 @@ sub _modify_query_for_designation_status {
 sub _should_display_fieldset {
 	my ( $self, $fieldset ) = @_;
 	my %fields = (
+		provenance          => 'provenance',
 		allele_designations => 'loci',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
