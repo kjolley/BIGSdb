@@ -335,6 +335,7 @@ sub _print_started_submissions {
 	my ($self) = @_;
 	my $incomplete = $self->_get_submissions_by_status('started');
 	if (@$incomplete) {
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		say q(<h2>Submission in process</h2>);
 		say q(<p>Please note that you must either proceed with or abort the in process submission before you can )
 		  . q(start another.</p>);
@@ -364,6 +365,7 @@ sub _print_started_submissions {
 			  . qq(page=submit&amp;$submission->{'type'}=1">Abort/Continue</a>);
 			say q(</dl>);
 		}
+		say q(</div></div>);
 		return 1;
 	}
 	return;
