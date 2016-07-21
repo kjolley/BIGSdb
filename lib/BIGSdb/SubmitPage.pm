@@ -149,10 +149,12 @@ sub print_content {
 		}
 	}
 	$self->_delete_old_closed_submissions;
-	say q(<div class="box resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
+		say q(</div></div>);
 	}
+	say q(<div class="box resultstable"><div class="scrollable">);
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
@@ -1343,6 +1345,8 @@ sub _presubmit_alleles {
 		$submission_id = $self->_start_submission('alleles');
 		$self->_start_allele_submission( $submission_id, $locus, $seqs );
 	}
+	my $allele_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/allele_submit.html";
+	$self->print_file($allele_submit_message) if -e $allele_submit_message;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
@@ -1372,6 +1376,8 @@ sub _presubmit_profiles {
 		$submission_id = $self->_start_submission('profiles');
 		$self->_start_profile_submission( $submission_id, $scheme_id, $profiles );
 	}
+	my $profile_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/profile_submit.html";
+	$self->print_file($profile_submit_message) if -e $profile_submit_message;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
