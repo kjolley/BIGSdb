@@ -88,13 +88,8 @@ sub print_content {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		if ( !$q->param('no_js') ) {
-			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
-			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-			  . qq(table=$table&amp;no_js=1">non-Javascript version</a> that has 4 combinations of fields.</p>)
-			  . q(</div></noscript>);
-		}
+		say q(<noscript><div class="box statusbad"><p>This interface requires )
+		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		$self->_print_interface;
 	}
 	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
@@ -218,7 +213,7 @@ sub _print_interface {
 	my $table  = $q->param('table');
 	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
+	my $table_fields = $self->_highest_entered_fields || 1;
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
 
@@ -250,7 +245,7 @@ sub _print_interface {
 	}
 	say q(</p>);
 	say $q->start_form;
-	say $q->hidden($_) foreach qw (db page table no_js);
+	say $q->hidden($_) foreach qw (db page table);
 	say q(<fieldset style="float:left"><legend>Search criteria</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
@@ -539,7 +534,7 @@ sub _run_query {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
-	push @hidden_attributes, qw (no_js sequence_flag_list duplicates_list common_name_list scheme_id_list);
+	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@$errors) {
 		local $" = '<br />';
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);

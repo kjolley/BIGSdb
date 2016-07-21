@@ -76,20 +76,14 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? "<h1>Query/update profiles - $desc</h1>" : "<h1>Search or browse profiles - $desc</h1>";
+	say $self->{'curate'}
+	  ? qq(<h1>Query/update profiles - $desc</h1>)
+	  : qq(<h1>Search or browse profiles - $desc</h1>);
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
-		if ( !$q->param('no_js') ) {
-			my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : undef;
-			my $scheme_clause =
-			  ( $system->{'dbtype'} eq 'sequences' && defined $scheme_id ) ? "&amp;scheme_id=$scheme_id" : '';
-			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
-			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
-			  . qq(<a href=\"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query$scheme_clause&amp;no_js=1\">non-Javascript version</a> that has 4 combinations )
-			  . q(of fields.</p></div></noscript>);
-		}
+		say q(<noscript><div class="box statusbad"><p>This interface requires )
+		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
@@ -128,13 +122,11 @@ sub _print_interface {
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	say $q->start_form;
-	say $q->hidden($_) foreach qw (db page scheme_id no_js);
-	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
+	say $q->hidden($_) foreach qw (db page scheme_id);
+	my $scheme_field_count = $self->_highest_entered_fields || 1;
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
 	say q(<div style="white-space:nowrap">);
-	my $display =
-	     $q->param('no_js')
-	  || $self->{'prefs'}->{'scheme_fieldset'}
+	my $display = $self->{'prefs'}->{'scheme_fieldset'}
 	  || $self->_highest_entered_fields ? 'inline' : 'none';
 	say qq(<fieldset style="float:left;display:$display" id="scheme_fieldset"><legend>Locus/scheme fields</legend>);
 	say qq(<span id="scheme_field_heading" style="display:$scheme_field_heading">)
@@ -210,8 +202,7 @@ sub _print_filter_fieldset {
 		}
 	}
 	if (@filters) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+		say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 		say q(<ul>);
 		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 		say q(</ul></fieldset>);
@@ -243,12 +234,10 @@ sub _print_scheme_fields {
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=scheme_fields&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1" )
-			  . q(data-rel="ajax" class="button">+</a> <a class="tooltip" id="scheme_field_tooltip" title="">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
-		}
+		print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=scheme_fields&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1" )
+		  . q(data-rel="ajax" class="button">+</a> <a class="tooltip" id="scheme_field_tooltip" title="">)
+		  . q(<span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -322,7 +311,7 @@ sub _run_query {
 		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			push @hidden_attributes, $_ . '_list';
 		}
-		push @hidden_attributes, qw (publication_list scheme_id no_js list list_file datatype);
+		push @hidden_attributes, qw (publication_list scheme_id list list_file datatype);
 		my $args = { table => 'profiles', query => $qry, browse => $browse, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
@@ -532,9 +521,7 @@ sub _print_list_fieldset {
 		push @$field_list, "l_$locus";
 		$labels->{"l_$locus"} = $self->clean_locus( $locus, { text_output => 1 } );
 	}
-	my $display =
-	     $q->param('no_js')
-	  || $self->{'prefs'}->{'list_fieldset'}
+	my $display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? 'inline' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
