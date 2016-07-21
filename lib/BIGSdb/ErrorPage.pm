@@ -138,6 +138,7 @@ sub initiate {
 	if ( $status->{ $self->{'error'} } ) {
 		$self->{'status'} = $status->{ $self->{'error'} };
 	}
+	$self->{'jQuery'} = 1;
 	return;
 }
 1;

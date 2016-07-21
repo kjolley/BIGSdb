@@ -635,6 +635,7 @@ sub _print_menu {
 
 	#Don't show on log in or log out pages
 	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
+	return if !$self->{'system'}->{'db'};
 	say q(<div id="menubutton">);
 	say q(<a style="cursor:pointer"><span class="fa fa-bars"></span></a>);
 	say q(</div>);
