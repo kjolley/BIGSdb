@@ -904,12 +904,13 @@ sub _print_footer {
 			"$self->{'config_dir'}/curate_footer.html"
 		  );
 	}
-	push @potential_footers, (
+	push @potential_footers,
+	  (
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/footer.html",
 		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/footer.html",
 		"$ENV{'DOCUMENT_ROOT'}/footer.html",
 		"$self->{'config_dir'}/footer.html"
-	);
+	  );
 	foreach my $file (@potential_footers) {
 		if ( -e $file ) {
 			$self->print_file($file);
@@ -921,48 +922,8 @@ sub _print_footer {
 
 sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
-	my $lociAdd    = '';
-	my $loci       = [];
-	my $set_id     = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-
-	#If we're updating the BLAST caches, this is happening in a forked process
-	#and the database access has been closed, so we cannot check admin status or
-	#perform a database query.  This is likely to only be the case for the footer
-	#HTML file.
-	
-	#TODO Remove this section when the new header files are introduced.
-	if ( $self->{'curate'} && !$self->{'update_blast_caches'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		if ( $self->is_admin ) {
-			my $qry = 'SELECT id FROM loci';
-			if ($set_id) {
-				$qry .= ' WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
-				  . "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
-			}
-			$loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-		} else {
-			my $set_clause =
-			  $set_id
-			  ? 'AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
-			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-			  : q();
-			my $qry =
-			  'SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on '
-			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY "
-			  . 'scheme_members.scheme_id,locus_curators.locus';
-			$loci = $self->{'datastore'}->run_query( $qry, $self->get_curator_id, { fetch => 'col_arrayref' } );
-		}
-		my $first = 1;
-		if ( @$loci < 30 ) {
-			foreach my $locus ( uniq @$loci ) {
-				my $cleaned = $self->clean_locus($locus);
-				$lociAdd .= ' | ' if !$first;
-				$lociAdd .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-				  . qq(table=sequences&amp;locus=$locus">$cleaned</a>);
-				$first = 0;
-			}
-		}
-	}
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
@@ -974,13 +935,8 @@ sub print_file {
 			s/\$indexpage/$system->{'indexpage'}/x;
 			s/\$contents/$system->{'script_name'}?db=$self->{'instance'}/x;
 			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-				if ( @$loci < 30 ) {
-					s/\$lociAdd/$lociAdd/x;
-				} else {
-					my $link =
-					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
-					s/\$lociAdd/<a href="$link">Add<\/a>/x;
-				}
+				my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
+				s/\$lociAdd/<a href="$link">Add<\/a>/x;
 			}
 			if ( !$self->{'curate'} && $set_id ) {
 				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
