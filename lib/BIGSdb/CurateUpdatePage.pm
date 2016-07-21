@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use List::MoreUtils qw(any none);
-use BIGSdb::Constants qw(ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS);
+use BIGSdb::Constants qw(ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS SCHEME_FLAGS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant FAILURE => 2;
@@ -160,6 +160,9 @@ sub _upload {
 			users => sub {
 				$status = $self->_check_users($newdata);
 				$self->_prepare_extra_inserts_for_users( $newdata, $extra_inserts );
+			},
+			schemes => sub {
+				$status = $self->_prepare_extra_inserts_for_schemes( $newdata, $extra_inserts );
 			},
 			scheme_fields => sub {
 				$status = $self->_check_scheme_fields($newdata);
@@ -675,6 +678,25 @@ sub _prepare_extra_inserts_for_users {
 			statement => "DELETE FROM curator_permissions WHERE user_id=? AND permission NOT IN ('@permissions')",
 			arguments => [ $newdata->{'id'} ]
 		  };
+	}
+	return;
+}
+
+sub _prepare_extra_inserts_for_schemes {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my %allowed = map { $_ => 1 } SCHEME_FLAGS;
+	my $q       = $self->{'cgi'};
+	my @flags   = $q->param('flags');
+	push @$extra_inserts,
+	  { statement => 'DELETE FROM scheme_flags WHERE scheme_id=?', arguments => [ $newdata->{'id'} ] };
+	foreach my $flag (@flags) {
+		if ( $allowed{$flag} ) {
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO scheme_flags (scheme_id,flag,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $flag, $newdata->{'curator'}, 'now' ]
+			  };
+		}
 	}
 	return;
 }

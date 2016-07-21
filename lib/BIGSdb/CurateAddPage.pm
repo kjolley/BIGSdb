@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -202,7 +202,7 @@ sub _insert {
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates);
+	  retired_isolates schemes);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -747,6 +747,26 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	if ( !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
 		push @$problems,
 		  'Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.';
+	}
+	return;
+}
+
+sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	my %allowed = map{$_ => 1} SCHEME_FLAGS;
+	my $q = $self->{'cgi'};
+	my @flags = $q->param('flags');
+	foreach my $flag (@flags){
+		if ($allowed{$flag}){
+			push @$extra_inserts,
+		  {
+			statement =>
+			  'INSERT INTO scheme_flags (scheme_id,flag,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [ $newdata->{'id'}, $flag, $newdata->{'curator'}, 'now' ]
+		  };
+		} else {
+			push @$problems, "'$flag' is not a valid flag.";
+		}
 	}
 	return;
 }
