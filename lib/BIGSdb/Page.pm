@@ -117,7 +117,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
 		}
-		push @javascript, ( { src => '/javascript/bigsdb.js?v20130615', @language } );
+		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
 			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
 			'jQuery.jstree'       => [qw(jquery.jstree.js jquery.cookie.js jquery.hotkeys.js)],
@@ -306,14 +306,19 @@ sub print_page_content {
 		$head =~ s/<!DOCTYPE.*?>/$dtd/sx;    #CGI.pm doesn't support HTML5 DOCTYPE
 		$head =~ s/<html[^>]*>/<html>/x;
 		say $head;
-		$self->_print_header;
-		$self->_print_login_details
-		  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
-		  || $self->{'curate'}
-		  || $self->{'needs_authentication'};
-		$self->_print_help_panel;
-		$self->print_content;
-		$self->_print_footer;
+		if ( $self->{'system'}->{'db'} ) {
+			$self->_print_header;
+			$self->_print_login_details
+			  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
+			  || $self->{'curate'}
+			  || $self->{'needs_authentication'};
+			$self->_print_menu;
+			$self->_print_help_panel;
+			$self->print_content;
+			$self->_print_footer;
+		} else {
+			$self->print_content;
+		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		print $q->end_html;
 	}
@@ -352,7 +357,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20160707';
+	my $version   = '20160714';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -491,7 +496,7 @@ sub print_action_fieldset {
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $legend       = $options->{'legend'}       // 'Action';
-	my $buffer       = qq(<fieldset style="float:left" id="action"><legend>$legend</legend>\n);
+	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
 	my @fields = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id modify);
 
@@ -535,10 +540,30 @@ sub _debug {
 sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
-	my $filename = $self->{'curate'} ? 'curate_header.html' : 'header.html';
 	return if !$self->{'instance'};
-	my $header_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
-	$self->print_file($header_file) if ( -e $header_file );
+	my @potential_headers;
+	if ( $self->{'curate'} ) {
+		push @potential_headers,
+		  (
+			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_header.html",
+			"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/curate_header.html",
+			"$ENV{'DOCUMENT_ROOT'}/curate_header.html",
+			"$self->{'config_dir'}/curate_header.html"
+		  );
+	}
+	push @potential_headers,
+	  (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/header.html",
+		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/header.html",
+		"$ENV{'DOCUMENT_ROOT'}/header.html",
+		"$self->{'config_dir'}/header.html"
+	  );
+	foreach my $file (@potential_headers) {
+		if ( -e $file ) {
+			$self->print_file($file);
+			return;
+		}
+	}
 	return;
 }
 
@@ -576,7 +601,7 @@ sub get_help_url {
 sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	print q(<div id="fieldvalueshelp">);
+	say q(<div id="fieldvalueshelp">);
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
@@ -601,24 +626,20 @@ sub _print_help_panel {
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
 		  . q(<span class="fa fa-info-circle fa-lg"></span></a>);
 	}
-	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' && $self->{'field_help'} ) {
-
-		#open new page unless already on field values help page
-		print $q->param('page') eq 'fieldValues'
-		  ? $q->start_form( -style => 'display:inline' )
-		  : $q->start_form( -target => '_blank', -style => 'display:inline' );
-		print q(<b>Field help: </b>);
-		my ( $values, $labels ) =
-		  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, locus_limit => 100, scheme_fields => 1 } );
-		print $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
-		print $q->submit( -name => 'Go', -class => 'fieldvaluebutton' );
-		my $refer_page = $q->param('page');
-		$q->param( page => 'fieldValues' );
-		print $q->hidden($_) foreach qw (db page);
-		print $q->end_form;
-		$q->param( page => $refer_page );
-	}
 	say q(</div>);
+	return;
+}
+
+sub _print_menu {
+	my ($self) = @_;
+
+	#Don't show on log in or log out pages
+	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
+	return if !$self->{'system'}->{'db'};
+	say q(<div id="menubutton">);
+	say q(<a style="cursor:pointer"><span class="fa fa-bars"></span></a>);
+	say q(</div>);
+	say q(<div id="menupanel"></div>);
 	return;
 }
 
@@ -874,53 +895,36 @@ sub _print_footer {
 	my $system = $self->{'system'};
 	my $filename = $self->{'curate'} ? 'curate_footer.html' : 'footer.html';
 	return if !$self->{'instance'};
-	my $footer_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/$filename";
-	$self->print_file($footer_file) if ( -e $footer_file );
+	my @potential_footers;
+	if ( $self->{'curate'} ) {
+		push @potential_footers,
+		  (
+			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_footer.html",
+			"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/curate_footer.html",
+			"$ENV{'DOCUMENT_ROOT'}/curate_footer.html",
+			"$self->{'config_dir'}/curate_footer.html"
+		  );
+	}
+	push @potential_footers,
+	  (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/footer.html",
+		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/footer.html",
+		"$ENV{'DOCUMENT_ROOT'}/footer.html",
+		"$self->{'config_dir'}/footer.html"
+	  );
+	foreach my $file (@potential_footers) {
+		if ( -e $file ) {
+			$self->print_file($file);
+			return;
+		}
+	}
 	return;
 }
 
 sub print_file {
 	my ( $self, $file, $ignore_hashlines ) = @_;
-	my $lociAdd    = '';
-	my $loci       = [];
-	my $set_id     = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-
-	#If we're updating the BLAST caches, this is happening in a forked process
-	#and the database access has been closed, so we cannot check admin status or
-	#perform a database query.  This is likely to only be the case for the footer
-	#HTML file.
-	if ( $self->{'curate'} && !$self->{'update_blast_caches'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		if ( $self->is_admin ) {
-			my $qry = 'SELECT id FROM loci';
-			if ($set_id) {
-				$qry .= ' WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
-				  . "set_schemes WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id)";
-			}
-			$loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-		} else {
-			my $set_clause =
-			  $set_id
-			  ? 'AND (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
-			  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-			  : q();
-			my $qry =
-			  'SELECT locus_curators.locus from locus_curators LEFT JOIN loci ON locus=id LEFT JOIN scheme_members on '
-			  . "loci.id = scheme_members.locus WHERE locus_curators.curator_id=? $set_clause ORDER BY "
-			  . 'scheme_members.scheme_id,locus_curators.locus';
-			$loci = $self->{'datastore'}->run_query( $qry, $self->get_curator_id, { fetch => 'col_arrayref' } );
-		}
-		my $first = 1;
-		if ( @$loci < 30 ) {
-			foreach my $locus ( uniq @$loci ) {
-				my $cleaned = $self->clean_locus($locus);
-				$lociAdd .= ' | ' if !$first;
-				$lociAdd .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-				  . qq(table=sequences&amp;locus=$locus">$cleaned</a>);
-				$first = 0;
-			}
-		}
-	}
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
@@ -930,14 +934,10 @@ sub print_file {
 			s/\$webroot/$system->{'webroot'}/x;
 			s/\$dbase/$system->{'db'}/x;
 			s/\$indexpage/$system->{'indexpage'}/x;
+			s/\$contents/$system->{'script_name'}?db=$self->{'instance'}/x;
 			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-				if ( @$loci < 30 ) {
-					s/\$lociAdd/$lociAdd/x;
-				} else {
-					my $link =
-					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;" . 'page=add&amp;table=sequences';
-					s/\$lociAdd/<a href="$link">Add<\/a>/x;
-				}
+				my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
+				s/\$lociAdd/<a href="$link">Add<\/a>/x;
 			}
 			if ( !$self->{'curate'} && $set_id ) {
 				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
@@ -2425,5 +2425,24 @@ sub get_loci_from_pasted_list {
 		$q->delete('locus_paste_list') if !@invalid_loci && !$options->{'dont_clear'};
 	}
 	return ( \@cleaned_loci, \@invalid_loci );
+}
+
+sub populate_submission_params {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('submission_id');
+	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
+		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
+		$q->param( sequence => $submission_seq );
+	}
+	return;
+}
+
+sub _get_allele_submission_sequence {
+	my ( $self, $submission_id, $index ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
+		[ $submission_id, $index ] );
 }
 1;

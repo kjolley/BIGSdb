@@ -177,6 +177,7 @@ sub print_content {
 		return;
 	}
 	my $sequence;
+	$self->populate_submission_params;
 	if ( $q->param('sequence') ) {
 		$sequence = $q->param('sequence');
 		$q->delete('sequence') if !$q->param('submission_id');

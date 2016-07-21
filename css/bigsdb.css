@@ -45,7 +45,7 @@ th a:hover {
 	text-decoration:none
 }
 
-select {font-size: 1em}
+select {font-size:1em}
 select.filter{max-width:20em; border: 1px solid #999; border-radius:0; background:white}
 select.fieldlist{max-width:12em}
 .value_entry{min-width:12em}
@@ -270,6 +270,7 @@ input.submit:hover {
 a.resetbutton, input.resetbutton { border:1px solid #bbe; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
 a.resetbutton:hover, input.resetbutton:hover {border:1px solid #669; box-shadow: 1px 1px 1px #669; }
 a.smallbutton {padding: 0 0.5em}
+button.smallbutton {padding: 0.2em 0.5em}
 
 input.submitbutton {border:1px solid #ada; color:#333; background:#eee; box-shadow: 1px 1px 1px #aaa;}
 input.submitbutton:hover {border:1px solid #696; box-shadow: 1px 1px 1px #696;}
@@ -448,13 +449,49 @@ div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background:#d5d5e0}
 div#curatetools { background: #e5e5f0}
 
+div#menubutton {
+	float:right;
+	font-size:1.2em;
+	position:absolute;
+	top:4px;
+	right:5px;
+	z-index:3;		
+}
+
+div#menubutton a  {
+	border:1px solid transparent;
+	border-radius: 3px;
+	box-shadow: 1px 1px 1px transparent;
+	padding:0 0.1em;
+	color:black
+}
+div#menubutton a:hover {
+	border:1px solid #ccc;
+	box-shadow: 1px 1px 1px #dfdfdf;
+}
+div#menupanel {
+	background:#f0f0f0;
+	color:black;
+	float:right;
+	position:absolute;
+	top:23px;
+	right:0px;
+	padding:1em;
+	z-index:10;		
+	border-radius:10px;
+	border:1px solid #ccc;
+	box-shadow:3px 3px 3px #dfdfdf;
+	display:none;
+}
+div#menupanel ul.menu {margin-left:12px}
+
 div#pluginoptions, div#curatetools {
 	background:#ddd;
 	float:right;
 	position:absolute;
 	top:4.5em;
 	right:5px;
-	z-index:3;
+	z-index:9;
 	padding:10px;
 	font-size:0.8em;
 	margin-bottom: 0.5em;
@@ -483,7 +520,7 @@ div#fieldvalueshelp {
 	font-size:0.7em;
 	position:absolute;
 	top:3px;
-	right:5px;
+	right:27px;
 	z-index:3;	
 }
 
@@ -683,7 +720,7 @@ button.plugin:hover {color:#c8c}
 .form_icon_edit {color:#77a;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_trash {color:#a77;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 @media (max-width: 600px){
-	.form_icon {display:none};
+	.form_icon {display:none}
 }
 
 @media (max-width: 800px) {

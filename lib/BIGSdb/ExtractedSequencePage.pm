@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Constants qw(BUTTON_CLASS FLANKING);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -36,6 +37,8 @@ sub print_content {
 	my $translate    = $q->param('translate');
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
+	$self->update_prefs if $q->param('reload');
+
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
 		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
 		  . q(<p>Sequence bin id must be an integer.</p></div>);
@@ -71,7 +74,7 @@ sub print_content {
 		}
 	);
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultspanel"><div style="float:left">);
 	say q(<h2>Sequence position</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>sequence bin id</dt><dd>$seqbin_id</dd>);
@@ -81,6 +84,9 @@ sub print_content {
 	say qq(<dt>length</dt><dd>$length</dd>);
 	say qq(<dt>orientation</dt><dd><span style="font-size:2em">$orientation</span></dd>);
 	say q(</dl>);
+	say q(</div>);
+	say $self->get_option_fieldset;
+	say q(<div style="clear:both"></div>);
 	say q(<h2>Sequence</h2>);
 	say q(<div class="seq" style="padding-left:5em">);
 	say $display->{'seq'};
@@ -105,13 +111,46 @@ sub print_content {
 	return;
 }
 
+sub get_option_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $buffer = q(<fieldset style="float:right"><legend>Options</legend>);
+	$buffer.= $q->start_form;
+	$buffer.= q(<ul></li>);
+	$buffer.= q(<label for="flanking">Flanking sequence length: </label>);
+	$buffer.= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
+	$buffer.= q(</li></ul>);
+	$buffer.= $q->submit(
+		-name  => 'reload',
+		-label => 'Reload',
+		-class => BUTTON_CLASS,
+		-style => 'float:right;margin-top:0.5em'
+	);
+	$buffer.= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus);
+	$buffer.= $q->end_form;
+	$buffer.= q(</fieldset>);
+	return $buffer;
+}
+
+sub update_prefs {
+	my ($self) = @_;
+	my $guid = $self->get_guid;
+	return if !$guid;
+	my $q = $self->{'cgi'};
+	my %allowed_flanking = map { $_ => 1 } FLANKING;
+	if ( $allowed_flanking{ $q->param('flanking') } ) {
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'flanking', $q->param('flanking') );
+	}
+	return;
+}
+
 sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
 	my $contig_length =
 	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $args->{'seqbin_id'} );
 	$args->{'end'} = $contig_length if $args->{'end'} > $contig_length;
-	my $flanking = $self->{'cgi'}->param('flanking') || $self->{'prefs'}->{'flanking'};
+	my $flanking = $self->{'cgi'}->param('flanking') // $self->{'prefs'}->{'flanking'};
 	$flanking = ( BIGSdb::Utils::is_int($flanking) && $flanking >= 0 ) ? $flanking : 100;
 	my $length = abs( $args->{'end'} - $args->{'start'} + 1 );
 	my $qry =

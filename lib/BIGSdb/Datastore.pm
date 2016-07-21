@@ -1139,9 +1139,6 @@ sub get_loci {
 	$options = {} if ref $options ne 'HASH';
 	my $defined_clause =
 	  $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
-
-	#Need to sort if pref settings are to be checked as we need scheme information
-	$options->{'do_not_order'} = 0 if any { $options->{$_} } qw (query_pref analysis_pref);
 	my $set_clause = '';
 	if ( $options->{'set_id'} ) {
 		$set_clause = $defined_clause ? 'AND' : 'WHERE';
@@ -1150,11 +1147,17 @@ sub get_loci {
 		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
 	}
 	my $qry;
-	if ( $options->{'do_not_order'} ) {
-		$qry = "SELECT id FROM loci $defined_clause $set_clause";
-	} else {
+	if ( any { $options->{$_} } qw (query_pref analysis_pref) ) {
 		$qry = 'SELECT id,scheme_id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus '
-		  . "$defined_clause $set_clause ORDER BY scheme_members.scheme_id,scheme_members.field_order,id";
+		  . "$defined_clause $set_clause";
+		if ( !$options->{'do_not_order'} ) {
+			$qry .= ' ORDER BY scheme_members.scheme_id,scheme_members.field_order,id';
+		}
+	} else {
+		$qry = "SELECT id FROM loci $defined_clause $set_clause";
+		if ( !$options->{'do_not_order'} ) {
+			$qry .= ' ORDER BY id';
+		}
 	}
 	my @query_loci;
 	my $data = $self->run_query( $qry, undef, { fetch => 'all_arrayref' } );

@@ -132,14 +132,8 @@ sub print_content {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		if ( !$q->param('no_js') ) {
-			my $locus_clause = $locus ? "&amp;locus=$locus" : q();
-			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
-			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=alleleQuery$locus_clause&amp;no_js=1">non-Javascript version</a> that has 4 combinations )
-			  . q(of fields.</p></div></noscript>);
-		}
+		say q(<noscript><div class="box statusbad"><p>This interface requires )
+		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		$self->_print_interface;
 	}
 	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
@@ -233,17 +227,15 @@ sub _print_interface {
 	say q(<p><b>Locus: </b>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	say q( <span class="comment">Page will reload when changed</span></p>);
-	say $q->hidden($_) foreach qw (db page no_js);
+	say $q->hidden($_) foreach qw (db page);
 
 	if ( $q->param('locus') ) {
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
 		  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
-	my $table_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
-	my $display =
-	     $q->param('no_js')
-	  || $self->{'prefs'}->{'aq_allele_fieldset'}
+	my $table_fields = $self->_highest_entered_fields || 1;
+	my $display = $self->{'prefs'}->{'aq_allele_fieldset'}
 	  || $self->_highest_entered_fields ? 'inline' : 'none';
 	say qq(<fieldset id="allele_fieldset" style="float:left;display:$display"><legend>Allele fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
@@ -277,8 +269,7 @@ sub _print_interface {
 sub _print_list_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Allele id list</legend>);
+	say q(<fieldset id="list_fieldset" style="float:left;display:none"><legend>Allele id list</legend>);
 	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -cols => 12 );
 	say q(</fieldset>);
 	return;
@@ -287,8 +278,7 @@ sub _print_list_fieldset {
 sub _print_filters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<ul><li>);
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say q(</li><li>);
@@ -358,7 +348,7 @@ sub _run_query {
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
 	}
-	push @hidden_attributes, qw(locus no_js list list_file allele_flag_list);
+	push @hidden_attributes, qw(locus list list_file allele_flag_list);
 	if (@$errors) {
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@$errors</p></div>);
@@ -505,7 +495,7 @@ sub _modify_by_list {
 	my @list = split /\n/x, $q->param('list');
 	@list = uniq @list;
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
-	return if !@list || (@list == 1 && $list[0] eq q()) ;
+	return if !@list || ( @list == 1 && $list[0] eq q() );
 	my $temp_table =
 	  $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list, { table => 'temp_list' } );
 	my $list_file = BIGSdb::Utils::get_random() . '.list';

@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -101,7 +102,7 @@ sub print_content {
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects WHERE list');
+		my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
 		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
@@ -169,12 +170,13 @@ sub _print_download_section {
 	my $first = 1;
 	my $i     = 0;
 	if ( @$scheme_data > 1 ) {
-		$scheme_buffer .= q(<li>);
+		$scheme_buffer .= q(<li style="white-space:nowrap">);
 		$scheme_buffer .= $q->start_form;
 		$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
 		$scheme_buffer .= $q->hidden('db');
+		my $download = DOWNLOAD;
 		$scheme_buffer .= q( <button type="submit" name="page" value="downloadProfiles" )
-		  . qq(class="smallbutton">Download profiles</button>\n);
+		  . qq(class="smallbutton">$download Profiles</button>\n);
 		$scheme_buffer .= $q->end_form;
 		$scheme_buffer .= q(</li>);
 	} elsif ( @$scheme_data == 1 ) {
@@ -286,6 +288,10 @@ sub _print_general_info_section {
 		print qq(<li>Isolates: $isolate_count</li>);
 	}
 	say qq(<li>Last updated: $max_date</li>) if $max_date;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=fieldValues">Defined field values</a></li>);
+	}
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
 	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
@@ -321,9 +327,8 @@ sub _print_plugin_section {
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em">);
-			say q(<span style="white-space:nowrap">)
-			  . qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
-			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2></span><ul class="toplevel">);
+			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
+			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
 				my $menuitem = $att->{'menutext'};

@@ -149,10 +149,12 @@ sub print_content {
 		}
 	}
 	$self->_delete_old_closed_submissions;
-	say q(<div class="box resultstable"><div class="scrollable">);
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
+		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
+		say q(</div></div>);
 	}
+	say q(<div class="box resultstable"><div class="scrollable">);
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
@@ -280,6 +282,7 @@ sub _print_new_submission_links {
 		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
 			my $set_id = $self->get_set_id;
 			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+			$schemes = $self->_filter_schemes_not_accepting_submissions($schemes);
 			foreach my $scheme (@$schemes) {
 				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
 				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
@@ -763,8 +766,8 @@ sub _submit_alleles {
 		say $q->submit( -name => 'filter', -id => 'filter', -label => 'Filter', -class => 'submit' );
 		say q(</fieldset>);
 		my @selected_schemes;
-		foreach ( @$schemes, 0 ) {
-			push @selected_schemes, $_ if $q->param("s_$_");
+		foreach my $scheme_id ( @$schemes, 0 ) {
+			push @selected_schemes, $scheme_id if $q->param("s_$scheme_id");
 		}
 		my $scheme_loci = @selected_schemes ? $self->_get_scheme_loci( \@selected_schemes ) : undef;
 		( $loci, $labels ) =
@@ -772,6 +775,7 @@ sub _submit_alleles {
 	} else {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	}
+	$loci = $self->_filter_loci_not_accepting_submissions($loci);
 	say q(<fieldset style="float:left"><legend>Select locus</legend>);
 	say $q->popup_menu(
 		-name     => 'locus',
@@ -791,6 +795,32 @@ sub _submit_alleles {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+#TODO When version 1.15 has been released, we can modify Datastore::get_locus_list to filter out loci with
+#the no_submissions flag set. Until then we cannot assume that this field is present.
+sub _filter_loci_not_accepting_submissions {
+	my ( $self, $loci ) = @_;
+	my @new_list;
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		next if $locus_info->{'no_submissions'};
+		push @new_list, $locus;
+	}
+	return \@new_list;
+}
+
+#TODO When version 1.15 has been released, we can modify Datastore::get_scheme_list to filter out schemes with
+#the no_submissions flag set. Until then we cannot assume that this field is present.
+sub _filter_schemes_not_accepting_submissions {
+	my ( $self, $schemes ) = @_;
+	my @new_list;
+	foreach my $scheme (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
+		next if $scheme_info->{'no_submissions'};
+		push @new_list, $scheme;
+	}
+	return \@new_list;
 }
 
 sub _submit_profiles {
@@ -1315,6 +1345,8 @@ sub _presubmit_alleles {
 		$submission_id = $self->_start_submission('alleles');
 		$self->_start_allele_submission( $submission_id, $locus, $seqs );
 	}
+	my $allele_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/allele_submit.html";
+	$self->print_file($allele_submit_message) if -e $allele_submit_message;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
@@ -1344,6 +1376,8 @@ sub _presubmit_profiles {
 		$submission_id = $self->_start_submission('profiles');
 		$self->_start_profile_submission( $submission_id, $scheme_id, $profiles );
 	}
+	my $profile_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/profile_submit.html";
+	$self->print_file($profile_submit_message) if -e $profile_submit_message;
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
@@ -1469,7 +1503,8 @@ sub _print_sequence_table {
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	say q(<table class="resultstable">);
-	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Assigned allele</th></tr>);
+	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
+	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $td              = 1;
 	my $pending_seqs    = [];
@@ -1524,12 +1559,16 @@ sub _print_sequence_table {
 		} else {
 			say qq(<td>$seq->{'status'}</td>);
 		}
+		my $query = QUERY;
+		say qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=sequenceQuery&amp;)
+		  . qq(locus=$locus&amp;submission_id=$submission_id&amp;populate_seqs=1&amp;index=$seq->{'index'}&amp;)
+		  . qq(submit=1" target="_blank">$query</a></td>);
+		my $edit = EDIT;
 		if ( $options->{'curate'} && $seq->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=add&amp;)
-			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;index=$seq->{'index'}&amp;)
-			  . qq(sender=$submission->{'submitter'}&amp;status=unchecked">)
-			  . EDIT
-			  . q(Curate</a></td>);
+			  . qq(table=sequences&amp;locus=$locus&amp;submission_id=$submission_id&amp;populate_seqs=1&amp;)
+			  . qq(index=$seq->{'index'}&amp;sender=$submission->{'submitter'}&amp;status=unchecked">)
+			  . qq(${edit}Curate</a></td>);
 		} else {
 			say qq(<td>$assigned</td>);
 		}

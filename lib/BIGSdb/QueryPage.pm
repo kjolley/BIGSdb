@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw (field_help tooltips jQuery jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect);
 	return;
 }
 
@@ -111,7 +111,7 @@ sub get_javascript {
 	my $buffer   = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
-	\$('a[data-rel=ajax]').click(function(){
+	\$('div#queryform').on('click', 'a[data-rel=ajax]',function(){
   		\$(this).attr('href', function(){
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
@@ -121,7 +121,7 @@ sub get_javascript {
 function add_rows(url,list_name,row_name,row,field_heading,button_id){
 	var new_row = row+1;
 	\$("ul#"+list_name).append('<li id="' + row_name + row + '" />');
-	\$("li#"+row_name+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
+	\$("li#"+row_name+row).html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
 	url = url.replace(/row=\\d+/,'row='+new_row);
 	\$("#"+button_id).attr('href',url);
 	\$("span#"+field_heading).show();

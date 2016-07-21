@@ -4,6 +4,7 @@
  db="DATABASE_NAME"
  dbtype="sequences"
  webroot=""
+ curator_home="/private"
  indexpage=""
  script_path_includes="/bigsdb/"
  curate_path_includes="/bigsdb/"

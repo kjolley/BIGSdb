@@ -31,7 +31,19 @@ sub _ajax_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $row    = $q->param('row');
+	if ( $q->param('fieldset') ) {
+		my %method = (
+			allele_designations => sub { $self->_print_designations_fieldset_contents },
+			allele_count        => sub { $self->_print_allele_count_fieldset_contents },
+			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
+			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
+			tags                => sub { $self->_print_tags_fieldset_contents },
+			list                => sub { $self->_print_list_fieldset_contents }
+		);
+		$method{ $q->param('fieldset') }->() if $method{ $q->param('fieldset') };
+		return;
+	}
+	my $row = $q->param('row');
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
 	my %method = (
 		provenance => sub {
@@ -112,12 +124,8 @@ sub print_content {
 	my $qry;
 
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
-		if ( !$q->param('no_js') ) {
-			say q(<noscript><div class="box statusbad"><p>The dynamic customisation of this interface requires )
-			  . q(that you enable Javascript in your browser. Alternatively, you can use a )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;no_js=1">)
-			  . q(non-Javascript version</a> that has 4 combinations of fields.</p></div></noscript>);
-		}
+		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
+		  . q(in your browser.</p></div></noscript>);
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
@@ -134,7 +142,7 @@ sub _print_interface {
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
-	say $q->hidden($_) foreach qw (db page table no_js);
+	say $q->hidden($_) foreach qw (db page table);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_designations_fieldset;
@@ -154,15 +162,13 @@ sub _print_interface {
 }
 
 sub _print_provenance_fields_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $display =
-	     $q->param('no_js')
-	  || $self->{'prefs'}->{'provenance_fieldset'}
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{'provenance_fieldset'}
 	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
 	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
 	  . q(<legend>Isolate provenance/phenotype fields</legend>);
-	my $prov_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('provenance') || 1 );
+	my $prov_fields = $self->_highest_entered_fields('provenance') || 1;
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
 	  . q(<label for="prov_andor">Combine with: </label>);
@@ -198,26 +204,39 @@ sub _print_display_fieldset {
 sub _print_designations_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	say q(<fieldset id="allele_designations_fieldset" style="float:left;display:none">);
+	say q(<legend>Allele designations/scheme fields</legend><div>);
+
+	#Get contents now if fieldset is visible, otherwise load via AJAX call
+	#	if ( $self->_should_display_fieldset('allele_designations') ) {
+	if ( $self->_highest_entered_fields('loci') ) {
+		$self->_print_designations_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_designations_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
 		{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 	if (@$locus_list) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="allele_designations_fieldset" style="float:left;display:$display" >);
-		say q(<legend>Allele designations/scheme fields</legend><div>);
-		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('loci') || 1 );
+		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
 		  . q(<label for="c1">Combine with: </label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
 		say q(</span><ul id="loci">);
-
 		for ( 1 .. $locus_fields ) {
 			say q(<li>);
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
-		say q(</ul></div></fieldset>);
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
 	return;
 }
@@ -225,50 +244,75 @@ sub _print_designations_fieldset {
 sub _print_allele_count_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	say q(<fieldset id="allele_count_fieldset" style="float:left;display:none">);
+	say q(<legend>Allele designation counts</legend><div>);
+
+	#Get contents now if fieldset is visible, otherwise load via AJAX call
+	if ( $self->_highest_entered_fields('allele_count') ) {
+		$self->_print_allele_count_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_allele_count_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
-	return if !@$locus_list;
-	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="allele_count_fieldset" style="float:left;display:$display">);
-	say q(<legend>Allele designation counts</legend><div>);
-	my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_count') || 1 );
-	my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="allele_count_field_heading" style="display:$heading_display">)
-	  . q(<label for="count_andor">Combine with: </label>);
-	say $q->popup_menu( -name => 'count_andor', -id => 'count_andor', -values => [qw (AND OR)] );
-	say q(</span><ul id="allele_count">);
-
-	for ( 1 .. $locus_fields ) {
-		say q(<li>);
-		$self->_print_allele_count_fields( $_, $locus_fields, $locus_list, $locus_labels );
-		say q(</li>);
+	if (@$locus_list) {
+		my $locus_fields = $self->_highest_entered_fields('allele_count') || 1;
+		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
+		say qq(<span id="allele_count_field_heading" style="display:$heading_display">)
+		  . q(<label for="count_andor">Combine with: </label>);
+		say $q->popup_menu( -name => 'count_andor', -id => 'count_andor', -values => [qw (AND OR)] );
+		say q(</span><ul id="allele_count">);
+		for ( 1 .. $locus_fields ) {
+			say q(<li>);
+			$self->_print_allele_count_fields( $_, $locus_fields, $locus_list, $locus_labels );
+			say q(</li>);
+		}
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
-	say q(</ul></div></fieldset>);
 	return;
 }
 
 sub _print_allele_status_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	say q(<fieldset id="allele_status_fieldset" style="float:left;display:none">);
+	say q(<legend>Allele designation status</legend><div>);
+
+	#Get contents now if fieldset is visible, otherwise load via AJAX call.
+	if ( $self->_highest_entered_fields('allele_status') ) {
+		$self->_print_allele_status_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_allele_status_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="allele_status_fieldset" style="float:left;display:$display">);
-		say q(<legend>Allele designation status</legend><div>);
-		my $locus_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('allele_status') || 1 );
+		my $locus_fields = $self->_highest_entered_fields('allele_status') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="allele_status_field_heading" style="display:$heading_display">)
 		  . q(<label for="designation_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'status_andor', -id => 'status_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_status">);
-
 		for ( 1 .. $locus_fields ) {
 			say q(<li>);
 			$self->_print_allele_status_fields( $_, $locus_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
-		say q(</ul></div></fieldset>);
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
 	return;
 }
@@ -277,25 +321,35 @@ sub _print_tag_count_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
+	say q(<fieldset id="tag_count_fieldset" style="float:left;display:none">);
+	say q(<legend>Tagged sequence counts</legend><div>);
+	if ( $self->_highest_entered_fields('tag_count') ) {
+		$self->_print_tag_count_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_tag_count_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="tag_count_fieldset" style="float:left;display:$display">);
-		say q(<legend>Tagged sequence counts</legend><div>);
-		my $tag_count_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tag_count') || 1 );
+		my $tag_count_fields = $self->_highest_entered_fields('tag_count') || 1;
 		my $tag_count_heading = $tag_count_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="tag_count_heading" style="display:$tag_count_heading">)
 		  . q(<label for="tag_count_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'tag_count_andor', -id => 'tag_count_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tag_count">);
-
 		for ( 1 .. $tag_count_fields ) {
 			say q(<li>);
 			$self->_print_tag_count_fields( $_, $tag_count_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
-		say q(</ul></div></fieldset>);
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
 	return;
 }
@@ -304,31 +358,55 @@ sub _print_tags_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
+	say q(<fieldset id="tags_fieldset" style="float:left;display:none">);
+	say q(<legend>Tagged sequence status</legend><div>);
+	if ( $self->_highest_entered_fields('tags') ) {
+		$self->_print_tags_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	$self->{'tags_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_tags_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
-		my $display = $q->param('no_js') ? 'block' : 'none';
-		say qq(<fieldset id="tags_fieldset" style="float:left;display:$display">);
-		say q(<legend>Tagged sequence status</legend><div>);
-		my $locus_tag_fields = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields('tags') || 1 );
+		my $locus_tag_fields = $self->_highest_entered_fields('tags') || 1;
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading">)
 		  . q(<label for="designation_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tags">);
-
 		for ( 1 .. $locus_tag_fields ) {
 			say q(<li>);
 			$self->_print_locus_tag_fields( $_, $locus_tag_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
-		say q(</ul></div></fieldset>);
-		$self->{'tags_fieldset_exists'} = 1;
+		say q(</ul>);
+	} else {
+		say q(<p>No loci defined for query.</p>);
 	}
 	return;
 }
 
 sub _print_list_fieldset {
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{'list_fieldset'}
+	  || $q->param('list') ? 'inline' : 'none';
+	say
+	  qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend><div>);
+	if ( $q->param('list') ) {
+		$self->_print_list_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_list_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @grouped_fields;
@@ -339,13 +417,8 @@ sub _print_list_fieldset {
 		push @grouped_fields, "f_$_";
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
-	my $display =
-	     $q->param('no_js')
-	  || $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? 'inline' : 'none';
-	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
-	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
@@ -354,7 +427,6 @@ sub _print_list_fieldset {
 		-style       => 'width:100%',
 		-placeholder => 'Enter list of values...'
 	);
-	say q(</fieldset>);
 	return;
 }
 
@@ -571,8 +643,7 @@ sub _print_filters_fieldset {
 		  );
 	}
 	push @filters, $self->get_old_version_filter;
-	my $display = $q->param('no_js') ? 'block' : 'none';
-	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
+	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
 	say q(</ul></div></fieldset>);
@@ -587,30 +658,24 @@ sub _print_modify_search_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
-	my $provenance_fieldset_display = $self->{'prefs'}->{'provenance_fieldset'}
-	  || $self->_highest_entered_fields('provenance') ? HIDE : SHOW;
+	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
-	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
-	  || $self->_highest_entered_fields('loci') ? HIDE : SHOW;
+	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
-	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
-	  || $self->_highest_entered_fields('allele_count') ? HIDE : SHOW;
+	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
-	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
-	  || $self->_highest_entered_fields('allele_status') ? HIDE : SHOW;
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
 	if ( $self->{'tags_fieldset_exists'} ) {
-		my $tag_count_fieldset_display = $self->{'prefs'}->{'tag_count_fieldset'}
-		  || $self->_highest_entered_fields('tag_count') ? HIDE : SHOW;
+		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
 		say q(Tagged sequence counts</li>);
-		my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
-		  || $self->_highest_entered_fields('tags') ? HIDE : SHOW;
+		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
@@ -703,12 +768,9 @@ sub _print_provenance_fields {
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say
-			  qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-			  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . q(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+		  . q(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -740,12 +802,10 @@ sub _print_allele_status_fields {
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-			  . q(class="button">+</a> <a class="tooltip" id="allele_status_tooltip" title="">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="button">+</a> <a class="tooltip" id="allele_status_tooltip" title="">)
+		  . q(<span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -780,12 +840,10 @@ sub _print_allele_count_fields {
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=allele_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-			  . q(class="button">+</a> <a class="tooltip" id="allele_count_tooltip" title="">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=allele_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="button">+</a> <a class="tooltip" id="allele_count_tooltip" title="">)
+		  . q(<span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -815,11 +873,9 @@ sub _print_loci_fields {
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . q( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+		  . q( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -847,11 +903,9 @@ sub _print_locus_tag_fields {
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-			  . q( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
+		  . q( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -886,12 +940,10 @@ sub _print_tag_count_fields {
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		if ( !$q->param('no_js') ) {
-			say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=query&amp;fields=tag_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-			  . q(class="button">+</a> <a class="tooltip" id="tag_count_tooltip" title="">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
-		}
+		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=tag_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="button">+</a> <a class="tooltip" id="tag_count_tooltip" title="">)
+		  . q(<span class="fa fa-info-circle"></span></a>);
 	}
 	say q(</span>);
 	return;
@@ -960,7 +1012,8 @@ sub _run_query {
 			}
 		}
 		push @hidden_attributes,
-		  qw(no_js publication_list project_list linked_sequences_list include_old list list_file attribute datatype);
+		  qw(publication_list project_list linked_sequences_list include_old list list_file attribute datatype)
+		  ;
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
@@ -1245,11 +1298,11 @@ sub _provenance_equals_type_operator {
 		} else {
 			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 			if ( lc($type) eq 'text' ) {
-				$buffer .=
-				  (
+				$buffer .= (
 					lc($text) eq 'null'
 					? "$field IS $not null"
-					: "($not UPPER($field) = UPPER(E'$text') $null_clause)" );
+					: "($not UPPER($field) = UPPER(E'$text') $null_clause)"
+				);
 			} else {
 				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
 			}
@@ -1355,10 +1408,11 @@ sub _modify_query_for_filters {
 					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
 				);
 			} else {
-				$qry .=
-				  ( ( $value eq '<blank>' || lc($value) eq 'null' )
+				$qry .= (
+					( $value eq '<blank>' || lc($value) eq 'null' )
 					? "$view.$field is null"
-					: "$view.$field = '$value'" );
+					: "$view.$field = '$value'"
+				);
 			}
 		}
 		my $extatt = $extended->{$field};
@@ -2132,25 +2186,64 @@ sub _modify_query_for_designation_status {
 	return $qry;
 }
 
+sub _should_display_fieldset {
+	my ( $self, $fieldset ) = @_;
+	my %fields = (
+		provenance          => 'provenance',
+		allele_designations => 'loci',
+		allele_count        => 'allele_count',
+		allele_status       => 'allele_status',
+		tag_count           => 'tag_count',
+		tags                => 'tags'
+	);
+	return if !$fields{$fieldset};
+	if ( $self->{'prefs'}->{"${fieldset}_fieldset"} || $self->_highest_entered_fields( $fields{$fieldset} ) ) {
+		return 1;
+	}
+	return;
+}
+
 sub get_javascript {
 	my ($self) = @_;
-	my $allele_designations_fieldset_display = $self->{'prefs'}->{'allele_designations_fieldset'}
-	  || $self->_highest_entered_fields('loci') ? 'inline' : 'none';
-	my $allele_count_fieldset_display = $self->{'prefs'}->{'allele_count_fieldset'}
-	  || $self->_highest_entered_fields('allele_count') ? 'inline' : 'none';
-	my $allele_status_fieldset_display = $self->{'prefs'}->{'allele_status_fieldset'}
-	  || $self->_highest_entered_fields('allele_status') ? 'inline' : 'none';
-	my $tag_count_fieldset_display = $self->{'prefs'}->{'tag_count_fieldset'}
-	  || $self->_highest_entered_fields('tag_count') ? 'inline' : 'none';
-	my $tags_fieldset_display = $self->{'prefs'}->{'tags_fieldset'}
-	  || $self->_highest_entered_fields('tags') ? 'inline' : 'none';
-	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	my $q = $self->{'cgi'};
+	my $allele_designations_fieldset_display =
+	  $self->_should_display_fieldset('allele_designations') ? 'inline' : 'none';
+	my $allele_count_fieldset_display  = $self->_should_display_fieldset('allele_count')  ? 'inline' : 'none';
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? 'inline' : 'none';
+	my $tag_count_fieldset_display     = $self->_should_display_fieldset('tag_count')     ? 'inline' : 'none';
+	my $tags_fieldset_display          = $self->_should_display_fieldset('tags')          ? 'inline' : 'none';
+	my $filters_fieldset_display       = $self->{'prefs'}->{'filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
 		qw(provenance allele_designations allele_count allele_status
 		  tag_count tags list filters)
 	);
+	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
+	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
+	my %fields = (
+		allele_designations => 'loci',
+		allele_count        => 'allele_count',
+		allele_status       => 'allele_status',
+		tag_count           => 'tag_count',
+		tags                => 'tags'
+	);
+	foreach my $fieldset (qw(allele_designations allele_count allele_status tag_count tags)) {
+		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
+			$ajax_load .=
+			    qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
+			  . qq(\$('fieldset#${fieldset}_fieldset div').)
+			  . q(html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
+			  . qq(load(fieldset_url + '&fieldset=$fieldset')};);
+		}
+	}
+	if ( !$q->param('list') ) {
+		$ajax_load .=
+		    qq(if (\$('fieldset#list_fieldset').length){\n)
+		  . q($('fieldset#list_fieldset div').)
+		  . q(html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
+		  . q(load(fieldset_url + '&fieldset=list')};);
+	}
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -2171,6 +2264,7 @@ sub get_javascript {
   	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
   	}
 $panel_js
+	$ajax_load
  });
  
 function loadContent(url) {
