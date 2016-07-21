@@ -620,7 +620,8 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
 
 CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
-description text NOT NULL,
+name text NOT NULL,
+description text,
 allow_missing_loci boolean,
 dbase_name text,
 dbase_host text,
@@ -692,6 +693,22 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_fields TO apache;
+
+CREATE TABLE scheme_flags (
+scheme_id int NOT NULL,
+flag text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(scheme_id,flag),
+CONSTRAINT sfl_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT sfl_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_flags TO apache;
 
 CREATE TABLE scheme_groups (
 id int NOT NULL,

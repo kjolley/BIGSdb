@@ -1060,13 +1060,14 @@ sub get_schemes_table_attributes {
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{
-			name     => 'description',
+			name     => 'name',
 			type     => 'text',
 			required => 'yes',
 			length   => 50,
 			unique   => 'yes',
-			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
-		}
+			tooltip  => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
+		},
+		{ name => 'description', type => 'text', length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,

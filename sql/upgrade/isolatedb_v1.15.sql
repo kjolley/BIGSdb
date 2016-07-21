@@ -1,8 +1,3 @@
-ALTER TABLE loci ADD no_submissions boolean;
-
-ALTER TABLE schemes ADD no_submissions boolean;
-ALTER TABLE schemes ADD display boolean;
-UPDATE schemes SET display=TRUE;
 ALTER TABLE schemes RENAME description TO name;
 ALTER TABLE schemes ADD description text;
 
