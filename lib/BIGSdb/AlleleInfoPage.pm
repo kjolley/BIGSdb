@@ -131,7 +131,7 @@ sub print_content {
 			  ->run_query( 'SELECT COUNT(*) FROM profile_members WHERE (scheme_id,locus,allele_id)=(?,?,?)',
 				[ $scheme->{'id'}, $locus, $allele_id ] );
 			next if !$profiles;
-			$profile_buffer .= "<dt>$scheme_info->{'description'}</dt>";
+			$profile_buffer .= "<dt>$scheme_info->{'name'}</dt>";
 			my $plural  = $profiles == 1 ? ''         : 's';
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
 			$profile_buffer .= q(<dd>);

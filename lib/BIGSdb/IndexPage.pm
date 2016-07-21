@@ -88,7 +88,7 @@ sub print_content {
 		  . q(search</a> - select, analyse and download specific alleles.</li>);
 		if (@$scheme_data) {
 			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
-			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'description'}         : '';
+			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'}         : '';
 			say qq(<li><a href="${url_root}page=query$scheme_arg">Search, browse or enter list of )
 			  . qq($scheme_desc profiles</a></li>);
 			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc )
@@ -183,7 +183,7 @@ sub _print_download_section {
 		$scheme_buffer .=
 		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}">)
-		  . qq($scheme_data->[0]->{'description'} profiles</a></li>);
+		  . qq($scheme_data->[0]->{'name'} profiles</a></li>);
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
 		say q(<div style="float:left; margin-right:1em">);
@@ -268,7 +268,7 @@ sub _print_general_info_section {
 				my $profile_count =
 				  $self->{'datastore'}
 				  ->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme_data->[0]->{'id'} );
-				say "<li>Number of profiles ($scheme_data->[0]->{'description'}): $profile_count</li>";
+				say "<li>Number of profiles ($scheme_data->[0]->{'name'}): $profile_count</li>";
 			}
 		} elsif ( @$scheme_data > 1 ) {
 			say q(<li>Number of profiles: <a id="toggle1" class="showhide">Show</a>);
@@ -276,8 +276,8 @@ sub _print_general_info_section {
 			foreach (@$scheme_data) {
 				my $profile_count =
 				  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $_->{'id'} );
-				$_->{'description'} =~ s/\&/\&amp;/gx;
-				say qq(<li>$_->{'description'}: $profile_count</li>);
+				$_->{'name'} =~ s/\&/\&amp;/gx;
+				say qq(<li>$_->{'name'}: $profile_count</li>);
 			}
 			say q(</ul></div></li>);
 		}

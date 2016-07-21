@@ -148,7 +148,7 @@ sub get_display_values {
 	}
 	if ( $att->{'name'} eq 'scheme_id' ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
-		return ( $field, qq[$value) $scheme_info->{'description'}] );
+		return ( $field, qq[$value) $scheme_info->{'name'}] );
 	}
 	if ( $att->{'foreign_key'} && $att->{'labels'} ) {
 		my @fields_to_query;

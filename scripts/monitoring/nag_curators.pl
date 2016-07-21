@@ -213,7 +213,7 @@ sub get_submission_details {
 				undef, $submission_id );
 			$submission->{'scheme_id'} = $profile_submission->{'scheme_id'};
 			my $plural = $profile_count == 1 ? q() : q(s);
-			my $desc = $db->selectrow_array( q(SELECT description FROM schemes WHERE id=?),
+			my $desc = $db->selectrow_array( q(SELECT name FROM schemes WHERE id=?),
 				undef, $profile_submission->{'scheme_id'} );
 			$submission->{'description'} = "$profile_count $desc profile$plural";
 		},

@@ -223,7 +223,7 @@ sub _print_scheme_list {    #TODO Display scheme list in hierarchical tree.
 	say '<ul>';
 	foreach my $scheme_id (@$scheme_list) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		say "<li>$scheme_info->{'description'}</li>";
+		say "<li>$scheme_info->{'name'}</li>";
 	}
 	say '</ul>';
 	return;

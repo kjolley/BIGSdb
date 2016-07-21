@@ -275,7 +275,7 @@ sub check_cscheme_properly_defined {
 	my $cg_scheme_info = get_cscheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_scheme_info->{'scheme_id'}, { get_pk => 1 } );
 	if ( !$scheme_info->{'primary_key'} ) {
-		die "No primary key field has been set for scheme $scheme_info->{'id'} ($scheme_info->{'description'}).\n";
+		die "No primary key field has been set for scheme $scheme_info->{'id'} ($scheme_info->{'name'}).\n";
 	}
 	return;
 }

@@ -278,10 +278,11 @@ sub _get_labels {
 	my ( $self, $table ) = @_;
 	my %labels;
 	my $table_data = $self->_get_table_data($table);
+	my $field = $table eq 'scheme_curators' ? 'name' : 'description';
 	if ( $table ne 'locus_curators' ) {
-		my $data = $self->{'datastore'}->run_query( "SELECT id, description FROM $table_data->{'parent'}",
+		my $data = $self->{'datastore'}->run_query( "SELECT id, $field FROM $table_data->{'parent'}",
 			undef, { fetch => 'all_arrayref', slice => {} } );
-		$labels{ $_->{'id'} } = $_->{'description'} foreach @$data;
+		$labels{ $_->{'id'} } = $_->{$field} foreach @$data;
 	}
 	return \%labels;
 }

@@ -66,7 +66,7 @@ sub print_content {
 	);
 	if ( !$profile_data->{'profile_id'} ) {
 		say qq(<div class="box" id="statusbad"><p>No profile from scheme $scheme_id )
-		  . qq(($scheme_info->{'description'}) with profile_id = '$profile_id' exists.</p></div>);
+		  . qq(($scheme_info->{'name'}) with profile_id = '$profile_id' exists.</p></div>);
 		return;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);

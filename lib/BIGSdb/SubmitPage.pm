@@ -285,7 +285,7 @@ sub _print_new_submission_links {
 			$schemes = $self->_filter_schemes_not_accepting_submissions($schemes);
 			foreach my $scheme (@$schemes) {
 				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
-				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'description'} profiles</a></li>);
+				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'name'} profiles</a></li>);
 			}
 		}
 	} else {    #Isolate database
@@ -355,7 +355,7 @@ sub _print_started_submissions {
 					my $scheme_id   = $profile_submission->{'scheme_id'};
 					my $set_id      = $self->get_set_id;
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-					say qq(<dt>Scheme</dt><dd>$scheme_info->{'description'}</dd>);
+					say qq(<dt>Scheme</dt><dd>$scheme_info->{'name'}</dd>);
 					my $profile_count = @{ $profile_submission->{'profiles'} };
 					say qq(<dt>Profiles</dt><dd>$profile_count</dd>);
 				}
@@ -397,7 +397,7 @@ sub _get_own_submissions {
 				my $scheme_info =
 				  $self->{'datastore'}
 				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
-				$details = "$profile_count $scheme_info->{'description'} profile$plural";
+				$details = "$profile_count $scheme_info->{'name'} profile$plural";
 			} elsif ( $submission->{'type'} eq 'isolates' || $submission->{'type'} eq 'genomes' ) {
 				my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 				my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -543,7 +543,7 @@ sub _get_profile_submissions_for_curation {
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
-		  . qq(<td>$scheme_info->{'description'}</td>);
+		  . qq(<td>$scheme_info->{'name'}</td>);
 		$buffer .= qq(<td>$profile_submission->{'count'}</td>);
 
 		if ( $status eq 'closed' ) {
@@ -860,7 +860,7 @@ sub _submit_profiles {
 		return;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say qq(<h2>Submit new $scheme_info->{'description'} profiles</h2>);
+	say qq(<h2>Submit new $scheme_info->{'name'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download tab-delimited )
@@ -1023,7 +1023,7 @@ sub _print_profile_table_fieldset {
 	say q(<fieldset style="float:left"><legend>Profiles</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural = @$profiles == 1 ? '' : 's';
-	say qq(<p>You are submitting the following $scheme_info->{'description'} profile$plural: )
+	say qq(<p>You are submitting the following $scheme_info->{'name'} profile$plural: )
 	  . qq(<a href="/submissions/$submission_id/profiles.txt">Download$csv_icon</a></p>)
 	  if ( $options->{'download_link'} );
 	say $q->start_form;

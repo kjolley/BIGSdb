@@ -60,11 +60,11 @@ sub run_script {
 			next;
 		}
 		if ( !defined $scheme_info->{'primary_key'} ) {
-			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.";
+			say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.";
 			next;
 		}
 		my $method = $self->{'options'}->{'method'} // 'full';
-		say "Updating scheme $scheme_id cache ($scheme_info->{'description'}) - method: $method"
+		say "Updating scheme $scheme_id cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );

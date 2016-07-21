@@ -29,7 +29,7 @@ sub new {    ## no critic (RequireArgUnpacking)
 	$self->{'sql'} = {};
 	bless( $self, $class );
 	$self->_initiate;
-	$logger->info("Scheme#$self->{'id'} ($self->{'description'}) set up.");
+	$logger->info("Scheme#$self->{'id'} ($self->{'name'}) set up.");
 	return $self;
 }
 
@@ -75,13 +75,13 @@ sub get_profile_by_primary_keys {
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
 		$self->{'sql'}->{'scheme_profiles'} = $self->{'db'}->prepare($qry);
-		$logger->debug("Scheme#$self->{'id'} ($self->{'description'}) statement handle 'scheme_profiles' prepared.");
+		$logger->debug("Scheme#$self->{'id'} ($self->{'name'}) statement handle 'scheme_profiles' prepared.");
 	}
 	eval { $self->{'sql'}->{'scheme_profiles'}->execute(@$values) };
 	if ($@) {
 		$logger->warn( q(Can't execute 'scheme_profiles' query handle. )
 			  . q(Check database attributes in the scheme_fields and scheme_members )
-			  . qq(tables for scheme#$self->{'id'} ($self->{'description'})! Statement was )
+			  . qq(tables for scheme#$self->{'id'} ($self->{'name'})! Statement was )
 			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. $@)
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
@@ -142,7 +142,7 @@ sub get_field_values_by_designations {
 	if ($@) {
 		$logger->warn( qq(Can't execute 'field_values_$query_key' query handle. )
 			  . q(Check database attributes in the scheme_fields table for )
-			  . qq(scheme#$self->{'id'} ($self->{'description'})! $@ ) );
+			  . qq(scheme#$self->{'id'} ($self->{'name'})! $@ ) );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	}
 	my $field_data = $self->{'sql'}->{"field_values_$query_key"}->fetchall_arrayref( {} );

@@ -37,7 +37,7 @@ sub _print_interface {
 	my %desc;
 	foreach my $scheme_id (@$schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = "$scheme_id) $scheme_info->{'description'}";
+		$desc{$scheme_id} = "$scheme_id) $scheme_info->{'name'}";
 	}
 	say q(<div class="box" id="queryform">);
 	say q(<p>The scheme caches contain scheme fields, e.g. MLST ST values, within the isolate database, removing the )
@@ -117,9 +117,9 @@ sub _refresh_caches {
 	foreach my $scheme_id (@selected_schemes) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 		if ( !defined $scheme_info->{'primary_key'} ) {
-			say "Scheme $scheme_id ($scheme_info->{'description'}) does not have a primary key - skipping.<br />";
+			say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.<br />";
 		} else {
-			say qq(Updating scheme $scheme_id cache ($scheme_info->{'description'}) ...);
+			say qq(Updating scheme $scheme_id cache ($scheme_info->{'name'}) ...);
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;

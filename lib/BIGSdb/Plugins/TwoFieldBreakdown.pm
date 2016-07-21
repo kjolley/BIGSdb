@@ -785,7 +785,7 @@ sub _get_value_frequency_hashes {
 					$field_type{$field} = 'scheme_field';
 					$scheme_id{$field}  = $scheme_id;
 					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-					$print{$field} .= " ($scheme_info->{'description'})";
+					$print{$field} .= " ($scheme_info->{'name'})";
 				}
 			}
 		}

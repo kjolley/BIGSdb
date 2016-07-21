@@ -1259,7 +1259,7 @@ sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1 } );
 	my $return_buffer = q();
 	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
-	$return_buffer .= "Scheme: $scheme_info->{'description'}\n";
+	$return_buffer .= "Scheme: $scheme_info->{'name'}\n";
 	$return_buffer .= 'Profile count: ' . scalar @{ $profile_submission->{'profiles'} } . "\n";
 	my $buffer = q();
 

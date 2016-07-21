@@ -86,7 +86,7 @@ sub print_content {
 		} elsif ( $att->{'name'} eq 'scheme_id' ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($value);
 			if ($scheme_info) {
-				$value = qq($value: $scheme_info->{'description'});
+				$value = qq($value: $scheme_info->{'name'});
 			}
 		}
 		if ( $att->{'name'} =~ /sequence$/x && $att->{'type'} ne 'bool' ) {

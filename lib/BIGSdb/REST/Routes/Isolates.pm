@@ -121,7 +121,7 @@ sub _get_isolate {
 		  $self->{'datastore'}->get_scheme_allele_designations( $id, $scheme->{'id'}, { set_id => $set_id } );
 		next if !$allele_designations;
 		my $scheme_object = {
-			description           => $scheme->{'description'},
+			description           => $scheme->{'name'},
 			loci_designated_count => scalar keys %$allele_designations,
 			full_designations => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations"),
 			allele_ids        => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")

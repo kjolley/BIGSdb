@@ -102,7 +102,7 @@ sub print_content {
 			my $scheme_id         = $1;
 			my $field_value       = $2;
 			my $scheme_info       = $self->{'datastore'}->get_scheme_info($scheme_id);
-			my $desc              = $scheme_info->{'description'};
+			my $desc              = $scheme_info->{'name'};
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_value );
 			$field = qq(<span class="scheme">$field_value</span>);
 			$field .= qq( <span class="comment">[$desc field]</span>) if $desc;
@@ -249,7 +249,7 @@ sub _print_add_field_form {
 			my $scheme_info   = $self->{'datastore'}->get_scheme_info($scheme_id);
 			my $cleaned_field = $field;
 			$cleaned_field =~ tr/_/ /;
-			$cleaned{"$scheme_id\_$field"} = "$cleaned_field ($scheme_info->{'description'})";
+			$cleaned{"$scheme_id\_$field"} = "$cleaned_field ($scheme_info->{'name'})";
 		}
 	}
 	$buffer .= q(<label for="new_scheme_field_value" class="parameter">scheme field: </label>);
@@ -437,7 +437,7 @@ sub _edit_field {
 				my $scheme_info   = $self->{'datastore'}->get_scheme_info($s_id);
 				my $cleaned_field = $_;
 				$cleaned_field =~ tr/_/ /;
-				$cleaned{"s_$s_id\_$_"} = "$cleaned_field ($scheme_info->{'description'})";
+				$cleaned{"s_$s_id\_$_"} = "$cleaned_field ($scheme_info->{'name'})";
 			}
 		}
 		if ($is_scheme_field) {

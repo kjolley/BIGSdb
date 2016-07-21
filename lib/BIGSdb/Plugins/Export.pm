@@ -319,8 +319,8 @@ sub _write_tab_text {
 			my $field = $_;    #don't modify @$fields
 			if ( $field =~ /^s_(\d+)_f/x ) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
-				$field .= " ($scheme_info->{'description'})"
-				  if $scheme_info->{'description'};
+				$field .= " ($scheme_info->{'name'})"
+				  if $scheme_info->{'name'};
 				$schemes{$1} = 1;
 			}
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
@@ -583,7 +583,7 @@ sub _write_scheme_field {
 
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$field ($scheme_info->{'description'})\t";
+			print $fh "$field ($scheme_info->{'name'})\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
 		} else {

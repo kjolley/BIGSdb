@@ -472,7 +472,7 @@ sub _print_isolate_query_fields_options {
 		foreach my $scheme (@$schemes) {
 			my $field = "scheme_$scheme->{'id'}\_profile_status";
 			push @checkfields, $field;
-			$labels{$field} = "$scheme->{'description'} profile completion";
+			$labels{$field} = "$scheme->{'name'} profile completion";
 		}
 		push @checkfields, 'Publications';
 	}

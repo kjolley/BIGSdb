@@ -665,7 +665,7 @@ sub print_includes_fieldset {
 				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 				foreach my $field (@$scheme_fields) {
 					push @fields, "s_$scheme->{'id'}_$field";
-					$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'description'})";
+					$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'name'})";
 					$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
 				}
 			}

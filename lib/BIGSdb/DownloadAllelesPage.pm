@@ -99,8 +99,8 @@ sub _print_group_scheme_tables {
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			$scheme_info->{'description'} =~ s/&/\&amp;/gx;
-			$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} ) if !$scheme_shown->{$scheme_id};
+			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
+			$self->_print_scheme_table( $scheme_id, $scheme_info->{'name'} ) if !$scheme_shown->{$scheme_id};
 			$scheme_shown->{$scheme_id} = 1;
 		}
 	}
@@ -147,7 +147,7 @@ sub print_content {
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
-				$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
+				$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'name'} );
 			}
 			$self->_print_scheme_table( 0, 'Other loci' );
 		} elsif ($set_id) {
@@ -157,7 +157,7 @@ sub print_content {
 			}
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		my $desc = $scheme_id ? $scheme_info->{'description'} : 'Other loci';
+		my $desc = $scheme_id ? $scheme_info->{'name'} : 'Other loci';
 		$self->_print_scheme_table( $scheme_id, $desc );
 		$self->_print_table_link;
 		return;
@@ -175,7 +175,7 @@ sub print_content {
 			$scheme_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 			foreach my $scheme_id (@$scheme_ids) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$self->_print_scheme_table( $scheme_id, $scheme_info->{'description'} );
+				$self->_print_scheme_table( $scheme_id, $scheme_info->{'name'} );
 			}
 		} else {
 			my $scheme_shown_ref;
@@ -246,7 +246,7 @@ sub _print_all_loci_by_scheme {
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
-		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'description'} );
+		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'name'} );
 	}
 	$self->_print_scheme_table( 0, 'Other loci' );
 	$self->_print_table_link;

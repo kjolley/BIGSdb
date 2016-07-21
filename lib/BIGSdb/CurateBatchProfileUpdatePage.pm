@@ -55,7 +55,7 @@ sub print_content {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	say qq(<h1>Batch profile update ($scheme_info->{'description'})</h1>);
+	say qq(<h1>Batch profile update ($scheme_info->{'name'})</h1>);
 	if ( !defined $scheme_info->{'primary_key'} ) {
 		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
 		return;
