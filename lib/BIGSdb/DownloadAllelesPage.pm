@@ -295,37 +295,41 @@ sub _print_scheme_table {
 			  . '(hide_public IS NULL OR NOT hide_public))' );
 		$scheme_info->{'name'} = 'Other loci';
 	}
-	if (@$loci) {
-		$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
-		say qq(<h2>$scheme_info->{'name'}</h2>);
-		say q(<div class="scrollable"><table class="resultstable">);
-		$self->_print_table_header_row(
+	return if !@$loci;
+	$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
+	say qq(<h2><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h2>);
+	my $flags = $self->get_scheme_flags($scheme_id);
+	if ($flags){
+		say qq(<div style="margin-bottom:1em">$flags</div>);
+	}
+	say q(<div class="scrollable"><table class="resultstable">);
+	$self->_print_table_header_row(
+		{
+			descs_exist    => $scheme_descs_exist,
+			aliases_exist  => $scheme_aliases_exist,
+			curators_exist => $scheme_curators_exist
+		}
+	);
+	foreach my $locus (@$loci) {
+		$self->_print_locus_row(
+			$locus,
+			$self->clean_locus($locus),
 			{
+				td             => $td,
 				descs_exist    => $scheme_descs_exist,
 				aliases_exist  => $scheme_aliases_exist,
-				curators_exist => $scheme_curators_exist
+				curators_exist => $scheme_curators_exist,
+				scheme         => $scheme_info->{'name'}
 			}
 		);
-		foreach my $locus (@$loci) {
-			$self->_print_locus_row(
-				$locus,
-				$self->clean_locus($locus),
-				{
-					td             => $td,
-					descs_exist    => $scheme_descs_exist,
-					aliases_exist  => $scheme_aliases_exist,
-					curators_exist => $scheme_curators_exist,
-					scheme         => $scheme_info->{'name'}
-				}
-			);
-			$td = $td == 1 ? 2 : 1;
-			if ( $ENV{'MOD_PERL'} ) {
-				return if $self->{'mod_perl_request'}->connection->aborted;
-				$self->{'mod_perl_request'}->rflush;
-			}
+		$td = $td == 1 ? 2 : 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			return if $self->{'mod_perl_request'}->connection->aborted;
+			$self->{'mod_perl_request'}->rflush;
 		}
-		say q(</table></div>);
 	}
+	say q(</table></div>);
 	return;
 }
 
@@ -420,15 +424,12 @@ sub _print_locus_row {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	$self->_query_locus_stats;
 	my $count = $self->{'cache'}->{'locus_stats'}->{$locus}->{'allele_count'};
-	print qq(<tr class="td$options->{'td'}"><td>$display_name );
-	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
-	  . q(class="tooltip"><span class="fa fa-info-circle"></span></a>);
-	print q(</td><td>);
+	print qq(<tr class="td$options->{'td'}"><td><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">$display_name</a></td><td> );
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;)
 	  . qq(locus=$locus"> <span class="file_icon fa fa-download"></span></a>)
 	  if $count;
 	print qq(</td><td>$locus_info->{'data_type'}</td><td>$count</td>);
-
 	if ( $locus_info->{'length_varies'} ) {
 		print q(<td>Variable: );
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {

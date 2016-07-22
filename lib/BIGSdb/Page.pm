@@ -24,7 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits :scheme_flags SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -1155,7 +1155,7 @@ sub get_experiment_filter {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @experiments;
 	my %labels;
-	foreach my $experiment(@$experiment_list) {
+	foreach my $experiment (@$experiment_list) {
 		push @experiments, $experiment->{'id'};
 		$labels{ $experiment->{'id'} } = $experiment->{'description'};
 	}
@@ -1205,6 +1205,21 @@ sub get_truncated_label {
 		$title = ucfirst $title if $title;
 	}
 	return ( $label, $title );
+}
+
+sub get_scheme_flags {
+	my ( $self, $scheme_id ) = @_;
+	my $buffer = q();
+	return $buffer if !BIGSdb::Utils::is_int($scheme_id);
+	my $flags = $self->{'datastore'}->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=?',
+		$scheme_id, { fetch => 'col_arrayref', cache => 'DownloadAlleles::flags' } );
+	if (@$flags) {
+		my $colours = SCHEME_FLAG_COLOURS;
+		foreach my $flag (@$flags) {
+			$buffer .= qq(<span class="flag" style="color:$colours->{$flag}">$flag</span>\n);
+		}
+	}
+	return $buffer;
 }
 
 sub clean_locus {
