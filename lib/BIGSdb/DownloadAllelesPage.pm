@@ -100,7 +100,7 @@ sub _print_group_scheme_tables {
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
-			$self->_print_scheme_table( $scheme_id, $scheme_info->{'name'} ) if !$scheme_shown->{$scheme_id};
+			$self->_print_scheme_table($scheme_id) if !$scheme_shown->{$scheme_id};
 			$scheme_shown->{$scheme_id} = 1;
 		}
 	}
@@ -147,9 +147,9 @@ sub print_content {
 		if ( $scheme_id == -1 ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
-				$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'name'} );
+				$self->_print_scheme_table( $scheme->{'id'} );
 			}
-			$self->_print_scheme_table( 0, 'Other loci' );
+			$self->_print_scheme_table(0);
 		} elsif ($set_id) {
 			if ( $scheme_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 				$logger->warn("Scheme $scheme_id is not available.");
@@ -157,8 +157,7 @@ sub print_content {
 			}
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		my $desc = $scheme_id ? $scheme_info->{'name'} : 'Other loci';
-		$self->_print_scheme_table( $scheme_id, $desc );
+		$self->_print_scheme_table($scheme_id);
 		$self->_print_table_link;
 		return;
 	} elsif ( defined $q->param('group_id') ) {
@@ -175,7 +174,7 @@ sub print_content {
 			$scheme_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 			foreach my $scheme_id (@$scheme_ids) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$self->_print_scheme_table( $scheme_id, $scheme_info->{'name'} );
+				$self->_print_scheme_table($scheme_id);
 			}
 		} else {
 			my $scheme_shown_ref;
@@ -246,22 +245,22 @@ sub _print_all_loci_by_scheme {
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
-		$self->_print_scheme_table( $scheme->{'id'}, $scheme->{'name'} );
+		$self->_print_scheme_table( $scheme->{'id'} );
 	}
-	$self->_print_scheme_table( 0, 'Other loci' );
+	$self->_print_scheme_table(0);
 	$self->_print_table_link;
 	return;
 }
 
 sub _print_scheme_table {
-	my ( $self, $scheme_id, $desc ) = @_;
+	my ( $self, $scheme_id ) = @_;
 	my $set_id = $self->get_set_id;
 	my $loci =
 	    $scheme_id
 	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 	  : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $td = 1;
-	my ( $scheme_descs_exist, $scheme_aliases_exist, $scheme_curators_exist );
+	my ( $scheme_info, $scheme_descs_exist, $scheme_aliases_exist, $scheme_curators_exist );
 	if ($scheme_id) {
 		$scheme_descs_exist = $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM locus_descriptions LEFT JOIN scheme_members ON '
@@ -282,6 +281,7 @@ sub _print_scheme_table {
 			$scheme_id,
 			{ cache => 'DownloadAllelesPage::print_scheme_table::scheme_curators_exists' }
 		);
+		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	} else {
 		$scheme_descs_exist =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions LEFT JOIN scheme_members ON '
@@ -293,10 +293,11 @@ sub _print_scheme_table {
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators LEFT JOIN scheme_members ON '
 			  . 'locus_curators.locus=scheme_members.locus WHERE scheme_id IS NULL AND '
 			  . '(hide_public IS NULL OR NOT hide_public))' );
+		$scheme_info->{'name'} = 'Other loci';
 	}
 	if (@$loci) {
-		$desc =~ s/\&/\&amp;/gx;
-		say qq(<h2>$desc</h2>);
+		$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
+		say qq(<h2>$scheme_info->{'name'}</h2>);
 		say q(<div class="scrollable"><table class="resultstable">);
 		$self->_print_table_header_row(
 			{
@@ -314,7 +315,7 @@ sub _print_scheme_table {
 					descs_exist    => $scheme_descs_exist,
 					aliases_exist  => $scheme_aliases_exist,
 					curators_exist => $scheme_curators_exist,
-					scheme         => $desc
+					scheme         => $scheme_info->{'name'}
 				}
 			);
 			$td = $td == 1 ? 2 : 1;
@@ -506,11 +507,11 @@ sub _print_locus_row {
 	  . ( $locus_info->{'length'}     // '' ) . qq(\t)
 	  . ( $locus_info->{'min_length'} // '' ) . qq(\t)
 	  . ( $locus_info->{'max_length'} // '' ) . qq(\t)
-	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'min_length'}. qq(\t)
-	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'max_length'}. qq(\t)
-	  . ( $products                   // '' ) . qq(\t)
-	  . ( "@$aliases"                 // '' ) . qq(\t)
-	  . ( $curator_list               // '' ) . qq(\n);
+	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'min_length'} . qq(\t)
+	  . $self->{'cache'}->{'locus_stats'}->{$locus}->{'max_length'} . qq(\t)
+	  . ( $products     // '' ) . qq(\t)
+	  . ( "@$aliases"   // '' ) . qq(\t)
+	  . ( $curator_list // '' ) . qq(\n);
 	return;
 }
 

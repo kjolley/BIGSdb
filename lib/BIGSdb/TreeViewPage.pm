@@ -82,7 +82,7 @@ $plugin_js
 });
 
 function loadContent(url) {
-	\$("#scheme_table").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url,tooltip);
+	\$("#scheme_table").html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url,tooltip);
 }
 
 tooltip = function(e){
