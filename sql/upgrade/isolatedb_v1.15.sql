@@ -1,3 +1,5 @@
+ALTER TABLE schemes DROP COLUMN IF EXISTS dbase_st_field;
+ALTER TABLE schemes DROP COLUMN IF EXISTS dbase_st_descriptor;
 ALTER TABLE schemes RENAME description TO name;
 ALTER TABLE schemes ADD description text;
 
