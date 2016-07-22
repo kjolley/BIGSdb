@@ -54,7 +54,7 @@ sub print_content {
 	say q(<div class="box" id="resultspanel">);
 	my $flags = $self->get_scheme_flags($scheme_id);
 	if ($flags) {
-		say qq(<div style="margin-bottom:1em">$flags</div>);
+		say qq(<div class="flags">$flags</div>);
 	}
 	say qq(<p>$scheme_info->{'description'}</p>) if $scheme_info->{'description'};
 	$self->_print_scheme_curators($scheme_id);
