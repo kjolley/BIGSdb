@@ -768,6 +768,38 @@ sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by d
 			push @$problems, "'$flag' is not a valid flag.";
 		}
 	}
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	foreach my $new (@new_pubmeds) {
+		chomp $new;
+		next if $new eq '';
+		if ( !BIGSdb::Utils::is_int($new) ) {
+			push @$problems, 'PubMed ids must be integers.';
+		} else {
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO scheme_refs (scheme_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
+		}
+	}
+	my @new_links = split /\r?\n/x, $q->param('links');
+	my $i = 1;
+	foreach my $new (@new_links) {
+		chomp $new;
+		next if $new eq '';
+		if ( $new !~ /^(.+?)\|(.+)$/x ) {
+			push @$problems, q(Links must have an associated description separated from the URL by a '|'.);
+		} else {
+			my ( $url, $desc ) = ( $1, $2 );
+			push @$extra_inserts,
+			  {
+				statement =>
+				  'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $url, $desc, $i, $newdata->{'curator'}, 'now' ]
+			  };
+		}
+		$i++;
+	}
 	return;
 }
 

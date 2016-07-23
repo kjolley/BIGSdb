@@ -23,6 +23,16 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
 
+sub initiate {
+	my ($self) = @_;
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'}    = 'no_header';
+		return;
+	}
+	$self->{'jQuery'} = 1;
+	return;
+}
+
 sub get_title {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
@@ -35,6 +45,7 @@ sub get_title {
 }
 
 sub print_content {
+	#TODO Add flag that allows isolate db to import seqdef scheme data as an AJAX call
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
@@ -60,6 +71,7 @@ sub print_content {
 	$self->_print_scheme_curators($scheme_id);
 	$self->_print_loci($scheme_id);
 	$self->_print_profiles($scheme_id);
+	
 	say q(</div>);
 	return;
 }
@@ -109,14 +121,15 @@ sub _print_loci {
 sub _print_profiles {
 	my ( $self, $scheme_id ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id,{get_pk=>1});
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	return if !$scheme_info->{'primary_key'};
 	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM mv_scheme_$scheme_id");
 	my $plural = $count == 1 ? q() : q(s);
 	say q(<h2>Profiles</h2>);
 	my $nice_count = BIGSdb::Utils::commify($count);
 	say qq(<p>This scheme has <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	. qq(page=query&amp;scheme_id=$scheme_id&amp;submit=1">$nice_count profile$plural</a> defined.</p>);
+	  . qq(page=query&amp;scheme_id=$scheme_id&amp;submit=1">$nice_count profile$plural</a> defined.</p>);
 	return;
 }
+
 1;

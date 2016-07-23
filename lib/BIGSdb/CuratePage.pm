@@ -862,12 +862,22 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $current_flags;
+	my ($current_refs, $current_links) = ([],[]);
 	if ( $q->param('page') eq 'update' ) {
 		$current_flags = $self->{'datastore'}->run_query(
 			'SELECT flag FROM scheme_flags WHERE scheme_id=? ORDER BY flag',
 			$newdata_ref->{'id'},
 			{ fetch => 'col_arrayref' }
 		);
+		$current_refs =
+		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
+			$newdata_ref->{'id'}, { fetch => 'col_arrayref' } );
+		my $links =
+		  $self->{'datastore'}->run_query( 'SELECT url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
+			$newdata_ref->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $link_data (@$links) {
+			push @$current_links, "$link_data->{'url'}|$link_data->{'description'}";
+		}
 	}
 	my $buffer = qq(<li><label for="flags" class="form" style="width:${width}em">flags:</label>\n);
 	$buffer .= $q->scrolling_list(
@@ -878,6 +888,17 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 		-default  => $current_flags
 	);
 	$buffer .= q( <span class="comment">Use CTRL/SHIFT click to select or deselect values</span></li>);
+
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
+	local $" = qq(\n);
+	$buffer .=
+	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@$current_refs" );
+	$buffer .= qq(</li>\n);
+
+	$buffer .= qq[<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">]
+	  . q[(Format: URL|description)</span></label>];
+	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@$current_links" );
+	$buffer .= qq(</li>\n);
 	return $buffer;
 }
 

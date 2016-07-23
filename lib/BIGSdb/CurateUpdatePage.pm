@@ -698,6 +698,84 @@ sub _prepare_extra_inserts_for_schemes {
 			  };
 		}
 	}
+	my $existing_pubmeds =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $newdata->{'id'}, { fetch => 'col_arrayref' } );
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	foreach my $new (@new_pubmeds) {
+		chomp $new;
+		next if $new eq '';
+		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
+			if ( !BIGSdb::Utils::is_int($new) ) {
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
+				return FAILURE;
+			}
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO scheme_refs (scheme_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
+		}
+	}
+	foreach my $existing (@$existing_pubmeds) {
+		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
+			push @$extra_inserts,
+			  {
+				statement => 'DELETE FROM scheme_refs WHERE (scheme_id,pubmed_id) = (?,?)',
+				arguments => [ $newdata->{'id'}, $existing ]
+			  };
+		}
+	}
+	my @new_links;
+	my $i = 1;
+	foreach ( split /\r?\n/x, $q->param('links') ) {
+		next if $_ eq '';
+		push @new_links, "$i|$_";
+		$i++;
+	}
+	my @existing_links;
+	my $link_dataset =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT link_order,url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
+		$newdata->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $link_data (@$link_dataset) {
+		push @existing_links, "$link_data->{'link_order'}|$link_data->{'url'}|$link_data->{'description'}";
+	}
+	foreach my $existing (@existing_links) {
+		if ( !@new_links || none { $existing eq $_ } @new_links ) {
+			if ( $existing =~ /^\d+\|(.+?)\|.+$/x ) {
+				my $url = $1;
+				push @$extra_inserts,
+				  {
+					statement => 'DELETE FROM scheme_links WHERE (scheme_id,url) = (?,?)',
+					arguments => [ $newdata->{'id'}, $url ]
+				  };
+			}
+		}
+	}
+	foreach my $new (@new_links) {
+		chomp $new;
+		next if $new eq '';
+		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
+			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
+				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
+				  . q(from the URL by a '|'.</p>)
+				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				  . q(Back to main page</a></p></div>);
+				return FAILURE;
+			} else {
+				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
+				push @$extra_inserts,
+				  {
+					statement => 'INSERT INTO scheme_links (scheme_id,url,description,link_order,'
+					  . 'curator,datestamp) VALUES (?,?,?,?,?,?)',
+					arguments => [ $newdata->{'id'}, $url, $desc, $field_order, $newdata->{'curator'}, 'now' ]
+				  };
+			}
+		}
+	}
 	return;
 }
 
