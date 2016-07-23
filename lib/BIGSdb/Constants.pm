@@ -138,9 +138,12 @@ $EXPORT_TAGS{'submissions'} = [
 ];
 
 #Schemes
-use constant SCHEME_FLAGS => ( 'citation required', 'experimental', 'unpublished' );
+use constant SCHEME_FLAGS => ( 'citation required', 'experimental', 'in development', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
-	'citation required' => '#990000', 'experimental' => '#4c9900', 'unpublished' => '#009999'
+	'citation required' => '#990000',
+	'experimental'      => '#4c9900',
+	'in development'    => '#4c0099',
+	'unpublished'       => '#009999'
 };
 push @EXPORT_OK, qw (SCHEME_FLAGS SCHEME_FLAG_COLOURS);
 $EXPORT_TAGS{'scheme_flags'} = [qw(SCHEME_FLAGS SCHEME_FLAG_COLOURS)];
