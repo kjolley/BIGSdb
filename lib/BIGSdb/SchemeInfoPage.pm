@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,16 +23,6 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
 
-sub initiate {
-	my ($self) = @_;
-	if ( $self->{'cgi'}->param('no_header') ) {
-		$self->{'type'}    = 'no_header';
-		return;
-	}
-	$self->{'jQuery'} = 1;
-	return;
-}
-
 sub get_title {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
@@ -45,7 +35,6 @@ sub get_title {
 }
 
 sub print_content {
-	#TODO Add flag that allows isolate db to import seqdef scheme data as an AJAX call
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
@@ -68,11 +57,28 @@ sub print_content {
 		say qq(<div class="flags">$flags</div>);
 	}
 	say qq(<p>$scheme_info->{'description'}</p>) if $scheme_info->{'description'};
+	$self->_print_citations($scheme_id);
 	$self->_print_scheme_curators($scheme_id);
 	$self->_print_loci($scheme_id);
 	$self->_print_profiles($scheme_id);
-	
+	$self->_print_links($scheme_id);
 	say q(</div>);
+	return;
+}
+
+sub _print_citations {
+	my ( $self, $scheme_id ) = @_;
+	my $refs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } )
+	  ;
+	if (@$refs) {
+		say q(<h2>References</h2><ul>);
+		my $citations =
+		  $self->{'datastore'}->get_citation_hash( $refs, { all_authors => 1, formatted => 1, link_pubmed => 1 } );
+		say qq(<li>$citations->{$_}</li>) foreach @$refs;
+		say q(</ul>);
+	}
 	return;
 }
 
@@ -132,4 +138,28 @@ sub _print_profiles {
 	return;
 }
 
+sub _print_links {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
+	my $links =
+	  $self->{'datastore'}->run_query( 'SELECT url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	if (@$links) {
+		say qq(<h2>Links</h2>\n<ul>);
+		foreach my $link (@$links) {
+			$link->{'url'} =~ s/\&/&amp;/gx;
+			my $domain;
+			if ( ( lc( $link->{'url'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
+				$domain = $1;
+			}
+			print qq(<li><a href="$link->{'url'}">$link->{'description'}</a>);
+			if ( $domain && $domain ne $q->virtual_host ) {
+				say qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
+			}
+			say q(</li>);
+		}
+		say q(</ul>);
+	}
+	return;
+}
 1;
