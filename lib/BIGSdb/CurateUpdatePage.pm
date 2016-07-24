@@ -231,6 +231,7 @@ sub _upload {
 				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
 					say q(<p>Data entry would have resulted in records with either duplicate ids or )
 					  . q(another unique field with duplicate values.</p></div>);
+					  $logger->error($@);
 				} else {
 					say qq(<p>Error message: $@</p></div>);
 				}
@@ -644,7 +645,7 @@ sub _check_locus_descriptions {
 		}
 	}
 	foreach my $new (@new_links) {
-		chomp $new;
+		$new =~ s/\s//gx;
 		next if $new eq '';
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
@@ -703,7 +704,7 @@ sub _prepare_extra_inserts_for_schemes {
 	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $newdata->{'id'}, { fetch => 'col_arrayref' } );
 	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
-		chomp $new;
+		$new =~ s/\s//gx;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {

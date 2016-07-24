@@ -299,10 +299,7 @@ sub _print_scheme_table {
 	$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
 	say qq(<h2><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h2>);
-	my $flags = $self->get_scheme_flags($scheme_id);
-	if ($flags){
-		say qq(<div class="flags">$flags</div>);
-	}
+	say $self->get_scheme_flags($scheme_id,{link=>1});
 	say q(<div class="scrollable"><table class="resultstable">);
 	$self->_print_table_header_row(
 		{

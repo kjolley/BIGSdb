@@ -174,7 +174,7 @@ sub _check_locus_descriptions {
 	my @new_links = split /\r?\n/x, $q->param('links');
 	my $i = 1;
 	foreach my $new (@new_links) {
-		chomp $new;
+		$new =~ s/\s//gx;
 		next if $new eq '';
 		if ( $new !~ /^(.+?)\|(.+)$/x ) {
 			push @$problems, q(Links must have an associated description separated from the URL by a '|'.);
@@ -770,7 +770,7 @@ sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by d
 	}
 	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
-		chomp $new;
+		$new =~ s/\s//gx;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
 			push @$problems, 'PubMed ids must be integers.';

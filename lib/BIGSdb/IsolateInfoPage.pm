@@ -619,8 +619,7 @@ sub _print_action_panel {
 	$q->param( isolate_id => $isolate_id );
 	my $page = $q->param('page');
 	my $seqbin_exists =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id )
-	  ;
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
 
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
 		next if $action eq 'tagScan' && !$seqbin_exists;
@@ -1122,7 +1121,8 @@ sub _get_scheme {
 	}
 	return q() if !( $locus_display_count + $scheme_fields_count );
 	$buffer .= qq(<div style="float:left;padding-right:0.5em">\n);
-	$buffer .= qq(<h3 class="scheme">$scheme_info->{'name'}</h3>\n);
+	$buffer .= qq(<h3 class="scheme"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h3>\n);
 	my @args = (
 		{
 			loci                => $loci,
@@ -1132,6 +1132,7 @@ sub _get_scheme {
 			isolate_id          => $isolate_id
 		}
 	);
+	$buffer .= $self->get_scheme_flags( $scheme_id, { link => 1 } );
 	$buffer .= $self->_get_scheme_values(@args);
 	$buffer .= qq(</div>\n);
 	return $buffer;

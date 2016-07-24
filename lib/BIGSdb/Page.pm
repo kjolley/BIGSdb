@@ -1208,16 +1208,25 @@ sub get_truncated_label {
 }
 
 sub get_scheme_flags {
-	my ( $self, $scheme_id ) = @_;
+	my ( $self, $scheme_id, $options ) = @_;
 	my $buffer = q();
 	return $buffer if !BIGSdb::Utils::is_int($scheme_id);
 	my $flags = $self->{'datastore'}->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=?',
 		$scheme_id, { fetch => 'col_arrayref', cache => 'DownloadAlleles::flags' } );
 	if (@$flags) {
 		my $colours = SCHEME_FLAG_COLOURS;
+		$buffer .= q(<div class="flags">);
+		if ( $options->{'link'} ) {
+			$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">);
+		}
 		foreach my $flag (@$flags) {
 			$buffer .= qq(<span class="flag" style="color:$colours->{$flag}">$flag</span>\n);
 		}
+		if ( $options->{'link'} ) {
+			$buffer .= q(</a>);
+		}
+		$buffer .= q(</div>);
 	}
 	return $buffer;
 }

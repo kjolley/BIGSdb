@@ -52,10 +52,7 @@ sub print_content {
 	}
 	say qq(<h1>Scheme information - $scheme_info->{'name'}</h1>);
 	say q(<div class="box" id="resultspanel">);
-	my $flags = $self->get_scheme_flags($scheme_id);
-	if ($flags) {
-		say qq(<div class="flags">$flags</div>);
-	}
+	say $self->get_scheme_flags($scheme_id);
 	say qq(<p>$scheme_info->{'description'}</p>) if $scheme_info->{'description'};
 	$self->_print_citations($scheme_id);
 	$self->_print_scheme_curators($scheme_id);
