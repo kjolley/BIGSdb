@@ -355,7 +355,7 @@ sub _print_scheme_table {
 	if ($scheme_id) {
 		$scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	} else {
-		$scheme_info->{'description'} = 'Loci not in schemes';
+		$scheme_info->{'name'} = 'Loci not in schemes';
 	}
 	my $scheme_fields_qry;
 	my $temp_table;
@@ -372,7 +372,7 @@ sub _print_scheme_table {
 		};
 		return if !$continue;
 	}
-	( my $desc = $scheme_info->{'description'} ) =~ s/&/&amp;/gx;
+	( my $desc = $scheme_info->{'name'} ) =~ s/&/&amp;/gx;
 	local $| = 1;
 	say qq(<h2>$desc</h2>);
 	say q(<table class="resultstable"><tr>);

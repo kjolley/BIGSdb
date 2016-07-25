@@ -799,7 +799,7 @@ sub _get_isolate_header_scheme_fields {
 		}
 		my $scheme_cols = @scheme_header;
 		if ($scheme_cols) {
-			$field_type_header .= qq(<th colspan="$scheme_cols">$scheme->{'description'}</th>);
+			$field_type_header .= qq(<th colspan="$scheme_cols">$scheme->{'name'}</th>);
 		}
 		local $" = q(</th><th>);
 		$header .= qq(<th>@scheme_header</th>) if @scheme_header;
@@ -1475,7 +1475,7 @@ sub _print_pk_field {
 				  . qq(profile_id=$data->{'profile_id'}">$value</a></td>);
 			} else {
 				if ( $field eq 'timestamp' ) { $value =~ s/\..*$//x }
-				elsif ( $field eq 'scheme_id' ) { $value = $scheme_info->{'description'} }
+				elsif ( $field eq 'scheme_id' ) { $value = $scheme_info->{'name'} }
 				print qq(<td>$value</td>);
 			}
 		}

@@ -63,7 +63,7 @@ sub print_content {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	say qq(<h1>Add new $scheme_info->{'description'} profile</h1>);
+	say qq(<h1>Add new $scheme_info->{'name'} profile</h1>);
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {

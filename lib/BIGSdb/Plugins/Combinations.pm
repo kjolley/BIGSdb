@@ -98,8 +98,8 @@ sub run {
 		my $field = $_;
 		if ( $field =~ /^s_(\d+)_f/x ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
-			$field .= " ($scheme_info->{'description'})"
-			  if $scheme_info->{'description'};
+			$field .= " ($scheme_info->{'name'})"
+			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
 		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//gx;                      #strip off prefix for header row

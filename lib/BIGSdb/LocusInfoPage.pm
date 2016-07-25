@@ -34,10 +34,10 @@ sub get_title {
 }
 
 sub print_content {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $locus      = $q->param('locus');
-	if (!defined $locus){
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus');
+	if ( !defined $locus ) {
 		say q(<h1>Locus information</h1>);
 		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
 		return;
@@ -195,11 +195,10 @@ sub _print_curators {
 
 sub _print_schemes {
 	my ( $self, $locus_info ) = @_;
-	my $set_id  = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->run_query(
-		'SELECT scheme_id FROM scheme_members WHERE locus=? ORDER BY scheme_id',
-		$locus_info->{'id'}, { fetch => 'col_arrayref' }
-	);
+	my $set_id = $self->get_set_id;
+	my $schemes =
+	  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM scheme_members WHERE locus=? ORDER BY scheme_id',
+		$locus_info->{'id'}, { fetch => 'col_arrayref' } );
 	my @valid_schemes;
 	if ($set_id) {
 		foreach my $scheme_id (@$schemes) {
@@ -220,12 +219,13 @@ sub _print_schemes {
 sub _print_scheme_list {    #TODO Display scheme list in hierarchical tree.
 	my ( $self, $scheme_list ) = @_;
 	my $set_id = $self->get_set_id;
-	say '<ul>';
+	say q(<ul>);
 	foreach my $scheme_id (@$scheme_list) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		say "<li>$scheme_info->{'description'}</li>";
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=schemeInfo&amp;)
+		  . qq(scheme_id=$scheme_id">$scheme_info->{'name'}</a></li>);
 	}
-	say '</ul>';
+	say q(</ul>);
 	return;
 }
 1;

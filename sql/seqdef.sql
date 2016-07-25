@@ -88,6 +88,7 @@ genome_position int,
 match_longest boolean,
 complete_cds boolean,
 orf int,
+no_submissions boolean,
 curator int NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
@@ -344,9 +345,12 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON allele_flags TO apache;
 
 CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
-description text NOT NULL,
+name text NOT NULL,
+description text,
 allow_missing_loci boolean,
 display_order int,
+display boolean,
+no_submissions boolean,
 curator int NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
@@ -414,6 +418,56 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_curators TO apache;
+
+CREATE TABLE scheme_flags (
+scheme_id int NOT NULL,
+flag text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(scheme_id,flag),
+CONSTRAINT sfl_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT sfl_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_flags TO apache;
+
+CREATE TABLE scheme_links (
+scheme_id int NOT NULL,
+url text NOT NULL,
+description text NOT NULL,
+link_order int,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(scheme_id,url),
+CONSTRAINT sli_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sli_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_links TO apache;
+
+CREATE TABLE scheme_refs (
+scheme_id int NOT NULL,
+pubmed_id int NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(scheme_id,pubmed_id),
+CONSTRAINT sre_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sre_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_refs TO apache;
 
 CREATE TABLE scheme_groups (
 id int NOT NULL,

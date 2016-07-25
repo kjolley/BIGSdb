@@ -711,9 +711,9 @@ sub _get_profile_filters {
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
-					text => "$scheme->{'description'} profiles",
+					text => "$scheme->{'name'} profiles",
 					tooltip =>
-					  "$scheme->{'description'} profile completion filter - Select whether the isolates should "
+					  "$scheme->{'name'} profile completion filter - Select whether the isolates should "
 					  . 'have complete, partial, or unstarted profiles.',
 					capitalize_first => 1
 				}
@@ -734,9 +734,9 @@ sub _get_profile_filters {
 						"scheme\_$scheme->{'id'}\_$field",
 						$values,
 						{
-							text => "$field ($scheme->{'description'})",
+							text => "$field ($scheme->{'name'})",
 							tooltip =>
-							  "$field ($scheme->{'description'}) filter - Select $a_or_an $field to filter your search "
+							  "$field ($scheme->{'name'}) filter - Select $a_or_an $field to filter your search "
 							  . "to only those isolates that match the selected $field.",
 							capitalize_first => 1
 						}

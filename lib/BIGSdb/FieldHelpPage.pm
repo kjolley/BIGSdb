@@ -227,7 +227,7 @@ sub _print_scheme_field {
 	}
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-	my $cleaned     = qq($field ($scheme_info->{'description'}));
+	my $cleaned     = qq($field ($scheme_info->{'name'}));
 	$cleaned =~ tr/_/ /;
 	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Field: $cleaned</h2>);
@@ -317,7 +317,7 @@ sub get_title {
 		my $scheme_field = $2;
 		my $set_id       = $self->get_set_id;
 		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$field = "$scheme_field ($scheme_info->{'description'})";
+		$field = "$scheme_field ($scheme_info->{'name'})";
 	} else {
 		$field =~ s/^f_//x;
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -82,7 +82,7 @@ $plugin_js
 });
 
 function loadContent(url) {
-	\$("#scheme_table").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url,tooltip);
+	\$("#scheme_table").html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url,tooltip);
 }
 
 tooltip = function(e){
@@ -114,8 +114,8 @@ sub get_tree {
 	my $set_id               = $self->get_set_id;
 	my $set_clause           = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
 	my $schemes_not_in_group = $self->{'datastore'}->run_query(
-		'SELECT id,description FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
-		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,description",
+		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
+		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,name",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -152,18 +152,18 @@ sub get_tree {
 			  if $options->{'isolate_display'}
 			  && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} };
 			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $scheme->{'id'} };
-			$scheme->{'description'} =~ s/&/\&amp;/gx;
+			$scheme->{'name'} =~ s/&/\&amp;/gx;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $scheme->{'id'}, $isolate_id ) ) {
 				my $scheme_loci_buffer;
 				$data_exists = 1;
 				if ( $options->{'no_link_out'} ) {
 					my $id = $options->{'select_schemes'} ? qq( id="s_$scheme->{'id'}") : q();
-					$temp_buffer .= qq(<li$id><a>$scheme->{'description'}</a>\n);
+					$temp_buffer .= qq(<li$id><a>$scheme->{'name'}</a>\n);
 				} else {
 					$temp_buffer .=
 					    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 					  . qq(page=$page$isolate_clause&amp;scheme_id=$scheme->{'id'}" rel="nofollow" )
-					  . qq(data-rel="ajax">$scheme->{'description'}</a>\n);
+					  . qq(data-rel="ajax">$scheme->{'name'}</a>\n);
 				}
 				$temp_buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$temp_buffer .= qq(</li>\n);
@@ -215,7 +215,7 @@ sub _get_group_schemes {
 	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes    = $self->{'datastore'}->run_query(
 		'SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id '
-		  . "WHERE group_id=? $set_clause ORDER BY display_order,description",
+		  . "WHERE group_id=? $set_clause ORDER BY display_order,name",
 		$group_id,
 		{ fetch => 'col_arrayref' }
 	);
@@ -226,7 +226,7 @@ sub _get_group_schemes {
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			my $scheme_loci_buffer;
-			$scheme_info->{'description'} =~ s/&/\&amp;/gx;
+			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
 			my $page = $self->{'cgi'}->param('page');
 			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 			if ( defined $isolate_id ) {
@@ -234,22 +234,22 @@ sub _get_group_schemes {
 				if ( $self->_scheme_data_present( $scheme_id, $isolate_id ) ) {
 					$buffer .=
 					  $options->{'no_link_out'}
-					  ? qq(<li><a>$scheme_info->{'description'}</a>)
+					  ? qq(<li><a>$scheme_info->{'name'}</a>)
 					  : qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 					  . qq(page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}" rel="nofollow" )
-					  . qq(data-rel="ajax">$scheme_info->{'description'}</a>);
+					  . qq(data-rel="ajax">$scheme_info->{'name'}</a>);
 					$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 					$buffer .= qq(</li>\n);
 				}
 			} else {
 				if ( $options->{'no_link_out'} ) {
 					my $id = $options->{'select_schemes'} ? qq( id="s_$scheme_id") : q();
-					$buffer .= qq(<li$id><a>$scheme_info->{'description'}</a>);
+					$buffer .= qq(<li$id><a>$scheme_info->{'name'}</a>);
 				} else {
 					$buffer .=
 					    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 					  . qq(page=$page&amp;scheme_id=$scheme_info->{'id'}" rel="nofollow" data-rel="ajax">)
-					  . qq($scheme_info->{'description'}</a>);
+					  . qq($scheme_info->{'name'}</a>);
 				}
 				$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$buffer .= qq(</li>\n);

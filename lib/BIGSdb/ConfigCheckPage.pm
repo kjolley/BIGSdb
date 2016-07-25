@@ -187,8 +187,8 @@ sub _check_scheme_databases {
 		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>);
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			$scheme_info->{'description'} =~ s/&/&amp;/gx;
-			print qq(<tr class="td$td"><td>$scheme_info->{'description'}</td><td>)
+			$scheme_info->{'name'} =~ s/&/&amp;/gx;
+			print qq(<tr class="td$td"><td>$scheme_info->{'name'}</td><td>)
 			  . ( $scheme_info->{'dbase_name'} // q() )
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_host'} // $self->{'system'}->{'host'} )
@@ -235,9 +235,9 @@ sub _check_classification_scheme_databases {
 			my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
 			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $cscheme_info->{'scheme_id'} );
 			$cscheme_info->{'name'}       =~ s/&/&amp;/gx;
-			$scheme_info->{'description'} =~ s/&/&amp;/gx;
+			$scheme_info->{'name'} =~ s/&/&amp;/gx;
 			print qq(<tr class="td$td"><td>$cscheme_info->{'id'}: $cscheme_info->{'name'}</td><td>)
-			  . ("$scheme_info->{'id'}: $scheme_info->{'description'}")
+			  . ("$scheme_info->{'id'}: $scheme_info->{'name'}")
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_name'} // q() )
 			  . q(</td><td>)

@@ -82,7 +82,7 @@ sub _print_interface {
 
 		if ( $q->param('locus') =~ /^SCHEME_(\d+)$/x ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
-			$desc = $scheme_info->{'description'};
+			$desc = $scheme_info->{'name'};
 		} else {
 			$desc = $q->param('locus');
 		}
@@ -112,7 +112,7 @@ sub _print_interface {
 			my $value = "SCHEME_$scheme->{'id'}";
 			push @schemes_and_groups, $value;
 			$order{$value} = $scheme->{'display_order'} if $scheme->{'display_order'};
-			$cleaned->{$value} = $scheme->{'description'};
+			$cleaned->{$value} = $scheme->{'name'};
 		}
 		my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
 		foreach my $group ( reverse @$group_list ) {
@@ -713,7 +713,7 @@ sub _get_scheme_exact_results {
 			if ( !$scheme_buffer ) {
 				if ($scheme_id) {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-					$scheme_buffer .= qq(<h2>$scheme_info->{'description'}</h2>);
+					$scheme_buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
 				}
 				$scheme_buffer .= qq(<div class="scrollable">\n);
 				$scheme_buffer .= $self->_get_table_header($data);
@@ -801,7 +801,7 @@ sub _get_scheme_table {
 		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM mv_scheme_$scheme_id WHERE ($temp_qry_string)",
 			undef, { fetch => 'row_hashref' } );
 		my $buffer;
-		$buffer .= qq(<h2>$scheme_info->{'description'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
+		$buffer .= qq(<h2>$scheme_info->{'name'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
 		$buffer .= q(<table style="margin-top:1em">);
 		my $td = 1;
 

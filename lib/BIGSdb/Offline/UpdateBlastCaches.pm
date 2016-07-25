@@ -85,7 +85,7 @@ sub _create_scheme_cache {
 		my ( $temp_fastafile, $run_already_generated ) = @{$check}{qw(temp_fastafile run_already_generated)};
 		if ( !$run_already_generated ) {
 			$self->{'datastore'}->create_blast_db( { locus => "SCHEME_$scheme->{'id'}" }, $run, $temp_fastafile );
-			say qq(Created scheme '$scheme->{'description'}' $run cache.) if !$self->{'options'}->{'q'};
+			say qq(Created scheme '$scheme->{'name'}' $run cache.) if !$self->{'options'}->{'q'};
 		}
 	}
 	return;

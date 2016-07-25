@@ -55,7 +55,7 @@ sub print_content {
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	say qq(<h1>Batch insert $scheme_info->{'description'} profiles</h1>);
+	say qq(<h1>Batch insert $scheme_info->{'name'} profiles</h1>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $scheme_info->{'primary_key'};
@@ -91,7 +91,7 @@ sub get_title {
 	my $scheme_desc = '';
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		$scheme_desc = $scheme_info->{'description'} || '';
+		$scheme_desc = $scheme_info->{'name'} || '';
 	}
 	my $type = $self->get_record_name($table);
 	return "Batch add new $scheme_desc profiles - $desc";

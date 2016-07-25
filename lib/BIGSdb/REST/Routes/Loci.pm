@@ -113,7 +113,7 @@ sub _get_locus {
 			push @$scheme_member_list,
 			  {
 				scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}"),
-				description => $scheme->{'description'}
+				description => $scheme->{'name'}
 			  };
 		}
 	}

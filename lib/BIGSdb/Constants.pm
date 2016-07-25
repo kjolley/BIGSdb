@@ -24,8 +24,8 @@ our @EXPORT_OK;
 our %EXPORT_TAGS;
 
 #Limits
-use constant MAX_SPLITS_TAXA => 200;
-use constant MAX_MUSCLE_MB   => 4 * 1024;    #4GB
+use constant MAX_SPLITS_TAXA       => 200;
+use constant MAX_MUSCLE_MB         => 4 * 1024;    #4GB
 use constant MAX_ISOLATES_DROPDOWN => 1000;
 push @EXPORT_OK, qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN);
 $EXPORT_TAGS{'limits'} = [qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN)];
@@ -136,4 +136,15 @@ $EXPORT_TAGS{'submissions'} = [
 	qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
 	  REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT)
 ];
+
+#Schemes
+use constant SCHEME_FLAGS => ( 'citation required', 'experimental', 'in development', 'unpublished' );
+use constant SCHEME_FLAG_COLOURS => {
+	'citation required' => '#990000',
+	'experimental'      => '#4c9900',
+	'in development'    => '#4c0099',
+	'unpublished'       => '#009999'
+};
+push @EXPORT_OK, qw (SCHEME_FLAGS SCHEME_FLAG_COLOURS);
+$EXPORT_TAGS{'scheme_flags'} = [qw(SCHEME_FLAGS SCHEME_FLAG_COLOURS)];
 1;

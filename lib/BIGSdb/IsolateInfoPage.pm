@@ -527,7 +527,7 @@ sub _get_classification_group_data {
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
 			$buffer .=
-			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'description'}</td>)
+			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'name'}</td>)
 			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
 			  . qq($cg_buffer</td></tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -619,8 +619,7 @@ sub _print_action_panel {
 	$q->param( isolate_id => $isolate_id );
 	my $page = $q->param('page');
 	my $seqbin_exists =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id )
-	  ;
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
 
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
 		next if $action eq 'tagScan' && !$seqbin_exists;
@@ -1117,12 +1116,13 @@ sub _get_scheme {
 			foreach (@$loci) {
 				$locus_display_count++ if $self->{'prefs'}->{'isolate_display_loci'}->{$_} ne 'hide';
 			}
-			$scheme_info->{'description'} = 'Loci not in schemes';
+			$scheme_info->{'name'} = 'Loci not in schemes';
 		}
 	}
 	return q() if !( $locus_display_count + $scheme_fields_count );
 	$buffer .= qq(<div style="float:left;padding-right:0.5em">\n);
-	$buffer .= qq(<h3 class="scheme">$scheme_info->{'description'}</h3>\n);
+	$buffer .= qq(<h3 class="scheme"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h3>\n);
 	my @args = (
 		{
 			loci                => $loci,
@@ -1132,6 +1132,7 @@ sub _get_scheme {
 			isolate_id          => $isolate_id
 		}
 	);
+	$buffer .= $self->get_scheme_flags( $scheme_id, { link => 1 } );
 	$buffer .= $self->_get_scheme_values(@args);
 	$buffer .= qq(</div>\n);
 	return $buffer;

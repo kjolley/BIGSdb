@@ -288,12 +288,6 @@ sub _print_interface {
 					push @filters, $self->get_scheme_filter;
 				} elsif ( $att->{'name'} eq 'locus' ) {
 					push @filters, $self->get_locus_filter;
-				} elsif ( $table eq 'schemes' && $att->{'name'} eq 'description' ) {
-					my $set_id = $self->get_set_id;
-					my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-					my @values;
-					push @values, $_->{'description'} foreach @$scheme_list;
-					push @filters, $self->get_filter( $att->{'name'}, \@values );
 				} else {
 					my $desc;
 					my $values;

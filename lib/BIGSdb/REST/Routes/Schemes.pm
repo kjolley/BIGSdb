@@ -37,7 +37,7 @@ sub _get_schemes {
 	my $scheme_list = [];
 	foreach my $scheme (@$schemes) {
 		push @$scheme_list,
-		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'description'} };
+		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
 	}
 	$values->{'schemes'} = $scheme_list;
 	return $values;
@@ -51,7 +51,7 @@ sub _get_scheme {
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	$values->{'id'}                    = int($scheme_id);
-	$values->{'description'}           = $scheme_info->{'description'};
+	$values->{'description'}           = $scheme_info->{'name'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
 	$values->{'primary_key_field'} = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
 	  if $scheme_info->{'primary_key'};

@@ -24,6 +24,8 @@ h2 {
 	font: 600 1.2em Arial,Helvetica,sans-serif; 
 	color: #606060;
 }
+h2 a {text-decoration:none;border-bottom:1px #606060 dotted}
+h2 a:hover {text-decoration:none;border-bottom:1px black solid}
 
 h3 {
 	font: 600 1.1em Arial,Helvetica,sans-serif;
@@ -542,6 +544,9 @@ div.floatmenu a {
 	cursor:pointer;	
 }
 
+div.flags {line-height:2em;margin-bottom:0.5em}
+div.flags a {text-decoration:none}
+
 table.resultstable {text-align:center;padding:0.1em}
 table.resultstable td,th {padding:0 0.2em}
 table.profile {background:#e0e0e0;text-align:center}
@@ -552,6 +557,15 @@ span.locus { color: green }
 span.scheme { color: red}
 span.aliases {font-size: 0.9em}
 span.context_help a {background:#66f; color:white; margin-right:2em; padding: 0 0.5em; text-decoration:none}
+span.flag {
+	font-size:1.2em;
+	font-weight:600;
+	white-space:nowrap;
+	border-width:3px;
+	border-top-style:solid;
+	border-bottom-style:solid;
+	padding:0 0.1em
+}
 
 .hiddenbydefault {display:none}
 pre.sixpack {font-size:1.3em}
@@ -681,6 +695,7 @@ h3.scheme {
 	border-radius:30px;
 	padding: 0 0.2em;
 }
+h3.scheme a {color:white}
 
 h3.group {
 	clear:both;

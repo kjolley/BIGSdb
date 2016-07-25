@@ -46,7 +46,7 @@ sub print_content {
 	  . q(is especially likely if loci that belong to schemes are renamed.</p>);
 	say q(<p>Warehouse tables will be (re)created.</p>);
 	my $schemes = $self->{'datastore'}->run_query(
-		'SELECT id,description FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields '
+		'SELECT id,name FROM schemes WHERE id IN (SELECT scheme_id FROM scheme_fields '
 		  . 'WHERE primary_key) AND id IN (SELECT scheme_id FROM scheme_members) ORDER BY id',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
@@ -57,7 +57,7 @@ sub print_content {
 		my ( @ids, %desc );
 		foreach my $scheme (@$schemes) {
 			push @ids, $scheme->{'id'};
-			$desc{ $scheme->{'id'} } = "$scheme->{'id'}) $scheme->{'description'}";
+			$desc{ $scheme->{'id'} } = "$scheme->{'id'}) $scheme->{'name'}";
 		}
 		say q(<fieldset><legend>Select damaged scheme view</legend>);
 		say $q->start_form;

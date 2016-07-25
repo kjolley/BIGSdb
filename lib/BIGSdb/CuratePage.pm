@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS);
+use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS SCHEME_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
@@ -90,7 +90,8 @@ sub create_record_table {
 	my %methods = (
 		sequences    => '_create_extra_fields_for_sequences',
 		sequence_bin => '_create_extra_fields_for_seqbin',
-		loci         => '_create_extra_fields_for_loci'
+		loci         => '_create_extra_fields_for_loci',
+		schemes      => '_create_extra_fields_for_schemes'
 	);
 
 	if ( $methods{$table} ) {
@@ -854,6 +855,50 @@ sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubrou
 			{ noshow => [qw(locus curator datestamp)] }, $width );
 	}
 	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );
+	return $buffer;
+}
+
+sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata_ref, $width ) = @_;
+	my $q = $self->{'cgi'};
+	my $current_flags;
+	my ($current_refs, $current_links) = ([],[]);
+	if ( $q->param('page') eq 'update' ) {
+		$current_flags = $self->{'datastore'}->run_query(
+			'SELECT flag FROM scheme_flags WHERE scheme_id=? ORDER BY flag',
+			$newdata_ref->{'id'},
+			{ fetch => 'col_arrayref' }
+		);
+		$current_refs =
+		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
+			$newdata_ref->{'id'}, { fetch => 'col_arrayref' } );
+		my $links =
+		  $self->{'datastore'}->run_query( 'SELECT url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
+			$newdata_ref->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $link_data (@$links) {
+			push @$current_links, "$link_data->{'url'}|$link_data->{'description'}";
+		}
+	}
+	my $buffer = qq(<li><label for="flags" class="form" style="width:${width}em">flags:</label>\n);
+	$buffer .= $q->scrolling_list(
+		-name     => 'flags',
+		-id       => 'flags',
+		-values   => [SCHEME_FLAGS],
+		-multiple => 'multiple',
+		-default  => $current_flags
+	);
+	$buffer .= q( <span class="comment">Use CTRL/SHIFT click to select or deselect values</span></li>);
+
+	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
+	local $" = qq(\n);
+	$buffer .=
+	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@$current_refs" );
+	$buffer .= qq(</li>\n);
+
+	$buffer .= qq[<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">]
+	  . q[(Format: URL|description)</span></label>];
+	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@$current_links" );
+	$buffer .= qq(</li>\n);
 	return $buffer;
 }
 

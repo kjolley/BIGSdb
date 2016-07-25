@@ -24,7 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits :scheme_flags SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -472,7 +472,7 @@ sub print_scheme_section {
 
 	foreach my $scheme (@$schemes) {
 		push @ids, $scheme->{'id'};
-		$desc{ $scheme->{'id'} } = $scheme->{'description'};
+		$desc{ $scheme->{'id'} } = $scheme->{'name'};
 	}
 	if ( $options->{'all_loci'} ) {
 		push @ids, 0;
@@ -847,7 +847,7 @@ sub _get_scheme_fields {
 			$set_sql = $self->{'db'}->prepare('SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?');
 		}
 		foreach my $scheme (@$schemes) {
-			my ( $scheme_id, $desc ) = ( $scheme->{'id'}, $scheme->{'description'} );
+			my ( $scheme_id, $desc ) = ( $scheme->{'id'}, $scheme->{'name'} );
 			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
 
 			#No point using scheme fields if no scheme database is available.
@@ -1041,7 +1041,7 @@ sub get_scheme_filter {
 		my $list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 		foreach my $scheme (@$list) {
 			push @{ $self->{'cache'}->{'schemes'} }, $scheme->{'id'};
-			$self->{'cache'}->{'scheme_labels'}->{ $scheme->{'id'} } = $scheme->{'description'};
+			$self->{'cache'}->{'scheme_labels'}->{ $scheme->{'id'} } = $scheme->{'name'};
 		}
 		push @{ $self->{'cache'}->{'schemes'} }, 0;
 		$self->{'cache'}->{'scheme_labels'}->{0} = 'No scheme';
@@ -1155,9 +1155,9 @@ sub get_experiment_filter {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @experiments;
 	my %labels;
-	foreach (@$experiment_list) {
-		push @experiments, $_->{'id'};
-		$labels{ $_->{'id'} } = $_->{'description'};
+	foreach my $experiment (@$experiment_list) {
+		push @experiments, $experiment->{'id'};
+		$labels{ $experiment->{'id'} } = $experiment->{'description'};
 	}
 	if (@experiments) {
 		my $class = $options->{'class'} || 'filter';
@@ -1205,6 +1205,30 @@ sub get_truncated_label {
 		$title = ucfirst $title if $title;
 	}
 	return ( $label, $title );
+}
+
+sub get_scheme_flags {
+	my ( $self, $scheme_id, $options ) = @_;
+	my $buffer = q();
+	return $buffer if !BIGSdb::Utils::is_int($scheme_id);
+	my $flags = $self->{'datastore'}->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=?',
+		$scheme_id, { fetch => 'col_arrayref', cache => 'DownloadAlleles::flags' } );
+	if (@$flags) {
+		my $colours = SCHEME_FLAG_COLOURS;
+		$buffer .= q(<div class="flags">);
+		if ( $options->{'link'} ) {
+			$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">);
+		}
+		foreach my $flag (@$flags) {
+			$buffer .= qq(<span class="flag" style="color:$colours->{$flag}">$flag</span>\n);
+		}
+		if ( $options->{'link'} ) {
+			$buffer .= q(</a>);
+		}
+		$buffer .= q(</div>);
+	}
+	return $buffer;
 }
 
 sub clean_locus {
@@ -1271,9 +1295,9 @@ sub get_set_id {
 sub extract_scheme_desc {
 	my ( $self, $scheme_data ) = @_;
 	my ( @scheme_ids, %desc );
-	foreach (@$scheme_data) {
-		push @scheme_ids, $_->{'id'};
-		$desc{ $_->{'id'} } = $_->{'description'};
+	foreach my $scheme (@$scheme_data) {
+		push @scheme_ids, $scheme->{'id'};
+		$desc{ $scheme->{'id'} } = $scheme->{'name'};
 	}
 	return ( \@scheme_ids, \%desc );
 }

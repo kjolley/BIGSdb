@@ -559,7 +559,7 @@ sub _print_scheme_form_elements {
 	if ($scheme_id) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">$scheme_info->{'description'}</h3>\n) : '';
+		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">$scheme_info->{'name'}</h3>\n) : '';
 	} else {
 		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">Loci not in a scheme</h3>\n) : '';

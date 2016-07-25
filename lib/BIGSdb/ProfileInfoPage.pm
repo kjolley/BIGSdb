@@ -66,7 +66,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>There is no primary key defined for this scheme.</p></div>);
 		return;
 	}
-	say qq(<h1>Profile information for $primary_key-$profile_id ($scheme_info->{'description'})</h1>);
+	say qq(<h1>Profile information for $primary_key-$profile_id ($scheme_info->{'name'})</h1>);
 	my $data =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
@@ -328,7 +328,7 @@ sub get_title {
 	}
 	my $title = q(Profile information);
 	$title .= qq(: $scheme_info->{'primary_key'}-$profile_id) if $scheme_info->{'primary_key'} && defined $profile_id;
-	$title .= qq( ($scheme_info->{'description'}))            if $scheme_info->{'description'};
+	$title .= qq( ($scheme_info->{'name'}))            if $scheme_info->{'name'};
 	$title .= qq( - $self->{'system'}->{'description'});
 	return $title;
 }

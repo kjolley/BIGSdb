@@ -517,7 +517,7 @@ sub get_scheme_info {
 			[ $options->{'set_id'}, $scheme_id ],
 			{ fetch => 'row_array', cache => 'get_scheme_info_set_name' }
 		);
-		$scheme_info->{'description'} = $desc if defined $desc;
+		$scheme_info->{'name'} = $desc if defined $desc;
 	}
 	if ( $options->{'get_pk'} ) {
 		my ($pk) = $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key',
@@ -678,31 +678,31 @@ sub get_scheme_list {
 	if ( $options->{'set_id'} ) {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM )
+			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON )
 			  . q(schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE )
 			  . qq(primary_key AND set_schemes.set_id=$options->{'set_id'} ORDER BY schemes.display_order,)
-			  . q(schemes.description);
+			  . q(schemes.name);
 		} else {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.description,schemes.display_order FROM )
+			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND set_schemes.set_id=)
 			  . qq($options->{'set_id'} WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,)
-			  . q(schemes.description);
+			  . q(schemes.name);
 		}
 	} else {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,schemes.description,schemes.display_order FROM schemes RIGHT JOIN )
+			    q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
-			  . q(scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.description);
+			  . q(scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.name);
 		} else {
-			$qry = q[SELECT id,description,display_order FROM schemes ORDER BY display_order,description];
+			$qry = q[SELECT id,name,display_order FROM schemes ORDER BY display_order,name];
 		}
 	}
 	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach (@$list) {
-		$_->{'description'} = $_->{'set_name'} if $_->{'set_name'};
+		$_->{'name'} = $_->{'set_name'} if $_->{'set_name'};
 	}
 	return $list;
 }

@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -174,7 +174,7 @@ sub _check_locus_descriptions {
 	my @new_links = split /\r?\n/x, $q->param('links');
 	my $i = 1;
 	foreach my $new (@new_links) {
-		chomp $new;
+		$new =~ s/\s//gx;
 		next if $new eq '';
 		if ( $new !~ /^(.+?)\|(.+)$/x ) {
 			push @$problems, q(Links must have an associated description separated from the URL by a '|'.);
@@ -202,7 +202,7 @@ sub _insert {
 	my $extra_inserts = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates);
+	  retired_isolates schemes);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -747,6 +747,58 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	if ( !BIGSdb::Utils::is_valid_DNA( \( $newdata->{'sequence'} ), { allow_ambiguous => 1 } ) ) {
 		push @$problems,
 		  'Sequence contains non nucleotide (G|A|T|C + ambiguity code R|Y|W|S|M|K|V|H|D|B|X|N) characters.';
+	}
+	return;
+}
+
+sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	my %allowed = map{$_ => 1} SCHEME_FLAGS;
+	my $q = $self->{'cgi'};
+	my @flags = $q->param('flags');
+	foreach my $flag (@flags){
+		if ($allowed{$flag}){
+			push @$extra_inserts,
+		  {
+			statement =>
+			  'INSERT INTO scheme_flags (scheme_id,flag,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [ $newdata->{'id'}, $flag, $newdata->{'curator'}, 'now' ]
+		  };
+		} else {
+			push @$problems, "'$flag' is not a valid flag.";
+		}
+	}
+	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	foreach my $new (@new_pubmeds) {
+		$new =~ s/\s//gx;
+		next if $new eq '';
+		if ( !BIGSdb::Utils::is_int($new) ) {
+			push @$problems, 'PubMed ids must be integers.';
+		} else {
+			push @$extra_inserts,
+			  {
+				statement => 'INSERT INTO scheme_refs (scheme_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
+			  };
+		}
+	}
+	my @new_links = split /\r?\n/x, $q->param('links');
+	my $i = 1;
+	foreach my $new (@new_links) {
+		chomp $new;
+		next if $new eq '';
+		if ( $new !~ /^(.+?)\|(.+)$/x ) {
+			push @$problems, q(Links must have an associated description separated from the URL by a '|'.);
+		} else {
+			my ( $url, $desc ) = ( $1, $2 );
+			push @$extra_inserts,
+			  {
+				statement =>
+				  'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $url, $desc, $i, $newdata->{'curator'}, 'now' ]
+			  };
+		}
+		$i++;
 	}
 	return;
 }

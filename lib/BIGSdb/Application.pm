@@ -56,6 +56,7 @@ use BIGSdb::ProjectsPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
 use BIGSdb::RecordInfoPage;
+use BIGSdb::SchemeInfoPage;
 use BIGSdb::SeqbinPage;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SequenceQueryPage;
@@ -510,6 +511,7 @@ sub print_page {
 		profiles           => 'CombinationQueryPage',
 		projects           => 'ProjectsPage',
 		recordInfo         => 'RecordInfoPage',
+		schemeInfo         => 'SchemeInfoPage',
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
 		sequenceTranslate  => 'SequenceTranslatePage',
@@ -544,7 +546,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

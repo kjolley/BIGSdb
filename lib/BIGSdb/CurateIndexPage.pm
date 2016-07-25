@@ -730,7 +730,7 @@ sub _print_profiles {         ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	foreach my $scheme_id (@$schemes)
 	{    #Can only order schemes after retrieval since some can be renamed by set membership
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = $scheme_info->{'description'};
+		$desc{$scheme_id} = $scheme_info->{'name'};
 	}
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );

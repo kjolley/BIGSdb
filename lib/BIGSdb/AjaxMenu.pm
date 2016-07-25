@@ -254,7 +254,7 @@ sub _profiles_link {
 	foreach my $scheme_id (@$schemes)
 	{    #Can only order schemes after retrieval since some can be renamed by set membership
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = $scheme_info->{'description'};
+		$desc{$scheme_id} = $scheme_info->{'name'};
 	}
 	my $base_url = $self->_get_base_url;
 	my $buffer   = q();

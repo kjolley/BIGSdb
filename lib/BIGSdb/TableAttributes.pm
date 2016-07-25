@@ -667,7 +667,7 @@ sub get_retired_profiles_table_attributes {
 			required        => 'yes',
 			primary_key     => 'yes',
 			foreign_key     => 'schemes',
-			labels          => '|$description| (id |$id|)',
+			labels          => '|$name| (id |$id|)',
 			dropdown_query  => 'yes',
 			with_pk_only    => 1,
 			is_curator_only => 1
@@ -945,7 +945,7 @@ sub get_client_dbase_schemes_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -1013,7 +1013,7 @@ sub get_profile_refs_table_attributes {
 			required        => 'yes',
 			primary_key     => 'yes',
 			foreign_key     => 'schemes',
-			labels          => '|$description| (id |$id|)',
+			labels          => '|$name| (id |$id|)',
 			dropdown_query  => 'yes',
 			with_pk_only    => 1,
 			is_curator_only => 1
@@ -1060,13 +1060,14 @@ sub get_schemes_table_attributes {
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
 		{
-			name     => 'description',
+			name     => 'name',
 			type     => 'text',
 			required => 'yes',
 			length   => 50,
 			unique   => 'yes',
-			tooltip  => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
-		}
+			tooltip  => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
+		},
+		{ name => 'description', type => 'text', length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -1188,7 +1189,7 @@ sub get_scheme_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -1227,7 +1228,7 @@ sub get_scheme_fields_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
@@ -1365,7 +1366,7 @@ sub get_scheme_group_scheme_members_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
@@ -1583,7 +1584,7 @@ sub get_profiles_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'profile_id',   type => 'text', required => 'yes', primary_key    => 'yes' },
@@ -1603,7 +1604,7 @@ sub get_scheme_curators_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{
@@ -1896,7 +1897,7 @@ sub get_set_schemes_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes'
 		},
 		{ name => 'set_name',  type => 'text', length   => 40 },
@@ -1944,7 +1945,7 @@ sub get_classification_schemes_table_attributes {
 			required       => 'yes',
 			primary_key    => 'yes',
 			foreign_key    => 'schemes',
-			labels         => '|$description|',
+			labels         => '|$name|',
 			dropdown_query => 'yes',
 			with_pk_only   => 1,
 		},

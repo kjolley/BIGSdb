@@ -195,7 +195,7 @@ sub _print_filter_fieldset {
 				$field, $values,
 				{
 					text    => $field,
-					tooltip => "$field ($scheme_info->{'description'}) filter - Select $a_or_an $field to "
+					tooltip => "$field ($scheme_info->{'name'}) filter - Select $a_or_an $field to "
 					  . "filter your search to only those profiles that match the selected $field."
 				}
 			  );

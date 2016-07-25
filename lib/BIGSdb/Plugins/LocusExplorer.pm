@@ -544,7 +544,7 @@ sub _site_explorer {
 	}
 	my $td          = 1;
 	my $scheme_list = $self->{'datastore'}->run_query(
-		'SELECT id,description FROM schemes LEFT JOIN scheme_members ON '
+		'SELECT id,name FROM schemes LEFT JOIN scheme_members ON '
 		  . 'scheme_id=schemes.id WHERE locus=? AND scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
 		$locus,
 		{ fetch => 'all_arrayref', slice => {} }
@@ -552,7 +552,7 @@ sub _site_explorer {
 	my ( @schemes, %desc );
 	foreach my $scheme (@$scheme_list) {
 		push @schemes, $scheme->{'id'};
-		$desc{ $scheme->{'id'} } = $scheme->{'description'};
+		$desc{ $scheme->{'id'} } = $scheme->{'name'};
 	}
 	say q(<table class="resultstable"><tr><th>Base</th><th>Number of alleles</th><th>Percentage of alleles</th>);
 	say qq(<th>$desc{$_} profiles</th>) foreach @schemes;
