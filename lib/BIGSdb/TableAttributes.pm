@@ -1172,7 +1172,22 @@ sub get_schemes_table_attributes {
 			hide_public => 'yes',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
-		},
+		}
+	  );
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
+			{
+				name        => 'no_submissions',
+				type        => 'bool',
+				hide_public => 'yes',
+				comments    => q(Set to true to prevent submission of profiles of this )
+				  . q(scheme via the automated submission system.)
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp',    type => 'date', hide_public => 'yes', required => 'yes' },
 		{ name => 'date_entered', type => 'date', hide_public => 'yes', required => 'yes' }
