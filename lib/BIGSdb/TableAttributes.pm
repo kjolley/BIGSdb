@@ -1259,12 +1259,12 @@ sub get_scheme_fields_table_attributes {
 			  . '(you can only have one primary key field).'
 		},
 		{ name => 'description', type => 'text', required => 'no', length => 64, },
-		{ name => 'field_order', type => 'int',  required => 'no' }
+		{ name => 'field_order', type => 'int',  required => 'no', hide_public=>'yes' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
-			{ name => 'url', type => 'text', required => 'no', length => 120, },
+			{ name => 'url', type => 'text', required => 'no', length => 120, hide_public=>'yes'},
 			{
 				name     => 'isolate_display',
 				type     => 'bool',

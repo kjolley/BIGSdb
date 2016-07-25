@@ -273,7 +273,15 @@ sub _process_scheme_fields {
 					$$not_default_ref = 1;
 				}
 			} else {
-				$value = $data->{$field};
+				if ( $field eq 'scheme_id' ) {
+					if ( !$self->{'cache'}->{'scheme'}->{ $data->{$field} } ) {
+						$self->{'cache'}->{'scheme'}->{ $data->{$field} } =
+						  $self->{'datastore'}->get_scheme_info( $data->{$field} )->{'name'};
+					}
+					$value = $self->{'cache'}->{'scheme'}->{ $data->{$field} };
+				} else {
+					$value = $data->{$field};
+				}
 			}
 			print defined $value ? qq(<td>$value</td>) : q(<td></td>);
 		}

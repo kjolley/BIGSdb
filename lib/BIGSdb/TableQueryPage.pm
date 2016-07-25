@@ -785,7 +785,8 @@ sub print_additional_headerbar_functions {
 	my ( $self, $filename ) = @_;
 	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
-	return if any { $q->param('table') eq $_ } qw (samples sequences history profile_history);
+	my %allowed = map {$_ => 1} qw(schemes loci scheme_fields);
+	return if !$allowed{$q->param('table')};
 	my $record = $self->get_record_name( $q->param('table') );
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
