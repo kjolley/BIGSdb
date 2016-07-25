@@ -807,10 +807,14 @@ sub add_scheme_loci {
 	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;
 	my @selected_schemes;
+	$self->{'cite_schemes'} = [];
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$q->param("s_$scheme_id");
 		push @selected_schemes, $scheme_id;
 		$q->delete("s_$scheme_id");
+		if ($self->_should_scheme_be_cited($scheme_id)){
+			push @{$self->{'cite_schemes'}},$scheme_id;
+		}
 	}
 	my %locus_selected = map { $_ => 1 } @$loci;
 	my $set_id = $self->get_set_id;
@@ -827,6 +831,15 @@ sub add_scheme_loci {
 		}
 	}
 	return;
+}
+
+sub _should_scheme_be_cited {
+	my ( $self, $scheme_id ) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM scheme_flags WHERE (scheme_id,flag)=(?,?))',
+		[ $scheme_id, 'citation required' ],
+		{ cache => 'Plugin::should_scheme_be_cited' }
+	);
 }
 
 sub order_loci {

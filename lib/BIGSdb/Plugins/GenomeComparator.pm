@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.7.9',
+		version     => '1.8.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -317,6 +317,8 @@ sub run {
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
+			local $" = q(,);
+			$params->{'cite_schemes'} = "@{$self->{'cite_schemes'}}";
 			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
@@ -1433,6 +1435,7 @@ sub _print_reports {
 	}
 	$self->_core_analysis( $loci, $args );
 	$self->_report_parameters( $ids, $loci, $args );
+	$self->_report_citations($args);
 	$self->{'workbook'}->close;
 	my $excel_file = "$self->{'config'}->{'tmp_dir'}/$job_id.xlsx";
 	open( my $excel_fh, '>', $excel_file ) || $logger->error("Can't open $excel_file for writing.");
@@ -1560,6 +1563,37 @@ sub _report_parameters {
 		$longest_length = length( $parameter->{'label'} ) if length( $parameter->{'label'} ) > $longest_length;
 	}
 	$worksheet->set_column( 0, 0, $self->_excel_col_width($longest_length) );
+	return;
+}
+
+sub _report_citations {
+	my ( $self, $args ) = @_;
+	my $params    = $self->{'params'};
+	my $worksheet = $self->{'workbook'}->add_worksheet('citation');
+	my %excel_format;
+	$excel_format{'heading'} = $self->{'workbook'}->add_format( size => 12, align => 'left', bold => 1 );
+	$excel_format{'value'} = $self->{'workbook'}->add_format( align => 'left' );
+	$worksheet->write( 0, 0, 'Please cite the following:',                         $excel_format{'heading'} );
+	$worksheet->write( 2, 0, q(BIGSdb Genome Comparator),                          $excel_format{'heading'} );
+	$worksheet->write( 3, 0, q(Jolley & Maiden (2010). BMC Bioinformatics 11:595), $excel_format{'value'} );
+	my $row = 5;
+	my @schemes = split /,/x, ( $params->{'cite_schemes'} // [] );
+
+	foreach my $scheme_id (@schemes) {
+		if ( $self->_should_scheme_be_cited($scheme_id) ) {
+			my $pmids =
+			  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
+				$scheme_id, { fetch => 'col_arrayref' } );
+			my $citations = $self->{'datastore'}->get_citation_hash($pmids);
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			$worksheet->write( $row, 0, $scheme_info->{'name'}, $excel_format{'heading'} );
+			foreach my $pmid (@$pmids) {
+				$row++;
+				$worksheet->write( $row, 0, $citations->{$pmid}, $excel_format{'value'} );
+			}
+			$row += 2;
+		}
+	}
 	return;
 }
 
