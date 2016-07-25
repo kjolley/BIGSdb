@@ -675,19 +675,21 @@ sub get_scheme_list {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry;
+	my $submission_clause =
+	  $options->{'submissions'} ? q( AND (schemes.no_submissions IS NULL OR NOT schemes.no_submissions)) : q();
 	if ( $options->{'set_id'} ) {
 		if ( $options->{'with_pk'} ) {
 			$qry =
 			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON )
 			  . q(schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE )
-			  . qq(primary_key AND set_schemes.set_id=$options->{'set_id'} ORDER BY schemes.display_order,)
+			  . qq(primary_key AND set_schemes.set_id=$options->{'set_id'}$submission_clause ORDER BY schemes.display_order,)
 			  . q(schemes.name);
 		} else {
 			$qry =
 			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND set_schemes.set_id=)
-			  . qq($options->{'set_id'} WHERE schemes.id IS NOT NULL ORDER BY schemes.display_order,)
+			  . qq($options->{'set_id'} WHERE schemes.id IS NOT NULL$submission_clause ORDER BY schemes.display_order,)
 			  . q(schemes.name);
 		}
 	} else {
@@ -695,9 +697,10 @@ sub get_scheme_list {
 			$qry =
 			    q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
-			  . q(scheme_fields.scheme_id WHERE primary_key ORDER BY schemes.display_order,schemes.name);
+			  . qq(scheme_fields.scheme_id WHERE primary_key$submission_clause ORDER BY schemes.display_order,schemes.name);
 		} else {
-			$qry = q[SELECT id,name,display_order FROM schemes ORDER BY display_order,name];
+			$submission_clause =~ s/AND/WHERE/x;
+			$qry = qq[SELECT id,name,display_order FROM schemes$submission_clause ORDER BY display_order,name];
 		}
 	}
 	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
@@ -1204,6 +1207,10 @@ sub get_locus_list {
 	if ( $options->{'no_extended_attributes'} ) {
 		$qry .= ( $qry =~ /loci$/x ) ? ' WHERE ' : ' AND ';
 		$qry .= 'loci.id NOT IN (SELECT locus from locus_extended_attributes)';
+	}
+	if ( $options->{'submissions'} ) {
+		$qry .= ( $qry =~ /loci$/x ) ? ' WHERE ' : ' AND ';
+		$qry .= 'loci.no_submissions IS NULL OR NOT loci.no_submissions';
 	}
 	my $loci = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $cleaned;

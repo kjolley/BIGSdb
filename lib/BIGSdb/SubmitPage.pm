@@ -281,8 +281,8 @@ sub _print_new_submission_links {
 		#This ensures that every new profile has accompanying isolate data.
 		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
 			my $set_id = $self->get_set_id;
-			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-			$schemes = $self->_filter_schemes_not_accepting_submissions($schemes);
+			my $schemes =
+			  $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id, submissions => 1 } );
 			foreach my $scheme (@$schemes) {
 				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
 				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'name'} profiles</a></li>);
@@ -773,11 +773,10 @@ sub _submit_alleles {
 		}
 		my $scheme_loci = @selected_schemes ? $self->_get_scheme_loci( \@selected_schemes ) : undef;
 		( $loci, $labels ) =
-		  $self->{'datastore'}->get_locus_list( { only_include => $scheme_loci, set_id => $set_id } );
+		  $self->{'datastore'}->get_locus_list( { only_include => $scheme_loci, set_id => $set_id, submissions => 1 } );
 	} else {
-		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, submissions => 1 } );
 	}
-	$loci = $self->_filter_loci_not_accepting_submissions($loci);
 	say q(<fieldset style="float:left"><legend>Select locus</legend>);
 	say $q->popup_menu(
 		-name     => 'locus',
@@ -797,32 +796,6 @@ sub _submit_alleles {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
-}
-
-#TODO When version 1.15 has been released, we can modify Datastore::get_locus_list to filter out loci with
-#the no_submissions flag set. Until then we cannot assume that this field is present.
-sub _filter_loci_not_accepting_submissions {
-	my ( $self, $loci ) = @_;
-	my @new_list;
-	foreach my $locus (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		next if $locus_info->{'no_submissions'};
-		push @new_list, $locus;
-	}
-	return \@new_list;
-}
-
-#TODO When version 1.15 has been released, we can modify Datastore::get_scheme_list to filter out schemes with
-#the no_submissions flag set. Until then we cannot assume that this field is present.
-sub _filter_schemes_not_accepting_submissions {
-	my ( $self, $schemes ) = @_;
-	my @new_list;
-	foreach my $scheme (@$schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
-		next if $scheme_info->{'no_submissions'};
-		push @new_list, $scheme;
-	}
-	return \@new_list;
 }
 
 sub _submit_profiles {
