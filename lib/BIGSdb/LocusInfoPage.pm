@@ -69,15 +69,17 @@ sub print_content {
 
 sub _print_description {
 	my ( $self, $locus_info ) = @_;
-	my $desc =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $locus_info->{'id'}, { fetch => 'row_hashref' } );
 	say q(<h2>Description</h2>);
 	say q(<dl class="data">);
 	if ( $locus_info->{'formatted_common_name'} ) {
 		say qq(<dt>Common name</dt><dd>$locus_info->{'formatted_common_name'}</dd>);
 	} elsif ( $locus_info->{'common_name'} ) {
 		say qq(<dt>Common name</dt><dd>$locus_info->{'common_name'}</dd>);
+	}
+	my $desc = {};
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$desc = $self->{'datastore'}->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?',
+			$locus_info->{'id'}, { fetch => 'row_hashref' } );
 	}
 	say qq(<dt>Full name</dt><dd>$desc->{'full_name'}</dd>) if $desc->{'full_name'};
 	say qq(<dt>Product</dt><dd>$desc->{'product'}</dd>)     if $desc->{'product'};
@@ -101,13 +103,16 @@ sub _print_description {
 		my $cds = $locus_info->{'coding_sequence'} ? 'yes' : 'no';
 		say qq(<dt>Coding sequence</dt><dd>$cds</dd>);
 	}
-	my $allele_count =
-	  $self->{'datastore'}->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')),
-		$locus_info->{'id'} );
-	if ($allele_count) {
-		my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
-		say qq(<dt>$seq_type</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1">$allele_count</a></dd>);
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		my $allele_count =
+		  $self->{'datastore'}
+		  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')),
+			$locus_info->{'id'} );
+		if ($allele_count) {
+			my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
+			say qq(<dt>$seq_type</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1">$allele_count</a></dd>);
+		}
 	}
 	say q(</dl>);
 	if ( $desc->{'description'} ) {
@@ -133,6 +138,7 @@ sub _print_aliases {
 
 sub _print_refs {
 	my ( $self, $locus_info ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $refs =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=?', $locus_info->{'id'}, { fetch => 'col_arrayref' } );
@@ -148,6 +154,7 @@ sub _print_refs {
 
 sub _print_links {
 	my ( $self, $locus_info ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $q = $self->{'cgi'};
 	my $links =
 	  $self->{'datastore'}->run_query( 'SELECT url,description FROM locus_links WHERE locus=? ORDER BY link_order',
@@ -173,6 +180,7 @@ sub _print_links {
 
 sub _print_curators {
 	my ( $self, $locus_info ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $curators = $self->{'datastore'}->run_query(
 		'SELECT curator_id FROM locus_curators WHERE locus=? AND '
 		  . '(NOT hide_public OR hide_public IS NULL) ORDER BY curator_id',

@@ -1478,6 +1478,14 @@ sub _print_pk_field {
 				elsif ( $field eq 'scheme_id' ) { $value = $scheme_info->{'name'} }
 				print qq(<td>$value</td>);
 			}
+		},
+		schemes => sub {
+			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=schemeInfo&scheme_id=$data->{'id'}">$data->{'id'}</a></td>);
+		},
+		loci => sub {
+			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=locusInfo&locus=$data->{'id'}">$data->{'id'}</a></td>);
 		}
 	);
 	if ( $methods{$table} ) {

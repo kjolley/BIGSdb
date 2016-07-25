@@ -232,20 +232,21 @@ sub get_loci_table_attributes {
 			}
 		  );
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
 		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
 		{
-			name    => 'orf',
-			type    => 'int',
-			optlist => '1;2;3;4;5;6',
-			tooltip => 'open reading frame - This is used for certain analyses that require translation.'
+			name        => 'orf',
+			type        => 'int',
+			optlist     => '1;2;3;4;5;6',
+			hide_public => 'yes',
+			tooltip     => 'open reading frame - This is used for certain analyses that require translation.'
 		},
 		{
-			name    => 'genome_position',
-			type    => 'int',
-			length  => 10,
-			tooltip => 'genome position - starting position in reference genome.  '
+			name        => 'genome_position',
+			type        => 'int',
+			length      => 10,
+			hide_public => 'yes',
+			tooltip     => 'genome position - starting position in reference genome.  '
 			  . 'This is used to order concatenated output functions.'
 		},
 		{
@@ -256,7 +257,7 @@ sub get_loci_table_attributes {
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
 		}
-	  );
+	);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my %defaults;
 		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
@@ -442,11 +443,12 @@ sub get_loci_table_attributes {
 				  . '(can be overridden by user preference).'
 			},
 			{
-				name     => 'submission_template',
-				type     => 'bool',
-				default  => 'false',
-				comments => 'Include column in isolate submission template for this locus',
-				tooltip  => 'submission_template - Do not include too many loci by default as the submission '
+				name        => 'submission_template',
+				type        => 'bool',
+				hide_public => 'yes',
+				default     => 'false',
+				comments    => 'Include column in isolate submission template for this locus',
+				tooltip     => 'submission_template - Do not include too many loci by default as the submission '
 				  . 'template will become unwieldy.'
 			}
 		  );
@@ -1067,7 +1069,7 @@ sub get_schemes_table_attributes {
 			unique   => 'yes',
 			tooltip  => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
-		{ name => 'description', type => 'text', length => 1000 }
+		{ name => 'description', type => 'text', hide => 'yes', length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
