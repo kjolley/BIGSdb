@@ -87,8 +87,8 @@ sub print_content {
 		say qq(<li><a href="${url_root}page=alleleQuery&amp;table=sequences">Locus-specific sequence attribute )
 		  . q(search</a> - select, analyse and download specific alleles.</li>);
 		if (@$scheme_data) {
-			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
-			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'}         : '';
+			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
+			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
 			say qq(<li><a href="${url_root}page=query$scheme_arg">Search, browse or enter list of )
 			  . qq($scheme_desc profiles</a></li>);
 			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc )
@@ -209,13 +209,15 @@ sub _print_options_section {
 	  . q(Set general options</a>);
 	say q( - including isolate table field handling.) if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(</li>);
+	my $url_root = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;);
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $url_root = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;);
 		say q(<li>Set display and query options for )
 		  . qq(<a href="${url_root}table=loci$set_string">locus</a>, )
 		  . qq(<a href="${url_root}table=schemes$set_string">schemes</a> or )
 		  . qq(<a href="${url_root}table=scheme_fields$set_string">scheme fields</a>.</li>);
+	} else {
+		say qq(<li><a href="${url_root}table=schemes$set_string">Scheme options</a></li>);
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} ) {
 		my $clients_authorized = $self->{'datastore'}->run_query(

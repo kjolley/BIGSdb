@@ -1887,6 +1887,8 @@ sub initiate_prefs {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->_initiate_isolatedb_prefs( $general_prefs, $field_prefs, $scheme_field_prefs );
+	} else {
+		$self->_initiate_seqdefdb_prefs;
 	}
 
 	#Set dropdown status for scheme fields
@@ -1941,6 +1943,28 @@ sub _initiate_isolatedb_prefs {
 		return if none { $self->{'pref_requirements'}->{$_} } qw (isolate_display main_display query_field analysis);
 		$self->_initiate_isolatedb_locus_prefs( $guid, $dbname );
 		$self->_initiate_isolatedb_scheme_prefs( $guid, $dbname, $field_prefs, $scheme_field_prefs );
+	}
+	return;
+}
+
+sub _initiate_seqdefdb_prefs {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $guid          = $self->get_guid || 1;
+	my $dbname        = $self->{'system'}->{'db'};
+	my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
+	my $set_id        = $self->get_set_id;
+	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
+	foreach my $scheme (@$schemes) {
+
+		if ( defined $scheme_values->{ $scheme->{'id'} }->{'disable'} ) {
+			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
+			  $scheme_values->{ $scheme->{'id'} }->{'disable'} ? 1 : 0;
+		} else {
+			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
+			  $scheme_info->{ $scheme->{'id'} }->{'disable'};
+		}
 	}
 	return;
 }

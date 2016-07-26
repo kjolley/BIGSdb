@@ -232,7 +232,8 @@ sub get_loci_table_attributes {
 			}
 		  );
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
 		{
 			name        => 'orf',
@@ -257,7 +258,7 @@ sub get_loci_table_attributes {
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my %defaults;
 		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
@@ -1177,8 +1178,12 @@ sub get_schemes_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes,
-		  (
+		push @$attributes, (
+			{
+				name     => 'disable',
+				type     => 'bool',
+				comments => q(Set to true to disable scheme. This can be overridden by user preference settings.)
+			},
 			{
 				name        => 'no_submissions',
 				type        => 'bool',
@@ -1186,7 +1191,7 @@ sub get_schemes_table_attributes {
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (
@@ -1258,13 +1263,13 @@ sub get_scheme_fields_table_attributes {
 			tooltip  => 'primary key - Sets whether this field defines a profile '
 			  . '(you can only have one primary key field).'
 		},
-		{ name => 'description', type => 'text', required => 'no', length => 64, },
-		{ name => 'field_order', type => 'int',  required => 'no', hide_public=>'yes' }
+		{ name => 'description', type => 'text', required => 'no', length      => 64, },
+		{ name => 'field_order', type => 'int',  required => 'no', hide_public => 'yes' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
-			{ name => 'url', type => 'text', required => 'no', length => 120, hide_public=>'yes'},
+			{ name => 'url', type => 'text', required => 'no', length => 120, hide_public => 'yes' },
 			{
 				name     => 'isolate_display',
 				type     => 'bool',

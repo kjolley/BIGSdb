@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,7 +81,7 @@ sub print_content {
 		next if $att->{'hide'} eq 'yes';
 		if (   $att->{'primary_key'}
 			|| $att->{'name'} =~ /display/
-			|| ( any { $att->{'name'} eq $_ } qw (description query_field analysis) )
+			|| ( any { $att->{'name'} eq $_ } qw (name query_field analysis disable) )
 			|| ( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) )
 		{
 			push @display, $att->{'name'};
@@ -145,7 +145,7 @@ sub print_content {
 	say q(</div>);
 	say q(<div class="box" id="resultsheader"><div class="scrollable">);
 	say q(<fieldset><legend>Modify options</legend><ul>);
-	my %action = map { $_ => 1 } qw (main_display isolate_display query_field analysis);
+	my %action = map { $_ => 1 } qw (main_display isolate_display query_field analysis disable);
 
 	foreach my $att (@$attributes) {
 		next
@@ -311,7 +311,7 @@ sub _process_schemes {
 			print qq(<td>$value</td>);
 		} else {
 			my $value;
-			if ( any { $field eq $_ } qw (isolate_display main_display query_field analysis) ) {
+			if ( any { $field eq $_ } qw (isolate_display main_display query_field analysis disable) ) {
 				$value =
 				  $self->{'prefs'}->{"${field}_schemes"}->{ $data->{'id'} }
 				  ? 'true'

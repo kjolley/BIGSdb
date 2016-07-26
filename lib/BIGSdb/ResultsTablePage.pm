@@ -1110,7 +1110,7 @@ sub _get_record_table_info {
 		push @qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
-		my %overridable = map { $_ => 1 } qw (isolate_display main_display query_field query_status dropdown analysis);
+		my %overridable = map { $_ => 1 } qw (isolate_display main_display query_field query_status dropdown analysis disable);
 		if ( $overridable{ $attr->{'name'} } && $table ne 'projects' ) {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
