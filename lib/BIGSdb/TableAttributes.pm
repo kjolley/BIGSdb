@@ -20,7 +20,7 @@ package BIGSdb::TableAttributes;
 use strict;
 use warnings;
 use List::MoreUtils qw(any);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS IDENTITY_THRESHOLD);
 
 #Attributes
 #hide => 'yes': Do not display in results table and do not return field values in query
@@ -407,6 +407,7 @@ sub get_loci_table_attributes {
 			}
 		  );
 	} else {    #Seqdef database
+		my $id_threshold = IDENTITY_THRESHOLD;
 		push @$attributes,
 		  {
 			name        => 'complete_cds',
@@ -419,8 +420,21 @@ sub get_loci_table_attributes {
 			name        => 'no_submissions',
 			type        => 'bool',
 			hide_public => 'yes',
-			comments    => q(Set to true to prevent submission of alleles of this )
-			  . q(locus via the automated submission system.)
+			comments    => 'Set to true to prevent submission of alleles of this '
+			  . 'locus via the automated submission system.'
+		  },
+		  {
+			name     => 'id_check_type_alleles',
+			type     => 'bool',
+			comments => 'Select to only use type alleles when checking similarity '
+			  . 'of new alleles to existing sequences.',
+			tooltip => 'id_check_type_alleles - You must ensure that you define type alleles if you use this.'
+		  },
+		  {
+			name     => 'id_check_threshold',
+			type     => 'float',
+			comments => q(Set the percentage threshold for the identity match to existing )
+			  . qq(alleles when adding new alleles. Leave blank to use the default ($id_threshold%).)
 		  };
 	}
 	push @$attributes,

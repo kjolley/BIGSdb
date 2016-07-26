@@ -1,4 +1,6 @@
 ALTER TABLE loci ADD no_submissions boolean;
+ALTER TABLE loci ADD id_check_type_alleles boolean;
+ALTER TABLE loci ADD id_check_threshold float;
 
 ALTER TABLE schemes ADD no_submissions boolean;
 ALTER TABLE schemes ADD disable boolean;

@@ -25,7 +25,7 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS);
+use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS IDENTITY_THRESHOLD);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -535,8 +535,13 @@ sub _check_sequence_field {
 	if ( !$q->param('ignore_similarity') ) {
 		my $check = $self->{'datastore'}->check_sequence_similarity( $newdata->{'locus'}, \( $newdata->{'sequence'} ) );
 		if ( !$check->{'similar'} ) {
+			my $id_threshold =
+			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
+			  ? $locus_info->{'id_check_threshold'}
+			  : IDENTITY_THRESHOLD;
+			my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
 			push @$problems,
-			    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+			    qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
@@ -751,19 +756,18 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	return;
 }
 
-sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
-	my %allowed = map{$_ => 1} SCHEME_FLAGS;
-	my $q = $self->{'cgi'};
-	my @flags = $q->param('flags');
-	foreach my $flag (@flags){
-		if ($allowed{$flag}){
+	my %allowed = map { $_ => 1 } SCHEME_FLAGS;
+	my $q       = $self->{'cgi'};
+	my @flags   = $q->param('flags');
+	foreach my $flag (@flags) {
+		if ( $allowed{$flag} ) {
 			push @$extra_inserts,
-		  {
-			statement =>
-			  'INSERT INTO scheme_flags (scheme_id,flag,curator,datestamp) VALUES (?,?,?,?)',
-			arguments => [ $newdata->{'id'}, $flag, $newdata->{'curator'}, 'now' ]
-		  };
+			  {
+				statement => 'INSERT INTO scheme_flags (scheme_id,flag,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $newdata->{'id'}, $flag, $newdata->{'curator'}, 'now' ]
+			  };
 		} else {
 			push @$problems, "'$flag' is not a valid flag.";
 		}
@@ -794,7 +798,7 @@ sub _check_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by d
 			push @$extra_inserts,
 			  {
 				statement =>
-				  'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
 				arguments => [ $newdata->{'id'}, $url, $desc, $i, $newdata->{'curator'}, 'now' ]
 			  };
 		}

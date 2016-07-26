@@ -109,7 +109,8 @@ use constant ALLELE_FLAGS => (
 );
 use constant DIPLOID => qw(A C G T R Y W S M K);
 use constant HAPLOID => qw(A C G T);
-push @EXPORT_OK, qw(SEQ_STATUS SEQ_FLAGS ALLELE_FLAGS DIPLOID HAPLOID);
+use constant IDENTITY_THRESHOLD => 70;
+push @EXPORT_OK, qw(SEQ_STATUS SEQ_FLAGS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD);
 
 #Databanks
 use constant DATABANKS => qw(ENA Genbank);

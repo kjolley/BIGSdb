@@ -30,7 +30,7 @@ use Bio::SeqIO;
 use Digest::MD5;
 use constant SUCCESS => 1;
 use constant FAILURE => 2;
-use BIGSdb::Constants qw(SEQ_STATUS HAPLOID DIPLOID);
+use BIGSdb::Constants qw(SEQ_STATUS HAPLOID DIPLOID IDENTITY_THRESHOLD);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -360,7 +360,13 @@ sub _check_sequence_similarity {
 		&& $self->{'datastore'}->sequences_exist($locus) );
 	my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $seq_ref );
 	if ( !$check->{'similar'} ) {
-		return q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $id_threshold =
+		  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
+		  ? $locus_info->{'id_check_threshold'}
+		  : IDENTITY_THRESHOLD;
+		my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
+		return qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 		  . q[alignment of less than 90% its length). ];
 	} elsif ( $check->{'subsequence_of'} ) {
 		return qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]

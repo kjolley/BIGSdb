@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID :submissions);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -1425,8 +1425,13 @@ sub _check_sequence_field {
 	{
 		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $args->{'value'} );
 		if ( !$check->{'similar'} ) {
+			my $id_threshold =
+			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
+			  ? $locus_info->{'id_check_threshold'}
+			  : IDENTITY_THRESHOLD;
+			my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
 			$buffer .=
-			    q[Sequence is too dissimilar to existing alleles (less than 70% identical or an ]
+			    qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]

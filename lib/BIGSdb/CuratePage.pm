@@ -227,8 +227,13 @@ sub _get_html5_args {
 	my ( $self, $att ) = @_;
 	my %html5_args;
 	$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
-	if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
-		@html5_args{qw(type min step)} = qw(number 0 1);
+	if (!$att->{'dropdown_query'} && !$att->{'optlist'}){
+		if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
+			@html5_args{qw(type min step)} = qw(number 0 1);
+		}
+		if ($att->{'type'} eq 'float' ){
+			@html5_args{qw(type min step)} = qw(number 0 any);
+		}
 	}
 	return \%html5_args;
 }

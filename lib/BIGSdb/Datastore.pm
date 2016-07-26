@@ -31,6 +31,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
+use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
 use IO::Handle;
 use Digest::MD5;
 
@@ -976,7 +977,7 @@ sub create_temp_scheme_table {
 	$create .= ')';
 	$self->{'db'}->do($create);
 	my $seqdef_scheme_id = $self->get_scheme_info($id)->{'dbase_id'};
-	my $data         = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM mv_scheme_$seqdef_scheme_id",
+	my $data = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM mv_scheme_$seqdef_scheme_id",
 		undef, { db => $scheme_db, fetch => 'all_arrayref' } );
 	eval { $self->{'db'}->do("COPY $table(@$fields,profile) FROM STDIN"); };
 
@@ -1860,6 +1861,9 @@ sub create_blast_db {
 	my $lock_fh;
 	if ( $self->_specific_locus_selected( $options->{'locus'} ) ) {
 		$qry = 'SELECT locus,allele_id,sequence from sequences WHERE locus=?';
+		if ($options->{'type_alleles'}){
+			$qry .= ' AND type_allele';
+		}
 	} else {
 
 		#Prevent two makeblastdb processes running in the same directory
@@ -1967,15 +1971,25 @@ sub _get_cache_age {
 
 sub check_sequence_similarity {
 
-	#returns hashref with the following keys
-	#similar          - true if sequence is at least 70% identical over an alignment length of 90% or more.
-	#subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
-	#supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
+ #returns hashref with the following keys
+ #similar          - true if sequence is at least IDENTITY_THRESHOLD% identical over an alignment length of 90% or more.
+ #subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
+ #supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
 	my ( $self, $locus, $seq_ref ) = @_;
 	my $locus_info = $self->get_locus_info($locus);
-	my ( $blast_file, undef ) =
-	  $self->run_blast(
-		{ locus => $locus, seq_ref => $seq_ref, qry_type => $locus_info->{'data_type'}, num_results => 1 } );
+	my $id_threshold =
+	  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
+	  ? $locus_info->{'id_check_threshold'}
+	  : IDENTITY_THRESHOLD;
+	my ( $blast_file, undef ) = $self->run_blast(
+		{
+			locus        => $locus,
+			seq_ref      => $seq_ref,
+			qry_type     => $locus_info->{'data_type'},
+			num_results  => 1,
+			type_alleles => ( $locus_info->{'id_check_type_alleles'} ? 1 : 0 )
+		}
+	);
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	my $length    = length $$seq_ref;
 	return if !-s $full_path;
@@ -1997,7 +2011,7 @@ sub check_sequence_similarity {
 	}
 	close $blast_fh;
 	unlink $full_path;
-	if ( !$reversed && defined $identity && $identity >= 70 && $alignment >= 0.9 * $length ) {
+	if ( !$reversed && defined $identity && $identity >= $id_threshold && $alignment >= 0.9 * $length ) {
 		$similar = 1;
 		if ( $identity == 100 ) {
 			my $matched_seq_ref = $self->get_sequence( $locus, $allele_id );
