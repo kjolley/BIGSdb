@@ -322,7 +322,7 @@ sub get_selected_loci {
 	}
 	my $qry;
 	my $loci_qry = 'SELECT id FROM loci';
-	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL' if $options->{'with_ref_db'};
+	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL' if $options->{'with_ref_db'};
 	if ( $self->{'options'}->{'datatype'} ) {
 		my %allowed = map { $_ => 1 } qw(DNA peptide);
 		die "Invalid data type selected.\n" if !$allowed{ $self->{'options'}->{'datatype'} };

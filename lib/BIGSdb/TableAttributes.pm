@@ -1111,10 +1111,10 @@ sub get_schemes_table_attributes {
 				  . 'to leave this blank.'
 			},
 			{
-				name        => 'dbase_table',
-				type        => 'text',
+				name        => 'dbase_id',
+				type        => 'int',
 				hide_public => 'yes',
-				tooltip     => 'dbase_table - Database table that holds profile or field information for this scheme.'
+				tooltip     => 'dbase_id - Scheme id in remote database.'
 			},
 			{
 				name     => 'isolate_display',

@@ -324,11 +324,8 @@ sub check_user_exists {
 sub get_remote_scheme_id {
 	my $db = get_seqdef_db();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $remote_scheme_id;
-	if ( $scheme_info->{'dbase_table'} =~ /mv_scheme_(\d+)/x ) {
-		return $1;
-	}
-	die "The scheme table in the seqdef database is not properly set for this scheme in the isolate database.\n";
+	return $scheme_info->{'dbase_id'} if $scheme_info->{'dbase_id'};
+	die "The scheme id in the seqdef database is not properly set for this scheme in the isolate database.\n";
 }
 
 sub check_scheme_properly_defined {

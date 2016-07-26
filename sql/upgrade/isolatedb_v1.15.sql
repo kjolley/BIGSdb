@@ -2,6 +2,9 @@ ALTER TABLE schemes DROP COLUMN IF EXISTS dbase_st_field;
 ALTER TABLE schemes DROP COLUMN IF EXISTS dbase_st_descriptor;
 ALTER TABLE schemes RENAME description TO name;
 ALTER TABLE schemes ADD description text;
+ALTER TABLE schemes ADD dbase_id int;
+UPDATE schemes SET dbase_id=CAST(REGEXP_REPLACE(dbase_table,'^mv_scheme_','') AS int) WHERE dbase_table IS NOT NULL;
+ALTER TABLE schemes DROP COLUMN dbase_table;
 
 CREATE TABLE scheme_flags (
 scheme_id int NOT NULL,

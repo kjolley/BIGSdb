@@ -74,7 +74,7 @@ sub print_content {
 	}
 	my $schemes =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
+	  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL ORDER BY id',
 		undef, { fetch => 'col_arrayref' } );
 	my @filtered_schemes;
 	my $set_id = $self->get_set_id;

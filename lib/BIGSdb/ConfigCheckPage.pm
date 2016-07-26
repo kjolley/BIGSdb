@@ -184,7 +184,7 @@ sub _check_scheme_databases {
 	my $td = 1;
 	if (@$schemes) {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Scheme description</th><th>Database</th>)
-		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th><th>Profile query</th></tr>);
+		  . q(<th>Host</th><th>Port</th><th>Id</th><th>Database accessible</th><th>Profile query</th></tr>);
 		foreach my $scheme_id (@$schemes) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			$scheme_info->{'name'} =~ s/&/&amp;/gx;
@@ -195,7 +195,7 @@ sub _check_scheme_databases {
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 			  . q(</td><td>)
-			  . ( $scheme_info->{'dbase_table'} // q() )
+			  . ( $scheme_info->{'dbase_id'} // q() )
 			  . q(</td><td>);
 			if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
 				print GOOD;
@@ -229,7 +229,7 @@ sub _check_classification_scheme_databases {
 	my $td = 1;
 	if (@$cschemes) {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Classification scheme</th>)
-		  . q(<th>Scheme</th><th>Database</th><th>Host</th><th>Port</th><th>Table</th><th>Database accessible</th>)
+		  . q(<th>Scheme</th><th>Database</th><th>Host</th><th>Port</th><th>Id</th><th>Database accessible</th>)
 		  . q(<th>Seqdef classification scheme id</th><th>Classification data</th></tr>);
 		foreach my $cscheme_id (@$cschemes) {
 			my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
@@ -245,7 +245,7 @@ sub _check_classification_scheme_databases {
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 			  . q(</td><td>)
-			  . ( $scheme_info->{'dbase_table'} // q() )
+			  . ( $scheme_info->{'dbase_id'} // q() )
 			  . q(</td><td>);
 			if ( $self->{'datastore'}->get_classification_scheme($cscheme_id)->get_db ) {
 				print GOOD;

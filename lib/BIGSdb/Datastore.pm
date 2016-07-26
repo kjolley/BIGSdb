@@ -975,8 +975,8 @@ sub create_temp_scheme_table {
 	$create .= "@table_fields";
 	$create .= ')';
 	$self->{'db'}->do($create);
-	my $seqdef_table = $self->get_scheme_info($id)->{'dbase_table'};
-	my $data         = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM $seqdef_table",
+	my $seqdef_scheme_id = $self->get_scheme_info($id)->{'dbase_id'};
+	my $data         = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM mv_scheme_$seqdef_scheme_id",
 		undef, { db => $scheme_db, fetch => 'all_arrayref' } );
 	eval { $self->{'db'}->do("COPY $table(@$fields,profile) FROM STDIN"); };
 

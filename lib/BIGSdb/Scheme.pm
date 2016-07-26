@@ -36,9 +36,8 @@ sub new {    ## no critic (RequireArgUnpacking)
 sub _initiate {
 	my ($self) = @_;
 	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
-	if ( $self->{'dbase_table'} =~ /scheme_(\d+)$/x ) {
-		my $scheme_id = $1;
-		eval { $sql->execute($scheme_id); };
+	if ( $self->{'dbase_id'} ) {
+		eval { $sql->execute( $self->{'dbase_id'} ); };
 		$logger->error($@) if $@;
 		my $data = $sql->fetchall_arrayref;
 		my %indices = map { $_->[0] => $_->[1] } @$data;
@@ -70,7 +69,8 @@ sub get_profile_by_primary_keys {
 		my @locus_names;
 		push @locus_names, "profile[$self->{'locus_index'}->{$_}]" foreach @$loci;
 		local $" = ',';
-		my $qry = "SELECT @locus_names FROM $self->{'dbase_table'} WHERE ";
+		my $table = "mv_scheme_$self->{'dbase_id'}";
+		my $qry   = "SELECT @locus_names FROM $table WHERE ";
 		local $" = '=? AND ';
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
@@ -134,9 +134,9 @@ sub get_field_values_by_designations {
 		local $" = ' AND ';
 		my $locus_term_string = "@locus_terms";
 		local $" = ',';
-		$self->{'dbase_table'} //= '';
+		my $table = "mv_scheme_$self->{'dbase_id'}";
 		$self->{'sql'}->{"field_values_$query_key"} =
-		  $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $self->{'dbase_table'} WHERE $locus_term_string");
+		  $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $table WHERE $locus_term_string");
 	}
 	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
 	if ($@) {
@@ -153,21 +153,10 @@ sub get_field_values_by_designations {
 sub get_distinct_fields {
 	my ( $self, $field ) = @_;
 	$logger->error("Scheme#$self->{'id'} database is not configured.") if !defined $self->{'dbase_name'};
-	return [] if !defined $self->{'dbase_name'} || !defined $self->{'dbase_table'};
-
-	#If database name contains term 'bigsdb', then assume it has the usual BIGSdb seqdef structure.
-	#Now can query profile_fields table directly, rather than the scheme view.  This will be much quicker.
-	#If scheme uses a materialized view (prefixed with mv_) then it will be quicker to check this.
-	my $qry;
-	if ( $self->{'dbase_name'} =~ /bigsdb/x && $self->{'dbase_table'} =~ /^mv_scheme_(\d+)$/x ) {
-		my $scheme_id = $1;
-		$qry = qq(SELECT DISTINCT value FROM profile_fields WHERE scheme_field='$field' )
-		  . qq(AND scheme_id=$scheme_id ORDER BY value);
-	} else {
-		$qry = qq(SELECT DISTINCT $field FROM $self->{'dbase_table'} WHERE $field IS NOT NULL ORDER BY $field);
-	}
+	return [] if !defined $self->{'dbase_name'} || !defined $self->{'dbase_id'};
+	my $qry    = q(SELECT DISTINCT value FROM profile_fields WHERE scheme_field=? AND scheme_id=? ORDER BY value);
 	my $values = [];
-	eval { $values = $self->{'db'}->selectcol_arrayref($qry) };
+	eval { $values = $self->{'db'}->selectcol_arrayref( $qry, undef, $field, $self->{'dbase_id'} ) };
 	if ($@) {
 		$logger->warn( q(Can't execute query handle. Check database attributes in the scheme_fields table )
 			  . qq(for scheme#$self->{'id'} $@) );

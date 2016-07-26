@@ -2,7 +2,7 @@
 #Create scheme profile caches in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,7 +46,7 @@ sub run_script {
 	} else {
 		$schemes =
 		  $self->{'datastore'}
-		  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_table IS NOT NULL ORDER BY id',
+		  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL ORDER BY id',
 			undef, { fetch => 'col_arrayref' } );
 		$cschemes =
 		  $self->{'datastore'}

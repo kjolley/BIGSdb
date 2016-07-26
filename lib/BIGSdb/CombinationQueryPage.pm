@@ -189,7 +189,7 @@ sub _print_query_interface {
 	say q(</table></fieldset>);
 	if (
 		$primary_key
-		&& ( ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'dbase_table'} )
+		&& ( ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'dbase_id'} )
 			|| $self->{'system'}->{'dbtype'} eq 'sequences' )
 	  )
 	{
