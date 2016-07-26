@@ -61,7 +61,7 @@ sub _print_tree {
 	  . q(Click the nodes to expand/collapse.</p>);
 	say q(<noscript><p class="highlight">Enable Javascript to enhance your viewing experience.</p></noscript>)
 	  . q(<div id="tree" class="tree">);
-	say $self->get_tree(undef);
+	say $self->get_tree( undef, { no_disabled => 1 } );
 	say q(</div><div id="scheme_table"></div>);
 	return;
 }
@@ -245,6 +245,7 @@ sub _print_all_loci_by_scheme {
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
+		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
 		$self->_print_scheme_table( $scheme->{'id'} );
 	}
 	$self->_print_scheme_table(0);
@@ -299,7 +300,7 @@ sub _print_scheme_table {
 	$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
 	say qq(<h2><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h2>);
-	say $self->get_scheme_flags($scheme_id,{link=>1});
+	say $self->get_scheme_flags( $scheme_id, { link => 1 } );
 	say q(<div class="scrollable"><table class="resultstable">);
 	$self->_print_table_header_row(
 		{

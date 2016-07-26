@@ -99,6 +99,25 @@ END
 	return $buffer;
 }
 
+sub _get_schemes_not_in_groups {
+	my ($self, $options) = @_;
+	my $set_id               = $self->get_set_id;
+	my $set_clause           = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+		my $schemes = $self->{'datastore'}->run_query(
+		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
+		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,name",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	return $schemes if !$options->{'no_disabled'};
+	my @not_in_group;
+	foreach my $scheme(@$schemes){
+		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } ;
+		push @not_in_group, $scheme;
+	}
+	return \@not_in_group;
+}
+
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -112,13 +131,8 @@ sub get_tree {
 		{ fetch => 'col_arrayref' }
 	);
 	my $set_id               = $self->get_set_id;
-	my $set_clause           = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
-	my $schemes_not_in_group = $self->{'datastore'}->run_query(
-		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
-		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,name",
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my $schemes_not_in_group = $self->_get_schemes_not_in_groups($options);
+
 	my $buffer;
 
 	foreach my $group (@$groups_with_no_parent) {
@@ -224,6 +238,7 @@ sub _get_group_schemes {
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
+			next if $options->{'no_disabled'} && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			my $scheme_loci_buffer;
 			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
