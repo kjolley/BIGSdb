@@ -1602,6 +1602,7 @@ sub get_seq_detail_tooltips {
 		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S&nbsp;</a>);
 	}
 	if (@all_flags) {
+		
 		my $text = 'Flags - ';
 		foreach my $flag (@all_flags) {
 			$text .= $flag;

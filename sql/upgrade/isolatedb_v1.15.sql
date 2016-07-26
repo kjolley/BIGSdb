@@ -57,3 +57,8 @@ ON UPDATE CASCADE
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_refs TO apache;
 
 ALTER TABLE loci DROP COLUMN flag_table;
+ALTER TABLE loci DROP COLUMN dbase_table;
+ALTER TABLE loci DROP COLUMN dbase_id_field;
+ALTER TABLE loci DROP COLUMN dbase_id2_field;
+ALTER TABLE loci DROP COLUMN dbase_seq_field;
+ALTER TABLE loci RENAME COLUMN dbase_id2_value TO dbase_id;

@@ -104,8 +104,7 @@ sub _check_locus_databases {
 
 	if (@$loci) {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Locus</th><th>Database</th>)
-		  . q(<th>Host</th><th>Port</th><th>Table</th><th>Primary id field</th><th>Secondary id field</th>)
-		  . q(<th>Secondary id field value</th><th>Sequence field</th><th>Database accessible</th>)
+		  . q(<th>Host</th><th>Port</th><th>Id field value</th><th>Database accessible</th>)
 		  . q(<th>Sequence query</th><th>Sequences assigned</th></tr>);
 	  LOCUS: foreach my $locus (@$loci) {
 			if ( $ENV{'MOD_PERL'} ) {
@@ -122,15 +121,7 @@ sub _check_locus_databases {
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_port'} // $self->{'system'}->{'port'} )
 			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_table'} // q() )
-			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_id_field'} // q() )
-			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_id2_field'} // q() )
-			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_id2_value'} // q() )
-			  . q(</td><td>)
-			  . ( $locus_info->{'dbase_seq_field'} // q() )
+			  . ( $locus_info->{'dbase_id'} // q() )
 			  . q(</td><td>);
 			if ( !$locus_db ) {
 				$buffer .= BAD;

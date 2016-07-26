@@ -29,8 +29,6 @@ sub new {    ## no critic (RequireArgUnpacking)
 	if ( !$self->{'id'} ) {
 		throw BIGSdb::DataException('Invalid locus');
 	}
-	$self->{'dbase_id_field'}  = 'id'       if !$self->{'dbase_id_field'};
-	$self->{'dbase_seq_field'} = 'sequence' if !$self->{'dbase_seq_field'};
 	bless( $self, $class );
 	$logger->info("Locus $self->{'id'} set up.");
 	return $self;
@@ -56,21 +54,12 @@ sub get_allele_id_from_sequence {
 	if ( !$self->{'db'} ) {
 		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
 	}
+	$logger->error('here');
 	if ( !$self->{'sql'}->{'lookup_sequence'} ) {
-		my $qry;
-		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-			$qry =
-			    "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} WHERE "
-			  . "(md5($self->{'dbase_seq_field'}),$self->{'dbase_id2_field'})=(md5(?),?)";
-		} else {
-			$qry = "SELECT $self->{'dbase_id_field'} FROM $self->{'dbase_table'} "
-			  . "WHERE md5($self->{'dbase_seq_field'})=md5(?)";
-		}
+		my $qry = 'SELECT allele_id FROM sequences WHERE (md5(sequence),locus)=(md5(?),?)';
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
 	}
-	my @args = ($$seq_ref);
-	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $self->{'sql'}->{'lookup_sequence'}->execute(@args) };
+	eval { $self->{'sql'}->{'lookup_sequence'}->execute($self->{'dbase_id'},$$seq_ref) };
 	if ($@) {
 		$logger->error( q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
 			  . qq (locus table for locus '$self->{'id'}'! Statement was )
@@ -92,20 +81,11 @@ sub get_allele_sequence {
 		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
 	}
 	if ( !$self->{'sql'}->{'sequence'} ) {
-		my $qry;
-		if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-			$qry =
-			    "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
-			  . "($self->{'dbase_id_field'},$self->{'dbase_id2_field'})=(?,?)";
-		} else {
-			$qry = "SELECT $self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE $self->{'dbase_id_field'}=?";
-		}
+		my $qry = 'SELECT sequence FROM sequences WHERE (locus,allele_id)=(?,?)';
 		$self->{'sql'}->{'sequence'} = $self->{'db'}->prepare($qry);
 		$logger->debug("Locus $self->{'id'} statement handle 'sequence' prepared ($qry).");
 	}
-	my @args = ($id);
-	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $self->{'sql'}->{'sequence'}->execute(@args) };
+	eval { $self->{'sql'}->{'sequence'}->execute( $self->{'dbase_id'}, $id ) };
 	if ($@) {
 		$logger->error( q(Cannot execute 'sequence' query handle. Check database attributes in the locus table for )
 			  . qq(locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ )
@@ -131,28 +111,17 @@ sub get_all_sequences {
 	#the values from the sequences table directly.
 	my $temp_table = "temp_locus_$self->{'id'}";
 	$temp_table =~ s/'/_/gx;
-	my $qry;
-	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'} WHERE "
-		  . "$self->{'dbase_id2_field'}=?";
-		$qry .= ' AND exemplar' if $options->{'exemplar'};
-		$qry .= ' AND type_allele' if $options->{'type_alleles'};
-	} else {
-		#TODO Remove support for non-BIGSdb seqdef databases
-		$logger->logwarn('Use of non-BIGSdb sequence definition databases is deprecated.');
-		$qry = "SELECT $self->{'dbase_id_field'},$self->{'dbase_seq_field'} FROM $self->{'dbase_table'}";
-		$qry .= ' WHERE exemplar' if $options->{'exemplar'};
-	}
-	my @args;
-	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
+	my $qry = 'SELECT allele_id,sequence FROM sequences WHERE locus=?';
+	$qry .= ' AND exemplar'    if $options->{'exemplar'};
+	$qry .= ' AND type_allele' if $options->{'type_alleles'};
 	my $sql;
 	eval {
 		if ( $options->{'no_temp_table'} )
 		{
 			$sql = $self->{'db'}->prepare($qry);
-			$sql->execute(@args);
+			$sql->execute( $self->{'dbase_id'} );
 		} else {
-			$self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, @args );
+			$self->{'db'}->do("CREATE TEMP TABLE $temp_table AS $qry");
 			$sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
 			$sql->execute;
 		}
@@ -184,16 +153,9 @@ sub get_sequence_count {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return;
 	}
-	my $qry;
-	if ( $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'} ) {
-		$qry = "SELECT COUNT(*) FROM $self->{'dbase_table'} WHERE $self->{'dbase_id2_field'}=?";
-	} else {
-		$qry = "SELECT COUNT(*) FROM $self->{'dbase_table'}";
-	}
+	my $qry = 'SELECT allele_count FROM locus_stats WHERE locus=?';
 	my $sql = $self->{'db'}->prepare($qry);
-	my @args;
-	push @args, $self->{'dbase_id2_value'} if $self->{'dbase_id2_field'} && $self->{'dbase_id2_value'};
-	eval { $sql->execute(@args) };
+	eval { $sql->execute( $self->{'dbase_id'} ) };
 	if ($@) {
 		$logger->error($@);
 		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
@@ -207,10 +169,6 @@ sub get_flags {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return [];
 	}
-	if ( !$self->{'dbase_id2_value'} ) {
-		$logger->error('You can only get flags from a BIGSdb seqdef database.');
-		return [];
-	}
 	if ( !$self->{'sql'}->{'flags'} ) {
 		$self->{'sql'}->{'flags'} =
 		  $self->{'db'}->prepare('SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?)');
@@ -218,7 +176,7 @@ sub get_flags {
 	my $flags;
 	eval {
 		$flags =
-		  $self->{'db'}->selectcol_arrayref( $self->{'sql'}->{'flags'}, undef, $self->{'dbase_id2_value'}, $allele_id );
+		  $self->{'db'}->selectcol_arrayref( $self->{'sql'}->{'flags'}, undef, $self->{'dbase_id'}, $allele_id );
 	};
 	if ($@) {
 		$logger->error($@) if $@;

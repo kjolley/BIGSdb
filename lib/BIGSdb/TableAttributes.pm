@@ -265,9 +265,7 @@ sub get_loci_table_attributes {
 			$defaults{'dbase_name'} = $self->{'system'}->{'default_seqdef_dbase'};
 		}
 		if ( $self->{'system'}->{'default_seqdef_config'} ) {
-			@defaults{qw(dbase_table dbase_id_field dbase_id2_field dbase_seq_field)} =
-			  qw(sequences allele_id locus sequence);
-			$defaults{'dbase_id2_value'} = 'PUT_LOCUS_NAME_HERE';
+			$defaults{'dbase_id'} = 'PUT_LOCUS_NAME_HERE';
 			my $default_script = $self->{'system'}->{'default_seqdef_script'} // '/cgi-bin/bigsdb/bigsdb.pl';
 			$defaults{'description_url'} = "$default_script?db=$self->{'system'}->{'default_seqdef_config'}&"
 			  . 'page=locusInfo&locus=PUT_LOCUS_NAME_HERE';
@@ -341,46 +339,11 @@ sub get_loci_table_attributes {
 				  . 'you may be able to leave this blank.'
 			},
 			{
-				name     => 'dbase_table',
+				name     => 'dbase_id',
 				type     => 'text',
 				hide     => 'yes',
-				comments => 'Database table that holds sequence information for this locus',
-				default  => $defaults{'dbase_table'}
-			},
-			{
-				name     => 'dbase_id_field',
-				type     => 'text',
-				hide     => 'yes',
-				comments => q(Primary field in sequence database that defines allele, e.g. 'allele_id'),
-				default  => $defaults{'dbase_id_field'}
-			},
-			{
-				name     => 'dbase_id2_field',
-				type     => 'text',
-				hide     => 'yes',
-				comments => q(Secondary field that defines allele, e.g. 'locus'),
-				tooltip  => q(dbase id2 field - Use where the sequence database table requires more than the )
-				  . q(id to define the allele. This could, for example, be something like 'locus' where the )
-				  . q(database table holds the sequences for multiple loci and therefore has a 'locus' field. )
-				  . q(Leave blank if a secondary id field is not used.),
-				default => $defaults{'dbase_id2_field'}
-			},
-			{
-				name     => 'dbase_id2_value',
-				type     => 'text',
-				hide     => 'yes',
-				comments => 'Secondary field value, e.g. locus name',
-				tooltip  => 'dbase id2 value - Set the value that the secondary id field must include to '
-				  . 'select this locus.  This will probably be the name of the locus.  Leave blank if a '
-				  . 'secondary id field is not used.',
-				default => $defaults{'dbase_id2_value'}
-			},
-			{
-				name     => 'dbase_seq_field',
-				type     => 'text',
-				hide     => 'yes',
-				comments => 'Field in sequence database containing allele sequence',
-				default  => $defaults{'dbase_seq_field'}
+				comments => 'Name of locus in seqdef database',
+				default => $defaults{'dbase_id'}
 			},
 			{
 				name    => 'description_url',
