@@ -459,8 +459,7 @@ sub print_scheme_section {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q       = $self->{'cgi'};
-	my $set_id  = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $options->{'with_pk'} } );
+	my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 	$q->param( scheme_id => $schemes->[0]->{'id'} ) if !defined $q->param('scheme_id') && @$schemes;
 	return if @$schemes < 2;
 	say q(<div class="box" id="schemes">);
