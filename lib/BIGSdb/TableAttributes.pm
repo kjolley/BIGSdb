@@ -343,7 +343,7 @@ sub get_loci_table_attributes {
 				type     => 'text',
 				hide     => 'yes',
 				comments => 'Name of locus in seqdef database',
-				default => $defaults{'dbase_id'}
+				default  => $defaults{'dbase_id'}
 			},
 			{
 				name    => 'description_url',
@@ -414,6 +414,13 @@ sub get_loci_table_attributes {
 			hide_public => 'yes',
 			tooltip     => 'complete cds - Sequences should be complete reading frames with a start '
 			  . 'and stop codon and no internal stop codons.'
+		  },
+		  {
+			name        => 'no_submissions',
+			type        => 'bool',
+			hide_public => 'yes',
+			comments    => q(Set to true to prevent submission of alleles of this )
+			  . q(locus via the automated submission system.)
 		  };
 	}
 	push @$attributes,
@@ -1131,7 +1138,8 @@ sub get_schemes_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'disable',
 				type     => 'bool',
@@ -1144,7 +1152,7 @@ sub get_schemes_table_attributes {
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
