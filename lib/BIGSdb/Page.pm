@@ -1962,8 +1962,7 @@ sub _initiate_seqdefdb_prefs {
 			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
 			  $scheme_values->{ $scheme->{'id'} }->{'disable'} ? 1 : 0;
 		} else {
-			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
-			  $scheme_info->{ $scheme->{'id'} }->{'disable'};
+			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } = $scheme_info->{ $scheme->{'id'} }->{'disable'};
 		}
 	}
 	return;
@@ -2492,5 +2491,21 @@ sub _get_allele_submission_sequence {
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
 		[ $submission_id, $index ] );
+}
+
+#Scheme list filtered to remove disabled schemes.
+sub get_scheme_data {
+	my ( $self, $options ) = @_;
+	my $set_id = $self->get_set_id;
+	my $schemes =
+	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $options->{'with_pk'} ? 1 : 0 ), set_id => $set_id } )
+	  ;
+	return $schemes if $self->{'system'}->{'dbtype'} eq 'isolates';
+	my @scheme_list;
+	foreach my $scheme (@$schemes) {
+		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
+		push @scheme_list, $scheme;
+	}
+	return \@scheme_list;
 }
 1;

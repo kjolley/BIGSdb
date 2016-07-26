@@ -68,9 +68,7 @@ sub print_content {
 	say q(<div class="box" id="index"><div class="scrollable"><div style="float:left;margin-right:1em">);
 	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
-	my $scheme_data =
-	  $self->{'datastore'}
-	  ->get_scheme_list( { with_pk => ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 1 : 0 ), set_id => $set_id } );
+	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say qq(<li><a href="${url_root}page=query">Search or browse database</a></li>);

@@ -243,9 +243,8 @@ sub _print_table_link {
 sub _print_all_loci_by_scheme {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	foreach my $scheme (@$schemes) {
-		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
+	my $scheme_data = $self->get_scheme_data;
+	foreach my $scheme (@$scheme_data) {
 		$self->_print_scheme_table( $scheme->{'id'} );
 	}
 	$self->_print_scheme_table(0);

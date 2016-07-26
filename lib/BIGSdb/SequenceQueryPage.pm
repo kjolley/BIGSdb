@@ -105,7 +105,7 @@ sub _print_interface {
 	if ( !$q->param('simple') ) {
 		say q(<fieldset><legend>Please select locus/scheme</legend>);
 		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-		my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my $scheme_list = $self->get_scheme_data;
 		my %order;
 		my @schemes_and_groups;
 		foreach my $scheme ( reverse @$scheme_list ) {
@@ -759,7 +759,7 @@ sub _get_scheme_fields {
 	my $buffer = q();
 	my $set_id = $self->get_set_id;
 	if ( !$scheme_id ) {    #all loci
-		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+		my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $scheme (@$schemes) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
