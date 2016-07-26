@@ -279,7 +279,6 @@ sub _lookup_partial_matches {
 	my ( $self, $locus, $exact_matches, $partial_matches ) = @_;
 	$partial_matches->{$locus} //= [];
 	return if !@{ $partial_matches->{$locus} };
-	
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	foreach my $match ( @{ $partial_matches->{$locus} } ) {
 		my $seq       = $self->extract_seq_from_match($match);
@@ -845,7 +844,7 @@ sub _get_row {
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my ($default_flags);
-		if ( $locus_info->{'flag_table'} && $exact ) {
+		if ($exact) {
 			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
 		}
 		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {

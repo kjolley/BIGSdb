@@ -376,15 +376,13 @@ sub _tag_sequence {
 			$values->{'end_pos'}, ( $values->{'reverse'} ? 'true' : 'false' ),
 			'true', TAG_USER, 'now'
 		);
-		if ( $locus_info->{'flag_table'} ) {
-			my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
-			foreach my $flag (@$flags) {
-				$self->{'sql'}->{'tag_flag'}->execute(
-					$flag, 'now', TAG_USER, $values->{'seqbin_id'},
-					$values->{'locus'}, $values->{'start_pos'},
-					$values->{'end_pos'}
-				);
-			}
+		my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
+		foreach my $flag (@$flags) {
+			$self->{'sql'}->{'tag_flag'}->execute(
+				$flag, 'now', TAG_USER, $values->{'seqbin_id'},
+				$values->{'locus'}, $values->{'start_pos'},
+				$values->{'end_pos'}
+			);
 		}
 	};
 	if ($@) {

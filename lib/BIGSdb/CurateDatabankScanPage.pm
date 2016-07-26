@@ -125,7 +125,7 @@ sub _print_results {
 	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
 	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
 	say $fh qq(id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\t)
-	  . qq(flag_table\tmain_display\tisolate_display\tquery_field\tanalysis\treference_sequence);
+	  . qq(main_display\tisolate_display\tquery_field\tanalysis\treference_sequence);
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
@@ -163,7 +163,7 @@ sub _print_results {
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
 		my $sequence = $cds->seq->seq;
 		say $fh qq($locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
-		  . qq(TRUE\tFALSE\tallele only\tTRUE\tTRUE\t$sequence);
+		  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
 		say $fh_allele qq($locus\t1\t$sequence\tunchecked);
 
 		if ( $ENV{'MOD_PERL'} ) {

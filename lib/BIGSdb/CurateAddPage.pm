@@ -977,7 +977,7 @@ sub _copy_locus_config {
 		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/PUT_LOCUS_NAME_HERE/x
 		  if any { $field eq $_ } qw(dbase_table dbase_id_field dbase_id2_field dbase_id2_value description_url url);
-		if ( any { $field eq $_ } qw (length_varies coding_sequence main_display query_field analysis flag_table) ) {
+		if ( any { $field eq $_ } qw (length_varies coding_sequence main_display query_field analysis) ) {
 			$value = $locus_info->{$field} ? 'true' : 'false';
 		}
 		$newdata_ref->{$field} = $value;

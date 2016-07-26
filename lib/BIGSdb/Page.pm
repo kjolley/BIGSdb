@@ -458,7 +458,7 @@ sub is_scheme_invalid {
 sub print_scheme_section {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q       = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 	$q->param( scheme_id => $schemes->[0]->{'id'} ) if !defined $q->param('scheme_id') && @$schemes;
 	return if @$schemes < 2;
@@ -1555,7 +1555,7 @@ sub get_seq_detail_tooltips {
 	my $designation_flags;
 	my ( @all_flags, %flag_from_designation, %flag_from_alleleseq );
 
-	if ( $options->{'allele_flags'} && $locus_info->{'flag_table'} ) {
+	if ( $options->{'allele_flags'} ) {
 		foreach my $designation (@$designations) {
 			$designation_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $designation->{'allele_id'} );
 			push @all_flags, @$designation_flags;
@@ -2497,8 +2497,7 @@ sub get_scheme_data {
 	my ( $self, $options ) = @_;
 	my $set_id = $self->get_set_id;
 	my $schemes =
-	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $options->{'with_pk'} ? 1 : 0 ), set_id => $set_id } )
-	  ;
+	  $self->{'datastore'}->get_scheme_list( { with_pk => ( $options->{'with_pk'} ? 1 : 0 ), set_id => $set_id } );
 	return $schemes if $self->{'system'}->{'dbtype'} eq 'isolates';
 	my @scheme_list;
 	foreach my $scheme (@$schemes) {
