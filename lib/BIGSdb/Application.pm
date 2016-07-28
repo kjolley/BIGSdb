@@ -617,7 +617,7 @@ sub authenticate {
 		}
 	} else {    #use built-in authentication
 		my $logger = get_logger('BIGSdb.Application_Authentication');
-		$page_attributes->{'auth_db'} = $self->{'auth_db'};	
+		$page_attributes->{'auth_db'} = $self->{'auth_db'};
 		$page_attributes->{'vars'}    = $q->Vars;
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
