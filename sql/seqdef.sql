@@ -166,7 +166,7 @@ description text,
 link_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(locus),
+PRIMARY KEY(locus,url),
 CONSTRAINT ll_locus FOREIGN KEY (locus) REFERENCES locus_descriptions
 ON DELETE CASCADE
 ON UPDATE CASCADE,

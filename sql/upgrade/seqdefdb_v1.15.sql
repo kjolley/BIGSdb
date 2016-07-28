@@ -56,3 +56,6 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_refs TO apache;
+
+ALTER TABLE locus_links DROP CONSTRAINT locus_links_pkey;
+ALTER TABLE locus_links ADD CONSTRAINT locus_links_pkey PRIMARY KEY(locus,url);
