@@ -546,6 +546,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -604,9 +605,10 @@ sub authenticate {
 	my $auth_cookies_ref;
 	my $reset_password;
 	my $authenticated = 1;
+	my $q             = $self->{'cgi'};
 	if ( $self->{'system'}->{'authentication'} eq 'apache' ) {
-		if ( $self->{'cgi'}->remote_user ) {
-			$page_attributes->{'username'} = $self->{'cgi'}->remote_user;
+		if ( $q->remote_user ) {
+			$page_attributes->{'username'} = $q->remote_user;
 		} else {
 			$page_attributes->{'error'} = 'userNotAuthenticated';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
@@ -615,8 +617,8 @@ sub authenticate {
 		}
 	} else {    #use built-in authentication
 		my $logger = get_logger('BIGSdb.Application_Authentication');
-		$page_attributes->{'auth_db'} = $self->{'auth_db'};
-		$page_attributes->{'vars'}    = $self->{'cgi'}->Vars;
+		$page_attributes->{'auth_db'} = $self->{'auth_db'};	
+		$page_attributes->{'vars'}    = $q->Vars;
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
@@ -636,20 +638,27 @@ sub authenticate {
 			}
 			catch BIGSdb::AuthenticationException with {
 				$logger->debug('No cookie set - asking for log in');
-				try {
-					( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
-				}
-				catch BIGSdb::AuthenticationException with {
-
-					#failed again
+				if ( $q->param('no_header') ) {
+					$page_attributes->{'error'} = 'ajaxLoggedOut';
+					$page = BIGSdb::ErrorPage->new(%$page_attributes);
+					$page->print_page_content;
 					$authenticated = 0;
-				};
+				} else {
+					try {
+						( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
+					}
+					catch BIGSdb::AuthenticationException with {
+
+						#failed again
+						$authenticated = 0;
+					};
+				}
 			};
 		}
 	}
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
-		$self->{'cgi'}->{'page'}                        = 'changePassword';
+		$q->{'page'} = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
 		my $config_access = $self->is_user_allowed_access( $page_attributes->{'username'} );

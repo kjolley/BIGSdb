@@ -27,7 +27,14 @@ use Log::Log4perl qw(get_logger);
 sub print_content {
 	my ($self) = @_;
 	my $logger = get_logger('BIGSdb.Page');
-	my $desc   = $self->get_title;
+	if ( $self->{'error'} eq 'ajaxLoggedOut' ) {
+		my $q    = $self->{'cgi'};
+		my $page = $q->param('page');
+		say qq(Logged out - please <a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=$page">reload page</a>.);
+		return;
+	}
+	my $desc = $self->get_title;
 	say qq(<h1>$desc</h1>);
 	say q(<div class="box" id="statusbad">);
 	no warnings 'once';
@@ -53,7 +60,6 @@ sub print_content {
 		tooBig => q(You are attempting to upload too much data in one go.  )
 		  . qq(Uploads are limited to a size of $upload_limit.)
 	);
-
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
 		say q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>)
@@ -137,6 +143,10 @@ sub initiate {
 	};
 	if ( $status->{ $self->{'error'} } ) {
 		$self->{'status'} = $status->{ $self->{'error'} };
+	}
+	if ( $self->{'cgi'}->param('no_header') ) {
+		$self->{'type'}    = 'no_header';
+		$self->{'noCache'} = 1;
 	}
 	$self->{'jQuery'} = 1;
 	return;
