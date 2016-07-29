@@ -59,7 +59,7 @@ sub get_allele_id_from_sequence {
 		my $qry = 'SELECT allele_id FROM sequences WHERE (md5(sequence),locus)=(md5(?),?)';
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
 	}
-	eval { $self->{'sql'}->{'lookup_sequence'}->execute($self->{'dbase_id'},$$seq_ref) };
+	eval { $self->{'sql'}->{'lookup_sequence'}->execute( $self->{'dbase_id'}, $$seq_ref ) };
 	if ($@) {
 		$logger->error( q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
 			  . qq (locus table for locus '$self->{'id'}'! Statement was )
@@ -121,7 +121,7 @@ sub get_all_sequences {
 			$sql = $self->{'db'}->prepare($qry);
 			$sql->execute( $self->{'dbase_id'} );
 		} else {
-			$self->{'db'}->do("CREATE TEMP TABLE $temp_table AS $qry");
+			$self->{'db'}->do( "CREATE TEMP TABLE $temp_table AS $qry", undef, $self->{'dbase_id'} );
 			$sql = $self->{'db'}->prepare("SELECT * FROM $temp_table");
 			$sql->execute;
 		}
@@ -175,8 +175,7 @@ sub get_flags {
 	}
 	my $flags;
 	eval {
-		$flags =
-		  $self->{'db'}->selectcol_arrayref( $self->{'sql'}->{'flags'}, undef, $self->{'dbase_id'}, $allele_id );
+		$flags = $self->{'db'}->selectcol_arrayref( $self->{'sql'}->{'flags'}, undef, $self->{'dbase_id'}, $allele_id );
 	};
 	if ($@) {
 		$logger->error($@) if $@;

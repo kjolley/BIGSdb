@@ -1577,7 +1577,7 @@ sub _report_citations {
 	$worksheet->write( 2, 0, q(BIGSdb Genome Comparator),                          $excel_format{'heading'} );
 	$worksheet->write( 3, 0, q(Jolley & Maiden (2010). BMC Bioinformatics 11:595), $excel_format{'value'} );
 	my $row = 5;
-	my @schemes = split /,/x, ( $params->{'cite_schemes'} // [] );
+	my @schemes = split /,/x, ( $params->{'cite_schemes'} // q() );
 
 	foreach my $scheme_id (@schemes) {
 		if ( $self->_should_scheme_be_cited($scheme_id) ) {
