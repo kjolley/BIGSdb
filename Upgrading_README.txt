@@ -19,6 +19,7 @@ Version 1.11: Change of authentication database structure.
 Version 1.12: Change of authentication and seqdef database structures.
 Version 1.13: Change of seqdef and isolate database structures.
 Version 1.14: Change of seqdef and isolate database structures.
+Version 1.15: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -321,3 +322,15 @@ SET temp_buffers=64MB
 
 Without this, the database engine is likely to run out of memory during cache
 renewal.
+
+Version 1.15
+------------
+There have been changes to both the sequence definition and isolate
+database structures mainly to support scheme descriptions.
+
+Please run the seqdefdb_v1.15.sql against sequence definition databases and
+isolatedb_v1.15.sql against isolate databases. These can be found in the 
+sql/upgrade directory.
+
+Additionally, you need to update the bigsdb.css stylesheet and contents of
+the javascript directory.
