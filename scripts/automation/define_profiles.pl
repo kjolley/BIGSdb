@@ -103,8 +103,6 @@ main();
 $script->db_disconnect;
 
 sub main {
-	#TODO There isn't a check that if a stringent profile is assigned first, that a later one with some Ns
-	#will get assigned that could overlap with the earlier assigned profile.
 	my $isolates     = $script->get_isolates;
 	my $isolate_list = $script->filter_and_sort_isolates($isolates);
 	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
@@ -112,7 +110,8 @@ sub main {
 		next if defined_in_cache($isolate_id);
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
 		next if $missing > $opts{'missing'};
-		my $field_values = $scheme->get_field_values_by_designations($designations);
+		my $field_values =
+		  $scheme->get_field_values_by_designations( $designations, { dont_match_missing_loci => 1 } );
 		next if @$field_values;    #Already defined
 		print "Isolate id: $isolate_id; ";
 		define_new_profile($designations);

@@ -94,12 +94,14 @@ sub get_profile_by_primary_keys {
 sub get_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
-	my ( $self, $designations ) = @_;
+	my ( $self, $designations, $options ) = @_;
 	my ( @allele_count, @allele_ids );
 	my $loci   = $self->{'loci'};
 	my $fields = $self->{'fields'};
+	my @used_loci;
 	foreach my $locus (@$loci) {
 		if ( !defined $designations->{$locus} ) {
+			next if $options->{'dont_match_missing_loci'};
 
 			#Define a null designation if one doesn't exist for the purposes of looking up profile.
 			#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
@@ -107,6 +109,7 @@ sub get_field_values_by_designations {
 			push @allele_ids,   '-999';
 			push @allele_count, 1;
 		} else {
+			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
 			push @allele_count,
 			  scalar
 			  @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
@@ -114,38 +117,38 @@ sub get_field_values_by_designations {
 				push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
 			}
 		}
+		push @used_loci, $locus;
 	}
+	return {} if !@allele_ids;
 	local $" = ',';
-	my $query_key = "@allele_count";
-	if ( !$self->{'sql'}->{"field_values_$query_key"} ) {
-		my @locus_terms;
-		my @locus_list;
-		my $i = 0;
-		foreach my $locus (@$loci) {
-			my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
-			push @locus_list, $locus_name;
-			my @temp_terms;
-			push @temp_terms, ("$locus_name=?") x $allele_count[$i];
-			push @temp_terms, "$locus_name='N'" if $self->{'allow_missing_loci'};
-			local $" = ' OR ';
-			push @locus_terms, "(@temp_terms)";
-			$i++;
-		}
-		local $" = ' AND ';
-		my $locus_term_string = "@locus_terms";
-		local $" = ',';
-		my $table = "mv_scheme_$self->{'dbase_id'}";
-		$self->{'sql'}->{"field_values_$query_key"} =
-		  $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $table WHERE $locus_term_string");
+	my @locus_terms;
+	my @locus_list;
+	my $i = 0;
+	foreach my $locus (@used_loci) {
+		my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
+		push @locus_list, $locus_name;
+		my @temp_terms;
+		push @temp_terms, ("$locus_name=?") x $allele_count[$i];
+		push @temp_terms, "$locus_name='N'" if $self->{'allow_missing_loci'};
+		local $" = ' OR ';
+		push @locus_terms, "(@temp_terms)";
+		$i++;
 	}
-	eval { $self->{'sql'}->{"field_values_$query_key"}->execute(@allele_ids) };
+	local $" = ' AND ';
+	my $locus_term_string = "@locus_terms";
+	local $" = ',';
+	my $table = "mv_scheme_$self->{'dbase_id'}";
+
+	#Don't cache statement handle because it will vary depending on whether or not there are missing loci
+	#or differing numbers of allele designations at loci.
+	my $sql = $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $table WHERE $locus_term_string");
+	eval { $sql->execute(@allele_ids) };
 	if ($@) {
-		$logger->warn( qq(Can't execute 'field_values_$query_key' query handle. )
-			  . q(Check database attributes in the scheme_fields table for )
+		$logger->warn( q(Check database attributes in the scheme_fields table for )
 			  . qq(scheme#$self->{'id'} ($self->{'name'})! $@ ) );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	}
-	my $field_data = $self->{'sql'}->{"field_values_$query_key"}->fetchall_arrayref( {} );
+	my $field_data = $sql->fetchall_arrayref( {} );
 	$self->{'db'}->commit;    #Prevent IDLE in transaction locks in long-running REST process.
 	return $field_data;
 }
