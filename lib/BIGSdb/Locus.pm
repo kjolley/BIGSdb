@@ -54,7 +54,6 @@ sub get_allele_id_from_sequence {
 	if ( !$self->{'db'} ) {
 		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
 	}
-	$logger->error('here');
 	if ( !$self->{'sql'}->{'lookup_sequence'} ) {
 		my $qry = 'SELECT allele_id FROM sequences WHERE (md5(sequence),locus)=(md5(?),?)';
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);

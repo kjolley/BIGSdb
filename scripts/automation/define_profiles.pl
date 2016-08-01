@@ -103,6 +103,8 @@ main();
 $script->db_disconnect;
 
 sub main {
+	#TODO There isn't a check that if a stringent profile is assigned first, that a later one with some Ns
+	#will get assigned that could overlap with the earlier assigned profile.
 	my $isolates     = $script->get_isolates;
 	my $isolate_list = $script->filter_and_sort_isolates($isolates);
 	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
