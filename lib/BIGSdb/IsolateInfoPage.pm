@@ -499,10 +499,12 @@ sub _get_classification_group_data {
 			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
 
 			#You may get multiple groups if you have a mixed sample
+			my %group_displayed;
 			foreach my $pk_value (@$pk_values) {
 				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
 					$pk_value, { fetch => 'col_arrayref' } );
 				foreach my $group_id (@$groups) {
+					next if $group_displayed{$group_id};
 					my $isolate_count = $self->{'datastore'}->run_query(
 						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
 						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
@@ -514,6 +516,7 @@ sub _get_classification_group_data {
 						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
 						  . q(submit=1);
 						$cg_buffer .= qq(group: <a href="$url">$group_id ($isolate_count isolates)</a><br />\n);
+						$group_displayed{$group_id} = 1;
 					}
 				}
 			}
