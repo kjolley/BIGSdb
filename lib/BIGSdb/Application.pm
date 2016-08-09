@@ -614,6 +614,7 @@ sub authenticate {
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
 			$authenticated = 0;
+			$self->{'handled_error'} = 1;
 		}
 	} else {    #use built-in authentication
 		my $logger = get_logger('BIGSdb.Application_Authentication');
@@ -668,11 +669,13 @@ sub authenticate {
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
 			$authenticated = 0;
+			$self->{'handled_error'} = 1;
 		} elsif ( !$config_access ) {
 			$page_attributes->{'error'} = 'configAccessDenied';
 			my $page = BIGSdb::ErrorPage->new(%$page_attributes);
 			$page->print_page_content;
 			$authenticated = 0;
+			$self->{'handled_error'} = 1;
 		}
 	}
 	return ( $authenticated, $auth_cookies_ref );
