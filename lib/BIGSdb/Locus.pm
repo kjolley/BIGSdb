@@ -58,7 +58,7 @@ sub get_allele_id_from_sequence {
 		my $qry = 'SELECT allele_id FROM sequences WHERE (md5(sequence),locus)=(md5(?),?)';
 		$self->{'sql'}->{'lookup_sequence'} = $self->{'db'}->prepare($qry);
 	}
-	eval { $self->{'sql'}->{'lookup_sequence'}->execute( $self->{'dbase_id'}, $$seq_ref ) };
+	eval { $self->{'sql'}->{'lookup_sequence'}->execute( $$seq_ref, $self->{'dbase_id'} ) };
 	if ($@) {
 		$logger->error( q(Cannot execute 'lookup_sequence' query handle. Check database attributes in the )
 			  . qq (locus table for locus '$self->{'id'}'! Statement was )
