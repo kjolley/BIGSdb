@@ -2051,7 +2051,7 @@ sub _upload_files {
 		$self->{'submissionHandler'}->mkpath($dir);
 	}
 	foreach my $fh2 ( $q->upload('file_upload') ) {
-		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\)]+)/x ) {
+		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\\#)]+)/x ) {
 			$filenames[$i] = $1;
 		} else {
 			$filenames[$i] = 'file';
