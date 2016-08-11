@@ -24,7 +24,7 @@ no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
-use List::MoreUtils qw( any none);
+use List::MoreUtils qw(any none);
 use Error qw(:try);
 use Fcntl qw(:flock);
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
@@ -474,19 +474,14 @@ sub run_script {
 	my $filtered_list = $self->_filter_ids_by_project( \@isolate_list, $options->{'project_id'} );
 	my $loci = $self->{'options'}->{'loci'};
 	throw BIGSdb::DataException('Invalid loci passed') if ref $loci ne 'ARRAY';
-	my $labels = $self->{'options'}->{'labels'};
 	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
 	my ( @js, @js2, @js3, @js4 );
 	my $show_key;
-	my $td = 1;
-	my $new_alleles;
 	my $new_seqs_found;
 	my %isolates_to_tag;
-	my $last_id_checked;
-	my $start_time   = time;
 	my $locus_prefix = BIGSdb::Utils::get_random();
 	my $file_prefix  = BIGSdb::Utils::get_random();
-	my $match        = 0;
+	my $start_time   = time;
 	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
@@ -496,131 +491,22 @@ sub run_script {
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) started");
 	my $table_file = "$self->{'config'}->{'secure_tmp_dir'}/$options->{'scan_job'}_table.html";
 	unlink $table_file;    #delete file if scan restarted
-
-	foreach my $isolate_id (@$filtered_list) {
-		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
-		next if !$self->is_allowed_to_view_isolate($isolate_id);
-		my %locus_checked;
-		my $pattern = LOCUS_PATTERN;
-		foreach my $locus_id (@$loci) {
-			my $row_buffer;
-			my $locus = $locus_id =~ /$pattern/x ? $1 : undef;
-			if ( !defined $locus ) {
-				$logger->error("Locus name not extracted: Input was '$locus_id'");
-				next;
-			}
-
-			#Prevent multiple checking when locus selected individually and as part of scheme.
-			next if $locus_checked{$locus};
-			$locus_checked{$locus} = 1;
-			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
-			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
-			my ( $exact_matches, $partial_matches ) =
-			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
-			my $off_end;
-			my $i = 1;
-			my $new_designation;
-
-			if ( ref $exact_matches && @$exact_matches ) {
-				my %new_matches;
-				foreach my $match (@$exact_matches) {
-					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
-						{
-							isolate_id => $isolate_id,
-							labels     => $labels,
-							locus      => $locus,
-							id         => $i,
-							match      => $match,
-							td         => $td,
-							exact      => 1,
-							js         => \@js,
-							js2        => \@js2,
-							js3        => \@js3,
-							js4        => \@js4,
-							warning    => $new_matches{$match_key}
-						}
-					);
-					$row_buffer .= $buffer;
-					$new_matches{$match_key} = 1;
-					$show_key = 1 if $off_end;
-					$td = $td == 1 ? 2 : 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-					$i++;
-				}
-				$isolates_to_tag{$isolate_id} = 1;
-			}
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if (   ref $partial_matches
-				&& @$partial_matches
-				&& ( !@$exact_matches || $params->{'partial_when_exact'} ) )
-			{
-				my %new_matches;
-				foreach my $match (@$partial_matches) {
-					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
-						{
-							isolate_id => $isolate_id,
-							labels     => $labels,
-							locus      => $locus,
-							id         => $i,
-							match      => $match,
-							td         => $td,
-							exact      => 0,
-							js         => \@js,
-							js2        => \@js2,
-							js3        => \@js3,
-							js4        => \@js4,
-							warning    => $new_matches{$match_key}
-						}
-					);
-					$row_buffer .= $buffer;
-					$new_matches{$match_key} = 1;
-					if ($off_end) {
-						$show_key = 1;
-					} else {
-						my $seq = $self->extract_seq_from_match($match);
-						$new_seqs_found = 1;
-						my $new = 1;
-						$new = 0 if any { $seq eq $_ } @{ $new_alleles->{$locus} };
-						if ($new) {
-							push @{ $new_alleles->{$locus} }, $seq;
-							open( my $seqs_fh, '>>', $seq_filename )
-							  or $logger->error("Can't open $seq_filename for appending");
-							say $seqs_fh "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
-							close $seqs_fh;
-						}
-					}
-					$td = $td == 1 ? 2 : 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-					$i++;
-				}
-				$isolates_to_tag{$isolate_id} = 1;
-			} elsif ( $params->{'mark_missing'}
-				&& !( ref $exact_matches   && @$exact_matches )
-				&& !( ref $partial_matches && @$partial_matches ) )
-			{
-				$row_buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, \@js, \@js2, );
-				if ($row_buffer) {
-					$new_designation              = 1;
-					$td                           = $td == 1 ? 2 : 1;
-					$isolates_to_tag{$isolate_id} = 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-				}
-			}
-			if ($row_buffer) {
-				open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
-				say $fh $row_buffer;
-				close $fh;
-			}
-			$match++ if $new_designation;
-		}
-
-		#delete isolate working files
-		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
-		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
-		$last_id_checked = $isolate_id;
-	}
+	my $args = {
+		isolates        => $filtered_list,
+		loci            => $loci,
+		file_prefix     => $file_prefix,
+		locus_prefix    => $locus_prefix,
+		isolates_to_tag => \%isolates_to_tag,
+		js              => \@js,
+		js2             => \@js2,
+		js3             => \@js3,
+		js4             => \@js4,
+		show_key        => \$show_key,
+		new_seqs_found  => \$new_seqs_found,
+		seq_filename    => $seq_filename,
+		table_file      => $table_file
+	};
+	my $match = $self->_scan_locus_by_locus($args);
 
 	#delete locus working files
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
@@ -647,6 +533,148 @@ sub run_script {
 	$self->_write_status( $options->{'scan_job'}, "loci:@$loci" );
 	$self->_write_status( $options->{'scan_job'}, "stop_time:$stop_time" );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) finished");
+	return;
+}
+
+sub _scan_locus_by_locus {
+	my ( $self, $args ) = @_;
+	my (
+		$isolates,       $loci,         $file_prefix, $locus_prefix, $isolates_to_tag,
+		$js,             $js2,          $js3,         $js4,          $show_key,
+		$new_seqs_found, $seq_filename, $table_file
+	  )
+	  = @{$args}{
+		qw(isolates loci file_prefix locus_prefix isolates_to_tag js js2 js3 js4
+		  show_key new_seqs_found seq_filename table_file)
+	  };
+	my $match       = 0;
+	my $start_time  = time;
+	my $options     = $self->{'options'};
+	my $labels      = $self->{'options'}->{'labels'};
+	my $params      = $self->{'params'};
+	my $td          = 1;
+	my $new_alleles = {};
+	foreach my $isolate_id (@$isolates) {
+		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
+		next if !$self->is_allowed_to_view_isolate($isolate_id);
+		my $pattern = LOCUS_PATTERN;
+		foreach my $locus_id (@$loci) {
+			my $row_buffer;
+			my $locus = $locus_id =~ /$pattern/x ? $1 : undef;
+			if ( !defined $locus ) {
+				$logger->error("Locus name not extracted: Input was '$locus_id'");
+				next;
+			}
+
+			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
+			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
+			my ( $exact_matches, $partial_matches ) =
+			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
+			$exact_matches   //= [];
+			$partial_matches //= [];
+			my $off_end;
+			my $i = 1;
+			my $new_designation;
+
+			if (@$exact_matches) {
+				my %new_matches;
+				foreach my $match (@$exact_matches) {
+					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
+					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+						{
+							isolate_id => $isolate_id,
+							labels     => $labels,
+							locus      => $locus,
+							id         => $i,
+							match      => $match,
+							td         => $td,
+							exact      => 1,
+							js         => $js,
+							js2        => $js2,
+							js3        => $js3,
+							js4        => $js4,
+							warning    => $new_matches{$match_key}
+						}
+					);
+					$row_buffer .= $buffer;
+					$new_matches{$match_key} = 1;
+					$$show_key = 1 if $off_end;
+					$td = $td == 1 ? 2 : 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+					$i++;
+				}
+				$isolates_to_tag->{$isolate_id} = 1;
+			}
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			if ( @$partial_matches && ( !@$exact_matches || $params->{'partial_when_exact'} ) ) {
+				my %new_matches;
+				foreach my $match (@$partial_matches) {
+					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
+					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+						{
+							isolate_id => $isolate_id,
+							labels     => $labels,
+							locus      => $locus,
+							id         => $i,
+							match      => $match,
+							td         => $td,
+							exact      => 0,
+							js         => $js,
+							js2        => $js2,
+							js3        => $js3,
+							js4        => $js4,
+							warning    => $new_matches{$match_key}
+						}
+					);
+					$row_buffer .= $buffer;
+					$new_matches{$match_key} = 1;
+					if ($off_end) {
+						$$show_key = 1;
+					} else {
+						$self->_check_if_new( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename );
+					}
+					$td = $td == 1 ? 2 : 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+					$i++;
+				}
+				$isolates_to_tag->{$isolate_id} = 1;
+			} elsif ( $params->{'mark_missing'} && !@$exact_matches && !@$partial_matches ) {
+				$row_buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, $js, $js2, );
+				if ($row_buffer) {
+					$new_designation                = 1;
+					$td                             = $td == 1 ? 2 : 1;
+					$isolates_to_tag->{$isolate_id} = 1;
+					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+				}
+			}
+			if ($row_buffer) {
+				open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
+				say $fh $row_buffer;
+				close $fh;
+			}
+			$match++ if $new_designation;
+		}
+
+		#delete isolate working files
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
+	}
+	return $match;
+}
+
+sub _check_if_new {
+	my ( $self, $match, $new_seqs_found, $new_alleles, $locus, $seq_filename ) = @_;
+	my $seq = $self->extract_seq_from_match($match);
+	$$new_seqs_found = 1;
+	my $new = 1;
+	$new = 0 if any { $seq eq $_ } @{ $new_alleles->{$locus} };
+	if ($new) {
+		push @{ $new_alleles->{$locus} }, $seq;
+		open( my $seqs_fh, '>>', $seq_filename )
+		  or $logger->error("Can't open $seq_filename for appending");
+		say $seqs_fh "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
+		close $seqs_fh;
+	}
 	return;
 }
 
@@ -943,8 +971,6 @@ sub _parse_blast_exact {
 	my $matched_already        = {};
 	my $region_matched_already = {};
 	my $locus_info             = {};
-
-	#	my $allele_lengths         = {};
 	$pcr_filter    //= {};
 	$probe_filter  //= {};
 	$pcr_products  //= {};

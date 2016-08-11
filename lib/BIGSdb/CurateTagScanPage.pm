@@ -430,9 +430,9 @@ sub _get_selected_loci {
 	my @loci   = $q->param('locus');
 	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 	push @loci, "l_$_" foreach @$pasted_cleaned_loci;
-	@loci = uniq sort @loci;
 	$q->param( locus => @loci );
 	$self->_add_scheme_loci( \@loci );
+	@loci = uniq sort @loci;
 	return \@loci;
 }
 
