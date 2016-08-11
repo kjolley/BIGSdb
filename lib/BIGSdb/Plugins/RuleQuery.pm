@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::SequenceQueryPage);
 use List::MoreUtils qw(uniq);
 use Error qw(:try);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -39,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.6',
+		version          => '1.0.7',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -192,6 +193,8 @@ sub _select_ruleset {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $sequence = '';
+	my @input =
+	  ( $params->{'fasta_upload'} ? 'Uploaded file: ' . $params->{'fasta_upload'} : 'Pasted sequence' );
 	if ( $params->{'sequence'} ) {
 		$sequence = $params->{'sequence'};
 	} elsif ( $params->{'upload_file'} ) {
@@ -201,8 +204,16 @@ sub run_job {
 	}
 	$self->remove_all_identifier_lines( \$sequence );
 	$self->{'sequence'} = \$sequence;
-	$self->{'job_id'}   = $job_id;
+	my $length = BIGSdb::Utils::commify( length $sequence );
+	push @input, "Sequence length: $length bp";
+	my $input_text = q(<h3 style="border-bottom:none">Sample</h3><ul>);
+	$input_text .= qq(<li>$_</li>) foreach @input;
+	$input_text .= q(</ul>);
+	$self->{'jobManager'}->update_job_status( $job_id, { 'message_html' => $input_text } );
+	$self->{'html'}   = $input_text;
+	$self->{'job_id'} = $job_id;
 	my $code_ref = $self->_read_code( $params->{'rule_path'} );
+
 	if ( ref $code_ref eq 'SCALAR' ) {
 		eval "$$code_ref";    ## no critic (ProhibitStringyEval)
 	}
