@@ -117,6 +117,7 @@ sub blast_multiple_loci {
 		my $matched_regions;
 		( $datatype_exact_matches->{$data_type}, $matched_regions ) = $self->_parse_blast_exact(
 			{
+				params        => $params,
 				blast_file    => "${isolate_prefix}_${$}_outfile.txt",
 				pcr_filter    => $pcr_filter,
 				pcr_products  => $pcr_products,
@@ -213,6 +214,7 @@ sub blast {
 	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$outfile_url" ) {
 		( $exact_matches, $matched_regions ) = $self->_parse_blast_exact(
 			{
+				params        => $params,
 				locus         => $locus,
 				blast_file    => $outfile_url,
 				pcr_filter    => { $locus => $pcr_filter },
@@ -565,7 +567,6 @@ sub _scan_locus_by_locus {
 				$logger->error("Locus name not extracted: Input was '$locus_id'");
 				next;
 			}
-
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
 			my ( $exact_matches, $partial_matches ) =
@@ -722,7 +723,7 @@ sub _get_row {
 	my $original_end       = $match->{'predicted_end'};
 	my ( $predicted_start, $predicted_end );
 	my $complete_tooltip = '';
-	my ( $complete_gene, $status );
+	my $complete_gene;
 	my $buffer = '';
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
@@ -731,17 +732,9 @@ sub _get_row {
 		my @end_to_adjust = $hunt_for_start_end ? ( 1, 2 ) : (0);
 		foreach my $end (@end_to_adjust) {
 			if ( $end == 1 ) {
-				if (   ( !$status->{'start'} && $match->{'reverse'} )
-					|| ( !$status->{'stop'} && !$match->{'reverse'} ) )
-				{
-					$match->{'predicted_end'} = $original_end + $offset;
-				}
+				$match->{'predicted_end'} = $original_end + $offset;
 			} elsif ( $end == 2 ) {
-				if (   ( !$status->{'stop'} && $match->{'reverse'} )
-					|| ( !$status->{'start'} && !$match->{'reverse'} ) )
-				{
-					$match->{'predicted_start'} = $original_start + $offset;
-				}
+				$match->{'predicted_start'} = $original_start + $offset;
 			}
 			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 				$match->{'predicted_start'} = '1*';
@@ -963,9 +956,8 @@ sub _does_blast_record_match {
 
 sub _parse_blast_exact {
 	my ( $self, $args ) = @_;
-	my ( $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches, $options ) =
-	  @{$args}{qw (locus blast_file pcr_filter pcr_products probe_filter probe_matches options)};
-	$options = {} if ref $options ne 'HASH';
+	my ( $params, $locus, $blast_file, $pcr_filter, $pcr_products, $probe_filter, $probe_matches, $options ) =
+	  @{$args}{qw (params locus blast_file pcr_filter pcr_products probe_filter probe_matches options)};
 	my $matches = {};
 	$matches->{$locus} = [] if $locus;
 	my $matched_already        = {};
@@ -1003,22 +995,13 @@ sub _parse_blast_exact {
 				$match->{'seqbin_id'} = $record->[0];
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
-				$match->{'alignment'} = $self->{'cgi'}->param('tblastx') ? ( $record->[3] * 3 ) : $record->[3];
+				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
 				$match->{'length'}    = $ref_length;
-				if ( $record->[6] < $record->[7] ) {
-					$match->{'start'} = $record->[6];
-					$match->{'end'}   = $record->[7];
-				} else {
-					$match->{'start'} = $record->[7];
-					$match->{'end'}   = $record->[6];
-				}
+				$self->_identify_match_ends( $match, $record );
 				if ( $pcr_filter->{$locus} ) {
 					my $within_amplicon = 0;
 					foreach my $product ( @{ $pcr_products->{$locus} } ) {
-						next
-						  if $match->{'seqbin_id'} != $product->{'seqbin_id'}
-						  || $match->{'start'} < $product->{'start'}
-						  || $match->{'end'} > $product->{'end'};
+						next if $self->_is_match_outside_pcr_amplicon( $match, $product );
 						$within_amplicon = 1;
 					}
 					next RECORD if !$within_amplicon;
@@ -1028,15 +1011,10 @@ sub _parse_blast_exact {
 				}
 				$match->{'predicted_start'} = $match->{'start'};
 				$match->{'predicted_end'}   = $match->{'end'};
-				if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
-					|| ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
-				{
-					$match->{'reverse'} = 1;
-				} else {
-					$match->{'reverse'} = 0;
-				}
-				$match->{'e-value'} = $record->[10];
-				next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
+				$match->{'reverse'}         = $self->_is_match_reversed($record);
+				$match->{'e-value'}         = $record->[10];
+				next RECORD
+				  if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
 				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
 				$region_matched_already->{$locus}->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
 				next RECORD if $locus_info->{$locus}->{'match_longest'} && @{ $matches->{$locus} };
@@ -1046,6 +1024,56 @@ sub _parse_blast_exact {
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
 	return $matches, $region_matched_already;
+}
+
+#Record represents field values from BLAST output
+sub _is_match_reversed {
+	my ( $self, $record ) = @_;
+	if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
+		|| ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
+	{
+		return 1;
+	}
+	return;
+}
+
+sub _identify_match_ends {
+	my ( $self, $match, $record ) = @_;
+	if ( $record->[6] < $record->[7] ) {
+		$match->{'start'} = $record->[6];
+		$match->{'end'}   = $record->[7];
+	} else {
+		$match->{'start'} = $record->[7];
+		$match->{'end'}   = $record->[6];
+	}
+	return;
+}
+
+sub _predict_allele_ends {
+	my ( $self, $length, $match, $record ) = @_;
+	if ( $length != $match->{'alignment'} ) {
+		if ( $match->{'reverse'} ) {
+			if ( $record->[8] < $record->[9] ) {
+				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
+				$match->{'predicted_end'}   = $match->{'end'} + $record->[8] - 1;
+			} else {
+				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[8];
+				$match->{'predicted_end'}   = $match->{'end'} + $record->[9] - 1;
+			}
+		} else {
+			if ( $record->[8] < $record->[9] ) {
+				$match->{'predicted_start'} = $match->{'start'} - $record->[8] + 1;
+				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[9];
+			} else {
+				$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
+				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[8];
+			}
+		}
+	} else {
+		$match->{'predicted_start'} = $match->{'start'};
+		$match->{'predicted_end'}   = $match->{'end'};
+	}
+	return;
 }
 
 sub _read_blast_file_into_structure {
@@ -1079,7 +1107,6 @@ sub _parse_blast_partial {
 	$probe_filter  //= {};
 	$pcr_products  //= {};
 	$probe_matches //= {};
-	$options = {} if ref $options ne 'HASH';
 	my $matches = {};
 	$matches->{$locus} = [] if $locus;
 	my $identity  = $params->{'identity'};
@@ -1123,42 +1150,9 @@ sub _parse_blast_partial {
 			$match->{'identity'}  = $record->[2];
 			$match->{'length'}    = $length;
 			$match->{'alignment'} = $record->[3];
-			if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
-				|| ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
-			{
-				$match->{'reverse'} = 1;
-			} else {
-				$match->{'reverse'} = 0;
-			}
-			if ( $record->[6] < $record->[7] ) {
-				$match->{'start'} = $record->[6];
-				$match->{'end'}   = $record->[7];
-			} else {
-				$match->{'start'} = $record->[7];
-				$match->{'end'}   = $record->[6];
-			}
-			if ( $length != $match->{'alignment'} ) {
-				if ( $match->{'reverse'} ) {
-					if ( $record->[8] < $record->[9] ) {
-						$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
-						$match->{'predicted_end'}   = $match->{'end'} + $record->[8] - 1;
-					} else {
-						$match->{'predicted_start'} = $match->{'start'} - $length + $record->[8];
-						$match->{'predicted_end'}   = $match->{'end'} + $record->[9] - 1;
-					}
-				} else {
-					if ( $record->[8] < $record->[9] ) {
-						$match->{'predicted_start'} = $match->{'start'} - $record->[8] + 1;
-						$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[9];
-					} else {
-						$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
-						$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[8];
-					}
-				}
-			} else {
-				$match->{'predicted_start'} = $match->{'start'};
-				$match->{'predicted_end'}   = $match->{'end'};
-			}
+			$match->{'reverse'}   = $self->_is_match_reversed($record);
+			$self->_identify_match_ends( $match, $record );
+			$self->_predict_allele_ends( $length, $match, $record );
 
 			#Don't handle exact matches - these are handled elsewhere.
 			next
@@ -1168,10 +1162,7 @@ sub _parse_blast_partial {
 			if ( $pcr_filter->{$locus} ) {
 				my $within_amplicon = 0;
 				foreach my $product ( @{ $pcr_products->{$locus} } ) {
-					next
-					  if $match->{'seqbin_id'} != $product->{'seqbin_id'}
-					  || $match->{'start'} < $product->{'start'}
-					  || $match->{'end'} > $product->{'end'};
+					next if $self->_is_match_outside_pcr_amplicon( $match, $product );
 					$within_amplicon = 1;
 				}
 				next RECORD if !$within_amplicon;
@@ -1198,6 +1189,17 @@ sub _parse_blast_partial {
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
 	return $matches;
+}
+
+sub _is_match_outside_pcr_amplicon {
+	my ( $self, $match, $product ) = @_;
+	if (   $match->{'seqbin_id'} != $product->{'seqbin_id'}
+		|| $match->{'start'} < $product->{'start'}
+		|| $match->{'end'} > $product->{'end'} )
+	{
+		return 1;
+	}
+	return;
 }
 
 sub _matches_existing_same_region {
