@@ -24,7 +24,7 @@ no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any );
 use Error qw(:try);
 use Fcntl qw(:flock);
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
@@ -697,34 +697,160 @@ sub _get_row {
 	  @{$args}{qw (isolate_id labels locus id match td exact js js2 js3 js4 warning)};
 	my $q      = $self->{'cgi'};
 	my $params = $self->{'params'};
-	my $class  = $exact ? q() : q( class="partialmatch");
+	my ( $class, $match_status );
+	if ($exact) {
+		$class        = q();
+		$match_status = q(exact);
+	} else {
+		$class        = q( class="partialmatch");
+		$match_status = q(partial);
+	}
 	my $tooltip;
-	my $new_designation = 0;
+	my $new_designation  = 0;
 	my $existing_alleles = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
-
-	if ( @$existing_alleles && ( any { $match->{'allele'} eq $_ } @$existing_alleles ) ) {
+	my %existing         = map { $_ => 1 } @$existing_alleles;
+	if ( $existing{ $match->{'allele'} } ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'existing' );
-	} elsif (
-		$match->{'allele'} && @$existing_alleles && (
-			none {
-				$match->{'allele'} eq $_;
-			}
-			@$existing_alleles
-		)
-	  )
-	{
+	} elsif ( $match->{'allele'} && @$existing_alleles && !$existing{ $match->{'allele'} } ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
 	}
-	my $seqbin_length =
-	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $match->{'seqbin_id'} );
-	my $off_end;
 	my $hunt_for_start_end = ( !$exact && $params->{'hunt'} ) ? 1 : 0;
 	my $original_start     = $match->{'predicted_start'};
 	my $original_end       = $match->{'predicted_end'};
-	my ( $predicted_start, $predicted_end );
-	my $complete_tooltip = '';
-	my $complete_gene;
-	my $buffer = '';
+	my $buffer             = q();
+	my $hunter = $self->_hunt_for_start_and_stop_codons( $hunt_for_start_end, $match, $original_start, $original_end );
+	my $cleaned_locus = $self->clean_locus($locus);
+	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
+	my $translate     = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
+	my $orf           = $locus_info->{'orf'} // 1;
+
+	if ($warning) {
+		$buffer .= q(<tr class="warning">);
+		$exact = 0;
+	} else {
+		$buffer .= qq(<tr class="td$td">);
+	}
+	my $isolate_name = $labels->{$isolate_id} // $isolate_id;
+	$tooltip //= q();
+	$buffer .= qq(<td>$isolate_name</td><td$class>$match_status</td><td$class>$cleaned_locus</td>)
+	  . qq(<td$class>$match->{'allele'}$tooltip</td>);
+	if ( $match->{'from_partial'} ) {
+		$buffer .= q(<td>100.00</td>)
+		  . qq(<td colspan="3">Initial partial BLAST match to allele $match->{'partial_match_allele'}</td>);
+	} else {
+		$buffer .= qq(<td>$match->{'identity'}</td><td>$match->{'alignment'}</td>)
+		  . qq(<td>$match->{'length'}</td><td>$match->{'e-value'}</td>);
+	}
+	$buffer .= qq(<td>$match->{'seqbin_id'}</td><td>$match->{'start'}</td><td>$match->{'end'} </td>);
+	$buffer .=
+	  $hunter->{'off_end'}
+	  ? qq(<td class="incomplete">$match->{'predicted_start'}</td><td class="incomplete">)
+	  : qq(<td>$match->{'predicted_start'}</td><td>);
+	$match->{'reverse'} //= 0;
+	$buffer .=
+	    qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
+	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
+	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf">)
+	  . qq(extract <span class="fa fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
+	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
+	$buffer .= qq(<td>$arrow</td><td>);
+	my $seq_disabled = 0;
+	$cleaned_locus = $self->clean_checkbox_id($locus);
+	$cleaned_locus =~ s/\\/\\\\/gx;
+
+	if (   $exact
+		&& ( !@$existing_alleles || !$existing{ $match->{'allele'} } )
+		&& $match->{'allele'} ne 'ref'
+		&& !$params->{'tblastx'} )
+	{
+		$buffer .= $q->checkbox(
+			-name    => "id_${isolate_id}_${locus}_allele_$id",
+			-id      => "id_${isolate_id}_${cleaned_locus}_allele_$id",
+			-label   => '',
+			-checked => $exact
+		);
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_seqbin_id_$id", $match->{'seqbin_id'} );
+		push @$js,  qq(\$("#id_${isolate_id}_${cleaned_locus}_allele_$id").prop("checked",true));
+		push @$js2, qq(\$("#id_${isolate_id}_${cleaned_locus}_allele_$id").prop("checked",false));
+		$new_designation = 1;
+	} else {
+		$buffer .=
+		  $q->checkbox( -name => "id_${isolate_id}_${locus}_allele_$id", -label => '', disabled => 'disabled' );
+	}
+	$buffer .= q(</td><td>);
+	my $existing_allele_sequence = $self->{'datastore'}->run_query(
+		'SELECT id FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
+		[ $match->{'seqbin_id'}, $locus, $hunter->{'predicted_start'}, $hunter->{'predicted_end'} ],
+		{ fetch => 'row_hashref', cache => 'Scan::get_row_existing_allele_sequence' }
+	);
+	if ( !$existing_allele_sequence ) {
+		$buffer .= $q->checkbox(
+			-name    => "id_${isolate_id}_${locus}_sequence_$id",
+			-id      => "id_${isolate_id}_${cleaned_locus}_sequence_$id",
+			-label   => '',
+			-checked => $exact
+		);
+		push @$js3, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",true));
+		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
+		$new_designation = 1;
+		$buffer .= q(</td><td>);
+		my ($default_flags);
+		if ($exact) {
+			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
+		}
+		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {
+			$buffer .= $q->popup_menu(
+				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
+				-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
+				-values   => [SEQ_FLAGS],
+				-default  => $default_flags,
+				-multiple => 'multiple',
+			);
+		} else {
+			$buffer .= $q->popup_menu(
+				-name    => "id_${isolate_id}_${locus}_sequence_${id}_flag",
+				-id      => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
+				-values  => [ '', SEQ_FLAGS ],
+				-default => $default_flags,
+			);
+		}
+	} else {
+		$buffer .=
+		  $q->checkbox( -name => "id_${isolate_id}_${locus}_sequence_$id", -label => '', disabled => 'disabled' );
+		$seq_disabled = 1;
+		$buffer .= q(</td><td>);
+		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
+		foreach my $flag (@$flags) {
+			$buffer .= qq( <a class="seqflag_tooltip">$flag</a>);
+		}
+	}
+	if ($exact) {
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_allele_id_$id", $match->{'allele'} );
+	}
+	if ( !$seq_disabled ) {
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_start_$id"     => $hunter->{'predicted_start'} );
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_end_$id"       => $hunter->{'predicted_end'} );
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_reverse_$id"   => $match->{'reverse'} );
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_complete_$id"  => 1 ) if !$hunter->{'off_end'};
+		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_seqbin_id_$id" => $match->{'seqbin_id'} );
+	}
+	$buffer .= q(</td></tr>);
+	return ( $buffer, $hunter->{'off_end'}, $new_designation );
+}
+
+sub _get_dir_arrow {
+	my ( $self, $reverse ) = @_;
+	my $dir = $reverse ? 'left' : 'right';
+	return qq(<span class="fa fa-2x fa-long-arrow-$dir"></span>);
+}
+
+sub _hunt_for_start_and_stop_codons {
+	my ( $self, $hunt_for_start_end, $match, $original_start, $original_end ) = @_;
+	my ( $off_end, $predicted_start, $predicted_end, $complete_gene );
+	my $complete_tooltip = q();
+	my $seqbin_length =
+	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $match->{'seqbin_id'} );
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
 	my @runs = $hunt_for_start_end ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
@@ -743,7 +869,7 @@ sub _get_row {
 			if ( BIGSdb::Utils::is_int( $match->{'predicted_end'} )
 				&& $match->{'predicted_end'} > $seqbin_length )
 			{
-				$match->{'predicted_end'} = "$seqbin_length\*";
+				$match->{'predicted_end'} = "${seqbin_length}*";
 				$off_end = 1;
 			}
 			$predicted_start = $match->{'predicted_start'};
@@ -778,134 +904,16 @@ sub _get_row {
 			$off_end = 1;
 		}
 		if ( $match->{'predicted_end'} > $seqbin_length ) {
-			$match->{'predicted_end'} = "$seqbin_length\*";
+			$match->{'predicted_end'} = "${seqbin_length}*";
 			$off_end = 1;
 		}
 	}
-	my $cleaned_locus = $self->clean_locus($locus);
-	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
-	my $translate     = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
-	my $orf           = $locus_info->{'orf'} || 1;
-	if ($warning) {
-		$buffer .= q(<tr class="warning">);
-	} else {
-		$buffer .= qq(<tr class="td$td">);
-	}
-	$buffer .= q(<td>)
-	  . ( $labels->{$isolate_id} || $isolate_id )
-	  . qq(</td><td$class>)
-	  . ( $exact ? 'exact' : 'partial' )
-	  . qq(</td><td$class>$cleaned_locus);
-	$buffer .= q(</td>);
-	$tooltip //= q();
-	$buffer .= qq(<td$class>$match->{'allele'}$tooltip</td>);
-	if ( $match->{'from_partial'} ) {
-		$buffer .= q(<td>100.00</td>);
-		$buffer .= qq(<td colspan="3">Initial partial BLAST match to allele $match->{'partial_match_allele'}</td>);
-	} else {
-		$buffer .= qq(<td>$match->{'identity'}</td>);
-		$buffer .= qq(<td>$match->{'alignment'}</td>);
-		$buffer .= qq(<td>$match->{'length'}</td>);
-		$buffer .= qq(<td>$match->{'e-value'}</td>);
-	}
-	$buffer .= qq(<td>$match->{'seqbin_id'}</td>);
-	$buffer .= qq(<td>$match->{'start'}</td>);
-	$buffer .= qq(<td>$match->{'end'} </td>);
-	$buffer .=
-	  $off_end
-	  ? qq(<td class="incomplete">$match->{'predicted_start'}</td>)
-	  : qq(<td>$match->{'predicted_start'}</td>);
-	$match->{'reverse'} //= 0;
-	$buffer .= $off_end ? q(<td class="incomplete">) : q(<td>);
-	$buffer .=
-	    qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
-	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
-	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$predicted_start&amp;end=$predicted_end&amp;)
-	  . qq(reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf">extract )
-	  . qq(<span class="fa fa-arrow-circle-right"></span></a>$complete_tooltip</td>);
-	$buffer .= q(<td style="font-size:2em">) . ( $match->{'reverse'} ? q(&larr;) : q(&rarr;) ) . q(</td><td>);
-	my $seq_disabled = 0;
-	$cleaned_locus = $self->clean_checkbox_id($locus);
-	$cleaned_locus =~ s/\\/\\\\/gx;
-	$exact = 0 if $warning;
-
-	if (   $exact
-		&& ( !@$existing_alleles || ( none { $match->{'allele'} eq $_ } @$existing_alleles ) )
-		&& $match->{'allele'} ne 'ref'
-		&& !$params->{'tblastx'} )
-	{
-		$buffer .= $q->checkbox(
-			-name    => "id_$isolate_id\_$locus\_allele_$id",
-			-id      => "id_$isolate_id\_$cleaned_locus\_allele_$id",
-			-label   => '',
-			-checked => $exact
-		);
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
-		push @$js,  qq(\$("#id_$isolate_id\_$cleaned_locus\_allele_$id").prop("checked",true));
-		push @$js2, qq(\$("#id_$isolate_id\_$cleaned_locus\_allele_$id").prop("checked",false));
-		$new_designation = 1;
-	} else {
-		$buffer .= $q->checkbox( -name => "id_$isolate_id\_$locus\_allele_$id", -label => '', disabled => 'disabled' );
-	}
-	$buffer .= q(</td><td>);
-	my $existing_allele_sequence = $self->{'datastore'}->run_query(
-		'SELECT id FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
-		[ $match->{'seqbin_id'}, $locus, $predicted_start, $predicted_end ],
-		{ fetch => 'row_hashref', cache => 'Scan::get_row_existing_allele_sequence' }
-	);
-	if ( !$existing_allele_sequence ) {
-		$buffer .= $q->checkbox(
-			-name    => "id_$isolate_id\_$locus\_sequence_$id",
-			-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id",
-			-label   => '',
-			-checked => $exact
-		);
-		push @$js3, qq(\$("#id_$isolate_id\_$cleaned_locus\_sequence_$id").prop("checked",true));
-		push @$js4, qq(\$("#id_$isolate_id\_$cleaned_locus\_sequence_$id").prop("checked",false));
-		$new_designation = 1;
-		$buffer .= q(</td><td>);
-		my ($default_flags);
-		if ($exact) {
-			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
-		}
-		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {
-			$buffer .= $q->popup_menu(
-				-name     => "id_$isolate_id\_$locus\_sequence_$id\_flag",
-				-id       => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
-				-values   => [SEQ_FLAGS],
-				-default  => $default_flags,
-				-multiple => 'multiple',
-			);
-		} else {
-			$buffer .= $q->popup_menu(
-				-name    => "id_$isolate_id\_$locus\_sequence_$id\_flag",
-				-id      => "id_$isolate_id\_$cleaned_locus\_sequence_$id\_flag",
-				-values  => [ '', SEQ_FLAGS ],
-				-default => $default_flags,
-			);
-		}
-	} else {
-		$buffer .=
-		  $q->checkbox( -name => "id_$isolate_id\_$locus\_sequence_$id", -label => '', disabled => 'disabled' );
-		$seq_disabled = 1;
-		$buffer .= q(</td><td>);
-		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
-		foreach my $flag (@$flags) {
-			$buffer .= qq( <a class="seqflag_tooltip">$flag</a>);
-		}
-	}
-	if ($exact) {
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_allele_id_$id", $match->{'allele'} );
-	}
-	if ( !$seq_disabled ) {
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_start_$id",     $predicted_start );
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_end_$id",       $predicted_end );
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_reverse_$id",   $match->{'reverse'} );
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_complete_$id",  1 ) if !$off_end;
-		$buffer .= $q->hidden( "id_$isolate_id\_$locus\_seqbin_id_$id", $match->{'seqbin_id'} );
-	}
-	$buffer .= q(</td></tr>);
-	return ( $buffer, $off_end, $new_designation );
+	return {
+		off_end          => $off_end,
+		predicted_start  => $predicted_start,
+		predicted_end    => $predicted_end,
+		complete_tooltip => $complete_tooltip
+	};
 }
 
 sub _get_missing_row {
