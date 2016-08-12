@@ -851,15 +851,24 @@ sub _hunt_for_start_and_stop_codons {
 	my $complete_tooltip = q();
 	my $seqbin_length =
 	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $match->{'seqbin_id'} );
+	my ( $first_codon_is_start, $last_codon_is_stop );
+	my %start_codons = map { $_ => 1 } qw(ATG GTG TTG);
+	my %stop_codons  = map { $_ => 1 } qw(TAG TAA TGA);
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
 	my @runs = $hunt_for_start_end ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
   RUN: foreach my $offset ( 0, @runs ) {
 		my @end_to_adjust = $hunt_for_start_end ? ( 1, 2 ) : (0);
 		foreach my $end (@end_to_adjust) {
+
+			#Don't change start position if already start codon
 			if ( $end == 1 ) {
+				next if $match->{'reverse'} && $first_codon_is_start;
+				next if !$match->{'reverse'} && $last_codon_is_stop;
 				$match->{'predicted_end'} = $original_end + $offset;
 			} elsif ( $end == 2 ) {
+				next if !$match->{'reverse'} && $first_codon_is_start;
+				next if $match->{'reverse'} && $last_codon_is_stop;
 				$match->{'predicted_start'} = $original_start + $offset;
 			}
 			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
@@ -885,6 +894,8 @@ sub _hunt_for_start_and_stop_codons {
 
 			if ($seq) {
 				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
+				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };
 				($complete_gene) = $self->is_complete_gene($seq);
 				if ($complete_gene) {
 					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
