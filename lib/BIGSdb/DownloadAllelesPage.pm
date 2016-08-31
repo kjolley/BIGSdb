@@ -241,8 +241,8 @@ sub _print_table_link {
 }
 
 sub _print_all_loci_by_scheme {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
+	my ($self)      = @_;
+	my $set_id      = $self->get_set_id;
 	my $scheme_data = $self->get_scheme_data;
 	foreach my $scheme (@$scheme_data) {
 		$self->_print_scheme_table( $scheme->{'id'} );
@@ -297,8 +297,12 @@ sub _print_scheme_table {
 	}
 	return if !@$loci;
 	$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
-	say qq(<h2><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h2>);
+	if ($scheme_id) {
+		say qq(<h2><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h2>);
+	} else {
+		say qq(<h2>$scheme_info->{'name'}</h2>);
+	}
 	say $self->get_scheme_flags( $scheme_id, { link => 1 } );
 	say q(<div class="scrollable"><table class="resultstable">);
 	$self->_print_table_header_row(
