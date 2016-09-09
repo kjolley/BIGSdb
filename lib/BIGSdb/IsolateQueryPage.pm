@@ -130,7 +130,7 @@ sub _print_interface {
 	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say $q->startform;
+	say $q->start_form;
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );

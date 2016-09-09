@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,7 +97,7 @@ HTML
 		);
 		say q(</fieldset>);
 		$self->print_action_fieldset;
-		say $q->endform;
+		say $q->end_form;
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
 		say q(</div>);
 	}
@@ -278,6 +278,7 @@ sub _check {
 					$self->_display_error($@);
 					return;
 				}
+
 				#Check if id exists
 				eval {
 					$sql->execute(@args);
@@ -348,7 +349,7 @@ sub _check {
 		$q->param( file     => "$prefix.txt" );
 		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
-		say $q->endform;
+		say $q->end_form;
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
@@ -565,6 +566,9 @@ sub _update {
 				}
 				$self->update_history( $isolate_id, "$display_field: new designation '$value'" );
 			} else {
+				if ( $field eq 'id' ) {
+					$isolate_id = $value;
+				}
 				$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" )
 				  if $old_value ne $value;
 			}

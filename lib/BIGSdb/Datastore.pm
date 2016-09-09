@@ -358,6 +358,11 @@ sub profile_exists {
 	);
 }
 
+sub isolate_exists {
+	my ( $self, $isolate_id ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $isolate_id );
+}
+
 sub get_scheme_locus_indices {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -394,6 +399,7 @@ sub check_new_profile {
 		$scheme_id, { fetch => 'col_arrayref' } );
 	my @profile;
 	my $empty_profile = 1;
+
 	foreach my $locus (@$loci) {
 		push @profile, $designations->{$locus};
 		$empty_profile = 0 if !( ( $designations->{$locus} // 'N' ) eq 'N' );
@@ -943,9 +949,6 @@ sub create_temp_scheme_table {
 	}
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
-	
-	use Data::Dumper;
-	$logger->error(Dumper $locus_indices);
 	eval {
 		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?', undef, $id );
 		foreach my $profile_locus ( keys %$locus_indices ) {
@@ -2271,7 +2274,8 @@ sub get_tables {
 		  isolate_aliases curator_permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
-		  samples isolates history sequence_attributes classification_schemes classification_group_fields);
+		  samples isolates history sequence_attributes classification_schemes classification_group_fields
+		  retired_isolates);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

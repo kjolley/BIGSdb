@@ -729,6 +729,7 @@ sub _run_table_specific_field_checks {
 		isolates => sub {
 			$self->_check_data_refs($new_args);
 			$self->_check_data_aliases($new_args);
+			$self->_check_isolate_id_not_retired($new_args);
 		},
 		scheme_fields => sub {
 			$self->_check_data_scheme_fields($new_args);
@@ -741,6 +742,9 @@ sub _run_table_specific_field_checks {
 		},
 		retired_profiles => sub {
 			$self->_check_retired_profile_id($new_args);
+		},
+		retired_isolates => sub {
+			$self->_check_retired_isolate_id($new_args);
 		},
 		classification_group_fields => sub {
 			$self->_check_data_scheme_fields($new_args);
@@ -800,7 +804,7 @@ sub _report_check {
 		  complete_CDS ignore_similarity submission_id);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
-		say $q->endform;
+		say $q->end_form;
 		say q(</div>);
 	}
 	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
@@ -1564,6 +1568,35 @@ sub _check_retired_profile_id {
 			$arg_ref->{'problems'}->{$pk_combination} .= 'You are not a curator for this scheme.';
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
+	}
+	return;
+}
+
+sub _check_retired_isolate_id {
+	my ( $self, $arg_ref ) = @_;
+	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	return if $field ne 'isolate_id';
+	if ( $self->{'datastore'}->isolate_exists( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ], ) ) {
+		$arg_ref->{'problems'}->{$pk_combination} .=
+		  'Isolate has already been defined - delete it before you retire the identifier.';
+		${ $arg_ref->{'special_problem'} } = 1;
+	}
+	return;
+}
+
+sub _check_isolate_id_not_retired {
+	my ( $self, $arg_ref ) = @_;
+	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	return if $field ne 'id';
+	if (
+		$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
+			$arg_ref->{'data'}->[ $file_header_pos->{'id'} ],
+		)
+	  )
+	{
+		$arg_ref->{'problems'}->{$pk_combination} .= 'Isolate id has been retired.';
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }

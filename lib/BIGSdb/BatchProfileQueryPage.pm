@@ -160,7 +160,7 @@ sub print_content {
 	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
-	say $q->endform;
+	say $q->end_form;
 	say q(</div>);
 	return;
 }

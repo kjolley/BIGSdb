@@ -257,7 +257,7 @@ sub _print_interface {
 	say $q->radio_group( -name => 'analysis', -values => \@values, -labels => $labels, -linebreak => 'true' );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
-	say $q->endform;
+	say $q->end_form;
 	say q(</div>);
 	return;
 }

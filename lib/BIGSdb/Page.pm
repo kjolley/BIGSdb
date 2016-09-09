@@ -840,10 +840,11 @@ sub _get_scheme_fields {
 sub _get_classification_groups_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
-		my $list     = [];
-		my $cg_pkeys = $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes',
-			undef, { fetch => 'all_arrayref', slice => {} } );
-		foreach my $key (@$cg_pkeys){
+		my $list = [];
+		my $cg_pkeys =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT id,name FROM classification_schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $key (@$cg_pkeys) {
 			push @$list, "cg_$key->{'id'}_group";
 			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}_group"} = "$key->{'name'} group";
 		}
@@ -1408,6 +1409,7 @@ sub get_record_name {
 		sequence_attributes               => 'sequence attribute',
 		retired_allele_ids                => 'retired allele id',
 		retired_profiles                  => 'retired profile',
+		retired_isolates                  => 'retired isolate id',
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field'
 	);
@@ -1710,7 +1712,7 @@ sub can_modify_table {
 			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
-		  foreach qw(isolates isolate_aliases refs);
+		  foreach qw(isolates retired_isolates isolate_aliases refs);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
 		  foreach qw(experiments experiment_sequences);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}

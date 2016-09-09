@@ -218,7 +218,7 @@ sub _check_scheme_databases {
 		}
 		say q(</table></div></div>);
 	} else {
-		say q(<p>No schemes with databases defined.</p>);
+		say q(<p>No schemes with databases defined.</p></div>);
 	}
 	return;
 }

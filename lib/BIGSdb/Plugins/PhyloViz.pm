@@ -162,7 +162,7 @@ sub run {
 	. q[typing methods that generate allelic profiles and their associated epidemiological data.</p>   ];
     say $q->start_form();
     # Selected isolates
-    #$self->print_selected_isolates({'selected_ids' => $isolates_ids, 'size' => 11});
+    $self->print_selected_isolates({'selected_ids' => $isolates_ids, 'size' => 11});
     # Isolates fields
     $self->print_isolates_fieldset(1);
     # Loci fieldset
@@ -294,10 +294,6 @@ sub upload_data_to_phyloviz {
     }
     close(CMD);
     say q(<span class="statusgood fa fa-check"></span></p>);
-#    if ( $ENV{'MOD_PERL'} ) {
-#	$self->{'mod_perl_request'}->rflush();
-#	return 1 if $self->{'mod_perl_request'}->connection()->aborted();
-#    }
     return ($uuid, $msg);
     
 }
@@ -372,10 +368,6 @@ sub generate_profile_file {
 	return 1;
     }
     say q(<span class="statusgood fa fa-check"></span></p>);
-#    if ( $ENV{'MOD_PERL'} ) {
-#	$self->{'mod_perl_request'}->rflush();
-#	return 1 if $self->{'mod_perl_request'}->connection()->aborted();
-#    }
     return 0;
 }
 
@@ -411,10 +403,6 @@ sub generate_auxiliary_file {
     }
     close($fh);
     say q(<span class="statusgood fa fa-check"></span></p>);
-#    if ( $ENV{'MOD_PERL'} ) {
-#	$self->{'mod_perl_request'}->rflush();
-#	return 1 if $self->{'mod_perl_request'}->connection()->aborted();
-#    }
     return 0;
 }
 

@@ -257,7 +257,7 @@ sub _run_job_profiles {
 
 	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html =
-		  q(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
+		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $progress = 0;

@@ -85,7 +85,7 @@ sub run {
 
 	if ( $self->{'datastore'}->create_temp_ref_table( $list, \$isolate_qry ) ) {
 		say q(<div class="box" id="queryform">);
-		say $q->startform;
+		say $q->start_form;
 		$q->param( all_records => 1 ) if !$query_file;
 		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype);
 		say q(<fieldset style="float:left"><legend>Filter query by</legend>);
@@ -126,7 +126,7 @@ sub run {
 		);
 		say q( records per page</li></ul></fieldset>);
 		$self->print_action_fieldset( { no_reset => 1 } );
-		say $q->endform;
+		say $q->end_form;
 		say q(</div>);
 		my @filters;
 		my $author =

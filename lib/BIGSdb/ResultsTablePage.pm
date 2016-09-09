@@ -135,9 +135,9 @@ sub paged_display {
 	);
 	return if !$records;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-		$self->_print_isolate_table( \$qry, $currentpage, $q->param('curate'), $records );
+		$self->_print_isolate_table( \$qry, $currentpage, $records );
 	} elsif ( $table eq 'profiles' ) {
-		$self->_print_profile_table( \$qry, $currentpage, $q->param('curate'), $records );
+		$self->_print_profile_table( \$qry, $currentpage, $records );
 	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
 		$self->_print_publication_table( \$qry, $currentpage );
 	} else {
@@ -255,7 +255,7 @@ sub _get_pagebar {
 			$buffer .= q(</td>);
 		}
 		$buffer .= qq(</tr></table>\n);
-		$buffer .= $q->endform;
+		$buffer .= $q->end_form;
 	}
 	return \$buffer;
 }

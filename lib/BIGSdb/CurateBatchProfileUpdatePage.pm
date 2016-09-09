@@ -88,7 +88,7 @@ sub print_content {
 		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
 		say q(</li></ul></fieldset>);
 		$self->print_action_fieldset( { scheme_id => $scheme_id } );
-		say $q->endform;
+		say $q->end_form;
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
 		  . q(Back to main page</a></p></div>);
 	}
@@ -225,7 +225,7 @@ sub _check {
 		$q->param( file   => qq($prefix.txt) );
 		say $q->hidden($_) foreach qw (db page update file scheme_id);
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
-		say $q->endform;
+		say $q->end_form;
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}

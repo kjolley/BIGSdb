@@ -127,7 +127,7 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
-	say $q->startform;
+	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page scheme_id no_js);
 	my $scheme_field_count = $q->param('no_js') ? 4 : ( $self->_highest_entered_fields || 1 );
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';

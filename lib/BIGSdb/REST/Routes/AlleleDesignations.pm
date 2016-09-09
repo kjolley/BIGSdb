@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -127,6 +127,7 @@ sub _get_allele_ids {
 	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page );
 	$values->{'paging'} = $paging if %$paging;
 	my $designations = [];
+
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -160,7 +161,7 @@ sub _get_scheme_allele_ids {
 	my $set_id = $self->get_set_id;
 	my $allele_designations =
 	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
-	my $values       = { records => int($allele_designations) };
+	my $values       = { records => int( keys %$allele_designations ) };
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $designations = [];
 

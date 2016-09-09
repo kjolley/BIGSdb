@@ -405,6 +405,7 @@ sub _add_query_ordering {
 			$$qry_ref .= "$profile_id_field $dir;";
 		} elsif ( $self->{'datastore'}->is_locus($order_field) ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($order_field);
+			$order_field = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $order_field );
 			$order_field =~ s/'/_PRIME_/gx;
 			$$qry_ref .=
 			  $locus_info->{'allele_id_format'} eq 'integer'
