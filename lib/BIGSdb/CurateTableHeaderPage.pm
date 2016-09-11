@@ -122,14 +122,20 @@ sub get_isolate_loci {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my @headers;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $q = $self->{'cgi'};
+	my $order = $q->param('order') // 'alphabetical';
+	my $loci =
+	  $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } )
+	  ;
 	my $loci_with_flag =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );
 	my %include = map { $_ => 1 } @$loci_with_flag;
+
 	foreach my $locus (@$loci) {
 		next if !$include{$locus};
-		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1, keep_underscores => 1 } );
+		my $cleaned_name =
+		  $self->clean_locus( $locus, { no_common_name => 1, text_output => 1, keep_underscores => 1 } );
 		push @headers, $cleaned_name;
 	}
 	return \@headers;
