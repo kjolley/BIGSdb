@@ -189,6 +189,7 @@ sub _initiate {
 	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
 	# Set $self->{'system'}->{qw/host user password port/} values and
 	# $self->{qw/host user password port/} if not already set
+	# Tuco: 12/09/2016 - Now called in _read_db_config_file()
 	$self->_set_dbconnection_params();
 	$self->{'system'}->{'privacy'}     //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
@@ -395,6 +396,7 @@ sub _read_db_config_file {
 	         $logger->error("Parameter dbport in db.conf should be an integer - default value used.");
 		 undef $self->{'config'}->{'dbport'};
 	}
+	$self->_set_dbconnection_params();
 	return;
 }
 
