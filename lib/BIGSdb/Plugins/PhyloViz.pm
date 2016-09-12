@@ -162,7 +162,9 @@ sub run {
 	. q[typing methods that generate allelic profiles and their associated epidemiological data.</p>   ];
     say $q->start_form();
     # Selected isolates
-    $self->print_selected_isolates({'selected_ids' => $isolates_ids, 'size' => 11});
+    if( $self->{'config'}->{'phyloviz_show_isolates_ids'} eq 'yes' ){
+	$self->print_selected_isolates({'selected_ids' => $isolates_ids, 'size' => 11});
+    }
     # Isolates fields
     $self->print_isolates_fieldset(1);
     # Loci fieldset
@@ -189,6 +191,14 @@ sub print_selected_isolates {
 	$query .= ") ORDER BY isolates_public.id ASC";
 
 	my $data =  $self->{'datastore'}->run_query($query, undef, {'fetch' => 'all_arrayref'});
+	# If the isolates are new, not yet stored in the isolates_public view, directly search into
+	# the table itself.
+	if( ! scalar(@$data) ){
+	    $query = "SELECT isolates.id, isolates.isolate FROM isolates WHERE isolates.id IN (";
+	    $query .= join(",", @{$options->{'selected_ids'}});
+	    $query .= ") ORDER BY isolates.id ASC";
+	    $data =  $self->{'datastore'}->run_query($query, undef, {'fetch' => 'all_arrayref'});
+	}
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	say q(<div style="float:left">);
 
@@ -270,6 +280,9 @@ sub upload_data_to_phyloviz {
     my $user = $self->{'config'}->{'phyloviz_user'};
     my $pass = $self->{'config'}->{'phyloviz_passwd'};
     my $script = $self->{'config'}->{'phyloviz_upload_script'};
+    if( ! $user || ! $pass || ! $script ){
+	return (0, "Missing PhyloViz connection parameters!");
+    }
     my $cmd = "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set 2>&1";
     print q(<p>Sending data to PhyloViz online ... );
     if ( $ENV{'MOD_PERL'} ) {
