@@ -31,18 +31,31 @@ sub set_pref_requirements {
 
 sub print_content {
 	my ($self) = @_;
-	(my $version = $BIGSdb::main::VERSION) =~ s/^v//x;
-	print <<"HTML";
+	say q(<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>);
+	$self->print_about_bigsdb;
+	$self->_print_plugins;
+	$self->_print_software_versions;
+	say q(</div>);
+	return;
+}
 
-<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>
-<div class="box" id="resultstable">
-<h2>Version $version</h2>
+sub get_title {
+	return "BIGSdb Version $BIGSdb::main::VERSION";
+}
+
+sub print_about_bigsdb {
+	my ($self) = @_;
+	( my $version = $BIGSdb::main::VERSION ) =~ s/^v//x;
+	say <<"HTML";
+<div class="box resultspanel">
+<h2>BIGSdb Version $version</h2>
 <span class="main_icon fa fa-copyright fa-3x pull-left"></span>
 <ul style="margin-left:1em">
 <li>Written by Keith Jolley</li>
 <li>Copyright &copy; University of Oxford, 2010-2016.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
-Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></li></ul>
+Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></li>
+</ul>
 <p>
 BIGSdb is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -57,27 +70,27 @@ GNU General Public License for more details.</p>
 <p>Full details of the GNU General Public License
 can be found at <a href="http://www.gnu.org/licenses/gpl.html">
 http://www.gnu.org/licenses/gpl.html</a>.</p>
+<span class="main_icon fa fa-github fa-3x pull-left"></span>
+<ul style="margin-left:1em;padding-top:1em"><li>
+Source code can be downloaded from <a href="https://github.com/kjolley/BIGSdb">
+https://github.com/kjolley/BIGSdb</a>.
+</li></ul>
 <h2>Documentation</h2>
 <span class="main_icon fa fa-book fa-3x pull-left"></span>
 <ul style="margin-left:1em">
-<li>Details of this software and the latest version can be downloaded from 
+<li>The home page for this software is  
 <a href="http://pubmlst.org/software/database/bigsdb/">
 http://pubmlst.org/software/database/bigsdb/</a>.</li>
 <li>Full documentation can be found at <a href="http://bigsdb.readthedocs.io/">
 http://bigsdb.readthedocs.io/</a>.</li></ul>
+</div>
 HTML
-	$self->_print_plugins;
-	$self->_print_software_versions;
-	say q(</div>);
 	return;
-}
-
-sub get_title {
-	return "BIGSdb Version $BIGSdb::main::VERSION";
 }
 
 sub _print_plugins {
 	my ($self) = @_;
+	say q(<div class="box resultstable">);
 	say q(<h2>Installed plugins</h2>);
 	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
 	if ( !keys %{$plugins} ) {
@@ -128,6 +141,7 @@ sub _print_plugins {
 		}
 		say q(</table></div>);
 	}
+	say q(</div>);
 	return;
 }
 
@@ -170,6 +184,7 @@ sub _reason_plugin_disabled {
 sub _print_software_versions {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	say q(<div class="box resultspanel">);
 	say q(<h2>Software versions</h2>);
 	my $pg_version = $self->{'datastore'}->run_query('SELECT version()');
 	say q(<ul>);
@@ -178,6 +193,7 @@ sub _print_software_versions {
 	my $apache = $q->server_software;
 	say qq(<li>$apache</li>);
 	say q(</ul>);
+	say q(</div>);
 	return;
 }
 1;
