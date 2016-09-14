@@ -168,11 +168,17 @@ sub print_page {
 	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-	} elsif ( !$self->{'prefstore'} ) {
+		$page->print_page_content;
+		return;
+	}
+	if ( !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
-	} elsif ( ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
+		$page->print_page_content;
+		return;
+	}
+	if (   ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
 		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
@@ -180,17 +186,21 @@ sub print_page {
 		  || $self->{'system'}->{'disable_update_message'};
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-	} elsif ( $classes{ $self->{'page'} } ) {
+		$page->print_page_content;
+		return;
+	}
+	if ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
 				push @{ $page_attributes{'cookies'} }, $_;
 			}
 		}
 		$page = "BIGSdb::$classes{$self->{'page'}}"->new(%page_attributes);
-	} else {
-		$page_attributes{'error'} = 'unknown';
-		$page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page->print_page_content;
+		return;
 	}
+	$page_attributes{'error'} = 'unknown';
+	$page = BIGSdb::ErrorPage->new(%page_attributes);
 	$page->print_page_content;
 	return;
 }
