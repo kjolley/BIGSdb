@@ -64,6 +64,7 @@ use BIGSdb::SequenceTranslatePage;
 use BIGSdb::SubmissionHandler;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
+use BIGSdb::UserPage;
 use BIGSdb::VersionPage;
 use BIGSdb::CGI::as_utf8;
 use DBI;
@@ -72,7 +73,7 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw (plugin job jobs index logout options);
+use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index logout options);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
 
@@ -106,7 +107,7 @@ sub new {
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	my $q = $self->{'cgi'};
 
-	if ( !$self->{'error'} ) {
+	if ( $self->{'instance'} && !$self->{'error'} ) {
 		$self->db_connect;
 		if ( $self->{'db'} ) {
 			$self->setup_datastore;
@@ -151,7 +152,15 @@ sub _initiate {
 		$logger->fatal("Attempted upload too big - $size.");
 		return;
 	}
-	my $db = $q->param('db') // '';
+	my $db = $q->param('db');
+
+	#Default entry page
+	if ( !$db ) {
+		$self->{'system'}->{'read_access'} = 'public';
+		$self->{'system'}->{'dbtype'} = 'user';
+		$self->{'system'}->{'script_name'} = $q->script_name || 'bigsdb.pl';
+		return;
+	}
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	if ( !-e $full_path ) {
@@ -202,10 +211,10 @@ sub _initiate {
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';                                       #everyone can view by default
-	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} //= 'localhost';
-	$self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} //= 5432;
-	$self->{'system'}->{'user'}        //= $self->{'config'}->{'dbuser'} //= 'apache';
-	$self->{'system'}->{'password'}    //= $self->{'config'}->{'dbpassword'} //= 'remote';
+	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} // 'localhost';
+	$self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} // 5432;
+	$self->{'system'}->{'user'}        //= $self->{'config'}->{'dbuser'} // 'apache';
+	$self->{'system'}->{'password'}    //= $self->{'config'}->{'dbpassword'} // 'remote';
 	$self->{'system'}->{'privacy'}     //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
@@ -518,9 +527,10 @@ sub print_page {
 		submit             => 'SubmitPage',
 		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
+		user               => 'UserPage',
 		version            => 'VersionPage'
 	);
-	$self->{'page'} //= 'index';
+	$self->{'page'} //= $self->{'instance'} ? 'index' : 'user';
 	my $page;
 	my %page_attributes = (
 		system               => $self->{'system'},
@@ -573,10 +583,10 @@ sub print_page {
 		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
 	}
-	if ( !$self->{'db'} ) {
+	if ( $self->{'instance'} && !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
-	} elsif ( !$self->{'prefstore'} ) {
+	} elsif ( $self->{'instance'} && !$self->{'prefstore'} ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
@@ -606,6 +616,7 @@ sub authenticate {
 	my $reset_password;
 	my $authenticated = 1;
 	my $q             = $self->{'cgi'};
+	$self->{'system'}->{'authentication'} //= 'builtin';
 	if ( $self->{'system'}->{'authentication'} eq 'apache' ) {
 		if ( $q->remote_user ) {
 			$page_attributes->{'username'} = $q->remote_user;

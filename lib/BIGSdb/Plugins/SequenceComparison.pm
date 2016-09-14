@@ -168,7 +168,7 @@ sub run {
 	if ( length $$seq1_ref != length $$seq2_ref ) {
 		say q(<div class="scrollable">);
 		say q(<pre style="font-size:1.2em">);
-		$self->print_file( $outfile, 1 );
+		$self->print_file( $outfile, { ignore_hashlines => 1 } );
 		say q(</pre>);
 		say q(</div>);
 	}

@@ -898,7 +898,7 @@ sub _output_single_query_nonexact_mismatched {
 		  . qq($data->{'locus_info'}->{'data_type'} sequences.  There were no exact matches, but the )
 		  . q(BLAST results are shown below (a maximum of five alignments are displayed).</p>);
 		say q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
-		$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
+		$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", { ignore_hashlines => 1 } );
 		say q(</pre>);
 	} else {
 		say q(<p>No results from BLAST.</p>);
@@ -993,7 +993,7 @@ sub _output_single_query_nonexact {
 			  . q( sequences.  There were no exact matches, but the BLAST results are shown below )
 			  . q((a maximum of five alignments are displayed).</p>);
 			say q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
-			$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", 1 );
+			$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", { ignore_hashlines => 1 } );
 			say q(</pre>);
 		} else {
 			say q(<p>No results from BLAST.</p>);
@@ -1092,7 +1092,7 @@ sub _display_differences {
 		say q(<p>An alignment between your query and the returned reference sequence is shown rather )
 		  . q(than a simple list of differences because there are gaps in the alignment.</p>);
 		say q(<pre style="font-size:1.2em">);
-		$self->print_file( $outfile, 1 );
+		$self->print_file( $outfile, { ignore_hashlines => 1 } );
 		say q(</pre>);
 		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$temp*");
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }

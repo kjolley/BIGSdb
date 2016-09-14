@@ -317,7 +317,9 @@ sub print_page_content {
 			$self->print_content;
 			$self->_print_footer;
 		} else {
+			$self->_print_site_header;
 			$self->print_content;
+			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		print $q->end_html;
@@ -536,6 +538,17 @@ sub _debug {
 	return;
 }
 
+sub _print_first_valid_file {
+	my ( $self, $paths, $options ) = @_;
+	foreach my $file (@$paths) {
+		if ( -e $file ) {
+			$self->print_file( $file, $options );
+			return;
+		}
+	}
+	return;
+}
+
 sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
@@ -557,12 +570,19 @@ sub _print_header {
 		"$ENV{'DOCUMENT_ROOT'}/header.html",
 		"$self->{'config_dir'}/header.html"
 	  );
-	foreach my $file (@potential_headers) {
-		if ( -e $file ) {
-			$self->print_file($file);
-			return;
-		}
+	$self->_print_first_valid_file( \@potential_headers );
+	return;
+}
+
+sub _print_site_header {
+	my ($self) = @_;
+	my @potential_headers;
+	if ( $self->{'curate'} ) {
+		@potential_headers =
+		  ( "$ENV{'DOCUMENT_ROOT'}/curate_site_header.html", "$self->{'config_dir'}/curate_site_header.html" );
 	}
+	push @potential_headers, ( "$ENV{'DOCUMENT_ROOT'}/site_header.html", "$self->{'config_dir'}/site_header.html" );
+	$self->_print_first_valid_file( \@potential_headers, { no_substitutions => 1 } );
 	return;
 }
 
@@ -911,37 +931,47 @@ sub _print_footer {
 		"$ENV{'DOCUMENT_ROOT'}/footer.html",
 		"$self->{'config_dir'}/footer.html"
 	  );
-	foreach my $file (@potential_footers) {
-		if ( -e $file ) {
-			$self->print_file($file);
-			return;
-		}
+	$self->_print_first_valid_file( \@potential_footers );
+	return;
+}
+
+sub _print_site_footer {
+	my ($self) = @_;
+	my @potential_footers;
+	if ( $self->{'curate'} ) {
+		push @potential_footers,
+		  ( "$ENV{'DOCUMENT_ROOT'}/curate_site_footer.html", "$self->{'config_dir'}/curate_site_footer.html" );
 	}
+	push @potential_footers, ( "$ENV{'DOCUMENT_ROOT'}/footer.html", "$self->{'config_dir'}/footer.html" );
+	$self->_print_first_valid_file( \@potential_footers, { no_substitutions => 1 } );
 	return;
 }
 
 sub print_file {
-	my ( $self, $file, $ignore_hashlines ) = @_;
+	my ( $self, $file, $options ) = @_;
 	my $set_id = $self->get_set_id;
 	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
 		while (<$fh>) {
-			next if /^\#/x && $ignore_hashlines;
-			s/\$instance/$self->{'instance'}/x;
-			s/\$webroot/$system->{'webroot'}/x;
-			s/\$dbase/$system->{'db'}/x;
-			s/\$indexpage/$system->{'indexpage'}/x;
-			s/\$contents/$system->{'script_name'}?db=$self->{'instance'}/x;
-			if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-				my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
-				s/\$lociAdd/<a href="$link">Add<\/a>/x;
-			}
-			if ( !$self->{'curate'} && $set_id ) {
-				s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
-				if ( ~/bigsdb\.pl/x && !/page=/x ) {
-					s/(bigsdb\.pl.*)"/$1$set_string"/gx;
+			next if /^\#/x && $options->{'ignore_hashlines'};
+			if ( !$options->{'no_substitutions'} ) {
+				s/\$instance/$self->{'instance'}/x;
+				s/\$webroot/$system->{'webroot'}/x;
+				s/\$dbase/$system->{'db'}/x;
+				s/\$indexpage/$system->{'indexpage'}/x;
+				s/\$contents/$system->{'script_name'}?db=$self->{'instance'}/x;
+				if ( $self->{'curate'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+					my $link =
+					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
+					s/\$lociAdd/<a href="$link">Add<\/a>/x;
+				}
+				if ( !$self->{'curate'} && $set_id ) {
+					s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
+					if ( ~/bigsdb\.pl/x && !/page=/x ) {
+						s/(bigsdb\.pl.*)"/$1$set_string"/gx;
+					}
 				}
 			}
 			print;
@@ -1602,7 +1632,6 @@ sub get_seq_detail_tooltips {
 		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S&nbsp;</a>);
 	}
 	if (@all_flags) {
-		
 		my $text = 'Flags - ';
 		foreach my $flag (@all_flags) {
 			$text .= $flag;
