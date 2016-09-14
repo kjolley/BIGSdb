@@ -148,6 +148,9 @@ sub print_page {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
+		if ( $page_attributes{'error'} ) {
+			$self->{'handled_error'} = 1;
+		}
 		return;
 	} elsif ( $self->{'page'} eq 'user' ) {
 		$page = BIGSdb::UserPage->new(%page_attributes);
@@ -169,6 +172,9 @@ sub print_page {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
+		if ( $page_attributes{'error'} ) {
+			$self->{'handled_error'} = 1;
+		}
 		return;
 	}
 	if ( !$self->{'prefstore'} ) {
@@ -176,10 +182,13 @@ sub print_page {
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
+		if ( $page_attributes{'error'} ) {
+			$self->{'handled_error'} = 1;
+		}
 		return;
 	}
-	if (   ( $self->{'system'}->{'disable_updates'} && $self->{'system'}->{'disable_updates'} eq 'yes' )
-		|| ( $self->{'config'}->{'disable_updates'} && $self->{'config'}->{'disable_updates'} eq 'yes' ) )
+	if (   ( $self->{'system'}->{'disable_updates'} // q() ) eq 'yes'
+		|| ( $self->{'config'}->{'disable_updates'} // q() ) eq 'yes' )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'}
@@ -202,6 +211,9 @@ sub print_page {
 	$page_attributes{'error'} = 'unknown';
 	$page = BIGSdb::ErrorPage->new(%page_attributes);
 	$page->print_page_content;
+	if ( $page_attributes{'error'} ) {
+		$self->{'handled_error'} = 1;
+	}
 	return;
 }
 1;
