@@ -274,9 +274,10 @@ sub print_content {
 		say q(<div class="box" id="index">);
 		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
 		say qq(<h2>Add, update or delete records</h2>\n)
+		  . q(<div class="scrollable">)
 		  . q(<table style="text-align:center"><tr><th>Record type</th><th>Add</th>)
 		  . q(<th>Batch Add</th><th>Update or delete</th>)
-		  . qq(<th>Comments</th></tr>\n$buffer</table></div>);
+		  . qq(<th>Comments</th></tr>\n$buffer</table></div></div>);
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
@@ -288,8 +289,9 @@ sub print_content {
 		say q(<div class="box" id="restricted">);
 		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
 		say q(<h2>Database configuration</h2>);
-		say q(<table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
-		  . qq(<th>Update or delete</th><th>Comments</th></tr>$buffer</table>)
+		say q();
+		say q(<div class="scrollable"><table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
+		  . qq(<th>Update or delete</th><th>Comments</th></tr>$buffer</table></div>)
 		  if $buffer;
 		say qq(<ul>$list_buffer</ul>) if $list_buffer;
 		say q(</div>);
@@ -606,14 +608,8 @@ HTML
 
 sub _print_retired_isolates {
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'retired_isolates',
-		$td,
-		{
-			set_string => $set_string,
-			comments   => 'Isolate ids defined here will be prevented from being used.'
-		}
-	);
+	return $self->_print_table( 'retired_isolates', $td,
+		{ set_string => $set_string, comments => 'Isolate ids defined here will be prevented from being used.' } );
 }
 
 sub _print_retired_allele_ids {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -704,13 +700,13 @@ sub _print_set_view {              ## no critic (ProhibitUnusedPrivateSubroutine
 		{ requires => 'sets', comments => 'Set database views linked to sets.', set_string => $set_string } );
 }
 
-sub _print_sequence_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_sequence_refs {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'sequence_refs', $td,
 		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
 }
 
-sub _print_profiles {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $schemes;
 	my $set_id = $self->get_set_id;
@@ -1046,16 +1042,23 @@ sub _print_scheme_fields {     ## no critic (ProhibitUnusedPrivateSubroutines) #
 		{ requires => 'schemes', comments => 'Defines which fields belong to a scheme.', set_string => $set_string } );
 }
 
-sub _print_classification_schemes {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_classification_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'classification_schemes', $td,
 		{ requires => 'schemes', comments => 'Defines classification schemes.', set_string => $set_string } );
 }
 
-sub _print_classification_group_fields {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_classification_group_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'classification_group_fields', $td,
-		{ requires => 'classification_schemes', comments => 'Defines which fields belong to a classification scheme.', set_string => $set_string } );
+	return $self->_print_table(
+		'classification_group_fields',
+		$td,
+		{
+			requires   => 'classification_schemes',
+			comments   => 'Defines which fields belong to a classification scheme.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_table {
