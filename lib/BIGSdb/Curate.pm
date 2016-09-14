@@ -149,6 +149,10 @@ sub print_page {
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		return;
+	} elsif ( $self->{'page'} eq 'user' ) {
+		$page = BIGSdb::UserPage->new(%page_attributes);
+		$page->print_page_content;
+		return;
 	} else {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}

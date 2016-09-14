@@ -18,25 +18,21 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::main;
 use strict;
 use warnings;
-use version; our $VERSION = qv('v1.15.2');
 use 5.010;
 
 ###########Local configuration################################
-use constant {
-	CONFIG_DIR       => '/etc/bigsdb',
-	LIB_DIR          => '/usr/local/lib',
-	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
+use constant { 
+	CONFIG_DIR => '/etc/bigsdb', 
+	LIB_DIR => '/usr/local/lib', 
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases' 
 };
 #######End Local configuration################################
-
-use Log::Log4perl qw(get_logger);               #Also need Log::Dispatch::File
+use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
 use lib (LIB_DIR);
 use BIGSdb::Application;
 use BIGSdb::OfflineJobManager;
-
-my $r = shift;    #Apache request object (used for mod_perl)
+my $r = shift;                       #Apache request object (used for mod_perl)
 Log::Log4perl->init_once( CONFIG_DIR . '/logging.conf' );
 BIGSdb::Application->new( CONFIG_DIR, LIB_DIR, DBASE_CONFIG_DIR, $r );

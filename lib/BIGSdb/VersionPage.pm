@@ -39,12 +39,13 @@ sub print_content {
 }
 
 sub get_title {
-	return "BIGSdb Version $BIGSdb::main::VERSION";
+	my ($self) = @_;
+	return "BIGSdb Version $self->{'config'}->{'version'}";
 }
 
 sub print_about_bigsdb {
 	my ($self) = @_;
-	( my $version = $BIGSdb::main::VERSION ) =~ s/^v//x;
+	( my $version = $self->{'config'}->{'version'} ) =~ s/^v//x;
 	say <<"HTML";
 <div class="box resultspanel">
 <h2>BIGSdb Version $version</h2>

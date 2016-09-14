@@ -20,6 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
+use version; my $VERSION = qv('v1.15.2');
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
@@ -99,9 +100,10 @@ sub new {
 	$self->{'dbase_config_dir'} = $dbase_config_dir;
 	bless( $self, $class );
 	$self->read_config_file($config_dir);
-	$CGI::POST_MAX        = $self->{'config'}->{'max_upload_size'};
-	$CGI::DISABLE_UPLOADS = 0;
-	$self->{'cgi'}        = CGI->new;
+	$self->{'config'}->{'version'} = $VERSION;
+	$CGI::POST_MAX                 = $self->{'config'}->{'max_upload_size'};
+	$CGI::DISABLE_UPLOADS          = 0;
+	$self->{'cgi'}                 = CGI->new;
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
@@ -153,12 +155,19 @@ sub _initiate {
 		return;
 	}
 	my $db = $q->param('db');
+	$q->param( page => 'index' ) if !defined $q->param('page');
+
+	#Prevent cross-site scripting vulnerability
+	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
+	$q->param( page => $cleaned_page );
+	$self->{'page'} = $q->param('page');
 
 	#Default entry page
 	if ( !$db ) {
 		$self->{'system'}->{'read_access'} = 'public';
-		$self->{'system'}->{'dbtype'} = 'user';
-		$self->{'system'}->{'script_name'} = $q->script_name || 'bigsdb.pl';
+		$self->{'system'}->{'dbtype'}      = 'user';
+		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
+		$self->{'page'}                    = 'user';
 		return;
 	}
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
@@ -204,12 +213,6 @@ sub _initiate {
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$q->param( page => 'index' ) if !defined $q->param('page');
-
-	#Prevent cross-site scripting vulnerability
-	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
-	$q->param( page => $cleaned_page );
-	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';                                       #everyone can view by default
 	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} // 'localhost';
 	$self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} // 5432;
@@ -530,7 +533,6 @@ sub print_page {
 		user               => 'UserPage',
 		version            => 'VersionPage'
 	);
-	$self->{'page'} //= $self->{'instance'} ? 'index' : 'user';
 	my $page;
 	my %page_attributes = (
 		system               => $self->{'system'},
