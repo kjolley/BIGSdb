@@ -438,7 +438,7 @@ div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader {background:#d5e0d5;padding:5px}
 div#resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
-div#resultspanel {background:#f0f0f0}
+div#resultspanel, div.resultspanel {background:#f0f0f0}
 div#resultspanel li,p,dd {position:relative;z-index:3}
 div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}

@@ -35,7 +35,6 @@ sub print_content {
 	$self->print_about_bigsdb;
 	$self->_print_plugins;
 	$self->_print_software_versions;
-	say q(</div>);
 	return;
 }
 
