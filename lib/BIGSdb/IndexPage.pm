@@ -35,17 +35,14 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{'jQuery'} = 1;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $self->{'system'}->{'read_access'} ne 'public' ) {
-		$self->{'noCache'} = 1;    #Page will display user's queued/running jobs so should not be cached.
-	}
+	$self->{'jQuery'}  = 1;
+	$self->{'noCache'} = 1;
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
 		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 		$self->{'tooltips'} = 1 if @$scheme_data > 1;
 	}
-	$self->{'noCache'} = 1 if ( $q->param('page') // '' ) eq 'logout';
 	return;
 }
 
@@ -60,8 +57,9 @@ sub print_content {
 	$self->print_banner;
 	$self->_print_jobs;
 	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
 
+	#Append to URLs to ensure unique caching.
+	my $cache_string = $self->get_cache_string;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
@@ -69,7 +67,7 @@ sub print_content {
 	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
 	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
-	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$set_string&amp;";
+	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say qq(<li><a href="${url_root}page=query">Search or browse database</a></li>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
@@ -197,13 +195,12 @@ sub _print_download_section {
 
 sub _print_options_section {
 	my ($self) = @_;
-	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
+	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left; margin-right:1em">);
 	say q(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
 	say q(<h2>Option settings</h2>);
 	say q(<ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$set_string">)
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$cache_string">)
 	  . q(Set general options</a>);
 	say q( - including isolate table field handling.) if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(</li>);
@@ -211,11 +208,11 @@ sub _print_options_section {
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<li>Set display and query options for )
-		  . qq(<a href="${url_root}table=loci$set_string">locus</a>, )
-		  . qq(<a href="${url_root}table=schemes$set_string">schemes</a> or )
-		  . qq(<a href="${url_root}table=scheme_fields$set_string">scheme fields</a>.</li>);
+		  . qq(<a href="${url_root}table=loci$cache_string">locus</a>, )
+		  . qq(<a href="${url_root}table=schemes$cache_string">schemes</a> or )
+		  . qq(<a href="${url_root}table=scheme_fields$cache_string">scheme fields</a>.</li>);
 	} else {
-		say qq(<li><a href="${url_root}table=schemes$set_string">Scheme options</a></li>);
+		say qq(<li><a href="${url_root}table=schemes$cache_string">Scheme options</a></li>);
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} ) {
 		my $clients_authorized = $self->{'datastore'}->run_query(
@@ -255,8 +252,7 @@ sub _print_general_info_section {
 	say q(<div style="float:left; margin-right:1em">);
 	say q(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
 	say q(<h2>General information</h2><ul class="toplevel">);
-	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';    #append to URLs to ensure unique caching.
+	my $cache_string = $self->get_cache_string;
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_count = $self->_get_allele_count;
@@ -295,7 +291,7 @@ sub _print_general_info_section {
 	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
 	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-	  . qq(table=$history_table&amp;order=timestamp&amp;direction=descending&amp;submit=1$set_string">)
+	  . qq(table=$history_table&amp;order=timestamp&amp;direction=descending&amp;submit=1$cache_string">)
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
 	  . q(pdate history</a></li>)
 	  if $history_exists;
@@ -308,10 +304,10 @@ sub _print_general_info_section {
 sub _print_plugin_section {
 	my ( $self,           $scheme_data ) = @_;
 	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
-	my $q          = $self->{'cgi'};
-	my $set_id     = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
-	my $plugins    = $self->{'pluginManager'}->get_appropriate_plugin_names(
+	my $q            = $self->{'cgi'};
+	my $set_id       = $self->get_set_id;
+	my $cache_string = $self->get_cache_string;
+	my $plugins      = $self->{'pluginManager'}->get_appropriate_plugin_names(
 		'breakdown|export|analysis|miscellaneous',
 		$self->{'system'}->{'dbtype'},
 		{ set_id => $set_id }
@@ -339,7 +335,7 @@ sub _print_plugin_section {
 				  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
 				  : q();
 				say qq(<li><a href="$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;)
-				  . qq(db=$self->{'instance'}$scheme_arg$set_string">$menuitem</a>);
+				  . qq(db=$self->{'instance'}$scheme_arg$cache_string">$menuitem</a>);
 				say qq( - $att->{'menu_description'}) if $att->{'menu_description'};
 				say q(</li>);
 			}

@@ -31,6 +31,7 @@ use BIGSdb::BIGSException;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::CombinationQueryPage;
+use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::Dataconnector;
@@ -73,8 +74,8 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index logout options);
+use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit login);
+use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
 
@@ -488,6 +489,7 @@ sub _db_disconnect {
 
 sub print_page {
 	my ($self) = @_;
+	my $logger  = get_logger('BIGSdb.Application_Initiate');
 	my $set_options = 0;
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
@@ -568,13 +570,16 @@ sub print_page {
 		}
 		return;
 	}
-	if (   $self->{'system'}->{'read_access'} ne 'public'
+	my $login_requirement = $self->{'datastore'}->get_login_requirement;
+	
+	if (   $login_requirement != NOT_ALLOWED
 		|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
 		|| $self->{'page'} eq 'logout' )
 	{
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
+		return if !$continue;
 	}
-	return if !$continue;
+	
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
 	{
@@ -641,10 +646,11 @@ sub authenticate {
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		if (   $self->{'curate'}
-			|| $self->{'system'}->{'read_access'} ne 'public'
+		my $login_requirement = $self->{'datastore'}->get_login_requirement;
+		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
+
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
@@ -658,6 +664,7 @@ sub authenticate {
 					$page->print_page_content;
 					$authenticated = 0;
 				} else {
+					if ($login_requirement == REQUIRED || $self->{'pages_needing_authentication'}->{ $self->{'page'} }){
 					try {
 						( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
 					}
@@ -666,8 +673,13 @@ sub authenticate {
 						#failed again
 						$authenticated = 0;
 					};
+					}
+
 				}
 			};
+		}
+		if ($login_requirement == OPTIONAL && $self->{'page'} eq 'login'){
+			$self->{'page'} = 'index';
 		}
 	}
 	if ($reset_password) {

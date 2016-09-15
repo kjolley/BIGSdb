@@ -107,8 +107,8 @@ use constant ALLELE_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
-use constant DIPLOID => qw(A C G T R Y W S M K);
-use constant HAPLOID => qw(A C G T);
+use constant DIPLOID            => qw(A C G T R Y W S M K);
+use constant HAPLOID            => qw(A C G T);
 use constant IDENTITY_THRESHOLD => 70;
 push @EXPORT_OK, qw(SEQ_STATUS SEQ_FLAGS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD);
 
@@ -148,4 +148,11 @@ use constant SCHEME_FLAG_COLOURS => {
 };
 push @EXPORT_OK, qw (SCHEME_FLAGS SCHEME_FLAG_COLOURS);
 $EXPORT_TAGS{'scheme_flags'} = [qw(SCHEME_FLAGS SCHEME_FLAG_COLOURS)];
+
+#Log in
+use constant NOT_ALLOWED => 0;
+use constant OPTIONAL    => 1;
+use constant REQUIRED    => 2;
+push @EXPORT_OK, qw (NOT_ALLOWED OPTIONAL REQUIRED);
+$EXPORT_TAGS{'login_requirements'} = [qw(NOT_ALLOWED OPTIONAL REQUIRED)];
 1;

@@ -31,7 +31,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
+use BIGSdb::Constants qw(IDENTITY_THRESHOLD :login_requirements);
 use IO::Handle;
 use Digest::MD5;
 
@@ -1861,7 +1861,7 @@ sub create_blast_db {
 	my $lock_fh;
 	if ( $self->_specific_locus_selected( $options->{'locus'} ) ) {
 		$qry = 'SELECT locus,allele_id,sequence from sequences WHERE locus=?';
-		if ($options->{'type_alleles'}){
+		if ( $options->{'type_alleles'} ) {
 			$qry .= ' AND type_allele';
 		}
 	} else {
@@ -2364,5 +2364,20 @@ sub get_metadata_value {
 	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
 		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
 	return $data->{ lc($metafield) } // '';
+}
+
+sub get_login_requirement {
+	my ($self) = @_;
+	if (   ( ( $self->{'system'}->{'read_access'} // q() ) ne 'public' )
+		|| $self->{'curate'}
+		|| $self->{'needs_authentication'} )
+	{
+		return REQUIRED;
+	}
+	if ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' && $self->{'system'}->{'authentication'} eq 'builtin' )
+	{
+		return OPTIONAL;
+	}
+	return NOT_ALLOWED;
 }
 1;

@@ -104,9 +104,8 @@ sub _home {
 
 sub _get_base_url {
 	my ($self) = @_;
-	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? qq(&amp;set_id=$set_id) : q();
-	return qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}$set_string);
+	my $cache_string = $self->get_cache_string;   
+	return qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string);
 }
 
 sub _submissions_link {

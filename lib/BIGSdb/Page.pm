@@ -24,7 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Constants qw(:interface :limits :scheme_flags SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -308,10 +308,7 @@ sub print_page_content {
 		say $head;
 		if ( $self->{'system'}->{'db'} ) {
 			$self->_print_header;
-			$self->_print_login_details
-			  if ( defined $self->{'system'}->{'read_access'} && $self->{'system'}->{'read_access'} ne 'public' )
-			  || $self->{'curate'}
-			  || $self->{'needs_authentication'};
+			$self->_print_login_details;
 			$self->_print_menu;
 			$self->_print_help_panel;
 			$self->print_content;
@@ -586,14 +583,27 @@ sub _print_site_header {
 	return;
 }
 
+
+
 sub _print_login_details {
 	my ($self) = @_;
 	return if !$self->{'datastore'};
+	my $login_requirement = $self->{'datastore'}->get_login_requirement;
+	return if $login_requirement == NOT_ALLOWED;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $q = $self->{'cgi'};
+	my $page = $q->param('page');
 	say q(<div id="logindetails">);
+
 	if ( !$user_info ) {
 		if ( !$self->{'username'} ) {
-			say q(<i>Not logged in.</i>);
+			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
+				say q(<span class="fa fa-sign-in"></span> )
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=login">)
+				  . q(Log in</a>);
+			} else {
+				say q(<i>Not logged in.</i>);
+			}
 		} else {
 			say q(<i>Logged in: <b>Unregistered user.</b></i>);
 		}
@@ -610,6 +620,17 @@ sub _print_login_details {
 	}
 	say q(</div>);
 	return;
+}
+
+sub get_cache_string {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $logged_in = $self->{'username'} ? 1 : 0;
+	my $logged_in_string = $self->{'username'} ? "&amp;l=$logged_in" : q();
+	my $set_string = $set_id ? "&amp;set_id=$set_id" : q();
+	#Append to URLs to ensure unique caching.
+	my $cache_string = $set_string.$logged_in_string;  
+	return $cache_string;
 }
 
 sub get_help_url {
@@ -949,8 +970,7 @@ sub _print_site_footer {
 
 sub print_file {
 	my ( $self, $file, $options ) = @_;
-	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
+	my $cache_string = $self->get_cache_string;   
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
@@ -967,10 +987,10 @@ sub print_file {
 					  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences";
 					s/\$lociAdd/<a href="$link">Add<\/a>/x;
 				}
-				if ( !$self->{'curate'} && $set_id ) {
-					s/(bigsdb\.pl.*page=.+?)"/$1$set_string"/gx;
+				if ( !$self->{'curate'} ) {
+					s/(bigsdb\.pl.*page=.+?)"/$1$cache_string"/gx;
 					if ( ~/bigsdb\.pl/x && !/page=/x ) {
-						s/(bigsdb\.pl.*)"/$1$set_string"/gx;
+						s/(bigsdb\.pl.*)"/$1$cache_string"/gx;
 					}
 				}
 			}
