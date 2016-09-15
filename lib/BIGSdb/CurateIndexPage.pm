@@ -606,7 +606,7 @@ HTML
 	return ( $buffer, $td );
 }
 
-sub _print_retired_isolates {
+sub _print_retired_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'retired_isolates', $td,
 		{ set_string => $set_string, comments => 'Isolate ids defined here will be prevented from being used.' } );
