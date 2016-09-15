@@ -67,8 +67,7 @@ sub _print_citations {
 	my ( $self, $scheme_id ) = @_;
 	my $refs =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } )
-	  ;
+	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
 	if (@$refs) {
 		say q(<h2>References</h2><ul>);
 		my $citations =
@@ -107,7 +106,9 @@ sub _print_loci {
 	say q(<h2>Loci</h2>);
 	my $count = @$scheme_loci;
 	my $plural = @$scheme_loci == 1 ? q(us) : q(i);
-	say qq(<p>This scheme consists of alleles from $count loc$plural.</p>);
+	say qq(<p>This scheme consists of alleles from <a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=downloadAlleles&amp;scheme_id=$scheme_id&amp;render=1">)
+	  . qq($count loc$plural</a>.</p>);
 	if ( @$scheme_loci <= 20 ) {
 		say q(<ul>);
 		foreach my $locus (@$scheme_loci) {

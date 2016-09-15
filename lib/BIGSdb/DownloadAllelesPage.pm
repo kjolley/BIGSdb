@@ -156,9 +156,15 @@ sub print_content {
 				return;
 			}
 		}
+		if ( $q->param('render') ) {
+			say q(<h1>Download allele sequences</h1><div class="box" id="resultstable"><div class="scrollable">);
+		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$self->_print_scheme_table($scheme_id);
 		$self->_print_table_link;
+		if ( $q->param('render') ) {
+			say q(</div></div>);
+		}
 		return;
 	} elsif ( defined $q->param('group_id') ) {
 		my $group_id = $q->param('group_id');
