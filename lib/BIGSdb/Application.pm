@@ -437,7 +437,8 @@ sub setup_datastore {
 		dataConnector => $self->{'dataConnector'},
 		system        => $self->{'system'},
 		config        => $self->{'config'},
-		xmlHandler    => $self->{'xmlHandler'}
+		xmlHandler    => $self->{'xmlHandler'},
+		curate        => $self->{'curate'}
 	);
 	return;
 }
