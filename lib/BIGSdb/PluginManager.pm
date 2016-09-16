@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -158,7 +158,7 @@ sub get_appropriate_plugin_names {
 		  if $dbtype eq 'sequences'
 		  && $options->{'seqdb_type'}
 		  && ( $attr->{'seqdb_type'} // q() ) !~ /$options->{'seqdb_type'}/x;
-		my %possible_index_page = map { $_ => 1 } qw (index options logout);
+		my %possible_index_page = map { $_ => 1 } qw (index options logout login);
 		if (  !$q->param('page')
 			|| $possible_index_page{ $q->param('page') }
 			|| $self->_is_matching_category( $category, $attr->{'category'} ) )

@@ -573,8 +573,7 @@ sub print_page {
 	if ( $self->{'db'} ) {
 		my $login_requirement = $self->{'datastore'}->get_login_requirement;
 		if (   $login_requirement != NOT_ALLOWED
-			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
-			|| $self->{'page'} eq 'logout' )
+			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
 			( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 			return if !$continue;
