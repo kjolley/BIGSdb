@@ -488,8 +488,8 @@ sub _db_disconnect {
 }
 
 sub print_page {
-	my ($self) = @_;
-	my $logger  = get_logger('BIGSdb.Application_Initiate');
+	my ($self)      = @_;
+	my $logger      = get_logger('BIGSdb.Application_Initiate');
 	my $set_options = 0;
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
@@ -570,16 +570,16 @@ sub print_page {
 		}
 		return;
 	}
-	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	
-	if (   $login_requirement != NOT_ALLOWED
-		|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
-		|| $self->{'page'} eq 'logout' )
-	{
-		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
-		return if !$continue;
+	if ( $self->{'db'} ) {
+		my $login_requirement = $self->{'datastore'}->get_login_requirement;
+		if (   $login_requirement != NOT_ALLOWED
+			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
+			|| $self->{'page'} eq 'logout' )
+		{
+			( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
+			return if !$continue;
+		}
 	}
-	
 	if ( $self->{'page'} eq 'options'
 		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
 	{
@@ -650,7 +650,6 @@ sub authenticate {
 		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
-
 			try {
 				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
@@ -664,21 +663,23 @@ sub authenticate {
 					$page->print_page_content;
 					$authenticated = 0;
 				} else {
-					if ($login_requirement == REQUIRED || $self->{'pages_needing_authentication'}->{ $self->{'page'} }){
-					try {
-						( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) = $page->secure_login;
-					}
-					catch BIGSdb::AuthenticationException with {
+					if (   $login_requirement == REQUIRED
+						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+					{
+						try {
+							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
+							  $page->secure_login;
+						}
+						catch BIGSdb::AuthenticationException with {
 
-						#failed again
-						$authenticated = 0;
-					};
+							#failed again
+							$authenticated = 0;
+						};
 					}
-
 				}
 			};
 		}
-		if ($login_requirement == OPTIONAL && $self->{'page'} eq 'login'){
+		if ( $login_requirement == OPTIONAL && $self->{'page'} eq 'login' ) {
 			$self->{'page'} = 'index';
 		}
 	}
