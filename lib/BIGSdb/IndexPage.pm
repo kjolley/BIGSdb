@@ -53,7 +53,7 @@ sub print_content {
 	my $system      = $self->{'system'};
 	my $q           = $self->{'cgi'};
 	my $desc        = $self->get_db_description;
-	say "<h1>$desc database</h1>";
+	say qq(<h1>$desc database</h1>);
 	$self->print_banner;
 	$self->_print_jobs;
 	my $set_id = $self->get_set_id;
