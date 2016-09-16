@@ -2374,7 +2374,10 @@ sub get_login_requirement {
 	{
 		return REQUIRED;
 	}
-	if ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' && $self->{'system'}->{'authentication'} eq 'builtin' )
+
+	#TODO Make public login the default once site-wide accounts are available.
+	if ( ( $self->{'system'}->{'public_login'} // q() ) eq 'yes'
+		&& $self->{'system'}->{'authentication'} eq 'builtin' )
 	{
 		return OPTIONAL;
 	}
