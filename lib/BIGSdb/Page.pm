@@ -589,7 +589,7 @@ sub _print_login_details {
 	my ($self) = @_;
 	return if !$self->{'datastore'};
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	return if $login_requirement == NOT_ALLOWED;
+	return if $login_requirement == NOT_ALLOWED && !$self->{'needs_authentication'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $q = $self->{'cgi'};
 	my $page = $q->param('page');

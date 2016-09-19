@@ -1964,7 +1964,7 @@ sub mark_cache_stale {
 sub _get_cache_age {
 	my ( $self, $dataset ) = @_;
 	$dataset //= 'all';
-	$dataset = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';                    # 'All loci'
+	$dataset = 'all' if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';    # 'All loci'
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset/DNA_fastafile.txt";
 	return 0 if !-e $temp_fastafile;
 	return -M $temp_fastafile;
@@ -2369,9 +2369,8 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
-	if (   ( ( $self->{'system'}->{'read_access'} // q() ) ne 'public' )
-		|| $self->{'curate'}
-		|| $self->{'needs_authentication'} )
+	if ( ( ( $self->{'system'}->{'read_access'} // q() ) ne 'public' )
+		|| $self->{'curate'} )
 	{
 		return REQUIRED;
 	}

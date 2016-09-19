@@ -74,7 +74,7 @@ use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 use Config::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit login);
+use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit login logout);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
@@ -583,7 +583,7 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
+		$self->{'cgi'}->param( page => 'index' );                                           #stop prefs initiating twice
 		$set_options = 1;
 	}
 	if ( $self->{'instance'} && !$self->{'db'} ) {
