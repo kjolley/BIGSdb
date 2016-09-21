@@ -500,6 +500,72 @@ sub get_client_db {
 	}
 	return $self->{'client_db'}->{$id};
 }
+##############USER DATABASES###########################################################
+sub initiate_userdbs {
+	my ($self) = @_;
+	my $configs =
+	  $self->run_query( 'SELECT * FROM user_dbases ORDER BY id', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $config (@$configs) {
+		try {
+			$self->{'user_dbs'}->{ $config->{'id'} } = $self->{'dataConnector'}->get_connection($config);
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+			$logger->warn("Cannot connect to database '$config->{'dbase_name'}'");
+			$self->{'error'} = 'noConnect';
+		};
+	}
+	return;
+}
+
+sub get_user_db {
+	my ( $self, $id ) = @_;
+	return $self->{'user_dbs'}->{$id};
+}
+
+sub user_dbs_defined {
+	my ($self) = @_;
+	return 1 if keys %{ $self->{'user_dbs'} };
+	return;
+}
+
+sub user_name_exists {
+	my ( $self, $name ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)', $name );
+}
+
+sub get_users {
+	my ( $self, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $qry = 'SELECT id,first_name,surname,user_name,user_db FROM users WHERE ';
+	$qry .= $options->{'curators'} ? q(status IN ('curator','admin','submitter') AND ) : q();
+	$qry .= q( id > 0);
+	my $data = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $user (@$data) {
+
+		#User details may be stored in site-wide users database
+		if ( $user->{'user_db'} ) {
+			my $user_db = $self->get_user_db( $user->{'user_db'} );
+			my $remote_user =
+			  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
+				$user->{'user_name'},
+				{ db => $user_db, fetch => 'row_hashref', cache => 'Datastore::get_users::remote' } );
+			if ( $remote_user->{'user_name'} ) {
+				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+			}
+		}
+	}
+	my $ids    = [];
+	my $labels = {};
+	$options->{'format'} //= 'sfu';
+	foreach my $user (@$data) {
+		push @$ids, $user->{'id'};
+		if ( $options->{'format'} eq 'sfu' ) {
+			$labels->{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+		}
+	}
+	@$ids = sort { $labels->{$a} cmp $labels->{$b} } @$ids;
+	return ( $ids, $labels );
+}
 ##############SCHEMES##################################################################
 sub scheme_exists {
 	my ( $self, $id ) = @_;
@@ -2300,7 +2366,7 @@ sub get_tables {
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  samples isolates history sequence_attributes classification_schemes classification_group_fields
-		  retired_isolates);
+		  retired_isolates user_dbases);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2310,7 +2376,7 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields);
+		  classification_group_fields user_dbases);
 	}
 	return @tables;
 }

@@ -209,7 +209,7 @@ sub _get_admin_links {
 
 	#Only modify schemes/loci etc. when sets not selected.
 	return q() if $set_id;
-	my @tables = qw (loci);
+	my @tables = qw (user_dbases loci);
 	my @skip_table;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @tables,
@@ -890,6 +890,20 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		{
 			requires   => 'loci',
 			comments   => 'Add alternative names for loci.  These can also be set when you batch add loci.',
+			set_string => $set_string
+		}
+	);
+}
+
+sub _print_user_dbases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table(
+		'user_dbases',
+		$td,
+		{
+			title    => 'user databases',
+			comments => 'Add global databases containing site-wide user data - these can be used to set '
+			  . 'up accounts that work across databases.',
 			set_string => $set_string
 		}
 	);

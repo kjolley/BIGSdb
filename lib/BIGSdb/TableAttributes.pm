@@ -57,7 +57,8 @@ sub get_users_table_attributes {
 		{ name => 'status',       type => 'text', required => 'yes', optlist => $status, default        => 'user' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
-		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
+		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' },
+		{ name => 'user_db', type => 'int', noshow   => 'yes' }
 	];
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' && $self->{'config'}->{'submission_dir'} ) {
 		push @$attributes,
@@ -69,6 +70,53 @@ sub get_users_table_attributes {
 			  . 'privileges to curate.  This is only relevant to curators and admins.'
 		  };
 	}
+	return $attributes;
+}
+
+sub get_user_dbases_table_attributes {
+	my $attributes = [
+		{ name => 'id',   type => 'int',  required => 'yes', primary_key => 'yes' },
+		{ name => 'name', type => 'text', required => 'yes', length      => 30, comments => 'Site/domain name' },
+		{
+			name     => 'dbase_name',
+			type     => 'text',
+			required => 'yes',
+			length   => 60,
+			comments => 'Name of the database holding user data'
+		},
+		{
+			name     => 'dbase_host',
+			type     => 'text',
+			hide     => 'yes',
+			comments => 'IP address of database host',
+			tooltip  => 'dbase_host - Leave this blank if your database engine is running on the '
+			  . 'same machine as the webserver software.'
+		},
+		{
+			name     => 'dbase_port',
+			type     => 'int',
+			hide     => 'yes',
+			comments => 'Network port accepting database connections',
+			tooltip  => 'dbase_port - This can be left blank unless the database engine is '
+			  . 'listening on a non-standard port.'
+		},
+		{
+			name    => 'dbase_user',
+			type    => 'text',
+			hide    => 'yes',
+			tooltip => 'dbase_user - Depending on configuration of the database engine '
+			  . 'you may be able to leave this blank.'
+		},
+		{
+			name    => 'dbase_password',
+			type    => 'text',
+			hide    => 'yes',
+			tooltip => 'dbase_password - Depending on configuration of the database engine '
+			  . 'you may be able to leave this blank.'
+		},
+		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'datestamp', type => 'date', required => 'yes' }
+	];
 	return $attributes;
 }
 

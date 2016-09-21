@@ -121,6 +121,7 @@ sub new {
 					  . q(in the system tag of the XML database description.) );
 			}
 			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
+			$self->{'datastore'}->initiate_userdbs;
 			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
@@ -458,15 +459,15 @@ sub setup_submission_handler {
 
 sub db_connect {
 	my ($self) = @_;
-	my %att = (
+	my $att = {
 		dbase_name => $self->{'system'}->{'db'},
 		host       => $self->{'system'}->{'host'},
 		port       => $self->{'system'}->{'port'},
 		user       => $self->{'system'}->{'user'},
 		password   => $self->{'system'}->{'password'}
-	);
+	};
 	try {
-		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
+		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
 	catch BIGSdb::DatabaseConnectionException with {
 		my $logger = get_logger('BIGSdb.Application_Initiate');
@@ -483,6 +484,8 @@ sub _db_disconnect {
 	undef $self->{'datastore'};
 	return;
 }
+
+
 
 sub print_page {
 	my ($self)      = @_;
@@ -583,7 +586,7 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param( page => 'index' );                                           #stop prefs initiating twice
+		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
 	}
 	if ( $self->{'instance'} && !$self->{'db'} ) {

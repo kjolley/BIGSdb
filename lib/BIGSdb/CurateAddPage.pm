@@ -113,43 +113,54 @@ sub print_content {
 		return;
 	}
 	$self->_warn_about_scheme_modification($table);
-	my $icon = $self->get_form_icon( $table, 'plus' );
-	my $buffer = $icon;
-	my %newdata;
-	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-	foreach (@$attributes) {
-		$newdata{ $_->{'name'} } = $q->param( $_->{'name'} ) if ( $q->param( $_->{'name'} ) // '' ) ne '';
-		if (  !$newdata{ $_->{'name'} }
-			&& $_->{'name'} eq 'id'
-			&& $_->{'type'} eq 'int' )
-		{
-			$newdata{'id'} = $self->next_id($table);
-		} elsif ( $table eq 'samples'
-			&& $_->{'name'} eq 'sample_id'
-			&& !$newdata{'sample_id'}
-			&& $newdata{'isolate_id'} )
-		{
-			$newdata{'sample_id'} = $self->_next_sample_id( $newdata{'isolate_id'} );
-		}
-		if ( !$newdata{ $_->{'name'} } && $_->{'default'} ) {
-			$newdata{ $_->{'name'} } = $_->{'default'};
-		}
-	}
+	my $icon     = $self->get_form_icon( $table, 'plus' );
+	my $buffer   = $icon;
+	my $new_data = $self->_populate_newdata($table);
 	if ( $table eq 'loci' && $q->param('Copy') ) {
-		$self->_copy_locus_config( \%newdata );
+		$self->_copy_locus_config($new_data);
 	}
-	$buffer .= $self->create_record_table( $table, \%newdata );
-	$newdata{'datestamp'} = $newdata{'date_entered'} = BIGSdb::Utils::get_datestamp();
-	$newdata{'curator'} = $self->get_curator_id;
+	$buffer .= $self->create_record_table( $table, $new_data );
+	$new_data->{'datestamp'} = $new_data->{'date_entered'} = BIGSdb::Utils::get_datestamp();
+	$new_data->{'curator'} = $self->get_curator_id;
 	my $retval;
 	if ( $q->param('sent') ) {
-		$retval = $self->_insert( $table, \%newdata );
+		$retval = $self->_insert( $table, $new_data );
 	}
 	if ( ( $retval // 0 ) != SUCCESS ) {
 		print $buffer ;
 		$self->_print_copy_locus_record_form if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'loci';
 	}
 	return;
+}
+
+sub _populate_newdata {
+	my ( $self, $table ) = @_;
+	my $q          = $self->{'cgi'};
+	my $new_data   = {};
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	foreach my $param (qw(user_db)) {
+		next if !$q->param($param);
+		$new_data->{$param} = $q->param($param);
+	}
+	foreach my $att (@$attributes) {
+		$new_data->{ $att->{'name'} } = $q->param( $att->{'name'} ) if ( $q->param( $att->{'name'} ) // '' ) ne '';
+		if (  !$new_data->{ $att->{'name'} }
+			&& $att->{'name'} eq 'id'
+			&& $att->{'type'} eq 'int' )
+		{
+			$new_data->{'id'} = $self->next_id($table);
+		} elsif ( $table eq 'samples'
+			&& $att->{'name'} eq 'sample_id'
+			&& !$new_data->{'sample_id'}
+			&& $new_data->{'isolate_id'} )
+		{
+			$new_data->{'sample_id'} = $self->_next_sample_id( $new_data->{'isolate_id'} );
+		}
+		if ( !$new_data->{ $att->{'name'} } && $att->{'default'} ) {
+			$new_data->{ $att->{'name'} } = $att->{'default'};
+		}
+	}
+	return $new_data;
 }
 
 sub _check_locus_descriptions {
@@ -199,10 +210,11 @@ sub _insert {
 	my @problems;
 	$self->format_data( $table, $newdata );
 	@problems = $self->check_record( $table, $newdata );
-	my $extra_inserts = [];
+	my $extra_inserts      = [];
+	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes);
+	  retired_isolates schemes users);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -215,7 +227,7 @@ sub _insert {
 	}
 	if ( $check_tables{$table} ) {
 		my $method = "_check_$table";
-		$self->$method( $newdata, \@problems, $extra_inserts );
+		$self->$method( $newdata, \@problems, $extra_inserts, $extra_transactions );
 	}
 	if (@problems) {
 		local $" = "<br />\n";
@@ -234,6 +246,9 @@ sub _insert {
 			$self->{'db'}->do( $qry, undef, @values );
 			foreach (@$extra_inserts) {
 				$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
+			}
+			foreach my $transaction (@$extra_transactions) {
+				$transaction->{'db'}->do( $transaction->{'statement'}, undef, @{ $transaction->{'arguments'} } );
 			}
 			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 				my %modifies_scheme = map { $_ => 1 } qw(scheme_members scheme_fields);
@@ -258,8 +273,14 @@ sub _insert {
 			}
 			say q(</div>);
 			$self->{'db'}->rollback;
+			foreach my $transaction (@$extra_transactions) {
+				$transaction->{'db'}->rollback;
+			}
 		} else {
 			$self->{'db'}->commit;
+			foreach my $transaction (@$extra_transactions) {
+				$transaction->{'db'}->commit;
+			}
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 				$cleaned_locus =~ s/\\'/'/gx;
@@ -305,8 +326,10 @@ sub _display_navlinks {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
 			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 		{
+			my $user_db_string =
+			  BIGSdb::Utils::is_int( $newdata->{'user_db'} ) ? qq(&amp;user_db=$newdata->{'user_db'}) : q();
 			say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}">Set password</a>);
+			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}$user_db_string">Set password</a>);
 		}
 	}
 	my $q = $self->{'cgi'};
@@ -680,6 +703,36 @@ sub _check_locus_aliases_when_updating_other_table {
 				  };
 			}
 		}
+	}
+	return;
+}
+
+sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems, $extra_inserts, $extra_transactions ) = @_;
+	if ( BIGSdb::Utils::is_int( $newdata->{'user_db'} ) ) {
+		my $user_db = $self->{'datastore'}->get_user_db( $newdata->{'user_db'} );
+		my $exists  = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)',
+			$newdata->{'user_name'},
+			{ db => $user_db }
+		);
+		if ($exists) {
+			push @$problems, qq(Username '$newdata->{'user_name'}' already exists in remote user database.);
+		} else {
+			push @$extra_transactions,
+			  {
+				statement => 'INSERT INTO users (user_name,surname,first_name,email,affiliation,'
+				  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?)',
+				arguments => [
+					$newdata->{'user_name'},   $newdata->{'surname'},
+					$newdata->{'first_name'},  $newdata->{'email'},
+					$newdata->{'affiliation'}, 'now',
+					'now'
+				],
+				db => $user_db
+			  };
+		}
+		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
 	return;
 }

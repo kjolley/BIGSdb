@@ -175,19 +175,48 @@ sub _print_interface {
 		say q(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say q(</li>);
-	} else {
-		my $user_data =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT user_name, first_name, surname FROM users WHERE id>0 ORDER BY lower(surname)',
-			undef, { fetch => 'all_arrayref', slice => {} } );
-		my ( @users, %labels );
-		push @users, '';
-		foreach my $user (@$user_data) {
-			push @users, $user->{'user_name'};
-			$labels{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists($q->param('user')) ) {
+		my ($user_info);
+		if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
+			my $user_db = $self->{'datastore'}->get_user_db( $q->param('user_db') );
+			$user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
+				$q->param('user'), { fetch => 'row_hashref', db => $user_db } );
+			
+		} else {
+			$user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		}
+		say q(<li><label class="form" style="width:10em">Name:</label>);
+		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
+		  . qq(($user_info->{'user_name'})</strong></span></li>);
+		if ($self->{'datastore'}->user_dbs_defined){
+			my $domain;
+			if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
+				$domain = $self->{'datastore'}->run_query('SELECT name FROM user_dbases WHERE id=?',$q->param('user_db'));
+	
+			} else {
+				$domain = 'this database only';
+			}
+			say q(<li><label class="form" style="width:10em">Domain:</label>);
+			say qq(<span><strong>$domain</strong></span></li>);
+			say $q->hidden('user_db');
+		}
+		
+	} else {
+		#TODO Include data from user_dbs.
+#		my $user_data =
+#		  $self->{'datastore'}
+#		  ->run_query( 'SELECT user_name,first_name,surname FROM users WHERE id>0 ORDER BY lower(surname)',
+#			undef, { fetch => 'all_arrayref', slice => {} } );
+#		my ( @users, %labels );
+#		push @users, '';
+#		foreach my $user (@$user_data) {
+#			push @users, $user->{'user_name'};
+#			$labels{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+#		}
+		my ($user_ids,$labels) = $self->{'datastore'}->get_users({format=>'sfu'});
+		unshift @$user_ids, '';
 		say q(<li><label for="user" class="form" style="width:10em">User:</label>);
-		say $q->popup_menu( -name => 'user', -id => 'user', -values => [@users], -labels => \%labels );
+		say $q->popup_menu( -name => 'user', -id => 'user', -values => $user_ids, -labels => $labels );
 		say $q->hidden( existing => '' );
 		say q(</li>);
 	}

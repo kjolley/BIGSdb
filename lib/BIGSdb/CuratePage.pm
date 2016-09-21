@@ -91,7 +91,8 @@ sub create_record_table {
 		sequences    => '_create_extra_fields_for_sequences',
 		sequence_bin => '_create_extra_fields_for_seqbin',
 		loci         => '_create_extra_fields_for_loci',
-		schemes      => '_create_extra_fields_for_schemes'
+		schemes      => '_create_extra_fields_for_schemes',
+		users        => '_create_extra_fields_for_users'
 	);
 
 	if ( $methods{$table} ) {
@@ -140,6 +141,7 @@ sub _get_form_fields {
 	my $buffer  = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
+	  		next FIELD if $att->{'noshow'};
 			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my $html5_args = $self->_get_html5_args($att);
 			next FIELD if !$self->_show_field( $required, $att );
@@ -227,11 +229,11 @@ sub _get_html5_args {
 	my ( $self, $att ) = @_;
 	my %html5_args;
 	$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
-	if (!$att->{'dropdown_query'} && !$att->{'optlist'}){
+	if ( !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 		if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 			@html5_args{qw(type min step)} = qw(number 0 1);
 		}
-		if ($att->{'type'} eq 'float' ){
+		if ( $att->{'type'} eq 'float' ) {
 			@html5_args{qw(type min step)} = qw(number 0 any);
 		}
 	}
@@ -867,18 +869,17 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q = $self->{'cgi'};
 	my $current_flags;
-	my ($current_refs, $current_links) = ([],[]);
+	my ( $current_refs, $current_links ) = ( [], [] );
 	if ( $q->param('page') eq 'update' ) {
-		$current_flags = $self->{'datastore'}->run_query(
-			'SELECT flag FROM scheme_flags WHERE scheme_id=? ORDER BY flag',
-			$newdata_ref->{'id'},
-			{ fetch => 'col_arrayref' }
-		);
+		$current_flags =
+		  $self->{'datastore'}->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=? ORDER BY flag',
+			$newdata_ref->{'id'}, { fetch => 'col_arrayref' } );
 		$current_refs =
 		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
 			$newdata_ref->{'id'}, { fetch => 'col_arrayref' } );
 		my $links =
-		  $self->{'datastore'}->run_query( 'SELECT url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT url,description FROM scheme_links WHERE scheme_id=? ORDER BY link_order',
 			$newdata_ref->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $link_data (@$links) {
 			push @$current_links, "$link_data->{'url'}|$link_data->{'description'}";
@@ -893,16 +894,40 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 		-default  => $current_flags
 	);
 	$buffer .= q( <span class="comment">Use CTRL/SHIFT click to select or deselect values</span></li>);
-
 	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	local $" = qq(\n);
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@$current_refs" );
 	$buffer .= qq(</li>\n);
-
 	$buffer .= qq[<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">]
 	  . q[(Format: URL|description)</span></label>];
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@$current_links" );
+	$buffer .= qq(</li>\n);
+	return $buffer;
+}
+
+sub _create_extra_fields_for_users {  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata_ref, $width ) = @_;
+	my $q = $self->{'cgi'};
+	my $user_dbs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name', undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$user_dbs;
+	my $ids = [];
+	my $labels = {};
+	foreach my $db (@$user_dbs){
+		push @$ids, $db->{'id'};
+		$labels->{$db->{'id'}} = $db->{'name'};
+	}
+	push $ids, 0;
+	$labels->{0} = 'this database only';
+	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
+	$buffer .= $q->popup_menu(
+		-name     => 'user_db',
+		-id       => 'user_db',
+		-values   => $ids,
+		-labels => $labels
+	);
 	$buffer .= qq(</li>\n);
 	return $buffer;
 }

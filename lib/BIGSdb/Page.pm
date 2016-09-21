@@ -583,16 +583,14 @@ sub _print_site_header {
 	return;
 }
 
-
-
 sub _print_login_details {
 	my ($self) = @_;
 	return if !$self->{'datastore'};
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
 	return if $login_requirement == NOT_ALLOWED && !$self->{'needs_authentication'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $q = $self->{'cgi'};
-	my $page = $q->param('page');
+	my $q         = $self->{'cgi'};
+	my $page      = $q->param('page');
 	say q(<div id="logindetails">);
 
 	if ( !$user_info ) {
@@ -625,11 +623,12 @@ sub _print_login_details {
 sub get_cache_string {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my $logged_in = $self->{'username'} ? 1 : 0;
-	my $logged_in_string = $self->{'username'} ? "&amp;l=$logged_in" : q();
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : q();
+	my $logged_in        = $self->{'username'} ? 1                     : 0;
+	my $logged_in_string = $self->{'username'} ? "&amp;l=$logged_in"   : q();
+	my $set_string       = $set_id             ? "&amp;set_id=$set_id" : q();
+
 	#Append to URLs to ensure unique caching.
-	my $cache_string = $set_string.$logged_in_string;  
+	my $cache_string = $set_string . $logged_in_string;
 	return $cache_string;
 }
 
@@ -970,7 +969,7 @@ sub _print_site_footer {
 
 sub print_file {
 	my ( $self, $file, $options ) = @_;
-	my $cache_string = $self->get_cache_string;   
+	my $cache_string = $self->get_cache_string;
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
@@ -1044,7 +1043,6 @@ sub get_user_filter {
 	$qry .= 'id > 0';
 	my $sql = $self->{'db'}->prepare($qry);
 	my ( @usernames, %labels );
-	my $status = $field eq 'curator' ? 'curator' : 'user';
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 
@@ -1498,7 +1496,8 @@ sub get_record_name {
 		retired_profiles                  => 'retired profile',
 		retired_isolates                  => 'retired isolate id',
 		classification_schemes            => 'classification scheme',
-		classification_group_fields       => 'classification group field'
+		classification_group_fields       => 'classification group field',
+		user_dbases                       => 'user database'
 	);
 	return $names{$table};
 }
