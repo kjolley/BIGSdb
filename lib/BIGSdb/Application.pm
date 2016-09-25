@@ -583,7 +583,7 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$self->{'page'} = 'index';
-		$self->{'cgi'}->param( page => 'index' );                                           #stop prefs initiating twice
+		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
 	}
 	if ( $self->{'instance'} && !$self->{'db'} ) {
@@ -653,15 +653,15 @@ sub authenticate {
 			}
 			catch BIGSdb::AuthenticationException with {
 				$logger->debug('No cookie set - asking for log in');
-				if ( $q->param('no_header') ) {
-					$page_attributes->{'error'} = 'ajaxLoggedOut';
-					$page = BIGSdb::ErrorPage->new(%$page_attributes);
-					$page->print_page_content;
-					$authenticated = 0;
-				} else {
-					if (   $login_requirement == REQUIRED
-						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
-					{
+				if (   $login_requirement == REQUIRED
+					|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+				{
+					if ( $q->param('no_header') ) {
+						$page_attributes->{'error'} = 'ajaxLoggedOut';
+						$page = BIGSdb::ErrorPage->new(%$page_attributes);
+						$page->print_page_content;
+						$authenticated = 0;
+					} else {
 						try {
 							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
 							  $page->secure_login;

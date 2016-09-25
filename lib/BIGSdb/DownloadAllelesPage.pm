@@ -113,8 +113,8 @@ sub print_content {
 	my $locus  = $q->param('locus');
 	my $set_id = $self->get_set_id;
 	if ($locus) {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			say 'This function is not available for isolate databases.';
+		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+			say 'This function is only available for sequence definition databases.';
 			return;
 		}
 		if ( ( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
@@ -140,6 +140,12 @@ sub print_content {
 	$self->{'outfile'} = "$self->{'config'}->{'tmp_dir'}/$self->{'prefix'}.txt";
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
+		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+			say q(<h1>Download allele sequences</h1>)
+			  . q(<div class="box" id="statusbad"><p>This function is only available for )
+			  . q(sequence definition databases</p></div>);
+			return;
+		}
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$logger->warn("Invalid scheme selected - $scheme_id");
 			return;
