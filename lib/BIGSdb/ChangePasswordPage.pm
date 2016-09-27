@@ -175,24 +175,23 @@ sub _print_interface {
 		say q(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say q(</li>);
-	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists($q->param('user')) ) {
+	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( $q->param('user') ) ) {
 		my ($user_info);
 		if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
 			my $user_db = $self->{'datastore'}->get_user_db( $q->param('user_db') );
 			$user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
 				$q->param('user'), { fetch => 'row_hashref', db => $user_db } );
-			
 		} else {
 			$user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		}
 		say q(<li><label class="form" style="width:10em">Name:</label>);
 		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
 		  . qq(($user_info->{'user_name'})</strong></span></li>);
-		if ($self->{'datastore'}->user_dbs_defined){
+		if ( $self->{'datastore'}->user_dbs_defined ) {
 			my $domain;
 			if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
-				$domain = $self->{'datastore'}->run_query('SELECT name FROM user_dbases WHERE id=?',$q->param('user_db'));
-	
+				$domain =
+				  $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $q->param('user_db') );
 			} else {
 				$domain = 'this database only';
 			}
@@ -200,23 +199,11 @@ sub _print_interface {
 			say qq(<span><strong>$domain</strong></span></li>);
 			say $q->hidden('user_db');
 		}
-		
 	} else {
-		#TODO Include data from user_dbs.
-#		my $user_data =
-#		  $self->{'datastore'}
-#		  ->run_query( 'SELECT user_name,first_name,surname FROM users WHERE id>0 ORDER BY lower(surname)',
-#			undef, { fetch => 'all_arrayref', slice => {} } );
-#		my ( @users, %labels );
-#		push @users, '';
-#		foreach my $user (@$user_data) {
-#			push @users, $user->{'user_name'};
-#			$labels{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
-#		}
-		my ($user_ids,$labels) = $self->{'datastore'}->get_users({format=>'sfu'});
-		unshift @$user_ids, '';
+		my ( $user_names, $labels ) = $self->{'datastore'}->get_users( { identifier => 'user_name', format => 'sfu' } );
+		unshift @$user_names, '';
 		say q(<li><label for="user" class="form" style="width:10em">User:</label>);
-		say $q->popup_menu( -name => 'user', -id => 'user', -values => $user_ids, -labels => $labels );
+		say $q->popup_menu( -name => 'user', -id => 'user', -values => $user_names, -labels => $labels );
 		say $q->hidden( existing => '' );
 		say q(</li>);
 	}
@@ -238,6 +225,17 @@ sub _print_interface {
 	return;
 }
 
+sub _get_user_db_name {
+	my ( $self, $name ) = @_;
+	my $db_name = $self->{'datastore'}->run_query(
+		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+		$name
+	);
+	$db_name //= $self->{'system'}->{'db'};
+	return $db_name;
+}
+
 sub _set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
@@ -245,20 +243,21 @@ sub _set_password_hash {
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
 	my $salt = BIGSdb::Utils::random_string( 16, { extended_chars => 1 } );
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
-	my $exists = $self->{'datastore'}->run_query(
+	my $db_name     = $self->_get_user_db_name($name);
+	my $exists      = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM users WHERE (dbase,name)=(?,?))',
-		[ $self->{'system'}->{'db'}, $name ],
+		[ $db_name, $name ],
 		{ db => $self->{'auth_db'} }
 	);
 	my $qry;
+
 	if ( !$exists ) {
 		$qry = 'INSERT INTO users (password,algorithm,cost,salt,reset_password,dbase,name) VALUES (?,?,?,?,?,?,?)';
 	} else {
 		$qry = 'UPDATE users SET (password,algorithm,cost,salt,reset_password)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
 	}
 	eval {
-		$self->{'auth_db'}
-		  ->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $self->{'system'}->{'db'}, $name );
+		$self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $db_name, $name );
 	};
 	if ($@) {
 		$logger->error($@);

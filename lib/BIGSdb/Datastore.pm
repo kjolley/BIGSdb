@@ -557,10 +557,11 @@ sub get_users {
 	my $ids    = [];
 	my $labels = {};
 	$options->{'format'} //= 'sfu';
+	$options->{'identifier'} //= 'id';
 	foreach my $user (@$data) {
-		push @$ids, $user->{'id'};
+		push @$ids, $user->{$options->{'identifier'}};
 		if ( $options->{'format'} eq 'sfu' ) {
-			$labels->{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+			$labels->{ $user->{$options->{'identifier'}} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 		}
 	}
 	@$ids = sort { $labels->{$a} cmp $labels->{$b} } @$ids;
