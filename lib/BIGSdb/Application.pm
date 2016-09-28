@@ -222,23 +222,18 @@ sub _initiate {
 sub _set_dbconnection_params {
     my $self = shift;
     my %options = @_;
+    use Data::Dumper;
+    print STDERR Dumper(\%options);
     $self->{'system'}->{'host'} ||= $options{'host'} || $self->{'config'}->{'dbhost'} || 'localhost';
     $self->{'system'}->{'port'} ||= $options{'port'} || $self->{'config'}->{'dbport'} || 5432;
     $self->{'system'}->{'user'} ||= $options{'user'} || $self->{'config'}->{'dbuser'} || 'apache';
     $self->{'system'}->{'password'} ||= $options{'password'} || $self->{'config'}->{'dbpassword'} || 'remote';
 
-    $self->{'host'} ||= $options{'host'} || $self->{'config'}->{'dbhost'}
-                                         || $self->{'system'}->{'host'}
-                                         || 'localhost';
-    $self->{'port'} ||= $options{'port'} || $self->{'config'}->{'dbport'}
-                                         || $self->{'system'}->{'port'}
-                                         || 5432;
-    $self->{'user'} ||= $options{'user'} || $self->{'config'}->{'dbuser'}
-                                         || $self->{'system'}->{'user'}
-                                         || 'apache';
-    $self->{'password'} ||= $options{'password'} || $self->{'config'}->{'dbpassword'}
-                                                 || $self->{'system'}->{'password'}
-                                                 || 'remote';
+    # This values are used in OfflineJobManager
+    $self->{'host'} ||= $self->{'system'}->{'host'};
+    $self->{'port'} ||= $self->{'system'}->{'port'};
+    $self->{'user'} ||= $self->{'system'}->{'user'};
+    $self->{'password'} ||= $self->{'system'}->{'password'};
 
     return $self;
 }
