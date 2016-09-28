@@ -1587,7 +1587,7 @@ sub _check_retired_isolate_id {
 sub _check_isolate_id_not_retired {
 	my ( $self, $arg_ref ) = @_;
 	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	return if $field ne 'id';
+	return if $field ne 'id' || !defined $file_header_pos->{'id'};
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
