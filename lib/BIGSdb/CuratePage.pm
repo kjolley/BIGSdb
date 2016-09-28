@@ -891,7 +891,7 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 }
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata_ref, $width ) = @_;
+	my ( $self, $newdata, $width ) = @_;
 	my $q        = $self->{'cgi'};
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -904,8 +904,11 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 	}
 	push $ids, 0;
 	$labels->{0} = 'this database only';
+	my $default = $newdata->{'user_db'} // 0;
 	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
-	$buffer .= $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels );
+	$buffer .=
+	  $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels, -default => $default )
+	  ;
 	$buffer .= qq(</li>\n);
 	return $buffer;
 }

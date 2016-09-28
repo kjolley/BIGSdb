@@ -709,7 +709,7 @@ sub _check_locus_aliases_when_updating_other_table {
 
 sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts, $extra_transactions ) = @_;
-	if ( BIGSdb::Utils::is_int( $newdata->{'user_db'} ) ) {
+	if ( $newdata->{'user_db'} ) {
 		my $user_db = $self->{'datastore'}->get_user_db( $newdata->{'user_db'} );
 		my $exists  = $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)',
@@ -734,6 +734,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
+	undef $newdata->{'user_db'} if $newdata->{'user_db'} == 0;
 	return;
 }
 

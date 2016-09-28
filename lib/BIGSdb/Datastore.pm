@@ -80,7 +80,7 @@ sub get_user_info {
 		$id, { fetch => 'row_hashref', cache => 'get_user_info' }
 	);
 	if ( $user_info->{'user_name'} && $user_info->{'user_db'} ) {
-		my $remote_user = $self->_get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
+		my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
 		if ( $remote_user->{'user_name'} ) {
 			$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
 		}
@@ -110,7 +110,7 @@ sub get_user_string {
 	return $user;
 }
 
-sub _get_remote_user_info {
+sub get_remote_user_info {
 	my ( $self, $user_name, $user_db_id ) = @_;
 	my $user_db = $self->get_user_db($user_db_id);
 	return $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
@@ -123,7 +123,7 @@ sub get_user_info_from_username {
 	my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
 		$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
 	if ( $user_info->{'user_db'} ) {
-		my $remote_user = $self->_get_remote_user_info( $user_name, $user_info->{'user_db'} );
+		my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
 		if ( $remote_user->{'user_name'} ) {
 			$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
 		}
@@ -574,7 +574,7 @@ sub get_users {
 
 		#User details may be stored in site-wide users database
 		if ( $user->{'user_db'} ) {
-			my $remote_user = $self->_get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
+			my $remote_user = $self->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
 				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
 			}

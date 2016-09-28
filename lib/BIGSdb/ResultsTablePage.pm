@@ -1110,7 +1110,8 @@ sub _get_record_table_info {
 		push @qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
-		my %overridable = map { $_ => 1 } qw (isolate_display main_display query_field query_status dropdown analysis disable);
+		my %overridable =
+		  map { $_ => 1 } qw (isolate_display main_display query_field query_status dropdown analysis disable);
 		if ( $overridable{ $attr->{'name'} } && $table ne 'projects' ) {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
@@ -1216,9 +1217,11 @@ sub _print_record_table {
 	my $qry = $self->_get_page_query( $qryref, $table, $page );
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
+	$self->_modify_dataset_if_needed( $table, $dataset );
 	local $" = '</th><th>';
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
+
 	if ( $self->{'curate'} ) {
 		print q(<th>Delete</th>);
 		print q(<th>Update</th>) if $table !~ /refs$/x;
@@ -1312,6 +1315,19 @@ sub _print_record_table {
 	}
 	$self->_print_plugin_buttons( $qryref, $records ) if !$self->{'curate'};
 	say q(</div>);
+	return;
+}
+
+sub _modify_dataset_if_needed {
+	my ( $self, $table, $dataset ) = @_;
+	return if $table ne 'users';
+	foreach my $user (@$dataset) {
+		next if !defined $user->{'user_db'};
+		my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
+		if ( $remote_user->{'user_name'} ) {
+			$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+		}
+	}
 	return;
 }
 
