@@ -222,8 +222,7 @@ sub _initiate {
 sub _set_dbconnection_params {
     my $self = shift;
     my %options = @_;
-    use Data::Dumper;
-    print STDERR Dumper(\%options);
+
     $self->{'system'}->{'host'} ||= $options{'host'} || $self->{'config'}->{'dbhost'} || 'localhost';
     $self->{'system'}->{'port'} ||= $options{'port'} || $self->{'config'}->{'dbport'} || 5432;
     $self->{'system'}->{'user'} ||= $options{'user'} || $self->{'config'}->{'dbuser'} || 'apache';

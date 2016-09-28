@@ -56,10 +56,11 @@ sub _initiate_db {
 	$self->{'xmlHandler'} = $xmlHandler;
 	$self->{'system'}     = $xmlHandler->get_system_hash;
 	##### Tuco : 26.09.2016: Set again from db.conf as previous statement erase it
-	$self->_set_dbconnection_params({'user'     => $self->{'config'}->{'dbuser'},
-					 'password' => $self->{'config'}->{'dbpasword'},
-					 'host'     => $self->{'config'}->{'dbhost'},
-					 'port'     => $self->{'config'}->{'dbport'}});
+	print STDERR "[RunJobs] _intiatedb\n";
+	$self->_set_dbconnection_params('user'     => $self->{'config'}->{'dbuser'},
+					'password' => $self->{'config'}->{'dbpasword'},
+					'host'     => $self->{'config'}->{'dbhost'},
+					'port'     => $self->{'config'}->{'dbport'});
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
