@@ -225,17 +225,6 @@ sub _print_interface {
 	return;
 }
 
-sub _get_user_db_name {
-	my ( $self, $name ) = @_;
-	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$name
-	);
-	$db_name //= $self->{'system'}->{'db'};
-	return $db_name;
-}
-
 sub _set_password_hash {
 	my ( $self, $name, $hash ) = @_;
 	return if !$name;
@@ -243,7 +232,7 @@ sub _set_password_hash {
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
 	my $salt = BIGSdb::Utils::random_string( 16, { extended_chars => 1 } );
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
-	my $db_name     = $self->_get_user_db_name($name);
+	my $db_name     = $self->get_user_db_name($name);
 	my $exists      = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM users WHERE (dbase,name)=(?,?))',
 		[ $db_name, $name ],

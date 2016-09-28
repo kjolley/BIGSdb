@@ -304,18 +304,20 @@ sub _error_exit {
 #############################################################################
 sub _active_session_exists {
 	my ( $self, $session, $username ) = @_;
+	my $dbase_name = $self->get_user_db_name($username);
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?))',
-		[ $self->{'system'}->{'db'}, $session, 'active', $username ],
+		[ $dbase_name, $session, 'active', $username ],
 		{ db => $self->{'auth_db'}, cache => 'Login::active_session_exists' }
 	);
 }
 
 sub _password_reset_required {
 	my ( $self, $session, $username ) = @_;
+	my $dbase_name = $self->get_user_db_name($username);
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?) AND reset_password)',
-		[ $self->{'system'}->{'db'}, $session, 'active', $username ],
+		[ $dbase_name, $session, 'active', $username ],
 		{ db => $self->{'auth_db'}, cache => 'Login::password_reset_required' }
 	);
 }
@@ -323,8 +325,8 @@ sub _password_reset_required {
 sub _login_session_exists {
 	my ( $self, $session ) = @_;
 	return $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state)=(?,md5(?),?))',
-		[ $self->{'system'}->{'db'}, $session, 'login' ],
+		'SELECT EXISTS(SELECT * FROM sessions WHERE (session,state)=(md5(?),?))',
+		[ $session, 'login' ],
 		{ db => $self->{'auth_db'}, cache => 'Login::login_session_exists' }
 	);
 }
@@ -332,9 +334,10 @@ sub _login_session_exists {
 sub get_password_hash {
 	my ( $self, $name ) = @_;
 	return if !$name;
-	my $password = $self->{'datastore'}->run_query(
+	my $dbase_name = $self->get_user_db_name($name);
+	my $password   = $self->{'datastore'}->run_query(
 		'SELECT password,algorithm,salt,cost,reset_password FROM users WHERE dbase=? AND name=?',
-		[ $self->{'system'}->{'db'}, $name ],
+		[ $dbase_name, $name ],
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
 	return $password;
@@ -343,25 +346,27 @@ sub get_password_hash {
 sub _get_IP_address {
 	my ( $self, $name ) = @_;
 	return if !$name;
+	my $dbase_name = $self->get_user_db_name($name);
 	my $ip_address = $self->{'datastore'}->run_query(
 		'SELECT ip_address FROM users WHERE dbase=? AND name=?',
-		[ $self->{'system'}->{'db'}, $name ],
+		[ $dbase_name, $name ],
 		{ db => $self->{'auth_db'} }
 	);
 	return $ip_address;
 }
 
 sub _set_current_user_IP_address {
-	my ( $self, $userName, $ip_address ) = @_;
+	my ( $self, $user_name, $ip_address ) = @_;
+	my $dbase_name = $self->get_user_db_name($user_name);
 	eval {
-		$self->{'auth_db'}->do( 'UPDATE users SET ip_address=? WHERE (dbase,name)=(?,?)',
-			undef, $ip_address, $self->{'system'}->{'db'}, $userName );
+		$self->{'auth_db'}
+		  ->do( 'UPDATE users SET ip_address=? WHERE (dbase,name)=(?,?)', undef, $ip_address, $dbase_name, $user_name );
 	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
-		$logger->debug("Set IP address for $userName: $ip_address");
+		$logger->debug("Set IP address for $user_name: $ip_address");
 		$self->{'auth_db'}->commit;
 	}
 	return;
@@ -372,18 +377,14 @@ sub _create_session {
 	#Store session as a MD5 hash of passed session.  This should prevent someone with access to the auth database
 	#from easily using active session tokens.
 	my ( $self, $session, $state, $username, $reset_password ) = @_;
-	my $exists = $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM sessions WHERE dbase=? AND session=md5(?))',
-		[ $self->{'system'}->{'db'}, $session ],
-		{ db => $self->{'auth_db'} }
-	);
+	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sessions WHERE session=md5(?))',
+		$session, { db => $self->{'auth_db'} } );
 	return if $exists;
 	eval {
+		my $dbase_name = $username ? $self->get_user_db_name($username) : 'any';
 		$self->{'auth_db'}->do(
 			'INSERT INTO sessions (dbase,session,start_time,state,username,reset_password) VALUES (?,md5(?),?,?,?,?)',
-			undef, $self->{'system'}->{'db'},
-			$session, time, $state, $username, $reset_password
-		);
+			undef, $dbase_name, $session, time, $state, $username, $reset_password );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -492,5 +493,16 @@ sub _shift2 {
 sub _make_cookie {
 	my ( $self, $query, $cookie, $value, $expires ) = @_;
 	return $query->cookie( -name => $cookie, -value => $value, -expires => $expires, -path => '/', );
+}
+
+sub get_user_db_name {
+	my ( $self, $name ) = @_;
+	my $db_name = $self->{'datastore'}->run_query(
+		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+		$name
+	);
+	$db_name //= $self->{'system'}->{'db'};
+	return $db_name;
 }
 1;
