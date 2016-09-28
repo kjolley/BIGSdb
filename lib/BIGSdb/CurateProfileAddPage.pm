@@ -371,7 +371,7 @@ sub _print_interface {
 		say q(</li>);
 	}
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
-	my ( $users, $user_names ) = $self->get_user_list_and_labels;
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
 	say $self->popup_menu(
 		-name     => 'field:sender',
 		-id       => 'field:sender',

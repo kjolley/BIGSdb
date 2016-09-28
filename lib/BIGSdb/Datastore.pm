@@ -75,8 +75,17 @@ sub get_data_connector {
 
 sub get_user_info {
 	my ( $self, $id ) = @_;
-	return $self->run_query( 'SELECT id,first_name,surname,affiliation,email FROM users WHERE id=?',
-		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
+	my $user_info = $self->run_query(
+		'SELECT id,user_name,first_name,surname,affiliation,email,user_db FROM users WHERE id=?',
+		$id, { fetch => 'row_hashref', cache => 'get_user_info' }
+	);
+	if ( $user_info->{'user_name'} && $user_info->{'user_db'} ) {
+		my $remote_user = $self->_get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
+		if ( $remote_user->{'user_name'} ) {
+			$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+		}
+	}
+	return $user_info;
 }
 
 sub get_user_string {
@@ -101,11 +110,25 @@ sub get_user_string {
 	return $user;
 }
 
+sub _get_remote_user_info {
+	my ( $self, $user_name, $user_db_id ) = @_;
+	my $user_db = $self->get_user_db($user_db_id);
+	return $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
+		$user_name, { db => $user_db, fetch => 'row_hashref', cache => 'get_remote_user_info' } );
+}
+
 sub get_user_info_from_username {
 	my ( $self, $user_name ) = @_;
 	return if !defined $user_name;
-	return $self->run_query( 'SELECT * FROM users WHERE user_name=?',
+	my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
 		$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
+	if ( $user_info->{'user_db'} ) {
+		my $remote_user = $self->_get_remote_user_info( $user_name, $user_info->{'user_db'} );
+		if ( $remote_user->{'user_name'} ) {
+			$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+		}
+	}
+	return $user_info;
 }
 
 sub get_permissions {
@@ -509,7 +532,7 @@ sub initiate_userdbs {
 	foreach my $config (@$configs) {
 		try {
 			$self->{'user_dbs'}->{ $config->{'id'} } = $self->{'dataConnector'}->get_connection($config);
-			push @{$self->{'user_dbnames'}}, $config->{'dbase_name'};
+			push @{ $self->{'user_dbnames'} }, $config->{'dbase_name'};
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			$logger->warn("Cannot connect to database '$config->{'dbase_name'}'");
@@ -551,11 +574,7 @@ sub get_users {
 
 		#User details may be stored in site-wide users database
 		if ( $user->{'user_db'} ) {
-			my $user_db = $self->get_user_db( $user->{'user_db'} );
-			my $remote_user =
-			  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
-				$user->{'user_name'},
-				{ db => $user_db, fetch => 'row_hashref', cache => 'Datastore::get_users::remote' } );
+			my $remote_user = $self->_get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
 				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
 			}
@@ -563,14 +582,16 @@ sub get_users {
 	}
 	my $ids    = [];
 	my $labels = {};
-	$options->{'format'} //= 'sfu';
+	$options->{'format'}     //= 'sfu';
 	$options->{'identifier'} //= 'id';
 	foreach my $user (@$data) {
-		push @$ids, $user->{$options->{'identifier'}};
+		push @$ids, $user->{ $options->{'identifier'} };
 		if ( $options->{'format'} eq 'sfu' ) {
-			$labels->{ $user->{$options->{'identifier'}} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+			$labels->{ $user->{ $options->{'identifier'} } } =
+			  "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 		}
 	}
+	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
 	@$ids = sort { $labels->{$a} cmp $labels->{$b} } @$ids;
 	return ( $ids, $labels );
 }

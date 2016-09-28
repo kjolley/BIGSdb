@@ -116,20 +116,13 @@ sub create_record_table {
 	return $buffer;
 }
 
+#TODO Remove
 sub get_user_list_and_labels {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $users      = [];
-	my $user_names = {};
-	$user_names->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
-	my $user_data =
-	  $self->{'datastore'}->run_query( 'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ORDER BY surname',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	foreach my $user (@$user_data) {
-		push @$users, $user->{'id'};
-		$user_names->{ $user->{'id'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
-	}
-	return ( $users, $user_names );
+	$logger->error('CuratePage::get_user_list_and_labels is deprecated. Use Datastore::get_users instead.');
+	my ( $users, $labels ) = $self->{'datastore'}->get_users($options);
+	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
+	return ( $users, $labels );
 }
 
 sub _get_form_fields {
@@ -141,7 +134,7 @@ sub _get_form_fields {
 	my $buffer  = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
-	  		next FIELD if $att->{'noshow'};
+			next FIELD if $att->{'noshow'};
 			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my $html5_args = $self->_get_html5_args($att);
 			next FIELD if !$self->_show_field( $required, $att );
@@ -906,28 +899,22 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 	return $buffer;
 }
 
-sub _create_extra_fields_for_users {  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata_ref, $width ) = @_;
-	my $q = $self->{'cgi'};
-	my $user_dbs =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name', undef, { fetch => 'all_arrayref', slice => {} } );
+	my $q        = $self->{'cgi'};
+	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$user_dbs;
-	my $ids = [];
+	my $ids    = [];
 	my $labels = {};
-	foreach my $db (@$user_dbs){
+	foreach my $db (@$user_dbs) {
 		push @$ids, $db->{'id'};
-		$labels->{$db->{'id'}} = $db->{'name'};
+		$labels->{ $db->{'id'} } = $db->{'name'};
 	}
 	push $ids, 0;
 	$labels->{0} = 'this database only';
 	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
-	$buffer .= $q->popup_menu(
-		-name     => 'user_db',
-		-id       => 'user_db',
-		-values   => $ids,
-		-labels => $labels
-	);
+	$buffer .= $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels );
 	$buffer .= qq(</li>\n);
 	return $buffer;
 }
