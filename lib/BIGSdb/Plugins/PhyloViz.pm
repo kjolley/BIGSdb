@@ -186,19 +186,12 @@ sub print_selected_isolates {
 	say q(No isolates selected found);
     }
     else {
-	my $query = "SELECT isolates_public.id, isolates_public.isolate FROM isolates_public WHERE isolates_public.id IN (";
+	# Always search in table isolates, not the VIEW allowing to use this plugin with freshly created isolates
+	my $query = "SELECT isolates.id, isolates.isolate FROM isolates WHERE isolates.id IN (";
 	$query .= join(",", @{$options->{'selected_ids'}});
-	$query .= ") ORDER BY isolates_public.id ASC";
-
+	$query .= ") ORDER BY isolates.id ASC";
 	my $data =  $self->{'datastore'}->run_query($query, undef, {'fetch' => 'all_arrayref'});
-	# If the isolates are new, not yet stored in the isolates_public view, directly search into
-	# the table itself.
-	if( ! scalar(@$data) ){
-	    $query = "SELECT isolates.id, isolates.isolate FROM isolates WHERE isolates.id IN (";
-	    $query .= join(",", @{$options->{'selected_ids'}});
-	    $query .= ") ORDER BY isolates.id ASC";
-	    $data =  $self->{'datastore'}->run_query($query, undef, {'fetch' => 'all_arrayref'});
-	}
+
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	say q(<div style="float:left">);
 
