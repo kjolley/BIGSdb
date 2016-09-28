@@ -535,7 +535,7 @@ sub _print_interface {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
 	say $q->start_form;
-	my ( $users, $user_names ) = $self->get_user_list_and_labels( { blank_message => 'Select sender ...' } );
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	$user_names->{-1} = 'Override with sender field';
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
 	  . q[(<strong>include a field header line</strong>)</legend>];

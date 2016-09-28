@@ -342,7 +342,7 @@ sub _print_interface {
 	my $icon        = $self->get_form_icon( 'profiles', 'edit' );
 	say qq($icon<div class="box" id="queryform">);
 	say q(<div class="scrollable" style="white-space:nowrap">);
-	my ( $users, $usernames ) = $self->get_user_list_and_labels;
+	my ( $users, $usernames ) = $self->{'datastore'}->get_users;
 	$usernames->{''} = ' ';                           #Required for HTML5 validation.
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);

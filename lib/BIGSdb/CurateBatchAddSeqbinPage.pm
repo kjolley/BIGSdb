@@ -105,7 +105,7 @@ sub _print_interface {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">querying isolates</a> )
 	  . q(and then clicking 'Upload' within the isolate table.</em></p>);
 	say $q->start_form( -onMouseMove => 'enable_identifier_field()' );
-	my ( $users, $user_names ) = $self->get_user_list_and_labels( { blank_message => 'Select sender ...' } );
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	say q(<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>);
 	say q(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
 	say $q->hidden($_) foreach qw (page db);

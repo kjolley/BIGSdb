@@ -199,7 +199,7 @@ sub _print_interface_sender_field {
 		say $q->hidden( sender => $user_info->{'id'} );
 		return;
 	}
-	my ( $users, $user_names ) = $self->get_user_list_and_labels( { blank_message => 'Select sender ...' } );
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	say q(<div style="margin-bottom:1em"><p>Please select the sender from the list below:</p>);
 	$user_names->{-1} = 'Override with sender field';
 	say $q->popup_menu(

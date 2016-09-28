@@ -116,15 +116,6 @@ sub create_record_table {
 	return $buffer;
 }
 
-#TODO Remove
-sub get_user_list_and_labels {
-	my ( $self, $options ) = @_;
-	$logger->error('CuratePage::get_user_list_and_labels is deprecated. Use Datastore::get_users instead.');
-	my ( $users, $labels ) = $self->{'datastore'}->get_users($options);
-	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
-	return ( $users, $labels );
-}
-
 sub _get_form_fields {
 	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -295,7 +286,7 @@ sub _get_sender_field {
 	my ( $self, $args ) = @_;
 	my ( $name, $newdata, $att, $html5_args ) = @$args{qw(name newdata att html5_args)};
 	return q() if $att->{'name'} ne 'sender';
-	my ( $users, $user_names ) = $self->get_user_list_and_labels;
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
 	my $q = $self->{'cgi'};
 	return $q->popup_menu(
 		-name    => $name,
