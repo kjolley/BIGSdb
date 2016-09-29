@@ -125,7 +125,7 @@ sub _get_form_fields {
 	my $buffer  = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
-			next FIELD if $att->{'noshow'};
+			next FIELD if $att->{'hide_in_form'};
 			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my $html5_args = $self->_get_html5_args($att);
 			next FIELD if !$self->_show_field( $required, $att );
@@ -895,16 +895,18 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 	my $q        = $self->{'cgi'};
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	return if !@$user_dbs;
+	return q() if !@$user_dbs;
 	my $ids    = [];
 	my $labels = {};
+	my $default_db;
 	foreach my $db (@$user_dbs) {
+		$default_db = $db->{'id'} if !defined $default_db;
 		push @$ids, $db->{'id'};
 		$labels->{ $db->{'id'} } = $db->{'name'};
 	}
 	push $ids, 0;
 	$labels->{0} = 'this database only';
-	my $default = $newdata->{'user_db'} // 0;
+	my $default = $newdata->{'user_db'} // $default_db;
 	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
 	$buffer .=
 	  $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels, -default => $default )

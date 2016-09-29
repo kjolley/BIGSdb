@@ -26,6 +26,7 @@ use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS IDENTITY_THR
 #hide => 'yes': Do not display in results table and do not return field values in query
 #hide_public =>'yes': Only display in results table in curation interface
 #hide_query => 'yes': Do not display in results table or allow querying but do return field values in query
+#hide_in_form => 'yes': Do not display in add/update forms.
 sub get_isolate_aliases_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
@@ -57,8 +58,8 @@ sub get_users_table_attributes {
 		{ name => 'status',       type => 'text', required => 'yes', optlist => $status, default        => 'user' },
 		{ name => 'date_entered', type => 'date', required => 'yes' },
 		{ name => 'datestamp',    type => 'date', required => 'yes' },
-		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' },
-		{ name => 'user_db', type => 'int', noshow   => 'yes' }
+		{ name => 'curator', type => 'int', required     => 'yes', dropdown_query => 'yes' },
+		{ name => 'user_db', type => 'int', hide_in_form => 'yes' }
 	];
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' && $self->{'config'}->{'submission_dir'} ) {
 		push @$attributes,
@@ -77,6 +78,7 @@ sub get_user_dbases_table_attributes {
 	my $attributes = [
 		{ name => 'id',   type => 'int',  required => 'yes', primary_key => 'yes' },
 		{ name => 'name', type => 'text', required => 'yes', length      => 30, comments => 'Site/domain name' },
+		{ name => 'list_order', type => 'int' },
 		{
 			name     => 'dbase_name',
 			type     => 'text',

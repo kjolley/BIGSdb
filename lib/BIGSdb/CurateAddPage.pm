@@ -717,7 +717,13 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			{ db => $user_db }
 		);
 		if ($exists) {
-			push @$problems, qq(Username '$newdata->{'user_name'}' already exists in remote user database.);
+			my $remote_user = $self->{'datastore'}->get_remote_user_info($newdata->{'user_name'},$newdata->{'user_db'});
+			my $msg = qq(Username '$newdata->{'user_name'}' already exists in remote user database. Remote details: )
+			 . qq(<dl class="data"><dt>Surname</dt><dd>$remote_user->{'surname'}</dd>)
+			 . qq(<dt>First name</dt><dd>$remote_user->{'first_name'}</dd>)
+			 . qq(<dt>E-mail</dt><dd>$remote_user->{'email'}</dd>)
+			 . qq(<dt>Affiliation</dt><dd>$remote_user->{'affiliation'}</dd>);
+			push @$problems, $msg;
 		} else {
 			push @$extra_transactions,
 			  {
