@@ -37,6 +37,7 @@ use BIGSdb::CurateDatabankScanPage;
 use BIGSdb::CurateDeleteAllPage;
 use BIGSdb::CurateDeletePage;
 use BIGSdb::CurateExportConfig;
+use BIGSdb::CurateImportUserPage;
 use BIGSdb::CurateIndexPage;
 use BIGSdb::CurateIsolateAddPage;
 use BIGSdb::CurateIsolateDeletePage;
@@ -95,6 +96,7 @@ sub print_page {
 		exportConfig       => 'CurateExportConfig',
 		extractedSequence  => 'ExtractedSequencePage',
 		fieldValues        => 'FieldHelpPage',
+		importUser         => 'CurateImportUserPage',
 		index              => 'CurateIndexPage',
 		info               => 'IsolateInfoPage',
 		isolateAdd         => 'CurateIsolateAddPage',

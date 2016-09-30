@@ -553,6 +553,11 @@ sub user_dbs_defined {
 	return;
 }
 
+sub user_db_defined {
+	my ($self, $id) = @_;
+	return defined $self->{'user_dbs'}->{$id} ? 1 : undef;
+}
+
 sub get_user_dbnames {
 	my ($self) = @_;
 	return $self->{'user_dbnames'};

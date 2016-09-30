@@ -25,7 +25,8 @@ use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
-use BIGSdb::Constants qw(ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS IDENTITY_THRESHOLD);
+use BIGSdb::Constants
+  qw(:interface ALLELE_FLAGS LOCUS_PATTERN DIPLOID HAPLOID DATABANKS SCHEME_FLAGS IDENTITY_THRESHOLD);
 use constant SUCCESS => 1;
 
 sub initiate {
@@ -717,12 +718,22 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			{ db => $user_db }
 		);
 		if ($exists) {
-			my $remote_user = $self->{'datastore'}->get_remote_user_info($newdata->{'user_name'},$newdata->{'user_db'});
-			my $msg = qq(Username '$newdata->{'user_name'}' already exists in remote user database. Remote details: )
-			 . qq(<dl class="data"><dt>Surname</dt><dd>$remote_user->{'surname'}</dd>)
-			 . qq(<dt>First name</dt><dd>$remote_user->{'first_name'}</dd>)
-			 . qq(<dt>E-mail</dt><dd>$remote_user->{'email'}</dd>)
-			 . qq(<dt>Affiliation</dt><dd>$remote_user->{'affiliation'}</dd>);
+			my $remote_user =
+			  $self->{'datastore'}->get_remote_user_info( $newdata->{'user_name'}, $newdata->{'user_db'} );
+			my $msg =
+			    qq(Username '$newdata->{'user_name'}' already exists in remote user database.</p>)
+			  . qq(<dl class="data"><dt>Surname</dt><dd>$remote_user->{'surname'}</dd>)
+			  . qq(<dt>First name</dt><dd>$remote_user->{'first_name'}</dd>)
+			  . qq(<dt>E-mail</dt><dd>$remote_user->{'email'}</dd>)
+			  . qq(<dt>Affiliation</dt><dd>$remote_user->{'affiliation'}</dd></dl><p>);
+			if ( !@$problems ) {
+				my $class = RESET_BUTTON_CLASS;
+				$msg .=
+				    qq( <a class="$class ui-button-text-only" href="$self->{'system'}->{'script_name'}?)
+				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
+				  . qq(user_name=$newdata->{'user_name'}"><span class="ui-button-text">Import user</span></a>)
+				  ;
+			}
 			push @$problems, $msg;
 		} else {
 			push @$extra_transactions,
@@ -740,7 +751,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
-	undef $newdata->{'user_db'} if $newdata->{'user_db'} == 0;
+	undef $newdata->{'user_db'} if ($newdata->{'user_db'} // 0) == 0;
 	return;
 }
 
