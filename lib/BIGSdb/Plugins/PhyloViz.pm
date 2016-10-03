@@ -289,8 +289,7 @@ sub upload_data_to_phyloviz {
 		return ( 0, "Missing PhyloViz connection parameters!" );
 	}
 	my $cmd =
-	  "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set 2>&1";
-	$logger->error($cmd);
+	  "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set -e true 2>&1";
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
@@ -312,6 +311,7 @@ sub upload_data_to_phyloviz {
 			last;
 		}
 	}
+	$logger->error($uuid);
 	close(CMD);
 	say q(<span class="statusgood fa fa-check"></span></p>);
 	return ( $uuid, $msg );
