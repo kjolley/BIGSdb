@@ -214,11 +214,14 @@ sub _initiate {
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$self->{'system'}->{'read_access'} //= 'public';                                       #everyone can view by default
-	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} // 'localhost';
-	$self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} // 5432;
-	$self->{'system'}->{'user'}        //= $self->{'config'}->{'dbuser'} // 'apache';
-	$self->{'system'}->{'password'}    //= $self->{'config'}->{'dbpassword'} // 'remote';
+
+	$q->param( page => 'index' ) if !defined $q->param('page');
+	$self->{'page'} = $q->param('page');
+	$self->{'system'}->{'read_access'} //= 'public';      #everyone can view by default
+	# Set $self->{'system'}->{qw/host user password port/} values and
+	# $self->{qw/host user password port/} if not already set
+	# Tuco: 12/09/2016 - Now called in _read_db_config_file()
+	$self->_set_dbconnection_params();
 	$self->{'system'}->{'privacy'}     //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
@@ -245,6 +248,24 @@ sub _initiate {
 	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
 	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
 	return;
+}
+
+sub _set_dbconnection_params {
+    my $self = shift;
+    my %options = @_;
+
+    $self->{'system'}->{'host'} ||= $options{'host'} || $self->{'config'}->{'dbhost'} || 'localhost';
+    $self->{'system'}->{'port'} ||= $options{'port'} || $self->{'config'}->{'dbport'} || 5432;
+    $self->{'system'}->{'user'} ||= $options{'user'} || $self->{'config'}->{'dbuser'} || 'apache';
+    $self->{'system'}->{'password'} ||= $options{'password'} || $self->{'config'}->{'dbpassword'} || 'remote';
+
+    # This values are used in OfflineJobManager
+    $self->{'host'} ||= $self->{'system'}->{'host'};
+    $self->{'port'} ||= $self->{'system'}->{'port'};
+    $self->{'user'} ||= $self->{'system'}->{'user'};
+    $self->{'password'} ||= $self->{'system'}->{'password'};
+
+    return $self;
 }
 
 sub set_system_overrides {
@@ -332,11 +353,12 @@ sub read_config_file {
 	}
 	foreach my $param ( keys %{ $config->{_} } ) {
 		$self->{'config'}->{$param} = $config->{_}->{$param};
+
 	}
 
 	#Check integer values
 	foreach my $param (
-		qw(max_load blast_threads bcrypt_cost mafft_threads results_deleted_days cache_days submissions_deleted_days))
+		qw(max_load blast_threads bcrypt_cost mafft_threads results_deleted_days cache_days submissions_deleted_days) )
 	{
 		if ( defined $self->{'config'}->{$param} && !BIGSdb::Utils::is_int( $self->{'config'}->{$param} ) ) {
 			$logger->error("Parameter $param in bigsdb.conf should be an integer - default value used.");
@@ -354,12 +376,12 @@ sub read_config_file {
 	$self->{'config'}->{'intranet'} ||= 'no';
 	$self->{'config'}->{'cache_days'} //= 7;
 	if ( $self->{'config'}->{'chartdirector'} ) {
-		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)
+		eval 'use perlchartdir';                               ## no critic (ProhibitStringyEval)
 		if ($@) {
 			$logger->error(q(Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf));
 			$self->{'config'}->{'chartdirector'} = 0;
 		} else {
-			eval 'use BIGSdb::Charts';    ## no critic (ProhibitStringyEval)
+			eval 'use BIGSdb::Charts';                         ## no critic (ProhibitStringyEval)
 			if ($@) {
 				$logger->error('Charts.pm not installed!');
 			}
@@ -374,21 +396,24 @@ sub read_config_file {
 }
 
 sub _read_db_config_file {
-	my ( $self, $config_dir ) = @_;
-	my $logger  = get_logger('BIGSdb.Application_Initiate');
+        my ( $self, $config_dir ) = @_;
+	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $db_file = "$config_dir/db.conf";
-	if ( !-e $db_file ) {
-		return;
+	if ( ! -e $db_file ){
+	    $logger->error("Couldn't find db.conf in $config_dir");
+	    return;
 	}
 	my $config = Config::Tiny->new();
-	$config = Config::Tiny->read($db_file);
-	foreach my $param (qw (dbhost dbport dbuser dbpassword)) {
-		$self->{'config'}->{$param} = $config->{_}->{$param};
+	$config = Config::Tiny->read("$db_file");
+
+	foreach my $param (qw (dbhost dbuser dbpassword) ){
+	        $self->{'config'}->{$param} = $config->{_}->{$param};
 	}
-	if ( defined $self->{'config'}->{'dbport'} && !BIGSdb::Utils::is_int( $self->{'config'}->{'dbport'} ) ) {
-		$logger->error('Parameter dbport in db.conf should be an integer - default value used.');
-		undef $self->{'config'}->{'dbport'};
+	if (  defined $self->{'config'}->{'dbport'} && !BIGSdb::Utils::is_int( $self->{'config'}->{'dbport'} ) ){
+	         $logger->error("Parameter dbport in db.conf should be an integer - default value used.");
+		 undef $self->{'config'}->{'dbport'};
 	}
+	$self->_set_dbconnection_params();
 	return;
 }
 
