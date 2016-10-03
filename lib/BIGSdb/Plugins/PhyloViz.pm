@@ -38,17 +38,13 @@ sub get_attributes {
 		description => 'Creates phylogenetic inference and data visualization for sequence based typing methods',
 		category    => 'Analysis',
 		buttontext  => 'PhyloViz',
-
-		# Set menutext to empty string to not display it on index page (See BIGSdb::IndexPage line 329)
-		menutext    => '',
 		module      => 'PhyloViz',
 		version     => '0.0.1',
 		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#phyloviz",
+		section     => 'postquery',
 		input       => 'query',
 		system_flag => 'PhyloViz',
-		requires    => 'ref_db,js_tree',
+		requires    => 'js_tree',
 		help        => 'tooltips',
 		order       => 33,
 	);
