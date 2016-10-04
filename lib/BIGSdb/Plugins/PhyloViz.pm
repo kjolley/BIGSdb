@@ -60,10 +60,7 @@ sub run {
 	# Get the list of isolates from query
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
-	if ( ref $qry_ref ne 'SCALAR' ) {
-		say q(<div class="box" id="statusbad"><p>Cannot retrieve id list. Please repeat your query</p></div>);
-		return;
-	}
+	return if !$qry_ref;
 	my $isolates_ids = $self->get_ids_from_query($qry_ref);
 	if ( $q->param('submit') ) {
 
@@ -225,7 +222,8 @@ sub _upload_data_to_phyloviz {
 	if ( !$user || !$pass || !$script ) {
 		return ( 0, 'Missing PhyloViz connection parameters!' );
 	}
-	my $cmd = "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
+	my $cmd = "cd $self->{'config'}->{'secure_tmp_dir'};"
+	  . "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
 	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
