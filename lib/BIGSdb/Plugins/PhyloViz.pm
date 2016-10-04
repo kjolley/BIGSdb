@@ -25,8 +25,6 @@ use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Apache2::Connection ();
-use constant DEBUG => 0;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -196,17 +194,18 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 	return;
 }
 
+#TODO The query to mark selected will not scale well on very large databases. 
+#Should create a generic method in Plugin.pm.
 sub print_selected_isolates {
 	my ( $self, $options ) = @_;
 	if ( !scalar( $options->{'selected_ids'} ) ) {
 		say q(No isolates selected found);
 	} else {
-
-		# Always search in table isolates, not the VIEW allowing to use this plugin with freshly created isolates
-		my $query = "SELECT isolates.id, isolates.isolate FROM isolates WHERE isolates.id IN (";
-		$query .= join( ",", @{ $options->{'selected_ids'} } );
-		$query .= ") ORDER BY isolates.id ASC";
-		my $data = $self->{'datastore'}->run_query( $query, undef, { 'fetch' => 'all_arrayref' } );
+		my $view = $self->{'system'}->{'view'};
+		local $" = q(,);
+		my $query = "SELECT $view.id, $view.$self->{'system'}->{'labelfield'} FROM $view WHERE "
+		. "$view.id IN (@{$options->{'selected_ids'}}) ORDER BY $view.id ASC";
+		my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
 		say q(<fieldset style="float:left"><legend>Isolates</legend>);
 		say q(<div style="float:left">);
 		my @ids;
@@ -322,8 +321,6 @@ sub generate_profile_file {
 	# SLCC2482 | abcZ  | 4   | MLST
 	# SLCC2482 | bglA  | 4   | MLST
 	foreach my $row (@$rows) {
-		local $" = qq(\t);
-		$logger->error("@$row");
 		if ( !exists( $isolates->{ $row->[0] } ) ) {
 			$isolates->{ $row->[0] } = [ $row->[0] ];
 		}
