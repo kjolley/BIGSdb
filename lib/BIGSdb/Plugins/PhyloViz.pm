@@ -61,8 +61,6 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>Cannot retrieve id list. Please repeat your query</p></div>);
 		return;
 	}
-
-	#	$self->rewrite_query_ref_order_by($qry_ref);
 	my $isolates_ids = $self->get_ids_from_query($qry_ref);
 	if ( $q->param('submit') ) {
 
@@ -139,6 +137,7 @@ sub run {
 			}
 			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
 			say q(</div>);
+			unlink $profile_file, $auxiliary_file;
 			return;
 		}
 	}
@@ -224,7 +223,6 @@ sub _upload_data_to_phyloviz {
 	}
 	my $cmd = "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
 	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
-	$logger->error($cmd);
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
@@ -285,34 +283,31 @@ sub _generate_profile_file {
 }
 
 sub _generate_auxiliary_file {
-	my $self     = shift;
-	my $args     = shift;
-	my $filename = $args->{'file'};
+	my ($self, $args)     = @_;
+	my ($filename, $isolates, $fields) = @{$args}{qw(file isolates fields)};
 
-	# We ensure 'Isolate' is in the array
-	#	unshift( @{ $args->{'fields'} }, ucfirst('isolate') );
-	unshift @{ $args->{'fields'} }, 'id';
+	# We ensure 'id' is in the list
+	unshift @$fields, 'id';
 
 	# And we rearrange by removing the one already there if it was.
-	@{ $args->{'fields'} } = uniq( @{ $args->{'fields'} } );
+	@$fields = uniq @$fields;
 	print q(<p>Generating auxiliary file ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
 		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
 	}
-	my $query = "SELECT " . join( ", ", @{ $args->{'fields'} } ) . " FROM isolates ";
-
-	#	$query .= "WHERE id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ORDER BY isolate;";
-	$query .= "WHERE id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ORDER BY id;";
+	local $"=q(,);
+	my $query = "SELECT @$fields FROM isolates WHERE id IN (@$isolates) ORDER BY id;";
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $isolates = $self->{'datastore'}->run_query( $query, undef, { 'fetch' => 'all_arrayref' } );
-	print $fh join( "\t", @{ $args->{'fields'} } ), "\n";
-	no warnings;
-	foreach my $isolate (@$isolates) {
-		print $fh join( "\t", @$isolate ), "\n";
+	my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
+	local $"=qq(\t);
+	say $fh qq(@$fields);
+	no warnings 'uninitialized';
+	foreach my $field_values (@$data) {
+		say $fh qq(@$field_values)
 	}
-	close($fh);
+	close $fh;
 	say q(<span class="statusgood fa fa-check"></span></p>);
 	return 0;
 }
