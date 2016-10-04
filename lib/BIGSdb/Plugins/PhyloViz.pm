@@ -58,7 +58,7 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	if ( ref $qry_ref ne 'SCALAR' ) {
-		say q(<div class="box" id="statusbad"><p>Can not retrieve id list. Please repeat your query</p></div>);
+		say q(<div class="box" id="statusbad"><p>Cannot retrieve id list. Please repeat your query</p></div>);
 		return;
 	}
 	$self->rewrite_query_ref_order_by($qry_ref);
@@ -85,8 +85,8 @@ sub run {
 			}
 		}
 		if ( !@$selected_isolates_fields ) {
-			say
-q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolate field!</strong></p></div>);
+			say q(<div class="box" id="statusbad"><p>You must at least select )
+			  . q(<strong>one isolate field!</strong></p></div>);
 			return;
 		}
 
@@ -94,7 +94,7 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 		######################
 		my $schemes_id =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT id, description FROM schemes ORDER BY id ASC", undef, { 'fetch' => 'all_arrayref' } );
+		  ->run_query( 'SELECT id, description FROM schemes ORDER BY id ASC', undef, { fetch => 'all_arrayref' } );
 		my $selected_schemes = {};
 		my $selected_loci    = [];
 		if ( scalar(@$schemes_id) ) {
@@ -121,10 +121,11 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 			say q(<div class="box" id="statusbad"><p>You must at least select <strong>one locus!</strong></p></div>);
 			return;
 		} else {
-			        # From here, with parameters retrieved, we need to build the 2 files needed for PhyloViz:
-			        # - Profile data
-			        # - Auxiliary data
-			$| = 1;
+
+			# From here, with parameters retrieved, we need to build the 2 files needed for PhyloViz:
+			# - Profile data
+			# - Auxiliary data
+			local $| = 1;
 			say q(<div class="box" id="resultstable">);
 			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
 			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
@@ -134,12 +135,12 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 			my $auxiliary_file = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_auxiliary_data.txt";
 
 			if (
-				$self->generate_profile_file(
+				$self->_generate_profile_file(
 					{
-						'file'     => $profile_file,
-						'schemes'  => $selected_schemes,
-						'isolates' => $isolates_ids,
-						'loci'     => $selected_loci
+						file     => $profile_file,
+						schemes  => $selected_schemes,
+						isolates => $isolates_ids,
+						loci     => $selected_loci
 					}
 				)
 			  )
@@ -147,20 +148,20 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 				say q(<div class="box" id="statusbad"><p>Nothing found in the database for your isolates!</p></div>);
 				return;
 			}
-			$self->generate_auxiliary_file(
+			$self->_generate_auxiliary_file(
 				{
-					'file'     => $auxiliary_file,
-					'schemes'  => $selected_schemes,
-					'isolates' => $isolates_ids,
-					'fields'   => $selected_isolates_fields
+					file     => $auxiliary_file,
+					schemes  => $selected_schemes,
+					isolates => $isolates_ids,
+					fields   => $selected_isolates_fields
 				}
 			);
 
 			# Upload data files to phyloviz online using python script
 			my ( $phylo_id, $msg ) =
-			  $self->upload_data_to_phyloviz( { 'profile' => $profile_file, 'auxiliary' => $auxiliary_file } );
+			  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
 			if ( !$phylo_id ) {
-				say "\n<div class=\"box\" id=\"statusbad\"><p>Something went wrong: $msg</p></div>";
+				say q(<div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 				return;
 			}
 			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
@@ -170,21 +171,21 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 	}
 	say q[<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based ]
 	  . q[typing methods that generate allelic profiles and their associated epidemiological data.</p>   ];
-	say $q->start_form();
+	say $q->start_form;
 
 	# Selected isolates
 	if ( $self->{'config'}->{'phyloviz_show_isolates_ids'} eq 'yes' ) {
-		$self->print_selected_isolates( { 'selected_ids' => $isolates_ids, 'size' => 11 } );
+		$self->_print_selected_isolates( { selected_ids => $isolates_ids, size => 11 } );
 	}
 
 	# Isolates fields
 	$self->print_isolates_fieldset(1);
 
 	# Loci fieldset
-	$self->print_isolates_locus_fieldset();
+	$self->print_isolates_locus_fieldset;
 
 	# Schemes Tree
-	$self->print_scheme_fieldset( { 'fields_or_loci' => 0 } );
+	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 
 	# Action button (Submit only due to 'no_reset => 1')
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -194,9 +195,9 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 	return;
 }
 
-#TODO The query to mark selected will not scale well on very large databases. 
+#TODO The query to mark selected will not scale well on very large databases.
 #Should create a generic method in Plugin.pm.
-sub print_selected_isolates {
+sub _print_selected_isolates {
 	my ( $self, $options ) = @_;
 	if ( !scalar( $options->{'selected_ids'} ) ) {
 		say q(No isolates selected found);
@@ -204,7 +205,7 @@ sub print_selected_isolates {
 		my $view = $self->{'system'}->{'view'};
 		local $" = q(,);
 		my $query = "SELECT $view.id, $view.$self->{'system'}->{'labelfield'} FROM $view WHERE "
-		. "$view.id IN (@{$options->{'selected_ids'}}) ORDER BY $view.id ASC";
+		  . "$view.id IN (@{$options->{'selected_ids'}}) ORDER BY $view.id ASC";
 		my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
 		say q(<fieldset style="float:left"><legend>Isolates</legend>);
 		say q(<div style="float:left">);
@@ -236,50 +237,48 @@ sub print_selected_isolates {
 	return;
 }
 
-sub upload_data_to_phyloviz {
+sub _upload_data_to_phyloviz {
 	my $self = shift;
 	my $args = shift;
 	my $uuid = 0;
-	my $msg  = "No message";
-	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/ );
+	my $msg  = 'No message';
+	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/x );
 	my $user       = $self->{'config'}->{'phyloviz_user'};
 	my $pass       = $self->{'config'}->{'phyloviz_passwd'};
 	my $script     = $self->{'config'}->{'phyloviz_upload_script'};
 	if ( !$user || !$pass || !$script ) {
-		return ( 0, "Missing PhyloViz connection parameters!" );
+		return ( 0, 'Missing PhyloViz connection parameters!' );
 	}
-	my $cmd =
-	  "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set -e true 2>&1";
+	my $cmd = "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
+	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
 		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
 	}
-	open( CMD, "$cmd |" ) or $logger->error("Can't upload data to PhyloViz");
-	while (<CMD>) {
-		if (/(Incorrect username or password)/) {
+	open( my $handle, '-|', $cmd ) or $logger->error('Cannot upload data to PhyloViz');
+	while (<$handle>) {
+		if (/(Incorrect\ username\ or\ password)/x) {
 			$logger->error("[PhyloViz] remoteUpload: $1");
 			$msg = $1;
 			last;
 		}
-		if (/access the tree at: (.+)/i) {
+		if (/access\ the\ tree\ at:\ (.+)/ix) {
 			$uuid = $1;
 		}
-		if (/(dataset name already exists)/) {
+		if (/(dataset\ name\ already\ exists)/x) {
 			$logger->error("[PhyloViz] $1: $data_set");
 			$msg = $1;
 			last;
 		}
 	}
-	$logger->error($uuid);
-	close(CMD);
+	close $handle;
 	say q(<span class="statusgood fa fa-check"></span></p>);
 	return ( $uuid, $msg );
 }
 
-sub generate_profile_file {
-	my $self     = shift;
-	my $args     = shift;
+sub _generate_profile_file {
+	my ( $self, $args ) = @_;
 	my $filename = $args->{'file'};
 	print q(<p>Generating profile data file ... );
 	if ( $ENV{'MOD_PERL'} ) {
@@ -289,26 +288,26 @@ sub generate_profile_file {
 
 	# Get the list of loci from each Scheme
 	# Can't use table pivot function:ERROR:  tables can have at most 1600 columns
-	my @schemes_id = ();
+	my @schemes_id;
 	foreach my $scheme_id ( sort keys %{ $args->{'schemes'} } ) {
 		push( @schemes_id, $scheme_id );
 	}
-	my $query = undef;
-	$query .= "SELECT i.isolate, a.locus, a.allele_id, s.name ";
-	$query .= "FROM scheme_members sm ";
-	$query .= "JOIN schemes s ON s.id = sm.scheme_id ";
-	$query .= "JOIN loci l ON l.id = sm.locus ";
-	$query .= "JOIN allele_designations a ON a.locus = l.id ";
-	$query .= "JOIN isolates i ON i.id = a.isolate_id ";
-	$query .= "WHERE ";
+	local $" = q(,);
+	my $query =
+	    "SELECT i.$self->{'system'}->{'labelfield'}, a.locus, a.allele_id, s.name "
+	  . "FROM scheme_members sm "
+	  . "JOIN schemes s ON s.id = sm.scheme_id "
+	  . "JOIN loci l ON l.id = sm.locus "
+	  . "JOIN allele_designations a ON a.locus = l.id "
+	  . "JOIN $self->{'system'}->{'view'} i ON i.id = a.isolate_id "
+	  . "WHERE ";
 	if ( scalar(@schemes_id) ) {
-		$query .= " sm.scheme_id IN ";
-		$query .= "(SELECT id FROM schemes WHERE id IN (" . join( ", ", @schemes_id ) . ")) AND ";
+		$query .= " sm.scheme_id IN (@schemes_id) AND";
 	}
-	$query .= " i.id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ";
+	$query .= " i.id IN (@{ $args->{'isolates'} }) ";
 	$query .= "AND l.id IN (" . join( ", ", map { "'$_'" } @{ $args->{'loci'} } ) . ") ";
-	$query .= "GROUP BY i.isolate, a.locus, a.allele_id, s.name ";
-	$query .= "ORDER BY i.isolate;";
+	$query .= "GROUP BY i.$self->{'system'}->{'labelfield'}, a.locus, a.allele_id, s.name ";
+	$query .= "ORDER BY i.$self->{'system'}->{'labelfield'};";
 	my $header_line = ["Isolate"];
 	my $loci        = {};
 	my $isolates    = {};
@@ -345,7 +344,7 @@ sub generate_profile_file {
 	return 0;
 }
 
-sub generate_auxiliary_file {
+sub _generate_auxiliary_file {
 	my $self     = shift;
 	my $args     = shift;
 	my $filename = $args->{'file'};
