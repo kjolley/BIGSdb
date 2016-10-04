@@ -90,43 +90,15 @@ sub run {
 			  . q(<strong>one isolate field!</strong></p></div>);
 			return;
 		}
-
-		# Get selected schemes
-		######################
-		#		my $schemes_id =
-		#		  $self->{'datastore'}
-		#		  ->run_query( 'SELECT id, description FROM schemes ORDER BY id ASC', undef, { fetch => 'all_arrayref' } );
-		my $selected_schemes = {};
-		my $selected_loci    = [];
-
-		#		if ( scalar(@$schemes_id) ) {
-		#			foreach my $scheme (@$schemes_id) {
-		#				my ( $scheme_id, $scheme_name ) = @$scheme;
-		#				if ( $q->param("s_${scheme_id}") and $q->param("s_${scheme_id}") == 1 ) {
-		#
-		#					# We automatically include all loci
-		#					push @$selected_loci, @{ $self->{'datastore'}->get_scheme_loci($scheme_id) };
-		#
-		#					# Include all field from selected scheme
-		#					$selected_schemes->{$scheme_id}->{'scheme_fields'} =
-		#					  $self->{'datastore'}->get_scheme_fields($scheme_id);
-		#				}
-		#			}
-		#		}
-		# Get selected loci from the list
-		#################################
-		#		if ( !scalar(@$selected_loci) ) {
-		#			$selected_loci = $self->get_selected_loci();
-		#		}
-		$selected_loci = $self->get_selected_loci;
+		my $selected_loci = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 		$q->delete('locus');
 		push @$selected_loci, @$pasted_cleaned_loci;
 		@$selected_loci = uniq @$selected_loci;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			say
-q(<div class="box" id="statusbad"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>);
+			say q(<div class="box" id="statusbad"><p>The following loci in your )
+			  . qq(pasted list are invalid: @$invalid_loci.</p></div>);
 		}
 		$self->add_scheme_loci($selected_loci);
 		if ( !@$selected_loci ) {
@@ -148,13 +120,7 @@ q(<div class="box" id="statusbad"><p>The following loci in your pasted list are 
 
 			if (
 				$self->_generate_profile_file(
-					{
-						file => $profile_file,
-
-						#						schemes  => $selected_schemes,
-						isolates => $isolates_ids,
-						loci     => $selected_loci
-					}
+					{ file => $profile_file, isolates => $isolates_ids, loci => $selected_loci }
 				)
 			  )
 			{
@@ -162,13 +128,7 @@ q(<div class="box" id="statusbad"><p>The following loci in your pasted list are 
 				return;
 			}
 			$self->_generate_auxiliary_file(
-				{
-					file     => $auxiliary_file,
-					schemes  => $selected_schemes,
-					isolates => $isolates_ids,
-					fields   => $selected_isolates_fields
-				}
-			);
+				{ file => $auxiliary_file, isolates => $isolates_ids, fields => $selected_isolates_fields } );
 
 			# Upload data files to phyloviz online using python script
 			my ( $phylo_id, $msg ) =
@@ -182,8 +142,8 @@ q(<div class="box" id="statusbad"><p>The following loci in your pasted list are 
 			return;
 		}
 	}
-	say q[<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based ]
-	  . q[typing methods that generate allelic profiles and their associated epidemiological data.</p>   ];
+	say q(<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based )
+	  . q(typing methods that generate allelic profiles and their associated epidemiological data.</p>);
 	say $q->start_form;
 
 	# Selected isolates
@@ -195,7 +155,7 @@ q(<div class="box" id="statusbad"><p>The following loci in your pasted list are 
 	$self->print_isolates_fieldset(1);
 
 	# Loci fieldset
-	$self->print_isolates_locus_fieldset;
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 
 	# Schemes Tree
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
