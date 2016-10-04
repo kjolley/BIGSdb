@@ -290,6 +290,7 @@ sub upload_data_to_phyloviz {
 	}
 	my $cmd =
 	  "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set -e true 2>&1";
+	$logger->error($cmd);
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
@@ -297,6 +298,7 @@ sub upload_data_to_phyloviz {
 	}
 	open( CMD, "$cmd |" ) or $logger->error("Can't upload data to PhyloViz");
 	while (<CMD>) {
+		$logger->error($_);
 		if (/(Incorrect username or password)/) {
 			$logger->error("[PhyloViz] remoteUpload: $1");
 			$msg = $1;
@@ -334,7 +336,7 @@ sub generate_profile_file {
 		push( @schemes_id, $scheme_id );
 	}
 	my $query = undef;
-	$query .= "SELECT i.isolate, a.locus, a.allele_id, s.description ";
+	$query .= "SELECT i.isolate, a.locus, a.allele_id, s.name ";
 	$query .= "FROM scheme_members sm ";
 	$query .= "JOIN schemes s ON s.id = sm.scheme_id ";
 	$query .= "JOIN loci l ON l.id = sm.locus ";
@@ -347,7 +349,7 @@ sub generate_profile_file {
 	}
 	$query .= " i.id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ";
 	$query .= "AND l.id IN (" . join( ", ", map { "'$_'" } @{ $args->{'loci'} } ) . ") ";
-	$query .= "GROUP BY i.isolate, a.locus, a.allele_id, s.description ";
+	$query .= "GROUP BY i.isolate, a.locus, a.allele_id, s.name ";
 	$query .= "ORDER BY i.isolate;";
 	my $header_line = ["Isolate"];
 	my $loci        = {};
