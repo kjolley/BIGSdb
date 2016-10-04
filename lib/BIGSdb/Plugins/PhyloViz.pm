@@ -46,7 +46,7 @@ sub get_attributes {
 		help        => 'tooltips',
 		order       => 33,
 		min         => 2,
-		max => 5000
+		max         => 5000
 	);
 	return \%att;
 }
@@ -124,7 +124,8 @@ sub run {
 				)
 			  )
 			{
-				say q(<div class="box" id="statusbad"><p>Nothing found in the database for your isolates!</p></div>);
+				say q(</div><div class="box" id="statusbad"><p>Nothing found )
+				  . q(in the database for your isolates!</p></div>);
 				return;
 			}
 			$self->_generate_auxiliary_file(
@@ -134,7 +135,7 @@ sub run {
 			my ( $phylo_id, $msg ) =
 			  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
 			if ( !$phylo_id ) {
-				say qq(<div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
+				say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 				return;
 			}
 			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
@@ -295,8 +296,8 @@ sub _generate_auxiliary_file {
 	@$fields = uniq @$fields;
 	print q(<p>Generating auxiliary file ... );
 	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush();
-		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
+		$self->{'mod_perl_request'}->rflush;
+		return 1 if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	local $" = q(,);
 	my $query = "SELECT @$fields FROM isolates WHERE id IN (@$isolates) ORDER BY id;";
