@@ -61,7 +61,8 @@ sub run {
 		say q(<div class="box" id="statusbad"><p>Cannot retrieve id list. Please repeat your query</p></div>);
 		return;
 	}
-	$self->rewrite_query_ref_order_by($qry_ref);
+
+	#	$self->rewrite_query_ref_order_by($qry_ref);
 	my $isolates_ids = $self->get_ids_from_query($qry_ref);
 	if ( $q->param('submit') ) {
 
@@ -92,31 +93,42 @@ sub run {
 
 		# Get selected schemes
 		######################
-		my $schemes_id =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT id, description FROM schemes ORDER BY id ASC', undef, { fetch => 'all_arrayref' } );
+		#		my $schemes_id =
+		#		  $self->{'datastore'}
+		#		  ->run_query( 'SELECT id, description FROM schemes ORDER BY id ASC', undef, { fetch => 'all_arrayref' } );
 		my $selected_schemes = {};
 		my $selected_loci    = [];
-		if ( scalar(@$schemes_id) ) {
-			foreach my $scheme (@$schemes_id) {
-				my ( $scheme_id, $scheme_name ) = @$scheme;
-				if ( $q->param("s_${scheme_id}") and $q->param("s_${scheme_id}") == 1 ) {
 
-					# We automatically include all loci
-					push @$selected_loci, @{ $self->{'datastore'}->get_scheme_loci($scheme_id) };
-
-					# Include all field from selected scheme
-					$selected_schemes->{$scheme_id}->{'scheme_fields'} =
-					  $self->{'datastore'}->get_scheme_fields($scheme_id);
-				}
-			}
-		}
-
+		#		if ( scalar(@$schemes_id) ) {
+		#			foreach my $scheme (@$schemes_id) {
+		#				my ( $scheme_id, $scheme_name ) = @$scheme;
+		#				if ( $q->param("s_${scheme_id}") and $q->param("s_${scheme_id}") == 1 ) {
+		#
+		#					# We automatically include all loci
+		#					push @$selected_loci, @{ $self->{'datastore'}->get_scheme_loci($scheme_id) };
+		#
+		#					# Include all field from selected scheme
+		#					$selected_schemes->{$scheme_id}->{'scheme_fields'} =
+		#					  $self->{'datastore'}->get_scheme_fields($scheme_id);
+		#				}
+		#			}
+		#		}
 		# Get selected loci from the list
 		#################################
-		if ( !scalar(@$selected_loci) ) {
-			$selected_loci = $self->get_selected_loci();
+		#		if ( !scalar(@$selected_loci) ) {
+		#			$selected_loci = $self->get_selected_loci();
+		#		}
+		$selected_loci = $self->get_selected_loci;
+		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
+		$q->delete('locus');
+		push @$selected_loci, @$pasted_cleaned_loci;
+		@$selected_loci = uniq @$selected_loci;
+		if (@$invalid_loci) {
+			local $" = ', ';
+			say
+q(<div class="box" id="statusbad"><p>The following loci in your pasted list are invalid: @$invalid_loci.</p></div>);
 		}
+		$self->add_scheme_loci($selected_loci);
 		if ( !@$selected_loci ) {
 			say q(<div class="box" id="statusbad"><p>You must at least select <strong>one locus!</strong></p></div>);
 			return;
@@ -137,8 +149,9 @@ sub run {
 			if (
 				$self->_generate_profile_file(
 					{
-						file     => $profile_file,
-						schemes  => $selected_schemes,
+						file => $profile_file,
+
+						#						schemes  => $selected_schemes,
 						isolates => $isolates_ids,
 						loci     => $selected_loci
 					}
@@ -161,7 +174,7 @@ sub run {
 			my ( $phylo_id, $msg ) =
 			  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
 			if ( !$phylo_id ) {
-				say q(<div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
+				say qq(<div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 				return;
 			}
 			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
@@ -251,6 +264,7 @@ sub _upload_data_to_phyloviz {
 	}
 	my $cmd = "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
 	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
+	$logger->error($cmd);
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
@@ -279,64 +293,30 @@ sub _upload_data_to_phyloviz {
 
 sub _generate_profile_file {
 	my ( $self, $args ) = @_;
-	my $filename = $args->{'file'};
+	my ( $filename, $isolates, $loci ) = @{$args}{qw(file isolates loci)};
 	print q(<p>Generating profile data file ... );
 	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush();
-		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
+		$self->{'mod_perl_request'}->rflush;
+		return 1 if $self->{'mod_perl_request'}->connection->aborted;
 	}
-
-	# Get the list of loci from each Scheme
-	# Can't use table pivot function:ERROR:  tables can have at most 1600 columns
-	my @schemes_id;
-	foreach my $scheme_id ( sort keys %{ $args->{'schemes'} } ) {
-		push( @schemes_id, $scheme_id );
-	}
-	local $" = q(,);
-	my $query =
-	    "SELECT i.$self->{'system'}->{'labelfield'}, a.locus, a.allele_id, s.name "
-	  . "FROM scheme_members sm "
-	  . "JOIN schemes s ON s.id = sm.scheme_id "
-	  . "JOIN loci l ON l.id = sm.locus "
-	  . "JOIN allele_designations a ON a.locus = l.id "
-	  . "JOIN $self->{'system'}->{'view'} i ON i.id = a.isolate_id "
-	  . "WHERE ";
-	if ( scalar(@schemes_id) ) {
-		$query .= " sm.scheme_id IN (@schemes_id) AND";
-	}
-	$query .= " i.id IN (@{ $args->{'isolates'} }) ";
-	$query .= "AND l.id IN (" . join( ", ", map { "'$_'" } @{ $args->{'loci'} } ) . ") ";
-	$query .= "GROUP BY i.$self->{'system'}->{'labelfield'}, a.locus, a.allele_id, s.name ";
-	$query .= "ORDER BY i.$self->{'system'}->{'labelfield'};";
-	my $header_line = ["Isolate"];
-	my $loci        = {};
-	my $isolates    = {};
-	my $rows        = $self->{'datastore'}->run_query( $query, undef, { 'fetch' => 'all_arrayref' } );
-
-	if ( !$rows ) {
-		return 1;
-	}
-
-	# SLCC2482 | abcZ  | 4   | MLST
-	# SLCC2482 | bglA  | 4   | MLST
-	foreach my $row (@$rows) {
-		if ( !exists( $isolates->{ $row->[0] } ) ) {
-			$isolates->{ $row->[0] } = [ $row->[0] ];
-		}
-		if ( !exists( $loci->{ $row->[1] } ) ) {
-			$loci->{ $row->[1] } = 1;
-			push( @$header_line, "$row->[1]($row->[3])" );
-		}
-		push( @{ $isolates->{ $row->[0] } }, $row->[2] );
-	}
-	if ( scalar( keys %$isolates ) ) {
+	if (@$isolates) {
 		open( my $fh, '>:encoding(utf8)', $filename )
 		  or $logger->error("Can't open temp file $filename for writing");
-		print $fh join( "\t", @$header_line ), "\n";
-		foreach my $isolate ( sort keys %$isolates ) {
-			print $fh join( "\t", @{ $isolates->{$isolate} } ), "\n";
+		local $" = qq(\t);
+		say $fh qq(id\t@$loci);
+		foreach my $isolate_id (@$isolates) {
+			my @profile;
+			push @profile, $isolate_id;
+			my $ad = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+			foreach my $locus (@$loci) {
+				my @values = sort keys %{ $ad->{$locus} };
+
+				#Just pick lowest value
+				push @profile, $values[0] // q();
+			}
+			say $fh qq(@profile);
 		}
-		close($fh);
+		close $fh;
 	} else {
 		return 1;
 	}
@@ -350,7 +330,8 @@ sub _generate_auxiliary_file {
 	my $filename = $args->{'file'};
 
 	# We ensure 'Isolate' is in the array
-	unshift( @{ $args->{'fields'} }, ucfirst('isolate') );
+	#	unshift( @{ $args->{'fields'} }, ucfirst('isolate') );
+	unshift @{ $args->{'fields'} }, 'id';
 
 	# And we rearrange by removing the one already there if it was.
 	@{ $args->{'fields'} } = uniq( @{ $args->{'fields'} } );
@@ -360,7 +341,9 @@ sub _generate_auxiliary_file {
 		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
 	}
 	my $query = "SELECT " . join( ", ", @{ $args->{'fields'} } ) . " FROM isolates ";
-	$query .= "WHERE id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ORDER BY isolate;";
+
+	#	$query .= "WHERE id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ORDER BY isolate;";
+	$query .= "WHERE id IN (" . join( ", ", @{ $args->{'isolates'} } ) . ") ORDER BY id;";
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $isolates = $self->{'datastore'}->run_query( $query, undef, { 'fetch' => 'all_arrayref' } );
