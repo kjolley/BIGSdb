@@ -45,6 +45,8 @@ sub get_attributes {
 		requires    => 'js_tree',
 		help        => 'tooltips',
 		order       => 33,
+		min         => 2,
+		max => 5000
 	);
 	return \%att;
 }
@@ -283,8 +285,8 @@ sub _generate_profile_file {
 }
 
 sub _generate_auxiliary_file {
-	my ($self, $args)     = @_;
-	my ($filename, $isolates, $fields) = @{$args}{qw(file isolates fields)};
+	my ( $self, $args ) = @_;
+	my ( $filename, $isolates, $fields ) = @{$args}{qw(file isolates fields)};
 
 	# We ensure 'id' is in the list
 	unshift @$fields, 'id';
@@ -296,16 +298,17 @@ sub _generate_auxiliary_file {
 		$self->{'mod_perl_request'}->rflush();
 		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
 	}
-	local $"=q(,);
+	local $" = q(,);
 	my $query = "SELECT @$fields FROM isolates WHERE id IN (@$isolates) ORDER BY id;";
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
 	my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
-	local $"=qq(\t);
+	local $" = qq(\t);
 	say $fh qq(@$fields);
 	no warnings 'uninitialized';
+
 	foreach my $field_values (@$data) {
-		say $fh qq(@$field_values)
+		say $fh qq(@$field_values);
 	}
 	close $fh;
 	say q(<span class="statusgood fa fa-check"></span></p>);
