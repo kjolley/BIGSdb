@@ -23,6 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
+use BIGSdb::Constants qw(GOOD);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -248,7 +249,7 @@ sub _upload_data_to_phyloviz {
 		}
 	}
 	close $handle;
-	say q(<span class="statusgood fa fa-check"></span></p>);
+	say GOOD . q(</p>);
 	return ( $uuid, $msg );
 }
 
@@ -281,7 +282,7 @@ sub _generate_profile_file {
 	} else {
 		return 1;
 	}
-	say q(<span class="statusgood fa fa-check"></span></p>);
+	say GOOD . q(</p>);
 	return 0;
 }
 
@@ -312,7 +313,7 @@ sub _generate_auxiliary_file {
 		say $fh qq(@$field_values);
 	}
 	close $fh;
-	say q(<span class="statusgood fa fa-check"></span></p>);
+	say GOOD . q(</p>);
 	return 0;
 }
 1;
