@@ -340,7 +340,25 @@ sub _print_fields {
 
 sub print_field_export_form {
 	my ( $self, $default_select, $options ) = @_;
-	my $q             = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	say $q->start_form;
+	$self->print_isolates_fieldset( $default_select, $options );
+	$self->print_extra_fields;
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_options;
+	$self->print_extra_options;
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
+	say $q->end_form;
+	return;
+}
+
+sub print_isolates_fieldset {
+	my ( $self, $default_select, $options ) = @_;
 	my $set_id        = $self->get_set_id;
 	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
@@ -371,7 +389,6 @@ sub print_field_export_form {
 		push @isolate_js,  qq(\$("#$id").prop("checked",true));
 		push @isolate_js2, qq(\$("#$id").prop("checked",false));
 	}
-	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
 	$self->_print_fields(
 		{
@@ -407,16 +424,6 @@ sub print_field_export_form {
 			say q(</fieldset>);
 		}
 	}
-	$self->print_extra_fields;
-	$self->print_isolates_locus_fieldset;
-	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_options;
-	$self->print_extra_options;
-	$self->print_action_fieldset( { no_reset => 1 } );
-	say q(<div style="clear:both"></div>);
-	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
-	say $q->end_form;
 	return;
 }
 
@@ -812,8 +819,8 @@ sub add_scheme_loci {
 		next if !$q->param("s_$scheme_id");
 		push @selected_schemes, $scheme_id;
 		$q->delete("s_$scheme_id");
-		if ($self->_should_scheme_be_cited($scheme_id)){
-			push @{$self->{'cite_schemes'}},$scheme_id;
+		if ( $self->_should_scheme_be_cited($scheme_id) ) {
+			push @{ $self->{'cite_schemes'} }, $scheme_id;
 		}
 	}
 	my %locus_selected = map { $_ => 1 } @$loci;

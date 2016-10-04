@@ -237,45 +237,6 @@ sub print_selected_isolates {
 	return;
 }
 
-sub print_isolates_fieldset {
-	my ( $self, $default_select ) = @_;
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my @display_fields;
-	my ( @js, @js2, @isolate_js, @isolate_js2 );
-
-	foreach my $field (@$fields) {
-		push @display_fields, $field;
-		push @display_fields, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
-	}
-	push @isolate_js,  @js;
-	push @isolate_js2, @js2;
-	foreach my $field (@display_fields) {
-		( my $id = "f_$field" ) =~ tr/:/_/;
-		push @js,          qq(\$("#$id").prop("checked",true));
-		push @js2,         qq(\$("#$id").prop("checked",false));
-		push @isolate_js,  qq(\$("#$id").prop("checked",true));
-		push @isolate_js2, qq(\$("#$id").prop("checked",false));
-	}
-	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
-	$self->_print_fields(
-		{
-			fields         => \@display_fields,
-			prefix         => 'f',
-			num_columns    => 3,
-			labels         => {},
-			default_select => $default_select
-		}
-	);
-	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
-	say q(</fieldset>);
-	return;
-}
-
 sub upload_data_to_phyloviz {
 	my $self = shift;
 	my $args = shift;
@@ -290,7 +251,6 @@ sub upload_data_to_phyloviz {
 	}
 	my $cmd =
 	  "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} -m $args->{'auxiliary'} -d $data_set -e true 2>&1";
-	$logger->error($cmd);
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
@@ -298,7 +258,6 @@ sub upload_data_to_phyloviz {
 	}
 	open( CMD, "$cmd |" ) or $logger->error("Can't upload data to PhyloViz");
 	while (<CMD>) {
-		$logger->error($_);
 		if (/(Incorrect username or password)/) {
 			$logger->error("[PhyloViz] remoteUpload: $1");
 			$msg = $1;
@@ -363,6 +322,8 @@ sub generate_profile_file {
 	# SLCC2482 | abcZ  | 4   | MLST
 	# SLCC2482 | bglA  | 4   | MLST
 	foreach my $row (@$rows) {
+		local $" = qq(\t);
+		$logger->error("@$row");
 		if ( !exists( $isolates->{ $row->[0] } ) ) {
 			$isolates->{ $row->[0] } = [ $row->[0] ];
 		}
