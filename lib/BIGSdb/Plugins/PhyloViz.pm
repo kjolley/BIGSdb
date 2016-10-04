@@ -130,8 +130,8 @@ q(<div class="box" id="statusbad"><p>You must at least select <strong>one isolat
 			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
 			say q(<p>Data are being processed and sent to PhyloViz Online.</p>);
 			my $uuid           = BIGSdb::Utils::get_random();
-			my $profile_file   = join( "/", $self->{'config'}->{'tmp_dir'}, "profile_data_$uuid.txt" );
-			my $auxiliary_file = join( "/", $self->{'config'}->{'tmp_dir'}, "auxiliary_data_$uuid.txt" );
+			my $profile_file   = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_profile_data.txt";
+			my $auxiliary_file = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_auxiliary_data.txt";
 
 			if (
 				$self->generate_profile_file(
