@@ -17,6 +17,9 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Modifications to initial code made by Keith Jolley.
+#https://github.com/kjolley/BIGSdb/commits/develop/lib/BIGSdb/Plugins/PhyloViz.pm
 package BIGSdb::Plugins::PhyloViz;
 use strict;
 use warnings;
@@ -134,6 +137,10 @@ sub run {
 			  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
 			if ( !$phylo_id ) {
 				say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
+
+				#Delete cookie file as it may be the username/password that is wrong.
+				#This will stop it being used again.
+				unlink "$self->{'config'}->{'secure_tmp_dir'}/jarfile";
 				return;
 			}
 			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
@@ -222,7 +229,8 @@ sub _upload_data_to_phyloviz {
 	if ( !$user || !$pass || !$script ) {
 		return ( 0, 'Missing PhyloViz connection parameters!' );
 	}
-	my $cmd = "cd $self->{'config'}->{'secure_tmp_dir'};"
+	my $cmd =
+	    "cd $self->{'config'}->{'secure_tmp_dir'};"
 	  . "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
 	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
 	print q(<p>Sending data to PhyloViz online ... );
