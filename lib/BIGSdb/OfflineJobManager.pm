@@ -328,6 +328,8 @@ sub update_job_status {
 	eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
 	if ($@) {
 		$logger->logcarp($@);
+		local $"=q(;);
+		$logger->error("Values were: @values");
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
