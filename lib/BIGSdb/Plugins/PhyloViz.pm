@@ -40,10 +40,11 @@ sub get_attributes {
 		description => 'Creates phylogenetic inference and data visualization for sequence based typing methods',
 		category    => 'Analysis',
 		buttontext  => 'PhyloViz',
+		menutext    => 'PhyloViz',
 		module      => 'PhyloViz',
 		version     => '0.0.1',
 		dbtype      => 'isolates',
-		section     => 'postquery',
+		section     => 'analysis,postquery',
 		input       => 'query',
 		system_flag => 'PhyloViz',
 		requires    => 'js_tree',
@@ -150,7 +151,8 @@ sub run {
 
 		# Upload data files to phyloviz online using python script
 		my ( $phylo_id, $msg ) =
-		  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
+		  $self->_upload_data_to_phyloviz(
+			{ profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids } );
 		if ( !$phylo_id ) {
 			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 
@@ -192,8 +194,7 @@ sub _print_interface {
 }
 
 sub _upload_data_to_phyloviz {
-	my $self = shift;
-	my $args = shift;
+	my ( $self, $args ) = @_;
 	my $uuid = 0;
 	my $msg  = 'No message';
 	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/x );
@@ -203,10 +204,11 @@ sub _upload_data_to_phyloviz {
 	if ( !$user || !$pass || !$script ) {
 		return ( 0, 'Missing PhyloViz connection parameters!' );
 	}
-	my $cmd =
-	    "cd $self->{'config'}->{'secure_tmp_dir'};"
-	  . "python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} "
-	  . "-m $args->{'auxiliary'} -d $data_set -e true 2>&1";
+	my $desc = "$self->{'system'}->{'description'} $args->{'count'} isolates";
+	$desc =~ s/\W/_/gx;
+	my $cmd = qq(cd $self->{'config'}->{'secure_tmp_dir'};)
+	  . qq(python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} )
+	  . qq(-m $args->{'auxiliary'} -d $data_set -e true -dn '$desc' 2>&1);
 	print q(<p>Sending data to PhyloViz online ... );
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush();
