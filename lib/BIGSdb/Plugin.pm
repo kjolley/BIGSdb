@@ -527,19 +527,28 @@ sub get_selected_fields {
 	return \@fields_selected;
 }
 
-sub print_sequence_export_form {
-	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
-	$logger->error('No primary key passed') if !defined $pk;
-	$options = {} if ref $options ne 'HASH';
+sub print_id_fieldset {
+	my ( $self, $options ) = @_;
+	$options->{'fieldname'} //= 'id';
+	my $list = $options->{'list'} // [];
 	my $q = $self->{'cgi'};
-	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Select ${pk}s</legend>);
+	say qq(<fieldset style="float:left"><legend>Select $options->{'fieldname'}s</legend>);
 	local $" = "\n";
 	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />)
 	  . q(line for each. Leave blank to include all ids.</p>);
 	@$list = uniq @$list;
 	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
 	say q(</fieldset>);
+	return;
+}
+
+sub print_sequence_export_form {
+	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
+	$logger->error('No primary key passed') if !defined $pk;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	$self->print_includes_fieldset( { scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
