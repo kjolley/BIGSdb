@@ -527,6 +527,26 @@ sub get_selected_fields {
 	return \@fields_selected;
 }
 
+sub check_id_list {
+	my ( $self, $list ) = @_;
+	my $invalid = [];
+	my $valid   = [];
+	my $valid_id_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+	my %valid_ids = map { $_ => 1 } @$valid_id_list;
+	foreach my $id (@$list) {
+		$id =~ s/^\s*//x;
+		$id =~ s/\s*$//x;
+		if ( $valid_ids{$id} ) {
+			push @$valid, $id;
+		} else {
+			push @$invalid, $id;
+		}
+	}
+	return ( $valid, $invalid );
+}
+
 sub print_id_fieldset {
 	my ( $self, $options ) = @_;
 	$options->{'fieldname'} //= 'id';

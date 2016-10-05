@@ -59,27 +59,35 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>PhyloViz: phylogenetic tree vizualisation</h1>);
-
-	# Get the list of isolates from query
-	my $query_file = $q->param('query_file');
-	my $qry_ref    = $self->get_query($query_file);
-	return if !$qry_ref;
-	my $isolates_ids = $self->get_ids_from_query($qry_ref);
+	my $isolate_ids = [];
 	if ( $q->param('submit') ) {
-
-		# Get Isolates selected fields
-		my $isolates_fields          = $self->{'xmlHandler'}->get_field_list();
-		my $selected_isolates_fields = [];
-
-		# Check if user checked another list of Isolates from 'Isolates' list
-		#####################################################################
-		if ( $q->param('isolate_id') ) {
-			my @ids = $q->param('isolate_id');
-			$isolates_ids = \@ids;
+		my @list = split /[\r\n]+/x, $q->param('list');
+		@list = uniq @list;
+		if ( !@list ) {
+			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+			@list = @$id_list;
+		}
+		( $isolate_ids, my $invalid ) = $self->check_id_list( \@list );
+		my ( @error, @info );
+		if ( !@$isolate_ids || @$isolate_ids < 2 ) {
+			push @error, q(You must select at least two valid isolate ids.);
+		}
+		if (@$invalid) {
+			local $" = q(, );
+			push @info,
+			  qq(The id list contained some invalid values - these will be ignored. Invalid values: @$invalid.);
+		}
+		my $max = $self->get_attributes->{'max'};
+		if ( @$isolate_ids > $max ) {
+			my $count = BIGSdb::Utils::commify( scalar @$isolate_ids );
+			push @error, qq(This analysis is limited to $max isolates. You have selected $count.);
 		}
 
 		# Get the selected isolates field(s)
 		####################################
+		my $isolates_fields          = $self->{'xmlHandler'}->get_field_list;
+		my $selected_isolates_fields = [];
 		foreach my $field (@$isolates_fields) {
 			if ( $q->param("f_$field") ) {
 				push( @$selected_isolates_fields, "$field" );
@@ -87,9 +95,7 @@ sub run {
 			}
 		}
 		if ( !@$selected_isolates_fields ) {
-			say q(<div class="box" id="statusbad"><p>You must at least select )
-			  . q(<strong>one isolate field!</strong></p></div>);
-			return;
+			push @error, q(You must at least select <strong>one isolate field!</strong>);
 		}
 		my $selected_loci = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
@@ -98,122 +104,90 @@ sub run {
 		@$selected_loci = uniq @$selected_loci;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			say q(<div class="box" id="statusbad"><p>The following loci in your )
-			  . qq(pasted list are invalid: @$invalid_loci.</p></div>);
+			push @info, q(The locus list contained some invalid values - )
+			  . qq(these will be ignore. Invalid values: @$invalid_loci.);
 		}
 		$self->add_scheme_loci($selected_loci);
 		if ( !@$selected_loci ) {
-			say q(<div class="box" id="statusbad"><p>You must at least select <strong>one locus!</strong></p></div>);
-			return;
-		} else {
-
-			# From here, with parameters retrieved, we need to build the 2 files needed for PhyloViz:
-			# - Profile data
-			# - Auxiliary data
-			local $| = 1;
-			say q(<div class="box" id="resultstable">);
-			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
-			say q(<p>Data are being processed and sent to PhyloViz Online.</p>);
-			my $uuid           = BIGSdb::Utils::get_random();
-			my $profile_file   = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_profile_data.txt";
-			my $auxiliary_file = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_auxiliary_data.txt";
-
-			if (
-				$self->_generate_profile_file(
-					{ file => $profile_file, isolates => $isolates_ids, loci => $selected_loci }
-				)
-			  )
-			{
-				say q(</div><div class="box" id="statusbad"><p>Nothing found )
-				  . q(in the database for your isolates!</p></div>);
-				return;
+			push @error, q(You must select at least <strong>one locus!</strong>);
+		}
+		if ( @error || @info ) {
+			say q(<div class="box" id="statusbad">);
+			foreach my $msg ( @error, @info ) {
+				say qq(<p>$msg</p>);
 			}
-			$self->_generate_auxiliary_file(
-				{ file => $auxiliary_file, isolates => $isolates_ids, fields => $selected_isolates_fields } );
-
-			# Upload data files to phyloviz online using python script
-			my ( $phylo_id, $msg ) =
-			  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
-			if ( !$phylo_id ) {
-				say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
-
-				#Delete cookie file as it may be the username/password that is wrong.
-				#This will stop it being used again.
-				unlink "$self->{'config'}->{'secure_tmp_dir'}/jarfile";
-				return;
-			}
-			say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
 			say q(</div>);
-			unlink $profile_file, $auxiliary_file;
+			if (@error) {
+				$self->_print_interface($isolate_ids);
+				return;
+			}
+		}
+
+		# From here, with parameters retrieved, we need to build the 2 files needed for PhyloViz:
+		# - Profile data
+		# - Auxiliary data
+		local $| = 1;
+		say q(<div class="box" id="resultstable">);
+		say q(<p>Please wait for processing to finish (do not refresh page).</p>);
+		say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+		say q(<p>Data are being processed and sent to PhyloViz Online.</p>);
+		my $uuid           = BIGSdb::Utils::get_random();
+		my $profile_file   = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_profile_data.txt";
+		my $auxiliary_file = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_auxiliary_data.txt";
+
+		if (
+			$self->_generate_profile_file(
+				{ file => $profile_file, isolates => $isolate_ids, loci => $selected_loci }
+			)
+		  )
+		{
+			say q(</div><div class="box" id="statusbad"><p>Nothing found )
+			  . q(in the database for your isolates!</p></div>);
 			return;
 		}
+		$self->_generate_auxiliary_file(
+			{ file => $auxiliary_file, isolates => $isolate_ids, fields => $selected_isolates_fields } );
+
+		# Upload data files to phyloviz online using python script
+		my ( $phylo_id, $msg ) =
+		  $self->_upload_data_to_phyloviz( { profile => $profile_file, auxiliary => $auxiliary_file } );
+		if ( !$phylo_id ) {
+			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
+
+			#Delete cookie file as it may be the username/password that is wrong.
+			#This will stop it being used again.
+			unlink "$self->{'config'}->{'secure_tmp_dir'}/jarfile";
+			return;
+		}
+		say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
+		say q(</div>);
+		unlink $profile_file, $auxiliary_file;
+		return;
 	}
+	if ( $q->param('query_file') ) {
+		my $qry_ref = $self->get_query( $q->param('query_file') );
+		if ($qry_ref) {
+			$isolate_ids = $self->get_ids_from_query($qry_ref);
+		}
+	}
+	$self->_print_interface($isolate_ids);
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $isolate_ids ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based )
 	  . q(typing methods that generate allelic profiles and their associated epidemiological data.</p>);
 	say $q->start_form;
-
-	# Selected isolates
-	if ( $self->{'config'}->{'phyloviz_show_isolates_ids'} eq 'yes' ) {
-		$self->_print_selected_isolates( { selected_ids => $isolates_ids, size => 11 } );
-	}
-
-	# Isolates fields
+	$self->print_id_fieldset( { list => $isolate_ids } );
 	$self->print_isolates_fieldset(1);
-
-	# Loci fieldset
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-
-	# Schemes Tree
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
-
-	# Action button (Submit only due to 'no_reset => 1')
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
 	say $q->end_form();
 	say q(</div>);
-	return;
-}
-
-#TODO The query to mark selected will not scale well on very large databases.
-#Should create a generic method in Plugin.pm.
-sub _print_selected_isolates {
-	my ( $self, $options ) = @_;
-	if ( !scalar( $options->{'selected_ids'} ) ) {
-		say q(No isolates selected found);
-	} else {
-		my $view = $self->{'system'}->{'view'};
-		local $" = q(,);
-		my $query = "SELECT $view.id, $view.$self->{'system'}->{'labelfield'} FROM $view WHERE "
-		  . "$view.id IN (@{$options->{'selected_ids'}}) ORDER BY $view.id ASC";
-		my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
-		say q(<fieldset style="float:left"><legend>Isolates</legend>);
-		say q(<div style="float:left">);
-		my @ids;
-		my $labels = {};
-
-		foreach (@$data) {
-			my ( $id, $isolate ) = @$_;
-			push @ids, $id;
-			$labels->{$id} = "$id) $isolate";
-		}
-		say $self->popup_menu(
-			-name     => 'isolate_id',
-			-id       => 'isolate_id',
-			-values   => \@ids,
-			-labels   => $labels,
-			-size     => $options->{'size'} // 8,
-			-multiple => 'true',
-			-default  => $options->{'selected_ids'},
-			-required => $options->{'isolate_paste_list'} ? undef : 'required'
-		);
-		say q(</div>);
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" />)
-		  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-		  . q(style="margin-top:1em" class="smallbutton" />);
-		say q(</fieldset>);
-	}
 	return;
 }
 
