@@ -89,10 +89,18 @@ sub run {
 		####################################
 		my $isolates_fields          = $self->{'xmlHandler'}->get_field_list;
 		my $selected_isolates_fields = [];
+		my $selected_extended_fields = {};
 		foreach my $field (@$isolates_fields) {
 			if ( $q->param("f_$field") ) {
-				push( @$selected_isolates_fields, "$field" );
-				$q->delete("f_$field");
+				push @$selected_isolates_fields, $field;
+			}
+		}
+		my $ext_att = $self->get_extended_attributes;
+		foreach my $field ( keys %$ext_att ) {
+			foreach my $ext_field ( @{ $ext_att->{$field} } ) {
+				if ( $q->param("f_${field}___$ext_field") ) {
+					push @{ $selected_extended_fields->{$field} }, $ext_field;
+				}
 			}
 		}
 		if ( !@$selected_isolates_fields ) {
@@ -100,7 +108,8 @@ sub run {
 		}
 		my $selected_loci = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
-		$q->delete('locus');
+
+		#	$q->delete('locus');
 		push @$selected_loci, @$pasted_cleaned_loci;
 		@$selected_loci = uniq @$selected_loci;
 		if (@$invalid_loci) {
@@ -147,7 +156,13 @@ sub run {
 			return;
 		}
 		$self->_generate_auxiliary_file(
-			{ file => $auxiliary_file, isolates => $isolate_ids, fields => $selected_isolates_fields } );
+			{
+				file            => $auxiliary_file,
+				isolates        => $isolate_ids,
+				fields          => $selected_isolates_fields,
+				extended_fields => $selected_extended_fields
+			}
+		);
 
 		# Upload data files to phyloviz online using python script
 		my ( $phylo_id, $msg ) =
@@ -183,7 +198,7 @@ sub _print_interface {
 	  . q(typing methods that generate allelic profiles and their associated epidemiological data.</p>);
 	say $q->start_form;
 	$self->print_id_fieldset( { list => $isolate_ids } );
-	$self->print_isolates_fieldset(1);
+	$self->print_isolates_fieldset( 1, { extended_attributes => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -206,7 +221,8 @@ sub _upload_data_to_phyloviz {
 	}
 	my $desc = "$self->{'system'}->{'description'} $args->{'count'} isolates";
 	$desc =~ s/\W/_/gx;
-	my $cmd = qq(cd $self->{'config'}->{'secure_tmp_dir'};)
+	my $cmd =
+	    qq(cd $self->{'config'}->{'secure_tmp_dir'};)
 	  . qq(python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} )
 	  . qq(-m $args->{'auxiliary'} -d $data_set -e true -dn '$desc' 2>&1);
 	print q(<p>Sending data to PhyloViz online ... );
@@ -270,7 +286,7 @@ sub _generate_profile_file {
 
 sub _generate_auxiliary_file {
 	my ( $self, $args ) = @_;
-	my ( $filename, $isolates, $fields ) = @{$args}{qw(file isolates fields)};
+	my ( $filename, $isolates, $fields, $ext_fields ) = @{$args}{qw(file isolates fields extended_fields)};
 
 	# We ensure 'id' is in the list
 	unshift @$fields, 'id';
@@ -286,13 +302,38 @@ sub _generate_auxiliary_file {
 	my $query = "SELECT @$fields FROM isolates WHERE id IN (@$isolates) ORDER BY id;";
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Can't open temp file $filename for writing");
-	my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref' } );
+	my $data = $self->{'datastore'}->run_query( $query, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $extended_attributes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM isolate_value_extended_attributes', undef, { fetch => 'all_arrayref', slice => {} } );
+	my $extended_values = {};
+	foreach my $ext_data (@$extended_attributes) {
+		$extended_values->{ $ext_data->{'isolate_field'} }->{ $ext_data->{'attribute'} }
+		  ->{ $ext_data->{'field_value'} } = $ext_data->{'value'};
+	}
+	my @header;
+	foreach my $field (@$fields) {
+		push @header, $field;
+		if ( $ext_fields->{$field} ) {
+			foreach my $ext_field ( @{ $ext_fields->{$field} } ) {
+				push @header, $ext_field;
+			}
+		}
+	}
 	local $" = qq(\t);
-	say $fh qq(@$fields);
+	say $fh qq(@header);
 	no warnings 'uninitialized';
-
-	foreach my $field_values (@$data) {
-		say $fh qq(@$field_values);
+	foreach my $isolate_data (@$data) {
+		my @values;
+		foreach my $field (@$fields) {
+			push @values, $isolate_data->{ lc $field };
+			if ( $ext_fields->{$field} ) {
+				foreach my $ext_field ( @{ $ext_fields->{$field} } ) {
+					push @values, $extended_values->{$field}->{$ext_field}->{ $isolate_data->{ lc $field } };
+				}
+			}
+		}
+		say $fh qq(@values);
 	}
 	close $fh;
 	say GOOD . q(</p>);
