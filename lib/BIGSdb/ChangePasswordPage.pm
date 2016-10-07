@@ -107,6 +107,7 @@ sub print_content {
 				}
 			}
 		}
+		
 		if ($further_checks) {
 			if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
 				say q(<div class="box" id="statusbad"><p>The password is too short and has not been updated. )
@@ -198,6 +199,7 @@ sub _print_interface {
 			say q(<li><label class="form" style="width:10em">Domain:</label>);
 			say qq(<span><strong>$domain</strong></span></li>);
 			say $q->hidden('user_db');
+			say $q->hidden( existing => '' );
 		}
 	} else {
 		my ( $user_names, $labels ) = $self->{'datastore'}->get_users( { identifier => 'user_name', format => 'sfu' } );
