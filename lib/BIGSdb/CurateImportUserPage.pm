@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -28,6 +29,16 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Import user from remote users database</h1>);
+	if ( !$self->{'datastore'}->user_dbs_defined ) {
+		say q(<div class="box" id="statusbad"><p>No user databases are defined.</p></div>);
+		return;
+	}
+	my $default_db =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM user_dbases ORDER BY list_order,name LIMIT 1', undef, { fetch => 'row_hashref' } );
+	if ( !$q->param('user_db') ) {
+		$q->param( user_db => $default_db->{'id'} );
+	}
 	my $user_db = $q->param('user_db');
 	if ( !BIGSdb::Utils::is_int($user_db) || !$self->{'datastore'}->user_db_defined($user_db) ) {
 		say q(<div class="box" id="statusbad"><p>Invalid user database submitted.</p></div>);
@@ -42,9 +53,28 @@ sub print_content {
 
 sub _print_interface {
 	my ( $self, $user_db ) = @_;
+	my $dbs = $self->{'datastore'}->run_query( 'SELECT * FROM user_dbases ORDER BY list_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $possible_users = $self->_get_possible_users($user_db);
 	my $q              = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
+	if ( @$dbs == 1 ) {
+		say qq(<p>Domain/site: <strong>$dbs->[0]->{'name'}</strong></p>);
+	} else {
+		my $db_ids = [];
+		my $labels = {};
+		foreach my $db (@$dbs) {
+			push @$db_ids, $db->{'id'};
+			$labels->{ $db->{'id'} } = $db->{'name'};
+		}
+		say q(<fieldset><legend>Domain/site</legend>);
+		say $q->start_form;
+		say $q->popup_menu( -name => 'user_db', values => $db_ids, labels => $labels, default => $q->param('user_db') );
+		say $q->submit( -name => 'select_db', -label => 'Select', class => BUTTON_CLASS );
+		say $q->hidden($_) foreach qw(db page user_db );
+		say $q->end_form;
+		say q(</fieldset><div style="clear:both"></div>);
+	}
 	my $labels     = {};
 	my $user_names = [];
 	foreach my $user (@$possible_users) {
@@ -98,27 +128,25 @@ sub _import {
 	my $user_db   = $q->param('user_db');
 	my @users     = $q->param('users');
 	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
+	my $invalid_upload;
 	eval {
 		foreach my $user_name (@users)
 		{
-			return if !$self->_check_valid_import( $user_db, $user_name );
+			$invalid_upload = 1 if !$self->_check_valid_import( $user_db, $user_name );
 			my $user = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
 				$user_name, { fetch => 'row_hashref', cache => 'CurateImportUserPage::import', db => $remote_db } );
 			my $id         = $self->next_id('users');
 			my $curator_id = $self->get_curator_id;
 			$self->{'db'}->do(
 				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
-				undef,
-				$id,
-				$user_name,
-				'user',
-				'now',
-				'now',
-				$curator_id,
-				$user_db
+				undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db
 			);
 		}
 	};
+	if ($invalid_upload) {
+		$self->{'db'}->rollback;
+		return;
+	}
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;

@@ -307,13 +307,19 @@ sub print_content {
 sub _get_admin_list_links {
 	my ($self) = @_;
 	my $list_buffer;
-	if ( $self->{'system'}->{'authentication'} eq 'builtin'
-		&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
-	{
-		$list_buffer =
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=setPassword">Set user passwords</a> - Set a user password to enable them to log on )
-		  . qq(or change an existing password.</li>\n);
+	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
+		if ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin )
+		{
+			$list_buffer =
+			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=setPassword">Set user passwords</a> - Set a user password to enable them to log on )
+			  . qq(or change an existing password.</li>\n);
+		}
+	}
+	if ( ($self->{'permissions'}->{'modify_users'} || $self->is_admin) && $self->{'datastore'}->user_dbs_defined ) {
+		$list_buffer .=
+			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=importUser">Import users</a> - Import user account from centralized user database.</li>\n);
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
