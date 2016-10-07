@@ -108,8 +108,6 @@ sub run {
 		}
 		my $selected_loci = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
-
-		#	$q->delete('locus');
 		push @$selected_loci, @$pasted_cleaned_loci;
 		@$selected_loci = uniq @$selected_loci;
 		if (@$invalid_loci) {
