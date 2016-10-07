@@ -1598,6 +1598,7 @@ sub _check_isolate_id_not_retired {
 	     if $field ne 'id'
 	  || !defined $file_header_pos->{'id'}
 	  || !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'id'} ] );
+
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',

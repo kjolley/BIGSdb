@@ -55,10 +55,15 @@ sub _initiate_db {
 	}
 	$self->{'xmlHandler'} = $xmlHandler;
 	$self->{'system'}     = $xmlHandler->get_system_hash;
-	$self->{'system'}->{'host'}     ||= 'localhost';
-	$self->{'system'}->{'port'}     ||= 5432;
-	$self->{'system'}->{'user'}     ||= 'apache';
-	$self->{'system'}->{'password'} ||= 'remote';
+	##### Tuco : 26.09.2016: Set again from db.conf as previous statement erase it
+	$self->set_dbconnection_params(
+		{
+			user     => $self->{'config'}->{'dbuser'},
+			password => $self->{'config'}->{'dbpasword'},
+			host     => $self->{'config'}->{'dbhost'},
+			port     => $self->{'config'}->{'dbport'}
+		}
+	);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';

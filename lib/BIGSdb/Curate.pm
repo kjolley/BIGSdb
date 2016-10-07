@@ -168,6 +168,9 @@ sub print_page {
 		$page_attributes{'error'} = 'invalidCurator';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
+		if ( $page_attributes{'error'} ) {
+			$self->{'handled_error'} = 1;
+		}
 		return;
 	}
 	if ( !$self->{'db'} ) {

@@ -340,7 +340,25 @@ sub _print_fields {
 
 sub print_field_export_form {
 	my ( $self, $default_select, $options ) = @_;
-	my $q             = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	say $q->start_form;
+	$self->print_isolates_fieldset( $default_select, $options );
+	$self->print_extra_fields;
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_options;
+	$self->print_extra_options;
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
+	say $q->end_form;
+	return;
+}
+
+sub print_isolates_fieldset {
+	my ( $self, $default_select, $options ) = @_;
 	my $set_id        = $self->get_set_id;
 	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
@@ -371,7 +389,6 @@ sub print_field_export_form {
 		push @isolate_js,  qq(\$("#$id").prop("checked",true));
 		push @isolate_js2, qq(\$("#$id").prop("checked",false));
 	}
-	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
 	$self->_print_fields(
 		{
@@ -407,16 +424,6 @@ sub print_field_export_form {
 			say q(</fieldset>);
 		}
 	}
-	$self->print_extra_fields;
-	$self->print_isolates_locus_fieldset;
-	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_options;
-	$self->print_extra_options;
-	$self->print_action_fieldset( { no_reset => 1 } );
-	say q(<div style="clear:both"></div>);
-	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
-	say $q->end_form;
 	return;
 }
 
@@ -520,19 +527,48 @@ sub get_selected_fields {
 	return \@fields_selected;
 }
 
-sub print_sequence_export_form {
-	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
-	$logger->error('No primary key passed') if !defined $pk;
-	$options = {} if ref $options ne 'HASH';
+sub check_id_list {
+	my ( $self, $list ) = @_;
+	my $invalid = [];
+	my $valid   = [];
+	my $valid_id_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+	my %valid_ids = map { $_ => 1 } @$valid_id_list;
+	foreach my $id (@$list) {
+		$id =~ s/^\s*//x;
+		$id =~ s/\s*$//x;
+		if ( $valid_ids{$id} ) {
+			push @$valid, $id;
+		} else {
+			push @$invalid, $id;
+		}
+	}
+	return ( $valid, $invalid );
+}
+
+sub print_id_fieldset {
+	my ( $self, $options ) = @_;
+	$options->{'fieldname'} //= 'id';
+	my $list = $options->{'list'} // [];
 	my $q = $self->{'cgi'};
-	say $q->start_form;
-	say qq(<fieldset style="float:left"><legend>Select ${pk}s</legend>);
+	say qq(<fieldset style="float:left"><legend>Select $options->{'fieldname'}s</legend>);
 	local $" = "\n";
 	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />)
 	  . q(line for each. Leave blank to include all ids.</p>);
 	@$list = uniq @$list;
 	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
 	say q(</fieldset>);
+	return;
+}
+
+sub print_sequence_export_form {
+	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
+	$logger->error('No primary key passed') if !defined $pk;
+	$options = {} if ref $options ne 'HASH';
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	$self->print_includes_fieldset( { scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
@@ -812,8 +848,8 @@ sub add_scheme_loci {
 		next if !$q->param("s_$scheme_id");
 		push @selected_schemes, $scheme_id;
 		$q->delete("s_$scheme_id");
-		if ($self->_should_scheme_be_cited($scheme_id)){
-			push @{$self->{'cite_schemes'}},$scheme_id;
+		if ( $self->_should_scheme_be_cited($scheme_id) ) {
+			push @{ $self->{'cite_schemes'} }, $scheme_id;
 		}
 	}
 	my %locus_selected = map { $_ => 1 } @$loci;

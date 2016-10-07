@@ -215,14 +215,13 @@ sub _initiate {
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$self->{'system'}->{'read_access'} //= 'public';                                       #everyone can view by default
-	$self->{'system'}->{'host'}        //= $self->{'config'}->{'dbhost'} // 'localhost';
-	$self->{'system'}->{'port'}        //= $self->{'config'}->{'dbport'} // 5432;
-	$self->{'system'}->{'user'}        //= $self->{'config'}->{'dbuser'} // 'apache';
-	$self->{'system'}->{'password'}    //= $self->{'config'}->{'dbpassword'} // 'remote';
-	$self->{'system'}->{'privacy'}     //= 'yes';
+	$q->param( page => 'index' ) if !defined $q->param('page');
+	$self->{'page'} = $q->param('page');
+	$self->{'system'}->{'read_access'} //= 'public';   #everyone can view by default
+	$self->set_dbconnection_params;
+	$self->{'system'}->{'privacy'} //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
-	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
+	$self->{'system'}->{'locus_superscript_prefix'} //= 'no';
 	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
 
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
@@ -246,6 +245,21 @@ sub _initiate {
 	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
 	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
 	return;
+}
+
+sub set_dbconnection_params {
+	my ( $self, $options ) = @_;
+	$self->{'system'}->{'host'}     //= $options->{'host'}     // $self->{'config'}->{'dbhost'}     // 'localhost';
+	$self->{'system'}->{'port'}     //= $options->{'port'}     // $self->{'config'}->{'dbport'}     // 5432;
+	$self->{'system'}->{'user'}     //= $options->{'user'}     // $self->{'config'}->{'dbuser'}     // 'apache';
+	$self->{'system'}->{'password'} //= $options->{'password'} // $self->{'config'}->{'dbpassword'} // 'remote';
+
+	# These values are used in OfflineJobManager
+	$self->{'host'}     //= $self->{'system'}->{'host'};
+	$self->{'port'}     //= $self->{'system'}->{'port'};
+	$self->{'user'}     //= $self->{'system'}->{'user'};
+	$self->{'password'} //= $self->{'system'}->{'password'};
+	return $self;
 }
 
 sub set_system_overrides {
@@ -379,10 +393,11 @@ sub _read_db_config_file {
 	my $logger  = get_logger('BIGSdb.Application_Initiate');
 	my $db_file = "$config_dir/db.conf";
 	if ( !-e $db_file ) {
+		$logger->info("Couldn't find db.conf in $config_dir");
 		return;
 	}
 	my $config = Config::Tiny->new();
-	$config = Config::Tiny->read($db_file);
+	$config = Config::Tiny->read("$db_file");
 	foreach my $param (qw (dbhost dbport dbuser dbpassword)) {
 		$self->{'config'}->{$param} = $config->{_}->{$param};
 	}
@@ -390,6 +405,7 @@ sub _read_db_config_file {
 		$logger->error('Parameter dbport in db.conf should be an integer - default value used.');
 		undef $self->{'config'}->{'dbport'};
 	}
+	$self->set_dbconnection_params();
 	return;
 }
 
