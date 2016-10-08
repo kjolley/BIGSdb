@@ -26,9 +26,12 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
-use BIGSdb::Constants qw(GOOD);
+use BIGSdb::Constants qw(GOOD BAD);
+use LWP::UserAgent;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant WEB_ROOT => 'http://online.phyloviz.net';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -161,17 +164,11 @@ sub run {
 				extended_fields => $selected_extended_fields
 			}
 		);
-
-		# Upload data files to phyloviz online using python script
 		my ( $phylo_id, $msg ) =
 		  $self->_upload_data_to_phyloviz(
 			{ profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids } );
 		if ( !$phylo_id ) {
 			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
-
-			#Delete cookie file as it may be the username/password that is wrong.
-			#This will stop it being used again.
-			unlink "$self->{'config'}->{'secure_tmp_dir'}/jarfile";
 			return;
 		}
 		say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
@@ -208,45 +205,70 @@ sub _print_interface {
 
 sub _upload_data_to_phyloviz {
 	my ( $self, $args ) = @_;
+	$self->{'mod_perl_request'}->rflush() if $ENV{'MOD_PERL'};
+	say q(<p>Sending data to PhyloViz online ... );
 	my $uuid = 0;
 	my $msg  = 'No message';
 	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/x );
 	my $user       = $self->{'config'}->{'phyloviz_user'};
 	my $pass       = $self->{'config'}->{'phyloviz_passwd'};
-	my $script     = $self->{'config'}->{'phyloviz_upload_script'};
-	if ( !$user || !$pass || !$script ) {
+	if ( !$user || !$pass ) {
+		say BAD . q(</p>);
 		return ( 0, 'Missing PhyloViz connection parameters!' );
 	}
 	my $desc = "$self->{'system'}->{'description'} $args->{'count'} isolates";
 	$desc =~ s/\W/_/gx;
-	my $cmd =
-	    qq(cd $self->{'config'}->{'secure_tmp_dir'};)
-	  . qq(python $script -u $user -p $pass -sdt profile -sd $args->{'profile'} )
-	  . qq(-m $args->{'auxiliary'} -d $data_set -e true -dn '$desc' 2>&1);
-	print q(<p>Sending data to PhyloViz online ... );
-	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush();
-		return 1 if $self->{'mod_perl_request'}->connection()->aborted();
+	my $uploader       = LWP::UserAgent->new( cookie_jar => {}, agent => 'BIGSdb' );
+	my $login_url      = WEB_ROOT . '/users/api/login';
+	my $login_response = $uploader->post( $login_url, { username => $user, password => $pass } );
+	if ( !$login_response->is_success ) {
+		say BAD . q(</p>);
+		if ( $login_response->status_line =~ /Unauthorized/x ) {
+			$logger->error('PhyloViz: Invalid username/password');
+			return ( 0, 'PhyloViz site rejected username/password' );
+		}
+		$logger->error( $login_response->status_line );
+		return ( 0, $login_response->status_line );
 	}
-	open( my $handle, '-|', $cmd ) or $logger->error('Cannot upload data to PhyloViz');
-	while (<$handle>) {
-		if (/(Incorrect\ username\ or\ password)/x) {
-			$logger->error("[PhyloViz] remoteUpload: $1");
-			$msg = $1;
-			last;
-		}
-		if (/access\ the\ tree\ at:\ (.+)/ix) {
-			$uuid = $1;
-		}
-		if (/(dataset\ name\ already\ exists)/x) {
-			$logger->error("[PhyloViz] $1: $data_set");
-			$msg = $1;
-			last;
-		}
+	my $json = $login_response->decoded_content;
+	if ( decode_json($json)->{'name'} eq $user ) {
+		$logger->info("Logged in to PhyloViz Online as $user");
+	} else {
+		say BAD . q(</p>);
+		$logger->error('PhyloViz: Not logged in');
+		return ( 0, 'Could not log in to PhyloViz' );
 	}
-	close $handle;
-	say GOOD . q(</p>);
-	return ( $uuid, $msg );
+	my $upload_url      = WEB_ROOT . '/api/db/postgres/upload';
+	my $upload_response = $uploader->post(
+		$upload_url,
+		Content_Type => 'form-data',
+		Content      => [
+			datasetName         => $data_set,
+			dataset_description => $desc,
+			makePublic          => 'true',
+			numberOfFiles       => 2,
+			fileProfile         => [ $args->{'profile'} ],
+			fileMetadata        => [ $args->{'auxiliary'} ]
+		]
+	);
+	if ( !$upload_response->is_success ) {
+		say BAD . q(</p>);
+		$logger->error( $upload_response->status_line );
+		return ( 0, 'Dataset could not be uploaded' );
+	}
+	$json = $upload_response->decoded_content;
+	my $dataset_id   = decode_json($json)->{'datasetID'};
+	my $run_url      = WEB_ROOT . "/api/algorithms/goeBURST?dataset_id=$dataset_id&save=true";
+	my $run_response = $uploader->get($run_url);
+	if ( $run_response->is_success ) {
+		say GOOD . q(</p>);
+		return WEB_ROOT . "/main/dataset/$dataset_id";
+	} else {
+		say BAD . q(</p>);
+		$logger->error( $run_response->status_line );
+		return ( 0, 'Could not run goeBURST' );
+	}
+	return;
 }
 
 sub _generate_profile_file {
