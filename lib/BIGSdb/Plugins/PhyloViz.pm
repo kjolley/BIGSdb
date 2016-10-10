@@ -32,6 +32,7 @@ use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant WEB_ROOT => 'http://online.phyloviz.net';
+use constant DATA_POINT_LIMIT => 2_000_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -54,7 +55,7 @@ sub get_attributes {
 		help        => 'tooltips',
 		order       => 33,
 		min         => 2,
-		max         => 5000
+		max         => 10000
 	);
 	return \%att;
 }
@@ -123,6 +124,13 @@ sub run {
 		if ( !@$selected_loci ) {
 			push @error, q(You must select at least <strong>one locus!</strong>);
 		}
+		my $data_points = @list * @$selected_loci;
+		if ($data_points > DATA_POINT_LIMIT){
+			my $limit = BIGSdb::Utils::commify(DATA_POINT_LIMIT);
+			$data_points = BIGSdb::Utils::commify($data_points);
+			push @error, qq(Analysis is limited to $limit data points (isolates x loci). You have selected $data_points.);
+		}
+		
 		if ( @error || @info ) {
 			say q(<div class="box" id="statusbad">);
 			foreach my $msg ( @error, @info ) {
