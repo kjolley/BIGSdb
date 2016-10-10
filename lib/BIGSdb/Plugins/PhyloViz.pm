@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'PhyloViz',
 		menutext    => 'PhyloViz',
 		module      => 'PhyloViz',
-		version     => '0.0.1',
+		version     => '1.0.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -118,6 +118,7 @@ sub run {
 			push @info, q(The locus list contained some invalid values - )
 			  . qq(these will be ignored. Invalid values: @$invalid_loci.);
 		}
+		my $scheme_ids = $self->_get_selected_schemes;
 		$self->add_scheme_loci($selected_loci);
 		if ( !@$selected_loci ) {
 			push @error, q(You must select at least <strong>one locus!</strong>);
@@ -161,7 +162,8 @@ sub run {
 				file            => $auxiliary_file,
 				isolates        => $isolate_ids,
 				fields          => $selected_isolates_fields,
-				extended_fields => $selected_extended_fields
+				extended_fields => $selected_extended_fields,
+				schemes         => $scheme_ids
 			}
 		);
 		my ( $phylo_id, $msg ) =
@@ -184,6 +186,19 @@ sub run {
 	}
 	$self->_print_interface($isolate_ids);
 	return;
+}
+
+sub _get_selected_schemes {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my @scheme_ids;
+	foreach my $scheme (@$schemes) {
+		push @scheme_ids, $scheme->{'id'} if $q->param("s_$scheme->{'id'}");
+	}
+	@scheme_ids = sort { $a <=> $b } @scheme_ids;
+	return \@scheme_ids;
 }
 
 sub _print_interface {
@@ -306,7 +321,8 @@ sub _generate_profile_file {
 
 sub _generate_auxiliary_file {
 	my ( $self, $args ) = @_;
-	my ( $filename, $isolates, $fields, $ext_fields ) = @{$args}{qw(file isolates fields extended_fields)};
+	my ( $filename, $isolates, $fields, $ext_fields, $schemes ) =
+	  @{$args}{qw(file isolates fields extended_fields schemes)};
 
 	# We ensure 'id' is in the list
 	unshift @$fields, 'id';
@@ -340,6 +356,15 @@ sub _generate_auxiliary_file {
 			}
 		}
 	}
+	my $set_id        = $self->get_set_id;
+	my $scheme_fields = {};
+	foreach my $scheme_id (@$schemes) {
+		my $name = $self->{'datastore'}->get_scheme_info($scheme_id)->{'name'};
+		$scheme_fields->{$scheme_id} = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
+			push @header, "$field ($name)";
+		}
+	}
 	local $" = qq(\t);
 	say $fh qq(@header);
 	no warnings 'uninitialized';
@@ -351,6 +376,15 @@ sub _generate_auxiliary_file {
 				foreach my $ext_field ( @{ $ext_fields->{$field} } ) {
 					push @values, $extended_values->{$field}->{$ext_field}->{ $isolate_data->{ lc $field } };
 				}
+			}
+		}
+		foreach my $scheme_id (@$schemes) {
+			my $scheme_values =
+			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_data->{'id'}, $scheme_id );
+			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
+				my @field_values = keys %{ $scheme_values->{ lc $field } };
+				local $" = q(,);
+				push @values, qq(@field_values);
 			}
 		}
 		say $fh qq(@values);
