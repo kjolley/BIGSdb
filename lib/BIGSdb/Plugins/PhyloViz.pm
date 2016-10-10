@@ -116,7 +116,7 @@ sub run {
 		if (@$invalid_loci) {
 			local $" = ', ';
 			push @info, q(The locus list contained some invalid values - )
-			  . qq(these will be ignore. Invalid values: @$invalid_loci.);
+			  . qq(these will be ignored. Invalid values: @$invalid_loci.);
 		}
 		$self->add_scheme_loci($selected_loci);
 		if ( !@$selected_loci ) {
