@@ -379,12 +379,12 @@ sub _generate_auxiliary_file {
 			}
 		}
 		foreach my $scheme_id (@$schemes) {
-			my $scheme_values =
-			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_data->{'id'}, $scheme_id );
 			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
-				my @field_values = keys %{ $scheme_values->{ lc $field } };
+				my $scheme_values =
+				  $self->get_scheme_field_values(
+					{ isolate_id => $isolate_data->{'id'}, scheme_id => $scheme_id, field => $field } );
 				local $" = q(,);
-				push @values, qq(@field_values);
+				push @values, qq(@$scheme_values);
 			}
 		}
 		say $fh qq(@values);
