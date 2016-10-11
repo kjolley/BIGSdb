@@ -902,11 +902,11 @@ sub _submit_isolates {
 	say q(</ul>);
 	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=isolates$set_clause$contig_file_clause">Download tab-delimited )
+	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=isolates$set_clause$contig_file_clause">Download submission template ]
+	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download submission template ]
 	  . q[(xlsx format)</a></li></ul>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
