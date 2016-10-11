@@ -260,7 +260,7 @@ sub print_page_content {
 		my %atts;
 		$atts{'type'} = $mime_type{ $self->{'type'} } // 'text/plain';
 		$atts{'attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
-		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header';
+		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header' || $self->{'type'} eq 'text';
 		$atts{'expires'} = '+1h' if !$self->{'noCache'};
 		print $q->header( \%atts );
 		$self->print_content;
