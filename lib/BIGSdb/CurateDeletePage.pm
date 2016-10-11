@@ -201,12 +201,11 @@ sub _display_record {
 	$buffer .= q(<div class="scrollable">);
 	my %retire_table = map { $_ => 1 } qw(sequences profiles);
 	$buffer .= q(<p>You have chosen to delete the following record.);
-	
 	if ( $retire_table{$table} ) {
 		$buffer .= q( Select 'Delete and Retire' to prevent the identifier being reused.);
 	}
 	$buffer .= q(</p>);
-	$buffer .= $self->_get_delete_message($table, $data);
+	$buffer .= $self->_get_delete_message( $table, $data );
 	$buffer .= $q->hidden($_) foreach qw(page db table);
 	$buffer .= $q->hidden( sent => 1 );
 	foreach my $att (@$attributes) {
@@ -220,7 +219,9 @@ sub _display_record {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $q->param('scheme_id'), { get_pk => 1 } );
 		$primary_key = $scheme_info->{'primary_key'};
 	}
-	$self->_modify_display_data_if_required($table,$data);
+	$self->modify_dataset_if_needed( $table, [$data] );
+	my $dbase_name = $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $data->{'user_db'} );
+	$data->{'user_db'} = $dbase_name;
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'} eq 'yes';
 		next if $att->{'noshow'};
@@ -272,29 +273,13 @@ sub _display_record {
 }
 
 sub _get_delete_message {
-	my ($self, $table, $data) = @_;
+	my ( $self, $table, $data ) = @_;
 	my $buffer = q();
-	if ($table eq 'users' && $data->{'user_db'}){
+	if ( $table eq 'users' && $data->{'user_db'} ) {
 		$buffer = q(<p>This user has a site account - you are only removing their association from this database.</p>);
 	}
 	return $buffer;
 }
-
-sub _modify_display_data_if_required {
-	my ($self, $table, $data) = @_;
-	return if $table ne 'users';
-	if (!defined $data->{'user_db'}){
-		$data->{'user_db'} = 'this database only';
-		return;
-	}
-	my $remote_user = $self->{'datastore'}->get_remote_user_info( $data->{'user_name'}, $data->{'user_db'} );
-	if ( $remote_user->{'user_name'} ) {
-		$data->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
-	}
-	my $dbase_name = $self->{'datastore'}->run_query('SELECT name FROM user_dbases WHERE id=?',$data->{'user_db'});
-	$data->{'user_db'} = $dbase_name;
-	return;
-} 
 
 sub _delete {
 	my ( $self, $table, $data, $query_fields, $query_values, $options ) = @_;
@@ -427,8 +412,7 @@ sub _confirm {
 	my @placeholders = (q(?)) x @$query_fields;
 	my $qry          = qq(DELETE FROM $table WHERE (@$query_fields)=(@placeholders));
 	my @queries      = ( { statement => $qry, arguments => $query_values } );
-	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') )
-	{
+	if ( $table eq 'allele_designations' && $self->can_modify_table('allele_sequences') && $q->param('delete_tags') ) {
 		push @queries,
 		  {
 			statement => q[DELETE FROM allele_sequences WHERE seqbin_id IN ]

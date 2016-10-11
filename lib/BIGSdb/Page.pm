@@ -2555,4 +2555,17 @@ sub get_scheme_data {
 	}
 	return \@scheme_list;
 }
+
+sub modify_dataset_if_needed {
+	my ( $self, $table, $dataset ) = @_;
+	return if $table ne 'users';
+	foreach my $user (@$dataset) {
+		next if !defined $user->{'user_db'};
+		my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
+		if ( $remote_user->{'user_name'} ) {
+			$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+		}
+	}
+	return;
+}
 1;
