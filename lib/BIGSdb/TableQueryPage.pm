@@ -602,9 +602,7 @@ sub _generate_query {
 		my $field    = $q->param("s$i");
 		my $operator = $q->param("y$i") // '=';
 		my $text     = $q->param("t$i");
-		if ( $field eq 'locus' && $set_id ) {
-			$text = $self->{'datastore'}->get_set_locus_real_id( $text, $set_id );
-		}
+		$text = $self->_modify_locus_in_sets( $field, $text );
 		$self->process_value( \$text );
 		my ( $thisfield, $clean_fieldname ) = $self->_get_field_attributes( $table, $field );
 
@@ -720,8 +718,58 @@ sub _generate_query {
 				$qry .= "$table.$field $operator E'$text'";
 			}
 		}
+		$qry = $self->_modify_user_fields_in_remote_user_dbs( $qry, $field, $operator, $text );
 	}
 	return ( $qry, \@errors );
+}
+
+sub _modify_locus_in_sets {
+	my ( $self, $field, $text ) = @_;
+	my $set_id = $self->get_set_id;
+	if ( $field eq 'locus' && $set_id ) {
+		$text = $self->{'datastore'}->get_set_locus_real_id( $text, $set_id );
+	}
+	return $text;
+}
+
+sub _modify_user_fields_in_remote_user_dbs {
+	my ( $self, $qry, $field, $operator, $text ) = @_;
+	my %remote_fields = map { $_ => 1 } qw(surname first_name affiliation email);
+	return $qry if !$remote_fields{$field};
+	my $and_or       = 'OR';
+	my %modify_term  = map { $_ => q(LIKE UPPER(?)) } ( 'contains', 'starts with', 'ends with', 'NOT', 'NOT contain' );
+	my %modify_value = (
+		'contains'    => qq(\%$text\%),
+		'starts with' => qq($text\%),
+		'ends with'   => qq(\%$text),
+		'NOT contain' => qq(\%$text\%)
+	);
+	my $term  = $modify_term{$operator}  // qq($operator UPPER(?));
+	my $value = $modify_value{$operator} // $text;
+	my $remote_db_ids =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
+	return $qry if !@$remote_db_ids;
+	my @user_names;
+	my $local_users =
+	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users', undef, { fetch => 'col_arrayref' } );
+	my %local_users = map { $_ => 1 } @$local_users;
+
+	foreach my $user_db_id (@$remote_db_ids) {
+		my $user_db  = $self->{'datastore'}->get_user_db($user_db_id);
+		my $user_qry = "SELECT user_name FROM users WHERE UPPER($field) $term";
+		my $remote_user_names =
+		  $self->{'datastore'}->run_query( $user_qry, $value, { db => $user_db, fetch => 'col_arrayref' } );
+		foreach my $user_name (@$remote_user_names) {
+			( my $cleaned = $user_name ) =~ s/'/\\\'/gx;
+			push @user_names, $cleaned if $local_users{$user_name};
+		}
+	}
+	return $qry if !@user_names;
+	local $" = q(',E');
+	$and_or = 'AND NOT' if $operator =~ /NOT/;
+	$qry = qq(($qry $and_or user_name IN (E'@user_names')));
+	return $qry;
 }
 
 sub _modify_isolates_for_view {
@@ -785,8 +833,8 @@ sub print_additional_headerbar_functions {
 	my ( $self, $filename ) = @_;
 	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
-	my %allowed = map {$_ => 1} qw(schemes loci scheme_fields);
-	return if !$allowed{$q->param('table')};
+	my %allowed = map { $_ => 1 } qw(schemes loci scheme_fields);
+	return if !$allowed{ $q->param('table') };
 	my $record = $self->get_record_name( $q->param('table') );
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
