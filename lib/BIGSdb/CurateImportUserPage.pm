@@ -29,6 +29,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Import user from remote users database</h1>);
+	
 	if ( !$self->{'datastore'}->user_dbs_defined ) {
 		say q(<div class="box" id="statusbad"><p>No user databases are defined.</p></div>);
 		return;
@@ -53,6 +54,7 @@ sub print_content {
 
 sub _print_interface {
 	my ( $self, $user_db ) = @_;
+	say $self->get_form_icon( 'users', 'import' );
 	my $dbs = $self->{'datastore'}->run_query( 'SELECT * FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $possible_users = $self->_get_possible_users($user_db);
@@ -69,9 +71,14 @@ sub _print_interface {
 		}
 		say q(<fieldset><legend>Domain/site</legend>);
 		say $q->start_form;
-		say $q->popup_menu( -name => 'user_db', values => $db_ids, labels => $labels, default => $q->param('user_db') );
+		say $q->popup_menu(
+			-name    => 'user_db',
+			-values  => $db_ids,
+			-labels  => $labels,
+			-default => $q->param('user_db')
+		);
 		say $q->submit( -name => 'select_db', -label => 'Select', class => BUTTON_CLASS );
-		say $q->hidden($_) foreach qw(db page user_db );
+		say $q->hidden($_) foreach qw(db page);
 		say $q->end_form;
 		say q(</fieldset><div style="clear:both"></div>);
 	}

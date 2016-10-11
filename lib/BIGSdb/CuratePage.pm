@@ -909,8 +909,7 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 	my $default = $newdata->{'user_db'} // $default_db;
 	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
 	$buffer .=
-	  $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels, -default => $default )
-	  ;
+	  $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels, -default => $default );
 	$buffer .= qq(</li>\n);
 	return $buffer;
 }
@@ -1331,8 +1330,12 @@ sub update_blast_caches {
 sub get_form_icon {
 	my ( $self, $table, $highlight ) = @_;
 	my $icons = { users => 'fa-user', user_groups => 'fa-users', experiments => 'fa-flask' };
-	my $highlight_class =
-	  { plus => 'fa-plus form_icon_plus', edit => 'fa-pencil form_icon_edit', trash => 'fa-times form_icon_trash' };
+	my $highlight_class = {
+		plus   => 'fa-plus form_icon_plus',
+		edit   => 'fa-pencil form_icon_edit',
+		trash  => 'fa-times form_icon_trash',
+		import => 'fa-reply form_icon_plus'
+	};
 	my $icon = $icons->{$table} // 'fa-file-text';
 	my $bordered =
 	    q(<span class="form_icon"><span class="fa-stack fa-3x">)
