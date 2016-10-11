@@ -141,12 +141,19 @@ sub _print_table_data {
 	local $" = q(,);
 	my $fields = qq(@fields);
 	$qry =~ s/\*/$fields/x;
-	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	$self->modify_dataset_if_needed( $table, $dataset );
 	local $" = qq(\t);
 
 	foreach my $data (@$dataset) {
 		no warnings 'uninitialized';
-		say qq(@$data);
+		my $first = 1;
+		foreach my $att (@$attributes) {
+			print qq(\t) if !$first;
+			print qq($data->{lc $att->{'name'}});
+			$first = 0;
+		}
+		print qq(\n);
 	}
 	return;
 }
