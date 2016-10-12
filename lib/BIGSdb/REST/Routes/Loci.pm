@@ -28,7 +28,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/db/:db/loci'                  => sub { _get_loci() };
 get '/db/:db/loci/:locus'           => sub { _get_locus() };
 post '/db/:db/loci/:locus/sequence' => sub { _query_locus_sequence() };
-post 'db/:db/sequence'              => sub { _query_sequence() };
+post '/db/:db/sequence'             => sub { _query_sequence() };
 
 sub _get_loci {
 	my $self   = setting('self');
