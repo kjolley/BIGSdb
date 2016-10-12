@@ -31,8 +31,8 @@ use LWP::UserAgent;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant WEB_ROOT => 'http://online.phyloviz.net';
-use constant DATA_POINT_LIMIT => 2_000_000;
+use constant WEB_ROOT         => 'http://online.phyloviz.net';
+use constant COMPARISON_LIMIT => 800_000_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -124,13 +124,12 @@ sub run {
 		if ( !@$selected_loci ) {
 			push @error, q(You must select at least <strong>one locus!</strong>);
 		}
-		my $data_points = @list * @$selected_loci;
-		if ($data_points > DATA_POINT_LIMIT){
-			my $limit = BIGSdb::Utils::commify(DATA_POINT_LIMIT);
+		my $data_points = ( @list * ( @list - 1 ) / 2 ) * @$selected_loci;
+		if ( $data_points > COMPARISON_LIMIT ) {
+			my $limit = BIGSdb::Utils::commify(COMPARISON_LIMIT);
 			$data_points = BIGSdb::Utils::commify($data_points);
-			push @error, qq(Analysis is limited to $limit data points (isolates x loci). You have selected $data_points.);
+			push @error, qq(Analysis is limited to $limit data comparisons. You have selected $data_points.);
 		}
-		
 		if ( @error || @info ) {
 			say q(<div class="box" id="statusbad">);
 			foreach my $msg ( @error, @info ) {
