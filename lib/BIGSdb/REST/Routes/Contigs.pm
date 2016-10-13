@@ -92,7 +92,7 @@ sub _get_contig {
 		sequence   => $contig->{'sequence'},
 		length     => length $contig->{'sequence'},
 		sender     => request->uri_for("/db/$db/users/$contig->{'sender'}"),
-		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}"),
+		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}")
 	};
 	$values->{'original_designation'} = $contig->{'original_designation'}
 	  if defined $contig->{'original_designation'};
