@@ -175,7 +175,8 @@ sub run {
 		);
 		my ( $phylo_id, $msg ) =
 		  $self->_upload_data_to_phyloviz(
-			{ profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids } );
+			{ dataset => $uuid, profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids }
+		  );
 		if ( !$phylo_id ) {
 			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 			return;
@@ -231,9 +232,8 @@ sub _upload_data_to_phyloviz {
 	say q(<p>Sending data to PhyloViz online ... );
 	my $uuid = 0;
 	my $msg  = 'No message';
-	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/x );
-	my $user       = $self->{'config'}->{'phyloviz_user'};
-	my $pass       = $self->{'config'}->{'phyloviz_passwd'};
+	my $user = $self->{'config'}->{'phyloviz_user'};
+	my $pass = $self->{'config'}->{'phyloviz_passwd'};
 	if ( !$user || !$pass ) {
 		say BAD . q(</p>);
 		return ( 0, 'Missing PhyloViz connection parameters!' );
@@ -265,7 +265,7 @@ sub _upload_data_to_phyloviz {
 		$upload_url,
 		Content_Type => 'form-data',
 		Content      => [
-			datasetName         => $data_set,
+			datasetName         => $args->{'dataset'},
 			dataset_description => $desc,
 			makePublic          => 'true',
 			numberOfFiles       => 2,
