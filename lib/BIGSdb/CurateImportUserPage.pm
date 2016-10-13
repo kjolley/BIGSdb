@@ -29,9 +29,12 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Import user from remote users database</h1>);
-	
 	if ( !$self->{'datastore'}->user_dbs_defined ) {
 		say q(<div class="box" id="statusbad"><p>No user databases are defined.</p></div>);
+		return;
+	}
+	if ( !( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) ) {
+		say q(<div class="box" id="statusbad"><p>Your account does not have permission to import users.</p></div>);
 		return;
 	}
 	my $default_db =

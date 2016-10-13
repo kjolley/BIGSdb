@@ -97,7 +97,7 @@ sub create_record_table {
 
 	if ( $methods{$table} ) {
 		my $method = $methods{$table};
-		$buffer .= $self->$method( $newdata, $width );
+		$buffer .= $self->$method( $newdata, $width, $options );
 	} elsif ( $table eq 'locus_descriptions' ) {
 		$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width );
 	}
@@ -120,6 +120,7 @@ sub _get_form_fields {
 	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
+	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
 	my %newdata = %{$newdata_ref};
 	my $buffer  = q();
@@ -139,7 +140,8 @@ sub _get_form_fields {
 				options    => $options,
 				width      => $width,
 				length     => $length,
-				html5_args => $html5_args
+				html5_args => $html5_args,
+				disabled   => $disabled{ $att->{'name'} }
 			};
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<li>$label);
@@ -456,6 +458,7 @@ sub _get_text_field {
 	my ( $name, $length, $newdata, $att, $options, $html5_args ) =
 	  @$args{qw(name length newdata att options html5_args)};
 	my $q = $self->{'cgi'};
+	my %disabled = $args->{'disabled'} ? ( disabled => 'disabled' ) : ();
 	if ( $length >= 256 ) {
 		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
 		  if $att->{'name'} eq 'sequence';
@@ -465,6 +468,7 @@ sub _get_text_field {
 			-rows    => 6,
 			-cols    => 75,
 			-default => $newdata->{ $att->{'name'} },
+			%disabled,
 			%$html5_args
 		);
 	} elsif ( $length >= 120 ) {
@@ -476,6 +480,7 @@ sub _get_text_field {
 			-rows    => 3,
 			-cols    => 75,
 			-default => $newdata->{ $att->{'name'} },
+			%disabled,
 			%$html5_args
 		);
 	} else {
@@ -485,6 +490,7 @@ sub _get_text_field {
 			size      => ( $length > 75 ? 75 : $length ),
 			maxlength => $length,
 			value     => $newdata->{ $att->{'name'} },
+			%disabled,
 			%$html5_args
 		);
 	}
@@ -891,25 +897,38 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 }
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata, $width ) = @_;
+	my ( $self, $newdata, $width, $options ) = @_;
 	my $q        = $self->{'cgi'};
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return q() if !@$user_dbs;
+	return q() if !$options->{'update'} && !$self->{'permissions'}->{'modify_site_users'};
 	my $ids    = [];
 	my $labels = {};
 	my $default_db;
+
 	foreach my $db (@$user_dbs) {
 		$default_db = $db->{'id'} if !defined $default_db;
 		push @$ids, $db->{'id'};
 		$labels->{ $db->{'id'} } = $db->{'name'};
 	}
 	push $ids, 0;
+	my %disabled_field = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
+	my %disabled = $disabled_field{'user_db'} ? ( disabled => 'disabled' ) : ();
 	$labels->{0} = 'this database only';
+	if ( $options->{'update'} ) {
+		$newdata->{'user_db'} //= 0;
+	}
 	my $default = $newdata->{'user_db'} // $default_db;
 	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
-	$buffer .=
-	  $q->popup_menu( -name => 'user_db', -id => 'user_db', -values => $ids, -labels => $labels, -default => $default );
+	$buffer .= $q->popup_menu(
+		-name    => 'user_db',
+		-id      => 'user_db',
+		-values  => $ids,
+		-labels  => $labels,
+		-default => $default,
+		%disabled
+	);
 	$buffer .= qq(</li>\n);
 	return $buffer;
 }
@@ -1186,6 +1205,7 @@ sub _check_users_status {
 	}
 	if (   $status ne 'admin'
 		&& defined $user_username
+		&& defined $newdata->{'user_name'}
 		&& $newdata->{'user_name'} ne $user_username
 		&& $update )
 	{

@@ -33,6 +33,7 @@ sub get_title {
 	return $self->{'cgi'}->param('page') eq 'changePassword' ? "Change password - $desc" : "Set user password - $desc";
 }
 
+#TODO Don't allow changing passwords for users defined in external database unless specific permission granted.
 sub _can_continue {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};

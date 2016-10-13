@@ -93,6 +93,7 @@ sub get_user_string {
 	$options = {} if ref $options ne 'HASH';
 	my $info = $self->get_user_info($id);
 	return 'Undefined user' if !$info;
+	$info->{$_} = q() foreach qw(email affiliation);
 	my $user = '';
 	my $use_email =
 	  ( $options->{'email'} && $info->{'email'} =~ /@/x )
@@ -114,7 +115,7 @@ sub get_remote_user_info {
 	my ( $self, $user_name, $user_db_id ) = @_;
 	my $user_db = $self->get_user_db($user_db_id);
 	return $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
-		$user_name, { db => $user_db, fetch => 'row_hashref', cache => 'get_remote_user_info' } );
+		$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" } );
 }
 
 sub get_user_info_from_username {

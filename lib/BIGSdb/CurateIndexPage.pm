@@ -316,7 +316,7 @@ sub _get_admin_list_links {
 			  . qq(or change an existing password.</li>\n);
 		}
 	}
-	if ( ($self->{'permissions'}->{'modify_users'} || $self->is_admin) && $self->{'datastore'}->user_dbs_defined ) {
+	if ( ($self->{'permissions'}->{'import_site_users'} || $self->is_admin) && $self->{'datastore'}->user_dbs_defined ) {
 		$list_buffer .=
 			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=importUser">Import users</a> - Import user account from centralized user database.</li>\n);

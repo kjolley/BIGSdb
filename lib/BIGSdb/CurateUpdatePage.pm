@@ -69,6 +69,7 @@ sub _pre_check_failed {
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
+	my $vars   = $q->Vars;
 	my $table  = $q->param('table');
 	my $record_name = $self->get_record_name($table) // 'record';
 	say qq(<h1>Update $record_name</h1>);
@@ -108,10 +109,15 @@ sub print_content {
 			$data->{ $ext_data->{'field'} } = $ext_data->{'value'};
 		}
 	}
+	my $buffer = $self->_get_message( $table, $data, { update => 1 } );
+	$self->modify_dataset_if_needed( $table, [$data] );
+	local $" = q( );
+	my $disabled_fields = $self->_get_disabled_fields( $table, $data );
 	my $icon = $self->get_form_icon( $table, 'edit' );
-	my $buffer = $icon;
-	$buffer .= $self->create_record_table( $table, $data, { update => 1 } );
+	$buffer .= $icon;
+	$buffer .= $self->create_record_table( $table, $data, { update => 1, disabled => $disabled_fields } );
 	my %newdata;
+
 	foreach (@$attributes) {
 		if ( defined $q->param( $_->{'name'} ) && $q->param( $_->{'name'} ) ne '' ) {
 			$newdata{ $_->{'name'} } = $q->param( $_->{'name'} );
@@ -127,6 +133,35 @@ sub print_content {
 	}
 	say $buffer;
 	return;
+}
+
+sub _get_disabled_fields {
+	my ( $self, $table, $data ) = @_;
+	my $fields = ['user_db'];
+	if ( $table eq 'users' && $data->{'user_db'} ) {
+		return $fields if $self->{'permissions'}->{'modify_site_users'};
+		push @$fields, qw(user_name surname first_name email affiliation);
+	}
+	return $fields;
+}
+
+sub _get_message {
+	my ( $self, $table, $data, $options ) = @_;
+	if ( $table eq 'users' && $options->{'update'} ) {
+		if ( $data->{'user_db'} ) {
+			my $msg =
+			    q(<div class="box" id="message"><p>The name, E-mail and affiliation of this user are )
+			  . q(imported from the site user database. Modifying these here will change them for all )
+			  . q(databases on the system that this account uses. Changes to status affect only this )
+			  . q(database.</p>);
+			if ( !$self->{'permissions'}->{'modify_site_users'} ) {
+				$msg .= q(<p>Your account does not have permission to modify external user data.</p>);
+			}
+			$msg .= q(</div>);
+			return $msg;
+		}
+	}
+	return q();
 }
 
 sub _has_scheme_structure_changed {
@@ -147,11 +182,14 @@ sub _has_scheme_structure_changed {
 
 sub _upload {
 	my ( $self, $table, $newdata, $data, $query_terms, $query_values ) = @_;
-	my $attributes    = $self->{'datastore'}->get_table_field_attributes($table);
-	my $extra_inserts = [];
+	my $attributes         = $self->{'datastore'}->get_table_field_attributes($table);
+	my $extra_inserts      = [];
+	my $extra_transactions = [];
 	$self->format_data( $table, $newdata );
+	$self->_populate_disabled_fields( $table, $newdata );
 	my @problems = $self->check_record( $table, $newdata, 1, $data );
 	my $status;
+
 	if (@problems) {
 		local $" = qq(<br />\n);
 		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
@@ -159,7 +197,7 @@ sub _upload {
 		my %methods = (
 			users => sub {
 				$status = $self->_check_users($newdata);
-				$self->_prepare_extra_inserts_for_users( $newdata, $extra_inserts );
+				$self->_prepare_extra_inserts_for_users( $newdata, $extra_inserts, $extra_transactions );
 			},
 			schemes => sub {
 				$status = $self->_prepare_extra_inserts_for_schemes( $newdata, $extra_inserts );
@@ -221,6 +259,9 @@ sub _upload {
 				foreach (@$extra_inserts) {
 					$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 				}
+				foreach my $transaction (@$extra_transactions) {
+					$transaction->{'db'}->do( $transaction->{'statement'}, undef, @{ $transaction->{'arguments'} } );
+				}
 				if ($scheme_structure_changed) {
 					$self->remove_profile_data( $data->{'scheme_id'} );
 				}
@@ -231,14 +272,21 @@ sub _upload {
 				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
 					say q(<p>Data entry would have resulted in records with either duplicate ids or )
 					  . q(another unique field with duplicate values.</p></div>);
-					  $logger->error($@);
+					$logger->error($@);
 				} else {
 					say qq(<p>Error message: $@</p></div>);
 				}
 				$self->{'db'}->rollback;
+				foreach my $transaction (@$extra_transactions) {
+					$transaction->{'db'}->rollback;
+				}
 			} else {
 				my $record_name = $self->get_record_name($table);
-				$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
+				$self->{'db'}->commit;
+				foreach my $transaction (@$extra_transactions) {
+					$transaction->{'db'}->commit;
+				}
+				say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
 				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=tableQuery&amp;table=$table">Update another</a> | )
 				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
@@ -251,6 +299,19 @@ sub _upload {
 		}
 	}
 	return $status;
+}
+
+#If user data is stored in separate user database we need to import these values.
+sub _populate_disabled_fields {
+	my ( $self, $table, $newdata ) = @_;
+	return if $table ne 'users';
+	my $user_data = $self->{'datastore'}->get_user_info( $newdata->{'id'} );
+	if ( $user_data->{'user_db'} ) {
+		foreach my $field (qw(user_name surname first_name affiliation email user_db)) {
+			$newdata->{$field} //= $user_data->{$field};
+		}
+	}
+	return;
 }
 
 sub _check_users {
@@ -670,7 +731,7 @@ sub _check_locus_descriptions {
 
 #Remove additional permissions for submitter if downgraded from curator.
 sub _prepare_extra_inserts_for_users {
-	my ( $self, $newdata, $extra_inserts ) = @_;
+	my ( $self, $newdata, $extra_inserts, $extra_transactions ) = @_;
 	if ( $newdata->{'status'} eq 'submitter' ) {
 		local $" = q(',');
 		my @permissions = SUBMITTER_ALLOWED_PERMISSIONS;
@@ -679,6 +740,21 @@ sub _prepare_extra_inserts_for_users {
 			statement => "DELETE FROM curator_permissions WHERE user_id=? AND permission NOT IN ('@permissions')",
 			arguments => [ $newdata->{'id'} ]
 		  };
+	}
+	if ( $newdata->{'user_db'} ) {
+		if ( $self->{'permissions'}->{'modify_site_users'} ) {
+			my $user_db = $self->{'datastore'}->get_user_db( $newdata->{'user_db'} );
+			push @$extra_transactions, {
+				statement =>
+				  'UPDATE users SET (surname,first_name,email,affiliation,datestamp)=(?,?,?,?,?) WHERE user_name=?',
+				arguments => [
+					$newdata->{'surname'},     $newdata->{'first_name'}, $newdata->{'email'},
+					$newdata->{'affiliation'}, 'now',                    $newdata->{'user_name'}
+				],
+				db => $user_db
+			};
+		}
+		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
 	return;
 }
@@ -699,9 +775,8 @@ sub _prepare_extra_inserts_for_schemes {
 			  };
 		}
 	}
-	my $existing_pubmeds =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?', $newdata->{'id'}, { fetch => 'col_arrayref' } );
+	my $existing_pubmeds = $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=?',
+		$newdata->{'id'}, { fetch => 'col_arrayref' } );
 	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
 	foreach my $new (@new_pubmeds) {
 		$new =~ s/\s//gx;
