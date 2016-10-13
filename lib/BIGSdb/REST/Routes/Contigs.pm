@@ -114,7 +114,6 @@ sub _get_contig {
 	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
 		$contig_id, { fetch => 'all_arrayref', slice => {} } );
 	my $tags   = [];
-	my $set_id = $self->get_set_id;
 	foreach my $tag (@$allele_seqs) {
 		my $locus_name = $self->clean_locus( $tag->{'locus'} );
 		push @$tags, {
