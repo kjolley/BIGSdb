@@ -570,9 +570,9 @@ sub _run_query {
 sub _process_dropdown_filters {
 	my ( $self, $qry, $table, $attributes ) = @_;
 	my $q = $self->{'cgi'};
-	my %user_remote_field = map{$_ => 1} qw(surname first_name);
+	my %user_remote_field = map { $_ => 1 } qw(surname first_name);
 	foreach my $att (@$attributes) {
-		my $name = $att->{'name'};
+		my $name  = $att->{'name'};
 		my $param = qq(${name}_list);
 		if ( defined $q->param($param) && $q->param($param) ne '' ) {
 			my $value;
@@ -589,9 +589,8 @@ sub _process_dropdown_filters {
 			}
 			$value =~ s/'/\\'/gx;
 			my $clause = ( lc($value) eq 'null' ? qq($name is null) : qq($field = E'$value') );
-			
-			if ($table eq 'users' && $user_remote_field{$name}){
-				$clause = $self->_modify_user_fields_in_remote_user_dbs($clause, $name, '=', $value)
+			if ( $table eq 'users' && $user_remote_field{$name} ) {
+				$clause = $self->_modify_user_fields_in_remote_user_dbs( $clause, $name, '=', $value );
 			}
 			$qry .= $clause;
 		}
@@ -788,17 +787,24 @@ sub _modify_user_fields_in_remote_user_dbs {
 	return $qry if !@$remote_db_ids;
 	my @user_names;
 	my $local_users =
-	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users', undef, { fetch => 'col_arrayref' } );
-	my %local_users = map { $_ => 1 } @$local_users;
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT user_name,user_db FROM users', undef, { fetch => 'all_arrayref', slice => {} } );
+	my $local_users_in_db = {};
 
+	foreach my $local_user (@$local_users) {
+		$local_user->{'user_db'} //= 0;
+		$local_users_in_db->{ $local_user->{'user_name'} }->{ $local_user->{'user_db'} } = 1;
+	}
 	foreach my $user_db_id (@$remote_db_ids) {
 		my $user_db  = $self->{'datastore'}->get_user_db($user_db_id);
 		my $user_qry = "SELECT user_name FROM users WHERE UPPER($field) $term";
 		my $remote_user_names =
 		  $self->{'datastore'}->run_query( $user_qry, $value, { db => $user_db, fetch => 'col_arrayref' } );
 		foreach my $user_name (@$remote_user_names) {
-			( my $cleaned = $user_name ) =~ s/'/\\\'/gx;
-			push @user_names, $cleaned if $local_users{$user_name};
+			( my $cleaned = $user_name ) =~ s/'/\\'/gx;
+
+			#Only add user if exists in local database with the same user_db
+			push @user_names, $cleaned if $local_users_in_db->{$user_name}->{$user_db_id};
 		}
 	}
 	return $qry if !@user_names;
