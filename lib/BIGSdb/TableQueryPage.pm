@@ -568,8 +568,9 @@ sub _run_query {
 }
 
 sub _process_dropdown_filters {
-	my ( $self, $qry2, $table, $attributes ) = @_;
+	my ( $self, $qry, $table, $attributes ) = @_;
 	my $q = $self->{'cgi'};
+	my %user_remote_field = map{$_ => 1} qw(surname first_name);
 	foreach my $att (@$attributes) {
 		my $name = $att->{'name'};
 		my $param = qq(${name}_list);
@@ -581,16 +582,21 @@ sub _process_dropdown_filters {
 				$value = $q->param($param);
 			}
 			my $field = qq($table.$name);
-			if ( $qry2 !~ /WHERE\ \(\)\s*$/x ) {
-				$qry2 .= q( AND );
+			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+				$qry .= q( AND );
 			} else {
-				$qry2 = qq(SELECT * FROM $table WHERE );
+				$qry = qq(SELECT * FROM $table WHERE );
 			}
 			$value =~ s/'/\\'/gx;
-			$qry2 .= ( lc($value) eq 'null' ? qq($name is null) : qq($field = E'$value') );
+			my $clause = ( lc($value) eq 'null' ? qq($name is null) : qq($field = E'$value') );
+			
+			if ($table eq 'users' && $user_remote_field{$name}){
+				$clause = $self->_modify_user_fields_in_remote_user_dbs($clause, $name, '=', $value)
+			}
+			$qry .= $clause;
 		}
 	}
-	return $qry2;
+	return $qry;
 }
 
 sub _get_field_attributes {
