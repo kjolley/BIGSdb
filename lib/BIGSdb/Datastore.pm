@@ -93,7 +93,6 @@ sub get_user_string {
 	$options = {} if ref $options ne 'HASH';
 	my $info = $self->get_user_info($id);
 	return 'Undefined user' if !$info;
-	$info->{$_} = q() foreach qw(email affiliation);
 	my $user = '';
 	my $use_email =
 	  ( $options->{'email'} && $info->{'email'} =~ /@/x )
