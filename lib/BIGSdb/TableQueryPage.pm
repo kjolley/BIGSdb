@@ -382,6 +382,7 @@ sub _get_dropdown_filter {
 	my $desc;
 	my $values;
 	my @fields_to_query;
+	my %user_special_fields = map { $_ => 1 } qw(surname first_name);
 	if ( $att->{'foreign_key'} ) {
 		next if $att->{'name'} eq 'scheme_id';
 		if ( $att->{'labels'} ) {
@@ -394,6 +395,8 @@ sub _get_dropdown_filter {
 		$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
 			undef, { fetch => 'col_arrayref' } );
 		return if !@$values;
+	} elsif ( $table eq 'users' && $user_special_fields{ $att->{'name'} } ) {
+		$values = $self->_get_user_table_values( $att->{'name'} );
 	} else {
 		my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
 		my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
@@ -402,6 +405,26 @@ sub _get_dropdown_filter {
 		@$values = uniq @$values;
 	}
 	return $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
+}
+
+sub _get_user_table_values {
+	my ( $self, $field ) = @_;
+	my $values =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $field FROM users WHERE $field IS NOT NULL AND id>0", undef, { fetch => 'col_arrayref' } );
+	my $user_dbs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
+	foreach my $user_db_id (@$user_dbs) {
+		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
+		my $remote_values =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $field FROM users", undef, { db => $user_db, fetch => 'col_arrayref' } );
+		next if !@$remote_values;
+		push @$values, @$remote_values;
+	}
+	@$values = sort { uc($a) cmp uc($b) } uniq @$values;
+	return $values;
 }
 
 sub _run_query {
@@ -483,25 +506,7 @@ sub _run_query {
 			$qry ||= '';
 			$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		}
-		foreach (@$attributes) {
-			my $param = $_->{'name'} . '_list';
-			if ( defined $q->param($param) && $q->param($param) ne '' ) {
-				my $value;
-				if ( $_->{'name'} eq 'locus' ) {
-					( $value = $q->param('locus_list') ) =~ s/^cn_//x;
-				} else {
-					$value = $q->param($param);
-				}
-				my $field = "$table." . $_->{'name'};
-				if ( $qry2 !~ /WHERE\ \(\)\s*$/x ) {
-					$qry2 .= ' AND ';
-				} else {
-					$qry2 = "SELECT * FROM $table WHERE ";
-				}
-				$value =~ s/'/\\'/gx;
-				$qry2 .= ( lc($value) eq 'null' ? "$_ is null" : "$field = E'$value'" );
-			}
-		}
+		$qry2 = $self->_process_dropdown_filters( $qry2, $table, $attributes );
 		if ( $table eq 'sequences' ) {
 			$qry2 .=
 			  " AND $table.allele_id NOT IN ('0', 'N')"; #Alleles can be set to 0 or N for arbitrary profile definitions
@@ -560,6 +565,32 @@ sub _run_query {
 		$self->paged_display($args);
 	}
 	return;
+}
+
+sub _process_dropdown_filters {
+	my ( $self, $qry2, $table, $attributes ) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $att (@$attributes) {
+		my $name = $att->{'name'};
+		my $param = qq(${name}_list);
+		if ( defined $q->param($param) && $q->param($param) ne '' ) {
+			my $value;
+			if ( $name eq 'locus' ) {
+				( $value = $q->param('locus_list') ) =~ s/^cn_//x;
+			} else {
+				$value = $q->param($param);
+			}
+			my $field = qq($table.$name);
+			if ( $qry2 !~ /WHERE\ \(\)\s*$/x ) {
+				$qry2 .= q( AND );
+			} else {
+				$qry2 = qq(SELECT * FROM $table WHERE );
+			}
+			$value =~ s/'/\\'/gx;
+			$qry2 .= ( lc($value) eq 'null' ? qq($name is null) : qq($field = E'$value') );
+		}
+	}
+	return $qry2;
 }
 
 sub _get_field_attributes {
