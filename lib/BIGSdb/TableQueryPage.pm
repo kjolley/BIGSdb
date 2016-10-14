@@ -271,61 +271,21 @@ sub _print_interface {
 	my @filters;
 
 	foreach my $att (@$attributes) {
-		if (   $att->{'optlist'}
-			|| $att->{'type'} eq 'bool'
-			|| ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) )
-		{
-			( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
-			my $sub = 'Select a value to filter your search to only those with the selected attribute.';
-			$tooltip =~ s/ - / filter - $sub/x;
-			if ( ( $att->{'dropdown_query'} && $att->{'dropdown_query'} eq 'yes' ) ) {
-				if (   $att->{'name'} eq 'sender'
-					|| $att->{'name'} eq 'curator'
-					|| ( $att->{'foreign_key'} // '' ) eq 'users' )
-				{
-					push @filters, $self->get_user_filter( $att->{'name'} );
-				} elsif ( $att->{'name'} eq 'scheme_id' ) {
-					push @filters, $self->get_scheme_filter;
-				} elsif ( $att->{'name'} eq 'locus' ) {
-					push @filters, $self->get_locus_filter;
-				} else {
-					my $desc;
-					my $values;
-					my @fields_to_query;
-					if ( $att->{'foreign_key'} ) {
-						next if $att->{'name'} eq 'scheme_id';
-						if ( $att->{'labels'} ) {
-							( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
-							@fields_to_query = @$fields_ref;
-						} else {
-							push @fields_to_query, 'id';
-						}
-						local $" = ',';
-						$values =
-						  $self->{'datastore'}
-						  ->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
-							undef, { fetch => 'col_arrayref' } );
-						next if !@$values;
-					} else {
-						my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
-						my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
-						$values =
-						  $self->{'datastore'}
-						  ->run_query( "SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order",
-							undef, { fetch => 'col_arrayref' } );
-						@$values = uniq @$values;
-					}
-					push @filters, $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
-				}
-			} elsif ( $att->{'optlist'} ) {
-				my @options = split /;/x, $att->{'optlist'};
-				push @filters, $self->get_filter( $att->{'name'}, \@options );
-			} elsif ( $att->{'type'} eq 'bool' ) {
-				push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
-			}
+		( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
+		my $sub = 'Select a value to filter your search to only those with the selected attribute.';
+		$tooltip =~ s/ - / filter - $sub/x;
+		if ( ( $att->{'dropdown_query'} // q() ) eq 'yes' ) {
+			my $dropdown_filter = $self->_get_dropdown_filter( $table, $att );
+			push @filters, $dropdown_filter if $dropdown_filter;
+		} elsif ( $att->{'optlist'} ) {
+			my @options = split /;/x, $att->{'optlist'};
+			push @filters, $self->get_filter( $att->{'name'}, \@options );
+		} elsif ( $att->{'type'} eq 'bool' ) {
+			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
 		}
 	}
-	if ( any { $table eq $_ } qw (loci allele_designations schemes) ) {
+	my %table_with_scheme_filter = map { $_ => 1 } qw (loci allele_designations schemes);
+	if ( $table_with_scheme_filter{$table} ) {
 		push @filters, $self->get_scheme_filter;
 	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
@@ -403,6 +363,45 @@ sub _print_interface {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+sub _get_dropdown_filter {
+	my ( $self, $table, $att ) = @_;
+	if (   $att->{'name'} eq 'sender'
+		|| $att->{'name'} eq 'curator'
+		|| ( $att->{'foreign_key'} // '' ) eq 'users' )
+	{
+		return $self->get_user_filter( $att->{'name'} );
+	}
+	if ( $att->{'name'} eq 'scheme_id' ) {
+		return $self->get_scheme_filter;
+	}
+	if ( $att->{'name'} eq 'locus' ) {
+		return $self->get_locus_filter;
+	}
+	my $desc;
+	my $values;
+	my @fields_to_query;
+	if ( $att->{'foreign_key'} ) {
+		next if $att->{'name'} eq 'scheme_id';
+		if ( $att->{'labels'} ) {
+			( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
+			@fields_to_query = @$fields_ref;
+		} else {
+			push @fields_to_query, 'id';
+		}
+		local $" = ',';
+		$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
+			undef, { fetch => 'col_arrayref' } );
+		return if !@$values;
+	} else {
+		my $order        = $att->{'type'} eq 'text' ? "lower($att->{'name'})"       : $att->{'name'};
+		my $empty_clause = $att->{'type'} eq 'text' ? " WHERE $att->{'name'} <> ''" : '';
+		$values = $self->{'datastore'}->run_query( "SELECT $att->{'name'} FROM $table$empty_clause ORDER BY $order",
+			undef, { fetch => 'col_arrayref' } );
+		@$values = uniq @$values;
+	}
+	return $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
 }
 
 sub _run_query {
