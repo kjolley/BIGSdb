@@ -1038,27 +1038,14 @@ sub get_filter {
 
 sub get_user_filter {
 	my ( $self, $field ) = @_;
-	my $qry = 'SELECT id,first_name,surname FROM users ';
-	$qry .= $field =~ /^curator/x ? q[WHERE (status='curator' OR status='admin' OR status='submitter') AND ] : 'WHERE ';
-	$qry .= 'id > 0';
-	my $sql = $self->{'db'}->prepare($qry);
-	my ( @usernames, %labels );
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-
-	while ( my $data = $sql->fetchrow_hashref ) {
-		push @usernames, $data->{'id'};
-		$labels{ $data->{'id'} } =
-		  $data->{'surname'} eq 'applicable' ? 'not applicable' : "$data->{'surname'}, $data->{'first_name'}";
-	}
-	@usernames = sort { lc( $labels{$a} ) cmp lc( $labels{$b} ) } @usernames;
+	my $options = $field =~ /^curator/x ? { curators => 1 } : {};
+	my ( $users, $labels ) = $self->{'datastore'}->get_users($options);
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 	return $self->get_filter(
-		$field,
-		\@usernames,
+		$field, $users,
 		{
-			'labels'  => \%labels,
-			'tooltip' => qq($field filter - Select $a_or_an $field to filter your search to only )
+			labels  => $labels,
+			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
 			  . qq(those records that match the selected $field.)
 		}
 	);

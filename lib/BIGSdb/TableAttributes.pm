@@ -169,10 +169,10 @@ sub get_curator_permissions_table_attributes {
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
-	  modify_value_attributes modify_probes  modify_experiments delete_all sample_management import_site_users 
-	  modify_site_users disable_access)
+	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users 
+	  modify_site_users set_site_user_passwords disable_access)
 	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_schemes import_site_users
-	  modify_site_users disable_access );
+	  modify_site_users set_site_user_passwords disable_access );
 	local $" = ';';
 	my $attributes = [
 		{

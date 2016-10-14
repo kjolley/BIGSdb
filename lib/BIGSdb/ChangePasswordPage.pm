@@ -63,6 +63,16 @@ sub _can_continue {
 			return;
 		}
 	}
+	if ( $q->param('user') && $q->param('page') eq 'setPassword' ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+		if ( $user_info && $user_info->{'user_db'} && !$self->{'permissions'}->{'set_site_user_passwords'} ) {
+			say q(<div class="box" id="statusbad"><p>The account details for this )
+			  . q(user are set in a site-wide user database. Your account does not have )
+			  . q(permission to update passwords for such user accounts.</p></div>);
+			$self->_print_interface;
+			return;
+		}
+	}
 	return 1;
 }
 
@@ -108,7 +118,6 @@ sub print_content {
 				}
 			}
 		}
-		
 		if ($further_checks) {
 			if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
 				say q(<div class="box" id="statusbad"><p>The password is too short and has not been updated. )
@@ -249,8 +258,7 @@ sub _set_password_hash {
 		$qry = 'UPDATE users SET (password,algorithm,cost,salt,reset_password)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
 	}
 	eval {
-		$self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $db_name, $name );
-	};
+		$self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $db_name, $name ); };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,21 +39,14 @@ sub print_content {
 		  . q(privileges to modify curator permissions.</p></div>);
 		return;
 	}
-	my $curators =
-	  $self->{'datastore'}->run_query( q(SELECT * FROM users WHERE status IN ('curator','submitter') AND id>0),
-		undef, { fetch => 'all_hashref', key => 'id' } );
+	my ( $curators, $labels ) = $self->{'datastore'}->get_users( { curators => 1 } );
 	my %submitter_allowed = map { $_ => 1 } SUBMITTER_ALLOWED_PERMISSIONS;
-	if ( !%$curators ) {
+	if ( !@$curators ) {
 		say q(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
 		return;
 	}
 	if ( $q->param('update') ) {
-		$self->_update($curators);
-	}
-	my ( @curator_ids, %labels );
-	foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators ) {
-		push @curator_ids, $user_id;
-		$labels{$user_id} = "$curators->{$user_id}->{'surname'}, $curators->{$user_id}->{'first_name'}";
+		$self->_update;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->start_form;
@@ -62,8 +55,8 @@ sub print_content {
 	say $self->popup_menu(
 		-name     => 'curators',
 		-id       => 'curators',
-		-values   => \@curator_ids,
-		-labels   => \%labels,
+		-values   => $curators,
+		-labels   => $labels,
 		-multiple => 'true',
 		-default  => \@curator_list,
 		-size     => 8
@@ -90,12 +83,14 @@ sub print_content {
 		say q(<table class="resultstable"><tr><th rowspan="2">Permission</th>)
 		  . qq(<th colspan="$curator_count">Curator</th><th rowspan="2">All/None</th></tr><tr>);
 		my $permissions = {};
+		my $user_info   = {};
 
-		foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators )
-		{
+		foreach my $user_id (@$curators) {
 			next if !$selected{$user_id};
-			say qq(<th>$labels{$user_id}</th>);
-			$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $curators->{$user_id}->{'user_name'} );
+			$user_info->{$user_id} = $self->{'datastore'}->get_user_info($user_id);
+			my $style = $user_info->{$user_id}->{'status'} eq 'admin' ? q ( style="background:#f44") : q();
+			say qq(<th$style>$user_info->{$user_id}->{'surname'}, $user_info->{$user_id}->{'first_name'}</th>);
+			$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $user_info->{$user_id}->{'user_name'} );
 		}
 		say q(</tr>);
 		my $td            = 1;
@@ -105,13 +100,12 @@ sub print_content {
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
 			say $permission eq 'disable_access' ? q(<tr class="warning">) : qq(<tr class="td$td">);
 			say qq(<th>$cleaned_permission</th>);
-			foreach
-			  my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators )
-			{
+			foreach my $user_id (@$curators) {
 				next if !$selected{$user_id};
 				print q(<td>);
-				if ( $curators->{$user_id}->{'status'} eq 'curator'
-					|| ( $curators->{$user_id}->{'status'} eq 'submitter' && $submitter_allowed{$permission} ) )
+				if (   $user_info->{$user_id}->{'status'} eq 'curator'
+					|| $user_info->{$user_id}->{'status'} eq 'admin'
+					|| ( $user_info->{$user_id}->{'status'} eq 'submitter' && $submitter_allowed{$permission} ) )
 				{
 					print $q->checkbox(
 						-name    => "${permission}_$user_id",
@@ -129,7 +123,7 @@ sub print_content {
 			$td = $td == 1 ? 2 : 1;
 		}
 		print qq(<tr class="td$td"><th>All/None</th>);
-		foreach my $user_id ( sort { $curators->{$a}->{'surname'} cmp $curators->{$b}->{'surname'} } keys %$curators ) {
+		foreach my $user_id (@$curators) {
 			next if !$selected{$user_id};
 			print q(<td>);
 			print $q->checkbox( -name => "user_${user_id}_allnone", -id => "user_${user_id}_allnone", -label => q() );
@@ -160,19 +154,20 @@ sub _get_permission_list {
 }
 
 sub _update {
-	my ( $self, $curators ) = @_;
-	my $q               = $self->{'cgi'};
-	my @curator_list    = $q->param('curators');
-	my $curator_count   = @curator_list;
-	my $permissions     = {};
-	my %selected        = map { $_ => 1 } @curator_list;
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my @curator_list  = $q->param('curators');
+	my $curator_count = @curator_list;
+	my $permissions   = {};
+	my %selected = map { $_ => 1 } @curator_list;
 	my $permission_list = $self->_get_permission_list;
 	my ( @additions, @deletions );
 	my $curator_id = $self->get_curator_id;
 
 	foreach my $user_id (@curator_list) {
 		next if !$selected{$user_id};
-		$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $curators->{$user_id}->{'user_name'} );
+		my $user_info = $self->{'datastore'}->get_user_info($user_id);
+		$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $user_info->{'user_name'} );
 		foreach my $permission (@$permission_list) {
 			if ( $q->param("${permission}_$user_id") ) {
 				if ( !$permissions->{$user_id}->{$permission} ) {
