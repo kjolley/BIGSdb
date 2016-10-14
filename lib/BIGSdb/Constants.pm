@@ -69,7 +69,8 @@ $EXPORT_TAGS{'interface'} = [@values];
 
 #Queries
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
-use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '<', 'NOT', 'NOT contain' );
+use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '>=', '<', '<=', 'NOT', 'NOT contain' )
+  ;
 push @EXPORT_OK, qw(LOCUS_PATTERN OPERATORS);
 
 #Sequences
