@@ -711,9 +711,8 @@ sub _get_profile_filters {
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
-					text => "$scheme->{'name'} profiles",
-					tooltip =>
-					  "$scheme->{'name'} profile completion filter - Select whether the isolates should "
+					text    => "$scheme->{'name'} profiles",
+					tooltip => "$scheme->{'name'} profile completion filter - Select whether the isolates should "
 					  . 'have complete, partial, or unstarted profiles.',
 					capitalize_first => 1
 				}
@@ -1012,8 +1011,7 @@ sub _run_query {
 			}
 		}
 		push @hidden_attributes,
-		  qw(publication_list project_list linked_sequences_list include_old list list_file attribute datatype)
-		  ;
+		  qw(publication_list project_list linked_sequences_list include_old list list_file attribute datatype);
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
 			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
@@ -1144,7 +1142,13 @@ sub _generate_query_for_provenance_fields {
 					'>' => sub {
 						$qry .= $self->_provenance_ltmt_type_operator($args);
 					},
+					'>=' => sub {
+						$qry .= $self->_provenance_ltmt_type_operator($args);
+					},
 					'<' => sub {
+						$qry .= $self->_provenance_ltmt_type_operator($args);
+					},
+					'<=' => sub {
 						$qry .= $self->_provenance_ltmt_type_operator($args);
 					}
 				);

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use POSIX qw(ceil);
+use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
 get '/db/:db/isolates/:id/contigs_fasta' => sub { _get_contigs_fasta() };
@@ -93,6 +94,8 @@ sub _get_contig {
 		sender     => request->uri_for("/db/$db/users/$contig->{'sender'}"),
 		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}")
 	};
+	$values->{'original_designation'} = $contig->{'original_designation'}
+	  if defined $contig->{'original_designation'};
 	foreach my $field (qw (method orignal_designation comments date_entered datestamp)) {
 		$values->{$field} = $contig->{ lc $field }
 		  if defined $contig->{ lc $field } && $contig->{ lc $field } ne '';
@@ -109,6 +112,23 @@ sub _get_contig {
 			push @$values, { $attribute->{'key'} => $attribute->{'value'} };
 		}
 	}
+	my $allele_seqs =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
+		$contig_id, { fetch => 'all_arrayref', slice => {} } );
+	my $tags = [];
+	foreach my $tag (@$allele_seqs) {
+		my $locus_name = $self->clean_locus( $tag->{'locus'} );
+		push @$tags,
+		  {
+			locus      => request->uri_for("/db/$db/loci/$tag->{'locus'}"),
+			locus_name => $locus_name,
+			start      => int( $tag->{'start_pos'} ),
+			end        => int( $tag->{'end_pos'} ),
+			direction  => $tag->{'reverse'} ? 'reverse' : 'forward',
+			complete   => $tag->{'complete'} ? JSON::true : JSON::false
+		  };
+	}
+	$values->{'loci'} = $tags if @$tags;
 	return $values;
 }
 1;

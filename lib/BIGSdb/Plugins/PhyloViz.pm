@@ -31,8 +31,8 @@ use LWP::UserAgent;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant WEB_ROOT => 'http://online.phyloviz.net';
-use constant DATA_POINT_LIMIT => 2_000_000;
+use constant WEB_ROOT         => 'http://online.phyloviz.net';
+use constant COMPARISON_LIMIT => 800_000_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -124,13 +124,12 @@ sub run {
 		if ( !@$selected_loci ) {
 			push @error, q(You must select at least <strong>one locus!</strong>);
 		}
-		my $data_points = @list * @$selected_loci;
-		if ($data_points > DATA_POINT_LIMIT){
-			my $limit = BIGSdb::Utils::commify(DATA_POINT_LIMIT);
+		my $data_points = ( @list * ( @list - 1 ) / 2 ) * @$selected_loci;
+		if ( $data_points > COMPARISON_LIMIT ) {
+			my $limit = BIGSdb::Utils::commify(COMPARISON_LIMIT);
 			$data_points = BIGSdb::Utils::commify($data_points);
-			push @error, qq(Analysis is limited to $limit data points (isolates x loci). You have selected $data_points.);
+			push @error, qq(Analysis is limited to $limit data comparisons. You have selected $data_points.);
 		}
-		
 		if ( @error || @info ) {
 			say q(<div class="box" id="statusbad">);
 			foreach my $msg ( @error, @info ) {
@@ -176,7 +175,8 @@ sub run {
 		);
 		my ( $phylo_id, $msg ) =
 		  $self->_upload_data_to_phyloviz(
-			{ profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids } );
+			{ dataset => $uuid, profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids }
+		  );
 		if ( !$phylo_id ) {
 			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 			return;
@@ -232,9 +232,8 @@ sub _upload_data_to_phyloviz {
 	say q(<p>Sending data to PhyloViz online ... );
 	my $uuid = 0;
 	my $msg  = 'No message';
-	my ($data_set) = ( $args->{'profile'} =~ /.+\/([^\/]+)\.txt/x );
-	my $user       = $self->{'config'}->{'phyloviz_user'};
-	my $pass       = $self->{'config'}->{'phyloviz_passwd'};
+	my $user = $self->{'config'}->{'phyloviz_user'};
+	my $pass = $self->{'config'}->{'phyloviz_passwd'};
 	if ( !$user || !$pass ) {
 		say BAD . q(</p>);
 		return ( 0, 'Missing PhyloViz connection parameters!' );
@@ -266,7 +265,7 @@ sub _upload_data_to_phyloviz {
 		$upload_url,
 		Content_Type => 'form-data',
 		Content      => [
-			datasetName         => $data_set,
+			datasetName         => $args->{'dataset'},
 			dataset_description => $desc,
 			makePublic          => 'true',
 			numberOfFiles       => 2,

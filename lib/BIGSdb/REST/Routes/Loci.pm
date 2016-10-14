@@ -25,8 +25,10 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
-get '/db/:db/loci'        => sub { _get_loci() };
-get '/db/:db/loci/:locus' => sub { _get_locus() };
+get '/db/:db/loci'                  => sub { _get_loci() };
+get '/db/:db/loci/:locus'           => sub { _get_locus() };
+post '/db/:db/loci/:locus/sequence' => sub { _query_locus_sequence() };
+post '/db/:db/sequence'             => sub { _query_sequence() };
 
 sub _get_loci {
 	my $self   = setting('self');
@@ -111,10 +113,7 @@ sub _get_locus {
 		);
 		if ($is_member) {
 			push @$scheme_member_list,
-			  {
-				scheme      => request->uri_for("/db/$db/schemes/$scheme->{'id'}"),
-				description => $scheme->{'name'}
-			  };
+			  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
 		}
 	}
 	if (@$scheme_member_list) {
@@ -129,6 +128,64 @@ sub _get_locus {
 	return $values;
 }
 
+sub _query_locus_sequence {
+	my $self = setting('self');
+	my ( $db, $locus, $sequence ) = ( params->{'db'}, params->{'locus'}, params->{'sequence'} );
+	$self->check_seqdef_database;
+	my $set_id     = $self->get_set_id;
+	my $locus_name = $locus;
+	if ($set_id) {
+		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
+	if ( !$locus_info ) {
+		send_error( "Locus $locus does not exist.", 404 );
+	}
+	if ( !$sequence ) {
+		send_error( 'Required field missing: sequence.', 400 );
+	}
+	$sequence =~ s/\s//gx;
+	my $matches = $self->{'datastore'}->run_query(
+		'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+		[ $locus_name, uc($sequence) ],
+		{ fetch => 'col_arrayref' }
+	);
+	my @exacts;
+	foreach my $exact (@$matches) {
+		push @exacts, { allele_id => $exact, href => request->uri_for("/db/$db/loci/$locus/alleles/$exact") };
+	}
+	my $values = { exact_matches => \@exacts };
+	return $values;
+}
+
+sub _query_sequence {
+	my $self = setting('self');
+	my ( $db, $sequence ) = ( params->{'db'}, params->{'sequence'} );
+	$self->check_seqdef_database;
+	my $set_id = $self->get_set_id;
+	if ( !$sequence ) {
+		send_error( 'Required field missing: sequence.', 400 );
+	}
+	$sequence =~ s/\s//gx;
+	my $matches = $self->{'datastore'}->run_query( 'SELECT locus,allele_id FROM sequences WHERE md5(sequence)=md5(?)',
+		uc($sequence), { fetch => 'all_arrayref', slice => {} } );
+	my @exacts;
+	foreach my $exact (@$matches) {
+		my $locus_name = $exact->{'locus'};
+		if ($set_id) {
+			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $exact->{'locus'}, $set_id );
+		}
+		push @exacts,
+		  {
+			locus     => $locus_name,
+			allele_id => $exact->{'allele_id'},
+			href      => request->uri_for("/db/$db/loci/$locus_name/alleles/$exact->{'allele_id'}")
+		  };
+	}
+	my $values = { exact_matches => \@exacts };
+	return $values;
+}
+
 #We probably need to have a specific field in the loci table to
 #define this as there are too many cases where this won't work.
 sub _get_seqdef_definition {
@@ -137,7 +194,7 @@ sub _get_seqdef_definition {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $url (qw(description_url url)) {
 		if (
-			$locus_info->{$url}
+			   $locus_info->{$url}
 			&& $locus_info->{$url} =~ /page=(?:locusInfo|alleleInfo)/x
 			&& $locus_info->{$url} =~ /^\//x                             #Relative URL so on same server
 			&& $locus_info->{$url} =~ /locus=(\w+)/x
