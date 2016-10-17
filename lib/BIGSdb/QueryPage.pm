@@ -187,10 +187,25 @@ sub search_users {
 	} else {
 		$qry .= "$suffix $operator '$text'";
 	}
-	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	$ids = [-999] if !@$ids;    #Need to return an integer but not 0 since this is actually the setup user.
+	my $local_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	my $remote_db_ids =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
+	foreach my $user_db_id (@$remote_db_ids) {
+		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
+		( my $user_qry = $qry ) =~ s/^SELECT\ id/SELECT user_name/x;
+		my $remote_user_names =
+		  $self->{'datastore'}->run_query( $user_qry, undef, { db => $user_db, fetch => 'col_arrayref' } );
+		foreach my $user_name (@$remote_user_names) {
+
+			#Only add user if exists in local database with the same user_db
+			my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+			push @$local_ids, $user_info->{'id'} if $user_info->{'id'};
+		}
+	}
+	$local_ids = [-999] if !@$local_ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
-	return "($table.$field = '@$ids')";
+	return "($table.$field = '@$local_ids')";
 }
 
 #returns 1 if error
