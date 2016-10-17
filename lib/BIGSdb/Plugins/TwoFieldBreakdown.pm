@@ -113,7 +113,9 @@ sub run {
 		$field2     = $1;
 		$attribute2 = $2;
 	}
-	if ( $field1 eq $field2 ) {
+	if ( $field1 eq '' || $field2 eq '' ) {
+		push @error, q(You must select two fields.);
+	} elsif ( $field1 eq $field2 ) {
 		push @error, q(You must select two <em>different</em> fields.);
 	}
 	if ( @error || @info ) {
@@ -317,12 +319,35 @@ sub _print_interface {
 			set_id              => $set_id
 		}
 	);
+
+	#Remove id and isolate fields - this are either unique or nearly unique so can
+	#result in very large matrices with little value.
+	my $valid_fields = [];
+	my %invalid_fields = map { $_ => 1 } ( 'f_id', "f_$self->{'system'}->{'labelfield'}" );
+	foreach my $field (@$headings) {
+		next if $invalid_fields{$field};
+		push @$valid_fields, $field;
+	}
+	unshift @$valid_fields, '';
+	$labels->{''} = 'Select field...';
 	say q(<fieldset style="float:left"><legend>Select fields</legend><ul><li>);
 	say q(<label for="field1">Field 1:</label>);
-	say $q->popup_menu( -name => 'field1', -id => 'field1', -values => $headings, -labels => $labels );
+	say $q->popup_menu(
+		-name     => 'field1',
+		-id       => 'field1',
+		-values   => $valid_fields,
+		-labels   => $labels,
+		-required => 'required'
+	);
 	say q(</li><li>);
 	say q(<label for="field2">Field 2:</label>);
-	say $q->popup_menu( -name => 'field2', -id => 'field2', -values => $headings, -labels => $labels );
+	say $q->popup_menu(
+		-name     => 'field2',
+		-id       => 'field2',
+		-values   => $valid_fields,
+		-labels   => $labels,
+		-required => 'required'
+	);
 	say q(</li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say $q->radio_group(
