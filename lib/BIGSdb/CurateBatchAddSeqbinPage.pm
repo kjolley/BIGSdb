@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,9 +81,12 @@ sub print_content {
 sub _print_seqbin_warnings {
 	my ( $self, $isolate_id ) = @_;
 	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
-		my $seqbin =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $isolate_id, { fetch => 'row_hashref' } );
+		my $seqbin = $self->{'datastore'}->run_query(
+			'SELECT * FROM seqbin_stats WHERE isolate_id=? AND isolate_id IN '
+			  . "(SELECT id FROM $self->{'system'}->{'view'})",
+			$isolate_id,
+			{ fetch => 'row_hashref' }
+		);
 		if ($seqbin) {
 			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
 			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
@@ -293,162 +296,177 @@ sub _check_data {
 		$self->_print_interface;
 		return;
 	}
-	my @checked_buffer;
 	if ( $q->param('isolate_id') ) {
-		my $td       = 1;
-		my $min_size = 0;
-		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
-			$min_size = $q->param('size_filter') && $q->param('size');
-		}
-		my $buffer;
-		foreach ( sort { $a cmp $b } keys %$seq_ref ) {
-			my $length = length( $seq_ref->{$_} );
-			next if $length < $min_size;
-			push @checked_buffer, ">$_";
-			push @checked_buffer, $seq_ref->{$_};
-			my ( $designation, $comments );
-			if ( $_ =~ /(\S*)\s+(.*)/x ) {
-				( $designation, $comments ) = ( $1, $2 );
-			} else {
-				$designation = $_;
-			}
-			$buffer .= qq(<tr class="td$td"><td>$designation</td>);
-			$buffer .= qq(<td>$length</td>);
-			$buffer .= defined $comments ? qq(<td>$comments</td>) : q(<td></td>);
-			$buffer .= qq(</tr>\n);
-			$td = $td == 1 ? 2 : 1;
-		}
-		if ($buffer) {
-			say q(<div class="box" id="resultstable">);
-			say q(<fieldset style="float:left"><legend>The following sequences will be entered.</legend>);
-			say q(<table class="resultstable"><tr><th>Original designation</th>)
-			  . q(<th>Sequence length</th><th>Comments</th></tr>);
-			say $buffer if $buffer;
-			say q(</table></fieldset>);
-			my $num;
-			my $min = 0;
-			my $max = 0;
-			my ( $mean, $total );
-			my @lengths;
-
-			foreach ( values %$seq_ref ) {
-				my $length = length $_;
-				next if $length < $min_size;
-				$min = $length if !$min || $length < $min;
-				$max = $length if $length > $max;
-				$total += $length;
-				push @lengths, $length;
-				$num++;
-			}
-			@lengths = sort { $b <=> $a } @lengths;
-			$mean = int $total / $num if $num;
-			my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
-			say q(<fieldset style="float:left"><legend>Summary</legend>);
-			say qq(<ul><li>Number of contigs: $num</li>);
-			say qq(<li>Minimum length: $min</li>);
-			say qq(<li>Maximum length: $max</li>);
-			say qq(<li>Total length: $total</li>);
-			say qq(<li>Mean length: $mean</li>);
-			say qq(<li>N50 contig number: $n_stats->{'N50'}</li>);
-			say qq(<li>N50 contig length (L50): $n_stats->{'L50'}</li>);
-			say qq(<li>N90 contig number: $n_stats->{'N90'}</li>);
-			say qq(<li>N90 contig length (L50): $n_stats->{'L90'}</li>);
-			say qq(<li>N95 contig number: $n_stats->{'N95'}</li>);
-			say qq(<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>);
-			say q(</fieldset>);
-			say $q->start_form;
-			$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
-			my $filename = $self->make_temp_file(@checked_buffer);
-			$q->param( 'checked_buffer', $filename );
-			say $q->hidden($_)
-			  foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
-			say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
-			say $q->end_form;
-		} else {
-			say q(<div class="box" id="statusbad"><p>No valid sequences to upload.</p></div>);
-		}
-		say q(</div>);
+		$self->_check_records_single_isolate( $seq_ref, $seq_attributes );
 	} else {
-		say q(<div class="box" id="resultstable">);
-		say q(<p>The following sequences will be entered.  Any problems are highlighted.</p>);
-		say q(<fieldset style="float:left"><legend>Contigs</legend>);
-		say q(<table class="resultstable"><tr><th>BIGSdb id</th>);
-		my $id_field = $q->param('identifier_field');
-		say qq(<th>Identifier field ($id_field)</th>) if $id_field ne 'id';
-		say q(<th>Sequence length</th><th>Comments</th><th>Status</th></tr>);
-		my $td       = 1;
-		my $min_size = 0;
+		$self->_check_records_with_identifiers( $seq_ref, $seq_attributes );
+	}
+	return;
+}
 
-		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
-			$min_size = $q->param('size_filter') && $q->param('size');
+sub _check_records_single_isolate {
+	my ( $self, $seq_ref, $seq_attributes ) = @_;
+	my $q              = $self->{'cgi'};
+	my $checked_buffer = [];
+	my $td             = 1;
+	my $min_size       = 0;
+	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+		$min_size = $q->param('size_filter') && $q->param('size');
+	}
+	my $buffer;
+	foreach ( sort { $a cmp $b } keys %$seq_ref ) {
+		my $length = length( $seq_ref->{$_} );
+		next if $length < $min_size;
+		push @$checked_buffer, ">$_";
+		push @$checked_buffer, $seq_ref->{$_};
+		my ( $designation, $comments );
+		if ( $_ =~ /(\S*)\s+(.*)/x ) {
+			( $designation, $comments ) = ( $1, $2 );
+		} else {
+			$designation = $_;
 		}
-		my $attributes   = $self->{'xmlHandler'}->get_field_attributes($id_field);
-		my $allow_upload = 0;
-		foreach ( sort { $a cmp $b } keys %$seq_ref ) {
-			my $length = length( $seq_ref->{$_} );
-			my ( $designation, $comments, $status );
-			if ( $_ =~ /(\S*)\s+(.*)/x ) {
-				( $designation, $comments ) = ( $1, $2 );
+		$buffer .= qq(<tr class="td$td"><td>$designation</td>);
+		$buffer .= qq(<td>$length</td>);
+		$buffer .= defined $comments ? qq(<td>$comments</td>) : q(<td></td>);
+		$buffer .= qq(</tr>\n);
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($buffer) {
+		say q(<div class="box" id="resultstable">);
+		say q(<fieldset style="float:left"><legend>The following sequences will be entered.</legend>);
+		say q(<table class="resultstable"><tr><th>Original designation</th>)
+		  . q(<th>Sequence length</th><th>Comments</th></tr>);
+		say $buffer if $buffer;
+		say q(</table></fieldset>);
+		my $num;
+		my $min = 0;
+		my $max = 0;
+		my ( $mean, $total );
+		my @lengths;
+
+		foreach ( values %$seq_ref ) {
+			my $length = length $_;
+			next if $length < $min_size;
+			$min = $length if !$min || $length < $min;
+			$max = $length if $length > $max;
+			$total += $length;
+			push @lengths, $length;
+			$num++;
+		}
+		@lengths = sort { $b <=> $a } @lengths;
+		$mean = int $total / $num if $num;
+		my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
+		say q(<fieldset style="float:left"><legend>Summary</legend>);
+		say qq(<ul><li>Number of contigs: $num</li>);
+		say qq(<li>Minimum length: $min</li>);
+		say qq(<li>Maximum length: $max</li>);
+		say qq(<li>Total length: $total</li>);
+		say qq(<li>Mean length: $mean</li>);
+		say qq(<li>N50 contig number: $n_stats->{'N50'}</li>);
+		say qq(<li>N50 contig length (L50): $n_stats->{'L50'}</li>);
+		say qq(<li>N90 contig number: $n_stats->{'N90'}</li>);
+		say qq(<li>N90 contig length (L50): $n_stats->{'L90'}</li>);
+		say qq(<li>N95 contig number: $n_stats->{'N95'}</li>);
+		say qq(<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>);
+		say q(</fieldset>);
+		say $q->start_form;
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
+		my $filename = $self->make_temp_file(@$checked_buffer);
+		$q->param( 'checked_buffer', $filename );
+		say $q->hidden($_)
+		  foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
+		say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
+		say $q->end_form;
+	} else {
+		say q(<div class="box" id="statusbad"><p>No valid sequences to upload.</p></div>);
+	}
+	say q(</div>);
+	return;
+}
+
+sub _check_records_with_identifiers {
+	my ( $self, $seq_ref, $seq_attributes ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="resultstable">);
+	say q(<p>The following sequences will be entered.  Any problems are highlighted.</p>);
+	say q(<fieldset style="float:left"><legend>Contigs</legend>);
+	say q(<table class="resultstable"><tr><th>BIGSdb id</th>);
+	my $id_field = $q->param('identifier_field');
+	say qq(<th>Identifier field ($id_field)</th>) if $id_field ne 'id';
+	say q(<th>Sequence length</th><th>Comments</th><th>Status</th></tr>);
+	my $attributes   = $self->{'xmlHandler'}->get_field_attributes($id_field);
+	my $td           = 1;
+	my $allow_upload = 0;
+	my $min_size     = 0;
+
+	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+		$min_size = $q->param('size_filter') && $q->param('size');
+	}
+	my $checked_buffer = [];
+	foreach my $identifier ( sort { $a cmp $b } keys %$seq_ref ) {
+		my $length = length( $seq_ref->{$identifier} );
+		my ( $designation, $comments, $status );
+		if ( $identifier =~ /(\S*)\s+(.*)/x ) {
+			( $designation, $comments ) = ( $1, $2 );
+		} else {
+			$designation = $identifier;
+		}
+		$comments ||= '';
+		my $identifier_field_html = $id_field eq 'id' ? q() : qq(<td>$identifier</td>);
+		my $id_error;
+		if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($identifier) ) {
+			$status = q(Identifier field must be an integer);
+			$designation = $id_field eq 'id' ? $identifier : q(-);
+			say qq(<tr class="td$td"><td class="statusbad">$designation</td>);
+			say $identifier_field_html if $identifier_field_html;
+			say qq(<td>$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
+		} else {
+			my $ids = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?",
+				$identifier, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbinPage::check_data::read_id' } );
+			if ( !@$ids ) {
+				$id_error = q(No matching record);
+				$designation = $id_field eq 'id' ? $identifier : '-';
+			} elsif ( @$ids > 1 ) {
+				$id_error    = scalar @$ids . q( matching records - can't uniquely identify isolate);
+				$designation = '-';
 			} else {
-				$designation = $_;
+				($designation) = @$ids;
 			}
-			$comments ||= '';
-			my $identifier_field_html;
-			my $id_error;
-			if ( $id_field ne 'id' ) {
-				$identifier_field_html = "<td>$_</td>";
-				my $ids =
-				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?",
-					$_, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbinPage::check_data::read_id' } );
-				if ( !@$ids ) {
-					$id_error    = 'No matching record';
-					$designation = '-';
-				} elsif ( @$ids > 1 ) {
-					$id_error    = scalar @$ids . q( matching records - can't uniquely identify isolate);
-					$designation = '-';
-				} else {
-					($designation) = @$ids;
-				}
-			}
-			if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($_) ) {
-				$status = 'BIGSdb id must be an integer';
-				say qq(<tr class="td$td"><td class="statusbad">$designation</td>);
-				say $identifier_field_html if $identifier_field_html;
-				say qq(<td>$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
-			} elsif ( $length < $min_size ) {
-				$status = 'Sequence too short - will be ignored';
+			if ( $length < $min_size ) {
+				$status = q(Sequence too short - will be ignored);
 				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html)
 				  . qq(<td class="statusbad">$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
 			} elsif ($id_error) {
 				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html<td>$length</td>)
 				  . qq(<td>$comments</td><td class="statusbad">$id_error</td></tr>);
 			} else {
-				push @checked_buffer, ">$designation";
-				push @checked_buffer, $seq_ref->{$_};
-				$status = 'Will upload';
+				push @$checked_buffer, qq(>$designation);
+				push @$checked_buffer, $seq_ref->{$identifier};
+				$status = q(Will upload);
 				say qq(<tr class="td$td"><td>$designation</td>);
 				say $identifier_field_html if $identifier_field_html;
 				say qq(<td>$length</td><td>$comments</td><td class="statusgood">$status</td></tr>);
 				$allow_upload = 1;
 			}
-			$td = $td == 1 ? 2 : 1;
 		}
-		say q(</table>);
-		say q(</fieldset>);
-		if ($allow_upload) {
-			say $q->start_form;
-			$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
-			my $filename = $self->make_temp_file(@checked_buffer);
-			$q->param( checked_buffer => $filename );
-			say $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field
-			  sender method run_id assembly_id comments);
-			say $q->end_form;
-		} else {
-			say q(<fieldset style="float:left"><legend>Status</legend><p>Nothing to upload.</p></fieldset>);
-			say q(<div style="clear:both"></div>);
-		}
-		say q(</div>);
+		$td = $td == 1 ? 2 : 1;
 	}
+	say q(</table>);
+	say q(</fieldset>);
+	if ($allow_upload) {
+		say $q->start_form;
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
+		my $filename = $self->make_temp_file(@$checked_buffer);
+		$q->param( checked_buffer => $filename );
+		say $q->hidden($_) foreach qw (db page checked_buffer isolate_id identifier_field
+		  sender method run_id assembly_id comments);
+		say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
+		say $q->end_form;
+	} else {
+		say q(<fieldset style="float:left"><legend>Status</legend><p>Nothing to upload.</p></fieldset>);
+		say q(<div style="clear:both"></div>);
+	}
+	say q(</div>);
 	return;
 }
 
