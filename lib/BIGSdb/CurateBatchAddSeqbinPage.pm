@@ -81,9 +81,12 @@ sub print_content {
 sub _print_seqbin_warnings {
 	my ( $self, $isolate_id ) = @_;
 	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
-		my $seqbin =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $isolate_id, { fetch => 'row_hashref' } );
+		my $seqbin = $self->{'datastore'}->run_query(
+			'SELECT * FROM seqbin_stats WHERE isolate_id=? AND isolate_id IN '
+			  . "(SELECT id FROM $self->{'system'}->{'view'})",
+			$isolate_id,
+			{ fetch => 'row_hashref' }
+		);
 		if ($seqbin) {
 			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
 			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
@@ -409,42 +412,42 @@ sub _check_records_with_identifiers {
 			$designation = $identifier;
 		}
 		$comments ||= '';
-		my $identifier_field_html = q();
+		my $identifier_field_html = $id_field eq 'id' ? q() : qq(<td>$identifier</td>);
 		my $id_error;
-		if ( $id_field ne 'id' ) {
-			$identifier_field_html = "<td>$identifier</td>";
+		if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($identifier) ) {
+			$status = q(Identifier field must be an integer);
+			$designation = $id_field eq 'id' ? $identifier : q(-);
+			say qq(<tr class="td$td"><td class="statusbad">$designation</td>);
+			say $identifier_field_html if $identifier_field_html;
+			say qq(<td>$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
+		} else {
 			my $ids = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?",
 				$identifier, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbinPage::check_data::read_id' } );
 			if ( !@$ids ) {
-				$id_error    = 'No matching record';
-				$designation = '-';
+				$id_error = q(No matching record);
+				$designation = $id_field eq 'id' ? $identifier : '-';
 			} elsif ( @$ids > 1 ) {
 				$id_error    = scalar @$ids . q( matching records - can't uniquely identify isolate);
 				$designation = '-';
 			} else {
 				($designation) = @$ids;
 			}
-		}
-		if ( $attributes->{'type'} eq 'int' && !BIGSdb::Utils::is_int($identifier) ) {
-			$status = 'BIGSdb id must be an integer';
-			say qq(<tr class="td$td"><td class="statusbad">$designation</td>);
-			say $identifier_field_html if $identifier_field_html;
-			say qq(<td>$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
-		} elsif ( $length < $min_size ) {
-			$status = 'Sequence too short - will be ignored';
-			say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html)
-			  . qq(<td class="statusbad">$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
-		} elsif ($id_error) {
-			say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html<td>$length</td>)
-			  . qq(<td>$comments</td><td class="statusbad">$id_error</td></tr>);
-		} else {
-			push @$checked_buffer, ">$designation";
-			push @$checked_buffer, $seq_ref->{$identifier};
-			$status = 'Will upload';
-			say qq(<tr class="td$td"><td>$designation</td>);
-			say $identifier_field_html if $identifier_field_html;
-			say qq(<td>$length</td><td>$comments</td><td class="statusgood">$status</td></tr>);
-			$allow_upload = 1;
+			if ( $length < $min_size ) {
+				$status = q(Sequence too short - will be ignored);
+				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html)
+				  . qq(<td class="statusbad">$length</td><td>$comments</td><td class="statusbad">$status</td></tr>);
+			} elsif ($id_error) {
+				say qq(<tr class="td$td"><td>$designation</td>$identifier_field_html<td>$length</td>)
+				  . qq(<td>$comments</td><td class="statusbad">$id_error</td></tr>);
+			} else {
+				push @$checked_buffer, qq(>$designation);
+				push @$checked_buffer, $seq_ref->{$identifier};
+				$status = q(Will upload);
+				say qq(<tr class="td$td"><td>$designation</td>);
+				say $identifier_field_html if $identifier_field_html;
+				say qq(<td>$length</td><td>$comments</td><td class="statusgood">$status</td></tr>);
+				$allow_upload = 1;
+			}
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
