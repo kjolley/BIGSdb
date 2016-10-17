@@ -602,7 +602,7 @@ sub get_users {
 		}
 	}
 	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
-	@$ids = sort { $labels->{$a} cmp $labels->{$b} } @$ids;
+	@$ids = sort { uc($labels->{$a}) cmp uc($labels->{$b}) } @$ids;
 	return ( $ids, $labels );
 }
 ##############SCHEMES##################################################################
