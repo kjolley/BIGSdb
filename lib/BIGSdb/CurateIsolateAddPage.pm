@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -153,8 +153,7 @@ sub _check {
 			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has been retired - )
 			  . q(please choose a different id number.</p></div>);
 			$insert = 0;
-		} 
-		
+		}
 		return $self->_insert($newdata) if $insert;
 	}
 	return;
@@ -305,7 +304,7 @@ sub _print_interface {
 	  . q(required fields are marked with an exclamation mark (!).</p>);
 	say q(<div class="scrollable">);
 	say $q->start_form;
-	$q->param( 'sent', 1 );
+	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw(page db sent);
 	$self->print_provenance_form_elements($newdata);
 	$self->_print_allele_designation_form_elements($newdata);
@@ -320,28 +319,14 @@ sub print_provenance_form_elements {
 	$options = {} if ref $options ne 'HASH';
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my ( @users, %usernames );
-	my $user_data;
+	my ( $users, $user_labels );
 	if ( $user_info->{'status'} eq 'submitter' ) {
-		$user_data = $self->{'datastore'}->run_query(
-			'SELECT id,user_name,first_name,surname FROM users WHERE id=? '
-			  . 'OR id IN (SELECT user_id FROM user_group_members WHERE user_group IN (SELECT user_group FROM '
-			  . 'user_group_members WHERE user_id=?)) ORDER BY surname, first_name, user_name',
-			[ $user_info->{'id'}, $user_info->{'id'} ],
-			{ fetch => 'all_arrayref', slice => {} }
-		);
+		( $users, $user_labels ) =
+		  $self->{'datastore'}->get_users( { same_user_group => 1, user_id => $user_info->{'id'} } );
 	} else {
-		$user_data = $self->{'datastore'}->run_query(
-			'SELECT id,user_name,first_name,surname FROM users WHERE id>0 ' . 'ORDER BY surname, first_name, user_name',
-			undef,
-			{ fetch => 'all_arrayref', slice => {} }
-		);
+		( $users, $user_labels ) = $self->{'datastore'}->get_users;
 	}
-	foreach (@$user_data) {
-		push @users, $_->{'id'};
-		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
-	}
-	$usernames{''} = ' ';
+	$user_labels->{''} = ' ';
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -434,8 +419,8 @@ sub print_provenance_form_elements {
 					say $q->popup_menu(
 						-name    => $field,
 						-id      => $field_id,
-						-values  => [ '', @users ],
-						-labels  => \%usernames,
+						-values  => [ '', @$users ],
+						-labels  => $user_labels,
 						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 						%html5_args
 					);

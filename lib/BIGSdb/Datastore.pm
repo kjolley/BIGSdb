@@ -75,10 +75,9 @@ sub get_data_connector {
 
 sub get_user_info {
 	my ( $self, $id ) = @_;
-	my $user_info = $self->run_query(
-		'SELECT id,user_name,first_name,surname,affiliation,email,status,user_db FROM users WHERE id=?',
-		$id, { fetch => 'row_hashref', cache => 'get_user_info' }
-	);
+	my $user_info =
+	  $self->run_query( 'SELECT id,user_name,first_name,surname,affiliation,email,status,user_db FROM users WHERE id=?',
+		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 	if ( $user_info->{'user_name'} && $user_info->{'user_db'} ) {
 		my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
 		if ( $remote_user->{'user_name'} ) {
@@ -554,7 +553,7 @@ sub user_dbs_defined {
 }
 
 sub user_db_defined {
-	my ($self, $id) = @_;
+	my ( $self, $id ) = @_;
 	return defined $self->{'user_dbs'}->{$id} ? 1 : undef;
 }
 
@@ -572,8 +571,14 @@ sub get_users {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $qry = 'SELECT id,first_name,surname,user_name,user_db FROM users WHERE ';
-	$qry .= $options->{'curators'} ? q(status IN ('curator','admin','submitter') AND ) : q();
-	$qry .= q( id > 0);
+	if ( $options->{'curators'} ) {
+		$qry .= q(status IN ('curator','admin','submitter') AND );
+	}
+	if ( $options->{'same_user_group'} && BIGSdb::Utils::is_int( $options->{'user_id'} ) ) {
+		$qry .= qq[(id=$options->{'user_id'} OR id IN (SELECT user_id FROM user_group_members WHERE user_group ]
+		  . qq[IN (SELECT user_group FROM user_group_members WHERE user_id=$options->{'user_id'}))) AND ];
+	}
+	$qry .= q(id > 0);
 	my $data = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $user (@$data) {
 
