@@ -256,7 +256,6 @@ sub print_content {
 	my $instance    = $self->{'instance'};
 	my $system      = $self->{'system'};
 	return if $self->_ajax_call;
-	my $curator_name = $self->get_curator_name;
 	my $desc         = $self->get_db_description;
 	say "<h1>Database curator's interface - $desc</h1>";
 	my $td = 1;

@@ -187,22 +187,15 @@ sub _print_interface {
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say q(</li>);
 	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( $q->param('user') ) ) {
-		my ($user_info);
-		if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
-			my $user_db = $self->{'datastore'}->get_user_db( $q->param('user_db') );
-			$user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
-				$q->param('user'), { fetch => 'row_hashref', db => $user_db } );
-		} else {
-			$user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
-		}
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		say q(<li><label class="form" style="width:10em">Name:</label>);
 		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
 		  . qq(($user_info->{'user_name'})</strong></span></li>);
 		if ( $self->{'datastore'}->user_dbs_defined ) {
 			my $domain;
-			if ( BIGSdb::Utils::is_int( $q->param('user_db') ) ) {
+			if ( BIGSdb::Utils::is_int( $user_info->{'user_db'} ) ) {
 				$domain =
-				  $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $q->param('user_db') );
+				  $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $user_info->{'user_db'} );
 			} else {
 				$domain = 'this database only';
 			}

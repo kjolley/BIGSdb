@@ -139,6 +139,15 @@ sub get_permissions {
 		{ fetch => 'col_arrayref', cache => 'get_permissions' }
 	);
 	my %permission_hash = map { $_ => 1 } @$permission_list;
+
+	#Site permissions
+	my $user_info = $self->get_user_info_from_username($user_name);
+	if ( $user_info->{'user_db'} ) {
+		my $user_db          = $self->get_user_db( $user_info->{'user_db'} );
+		my $site_permissions = $self->run_query( 'SELECT permission FROM permissions WHERE user_name=?',
+			$user_name, { db => $user_db, fetch => 'col_arrayref' } );
+		$permission_hash{$_} = 1 foreach @$site_permissions;
+	}
 	return \%permission_hash;
 }
 
@@ -602,7 +611,7 @@ sub get_users {
 		}
 	}
 	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
-	@$ids = sort { uc($labels->{$a}) cmp uc($labels->{$b}) } @$ids;
+	@$ids = sort { uc( $labels->{$a} ) cmp uc( $labels->{$b} ) } @$ids;
 	return ( $ids, $labels );
 }
 ##############SCHEMES##################################################################

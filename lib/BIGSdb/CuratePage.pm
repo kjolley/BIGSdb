@@ -38,8 +38,7 @@ sub print_content { }
 sub get_curator_name {
 	my ($self) = @_;
 	if ( $self->{'username'} ) {
-		my $name = $self->{'datastore'}->run_query( 'SELECT first_name, surname FROM users WHERE user_name=?',
-			$self->{'username'}, { fetch => 'row_hashref', cache => 'CuratePage::get_curator_name' } );
+		my $name = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 		return $name ? "$name->{'first_name'} $name->{'surname'}" : 'unknown user';
 	}
 	return 'unknown user';
