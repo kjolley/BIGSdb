@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.3.1',
+		version     => '1.4.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -73,15 +73,31 @@ sub run {
 	my $format = $q->param('format');
 	$self->{'extended'} = $self->get_extended_attributes;
 	if ( !$q->param('function') ) {
-		$self->_print_interface;
+		my $id_list = [];
+		if ( $q->param('query_file') ) {
+			my $qry_ref = $self->get_query( $q->param('query_file') );
+			if ($qry_ref) {
+				$id_list = $self->get_ids_from_query($qry_ref);
+			}
+		}
+		$self->_print_interface($id_list);
 		return;
 	}
-	my $query_file = $q->param('query_file');
-	my $id_list = $self->get_id_list( 'id', $query_file );
+	my @list = split /[\r\n]+/x, $q->param('list');
+	@list = uniq @list;
+	if ( !@list ) {
+		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+		my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+		@list = @$id_list;
+	}
+	my ( $id_list, $invalid ) = $self->check_id_list( \@list );
+	my ( @error, @info );
 	if ( !@$id_list ) {
-		$id_list =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+		push @error, q(You must select at least one valid isolate id.);
+	}
+	if (@$invalid) {
+		local $" = q(, );
+		push @info, qq(The id list contained some invalid values - these will be ignored. Invalid values: @$invalid.);
 	}
 	my $field1 = $q->param('field1');
 	my $field2 = $q->param('field2');
@@ -97,9 +113,21 @@ sub run {
 		$field2     = $1;
 		$attribute2 = $2;
 	}
-	if ( $field1 eq $field2 ) {
-		say q(<div class="box" id="statusbad"><p>You must select two <em>different</em> fields.</p></div>);
-		return;
+	if ( $field1 eq '' || $field2 eq '' ) {
+		push @error, q(You must select two fields.);
+	} elsif ( $field1 eq $field2 ) {
+		push @error, q(You must select two <em>different</em> fields.);
+	}
+	if ( @error || @info ) {
+		say q(<div class="box" id="statusbad">);
+		foreach my $msg ( @error, @info ) {
+			say qq(<p>$msg</p>);
+		}
+		say q(</div>);
+		if (@error) {
+			$self->_print_interface($id_list);
+			return;
+		}
 	}
 	return if ( $q->param('function') // '' ) ne 'breakdown';
 	my $guid = $self->get_guid;
@@ -269,7 +297,7 @@ sub run_job {
 }
 
 sub _print_interface {
-	my ($self) = @_;
+	my ( $self, $isolate_ids ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform">);
 	say q(<div class="scrollable">);
@@ -277,8 +305,9 @@ sub _print_interface {
 	  . q(e.g. breakdown of serogroup by year.</p>);
 	say $q->start_form;
 	$q->param( function => 'breakdown' );
-	say $q->hidden($_) foreach qw (db page name function query_file list_file datatype);
+	say $q->hidden($_) foreach qw (db page name function datatype);
 	my $set_id = $self->get_set_id;
+	$self->print_id_fieldset( { list => $isolate_ids } );
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
 			isolate_fields      => 1,
@@ -290,12 +319,35 @@ sub _print_interface {
 			set_id              => $set_id
 		}
 	);
+
+	#Remove id and isolate fields - this are either unique or nearly unique so can
+	#result in very large matrices with little value.
+	my $valid_fields = [];
+	my %invalid_fields = map { $_ => 1 } ( 'f_id', "f_$self->{'system'}->{'labelfield'}" );
+	foreach my $field (@$headings) {
+		next if $invalid_fields{$field};
+		push @$valid_fields, $field;
+	}
+	unshift @$valid_fields, '';
+	$labels->{''} = 'Select field...';
 	say q(<fieldset style="float:left"><legend>Select fields</legend><ul><li>);
 	say q(<label for="field1">Field 1:</label>);
-	say $q->popup_menu( -name => 'field1', -id => 'field1', -values => $headings, -labels => $labels );
+	say $q->popup_menu(
+		-name     => 'field1',
+		-id       => 'field1',
+		-values   => $valid_fields,
+		-labels   => $labels,
+		-required => 'required'
+	);
 	say q(</li><li>);
 	say q(<label for="field2">Field 2:</label>);
-	say $q->popup_menu( -name => 'field2', -id => 'field2', -values => $headings, -labels => $labels );
+	say $q->popup_menu(
+		-name     => 'field2',
+		-id       => 'field2',
+		-values   => $valid_fields,
+		-labels   => $labels,
+		-required => 'required'
+	);
 	say q(</li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say $q->radio_group(
