@@ -101,12 +101,14 @@ sub initiate {
 
 	#don't use last part of IP address - due to problems with load-balancing proxies
 	$self->{'ip_addr'} = $ip_addr;
+	my $unvalidated_user = $self->_get_unvalidated_username;
+	my $database = $self->_get_site_database($unvalidated_user) // $self->{'system'}->{'db'};
 
 	#Create per database cookies to prevent problems when opening two sessions with
 	#different credentials.
-	$self->{'session_cookie'} = "$self->{'system'}->{'db'}_session";
-	$self->{'pass_cookie'}    = "$self->{'system'}->{'db'}_auth";
-	$self->{'user_cookie'}    = "$self->{'system'}->{'db'}_user";
+	$self->{'session_cookie'} = "${database}_session";
+	$self->{'pass_cookie'}    = "${database}_auth";
+	$self->{'user_cookie'}    = "${database}_user";
 
 	# Each CGI call has its own seed, using Perl's built-in seed generator.
 	# This is psuedo-random, but only controls the sessionID value, which
@@ -504,5 +506,43 @@ sub get_user_db_name {
 	);
 	$db_name //= $self->{'system'}->{'db'};
 	return $db_name;
+}
+
+sub _get_unvalidated_username {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('session') && $q->param('user') ) {    #We are on the login page
+		return $q->param('user');
+	} elsif ( $self->{'system'}->{'db'} ) {               #Find username from cookie
+		my $local_db_username = $q->cookie("$self->{'system'}->{'db'}_user");
+		if ($local_db_username) {
+			return $local_db_username;
+		}
+		my $remote_user_dbs = $self->{'datastore'}->run_query( 'SELECT id,dbase_name FROM user_dbases ORDER BY id',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $user_db (@$remote_user_dbs) {
+			my $remote_db_username = $q->cookie("$user_db->{'dbase_name'}_user");
+			if ($remote_db_username) {
+
+				#Check that user exists in database
+				my $user_info = $self->{'datastore'}->get_user_info_from_username($remote_db_username);
+				return $remote_db_username if $user_info && ( $user_info->{'user_db'} // 0 ) == $user_db->{'id'};
+			}
+		}
+	}
+	return;
+}
+
+sub _get_site_database {
+	my ( $self, $user_name ) = @_;
+	return if !$user_name;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+	return if !$user_info;
+	if ( $user_info->{'user_db'} ) {
+		my $user_db_name =
+		  $self->{'datastore'}->run_query( 'SELECT dbase_name FROM user_dbases WHERE id=?', $user_info->{'user_db'} );
+		return $user_db_name;
+	}
+	return;
 }
 1;
