@@ -47,6 +47,13 @@ sub new {
 	return $self;
 }
 
+sub change_db {
+	my ( $self, $db ) = @_;
+	$self->{'db'}  = $db;
+	$self->{'sql'} = {};    #Clear statement hash which may be for wrong database
+	return;
+}
+
 sub update_prefs {
 	my ( $self, $prefs ) = @_;
 	$self->{'prefs'} = $prefs;
@@ -132,12 +139,18 @@ sub get_user_info_from_username {
 
 sub get_permissions {
 	my ( $self, $user_name ) = @_;
-	my $permission_list = $self->run_query(
-		'SELECT permission FROM curator_permissions LEFT JOIN users ON '
-		  . 'curator_permissions.user_id = users.id WHERE user_name=?',
-		$user_name,
-		{ fetch => 'col_arrayref', cache => 'get_permissions' }
-	);
+	my $permission_list;
+	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+		$permission_list = $self->run_query( 'SELECT permission FROM permissions WHERE user_name=?',
+			$user_name, { fetch => 'col_arrayref', cache => 'get_permissions' } );
+	} else {
+		$permission_list = $self->run_query(
+			'SELECT permission FROM permissions LEFT JOIN users ON '
+			  . 'permissions.user_id = users.id WHERE user_name=?',
+			$user_name,
+			{ fetch => 'col_arrayref', cache => 'get_permissions' }
+		);
+	}
 	my %permission_hash = map { $_ => 1 } @$permission_list;
 
 	#Site permissions
@@ -2410,7 +2423,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
 		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
-		  isolate_aliases curator_permissions projects project_members experiments experiment_sequences
+		  isolate_aliases permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  samples isolates history sequence_attributes classification_schemes classification_group_fields
@@ -2420,7 +2433,7 @@ sub get_tables {
 		  : 'isolates';
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		@tables = qw(users user_groups user_group_members sequences sequence_refs accession loci schemes scheme_members
-		  scheme_fields profiles profile_refs curator_permissions client_dbases client_dbase_loci client_dbase_schemes
+		  scheme_fields profiles profile_refs permissions client_dbases client_dbase_loci client_dbase_schemes
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes

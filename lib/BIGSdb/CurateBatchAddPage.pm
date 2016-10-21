@@ -554,20 +554,20 @@ sub _check_data {
 			my %record_checks = (
 				accession => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->_check_curator_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				sequence_refs => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->_check_curator_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				loci => sub {
 					$self->_check_data_loci($new_args);
 				},
 				sequences => sub {
-					$self->_check_curator_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				retired_allele_ids => sub {
-					$self->_check_curator_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -657,7 +657,7 @@ sub _check_field_bad {
 	return $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 }
 
-sub _check_curator_permissions {
+sub _check_permissions {
 	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return if $self->is_admin;

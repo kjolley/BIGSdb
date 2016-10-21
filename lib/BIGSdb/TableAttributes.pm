@@ -164,7 +164,7 @@ sub get_user_group_members_table_attributes {
 	return $attributes;
 }
 
-sub get_curator_permissions_table_attributes {
+sub get_permissions_table_attributes {
 	my ($self) = @_;
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles

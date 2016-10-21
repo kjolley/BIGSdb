@@ -159,7 +159,7 @@ sub is_isolate_curator {
 	my ( $dbase, $user_id ) = @_;
 	my $db = db_connect($dbase);
 	my $isolate_curator =
-	  $db->selectrow_array( q(SELECT EXISTS(SELECT * FROM curator_permissions WHERE (permission,user_id)=(?,?))),
+	  $db->selectrow_array( q(SELECT EXISTS(SELECT * FROM permissions WHERE (permission,user_id)=(?,?))),
 		undef, 'modify_isolates', $user_id );
 	$db->disconnect;
 	return $isolate_curator;

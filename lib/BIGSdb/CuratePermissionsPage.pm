@@ -34,7 +34,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Set curator permissions</h1>);
-	if ( !$self->can_modify_table('curator_permissions') ) {
+	if ( !$self->can_modify_table('permissions') ) {
 		say q(<div class="box" id="statusbad"><p>Your account has insufficient )
 		  . q(privileges to modify curator permissions.</p></div>);
 		return;
@@ -142,7 +142,7 @@ sub print_content {
 
 sub _get_permission_list {
 	my ($self) = @_;
-	my $attributes = $self->{'datastore'}->get_table_field_attributes('curator_permissions');
+	my $attributes = $self->{'datastore'}->get_table_field_attributes('permissions');
 	my @permission_list;
 	foreach my $att (@$attributes) {
 		if ( $att->{'name'} eq 'permission' ) {
@@ -186,11 +186,11 @@ sub _update {
 			{
 				my $sql =
 				  $self->{'db'}
-				  ->prepare('INSERT INTO curator_permissions (user_id,permission,curator,datestamp) VALUES (?,?,?,?)');
+				  ->prepare('INSERT INTO permissions (user_id,permission,curator,datestamp) VALUES (?,?,?,?)');
 				$sql->execute( $_->{'user_id'}, $_->{'permission'}, $curator_id, 'now' ) foreach @additions;
 			}
 			if (@deletions) {
-				my $sql = $self->{'db'}->prepare('DELETE FROM curator_permissions WHERE (user_id,permission) = (?,?)');
+				my $sql = $self->{'db'}->prepare('DELETE FROM permissions WHERE (user_id,permission) = (?,?)');
 				$sql->execute( $_->{'user_id'}, $_->{'permission'} ) foreach @deletions;
 			}
 		};

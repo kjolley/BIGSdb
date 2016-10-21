@@ -81,7 +81,7 @@ sub print_content {
 	if ( $self->{'authenticate_error'} ) {
 		say qq(<div class="box" id="statusbad"><p>$self->{'authenticate_error'}</p></div>);
 	}
-	$self->_print_entry_form;
+	$self->_print_login_form;
 	return;
 }
 
@@ -118,8 +118,8 @@ sub initiate {
 }
 
 sub secure_login {
-	( my $self ) = @_;
-	my ( $user, $password_hash ) = $self->_MD5_login;
+	my ( $self, $options )       = @_;
+	my ( $user, $password_hash ) = $self->_MD5_login($options);
 	######################################################
 	# If they've gotten to this point, they have been
 	# authorized against the database (they
@@ -142,14 +142,14 @@ sub secure_login {
 }
 
 sub login_from_cookie {
-	( my $self ) = @_;
+	my ( $self, $options ) = @_;
 	throw BIGSdb::AuthenticationException('No valid session') if $self->{'logged_out'};
 	$self->_timout_sessions;
 	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	foreach ( keys %cookies ) {
 		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
-	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} } ) || '';
+	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} }, $options ) || '';
 	throw BIGSdb::AuthenticationException('No valid session') if !$stored_hash;
 	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
 	my $cookie_string    = Digest::MD5::md5_hex( $self->{'ip_addr'} . $stored_hash->{'password'} . UNIQUE_STRING );
@@ -184,10 +184,10 @@ sub login_from_cookie {
 }
 
 sub _MD5_login {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	$self->_timout_logins;    # remove entries older than current_time + $timeout
 	if ( $self->{'vars'}->{'submit'} ) {
-		if ( my $password = $self->_check_password ) {
+		if ( my $password = $self->_check_password($options) ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in to $self->{'instance'}.");
 			$self->_delete_session( $self->{'cgi'}->param('session') );
 			return ( $self->{'vars'}->{'user'}, $password );    # return user name and password hash
@@ -195,20 +195,22 @@ sub _MD5_login {
 	}
 
 	# This sessionID will be valid for only LOGIN_TIMEOUT seconds
-	$self->print_page_content;
+	$self->print_page_content if !$options->{'no_output'};
 	throw BIGSdb::AuthenticationException;
 }
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
-	my ($self) = @_;
-	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit('The name field was missing.') }
-	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit('The password field was missing.') }
+	my ( $self, $options ) = @_;
+	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'The name field was missing.',     $options ) }
+	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit( 'The password field was missing.', $options ) }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
-	if ( !$login_session_exists ) { $self->_error_exit('The login window has expired - please resubmit credentials.') }
-	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'} ) // '';
+	if ( !$login_session_exists ) {
+		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
+	}
+	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
 	if ( !$stored_hash ) {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
-		$self->_error_exit('Invalid username or password entered.  Please try again.');
+		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	}
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
 	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $stored_hash->{'password'}");
@@ -237,7 +239,7 @@ sub _check_password {
 	}
 	if ( !$password_matches ) {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
-		$self->_error_exit('Invalid username or password entered.  Please try again.');
+		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	} else {
 		if ( $stored_hash->{'reset_password'} ) {
 			$logger->info('Password reset required.');
@@ -248,7 +250,7 @@ sub _check_password {
 	return;
 }
 
-sub _print_entry_form {
+sub _print_login_form {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $session_id = Digest::MD5::md5_hex( $self->{'ip_addr'} . $self->{'random_number'} . UNIQUE_STRING );
@@ -267,7 +269,38 @@ sub _print_entry_form {
 	say $q->start_form( -onSubmit => q(password.value=password_field.value; password_field.value=''; )
 		  . q(password.value=CryptoJS.MD5(password.value+user.value); return true) );
 	say q(<fieldset style="float:left"><legend>Log in details</legend>);
-	say q(<ul><li><label for="user" class="display">Username: </label>);
+	say q(<ul>);
+
+	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
+		my $user_dbs = $self->{'config'}->{'site_user_dbs'};
+		my $values   = [];
+		my $labels   = {};
+		foreach my $user_db (@$user_dbs) {
+			push @$values, $user_db->{'dbase'};
+			$labels->{ $user_db->{'dbase'} } = $user_db->{'name'};
+		}
+		say q(<li><label for="db" class="display">Domain: </label>);
+		if ( @$values == 1 ) {
+			say $q->popup_menu(
+				-name     => 'db',
+				-id       => 'db',
+				-values   => $values,
+				-labels   => $labels,
+				-disabled => 'disabled'
+			);
+			say $q->hidden( db => $values->[0] );
+		} else {
+			unshift @$values, q();
+			say $q->popup_menu(
+				-name     => 'db',
+				-id       => 'db',
+				-values   => $values,
+				-labels   => $labels,
+				-required => 'required'
+			);
+		}
+	}
+	say q(<li><label for="user" class="display">Username: </label>);
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
 	say q(</li><li><label for="password_field" class="display">Password: </label>);
 	say $q->password_field(
@@ -295,10 +328,10 @@ sub _print_entry_form {
 }
 
 sub _error_exit {
-	my ( $self, $msg ) = @_;
+	my ( $self, $msg, $options ) = @_;
 	$self->{'cgi'}->param( password => '' );
 	$self->{'authenticate_error'} = $msg;
-	$self->print_page_content;
+	$self->print_page_content if !$options->{'no_output'};
 	throw BIGSdb::AuthenticationException($msg);
 }
 #############################################################################
@@ -334,10 +367,10 @@ sub _login_session_exists {
 }
 
 sub get_password_hash {
-	my ( $self, $name ) = @_;
+	my ( $self, $name, $options ) = @_;
 	return if !$name;
-	my $dbase_name = $self->get_user_db_name($name);
-	my $password   = $self->{'datastore'}->run_query(
+	my $dbase_name = $options->{'dbase_name'} // $self->get_user_db_name($name);
+	my $password = $self->{'datastore'}->run_query(
 		'SELECT password,algorithm,salt,cost,reset_password FROM users WHERE dbase=? AND name=?',
 		[ $dbase_name, $name ],
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
@@ -499,6 +532,9 @@ sub _make_cookie {
 
 sub get_user_db_name {
 	my ( $self, $name ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+		return $self->{'system'}->{'db'};
+	}
 	my $db_name = $self->{'datastore'}->run_query(
 		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
 		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
@@ -518,15 +554,26 @@ sub _get_unvalidated_username {
 		if ($local_db_username) {
 			return $local_db_username;
 		}
-		my $remote_user_dbs = $self->{'datastore'}->run_query( 'SELECT id,dbase_name FROM user_dbases ORDER BY id',
-			undef, { fetch => 'all_arrayref', slice => {} } );
-		foreach my $user_db (@$remote_user_dbs) {
-			my $remote_db_username = $q->cookie("$user_db->{'dbase_name'}_user");
-			if ($remote_db_username) {
+		if ( $self->{'system'}->{'dbtype'} eq 'user' ) {    #Logged in to user db but not the one containing this user
+			my $remote_user_dbs = $self->{'config'}->{'site_user_dbs'};
+			foreach my $user_db (@$remote_user_dbs) {
+				my $remote_db_username = $q->cookie("$user_db->{'dbase'}_user");
+				if ($remote_db_username) {
+					$self->{'system'}->{'db'} = $user_db->{'dbase'};
+					return $remote_db_username;
+				}
+			}
+		} else {
+			my $remote_user_dbs = $self->{'datastore'}->run_query( 'SELECT id,dbase_name FROM user_dbases ORDER BY id',
+				undef, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $user_db (@$remote_user_dbs) {
+				my $remote_db_username = $q->cookie("$user_db->{'dbase_name'}_user");
+				if ($remote_db_username) {
 
-				#Check that user exists in database
-				my $user_info = $self->{'datastore'}->get_user_info_from_username($remote_db_username);
-				return $remote_db_username if $user_info && ( $user_info->{'user_db'} // 0 ) == $user_db->{'id'};
+					#Check that user exists in database
+					my $user_info = $self->{'datastore'}->get_user_info_from_username($remote_db_username);
+					return $remote_db_username if $user_info && ( $user_info->{'user_db'} // 0 ) == $user_db->{'id'};
+				}
 			}
 		}
 	}

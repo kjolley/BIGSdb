@@ -128,7 +128,7 @@ sub _get_standard_links {
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
 	my $buffer;
-	foreach (qw (users user_groups user_group_members curator_permissions)) {
+	foreach (qw (users user_groups user_group_members permissions)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
 			try {
@@ -363,7 +363,7 @@ sub _print_user_group_members {    ## no critic (ProhibitUnusedPrivateSubroutine
 	);
 }
 
-sub _print_curator_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return
 	    qq(<tr class="td$td"><td>curator permissions<td></td><td><td>)

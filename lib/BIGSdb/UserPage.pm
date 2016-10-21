@@ -21,11 +21,56 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::VersionPage);
+use Log::Log4perl qw(get_logger);
+use BIGSdb::BIGSException;
+use BIGSdb::Login;
+use Error qw(:try);
+my $logger = get_logger('BIGSdb.Application_Authentication');
 
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>);
+	if ( $self->{'config'}->{'site_user_dbs'} ) {
+		$self->_site_account;
+		return;
+	}
 	$self->print_about_bigsdb;
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery noCache);
+	return if !$self->{'config'}->{'site_user_dbs'};
+
+	#We may be logged in to a different user database than the one containing
+	#the logged in user details. Make sure the DBI object is set to correct
+	#database.
+	my $att = {
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'}
+	};
+	try {
+		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+	};
+	$self->{'datastore'}->change_db( $self->{'db'} );
+	$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
+	return;
+}
+
+sub _site_account {
+	my ($self) = @_;
+	my $user_name = $self->{'username'};
+	if ($user_name) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+		say qq(<p>Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($user_name)</p>);
+	}
 	return;
 }
 1;

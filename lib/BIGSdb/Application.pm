@@ -72,6 +72,7 @@ use BIGSdb::CGI::as_utf8;
 use DBI;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit login logout);
@@ -108,7 +109,10 @@ sub new {
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
+	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
 	my $q = $self->{'cgi'};
+	$self->initiate_authdb
+	  if $self->{'config'}->{'site_user_dbs'} || ($self->{'system'}->{'authentication'} // q()) eq 'builtin';
 
 	if ( $self->{'instance'} && !$self->{'error'} ) {
 		$self->db_connect;
@@ -116,11 +120,9 @@ sub new {
 			$self->setup_datastore;
 			$self->_setup_prefstore;
 			if ( !$self->{'system'}->{'authentication'} ) {
-				my $logger = get_logger('BIGSdb.Application_Authentication');
 				$logger->logdie( q(No authentication attribute set - set to either 'apache' or 'builtin' )
 					  . q(in the system tag of the XML database description.) );
 			}
-			$self->initiate_authdb if $self->{'system'}->{'authentication'} eq 'builtin';
 			$self->{'datastore'}->initiate_userdbs;
 			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
 			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
@@ -129,6 +131,16 @@ sub new {
 			  && $self->{'config'}->{'jobs_db'};
 			my %submission_handler_pages = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
 			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };
+		}
+	} elsif ( $self->{'page'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
+
+		#Set db to one of these, connect and then inititate Datastore etc.
+		#We can change the Datastore db later if needed.
+		$self->{'system'}->{'db'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
+		$self->{'system'}->{'webroot'} = '/';
+		$self->db_connect;
+		if ( $self->{'db'} ) {
+			$self->setup_datastore;
 		}
 	}
 	$self->initiate_plugins($lib_dir);
@@ -148,7 +160,6 @@ sub _initiate {
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
 	$self->read_host_mapping_file($config_dir);
-	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $content_length = defined $ENV{'CONTENT_LENGTH'} ? $ENV{'CONTENT_LENGTH'} : 0;
 	if ( $content_length > $CGI::POST_MAX ) {
 		$self->{'error'} = 'tooBig';
@@ -165,11 +176,12 @@ sub _initiate {
 	$self->{'page'} = $q->param('page');
 
 	#Default entry page
-	if ( !$db ) {
+	if ( !$db || $q->param('page') eq 'user' ) {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
 		$self->{'page'}                    = 'user';
+		$q->param(page => 'user');
 		return;
 	}
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
@@ -217,7 +229,7 @@ sub _initiate {
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$q->param( page => 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
-	$self->{'system'}->{'read_access'} //= 'public';   #everyone can view by default
+	$self->{'system'}->{'read_access'} //= 'public';    #everyone can view by default
 	$self->set_dbconnection_params;
 	$self->{'system'}->{'privacy'} //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
@@ -267,7 +279,7 @@ sub set_system_overrides {
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
 		open( my $fh, '<', $override_file )
-		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $override_file for reading");
+		  || $logger->error("Can't open $override_file for reading");
 		while ( my $line = <$fh> ) {
 			next if $line =~ /^\#/x;
 			$line =~ s/^\s+//x;
@@ -283,8 +295,7 @@ sub set_system_overrides {
 
 sub initiate_authdb {
 	my ($self) = @_;
-	my $logger = get_logger('BIGSdb.Application_Initiate');
-	my %att    = (
+	my %att = (
 		dbase_name => $self->{'config'}->{'auth_db'},
 		host       => $self->{'system'}->{'host'},
 		port       => $self->{'system'}->{'port'},
@@ -339,7 +350,6 @@ sub _initiate_jobmanager {
 
 sub read_config_file {
 	my ( $self, $config_dir ) = @_;
-	my $logger = get_logger('BIGSdb.Application_Initiate');
 	my $config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	if ( !defined $config ) {
 		$logger->fatal('bigsdb.conf file is not accessible.');
@@ -384,8 +394,13 @@ sub read_config_file {
 	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
 	$self->{'config'}->{'max_upload_size'} //= 32;
 	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
-	if ($self->{'config'}->{'site_user_dbs'}){
-		my @user_dbs = split /\s*,\s*/x,$self->{'config'}->{'site_user_dbs'};
+	if ( $self->{'config'}->{'site_user_dbs'} ) {
+		my @user_dbs;
+		my @user_db_values = split /\s*,\s*/x, $self->{'config'}->{'site_user_dbs'};
+		foreach my $user_db (@user_db_values) {
+			my ( $name, $db_name ) = split /\|/x, $user_db;
+			push @user_dbs, { name => $name, dbase => $db_name };
+		}
 		$self->{'config'}->{'site_user_dbs'} = \@user_dbs;
 	}
 	$self->_read_db_config_file($config_dir);
@@ -394,7 +409,6 @@ sub read_config_file {
 
 sub _read_db_config_file {
 	my ( $self, $config_dir ) = @_;
-	my $logger  = get_logger('BIGSdb.Application_Initiate');
 	my $db_file = "$config_dir/db.conf";
 	if ( !-e $db_file ) {
 		$logger->info("Couldn't find db.conf in $config_dir");
@@ -418,7 +432,7 @@ sub read_host_mapping_file {
 	my $mapping_file = "$config_dir/host_mapping.conf";
 	if ( -e $mapping_file ) {
 		open( my $fh, '<', $mapping_file )
-		  || get_logger('BIGSdb.Application_Initiate')->error("Can't open $mapping_file for reading");
+		  || $logger->error("Can't open $mapping_file for reading");
 		while (<$fh>) {
 			next if /^\s+$/x || /^\#/x;
 			my ( $host, $mapped ) = split /\s+/x, $_;
@@ -444,7 +458,6 @@ sub _setup_prefstore {
 		$pref_db = $self->{'dataConnector'}->get_connection( \%att );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		my $logger = get_logger('BIGSdb.Prefs');
 		$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
 	};
 	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
@@ -490,7 +503,6 @@ sub db_connect {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		my $logger = get_logger('BIGSdb.Application_Initiate');
 		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
 		$self->{'error'} = 'noConnect';
 	};
@@ -505,11 +517,8 @@ sub _db_disconnect {
 	return;
 }
 
-
-
 sub print_page {
-	my ($self)      = @_;
-	my $logger      = get_logger('BIGSdb.Application_Initiate');
+	my ($self) = @_;
 	my $set_options = 0;
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
@@ -654,9 +663,13 @@ sub authenticate {
 			$self->{'handled_error'} = 1;
 		}
 	} else {    #use built-in authentication
-		my $logger = get_logger('BIGSdb.Application_Authentication');
 		$page_attributes->{'auth_db'} = $self->{'auth_db'};
 		$page_attributes->{'vars'}    = $q->Vars;
+		if ($self->{'page'} eq 'user'){
+			$page_attributes->{'show_domains'} = 1;
+			$page_attributes->{'system'}->{'db'}=$q->param('db') if $q->param('db');
+		}
+		
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
@@ -685,9 +698,12 @@ sub authenticate {
 						$page->print_page_content;
 						$authenticated = 0;
 					} else {
+						my $args = {};
+						$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
+						
 						try {
 							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
-							  $page->secure_login;
+							  $page->secure_login($args);
 						}
 						catch BIGSdb::AuthenticationException with {
 
@@ -750,7 +766,6 @@ sub is_user_allowed_access {
 sub _is_name_in_file {
 	my ( $self, $name, $filename ) = @_;
 	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
-	my $logger = get_logger('BIGSdb.Application_Authentication');
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^\#/x;

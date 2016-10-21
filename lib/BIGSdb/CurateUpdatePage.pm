@@ -737,7 +737,7 @@ sub _prepare_extra_inserts_for_users {
 		my @permissions = SUBMITTER_ALLOWED_PERMISSIONS;
 		push @$extra_inserts,
 		  {
-			statement => "DELETE FROM curator_permissions WHERE user_id=? AND permission NOT IN ('@permissions')",
+			statement => "DELETE FROM permissions WHERE user_id=? AND permission NOT IN ('@permissions')",
 			arguments => [ $newdata->{'id'} ]
 		  };
 	}

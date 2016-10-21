@@ -306,7 +306,7 @@ sub print_page_content {
 		$head =~ s/<!DOCTYPE.*?>/$dtd/sx;    #CGI.pm doesn't support HTML5 DOCTYPE
 		$head =~ s/<html[^>]*>/<html>/x;
 		say $head;
-		if ( $self->{'system'}->{'db'} ) {
+		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_login_details;
 			$self->_print_menu;
@@ -1447,7 +1447,7 @@ sub get_record_name {
 		allele_sequences                  => 'allele sequence tag',
 		isolate_aliases                   => 'isolate alias',
 		locus_aliases                     => 'locus alias',
-		curator_permissions               => 'curator permission record',
+		curator                           => 'curator permission record',
 		client_dbases                     => 'client database',
 		client_dbase_loci                 => 'locus to client database definition',
 		client_dbase_schemes              => 'scheme to client database definition',
