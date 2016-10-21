@@ -188,7 +188,7 @@ sub _MD5_login {
 	$self->_timout_logins;    # remove entries older than current_time + $timeout
 	if ( $self->{'vars'}->{'submit'} ) {
 		if ( my $password = $self->_check_password($options) ) {
-			$logger->info("User $self->{'vars'}->{'user'} logged in to $self->{'instance'}.");
+			$logger->info("User $self->{'vars'}->{'user'} logged in.");
 			$self->_delete_session( $self->{'cgi'}->param('session') );
 			return ( $self->{'vars'}->{'user'}, $password );    # return user name and password hash
 		}
@@ -481,7 +481,7 @@ sub _timout_logins {
 sub logout {
 	my ($self) = @_;
 	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'user_cookie'} );
-	$logger->info("User $cookies{$self->{'user_cookie'}} logged out of $self->{'instance'}.")
+	$logger->info("User $cookies{$self->{'user_cookie'}} logged out.")
 	  if $cookies{ $self->{'user_cookie'} } && $cookies{ $self->{'user_cookie'} } ne 'x';
 	$self->_delete_session( $cookies{ $self->{'session_cookie'} } );
 	my $cookies_ref =

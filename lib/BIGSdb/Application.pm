@@ -112,7 +112,7 @@ sub new {
 	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
 	my $q = $self->{'cgi'};
 	$self->initiate_authdb
-	  if $self->{'config'}->{'site_user_dbs'} || ($self->{'system'}->{'authentication'} // q()) eq 'builtin';
+	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
 
 	if ( $self->{'instance'} && !$self->{'error'} ) {
 		$self->db_connect;
@@ -132,11 +132,11 @@ sub new {
 			my %submission_handler_pages = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
 			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };
 		}
-	} elsif ( $self->{'page'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
+	} elsif ( !$self->{'instance'} && $self->{'config'}->{'site_user_dbs'} ) {
 
 		#Set db to one of these, connect and then inititate Datastore etc.
 		#We can change the Datastore db later if needed.
-		$self->{'system'}->{'db'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
+		$self->{'system'}->{'db'}      = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
 		$self->{'system'}->{'webroot'} = '/';
 		$self->db_connect;
 		if ( $self->{'db'} ) {
@@ -180,8 +180,8 @@ sub _initiate {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		$self->{'page'}                    = 'user';
-		$q->param(page => 'user');
+		$self->{'page'} = 'user' if $self->{'page'} ne 'logout';
+		$q->param( page => 'user' );
 		return;
 	}
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
@@ -665,11 +665,10 @@ sub authenticate {
 	} else {    #use built-in authentication
 		$page_attributes->{'auth_db'} = $self->{'auth_db'};
 		$page_attributes->{'vars'}    = $q->Vars;
-		if ($self->{'page'} eq 'user'){
+		if ( !$self->{'instance'} && $self->{'config'}->{'site_user_dbs'} ) {
 			$page_attributes->{'show_domains'} = 1;
-			$page_attributes->{'system'}->{'db'}=$q->param('db') if $q->param('db');
+			$page_attributes->{'system'}->{'db'} = $q->param('db') if $q->param('db');
 		}
-		
 		my $page = BIGSdb::Login->new(%$page_attributes);
 		my $logging_out;
 		if ( $self->{'page'} eq 'logout' ) {
@@ -700,7 +699,6 @@ sub authenticate {
 					} else {
 						my $args = {};
 						$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
-						
 						try {
 							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
 							  $page->secure_login($args);

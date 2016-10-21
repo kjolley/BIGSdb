@@ -315,6 +315,7 @@ sub print_page_content {
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
+			$self->_print_login_details;
 			$self->print_content;
 			$self->_print_site_footer;
 		}
@@ -592,12 +593,13 @@ sub _print_login_details {
 	my $q         = $self->{'cgi'};
 	my $page      = $q->param('page');
 	say q(<div id="logindetails">);
+	my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
 
 	if ( !$user_info ) {
 		if ( !$self->{'username'} ) {
 			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
 				say q(<span class="fa fa-sign-in"></span> )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=login">)
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=${instance_clause}page=login">)
 				  . q(Log in</a>);
 			} else {
 				say q(<i>Not logged in.</i>);
@@ -610,9 +612,9 @@ sub _print_login_details {
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
 		if ( $self->{'username'} ) {
-			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=logout">)
+			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=logout">)
 			  . q(<span class="fa fa-sign-out"></span>Log out</a> | );
-			say qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=changePassword">)
+			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword">)
 			  . q(Change password</a>);
 		}
 	}

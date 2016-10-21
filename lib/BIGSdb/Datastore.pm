@@ -2496,6 +2496,9 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
+	if ($self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'}){
+		return REQUIRED;
+	}
 	if ( ( ( $self->{'system'}->{'read_access'} // q() ) ne 'public' )
 		|| $self->{'curate'} )
 	{
