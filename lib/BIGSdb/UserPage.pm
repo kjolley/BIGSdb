@@ -42,25 +42,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
 	return if !$self->{'config'}->{'site_user_dbs'};
-
-	#We may be logged in to a different user database than the one containing
-	#the logged in user details. Make sure the DBI object is set to correct
-	#database.
-	my $att = {
-		dbase_name => $self->{'system'}->{'db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'}
-	};
-	try {
-		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
-	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
-	};
-	$self->{'datastore'}->change_db( $self->{'db'} );
-	$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
+	$self->use_correct_user_database;
 	return;
 }
 

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,6 +33,14 @@ sub get_title {
 	return $self->{'cgi'}->param('page') eq 'changePassword' ? "Change password - $desc" : "Set user password - $desc";
 }
 
+sub initiate {
+	my ($self) = @_;
+	$self->SUPER::initiate;
+	return if !$self->{'config'}->{'site_user_dbs'};
+	$self->use_correct_user_database;
+	return;
+}
+
 #TODO Don't allow changing passwords for users defined in external database unless specific permission granted.
 sub _can_continue {
 	my ($self) = @_;
@@ -54,7 +62,7 @@ sub _can_continue {
 		$self->_print_interface;
 		return;
 	}
-	if ( !$self->is_admin && $q->param('user') ) {
+	if ( !$self->is_admin && $q->param('user') && $self->{'system'}->{'dbtype'} ne 'user' ) {
 		my $subject_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		if ( $subject_info && $subject_info->{'status'} eq 'admin' ) {
 			say q(<div class="box" id="statusbad"><p>You cannot change the password of an admin )
@@ -147,7 +155,8 @@ sub print_content {
 					say q(<div class="box" id="resultsheader"><p>Password not updated.  )
 					  . q(Please check with the system administrator.</p>);
 				}
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
+				my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
+				say qq(<p><a href="$self->{'system'}->{'script_name'}?$instance_clause">)
 				  . q(Return to index</a></p></div>);
 				return;
 			}

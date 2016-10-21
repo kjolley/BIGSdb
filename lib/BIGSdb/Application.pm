@@ -175,13 +175,14 @@ sub _initiate {
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
 
+	#TODO Move check to new method
 	#Default entry page
 	if ( !$db || $q->param('page') eq 'user' ) {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		$self->{'page'} = 'user' if $self->{'page'} ne 'logout';
-		$q->param( page => 'user' );
+		$self->{'page'} = 'user' if $self->{'page'} ne 'logout' && $self->{'page'} ne 'changePassword';
+		$q->param( page => 'user' ) if $q->param('page') ne 'changePassword';
 		return;
 	}
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';

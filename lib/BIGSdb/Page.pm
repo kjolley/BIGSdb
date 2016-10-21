@@ -1736,6 +1736,7 @@ sub get_query_from_temp_file {
 
 sub is_admin {
 	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} eq 'user';
 	if ( $self->{'username'} ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
 			$self->{'username'}, { cache => 'Page::is_admin' } );
@@ -2555,6 +2556,30 @@ sub modify_dataset_if_needed {
 			$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
 		}
 	}
+	return;
+}
+
+sub use_correct_user_database {
+	my ($self) = @_;
+
+	#We may be logged in to a different user database than the one containing
+	#the logged in user details. Make sure the DBI object is set to correct
+	#database.
+	my $att = {
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'}
+	};
+	try {
+		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
+	}
+	catch BIGSdb::DatabaseConnectionException with {
+		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+	};
+	$self->{'datastore'}->change_db( $self->{'db'} );
+	$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
 	return;
 }
 1;
