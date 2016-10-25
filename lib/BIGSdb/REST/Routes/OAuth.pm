@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,10 +31,10 @@ get '/db/:db/oauth/get_access_token'  => sub { _get_access_token() };
 get '/db/:db/oauth/get_session_token' => sub { _get_session_token() };
 
 sub _get_request_token {
-	my $self            = setting('self');
-	my $params          = params;
-	my $db              = param('db');
-	if (!param('oauth_consumer_key')){
+	my $self   = setting('self');
+	my $params = params;
+	my $db     = param('db');
+	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
@@ -107,10 +107,10 @@ sub _get_request_token {
 }
 
 sub _get_access_token {
-	my $self            = setting('self');
-	my $params          = params;
-	my $db              = param('db');
-	if (!param('oauth_consumer_key')){
+	my $self   = setting('self');
+	my $params = params;
+	my $db     = param('db');
+	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
@@ -200,10 +200,10 @@ sub _get_access_token {
 }
 
 sub _get_session_token {
-	my $self            = setting('self');
-	my $params          = params;
-	my $db              = param('db');
-	if (!param('oauth_consumer_key')){
+	my $self   = setting('self');
+	my $params = params;
+	my $db     = param('db');
+	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
 	my $consumer_secret = $self->{'datastore'}->run_query(
@@ -284,6 +284,13 @@ sub _get_session_token {
 			param('oauth_nonce'),
 			param('oauth_timestamp'),
 			time
+		);
+		$self->{'auth_db'}->do(
+			'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
+			undef, request->address, 'now', 'REST API',
+			param('oauth_consumer_key'),
+			$access_token->{'dbase'},
+			$access_token->{'username'}
 		);
 	};
 	if ($@) {

@@ -10,6 +10,8 @@ reset_password boolean,
 date_entered date,
 datestamp date,
 last_login date,
+interface text,
+user_agent text,
 PRIMARY KEY (dbase,name)
 );
 
