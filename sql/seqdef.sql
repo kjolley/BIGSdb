@@ -1,12 +1,13 @@
 CREATE TABLE users (
-id INTEGER NOT NULL UNIQUE,
+id integer NOT NULL UNIQUE,
 user_name text NOT NULL UNIQUE,
-surname text NOT NULL,
-first_name text NOT NULL,
-email text NOT NULL,
-affiliation text NOT NULL,
-status text NOT NULL,
+surname text,
+first_name text,
+email text,
+affiliation text,
+status text,
 submission_emails boolean,
+user_db integer,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
 curator int NOT NULL,
@@ -16,26 +17,49 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-INSERT INTO users VALUES (0,'setup','','','','','user',FALSE,'now','now',0);
-INSERT INTO users VALUES (-1,'autodefiner','Definer','Auto','','','curator',FALSE,'now','now',0);
+INSERT INTO users VALUES (0,'setup','','','','','user',FALSE,null,'now','now',0);
+INSERT INTO users VALUES (-1,'autodefiner','Definer','Auto','','','curator',FALSE,null,'now','now',0);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON users TO apache;
 
-CREATE TABLE curator_permissions (
+CREATE TABLE user_dbases (
+id int NOT NULL,
+name text NOT NULL,
+dbase_name text NOT NULL,
+dbase_host text,
+dbase_port int,
+dbase_user text,
+dbase_password text,
+list_order int,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (id),
+CONSTRAINT ud_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON user_dbases TO apache;
+
+ALTER TABLE users ADD CONSTRAINT u_user_db FOREIGN KEY (user_db) REFERENCES user_dbases(id) 
+ON DELETE NO ACTION 
+ON UPDATE CASCADE; 
+
+CREATE TABLE permissions (
 user_id integer NOT NULL,
 permission text NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (user_id,permission),
-CONSTRAINT cp_user_id FOREIGN KEY (user_id) REFERENCES users
+CONSTRAINT p_user_id FOREIGN KEY (user_id) REFERENCES users
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT cp_curator FOREIGN KEY (curator) REFERENCES users
+CONSTRAINT p_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON curator_permissions TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON permissions TO apache;
 
 CREATE TABLE user_groups (
 id integer NOT NULL UNIQUE,
