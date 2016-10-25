@@ -94,13 +94,8 @@ sub get_title {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache CryptoJS.MD5);
-
-	# Cookies reference and verify a matching IP address
-	my $ip_addr = $ENV{'REMOTE_ADDR'};
-	$ip_addr =~ s/\.\d+$//x;
-
-	#don't use last part of IP address - due to problems with load-balancing proxies
-	$self->{'ip_addr'} = $ip_addr;
+	$self->{'ip_addr'}    = $ENV{'REMOTE_ADDR'};
+	$self->{'user_agent'} = $ENV{'HTTP_USER_AGENT'};
 	my $unvalidated_user = $self->_get_unvalidated_username;
 	my $database = $self->_get_site_database($unvalidated_user) // $self->{'system'}->{'db'};
 
@@ -126,11 +121,11 @@ sub secure_login {
 	# correctly filled in the name/password field)
 	# so store their current IP address in the database
 	######################################################
-	$self->_set_current_user_IP_address( $user, $self->{'ip_addr'} );
+	$self->_set_current_user_IP_address( $user, $self->{'ip_addr'}, $self->{'user_agent'} );
 	######################################################
 	# Set Cookie information with a session timeout
 	######################################################
-	my $setCookieString = Digest::MD5::md5_hex( $self->{'ip_addr'} . $password_hash . UNIQUE_STRING );
+	my $setCookieString = Digest::MD5::md5_hex( $password_hash . UNIQUE_STRING );
 	my @cookies         = (
 		$self->{'session_cookie'} => $self->{'vars'}->{'session'},
 		$self->{'pass_cookie'}    => $setCookieString,
@@ -152,7 +147,7 @@ sub login_from_cookie {
 	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} }, $options ) || '';
 	throw BIGSdb::AuthenticationException('No valid session') if !$stored_hash;
 	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
-	my $cookie_string    = Digest::MD5::md5_hex( $self->{'ip_addr'} . $stored_hash->{'password'} . UNIQUE_STRING );
+	my $cookie_string    = Digest::MD5::md5_hex( $stored_hash->{'password'} . UNIQUE_STRING );
 	##############################################################
 	# Test the cookies against the current database
 	##############################################################
@@ -161,7 +156,6 @@ sub login_from_cookie {
 	# we allow access.
 	##############################################################
 	if (   $stored_hash->{'password'}
-		&& ( $saved_IP_address // '' ) eq $self->{'ip_addr'}
 		&& ( $cookies{ $self->{'pass_cookie'} } // '' ) eq $cookie_string
 		&& $self->_active_session_exists( $cookies{ $self->{'session_cookie'} }, $cookies{ $self->{'user_cookie'} } ) )
 	{
@@ -261,9 +255,7 @@ sub _print_login_form {
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
 	say q(<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>);
-	say q(<p>Please enter your log-in details.  Part of your IP address is used along with your )
-	  . q(username to set up your session. If you have a session opened on a different computer, )
-	  . q(where the first three parts of the IP address vary, it will be closed when you log in here.</p>);
+	say q(<p>Please enter your log-in details.</p>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are hashed using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => q(password.value=password_field.value; password_field.value=''; )
@@ -383,7 +375,7 @@ sub _get_IP_address {
 	return if !$name;
 	my $dbase_name = $self->get_user_db_name($name);
 	my $ip_address = $self->{'datastore'}->run_query(
-		'SELECT ip_address FROM users WHERE dbase=? AND name=?',
+		'SELECT ip_address FROM users WHERE (dbase,name)=(?,?)',
 		[ $dbase_name, $name ],
 		{ db => $self->{'auth_db'} }
 	);
@@ -391,11 +383,12 @@ sub _get_IP_address {
 }
 
 sub _set_current_user_IP_address {
-	my ( $self, $user_name, $ip_address ) = @_;
+	my ( $self, $user_name, $ip_address, $user_agent ) = @_;
 	my $dbase_name = $self->get_user_db_name($user_name);
 	eval {
 		$self->{'auth_db'}
-		  ->do( 'UPDATE users SET ip_address=? WHERE (dbase,name)=(?,?)', undef, $ip_address, $dbase_name, $user_name );
+		  ->do( 'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
+			undef, $ip_address, 'now', 'web', $user_agent, $dbase_name, $user_name );
 	};
 	if ($@) {
 		$logger->error($@);

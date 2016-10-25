@@ -7,6 +7,9 @@ cost int,
 salt text,
 ip_address text,
 reset_password boolean,
+date_entered date,
+datestamp date,
+last_login date,
 PRIMARY KEY (dbase,name)
 );
 

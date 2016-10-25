@@ -253,14 +253,17 @@ sub _set_password_hash {
 		{ db => $self->{'auth_db'} }
 	);
 	my $qry;
+	my @values = ( $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt );
 
 	if ( !$exists ) {
-		$qry = 'INSERT INTO users (password,algorithm,cost,salt,reset_password,dbase,name) VALUES (?,?,?,?,?,?,?)';
+		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp) '
+		  . 'VALUES (?,?,?,?,?,?,?,?)';
+		push @values, ( $db_name, $name, 'now', 'now' );
 	} else {
-		$qry = 'UPDATE users SET (password,algorithm,cost,salt,reset_password)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
+		$qry = 'UPDATE users SET (password,algorithm,cost,salt,datestamp)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
+		push @values, ( 'now', $db_name, $name );
 	}
-	eval {
-		$self->{'auth_db'}->do( $qry, undef, $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, undef, $db_name, $name ); };
+	eval { $self->{'auth_db'}->do( $qry, undef, @values ); };
 	if ($@) {
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
