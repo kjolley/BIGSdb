@@ -290,6 +290,8 @@ sub _lookup_partial_matches {
 			$match->{'partial_match_allele'} = $match->{'allele'};
 			$match->{'identity'}             = 100;
 			$match->{'allele'}               = $allele_id;
+			$match->{'start'}                = $match->{'predicted_start'};
+			$match->{'end'}                  = $match->{'predicted_end'};
 			push @{ $exact_matches->{$locus} }, $match;
 		}
 	}
@@ -863,12 +865,12 @@ sub _hunt_for_start_and_stop_codons {
 
 			#Don't change start position if already start codon
 			if ( $end == 1 ) {
-				next if $match->{'reverse'} && $first_codon_is_start;
+				next if $match->{'reverse'}  && $first_codon_is_start;
 				next if !$match->{'reverse'} && $last_codon_is_stop;
 				$match->{'predicted_end'} = $original_end + $offset;
 			} elsif ( $end == 2 ) {
 				next if !$match->{'reverse'} && $first_codon_is_start;
-				next if $match->{'reverse'} && $last_codon_is_stop;
+				next if $match->{'reverse'}  && $last_codon_is_stop;
 				$match->{'predicted_start'} = $original_start + $offset;
 			}
 			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
