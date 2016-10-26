@@ -169,13 +169,18 @@ sub _is_authorized {
 	$self->{'client_name'} = $client_name;
 	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
-		'SELECT * FROM api_sessions WHERE (session,dbase)=(?,?)',
-		[ param('oauth_token'), $self->{'system'}->{'db'} ],
+		'SELECT * FROM api_sessions WHERE session=?',
+		 param('oauth_token'),
 		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
+	my $dbase = $self->{'datastore'}->get_dbname_with_user_details($session_token->{'username'});
+	if ($dbase ne $session_token->{'dbase'}){
+		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
+	}
+	
 	my $query_params = params('query');
 	my $body_params  = params('body');
 	my $extra_params = {};

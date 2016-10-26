@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,13 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache);
 	return;
+}
+
+sub _get_resource_desc {
+	my ($self, $username) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
+	return $self->{'system'}->{'description'} if !$user_info->{'user_db'}; 
+	return $self->{'datastore'}->run_query('SELECT name FROM user_dbases WHERE id=?',$user_info->{'user_db'});
 }
 
 sub print_content {
@@ -89,7 +96,7 @@ sub print_content {
 	say qq(<p><b>$client->{'application'} );
 	say qq(version $client->{'version'}) if $client->{'version'};
 	say q(</b></p></fieldset>);
-	my $desc = $self->{'system'}->{'description'};
+	my $desc = $self->_get_resource_desc($self->{'username'}) || 'BIGSdb';
 	if ($desc) {
 		say q(<fieldset style="float:left"><legend>Resource</legend>);
 		say qq(<b>$desc</b>);
@@ -110,12 +117,11 @@ sub _authorize_token {
 	my ( $self, $client ) = @_;
 	my $q        = $self->{'cgi'};
 	my $verifier = BIGSdb::Utils::random_string(8);
+	my $dbase    = $self->{'datastore'}->get_dbname_with_user_details( $self->{'username'} );
 	eval {
-		$self->{'auth_db'}->do(
-			'UPDATE request_tokens SET (username,dbase,verifier,start_time)=(?,?,?,?) WHERE token=?',
-			undef, $self->{'username'}, $self->{'system'}->{'db'},
-			$verifier, time, $q->param('oauth_token')
-		);
+		$self->{'auth_db'}
+		  ->do( 'UPDATE request_tokens SET (username,dbase,verifier,start_time)=(?,?,?,?) WHERE token=?',
+			undef, $self->{'username'}, $dbase, $verifier, time, $q->param('oauth_token') );
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>Token could not be authorized.</p></div>);
@@ -124,7 +130,7 @@ sub _authorize_token {
 	} else {
 		say q(<div class="box" id="resultspanel">);
 		my $version = $client->{'version'} ? " version $client->{'version'} " : '';
-		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+		my $desc = $self->_get_resource_desc($self->{'username'}) || 'BIGSdb';
 		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> )
 		  . q(on your behalf.</p>);
 		say qq(<p>Enter the following verification code when asked by $client->{'application'}.</p>);
@@ -181,10 +187,11 @@ sub _modify_authorization {
 			  . qq(application$plural:</p><ul><li>@revoked</li></ul></div>);
 		}
 	}
+	my $dbase   = $self->{'datastore'}->get_dbname_with_user_details( $self->{'username'} );
 	my $clients = $self->{'datastore'}->run_query(
 		'SELECT * FROM clients WHERE client_id IN (SELECT client_id FROM access_tokens '
 		  . 'WHERE (username,dbase)=(?,?)) ORDER BY application',
-		[ $self->{'username'}, $self->{'system'}->{'db'} ],
+		[ $self->{'username'}, $dbase ],
 		{ db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} }
 	);
 	if ( !@$clients ) {
@@ -200,6 +207,7 @@ sub _modify_authorization {
 	say q(<fieldset style="float:left"><legend>Applications</legend>);
 	say q(<table class="resultstable"><tr><th>Application</th><th>Version</th><th>Revoke</th></tr>);
 	my $td = 1;
+
 	foreach my $client (@$clients) {
 		$client->{'version'} //= '-';
 		say qq(<tr class="td$td"><td>$client->{'application'}</td><td>$client->{'version'}</td><td>);

@@ -584,6 +584,17 @@ sub get_user_dbnames {
 	return $self->{'user_dbnames'};
 }
 
+sub get_dbname_with_user_details {
+	my ( $self, $username ) = @_;
+	my $user_info = $self->get_user_info_from_username($username);
+	return $self->{'system'}->{'db'} if !$user_info->{'user_db'};
+	return $self->run_query(
+		'SELECT dbase_name FROM user_dbases WHERE id=?',
+		$user_info->{'user_db'},
+		{ cache => 'get_dbname_with_user_details' }
+	);
+}
+
 sub user_name_exists {
 	my ( $self, $name ) = @_;
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)', $name );
@@ -2496,7 +2507,7 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
-	if ($self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'}){
+	if ( $self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
 		return REQUIRED;
 	}
 	if ( ( ( $self->{'system'}->{'read_access'} // q() ) ne 'public' )
