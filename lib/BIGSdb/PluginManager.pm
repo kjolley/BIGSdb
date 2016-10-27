@@ -190,6 +190,7 @@ sub _has_required_item {
 		ref_db        => 'ref_?db',
 		emboss_path   => 'emboss',
 		muscle_path   => 'muscle',
+		clustalw_path => 'clustalw',
 		aligner       => 'aligner',
 		mogrify_path  => 'mogrify',
 		jobs_db       => 'offline_jobs'

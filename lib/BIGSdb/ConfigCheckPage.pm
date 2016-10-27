@@ -60,6 +60,7 @@ sub _check_helpers {
 		makeblastdb        => $self->{'config'}->{'blast+_path'} . '/makeblastdb',
 		mafft              => $self->{'config'}->{'mafft_path'},
 		muscle             => $self->{'config'}->{'muscle_path'},
+		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
 		mogrify            => $self->{'config'}->{'mogrify_path'},
 	);
