@@ -762,7 +762,7 @@ sub print_scheme_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>)
 	  . q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>)
-	  . q(<div id="tree" class="tree" style="height:13em; width:20em">);
+	  . q(<div id="tree" class="tree" style="height:14em; width:20em">);
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 	say q(</div>);
 	if ( $options->{'fields_or_loci'} ) {

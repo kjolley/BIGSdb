@@ -54,7 +54,7 @@ sub get_attributes {
 		system_flag => 'PhyloViz',
 		requires    => 'js_tree',
 		help        => 'tooltips',
-		order       => 33,
+		order       => 36,
 		min         => 2,
 		max         => 10000
 	);

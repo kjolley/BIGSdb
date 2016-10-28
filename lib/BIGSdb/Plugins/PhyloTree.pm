@@ -30,7 +30,7 @@ use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
 use BIGSdb::Utils;
-use constant LIMIT           => 1000;
+use constant MAX_RECORDS     => 1000;
 use constant MAX_SEQS        => 100_000;
 use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
 use constant ITOL_DOMAIN     => 'itol.embl.de';
@@ -56,9 +56,9 @@ sub get_attributes {
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree,clustalw',
 		system_flag      => 'PhyloTree',
-		order            => 30,
+		order            => 35,
 		min              => 2,
-		max              => LIMIT
+		max              => MAX_RECORDS
 	);
 	return \%att;
 }
@@ -69,7 +69,8 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	my $desc       = $self->get_db_description;
-	my $max_seqs = $self->{'system'}->{'phylotree_limit'} // MAX_SEQS;
+	my $max_records = $self->{'system'}->{'phylotree_record_limit'} // MAX_RECORDS;
+	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
 	say "<h1>Generate phylogenetic trees - $desc</h1>";
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
@@ -139,6 +140,10 @@ sub run {
 				return;
 			}
 			$q->delete('list');
+			my @itol_dataset = $q->param('itol_dataset');
+			$q->delete('itol_dataset');
+			local $" = '||';
+			$params->{'itol_dataset'} = "@itol_dataset";
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -158,17 +163,62 @@ sub run {
 	}
 	my $limit = $self->_get_limit;
 	say q(<div class="box" id="queryform">);
-	say q(<p>This script will generate phylogenetic trees. Only DNA loci that have a corresponding database )
-	  . q(containing allele sequence identifiers, )
+
+	#TODO Remove BETA flag.
+	say q(<p><span class="flag" style="color:red">BETA</span> Please report any issues with this plugin to )
+	  . q(<a href="keith.jolley@zoo.ox.ac.uk">Keith Jolley</a>.</p>);
+	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
+	  . q(loci that have a corresponding database containing allele sequence identifiers, )
 	  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
 	  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	my $commify_max_seqs = BIGSdb::Utils::commify($max_seqs);
-	say qq(<p>Analysis is limited to $commify_max_seqs sequences (records x loci).</p>);
+	my $commify_max_records = BIGSdb::Utils::commify($max_records);
+	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
+	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
 	my $list = $self->get_id_list( $pk, $query_file );
 	$self->print_sequence_export_form( $pk, $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
 	say q(</div>);
 	return;
+}
+
+sub print_extra_form_elements {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my @allowed_fields;
+	my %disabled = map { $_ => 1 } qw(id comments date_entered datestamp sender curator);
+	if ( $self->{'system'}->{'noshow'} ) {
+		my @noshow = split /,/x, $self->{'system'}->{'noshow'};
+		$disabled{$_} = 1 foreach @noshow;
+	}
+	foreach my $field (@$fields) {
+		next if $disabled{$field};
+		push @allowed_fields, $field;
+	}
+	say q(<fieldset style="float:left"><legend>iTol datasets</legend>);
+	say q(<p>Select to create data overlays</p>);
+	say $q->scrolling_list(
+		-name     => 'itol_dataset',
+		-id       => 'itol_dataset',
+		-values   => \@allowed_fields,
+		-size     => 8,
+		-multiple => 'true'
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub _get_identifier_list {
+	my ( $self, $fasta_file ) = @_;
+	open( my $fh, '<', $fasta_file ) || $logger->error("Cannot open $fasta_file for reading");
+	my @ids;
+	while ( my $line = <$fh> ) {
+		if ( $line =~ /^>(\S*)/x ) {
+			push @ids, $1;
+		}
+	}
+	close $fh;
+	return \@ids;
 }
 
 sub run_job {
@@ -183,7 +233,7 @@ sub run_job {
 		{
 			job_id       => $job_id,
 			params       => $params,
-			limit        => LIMIT,
+			limit        => MAX_RECORDS,
 			ids          => $ids,
 			loci         => $loci,
 			filename     => $filename,
@@ -223,7 +273,8 @@ sub run_job {
 				$self->{'jobManager'}->update_job_output( $job_id,
 					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)', } );
 			}
-			$self->_itol_upload( $job_id, \$message_html );
+			my $identifiers = $self->_get_identifier_list($fasta_file);
+			$self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
 		}
 		catch BIGSdb::CannotOpenFileException with {
 			$logger->error('Cannot create FASTA file from XMFA.');
@@ -235,7 +286,7 @@ sub run_job {
 }
 
 sub _itol_upload {
-	my ( $self, $job_id, $message_html ) = @_;
+	my ( $self, $job_id, $params, $identifiers, $message_html ) = @_;
 	$self->{'jobManager'}
 	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
 	my $tree_file          = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
@@ -245,8 +296,18 @@ sub _itol_upload {
 	my $zip = Archive::Zip->new;
 	$zip->addFile("$job_id.tree");
 
+	if ( $params->{'itol_dataset'} ) {
+		my @itol_dataset_fields = split /\|\|/x, $params->{'itol_dataset'};
+		my $i = 1;
+		foreach my $field (@itol_dataset_fields) {
+			my $colour = BIGSdb::Utils::get_heatmap_colour_style( $i, scalar @itol_dataset_fields, { rgb => 1 } );
+			$i++;
+			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
+			$zip->addFile($file);
+		}
+	}
 	unless ( $zip->writeToFileNamed("$job_id.zip") == AZ_OK ) {
-		$logger->error('Cannot write zip file');
+		$logger->error("Cannot write $job_id.zip");
 	}
 	unlink $itol_tree_filename;
 	my $uploader = LWP::UserAgent->new( agent => 'BIGSdb' );
@@ -272,8 +333,7 @@ sub _itol_upload {
 				my $url    = ITOL_TREE_URL . "/$1";
 				my $domain = ITOL_DOMAIN;
 				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
-				  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>)
-				  ;
+				  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
 				last;
 			}
 		}
@@ -285,5 +345,49 @@ sub _itol_upload {
 	}
 	unlink "$self->{'config'}->{'secure_tmp_dir'}/$job_id.zip";
 	return;
+}
+
+sub _create_itol_dataset {
+	my ( $self, $job_id, $identifiers, $field, $colour ) = @_;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$field";
+	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
+	say $fh 'DATASET_TEXT';
+	say $fh 'SEPARATOR TAB';
+	say $fh "DATASET_LABEL\t$field";
+	say $fh "COLOR\t$colour";
+	say $fh 'DATA';
+	my %value_colour;
+
+	#Find out how many distinct values there are in dataset
+	my @ids;
+	foreach my $identifier (@$identifiers) {
+		if ( $identifier =~ /^(\d+)/x ) {
+			push @ids, $1;
+		}
+	}
+	if ( !$self->{'temp_list_created'} ) {
+		$self->{'datastore'}->create_temp_list_table_from_array( 'int', \@ids, { table => $job_id } );
+		$self->{'temp_list_created'} = 1;
+	}
+	my $distinct =
+	  $self->{'datastore'}->run_query( "SELECT COUNT(DISTINCT($field)) FROM $self->{'system'}->{'view'} "
+		  . "WHERE id IN (SELECT value FROM $job_id) AND $field IS NOT NULL" );
+	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
+	my $i     = 1;
+	foreach my $identifier (@$identifiers) {
+		if ( $identifier =~ /^(\d+)/x ) {
+			my $id   = $1;
+			my $data = $self->{'datastore'}->run_query( "SELECT $field FROM $self->{'system'}->{'view'} WHERE id=?",
+				$id, { cache => "PhyloTree::itol_dataset::$field" } );
+			next if !defined $data;
+			if ( !$value_colour{$data} ) {
+				$value_colour{$data} = BIGSdb::Utils::get_heatmap_colour_style( $i, $distinct, { rgb => 1 } );
+				$i++;
+			}
+			say $fh "$identifier\t$data\t-1\t$value_colour{$data}\tnormal\t1";
+		}
+	}
+	close $fh;
+	return $filename;
 }
 1;
