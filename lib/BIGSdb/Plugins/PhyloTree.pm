@@ -195,7 +195,7 @@ sub print_extra_form_elements {
 		next if $disabled{$field};
 		push @allowed_fields, $field;
 	}
-	say q(<fieldset style="float:left"><legend>iTol datasets</legend>);
+	say q(<fieldset style="float:left"><legend>iTOL datasets</legend>);
 	say q(<p>Select to create data overlays</p>);
 	say $q->scrolling_list(
 		-name     => 'itol_dataset',
@@ -295,6 +295,7 @@ sub _itol_upload {
 	chdir $self->{'config'}->{'secure_tmp_dir'};
 	my $zip = Archive::Zip->new;
 	$zip->addFile("$job_id.tree");
+	my @files_to_delete = ($itol_tree_filename);
 
 	if ( $params->{'itol_dataset'} ) {
 		my @itol_dataset_fields = split /\|\|/x, $params->{'itol_dataset'};
@@ -304,12 +305,13 @@ sub _itol_upload {
 			$i++;
 			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
 			$zip->addFile($file);
+			push @files_to_delete, $file;
 		}
 	}
 	unless ( $zip->writeToFileNamed("$job_id.zip") == AZ_OK ) {
 		$logger->error("Cannot write $job_id.zip");
 	}
-	unlink $itol_tree_filename;
+	unlink @files_to_delete;
 	my $uploader = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $response = $uploader->post(
 		ITOL_UPLOAD_URL,
