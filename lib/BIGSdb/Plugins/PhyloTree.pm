@@ -33,6 +33,7 @@ use BIGSdb::Utils;
 use constant LIMIT           => 1000;
 use constant MAX_SEQS        => 100_000;
 use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_DOMAIN     => 'itol.embl.de';
 use constant ITOL_TREE_URL   => 'http://itol.embl.de/tree';
 
 sub get_attributes {
@@ -268,8 +269,11 @@ sub _itol_upload {
 
 			#upload without warnings, ID on first line
 			if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
-				my $url = ITOL_TREE_URL . "/$1";
-				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a></li></ul>);
+				my $url    = ITOL_TREE_URL . "/$1";
+				my $domain = ITOL_DOMAIN;
+				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
+				  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>)
+				  ;
 				last;
 			}
 		}
