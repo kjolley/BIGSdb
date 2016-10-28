@@ -627,6 +627,8 @@ sub get_field_value {
 		$value = $isolate_data->{ lc($field) } // '';
 	}
 	$value =~ tr/ /_/;
+	$value =~ tr/(/_/;
+	$value =~ tr/)/_/;
 	return $value;
 }
 

@@ -26,13 +26,14 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(uniq);
+use File::Copy;
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use LWP::UserAgent;
 use BIGSdb::Utils;
-
-#use constant DEFAULT_ALIGN_LIMIT => 200;
-#use BIGSdb::Constants qw(LOCUS_PATTERN);
-#use BIGSdb::Plugin qw(SEQ_SOURCE);
-use constant LIMIT    => 1000;
-use constant MAX_SEQS => 100_000;
+use constant LIMIT           => 1000;
+use constant MAX_SEQS        => 100_000;
+use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_TREE_URL   => 'http://itol.embl.de/tree';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -53,7 +54,8 @@ sub get_attributes {
 		input            => 'query',
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree,clustalw',
-		order            => 22,
+		system_flag      => 'PhyloTree',
+		order            => 30,
 		min              => 2,
 		max              => LIMIT
 	);
@@ -209,27 +211,18 @@ sub run_job {
 			  ->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}->update_job_output(
-					$job_id,
-					{
-						filename    => "$job_id.fas",
-						description => '10_Concatenated FASTA',
-					}
-				);
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.fas", description => '10_Concatenated FASTA', } );
 			}
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
 			my $tree_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
-			my $cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
+			my $cmd       = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
 			system $cmd;
-			if (-e $tree_file){
-				$self->{'jobManager'}->update_job_output(
-					$job_id,
-					{
-						filename    => "$job_id.ph",
-						description => '20_NJ tree (Newick format)',
-					}
-				);
+			if ( -e $tree_file ) {
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)', } );
 			}
+			$self->_itol_upload( $job_id, \$message_html );
 		}
 		catch BIGSdb::CannotOpenFileException with {
 			$logger->error('Cannot create FASTA file from XMFA.');
@@ -237,6 +230,56 @@ sub run_job {
 		unlink $filename if -e "$filename.gz";
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
+	return;
+}
+
+sub _itol_upload {
+	my ( $self, $job_id, $message_html ) = @_;
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
+	my $tree_file          = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
+	my $itol_tree_filename = "$self->{'config'}->{'secure_tmp_dir'}/$job_id.tree";
+	copy( $tree_file, $itol_tree_filename ) or $logger->error("Copy failed: $!");
+	chdir $self->{'config'}->{'secure_tmp_dir'};
+	my $zip = Archive::Zip->new;
+	$zip->addFile("$job_id.tree");
+
+	unless ( $zip->writeToFileNamed("$job_id.zip") == AZ_OK ) {
+		$logger->error('Cannot write zip file');
+	}
+	unlink $itol_tree_filename;
+	my $uploader = LWP::UserAgent->new( agent => 'BIGSdb' );
+	my $response = $uploader->post(
+		ITOL_UPLOAD_URL,
+		Content_Type => 'form-data',
+		Content      => [ zipFile => ["$job_id.zip"] ]
+	);
+	if ( $response->is_success ) {
+		my @res = split /\n/x, $response->content;
+		foreach my $res_line (@res) {
+
+			#check for an upload error
+			if ( $res_line =~ /^ERR/x ) {
+				$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned )
+				  . qq(the following error message:\n\n$res[-1]</p>);
+				$logger->error("@res");
+				last;
+			}
+
+			#upload without warnings, ID on first line
+			if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
+				my $url = ITOL_TREE_URL . "/$1";
+				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a></li></ul>);
+				last;
+			}
+		}
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
+	} else {
+		$logger->error( $response->as_string );
+		$$message_html .= q(<p class="statusbad">iTOL upload failed.</p>);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
+	}
+	unlink "$self->{'config'}->{'secure_tmp_dir'}/$job_id.zip";
 	return;
 }
 1;
