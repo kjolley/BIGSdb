@@ -230,6 +230,8 @@ sub run_job {
 	my $ids      = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci     = $self->{'jobManager'}->get_job_loci($job_id);
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	$params->{'align'} = 1;
+	$params->{'aligner'} = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
 	my $ret_val  = $self->make_isolate_seq_file(
 		{
 			job_id       => $job_id,
