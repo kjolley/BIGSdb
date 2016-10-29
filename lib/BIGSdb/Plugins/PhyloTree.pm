@@ -55,7 +55,6 @@ sub get_attributes {
 		input            => 'query',
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree,clustalw',
-		system_flag      => 'PhyloTree',
 		order            => 35,
 		min              => 2,
 		max              => MAX_RECORDS
@@ -142,7 +141,7 @@ sub run {
 			$q->delete('list');
 			my @itol_dataset = $q->param('itol_dataset');
 			$q->delete('itol_dataset');
-			local $" = '||';
+			local $" = '|_|';
 			$params->{'itol_dataset'} = "@itol_dataset";
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
@@ -183,13 +182,14 @@ sub run {
 
 sub print_extra_form_elements {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $q = $self->{'cgi'};
+	my ( $fields, $labels ) =
+	  $self->get_field_selection_list( { isolate_fields => 1, extended_attributes => 1, scheme_fields => 0 } );
 	my @allowed_fields;
-	my %disabled = map { $_ => 1 } qw(id comments date_entered datestamp sender curator);
+	my %disabled = map { $_ => 1 } qw(f_id f_comments f_date_entered f_datestamp f_sender f_curator);
 	if ( $self->{'system'}->{'noshow'} ) {
 		my @noshow = split /,/x, $self->{'system'}->{'noshow'};
-		$disabled{$_} = 1 foreach @noshow;
+		$disabled{"f_$_"} = 1 foreach @noshow;
 	}
 	foreach my $field (@$fields) {
 		next if $disabled{$field};
@@ -201,6 +201,7 @@ sub print_extra_form_elements {
 		-name     => 'itol_dataset',
 		-id       => 'itol_dataset',
 		-values   => \@allowed_fields,
+		-labels   => $labels,
 		-size     => 8,
 		-multiple => 'true'
 	);
@@ -298,12 +299,13 @@ sub _itol_upload {
 	my @files_to_delete = ($itol_tree_filename);
 
 	if ( $params->{'itol_dataset'} ) {
-		my @itol_dataset_fields = split /\|\|/x, $params->{'itol_dataset'};
+		my @itol_dataset_fields = split /\|_\|/x, $params->{'itol_dataset'};
 		my $i = 1;
 		foreach my $field (@itol_dataset_fields) {
 			my $colour = BIGSdb::Utils::get_heatmap_colour_style( $i, scalar @itol_dataset_fields, { rgb => 1 } );
 			$i++;
 			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
+			next if !$file;
 			$zip->addFile($file);
 			push @files_to_delete, $file;
 		}
@@ -351,11 +353,20 @@ sub _itol_upload {
 
 sub _create_itol_dataset {
 	my ( $self, $job_id, $identifiers, $field, $colour ) = @_;
+	my $field_info = $self->_get_field_type($field);
+	my ( $type, $name, $extended_field ) = @{$field_info}{qw(type field extended_field)};
+	( my $cleaned_ext_field = $extended_field ) =~ s/'/\\'/gx;
+	
+	return if !$type;
+	my %dataset_label = (
+		field => $name,
+		extended_field => $extended_field
+	);
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$field";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh 'DATASET_TEXT';
 	say $fh 'SEPARATOR TAB';
-	say $fh "DATASET_LABEL\t$field";
+	say $fh "DATASET_LABEL\t$dataset_label{$type}";
 	say $fh "COLOR\t$colour";
 	say $fh 'DATA';
 	my %value_colour;
@@ -371,16 +382,30 @@ sub _create_itol_dataset {
 		$self->{'datastore'}->create_temp_list_table_from_array( 'int', \@ids, { table => $job_id } );
 		$self->{'temp_list_created'} = 1;
 	}
-	my $distinct =
-	  $self->{'datastore'}->run_query( "SELECT COUNT(DISTINCT($field)) FROM $self->{'system'}->{'view'} "
-		  . "WHERE id IN (SELECT value FROM $job_id) AND $field IS NOT NULL" );
+	my $distinct_qry = {
+		field => "SELECT COUNT(DISTINCT($name)) FROM $self->{'system'}->{'view'} "
+		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL",
+		extended_field => 'SELECT COUNT(DISTINCT(e.value)) FROM isolate_value_extended_attributes AS e '
+		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND e.attribute=E'$cleaned_ext_field' "
+		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id)"
+	};
+	my $distinct = $self->{'datastore'}->run_query( $distinct_qry->{$type} );
+	$logger->error( $distinct_qry->{$type} );
+	$logger->error($distinct);
 	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
 	my $i     = 1;
+	my $qry   = {
+		field          => "SELECT $name FROM $self->{'system'}->{'view'} WHERE id=?",
+		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
+		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
+		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?"
+	};
+
 	foreach my $identifier (@$identifiers) {
 		if ( $identifier =~ /^(\d+)/x ) {
-			my $id   = $1;
-			my $data = $self->{'datastore'}->run_query( "SELECT $field FROM $self->{'system'}->{'view'} WHERE id=?",
-				$id, { cache => "PhyloTree::itol_dataset::$field" } );
+			my $id = $1;
+			my $data =
+			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "PhyloTree::itol_dataset::$field" } );
 			next if !defined $data;
 			if ( !$value_colour{$data} ) {
 				$value_colour{$data} = BIGSdb::Utils::get_heatmap_colour_style( $i, $distinct, { rgb => 1 } );
@@ -391,5 +416,28 @@ sub _create_itol_dataset {
 	}
 	close $fh;
 	return $filename;
+}
+
+sub _get_field_type {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.+)/x ) {
+		if ( $self->{'xmlHandler'}->is_field($1) ) {
+			return { type => 'field', field => $1 };
+		}
+	}
+	if ( $field =~ /^e_(.+)\|\|(.+)/x ) {
+		if (
+			$self->{'xmlHandler'}->is_field($1)
+			&& $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes '
+				  . 'WHERE (isolate_field,attribute)=(?,?))',
+				[ $1, $2 ]
+			)
+		  )
+		{
+			return { type => 'extended_field', field => $1, extended_field => $2 };
+		}
+	}
+	return;
 }
 1;
