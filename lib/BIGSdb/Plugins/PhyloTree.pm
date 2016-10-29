@@ -184,7 +184,7 @@ sub print_extra_form_elements {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $fields, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, extended_attributes => 1, scheme_fields => 0 } );
+	  $self->get_field_selection_list( { isolate_fields => 1, extended_attributes => 1, scheme_fields => 1 } );
 	my @allowed_fields;
 	my %disabled = map { $_ => 1 } qw(f_id f_comments f_date_entered f_datestamp f_sender f_curator);
 	if ( $self->{'system'}->{'noshow'} ) {
@@ -354,14 +354,26 @@ sub _itol_upload {
 sub _create_itol_dataset {
 	my ( $self, $job_id, $identifiers, $field, $colour ) = @_;
 	my $field_info = $self->_get_field_type($field);
-	my ( $type, $name, $extended_field ) = @{$field_info}{qw(type field extended_field)};
+	my ( $type, $name, $extended_field, $scheme_id ) = @{$field_info}{qw(type field extended_field scheme_id)};
+	$extended_field //= q();
 	( my $cleaned_ext_field = $extended_field ) =~ s/'/\\'/gx;
-	
+	my $scheme_field_desc;
+	my $scheme_temp_table = q();
+	my @ids;
+
+	foreach my $identifier (@$identifiers) {
+		if ( $identifier =~ /^(\d+)/x ) {
+			push @ids, $1;
+		}
+	}
+	if ( $type eq 'scheme_field' ) {
+		my $set_id = $self->get_set_id;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$scheme_field_desc = "$name ($scheme_info->{'name'})";
+		$scheme_temp_table = $self->_create_scheme_field_temp_table( \@ids, $scheme_id, $name );
+	}
 	return if !$type;
-	my %dataset_label = (
-		field => $name,
-		extended_field => $extended_field
-	);
+	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$field";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh 'DATASET_TEXT';
@@ -372,12 +384,6 @@ sub _create_itol_dataset {
 	my %value_colour;
 
 	#Find out how many distinct values there are in dataset
-	my @ids;
-	foreach my $identifier (@$identifiers) {
-		if ( $identifier =~ /^(\d+)/x ) {
-			push @ids, $1;
-		}
-	}
 	if ( !$self->{'temp_list_created'} ) {
 		$self->{'datastore'}->create_temp_list_table_from_array( 'int', \@ids, { table => $job_id } );
 		$self->{'temp_list_created'} = 1;
@@ -387,20 +393,19 @@ sub _create_itol_dataset {
 		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL",
 		extended_field => 'SELECT COUNT(DISTINCT(e.value)) FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND e.attribute=E'$cleaned_ext_field' "
-		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id)"
+		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id)",
+		scheme_field => "SELECT COUNT(DISTINCT(value)) FROM $scheme_temp_table"
 	};
 	my $distinct = $self->{'datastore'}->run_query( $distinct_qry->{$type} );
-	$logger->error( $distinct_qry->{$type} );
-	$logger->error($distinct);
-	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
-	my $i     = 1;
-	my $qry   = {
+	my $count    = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
+	my $i        = 1;
+	my $qry      = {
 		field          => "SELECT $name FROM $self->{'system'}->{'view'} WHERE id=?",
 		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
-		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?"
+		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
+		scheme_field => "SELECT value FROM $scheme_temp_table WHERE id=?"
 	};
-
 	foreach my $identifier (@$identifiers) {
 		if ( $identifier =~ /^(\d+)/x ) {
 			my $id = $1;
@@ -416,6 +421,23 @@ sub _create_itol_dataset {
 	}
 	close $fh;
 	return $filename;
+}
+
+sub _create_scheme_field_temp_table {
+	my ( $self, $ids, $scheme_id, $field ) = @_;
+	my $temp_table = "temp_${scheme_id}_$field";
+	eval {
+		$self->{'db'}->do("CREATE TEMP table $temp_table (id int, value text,PRIMARY KEY (id))");
+		foreach my $id (@$ids) {
+			my $values =
+			  $self->get_scheme_field_values( { isolate_id => $id, scheme_id => $scheme_id, field => $field } );
+			next if !defined $values->[0];
+			local $" = q(; );
+			$self->{'db'}->do( "INSERT INTO $temp_table VALUES (?,?)", undef, $id, "@$values" );
+		}
+	};
+	$logger->error($@) if $@;
+	return $temp_table;
 }
 
 sub _get_field_type {
@@ -436,6 +458,11 @@ sub _get_field_type {
 		  )
 		{
 			return { type => 'extended_field', field => $1, extended_field => $2 };
+		}
+	}
+	if ( $field =~ /^s_(\d+)_(.+)/x ) {
+		if ( $self->{'datastore'}->is_scheme_field( $1, $2 ) ) {
+			return { type => 'scheme_field', scheme_id => $1, field => $2 };
 		}
 	}
 	return;
