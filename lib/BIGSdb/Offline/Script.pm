@@ -19,6 +19,7 @@
 package BIGSdb::Offline::Script;
 use strict;
 use warnings;
+use 5.010;
 use parent qw(BIGSdb::Application);
 use CGI;
 use DBI;
@@ -69,16 +70,27 @@ sub new {
 }
 
 sub initiate {
-	my ($self)    = @_;
-	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
-	$self->{'xmlHandler'} = BIGSdb::Parser->new;
-	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
-	eval { $parser->parse( Source => { SystemId => $full_path } ); };
-	if ($@) {
-		$self->{'logger'}->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
-		return;
+	my ($self) = @_;
+	
+
+	
+	if ( $self->{'instance'} ) {
+		my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
+		$self->{'xmlHandler'} = BIGSdb::Parser->new;
+		my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
+		eval { $parser->parse( Source => { SystemId => $full_path } ); };
+		if ($@) {
+			$self->{'logger'}->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
+			return;
+		}
+		$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	} elsif ($self->{'options'}->{'user_database'}){
+		$self->{'system'}->{'db'} = $self->{'options'}->{'user_database'};
+		
+		$self->{'system'}->{'dbtype'} = 'user';
+
+		
 	}
-	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
 	$self->{'system'}->{'host'}     = $self->{'host'}     // $self->{'system'}->{'host'}     // 'localhost';
 	$self->{'system'}->{'port'}     = $self->{'port'}     // $self->{'system'}->{'port'}     // 5432;
 	$self->{'system'}->{'user'}     = $self->{'user'}     // $self->{'system'}->{'user'}     // 'apache';
@@ -182,6 +194,7 @@ sub get_isolates {
 	$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)"
 	  if $options->{'with_seqbin'};
 	my $where_or_and = $options->{'with_seqbin'} ? 'AND' : 'WHERE';
+
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;

@@ -553,6 +553,7 @@ sub _get_unvalidated_username {
 				my $remote_db_username = $q->cookie("$user_db->{'dbase'}_user");
 				if ($remote_db_username) {
 					$self->{'system'}->{'db'} = $user_db->{'dbase'};
+					$self->{'system'}->{'description'} = $user_db->{'name'};
 					return $remote_db_username;
 				}
 			}

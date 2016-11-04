@@ -136,8 +136,9 @@ sub new {
 
 		#Set db to one of these, connect and then inititate Datastore etc.
 		#We can change the Datastore db later if needed.
-		$self->{'system'}->{'db'}      = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
-		$self->{'system'}->{'webroot'} = '/';
+		$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
+		$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
+		$self->{'system'}->{'webroot'}     = '/';
 		$self->db_connect;
 		if ( $self->{'db'} ) {
 			$self->setup_datastore;
@@ -277,6 +278,7 @@ sub set_dbconnection_params {
 
 sub set_system_overrides {
 	my ($self) = @_;
+	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
 		open( my $fh, '<', $override_file )

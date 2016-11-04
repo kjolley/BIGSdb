@@ -26,3 +26,25 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON permissions TO apache;
+
+CREATE TABLE resources (
+dbase_config text NOT NULL UNIQUE,
+PRIMARY KEY (dbase_config)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON resources TO apache;
+
+CREATE TABLE registered_users (
+dbase_config text NOT NULL,
+user_name text NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (dbase_config,user_name),
+CONSTRAINT ru_user_name FOREIGN KEY (user_name) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT ru_dbase_config FOREIGN KEY (dbase_config) REFERENCES resources
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON registered_users TO apache;

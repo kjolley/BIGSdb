@@ -23,17 +23,21 @@ use 5.010;
 use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::BIGSException;
+use XML::Parser::PerlSAX;
+use BIGSdb::Parser;
 use BIGSdb::Login;
+use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 
 sub print_content {
 	my ($self) = @_;
-	say q(<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>);
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
+		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
 		$self->_site_account;
 		return;
 	}
+	say q(<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>);
 	$self->print_about_bigsdb;
 	return;
 }
@@ -49,10 +53,178 @@ sub initiate {
 sub _site_account {
 	my ($self) = @_;
 	my $user_name = $self->{'username'};
-	if ($user_name) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
-		say qq(<p>Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($user_name)</p>);
+	if ( !$user_name ) {
+		$logger->error('User not logged in - this should not be possible.');
+		$self->print_about_bigsdb;
+		return;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+	$self->_show_user_roles;
+	$self->_show_admin_roles;
+	return;
+}
+
+sub _show_user_roles {
+	my ($self) = @_;
+	my $buffer;
+	$buffer.= $self->_registrations;
+	if ($buffer){
+		say q(<div class="box" id="queryform">);
+		say $buffer;
+		say q(</div>);
 	}
 	return;
+}
+
+sub _registrations {
+	my ($self) = @_;
+	my $buffer=q();
+	my $registered_configs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
+	return $buffer;
+}
+
+sub _show_admin_roles {
+	my ($self) = @_;
+	my $buffer;
+	$buffer .= $self->_import_dbase_config;
+	if ($buffer) {
+		say q(<div class="box" id="restricted">);
+		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say $buffer;
+		say q(</div>);
+	}
+	return;
+}
+
+sub _is_config_registered {
+	my ( $self, $config ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM resources WHERE dbase_config=?)',
+		$config, { cache => 'UserPage::resource_registered' } );
+}
+
+sub _import_dbase_config {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return q() if !$self->{'permissions'}->{'import_dbase_configs'};
+	if ( $q->param('add') ) {
+		foreach my $config ( $q->param('available') ) {
+			next if $self->_is_config_registered($config);
+			eval { $self->{'db'}->do( 'INSERT INTO resources (dbase_config) VALUES (?)', undef, $config ) };
+			if ($@) {
+				$logger->error($@);
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+			}
+		}
+	} elsif ( $q->param('remove') ) {
+		foreach my $config ( $q->param('registered') ) {
+			eval { $self->{'db'}->do( 'DELETE FROM resources WHERE dbase_config=?', undef, $config ) };
+			if ($@) {
+				$logger->error($@);
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+			}
+		}
+	}
+	my $buffer = q();
+	my $registered_configs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
+	my %registered        = map { $_ => 1 } @$registered_configs;
+	my $dbase_configs     = $self->_get_dbase_configs;
+	my $available_configs = [];
+	foreach my $config (@$dbase_configs) {
+		push @$available_configs, $config if !$registered{$config};
+	}
+	$buffer .= q(<h2>Database configurations</h2>);
+	$buffer .= q(<p>Register configurations by selecting those available and moving to registered. Note that )
+	  . q(user accounts are linked to specific databases rather than the configuration itself.</p>);
+	$buffer .= q(<p><strong>Only register configurations for databases that utilize this site user database!</strong><p>);
+	$buffer .= q(<div class="scrollable">);
+	$buffer .= $q->start_form;
+	$buffer .= qq(<table><tr><th>Available</th><td></td><th>Registered</th></tr>\n<tr><td>);
+	$buffer .= $self->popup_menu(
+		-name     => 'available',
+		-id       => 'available',
+		-values   => $available_configs,
+		-multiple => 'true',
+		-style    => 'min-width:10em; min-height:15em'
+	);
+	$buffer .= q(</td><td>);
+	my ( $add, $remove ) = ( RIGHT, LEFT );
+	$buffer .= qq(<button type="submit" name="add" value="add" class="smallbutton">$add</button>);
+	$buffer .= q(<br />);
+	$buffer .= qq(<button type="submit" name="remove" value="remove" class="smallbutton">$remove</button>);
+	$buffer .= q(</td><td>);
+	$buffer .= $self->popup_menu(
+		-name     => 'registered',
+		-id       => 'registered',
+		-values   => $registered_configs,
+		-multiple => 'true',
+		-style    => 'min-width:10em; min-height:15em'
+	);
+	$buffer .= q(</td></tr>);
+	$buffer .= q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+	$buffer .= q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
+	  . q(style="margin-top:1em" class="smallbutton" /></td><td></td>);
+	$buffer .= q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("registered",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+	$buffer .= q(<input type="button" onclick='listbox_selectall("registered",false)' value="None" )
+	  . q(style="margin-top:1em" class="smallbutton" />);
+	$buffer .= q(</td></tr>);
+	$buffer .= $q->end_form;
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
+sub _get_dbase_configs {
+	my ($self) = @_;
+	my @configs;
+	opendir( my $dh, $self->{'dbase_config_dir'} )
+	  || $logger->error("Cannot open $self->{'dbase_config_dir'} for reading");
+	my @items = sort readdir $dh;
+	foreach my $item (@items) {
+		next if $item =~ /^\./x;
+		next if !-d "$self->{'dbase_config_dir'}/$item";
+		next if !-e "$self->{'dbase_config_dir'}/$item/config.xml";
+
+		#Don't include configs with symlinked config.xml - these largely duplicate
+		#other configs for specific projects.
+		next if -l "$self->{'dbase_config_dir'}/$item/config.xml";
+		push @configs, $item;
+	}
+	closedir($dh);
+	return \@configs;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+function listbox_selectall(listID, isSelect) {
+	\$("#" + listID + " option").prop("selected",isSelect);
+}
+END
+	return $buffer;
+}
+
+sub _read_config_xml {
+	my ($self, $config) = @_;
+	if (!$self->{'xmlHandler'}){
+		$self->{'xmlHandler'} = BIGSdb::Parser->new;
+	}
+	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
+	my $path = "$self->{'dbase_config_dir'}/$config/config.xml";
+	eval { $parser->parse( Source => { SystemId => $path } ) };
+	if ($@) {
+		$logger->fatal("Invalid XML description: $@");
+		return;
+	}
+	my $system = $self->{'xmlHandler'}->get_system_hash;
+	return $system;
 }
 1;
