@@ -34,13 +34,14 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use List::MoreUtils qw(uniq);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 
 #Direct all library logging calls to screen
 my $log_conf =
     qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
-  . qq(log4perl.category.BIGSdb.Dataconnector = DEBUG, Screen\n)
+  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
   . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
   . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
   . qq(log4perl.appender.Screen.stderr        = 1\n)
@@ -48,7 +49,7 @@ my $log_conf =
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
-GetOptions( 'user_database=s' => \$opts{'user_database'}, 'help' => \$opts{'h'}, )
+GetOptions( 'quiet' => \$opts{'quiet'}, 'user_database=s' => \$opts{'user_database'}, 'help' => \$opts{'h'} )
   or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
@@ -79,17 +80,104 @@ die "This script can only be run against a user database.\n"
 main();
 
 sub main {
-	my $configs = get_registered_configs();
-	foreach my $config (@$configs) {
-		my $system = read_config_xml($config);
-		my $db     = get_db($system);
+	add_new_available_resources();
+	remove_unavailable_resources();
+	return;
+}
+
+sub add_new_available_resources {
+	my $available_configs  = get_available_configs();
+	my %available          = map { $_ => 1 } @$available_configs;
+	my $registered_configs = get_registered_configs();
+	my %registered         = map { $_ => 1 } @$registered_configs;
+	my $possible           = get_dbase_configs();
+	my @list;
+	foreach my $config (@$possible) {
+		if ( !$available{$config} && !$registered{$config} ) {
+			next if !uses_this_user_db($config);
+			add_available_resource($config);
+			push @list, $config;
+		}
+	}
+	if ( @list && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Adding new available resources');
+		say qq(@list);
 	}
 	return;
 }
 
+sub remove_unavailable_resources {
+	my $available_configs = get_available_configs();
+	my $registered_configs = get_registered_configs();
+	my $possible_configs = get_dbase_configs();
+	my %possible = map { $_ => 1 } @$possible_configs;
+	my @list;
+	foreach my $config (uniq (@$available_configs,@$registered_configs)) {
+		if ( !$possible{$config} ) {
+			push @list, $config;
+			remove_resource($config);
+		}
+	}
+	if ( @list && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Removing obsolete resources');
+		say qq(@list);
+	}
+	return;
+}
+
+sub uses_this_user_db {
+	my ($config) = @_;
+	my $system   = read_config_xml($config);
+	my $db       = get_db($system);
+
+	#TODO This can be removed when all databases upgraded.
+	#Check if database has been upgraded.
+	if (
+		!$script->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			'user_dbases', { db => $db }
+		)
+	  )
+	{
+		drop_connection($system);
+		return;
+	}
+	###
+	my $user_dbnames =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT(dbase_name) FROM user_dbases', undef, { fetch => 'col_arrayref', db => $db } );
+
+	#return if !@$user_dbnames;
+	my $match;
+	foreach my $user_dbname (@$user_dbnames) {
+
+		#We can't rely on matching hostname as well so just matching database name will have to do.
+		if ( $user_dbname eq $script->{'system'}->{'db'} ) {
+			$match = 1;
+			last;
+		}
+	}
+	drop_connection($system);
+	return $match;
+}
+
+sub heading {
+	my ($heading) = @_;
+	my $buffer = qq(\n$heading\t\n);    #Trailing tab to prevent Outlook removing line breaks
+	$buffer .= q(-) x length($heading) . qq(\t);
+	return $buffer;
+}
+
+sub get_available_configs {
+	return $script->{'datastore'}->run_query( 'SELECT dbase_config FROM available_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
+}
+
 sub get_registered_configs {
-	return $script->{'datastore'}
-	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
+	return $script->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
 }
 
 sub read_config_xml {
@@ -110,6 +198,20 @@ sub read_config_xml {
 
 sub get_db {
 	my ($system) = @_;
+	my $args     = get_db_connection_args($system);
+	my $db       = $script->{'dataConnector'}->get_connection($args);
+	return $db;
+}
+
+sub drop_connection {
+	my ($system) = @_;
+	my $args = get_db_connection_args($system);
+	$script->{'dataConnector'}->drop_connection($args);
+	return;
+}
+
+sub get_db_connection_args {
+	my ($system) = @_;
 	my $args = {
 		dbase_name => $system->{'db'},
 		host       => $system->{'host'} // $script->{'host'} // HOST,
@@ -117,8 +219,53 @@ sub get_db {
 		user       => $system->{'user'} // $script->{'user'} // USER,
 		password   => $system->{'password'} // $script->{'password'} // PASSWORD,
 	};
-	my $db = $script->{'dataConnector'}->get_connection($args);
-	return $db;
+	return $args;
+}
+
+sub get_dbase_configs {
+	my @configs;
+	opendir( my $dh, $script->{'dbase_config_dir'} )
+	  || $logger->error("Cannot open $script->{'dbase_config_dir'} for reading");
+	my @items = sort readdir $dh;
+	foreach my $item (@items) {
+		next if $item =~ /^\./x;
+		next if !-d "$script->{'dbase_config_dir'}/$item";
+		next if !-e "$script->{'dbase_config_dir'}/$item/config.xml";
+
+		#Don't include configs with symlinked config.xml - these largely duplicate
+		#other configs for specific projects.
+		next if -l "$script->{'dbase_config_dir'}/$item/config.xml";
+		push @configs, $item;
+	}
+	closedir($dh);
+	return \@configs;
+}
+
+sub add_available_resource {
+	my ($config) = @_;
+	eval { $script->{'db'}->do( 'INSERT INTO available_resources (dbase_config) VALUES (?)', undef, $config ); };
+	if (@$) {
+		$script->{'logger'}->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
+	}
+	return;
+}
+
+sub remove_resource {
+	my ($config) = @_;
+	eval {
+		$script->{'db'}->do( 'DELETE FROM available_resources WHERE dbase_config=?',  undef, $config );
+		$script->{'db'}->do( 'DELETE FROM registered_resources WHERE dbase_config=?', undef, $config );
+	};
+	if (@$) {
+		$script->{'logger'}->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
+	}
+	return;
 }
 
 sub show_help {
@@ -137,13 +284,16 @@ ${bold}SYNOPSIS$norm
 
 ${bold}OPTIONS$norm
 
+${bold}--help$norm
+    This help page.
+
+${bold}--quiet$norm
+    Only display error messages.
+
 ${bold}--user_database$norm ${under}NAME$norm
     Database name (actual postgres name - user databases don't have config 
     names).
-    
-${bold}--help$norm
-    This help page.
-    
+        
 HELP
 	return;
 }

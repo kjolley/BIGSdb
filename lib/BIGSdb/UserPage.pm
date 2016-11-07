@@ -60,7 +60,9 @@ sub _site_account {
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
 	$self->_show_user_roles;
-	$self->_show_admin_roles;
+	if ( $self->{'curate'} ) {
+		$self->_show_admin_roles;
+	}
 	return;
 }
 
@@ -80,8 +82,8 @@ sub _registrations {
 	my ($self) = @_;
 	my $buffer = q();
 	my $registered_configs =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
 	return $buffer;
 }
 
@@ -100,7 +102,7 @@ sub _show_admin_roles {
 
 sub _is_config_registered {
 	my ( $self, $config ) = @_;
-	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM resources WHERE dbase_config=?)',
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM registered_resources WHERE dbase_config=?)',
 		$config, { cache => 'UserPage::resource_registered' } );
 }
 
@@ -111,7 +113,7 @@ sub _import_dbase_config {
 	if ( $q->param('add') ) {
 		foreach my $config ( $q->param('available') ) {
 			next if $self->_is_config_registered($config);
-			eval { $self->{'db'}->do( 'INSERT INTO resources (dbase_config) VALUES (?)', undef, $config ) };
+			eval { $self->{'db'}->do( 'INSERT INTO registered_resources (dbase_config) VALUES (?)', undef, $config ) };
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
@@ -121,7 +123,7 @@ sub _import_dbase_config {
 		}
 	} elsif ( $q->param('remove') ) {
 		foreach my $config ( $q->param('registered') ) {
-			eval { $self->{'db'}->do( 'DELETE FROM resources WHERE dbase_config=?', undef, $config ) };
+			eval { $self->{'db'}->do( 'DELETE FROM registered_resources WHERE dbase_config=?', undef, $config ) };
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
@@ -132,19 +134,24 @@ sub _import_dbase_config {
 	}
 	my $buffer = q();
 	my $registered_configs =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
-	my %registered        = map { $_ => 1 } @$registered_configs;
-	my $dbase_configs     = $self->_get_dbase_configs;
+	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
+	my %registered = map { $_ => 1 } @$registered_configs;
+	my $dbase_configs =
+	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM available_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
 	my $available_configs = [];
 	foreach my $config (@$dbase_configs) {
 		push @$available_configs, $config if !$registered{$config};
 	}
 	$buffer .= q(<h2>Database configurations</h2>);
+	if ( !@$registered_configs && !@$available_configs ) {
+		$buffer .= q(<p>There are no configurations available or registered. Please run the sync_user_dbase_users.pl )
+		  . q(script to populate the available configurations.</p>);
+		return $buffer;
+	}
 	$buffer .= q(<p>Register configurations by selecting those available and moving to registered. Note that )
 	  . q(user accounts are linked to specific databases rather than the configuration itself.</p>);
-	$buffer .=
-	  q(<p><strong>Only register configurations for databases that utilize this site user database!</strong><p>);
 	$buffer .= q(<div class="scrollable">);
 	$buffer .= $q->start_form;
 	$buffer .= qq(<table><tr><th>Available</th><td></td><th>Registered</th></tr>\n<tr><td>);
@@ -183,26 +190,6 @@ sub _import_dbase_config {
 	return $buffer;
 }
 
-sub _get_dbase_configs {
-	my ($self) = @_;
-	my @configs;
-	opendir( my $dh, $self->{'dbase_config_dir'} )
-	  || $logger->error("Cannot open $self->{'dbase_config_dir'} for reading");
-	my @items = sort readdir $dh;
-	foreach my $item (@items) {
-		next if $item =~ /^\./x;
-		next if !-d "$self->{'dbase_config_dir'}/$item";
-		next if !-e "$self->{'dbase_config_dir'}/$item/config.xml";
-
-		#Don't include configs with symlinked config.xml - these largely duplicate
-		#other configs for specific projects.
-		next if -l "$self->{'dbase_config_dir'}/$item/config.xml";
-		push @configs, $item;
-	}
-	closedir($dh);
-	return \@configs;
-}
-
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
@@ -211,21 +198,5 @@ function listbox_selectall(listID, isSelect) {
 }
 END
 	return $buffer;
-}
-
-sub _read_config_xml {
-	my ( $self, $config ) = @_;
-	if ( !$self->{'xmlHandler'} ) {
-		$self->{'xmlHandler'} = BIGSdb::Parser->new;
-	}
-	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
-	my $path = "$self->{'dbase_config_dir'}/$config/config.xml";
-	eval { $parser->parse( Source => { SystemId => $path } ) };
-	if ($@) {
-		$logger->fatal("Invalid XML description: $@");
-		return;
-	}
-	my $system = $self->{'xmlHandler'}->get_system_hash;
-	return $system;
 }
 1;

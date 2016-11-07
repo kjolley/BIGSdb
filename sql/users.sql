@@ -27,12 +27,19 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON permissions TO apache;
 
-CREATE TABLE resources (
+CREATE TABLE available_resources (
 dbase_config text NOT NULL UNIQUE,
 PRIMARY KEY (dbase_config)
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON resources TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON available_resources TO apache;
+
+CREATE TABLE registered_resources (
+dbase_config text NOT NULL UNIQUE,
+PRIMARY KEY (dbase_config)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON registered_resources TO apache;
 
 CREATE TABLE registered_users (
 dbase_config text NOT NULL,
