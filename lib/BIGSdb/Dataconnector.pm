@@ -60,13 +60,13 @@ sub initiate {
 sub drop_connection {
 	my ( $self, $attributes ) = @_;
 	my $host = $attributes->{'host'} || $self->{'system'}->{'host'};
+	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	return if !$attributes->{'dbase_name'};
-	if ( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"} ) {
-		$self->_finish_active_statement_handles( $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"},
-			1 );
-		$self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"}->disconnect;
+	if ( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
+		$self->_finish_active_statement_handles( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"}, 1 );
+		$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->disconnect;
 	}
-	undef $self->{'db'}->{"$attributes->{'host'}|$attributes->{'dbase_name'}"};
+	delete $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 	return;
 }
 
@@ -75,7 +75,7 @@ sub drop_all_connections {
 	foreach my $db ( keys %{ $self->{'db'} } ) {
 		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval {
-			$self->{'db'}->{$db}->disconnect
+			      $self->{'db'}->{$db}->disconnect
 			  and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}");
 		};
 		delete $self->{'db'}->{$db};
@@ -109,7 +109,7 @@ sub get_connection {
 			$logger->debug(
 				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}
-		if (BIGSdb::Utils::is_int($self->{'config'}->{'temp_buffers'})){
+		if ( BIGSdb::Utils::is_int( $self->{'config'}->{'temp_buffers'} ) ) {
 			$db->do("SET temp_buffers='$self->{'config'}->{'temp_buffers'}MB'");
 		}
 	}
