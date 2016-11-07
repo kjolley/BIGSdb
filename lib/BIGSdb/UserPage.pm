@@ -67,8 +67,8 @@ sub _site_account {
 sub _show_user_roles {
 	my ($self) = @_;
 	my $buffer;
-	$buffer.= $self->_registrations;
-	if ($buffer){
+	$buffer .= $self->_registrations;
+	if ($buffer) {
 		say q(<div class="box" id="queryform">);
 		say $buffer;
 		say q(</div>);
@@ -78,7 +78,7 @@ sub _show_user_roles {
 
 sub _registrations {
 	my ($self) = @_;
-	my $buffer=q();
+	my $buffer = q();
 	my $registered_configs =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT dbase_config FROM resources ORDER BY dbase_config', undef, { fetch => 'col_arrayref' } );
@@ -143,7 +143,8 @@ sub _import_dbase_config {
 	$buffer .= q(<h2>Database configurations</h2>);
 	$buffer .= q(<p>Register configurations by selecting those available and moving to registered. Note that )
 	  . q(user accounts are linked to specific databases rather than the configuration itself.</p>);
-	$buffer .= q(<p><strong>Only register configurations for databases that utilize this site user database!</strong><p>);
+	$buffer .=
+	  q(<p><strong>Only register configurations for databases that utilize this site user database!</strong><p>);
 	$buffer .= q(<div class="scrollable">);
 	$buffer .= $q->start_form;
 	$buffer .= qq(<table><tr><th>Available</th><td></td><th>Registered</th></tr>\n<tr><td>);
@@ -213,8 +214,8 @@ END
 }
 
 sub _read_config_xml {
-	my ($self, $config) = @_;
-	if (!$self->{'xmlHandler'}){
+	my ( $self, $config ) = @_;
+	if ( !$self->{'xmlHandler'} ) {
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	}
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );

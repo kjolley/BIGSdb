@@ -123,7 +123,8 @@ sub print_page {
 		tableQuery         => 'TableQueryPage',
 		tagScan            => 'CurateTagScanPage',
 		tagUpdate          => 'CurateTagUpdatePage',
-		update             => 'CurateUpdatePage'
+		update             => 'CurateUpdatePage',
+		user => 'UserPage'
 	);
 	my %page_attributes = (
 		system            => $self->{'system'},
@@ -154,7 +155,7 @@ sub print_page {
 			$self->{'handled_error'} = 1;
 		}
 		return;
-	} elsif ( $self->{'page'} eq 'user' ) {
+	} elsif ( $self->{'page'} eq 'user' && !$self->{'config'}->{'site_user_dbs'} ) {
 		$page = BIGSdb::UserPage->new(%page_attributes);
 		$page->print_page_content;
 		return;
@@ -162,6 +163,7 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
+	if ($self->{'page'} ne 'user'){
 	my $user_status =
 	  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $page_attributes{'username'} );
 	if ( !defined $user_status || ( $user_status eq 'user' ) ) {
@@ -173,6 +175,7 @@ sub print_page {
 		}
 		return;
 	}
+	}
 	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -182,7 +185,7 @@ sub print_page {
 		}
 		return;
 	}
-	if ( !$self->{'prefstore'} ) {
+	if ( !$self->{'prefstore'} && $self->{'page'} ne 'user' ) {
 		$page_attributes{'error'} = 'noPrefs';
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
