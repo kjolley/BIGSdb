@@ -82,6 +82,8 @@ main();
 sub main {
 	add_new_available_resources();
 	remove_unavailable_resources();
+	add_registered_users();
+	remove_unregistered_users();
 	return;
 }
 
@@ -108,12 +110,12 @@ sub add_new_available_resources {
 }
 
 sub remove_unavailable_resources {
-	my $available_configs = get_available_configs();
+	my $available_configs  = get_available_configs();
 	my $registered_configs = get_registered_configs();
-	my $possible_configs = get_dbase_configs();
-	my %possible = map { $_ => 1 } @$possible_configs;
+	my $possible_configs   = get_dbase_configs();
+	my %possible           = map { $_ => 1 } @$possible_configs;
 	my @list;
-	foreach my $config (uniq (@$available_configs,@$registered_configs)) {
+	foreach my $config ( uniq( @$available_configs, @$registered_configs ) ) {
 		if ( !$possible{$config} ) {
 			push @list, $config;
 			remove_resource($config);
@@ -131,20 +133,7 @@ sub uses_this_user_db {
 	my ($config) = @_;
 	my $system   = read_config_xml($config);
 	my $db       = get_db($system);
-
-	#TODO This can be removed when all databases upgraded.
-	#Check if database has been upgraded.
-	if (
-		!$script->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-			'user_dbases', { db => $db }
-		)
-	  )
-	{
-		drop_connection($system);
-		return;
-	}
-	###
+	return if _database_not_upgraded( $system, $db );    #TODO Remove
 	my $user_dbnames =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(dbase_name) FROM user_dbases', undef, { fetch => 'col_arrayref', db => $db } );
@@ -178,6 +167,13 @@ sub get_available_configs {
 sub get_registered_configs {
 	return $script->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
+}
+
+sub get_registered_users {
+	my ($config) = @_;
+	return $script->{'datastore'}
+	  ->run_query( 'SELECT user_name FROM registered_users WHERE dbase_config=? ORDER BY user_name',
+		$config, { fetch => 'col_arrayref' } );
 }
 
 sub read_config_xml {
@@ -266,6 +262,111 @@ sub remove_resource {
 		$script->{'db'}->commit;
 	}
 	return;
+}
+
+#TODO This can be removed when all databases upgraded.
+sub _database_not_upgraded {
+	my ( $system, $db ) = @_;
+	if (
+		!$script->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			'user_dbases', { db => $db }
+		)
+	  )
+	{
+		drop_connection($system);
+		return 1;
+	}
+	return;
+}
+
+sub add_registered_users {
+	my $registered_configs = get_registered_configs();
+	my @list;
+	foreach my $config (@$registered_configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		return if _database_not_upgraded( $system, $db );    #TODO Remove
+		my $user_db_id =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
+		my $user_names =
+		  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
+			$user_db_id, { fetch => 'col_arrayref', db => $db } );
+		foreach my $user_name (@$user_names) {
+			next if is_user_registered_for_resource( $config, $user_name );
+			push @list, { config => $config, user_name => $user_name };
+		}
+		drop_connection($system);
+	}
+	if ( @list && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Registering usernames');
+		foreach my $reg (@list) {
+			say qq($reg->{'config'}: $reg->{'user_name'});
+			eval {
+				$script->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+					undef, $reg->{'config'}, $reg->{'user_name'}, 'now' );
+			};
+			if (@$) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	return;
+}
+
+sub remove_unregistered_users {
+	my $registered_configs = get_registered_configs();
+	my @list;
+	foreach my $config (@$registered_configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		return if _database_not_upgraded( $system, $db );    #TODO Remove
+		my $user_db_id =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
+		my $client_db_user_names =
+		  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
+			$user_db_id, { fetch => 'col_arrayref', db => $db } );
+		my %client_user_names = map { $_ => 1 } @$client_db_user_names;
+		my $registered_users = get_registered_users($config);
+		foreach my $registered_user (@$registered_users) {
+			next if $client_user_names{$registered_user};
+			push @list, { config => $config, user_name => $registered_user };
+		}
+		drop_connection($system);
+	}
+	if ( @list && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Removing unregistered usernames');
+		foreach my $reg (@list) {
+			say qq($reg->{'config'}: $reg->{'user_name'});
+			eval {
+				$script->{'db'}->do( 'DELETE FROM registered_users WHERE (dbase_config,user_name)=(?,?)',
+					undef, $reg->{'config'}, $reg->{'user_name'} );
+			};
+			if (@$) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	return;
+}
+
+sub is_user_registered_for_resource {
+	my ( $dbase_config, $user_name ) = @_;
+	return $script->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?))',
+		[ $dbase_config, $user_name ],
+		{ cache => 'is_user_registered_for_resource' }
+	);
 }
 
 sub show_help {
