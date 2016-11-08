@@ -84,6 +84,7 @@ sub main {
 	remove_unavailable_resources();
 	add_registered_users();
 	remove_unregistered_users();
+	set_auto_registration();
 	return;
 }
 
@@ -367,6 +368,45 @@ sub is_user_registered_for_resource {
 		[ $dbase_config, $user_name ],
 		{ cache => 'is_user_registered_for_resource' }
 	);
+}
+
+sub set_auto_registration {
+	my $available = $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM available_resources', undef, { fetch => 'all_arrayref', slice => {} } );
+	my @list;
+	foreach my $available (@$available) {
+		my $system   = read_config_xml( $available->{'dbase_config'} );
+		my $db       = get_db($system);
+		my $auto_reg = $script->{'datastore'}->run_query(
+			'SELECT auto_registration FROM user_dbases WHERE dbase_name=?',
+			$script->{'system'}->{'db'},
+			{ db => $db }
+		);
+		$auto_reg = $auto_reg ? 'true' : 'false';
+		$available->{'auto_registration'} = $available->{'auto_registration'} ? 'true' : 'false';
+		if ( $available->{'auto_registration'} ne $auto_reg ) {
+			push @list, { config => $available->{'dbase_config'}, auto_reg => $auto_reg };
+		}
+		drop_connection($system);
+	}
+	if ( @list && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Updating auto-registration status');
+		foreach my $item (@list) {
+			say qq($item->{'config'}: $item->{'auto_reg'});
+			eval {
+				$script->{'db'}->do( 'UPDATE available_resources SET auto_registration=? WHERE dbase_config=?',
+					undef, $item->{'auto_reg'}, $item->{'config'} );
+			};
+			if (@$) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	return;
 }
 
 sub show_help {

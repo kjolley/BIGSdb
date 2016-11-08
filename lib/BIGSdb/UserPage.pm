@@ -106,6 +106,12 @@ sub _is_config_registered {
 		$config, { cache => 'UserPage::resource_registered' } );
 }
 
+sub _get_autoreg_status {
+	my ( $self, $config ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT auto_registration FROM available_resources WHERE dbase_config=?',
+		$config, { cahce => 'UserPage::get_autoreg_status' } );
+}
+
 sub _import_dbase_config {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -113,7 +119,11 @@ sub _import_dbase_config {
 	if ( $q->param('add') ) {
 		foreach my $config ( $q->param('available') ) {
 			next if $self->_is_config_registered($config);
-			eval { $self->{'db'}->do( 'INSERT INTO registered_resources (dbase_config) VALUES (?)', undef, $config ) };
+			my $reg = $self->_get_autoreg_status($config);
+			eval {
+				$self->{'db'}->do( 'INSERT INTO registered_resources (dbase_config,auto_registration) VALUES (?,?)',
+					undef, $config, $reg );
+			};
 			if ($@) {
 				$logger->error($@);
 				$self->{'db'}->rollback;
