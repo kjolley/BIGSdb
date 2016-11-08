@@ -78,7 +78,9 @@ sub get_user_dbases_table_attributes {
 	my $attributes = [
 		{ name => 'id',   type => 'int',  required => 'yes', primary_key => 'yes' },
 		{ name => 'name', type => 'text', required => 'yes', length      => 30, comments => 'Site/domain name' },
-		{ name => 'list_order', type => 'int' },
+		{ name => 'list_order',        type => 'int' },
+		{ name => 'auto_registration', type => 'bool', comments => 'Allow user to register themself for database' }
+		,
 		{
 			name     => 'dbase_name',
 			type     => 'text',
@@ -169,10 +171,10 @@ sub get_permissions_table_attributes {
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
-	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users 
-	    disable_access)
+	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users
+	  disable_access)
 	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_schemes import_site_users
-	    disable_access );
+	  disable_access );
 	local $" = ';';
 	my $attributes = [
 		{

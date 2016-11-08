@@ -7,6 +7,7 @@ dbase_port int,
 dbase_user text,
 dbase_password text,
 list_order int,
+auto_registration boolean,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
@@ -24,7 +25,6 @@ ALTER TABLE users ALTER COLUMN surname DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN first_name DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN affiliation DROP NOT NULL;
-ALTER TABLE users ALTER COLUMN status DROP NOT NULL;
 
 ALTER TABLE curator_permissions RENAME TO permissions;
 

@@ -29,6 +29,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON permissions TO apache;
 
 CREATE TABLE available_resources (
 dbase_config text NOT NULL UNIQUE,
+auto_registration boolean,
 PRIMARY KEY (dbase_config)
 );
 
@@ -36,10 +37,27 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON available_resources TO apache;
 
 CREATE TABLE registered_resources (
 dbase_config text NOT NULL UNIQUE,
-PRIMARY KEY (dbase_config)
+PRIMARY KEY (dbase_config),
+auto_registration boolean,
+CONSTRAINT rr_dbase_config FOREIGN KEY (dbase_config) REFERENCES available_resources
+ON DELETE CASCADE
+ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON registered_resources TO apache;
+
+CREATE OR REPLACE LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_auto_registration() RETURNS TRIGGER AS $update_auto_registration$
+	BEGIN
+		UPDATE registered_resources SET auto_registration=NEW.auto_registration WHERE dbase_config=NEW.dbase_config;
+		RETURN NULL;
+	END;
+$update_auto_registration$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_auto_registration AFTER UPDATE ON available_resources
+	FOR EACH ROW
+	EXECUTE PROCEDURE update_auto_registration();
 
 CREATE TABLE registered_users (
 dbase_config text NOT NULL,
@@ -55,3 +73,19 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON registered_users TO apache;
+
+CREATE TABLE pending_requests (
+dbase_config text NOT NULL,
+user_name text NOT NULL,
+comments text,
+datestamp date NOT NULL,
+PRIMARY KEY (dbase_config,user_name),
+CONSTRAINT ru_user_name FOREIGN KEY (user_name) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT ru_dbase_config FOREIGN KEY (dbase_config) REFERENCES registered_resources
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON pending_requests TO apache;
