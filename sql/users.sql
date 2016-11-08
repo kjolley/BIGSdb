@@ -49,7 +49,7 @@ PRIMARY KEY (dbase_config,user_name),
 CONSTRAINT ru_user_name FOREIGN KEY (user_name) REFERENCES users
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT ru_dbase_config FOREIGN KEY (dbase_config) REFERENCES available_resources
+CONSTRAINT ru_dbase_config FOREIGN KEY (dbase_config) REFERENCES registered_resources
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
