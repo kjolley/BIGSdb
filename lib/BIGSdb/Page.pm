@@ -2579,6 +2579,12 @@ sub use_correct_user_database {
 		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
 	};
 	$self->{'datastore'}->change_db( $self->{'db'} );
+	foreach my $config ( @{ $self->{'config'}->{'site_user_dbs'} } ) {
+		if ( $config->{'dbase'} eq $self->{'system'}->{'db'} ) {
+			$self->{'system'}->{'description'} = $config->{'name'};
+			last;
+		}
+	}
 	$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
 	return;
 }
