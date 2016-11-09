@@ -143,29 +143,33 @@ sub _import {
 		foreach my $user_name (@users)
 		{
 			$invalid_upload = 1 if !$self->_check_valid_import( $user_db, $user_name );
-			my $user = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
-				$user_name, { fetch => 'row_hashref', cache => 'CurateImportUserPage::import', db => $remote_db } );
 			my $id         = $self->next_id('users');
 			my $curator_id = $self->get_curator_id;
 			$self->{'db'}->do(
 				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
 				undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db
 			);
+			$remote_db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+				undef, $self->{'instance'}, $user_name, 'now' );
 		}
 	};
 	if ($invalid_upload) {
 		$self->{'db'}->rollback;
+		$remote_db->rollback;
 		return;
 	}
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
+		$remote_db->rollback;
 		say q(<div class="box" id="statusbad"><p>User upload failed.</p>);
 	} else {
 		$self->{'db'}->commit;
+		$remote_db->commit;
 		local $" = q(, );
 		my $plural = @users == 1 ? q() : q(s);
 		say qq(<div class="box" id="resultsheader"><p>User$plural @users successfully imported.</p>);
+		my $user_db_object = $self->{'datastore'}->get_user_db($user_db);
 	}
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to index</a></p>);
 	say q(</div>);
