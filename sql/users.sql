@@ -29,6 +29,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON permissions TO apache;
 
 CREATE TABLE available_resources (
 dbase_config text NOT NULL UNIQUE,
+description text,
 auto_registration boolean,
 PRIMARY KEY (dbase_config)
 );

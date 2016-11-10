@@ -84,6 +84,8 @@ sub _registrations {
 	my $registered_configs =
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
+	return $buffer if !@$registered_configs;
+	$buffer.=q(<h2>Registrations</h2>);
 	return $buffer;
 }
 

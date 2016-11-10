@@ -82,6 +82,7 @@ main();
 sub main {
 	add_new_available_resources();
 	remove_unavailable_resources();
+	update_available_resources();
 	add_registered_users();
 	remove_unregistered_users();
 	set_auto_registration();
@@ -126,6 +127,36 @@ sub remove_unavailable_resources {
 		local $" = qq(\t\n);
 		say heading('Removing obsolete resources');
 		say qq(@list);
+	}
+	return;
+}
+sub update_available_resources {
+	my $available_configs = get_available_configs();
+	my @list;
+	foreach my $config (@$available_configs) {
+		my $system        = read_config_xml($config);
+		my $config_values = $script->{'datastore'}->run_query( 'SELECT * FROM available_resources WHERE dbase_config=?',
+			$config, { fetch => 'row_hashref', cache => 'get_available_config' } );
+		if ( $system->{'description'} ne $config_values->{'description'} ) {
+			eval {
+				$script->{'db'}->do( 'UPDATE available_resources SET description=? WHERE dbase_config=?',
+					undef, $system->{'description'}, $config );
+			};
+			if (@$) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				push @list, { config => $config, description => $system->{'description'} };
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	if (@list) {
+		local $" = qq(\t\n);
+		say heading('Updating resource descriptions');
+		foreach my $item (@list) {
+			say qq($item->{'config'}: $item->{'description'});
+		}
 	}
 	return;
 }
@@ -240,7 +271,11 @@ sub get_dbase_configs {
 
 sub add_available_resource {
 	my ($config) = @_;
-	eval { $script->{'db'}->do( 'INSERT INTO available_resources (dbase_config) VALUES (?)', undef, $config ); };
+	my $system = read_config_xml($config);
+	eval {
+		$script->{'db'}->do( 'INSERT INTO available_resources (dbase_config,description) VALUES (?,?)',
+			undef, $config, $system->{'description'} );
+	};
 	if (@$) {
 		$script->{'logger'}->error($@);
 		$script->{'db'}->rollback;
@@ -371,7 +406,8 @@ sub is_user_registered_for_resource {
 }
 
 sub set_auto_registration {
-	my $available = $script->{'datastore'}
+	my $available =
+	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM available_resources', undef, { fetch => 'all_arrayref', slice => {} } );
 	my @list;
 	foreach my $available (@$available) {
