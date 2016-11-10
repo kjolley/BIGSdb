@@ -78,7 +78,6 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON registered_users TO apache;
 CREATE TABLE pending_requests (
 dbase_config text NOT NULL,
 user_name text NOT NULL,
-comments text,
 datestamp date NOT NULL,
 PRIMARY KEY (dbase_config,user_name),
 CONSTRAINT ru_user_name FOREIGN KEY (user_name) REFERENCES users

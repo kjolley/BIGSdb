@@ -59,9 +59,10 @@ sub _site_account {
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
-	$self->_show_user_roles;
 	if ( $self->{'curate'} ) {
 		$self->_show_admin_roles;
+	} else {
+		$self->_show_user_roles;
 	}
 	return;
 }
@@ -73,20 +74,211 @@ sub _show_user_roles {
 	if ($buffer) {
 		say q(<div class="box" id="queryform">);
 		say $buffer;
-		say q(</div>);
+		say q(<div style="clear:both"></div></div>);
+	} else {
+		$self->print_about_bigsdb;
 	}
 	return;
 }
 
 sub _registrations {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	$self->_register if $q->param('register');
+	$self->_request  if $q->param('request');
 	my $buffer = q();
-	my $registered_configs =
+	my $configs =
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
-	return $buffer if !@$registered_configs;
-	$buffer.=q(<h2>Registrations</h2>);
+	return $buffer if !@$configs;
+	$buffer .= q(<h2>Registrations</h2>);
+	$buffer .= q(<p>Use this page to register your account with specific databases. )
+	  . q(You only need to do this if you need to submit data or access password-protected resources.<p>);
+	my $registered_configs =
+	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_users WHERE user_name=?',
+		$self->{'username'}, { fetch => 'col_arrayref' } );
+	my $labels = $self->_get_config_labels;
+	@$registered_configs = sort { $labels->{$a} cmp $labels->{$b} } @$registered_configs;
+	$buffer .= q(<div class="scrollable">);
+	$buffer .= q(<fieldset style="float:left"><legend>Registered</legend>);
+	$buffer .= q(<p>Your account is registered for:</p>);
+
+	if (@$registered_configs) {
+		$buffer .= $q->scrolling_list(
+			-name     => 'registered',
+			-id       => 'registered',
+			-values   => $registered_configs,
+			-multiple => 'true',
+			-disabled => 'disabled',
+			-style    => 'min-width:10em; min-height:9.5em',
+			-labels   => $labels
+		);
+	} else {
+		$buffer .= q(<p>Nothing</p>);
+	}
+	$buffer .= q(</fieldset>);
+	my $auto_reg = $self->{'datastore'}->run_query(
+		'SELECT dbase_config FROM registered_resources WHERE auto_registration AND dbase_config NOT IN '
+		  . '(SELECT dbase_config FROM registered_users WHERE user_name=?)',
+		$self->{'username'},
+		{ fetch => 'col_arrayref' }
+	);
+	if (@$auto_reg) {
+		@$auto_reg = sort { $labels->{$a} cmp $labels->{$b} } @$auto_reg;
+		$buffer .= q(<fieldset style="float:left"><legend>Auto-registrations</legend>);
+		$buffer .= q(<p>The listed resources allow you to register yourself.<br />);
+		$buffer .= q(Select from list and click 'Register' button.</p>);
+		$buffer .= $q->start_form;
+		$buffer .= $self->popup_menu(
+			-name     => 'auto_reg',
+			-id       => 'auto_reg',
+			-values   => $auto_reg,
+			-multiple => 'true',
+			-style    => 'min-width:10em; min-height:8em',
+			-labels   => $labels
+		);
+		$buffer .= q(<div style='text-align:right'>);
+		$buffer .= $q->submit( -name => 'register', -label => 'Register', -class => BUTTON_CLASS );
+		$buffer .= q(</div>);
+		$buffer .= $q->end_form;
+		$buffer .= q(</fieldset>);
+	}
+	my $request_reg = $self->{'datastore'}->run_query(
+		'SELECT dbase_config FROM registered_resources WHERE auto_registration IS NOT true AND dbase_config NOT IN '
+		  . '(SELECT dbase_config FROM registered_users WHERE user_name=?) AND dbase_config NOT IN (SELECT '
+		  . 'dbase_config FROM pending_requests WHERE user_name=?)',
+		[ $self->{'username'}, $self->{'username'} ],
+		{ fetch => 'col_arrayref' }
+	);
+	if (@$request_reg) {
+		@$request_reg = sort { $labels->{$a} cmp $labels->{$b} } @$request_reg;
+		$buffer .= q(<fieldset style="float:left"><legend>Admin authorization</legend>);
+		$buffer .= q(<p>Access to the listed resources can be requested but require authorization.<br />);
+		$buffer .= q(Select from list and click 'Request' button.</p>);
+		$buffer .= $q->start_form;
+		$buffer .= $self->popup_menu(
+			-name     => 'request_reg',
+			-id       => 'request_reg',
+			-values   => $request_reg,
+			-multiple => 'true',
+			-style    => 'min-width:10em; min-height:8em',
+			-labels   => $labels
+		);
+		$buffer .= q(<div style='text-align:right'>);
+		$buffer .= $q->submit( -name => 'request', -label => 'Request', -class => BUTTON_CLASS );
+		$buffer .= q(</div>);
+		$buffer .= $q->end_form;
+		$buffer .= q(</fieldset>);
+	}
+	my $pending = $self->{'datastore'}->run_query( 'SELECT dbase_config FROM pending_requests WHERE user_name=?',
+		$self->{'username'}, { fetch => 'col_arrayref' } );
+	if (@$pending) {
+		@$pending = sort { $labels->{$a} cmp $labels->{$b} } @$pending;
+		$buffer .= q(<fieldset style="float:left"><legend>Pending</legend>);
+		$buffer .= q(<p>You have requested access to the following:<br />);
+		$buffer .= q(You will be E-mailed confirmation of registration.</p>);
+		$buffer .= $q->scrolling_list(
+			-name     => 'pending',
+			-id       => 'pending',
+			-values   => $pending,
+			-multiple => 'true',
+			-disabled => 'disabled',
+			-style    => 'min-width:10em; min-height:8em',
+			-labels   => $labels
+		);
+	}
+	$buffer .= q(</div>);
 	return $buffer;
+}
+
+sub _register {
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my @configs = $q->param('auto_reg');
+	return if !@configs;
+	eval {
+		foreach my $config (@configs)
+		{
+			my $auto_reg =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT auto_registration FROM registered_resources WHERE dbase_config=?',
+				$config, { cache => 'UserPage::register::check_auto_reg' } );
+			next if !$auto_reg;
+			my $already_registered_in_user_db = $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?))',
+				[ $config, $self->{'username'} ],
+				{ cache => 'UserPage::register::check_already_reg' }
+			);
+
+			#Prevents refreshing page trying to register twice
+			next if $already_registered_in_user_db;
+			my $system  = $self->_read_config_xml($config);
+			my $db      = $self->_get_db($system);
+			my $id      = $self->_get_next_id($db);
+			my $user_db = $self->_get_user_db($db);
+			next if !$user_db;
+			$self->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+				undef, $config, $self->{'username'}, 'now' );
+			$db->do(
+				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
+				undef, $id, $self->{'username'}, 'user', 'now', 'now', $id, $user_db
+			);
+			$db->commit;
+			$self->_drop_connection($system);
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		say q(<div class="box" id="statusbad"><p>User registration failed.</p></div>);
+	} else {
+		$self->{'db'}->commit;
+		say q(<div class="box" id="resultsheader"><p>User registration succeeded.</p></div>);
+	}
+	return;
+}
+
+sub _request {
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my @configs = $q->param('request_reg');
+	return if !@configs;
+	eval {
+		foreach my $config (@configs) {
+			my $already_requested = $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?)) OR '
+				  . 'EXISTS(SELECT * FROM pending_requests WHERE (dbase_config,user_name)=(?,?))',
+				[ $config, $self->{'username'}, $config, $self->{'username'} ],
+				{ cache => 'UserPage::register::check_already_requested' }
+			);
+
+			#Prevents refreshing page trying to register twice
+			next if $already_requested;
+			$self->{'db'}->do( 'INSERT INTO pending_requests (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+				undef, $config, $self->{'username'}, 'now' );
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		say q(<div class="box" id="statusbad"><p>User request failed.</p></div>);
+	} else {
+		$self->{'db'}->commit;
+		say q(<div class="box" id="resultsheader"><p>User request is now pending.</p></div>);
+	}
+	return;
+}
+
+sub _get_config_labels {
+	my ($self) = @_;
+	my $configs = $self->{'datastore'}->run_query( 'SELECT dbase_config,description FROM available_resources',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $labels = {};
+	foreach my $config (@$configs) {
+		my ($desc) = $self->get_truncated_label( $config->{'description'}, 50 );
+		$labels->{ $config->{'dbase_config'} } = qq($desc ($config->{'dbase_config'}));
+	}
+	return $labels;
 }
 
 sub _show_admin_roles {
@@ -210,5 +402,67 @@ function listbox_selectall(listID, isSelect) {
 }
 END
 	return $buffer;
+}
+
+sub _read_config_xml {
+	my ( $self, $config ) = @_;
+	if ( !$self->{'xmlHandler'} ) {
+		$self->{'xmlHandler'} = BIGSdb::Parser->new;
+	}
+	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
+	my $path = "$self->{'dbase_config_dir'}/$config/config.xml";
+	eval { $parser->parse( Source => { SystemId => $path } ) };
+	if ($@) {
+		$logger->fatal("Invalid XML description: $@");
+		return;
+	}
+	my $system = $self->{'xmlHandler'}->get_system_hash;
+	return $system;
+}
+
+sub _get_db_connection_args {
+	my ( $self, $system ) = @_;
+	my $args = {
+		dbase_name => $system->{'db'},
+		host       => $system->{'host'} // $self->{'system'}->{'host'},
+		port       => $system->{'port'} // $self->{'system'}->{'port'},
+		user       => $system->{'user'} // $self->{'system'}->{'user'},
+		password   => $system->{'password'} // $self->{'system'}->{'password'},
+	};
+	return $args;
+}
+
+sub _get_db {
+	my ( $self, $system ) = @_;
+	my $args = $self->_get_db_connection_args($system);
+	my $db   = $self->{'dataConnector'}->get_connection($args);
+	return $db;
+}
+
+sub _get_next_id {
+	my ( $self, $db ) = @_;
+
+	#this will find next id except when id 1 is missing
+	my $next = $self->{'datastore'}->run_query(
+		'SELECT l.id + 1 AS start FROM users AS l LEFT OUTER JOIN users AS r ON l.id+1=r.id '
+		  . 'WHERE r.id is null AND l.id > 0 ORDER BY l.id LIMIT 1',
+		undef,
+		{ db => $db }
+	);
+	$next = 1 if !$next;
+	return $next;
+}
+
+sub _get_user_db {
+	my ( $self, $db ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );
+}
+
+sub _drop_connection {
+	my ( $self, $system ) = @_;
+	my $args = $self->_get_db_connection_args($system);
+	$self->{'dataConnector'}->drop_connection($args);
+	return;
 }
 1;
