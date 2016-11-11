@@ -186,6 +186,12 @@ sub _registrations {
 			-style    => 'min-width:10em; min-height:8em',
 			-labels   => $labels
 		);
+		$buffer .= q(</fieldset>);
+	}
+	if ( !@$auto_reg && !@$request_reg && !@$pending ) {
+		$buffer .= q(<fieldset style="float:left"><legend>New registrations</legend>);
+		$buffer .= q(<p>There are no other resources available to register for.</p>);
+		$buffer .= q(</fieldset>);
 	}
 	$buffer .= q(</div>);
 	return $buffer;
@@ -196,9 +202,11 @@ sub _register {
 	my $q       = $self->{'cgi'};
 	my @configs = $q->param('auto_reg');
 	return if !@configs;
+	my $current_config;
 	eval {
 		foreach my $config (@configs)
 		{
+			$current_config = $config;
 			my $auto_reg =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT auto_registration FROM registered_resources WHERE dbase_config=?',
@@ -230,7 +238,15 @@ sub _register {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>User registration failed.</p></div>);
+		my $msg = q();
+		if ( $@ =~ /users_user_name_key/x ) {
+			$msg = qq( A user with the same username is already registered in the $current_config database.);
+			if ( $self->{'config'}->{'site_admin_email'} ) {
+				$msg .= qq( Please contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">)
+				  . q(site admin</a> for advice.);
+			}
+		}
+		say qq(<div class="box" id="statusbad"><p>User registration failed.$msg</p></div>);
 	} else {
 		$self->{'db'}->commit;
 		say q(<div class="box" id="resultsheader"><p>User registration succeeded.</p></div>);
@@ -431,7 +447,7 @@ sub _notify_db_admin {
 	  . qq(Surname: $sender->{'surname'}\n)
 	  . qq(Affiliation: $sender->{'affiliation'}\n\n);
 	$message .= qq(This user already has a site-wide account. Please log in to the $system->{'description'} )
-	  . q(database curation system and import this user (please DO NOT create a new user account).);
+	  . q(database curation system to import this user (please DO NOT create a new user account).);
 	foreach my $recipient (@$recipients) {
 		my $args =
 		  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
