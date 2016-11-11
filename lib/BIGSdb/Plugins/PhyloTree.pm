@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '0.0.1',
+		version          => '1.0.0',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -162,10 +162,6 @@ sub run {
 	}
 	my $limit = $self->_get_limit;
 	say q(<div class="box" id="queryform">);
-
-	#TODO Remove BETA flag.
-	say q(<p><span class="flag" style="color:red">BETA</span> Please report any issues with this plugin to )
-	  . q(<a href="keith.jolley@zoo.ox.ac.uk">Keith Jolley</a>.</p>);
 	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
 	  . q(loci that have a corresponding database containing allele sequence identifiers, )
 	  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
@@ -232,7 +228,7 @@ sub run_job {
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	$params->{'align'} = 1;
 	$params->{'aligner'} = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
-	my $ret_val  = $self->make_isolate_seq_file(
+	my $ret_val = $self->make_isolate_seq_file(
 		{
 			job_id       => $job_id,
 			params       => $params,
