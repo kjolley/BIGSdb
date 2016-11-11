@@ -339,7 +339,7 @@ sub check_scheme_properly_defined {
 	$script->{'primary_key'} = $scheme_info->{'primary_key'};
 	my $remote_scheme =
 	  $script->{'datastore'}
-	  ->run_query( 'SELECT * FROM schemes WHERE id=?', $opts{'scheme_id'}, { db => $db, fetch => 'row_hashref' } );
+	  ->run_query( 'SELECT * FROM schemes WHERE id=?', $remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
 	die "The scheme does not exist in the seqdef database.\n" if !$remote_scheme;
 	my $loci = $script->{'datastore'}->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=?',
 		$opts{'scheme_id'}, { fetch => 'all_arrayref', slice => {} } );

@@ -26,14 +26,12 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use List::MoreUtils qw(any none uniq);
-use Apache2::Connection ();
 use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
 use constant DEFAULT_ALIGN_LIMIT => 200;
 use constant DEFAULT_SEQ_LIMIT   => 1_000_000;
-use BIGSdb::Constants qw(LOCUS_PATTERN);
 use BIGSdb::Plugin qw(SEQ_SOURCE);
 
 sub get_attributes {
@@ -49,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.9',
+		version          => '1.5.10',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -345,29 +343,54 @@ sub _run_job_profiles {
 
 sub _run_job_isolates {
 	my ( $self, $job_id, $params ) = @_;
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	open( my $fh, '>', $filename )
-	  or $logger->error("Can't open output file $filename for writing");
-	my $includes       = $self->_get_includes($params);
-	my %field_included = map { $_ => 1 } @$includes;
-	my $seqbin_qry     = $self->_get_seqbin_query($params);
-	my @problem_ids;
-	my %problem_id_checked;
-	my $start = 1;
-	my $end;
-	my $no_output     = 1;
+	my $filename      = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
 	my $ids           = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $limit         = $self->_get_limit;
-
 	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html =
 		  q(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
-	my $progress = 0;
-	foreach my $locus_name (@$selected_loci) {
+	my $ret_val = $self->make_isolate_seq_file(
+		{
+			job_id       => $job_id,
+			params       => $params,
+			limit        => $limit,
+			ids          => $ids,
+			loci         => $selected_loci,
+			filename     => $filename,
+			max_progress => 100
+		}
+	);
+	if ( $self->{'exit'} ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
+		unlink $filename;
+		return;
+	}
+	
+	$self->_output( $job_id, $params, $ret_val->{'problem_ids'}, $ret_val->{'no_output'}, $filename );
+	return;
+}
+
+sub make_isolate_seq_file {
+	my ( $self, $args ) = @_;
+	my ( $job_id, $params, $limit, $ids, $loci, $filename, $max_progress ) =
+	  @$args{qw(job_id params limit ids loci filename max_progress)};
+	my @problem_ids;
+	my %problem_id_checked;
+	my $includes       = $self->_get_includes($params);
+	my %field_included = map { $_ => 1 } @$includes;
+	my $seqbin_qry     = $self->_get_seqbin_query($params);
+	my $start          = 1;
+	my $end;
+	my $no_output = 1;
+	my $progress  = 0;
+	open( my $fh, '>', $filename )
+	  or $logger->error("Can't open output file $filename for writing");
+
+	foreach my $locus_name (@$loci) {
 		last if $self->{'exit'};
 		my $output_locus_name = $self->clean_locus( $locus_name, { text_output => 1, no_common_name => 1 } );
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Processing $output_locus_name" } );
@@ -393,7 +416,7 @@ sub _run_job_isolates {
 				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
 			foreach my $field (@$includes) {
 				next if $field eq SEQ_SOURCE;
-				my $value = $self->_get_field_value( $isolate_data, $field );
+				my $value = $self->get_field_value( $isolate_data, $field );
 				push @include_values, $value;
 			}
 			if ( !$isolate_data->{'id'} ) {
@@ -467,17 +490,11 @@ sub _run_job_isolates {
 			}
 		);
 		$progress++;
-		my $complete = int( 100 * $progress / scalar @$selected_loci );
+		my $complete = int( $max_progress * $progress / scalar @$loci );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;
-	if ( $self->{'exit'} ) {
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
-		unlink $filename;
-		return;
-	}
-	$self->_output( $job_id, $params, \@problem_ids, $no_output, $filename );
-	return;
+	return { problem_ids => \@problem_ids, no_output => $no_output };
 }
 
 sub _translate_seq_if_required {
@@ -529,7 +546,7 @@ sub _output {
 	}
 	if ($no_output) {
 		$message_html .=
-		  '<p>No output generated.  Please ensure that your sequences ' . "have been defined for these isolates.</p>\n";
+		  "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
 		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
@@ -600,7 +617,7 @@ sub _append_sequences {
 	return;
 }
 
-sub _get_field_value {
+sub get_field_value {
 	my ( $self, $isolate_data, $field ) = @_;
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $value;
@@ -610,6 +627,8 @@ sub _get_field_value {
 		$value = $isolate_data->{ lc($field) } // '';
 	}
 	$value =~ tr/ /_/;
+	$value =~ tr/(/_/;
+	$value =~ tr/)/_/;
 	return $value;
 }
 

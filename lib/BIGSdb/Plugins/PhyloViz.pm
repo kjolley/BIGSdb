@@ -32,6 +32,7 @@ use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant WEB_ROOT         => 'http://online.phyloviz.net';
+use constant PHYLOVIZ_DOMAIN  => 'online.phyloviz.net';
 use constant COMPARISON_LIMIT => 800_000_000;
 
 sub get_attributes {
@@ -53,7 +54,7 @@ sub get_attributes {
 		system_flag => 'PhyloViz',
 		requires    => 'js_tree',
 		help        => 'tooltips',
-		order       => 33,
+		order       => 36,
 		min         => 2,
 		max         => 10000
 	);
@@ -181,7 +182,9 @@ sub run {
 			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
 			return;
 		}
-		say qq(<p>Click this <a href="$phylo_id" target="_blank">link</a> to view your tree</p>);
+		my $domain = PHYLOVIZ_DOMAIN;
+		say qq(<p><a href="$phylo_id" target="_blank">View tree</a> )
+		  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></p>);
 		say q(</div>);
 		unlink $profile_file, $auxiliary_file;
 		return;

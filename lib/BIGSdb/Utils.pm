@@ -452,6 +452,9 @@ sub get_heatmap_colour_style {
 	if ( $options->{'excel'} ) {
 		return { bg_color => $colour, color => 'white', align => 'center', border => 1, border_color => 'white' };
 	}
+	if ( $options->{'rgb'} ) {
+		return $colour;
+	}
 	return "background:$colour; color:white";
 }
 

@@ -156,7 +156,12 @@ sub _check {
 		$args->{'profile'} = $self->_check_profile($args);
 
 		#Identify old value
-		$args->{'old_value'} = $args->{'profile'}->{'profile'}->[ $indices->{$field} ];
+		my $is_locus = $self->{'datastore'}->is_locus($field);
+		if ($is_locus) {
+			$args->{'old_value'} = $args->{'profile'}->{'profile'}->[ $indices->{$field} ];
+		} else {
+			$args->{'old_value'} = $args->{'profile'}->{ lc($field) };
+		}
 
 		#Check if value already exists and 'overwrite' is not checked
 		$self->_check_overwrite($args);
