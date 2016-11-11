@@ -151,6 +151,8 @@ sub _import {
 			);
 			$remote_db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 				undef, $self->{'instance'}, $user_name, 'now' );
+			$remote_db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)',
+				undef, $self->{'instance'}, $user_name );
 		}
 	};
 	if ($invalid_upload) {
