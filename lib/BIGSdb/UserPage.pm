@@ -244,7 +244,8 @@ sub _request {
 	my @configs = $q->param('request_reg');
 	return if !@configs;
 	eval {
-		foreach my $config (@configs) {
+		foreach my $config (@configs)
+		{
 			my $already_requested = $self->{'datastore'}->run_query(
 				'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?)) OR '
 				  . 'EXISTS(SELECT * FROM pending_requests WHERE (dbase_config,user_name)=(?,?))',
@@ -256,6 +257,7 @@ sub _request {
 			next if $already_requested;
 			$self->{'db'}->do( 'INSERT INTO pending_requests (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 				undef, $config, $self->{'username'}, 'now' );
+			$self->_notify_db_admin($config);
 		}
 	};
 	if ($@) {
@@ -392,6 +394,53 @@ sub _import_dbase_config {
 	$buffer .= $q->end_form;
 	$buffer .= q(</div>);
 	return $buffer;
+}
+
+sub _notify_db_admin {
+	my ( $self, $config ) = @_;
+	return if !$self->{'config'}->{'smtp_server'};
+	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
+	if ($@) {
+		$logger->error('Mail::Sender is not installed.');
+		return;
+	}
+	my $system     = $self->_read_config_xml($config);
+	my $db         = $self->_get_db($system);
+	my $subject    = qq(Account registration request for $system->{'description'} database);
+	my $sender     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $recipients = $self->{'datastore'}->run_query(
+		'SELECT * FROM users WHERE status=? OR id IN (SELECT user_id FROM permissions WHERE permission=?)',
+		[ 'admin', 'import_site_users' ],
+		{ db => $db, fetch => 'all_arrayref', slice => {} }
+	);
+	if ( !@$recipients ) {
+		$logger->error(
+			"No admins or curators with permissions needed to import users to $system->{'description'} database.");
+		return;
+	}
+	foreach my $user ( $sender, @$recipients ) {
+		if ( $user->{'email'} !~ /@/x ) {
+			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
+			return;
+		}
+	}
+	my $message =
+	    qq(The following user has requested access to the $system->{'description'} database.\n\n)
+	  . qq(Username: $self->{'username'}\n)
+	  . qq(First name: $sender->{'first_name'}\n)
+	  . qq(Surname: $sender->{'surname'}\n)
+	  . qq(Affiliation: $sender->{'affiliation'}\n\n);
+	$message .= qq(This user already has a site-wide account. Please log in to the $system->{'description'} )
+	  . q(database curation system and import this user (please DO NOT create a new user account).);
+	foreach my $recipient (@$recipients) {
+		my $args =
+		  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
+		my $mail_sender = Mail::Sender->new($args);
+		$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
+		no warnings 'once';
+		$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
+	}
+	return;
 }
 
 sub get_javascript {
