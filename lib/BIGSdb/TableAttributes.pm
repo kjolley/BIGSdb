@@ -49,7 +49,8 @@ sub get_users_table_attributes {
 			required       => 'yes',
 			length         => 12,
 			unique         => 'yes',
-			dropdown_query => 'yes'
+			dropdown_query => 'yes',
+			user_update    => 'no'
 		},
 		{ name => 'surname',      type => 'text', required => 'yes', length  => 40,      dropdown_query => 'yes' },
 		{ name => 'first_name',   type => 'text', required => 'yes', length  => 40,      dropdown_query => 'yes' },
@@ -79,8 +80,7 @@ sub get_user_dbases_table_attributes {
 		{ name => 'id',   type => 'int',  required => 'yes', primary_key => 'yes' },
 		{ name => 'name', type => 'text', required => 'yes', length      => 30, comments => 'Site/domain name' },
 		{ name => 'list_order',        type => 'int' },
-		{ name => 'auto_registration', type => 'bool', comments => 'Allow user to register themself for database' }
-		,
+		{ name => 'auto_registration', type => 'bool', comments => 'Allow user to register themself for database' },
 		{
 			name     => 'dbase_name',
 			type     => 'text',
