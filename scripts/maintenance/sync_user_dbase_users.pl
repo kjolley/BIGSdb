@@ -37,6 +37,7 @@ use BIGSdb::Offline::Script;
 use List::MoreUtils qw(uniq);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
+binmode( STDOUT, ':encoding(UTF-8)' );
 
 #Direct all library logging calls to screen
 my $log_conf =
@@ -86,6 +87,7 @@ sub main {
 	add_registered_users();
 	remove_unregistered_users();
 	set_auto_registration();
+	check_invalid_users();
 	return;
 }
 
@@ -130,6 +132,7 @@ sub remove_unavailable_resources {
 	}
 	return;
 }
+
 sub update_available_resources {
 	my $available_configs = get_available_configs();
 	my @list;
@@ -440,6 +443,77 @@ sub set_auto_registration {
 			} else {
 				$script->{'db'}->commit;
 			}
+		}
+	}
+	return;
+}
+
+#Populate invalid users with usernames used in other databases.
+sub check_invalid_users {
+	my $current_invalid =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT user_name FROM invalid_usernames', undef, { fetch => 'col_arrayref' } );
+	my $users_in_this_db =
+	  $script->{'datastore'}->run_query( 'SELECT user_name FROM users', undef, { fetch => 'col_arrayref' } );
+	my %users_in_this_db = map { $_ => 1 } @$users_in_this_db;
+	my %current_invalid  = map { $_ => 1 } @$current_invalid;
+	my @usernames_from_databases;
+	my $configs = get_dbase_configs();
+	foreach my $config (@$configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		my $user_names =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT user_name FROM users', undef, { fetch => 'col_arrayref', db => $db } );
+		push @usernames_from_databases, @$user_names;
+		drop_connection($system);
+	}
+	@usernames_from_databases = uniq sort @usernames_from_databases;
+	my @filtered_list;
+	eval {
+		foreach my $user_name (@usernames_from_databases)
+		{
+			next if $users_in_this_db{$user_name};
+			next if $current_invalid{$user_name};
+			push @filtered_list, $user_name;
+			$script->{'db'}->do( 'INSERT INTO invalid_usernames (user_name) VALUES (?)', undef, $user_name );
+		}
+	};
+	if ($@) {
+		$script->{'logger'}->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		if (@filtered_list) {
+			local $" = qq(\t\n);
+			say heading('Adding invalid users to list');
+			foreach my $user_name (@filtered_list) {
+				say $user_name;
+			}
+			$script->{'db'}->commit;
+		}
+	}
+	my %usernames_in_dbases = map { $_ => 1 } @usernames_from_databases;
+	my @to_remove;
+	eval {
+		foreach my $user_name (@$current_invalid)
+		{
+			next if $usernames_in_dbases{$user_name};
+			next if $users_in_this_db{$user_name};
+			push @to_remove, $user_name;
+			$script->{'db'}->do( 'DELETE FROM invalid_usernames WHERE user_name=?', undef, $user_name );
+		}
+	};
+	if ($@) {
+		$script->{'logger'}->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		if (@to_remove) {
+			local $" = qq(\t\n);
+			say heading('Removing invalid users from list');
+			foreach my $user_name (@to_remove) {
+				say $user_name;
+			}
+			$script->{'db'}->commit;
 		}
 	}
 	return;

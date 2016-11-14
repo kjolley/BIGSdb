@@ -89,3 +89,10 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON pending_requests TO apache;
+
+CREATE TABLE invalid_usernames (
+user_name text NOT NULL UNIQUE,
+PRIMARY KEY (user_name)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON invalid_usernames TO apache;

@@ -308,6 +308,11 @@ sub _show_admin_roles {
 		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
 		say $buffer;
 		say q(</div>);
+	} else {
+		say q(<div class="box" id="statusbad" style="min-height:5em">);
+		say q(<span class="config_icon fa fa-thumbs-o-down fa-5x pull-left"></span>);
+		say q(<p>Your account has no administrator privileges for this site.</p>);
+		say q(</div>);
 	}
 	return;
 }
