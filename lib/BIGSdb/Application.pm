@@ -67,6 +67,7 @@ use BIGSdb::SubmissionHandler;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::UserPage;
+use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
 use BIGSdb::CGI::as_utf8;
 use DBI;
@@ -175,17 +176,7 @@ sub _initiate {
 	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
-
-	#TODO Move check to new method
-	#Default entry page
-	if ( !$db || $q->param('page') eq 'user' ) {
-		$self->{'system'}->{'read_access'} = 'public';
-		$self->{'system'}->{'dbtype'}      = 'user';
-		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		$self->{'page'} = 'user' if $self->{'page'} ne 'logout' && $self->{'page'} ne 'changePassword';
-		$q->param( page => 'user' ) if $q->param('page') ne 'changePassword';
-		return;
-	}
+	return if $self->_is_user_page;
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	if ( !-e $full_path ) {
@@ -258,6 +249,21 @@ sub _initiate {
 
 	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
 	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
+	return;
+}
+
+sub _is_user_page {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	if ( !$q->param('db') || $q->param('page') eq 'user' ) {
+		$self->{'system'}->{'read_access'} = 'public';
+		$self->{'system'}->{'dbtype'}      = 'user';
+		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
+		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration);
+		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
+		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
+		return 1;
+	}
 	return;
 }
 
@@ -557,6 +563,7 @@ sub print_page {
 		profiles           => 'CombinationQueryPage',
 		projects           => 'ProjectsPage',
 		recordInfo         => 'RecordInfoPage',
+		registration       => 'UserRegistrationPage',
 		schemeInfo         => 'SchemeInfoPage',
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
@@ -602,7 +609,7 @@ sub print_page {
 		}
 		return;
 	}
-	if ( $self->{'db'} ) {
+	if ( $self->{'db'} && $self->{'page'} ne 'registration' ) {
 		my $login_requirement = $self->{'datastore'}->get_login_requirement;
 		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )

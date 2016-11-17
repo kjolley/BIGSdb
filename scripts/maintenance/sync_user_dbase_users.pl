@@ -120,7 +120,7 @@ sub remove_unavailable_resources {
 	my %possible           = map { $_ => 1 } @$possible_configs;
 	my @list;
 	foreach my $config ( uniq( @$available_configs, @$registered_configs ) ) {
-		if ( !$possible{$config} ) {
+		if ( !$possible{$config} || !uses_this_user_db($config) ) {
 			push @list, $config;
 			remove_resource($config);
 		}
@@ -329,12 +329,14 @@ sub add_registered_users {
 		my $user_db_id =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
-		my $user_names =
-		  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
-			$user_db_id, { fetch => 'col_arrayref', db => $db } );
-		foreach my $user_name (@$user_names) {
-			next if is_user_registered_for_resource( $config, $user_name );
-			push @list, { config => $config, user_name => $user_name };
+		if ( defined $user_db_id ) {
+			my $user_names =
+			  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
+				$user_db_id, { fetch => 'col_arrayref', db => $db } );
+			foreach my $user_name (@$user_names) {
+				next if is_user_registered_for_resource( $config, $user_name );
+				push @list, { config => $config, user_name => $user_name };
+			}
 		}
 		drop_connection($system);
 	}
@@ -368,14 +370,16 @@ sub remove_unregistered_users {
 		my $user_db_id =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
-		my $client_db_user_names =
-		  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
-			$user_db_id, { fetch => 'col_arrayref', db => $db } );
-		my %client_user_names = map { $_ => 1 } @$client_db_user_names;
-		my $registered_users = get_registered_users($config);
-		foreach my $registered_user (@$registered_users) {
-			next if $client_user_names{$registered_user};
-			push @list, { config => $config, user_name => $registered_user };
+		if ( defined $user_db_id ) {
+			my $client_db_user_names =
+			  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
+				$user_db_id, { fetch => 'col_arrayref', db => $db } );
+			my %client_user_names = map { $_ => 1 } @$client_db_user_names;
+			my $registered_users = get_registered_users($config);
+			foreach my $registered_user (@$registered_users) {
+				next if $client_user_names{$registered_user};
+				push @list, { config => $config, user_name => $registered_user };
+			}
 		}
 		drop_connection($system);
 	}

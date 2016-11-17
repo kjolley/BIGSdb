@@ -6,6 +6,8 @@ email text NOT NULL,
 affiliation text NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
+status text NOT NULL,
+validate_start int,
 PRIMARY KEY (user_name)
 );
 

@@ -144,7 +144,7 @@ sub print_content {
 				  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
 				  ? $self->{'username'}
 				  : $q->param('user');
-				if ( $self->_set_password_hash( $username, $q->param('new_password1') ) ) {
+				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
 					say q(<div class="box" id="resultsheader"><p>)
 					  . (
 						$q->param('page') eq 'changePassword'
@@ -239,28 +239,30 @@ sub _print_interface {
 	return;
 }
 
-sub _set_password_hash {
-	my ( $self, $name, $hash ) = @_;
+sub set_password_hash {
+	my ( $self, $name, $hash, $options ) = @_;
 	return if !$name;
 	my $bcrypt_cost =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
 	my $salt = BIGSdb::Utils::random_string( 16, { extended_chars => 1 } );
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
-	my $db_name     = $self->get_user_db_name($name);
-	my $exists      = $self->{'datastore'}->run_query(
+	my $reset_password = $options->{'reset_password'} ? 1 : 0;
+	my $db_name        = $self->get_user_db_name($name);
+	my $exists         = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM users WHERE (dbase,name)=(?,?))',
 		[ $db_name, $name ],
 		{ db => $self->{'auth_db'} }
 	);
 	my $qry;
-	my @values = ( $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt );
+	my @values = ( $bcrypt_hash, 'bcrypt', $bcrypt_cost, $salt, $reset_password );
 
 	if ( !$exists ) {
-		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp) '
-		  . 'VALUES (?,?,?,?,?,?,?,?)';
+		$qry = 'INSERT INTO users (password,algorithm,cost,salt,reset_password,dbase,name,date_entered,datestamp) '
+		  . 'VALUES (?,?,?,?,?,?,?,?,?)';
 		push @values, ( $db_name, $name, 'now', 'now' );
 	} else {
-		$qry = 'UPDATE users SET (password,algorithm,cost,salt,datestamp)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
+		$qry = 'UPDATE users SET (password,algorithm,cost,salt,reset_password,datestamp)=(?,?,?,?,?,?) '
+		  . 'WHERE (dbase,name)=(?,?)';
 		push @values, ( 'now', $db_name, $name );
 	}
 	eval { $self->{'auth_db'}->do( $qry, undef, @values ); };

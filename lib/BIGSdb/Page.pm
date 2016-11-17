@@ -610,7 +610,7 @@ sub _print_login_details {
 	} else {
 		say qq(<i>Logged in: <b>$user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}).</b></i>);
 	}
-	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
+	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' ) {
 		if ( $self->{'username'} ) {
 			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=logout">)
 			  . q(<span class="fa fa-sign-out"></span>Log out</a> | );
@@ -2585,7 +2585,9 @@ sub use_correct_user_database {
 			last;
 		}
 	}
-	$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
+	if ( $self->{'username'} ) {
+		$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
+	}
 	return;
 }
 1;

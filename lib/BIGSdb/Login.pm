@@ -74,21 +74,23 @@ sub set_pref_requirements {
 
 sub print_content {
 	my ($self) = @_;
-	print q(<h1>Please log in);
-	print qq( - $self->{'system'}->{'description'} database) if $self->{'system'}->{'description'};
+	print q(<h1>Log in);
+	print qq( - $self->{'system'}->{'description'} database)
+	  if $self->{'system'}->{'description'} && $self->{'system'}->{'dbtype'} ne 'user';
 	print q(</h1>);
 	$self->print_banner;
 	if ( $self->{'authenticate_error'} ) {
 		say qq(<div class="box" id="statusbad"><p>$self->{'authenticate_error'}</p></div>);
 	}
 	$self->_print_login_form;
+	$self->_print_registration_links;
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Log in - $desc";
+	return $self->{'system'}->{'dbtype'} eq 'user' ? 'Log in' : "Log in - $desc";
 }
 
 sub initiate {
@@ -251,16 +253,16 @@ sub _print_login_form {
 	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
 		$self->_create_session( $session_id, 'login', undef );
 	}
-	say q(<div class="box" id="queryform">);
+	say q(<div class="box queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
 	say q(<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>);
-	say q(<p>Please enter your log-in details.</p>);
+	say q(<h2>Please enter your account details.</h2>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are hashed using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => q(password.value=password_field.value; password_field.value=''; )
 		  . q(password.value=CryptoJS.MD5(password.value+user.value); return true) );
-	say q(<fieldset style="float:left"><legend>Log in details</legend>);
+	say q(<fieldset style="float:left"><legend>Account</legend>);
 	say q(<ul>);
 
 	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
@@ -315,6 +317,20 @@ sub _print_login_form {
 		say $q->hidden($param);
 	}
 	say $q->end_form;
+	say q(</div>);
+	return;
+}
+
+sub _print_registration_links {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user';
+	say q(<div class="box queryform">);
+
+	#TODO Change icon to fa-id-card-o after upgrading font awesome
+	say q(<span class="main_icon fa fa-user fa-3x pull-left"></span>);
+	say q(<h2>Not registered?</h2>);
+	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
+	  . q(Register for an account</a>.</li></ul>);
 	say q(</div>);
 	return;
 }
@@ -552,7 +568,7 @@ sub _get_unvalidated_username {
 			foreach my $user_db (@$remote_user_dbs) {
 				my $remote_db_username = $q->cookie("$user_db->{'dbase'}_user");
 				if ($remote_db_username) {
-					$self->{'system'}->{'db'} = $user_db->{'dbase'};
+					$self->{'system'}->{'db'}          = $user_db->{'dbase'};
 					$self->{'system'}->{'description'} = $user_db->{'name'};
 					return $remote_db_username;
 				}

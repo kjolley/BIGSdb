@@ -92,7 +92,6 @@ sub get_connection {
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	throw BIGSdb::DatabaseConnectionException('No database name passed') if !$attributes->{'dbase_name'};
 	state $pid = $$;
-
 	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
 		my $db;
 		eval {

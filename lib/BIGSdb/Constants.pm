@@ -69,8 +69,7 @@ $EXPORT_TAGS{'interface'} = [@values];
 
 #Queries
 use constant LOCUS_PATTERN => qr/^(?:l|cn|la)_(.+?)(?:\|\|.+)?$/x;
-use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '>=', '<', '<=', 'NOT', 'NOT contain' )
-  ;
+use constant OPERATORS => ( '=', 'contains', 'starts with', 'ends with', '>', '>=', '<', '<=', 'NOT', 'NOT contain' );
 push @EXPORT_OK, qw(LOCUS_PATTERN OPERATORS);
 
 #Sequences
@@ -156,4 +155,10 @@ use constant OPTIONAL    => 1;
 use constant REQUIRED    => 2;
 push @EXPORT_OK, qw (NOT_ALLOWED OPTIONAL REQUIRED);
 $EXPORT_TAGS{'login_requirements'} = [qw(NOT_ALLOWED OPTIONAL REQUIRED)];
+
+#Account management
+use constant NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS => 60;
+use constant INACTIVE_ACCOUNT_REMOVAL_DAYS       => 180;
+push @EXPORT_OK, qw (NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS);
+$EXPORT_TAGS{'accounts'} = [qw(NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS)];
 1;

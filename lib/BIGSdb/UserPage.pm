@@ -24,6 +24,7 @@ use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
+use Mail::Sender;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface);
@@ -420,11 +421,6 @@ sub _import_dbase_config {
 sub _notify_db_admin {
 	my ( $self, $config ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
-	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$logger->error('Mail::Sender is not installed.');
-		return;
-	}
 	my $system     = $self->_read_config_xml($config);
 	my $db         = $self->_get_db($system);
 	my $subject    = qq(Account registration request for $system->{'description'} database);
