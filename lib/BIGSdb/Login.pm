@@ -328,9 +328,7 @@ sub _print_registration_links {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user' || $self->{'curate'};
 	say q(<div class="box queryform">);
-
-	#TODO Change icon to fa-id-card-o after upgrading font awesome
-	say q(<span class="main_icon fa fa-user fa-3x pull-left"></span>);
+	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
 	say q(<h2>Not registered?</h2>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
 	  . q(Register for an account</a>.</li></ul>);
