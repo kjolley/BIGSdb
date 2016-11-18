@@ -547,13 +547,12 @@ sub get_client_db {
 ##############USER DATABASES###########################################################
 sub initiate_userdbs {
 	my ($self) = @_;
-	$self->{'user_dbnames'} = [];
 	my $configs =
 	  $self->run_query( 'SELECT * FROM user_dbases ORDER BY id', undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $config (@$configs) {
 		try {
-			$self->{'user_dbs'}->{ $config->{'id'} } = $self->{'dataConnector'}->get_connection($config);
-			push @{ $self->{'user_dbnames'} }, $config->{'dbase_name'};
+			$self->{'user_dbs'}->{ $config->{'id'} } =
+			  { db => $self->{'dataConnector'}->get_connection($config), name => $config->{'dbase_name'} };
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			$logger->warn("Cannot connect to database '$config->{'dbase_name'}'");
@@ -563,9 +562,19 @@ sub initiate_userdbs {
 	return;
 }
 
+
 sub get_user_db {
 	my ( $self, $id ) = @_;
-	return $self->{'user_dbs'}->{$id};
+	return $self->{'user_dbs'}->{$id}->{'db'};
+}
+
+sub get_user_dbs {
+	my ($self) = @_;
+	my $dbases = [];
+	foreach my $config_id (keys %{$self->{'user_dbs'}}){
+		push @$dbases,$self->{'user_dbs'}->{$config_id};
+	}
+	return $dbases;
 }
 
 sub user_dbs_defined {
@@ -579,10 +588,6 @@ sub user_db_defined {
 	return defined $self->{'user_dbs'}->{$id} ? 1 : undef;
 }
 
-sub get_user_dbnames {
-	my ($self) = @_;
-	return $self->{'user_dbnames'};
-}
 
 sub get_dbname_with_user_details {
 	my ( $self, $username ) = @_;

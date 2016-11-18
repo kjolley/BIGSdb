@@ -151,6 +151,7 @@ sub print_content {
 						? q(Password updated ok.)
 						: qq(Password set for user '$username'.)
 					  ) . q(</p>);
+					$self->_set_validated_status;
 				} else {
 					say q(<div class="box" id="resultsheader"><p>Password not updated.  )
 					  . q(Please check with the system administrator.</p>);
@@ -163,6 +164,23 @@ sub print_content {
 		}
 	}
 	$self->_print_interface;
+	return;
+}
+
+#Update status in external user database if used.
+sub _set_validated_status {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'user';
+	eval {
+		$self->{'db'}->do( 'UPDATE users SET (status,validate_start)=(?,?) WHERE user_name=?',
+			undef, 'validated', undef, $self->{'username'} );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 

@@ -729,6 +729,7 @@ sub authenticate {
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
 		$q->{'page'} = 'changePassword';
+		$self->{'page'} = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
 		my $config_access = $self->is_user_allowed_access( $page_attributes->{'username'} );

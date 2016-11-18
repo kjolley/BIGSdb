@@ -51,6 +51,7 @@ use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 use constant UNIQUE_STRING => 'bigsdbJolley';
 use constant BCRYPT_COST   => 12;
+use BIGSdb::Constants qw(:accounts);
 our @EXPORT_OK = qw(BCRYPT_COST UNIQUE_STRING);
 ############################################################################
 #
@@ -182,6 +183,7 @@ sub login_from_cookie {
 sub _MD5_login {
 	my ( $self, $options ) = @_;
 	$self->_timout_logins;    # remove entries older than current_time + $timeout
+	$self->_remove_old_pending_users;
 	if ( $self->{'vars'}->{'submit'} ) {
 		if ( my $password = $self->_check_password($options) ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in.");
@@ -293,6 +295,7 @@ sub _print_login_form {
 				-required => 'required'
 			);
 		}
+		$q->param( page => 'user' );
 	}
 	say q(<li><label for="user" class="display">Username: </label>);
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
@@ -323,7 +326,7 @@ sub _print_login_form {
 
 sub _print_registration_links {
 	my ($self) = @_;
-	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user';
+	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user' || $self->{'curate'};
 	say q(<div class="box queryform">);
 
 	#TODO Change icon to fa-id-card-o after upgrading font awesome
@@ -331,6 +334,11 @@ sub _print_registration_links {
 	say q(<h2>Not registered?</h2>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
 	  . q(Register for an account</a>.</li></ul>);
+	if ( $self->{'config'}->{'site_admin_email'} ) {
+		say q(<h2>Forgotten username or password</h2>);
+		say qq(<ul><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
+		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
+	}
 	say q(</div>);
 	return;
 }
@@ -481,6 +489,45 @@ sub _timout_logins {
 		$self->{'auth_db'}->rollback;
 	} else {
 		$self->{'auth_db'}->commit;
+	}
+	return;
+}
+
+sub _remove_old_pending_users {
+	my ($self) = @_;
+	my $user_dbs = [];
+	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+		$self->use_correct_user_database;
+		push @$user_dbs, { name => $self->{'system'}->{'db'}, db => $self->{'db'} };
+	} else {
+		$user_dbs = $self->{'datastore'}->get_user_dbs;
+	}
+	my $timeout =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'new_account_validation_timeout_mins'} )
+	  ? $self->{'config'}->{'new_account_validation_timeout_mins'}
+	  : NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS;
+	foreach my $db (@$user_dbs) {
+		my $users = $self->{'datastore'}->run_query(
+			'SELECT user_name FROM users WHERE status=? AND validate_start<?',
+			[ 'pending', time - ( $timeout * 60 ) ],
+			{ db => $db->{'db'}, fetch => 'col_arrayref' }
+		);
+		next if !@$users;
+		eval {
+			foreach my $user (@$users)
+			{
+				$db->{'db'}->do( 'DELETE FROM users WHERE user_name=?', undef, $user );
+				$self->{'auth_db'}->do( 'DELETE FROM users WHERE (dbase,name)=(?,?)', undef, $db->{'name'}, $user );
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			$db->{'db'}->rollback;
+			$self->{'auth_db'}->rollback;
+		} else {
+			$db->{'db'}->commit;
+			$self->{'auth_db'}->commit;
+		}
 	}
 	return;
 }

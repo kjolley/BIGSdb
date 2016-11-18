@@ -531,4 +531,5 @@ sub _drop_connection {
 	$self->{'dataConnector'}->drop_connection($args);
 	return;
 }
+
 1;

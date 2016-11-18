@@ -1257,6 +1257,7 @@ sub format_data {
 		next if !defined $data_ref->{ $att->{'name'} };
 		if ( $att->{'name'} eq 'affiliation' ) {
 			$data_ref->{ $att->{'name'} } =~ s/,?\s*\r?\n/, /gx;
+			$data_ref->{ $att->{'name'} } =~ s/,(\S)/, $1/gx;
 		}
 		$data_ref->{ $att->{'name'} } = $self->clean_value( $data_ref->{ $att->{'name'} }, { no_escape => 1 } );
 		if ( $att->{'name'} =~ /sequence$/x ) {

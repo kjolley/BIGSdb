@@ -119,8 +119,10 @@ sub _print_interface {
 sub _get_possible_users {
 	my ( $self, $user_db ) = @_;
 	my $remote_db    = $self->{'datastore'}->get_user_db($user_db);
-	my $remote_users = $self->{'datastore'}->run_query( 'SELECT * FROM users ORDER BY surname,first_name',
-		undef, { fetch => 'all_arrayref', slice => {}, db => $remote_db } );
+	my $remote_users = $self->{'datastore'}->run_query(
+		'SELECT * FROM users WHERE status=? ORDER BY surname,first_name',
+		'validated', { fetch => 'all_arrayref', slice => {}, db => $remote_db }
+	);
 	my $local_users =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM users', undef, { fetch => 'all_arrayref', slice => {} } );
 	my %local_usernames = map { $_->{'user_name'} => 1 } @$local_users;
@@ -188,8 +190,11 @@ sub _check_valid_import {
 		return;
 	}
 	my $remote_db        = $self->{'datastore'}->get_user_db($user_db);
-	my $exists_in_remote = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)',
-		$user_name, { cache => 'CurateImportUserPage::check_valid_import::remote', db => $remote_db } );
+	my $exists_in_remote = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM users WHERE (user_name,status)=(?,?))',
+		[ $user_name, 'validated' ],
+		{ cache => 'CurateImportUserPage::check_valid_import::remote', db => $remote_db }
+	);
 	if ( !$exists_in_remote ) {
 		$logger->error("User '$user_name' does not exist in the remote user database.");
 		say qq(<div class="box" id="statusbad"><p>User '$user_name' does not )
