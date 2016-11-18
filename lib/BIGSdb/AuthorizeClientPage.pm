@@ -90,8 +90,9 @@ sub print_content {
 		$self->_authorize_token($client);
 		return;
 	}
-	say q(<div class="box" id="queryform"><div class="scrollable"><p>Do you wish for the following )
-	  . q(application to access data on your behalf?</p>);
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<span class="main_icon fa fa-handshake-o fa-3x pull-left"></span>);
+	say q(<p>Do you wish for the following application to access data on your behalf?</p>);
 	say q(<fieldset style="float:left"><legend>Application</legend>);
 	say qq(<p><b>$client->{'application'} );
 	say qq(version $client->{'version'}) if $client->{'version'};
@@ -129,6 +130,7 @@ sub _authorize_token {
 		$self->{'auth_db'}->rollback;
 	} else {
 		say q(<div class="box" id="resultspanel">);
+		say q(<span class="main_icon fa fa-handshake-o fa-3x pull-left"></span>);
 		my $version = $client->{'version'} ? " version $client->{'version'} " : '';
 		my $desc = $self->_get_resource_desc($self->{'username'}) || 'BIGSdb';
 		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> )

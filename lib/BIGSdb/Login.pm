@@ -330,11 +330,12 @@ sub _print_registration_links {
 	say q(<div class="box queryform">);
 	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
 	say q(<h2>Not registered?</h2>);
-	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
+	say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
 	  . q(Register for an account</a>.</li></ul>);
 	if ( $self->{'config'}->{'site_admin_email'} ) {
+		say q(<span class="main_icon fa fa-envelope-o fa-3x pull-left"></span>);
 		say q(<h2>Forgotten username or password</h2>);
-		say qq(<ul><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
+		say qq(<ul class="toplevel"><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
 		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
 	}
 	say q(</div>);

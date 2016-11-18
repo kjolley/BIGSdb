@@ -185,7 +185,8 @@ sub _register {
 	  . q(This does not apply to accounts that have submitted data linked to them within the database.</p>);
 	say q(<p>Once you log in you will be able to register for specific resources on the site.</p>);
 	my $class = RESET_BUTTON_CLASS;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="$class ui-button-text-only"><span class="ui-button-text">Log in</span></a></p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="$class ui-button-text-only">)
+	  . q(<span class="ui-button-text">Log in</span></a></p>);
 	say q(</div>);
 	return;
 }

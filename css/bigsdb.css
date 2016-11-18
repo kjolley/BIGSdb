@@ -33,6 +33,7 @@ h3 {
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
+ul.toplevel {margin-left:16px}
 table {font-size: 1em;border-spacing:1px}
 
 a {color:#00b;text-decoration:none;z-index:9}
@@ -428,7 +429,6 @@ div#schemes {background:#e0e0d5}
 div#projects,div#jobs {background:#f0f0e5}
 div#index img,#plugins img,#sets img, #restricted img {float:left;margin-right:10px;width:32px}
 div#index h2,#plugins h2,#sets h2, #restricted h2 {margin-left:42px}
-div#index ul.toplevel, #plugins ul.toplevel {margin-left:16px}
 div#restricted {background:#e0d5d5}
 div#statuswarn, div.statuswarn {background:#e0e0d5;color:#404000}
 div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
