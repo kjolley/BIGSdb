@@ -41,10 +41,14 @@ use constant DEFINER_USERNAME => 'autodefiner';
 use constant DEFAULT_IDENTITY => 98;
 my %opts;
 GetOptions(
-	'database=s'   => \$opts{'d'},
-	'help'         => \$opts{'h'},
-	'identity=f'   => \$opts{'identity'},
-	'submission=s' => \$opts{'submission'}
+	'database=s'     => \$opts{'d'},
+	'exclude_loci=s' => \$opts{'L'},
+	'help'           => \$opts{'h'},
+	'identity=f'     => \$opts{'identity'},
+	'loci=s'         => \$opts{'l'},
+	'locus_regex=s'  => \$opts{'R'},
+	'schemes=s'      => \$opts{'s'},
+	'submission=s'   => \$opts{'submission'}
 ) or die("Error in command line arguments\n");
 
 if ( $opts{'h'} ) {
@@ -77,12 +81,15 @@ $opts{'identity'} //= DEFAULT_IDENTITY;
 main();
 
 sub main {
+	my $loci           = $script->get_selected_loci;
+	my %allowed_loci   = map { $_ => 1 } @$loci;
 	my $submission_ids = get_submissions();
 	foreach my $submission_id (@$submission_ids) {
 		my $submission        = $script->{'submissionHandler'}->get_submission($submission_id);
 		my $allele_submission = $script->{'submissionHandler'}->get_allele_submission($submission_id);
 		next if !$allele_submission;
 		next if $allele_submission->{'technology'} eq 'Sanger';
+		next if !$allowed_loci{ $allele_submission->{'locus'} };
 		my $locus_info = $script->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
 		next if $locus_info->{'allele_id_format'} ne 'integer';
 		my $ext_attributes =
@@ -255,6 +262,9 @@ ${bold}OPTIONS$norm
 ${bold}--database$norm ${under}NAME$norm
     Database configuration name.
     
+${bold}--exclude_loci$norm ${under}LIST$norm
+    Comma-separated list of loci to exclude
+    
 ${bold}--help$norm
     This help page.
     
@@ -262,6 +272,15 @@ ${bold}--identity$norm ${under}IDENTITY$norm
     Alleles must have >= %identity to an allele of the same length to be
     accepted. Default: 98.
     
+${bold}--loci$norm ${under}LIST$norm
+    Comma-separated list of loci to scan (ignored if -s used).
+    
+${bold}--locus_regex$norm ${under}REGEX$norm
+    Regex for locus names.    
+
+${bold}--schemes$norm ${under}LIST$norm
+    Comma-separated list of scheme loci to scan.
+   
 ${bold}--submission$norm ${under}SUBMISSION ID$norm
     Submission id.
     
