@@ -37,6 +37,10 @@ GetOptions(
 	'p|permission=s'  => \$opts{'permission'},
 	's|submit'        => \$opts{'s'},
 	'u|update'        => \$opts{'u'},
+        'U|dbuser=s'      => \$opts{'dbuser'},
+        'P|dbpass=s'      => \$opts{'dbpass'},
+        'H|dbhost=s'      => \$opts{'dbhost'},
+        'N|dbport'        => \$opts{'dbport'},
 	'v|version=s'     => \$opts{'v'}
 ) or die("Error in command line arguments\n");
 
@@ -56,6 +60,10 @@ if ( $opts{'i'} && $opts{'u'} ) {
 	die "--update and --insert options are mutually exclusive!\n";
 }
 $opts{'v'} //= '';
+$opts{'dbuser'} //= 'postgres';
+$opts{'dbpass'} //= '';
+$opts{'dbhost'} //= 'localhost';
+$opts{'dbport'} //= 5432;
 main();
 exit;
 
@@ -69,8 +77,8 @@ sub main {
 		say "Client secret: $client_secret";
 	}
 	if ( $opts{'i'} || $opts{'u'} ) {
-		my $db = DBI->connect( 'DBI:Pg:dbname=' . DBASE,
-			'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+		my $db = DBI->connect( 'DBI:Pg:dbname=' . DBASE . ";host=$opts{'dbhost'};port=$opts{'dbport'}",
+			$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
 		  || croak q(couldn't open database);
 		my $sql = $db->prepare('SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))');
 		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
@@ -199,7 +207,22 @@ ${bold}-u, --update$norm
     
 ${bold}-v, --version ${under}VERSION$norm  
     Version of application (optional).
-    
+
+${bold}DATABASE CONNECTION OPTIONS$norm
+
+${bold}-U, --dbuser$norm
+   Database user used to connect to database server [DEFAULT 'postgres'].
+
+${bold}-P, --dbpass$norm
+   Database user password used to connect to database server [DEFAULT ''].
+
+${bold}-H, --dbhost$norm
+   Database server hostname [DEFAULT 'localhost'].
+
+${bold}-N, --dbport$norm
+   Database server port connection number [DEFAULT 5432].
+
+
 HELP
 	return;
 }
