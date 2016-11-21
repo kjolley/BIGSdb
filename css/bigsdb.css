@@ -428,7 +428,6 @@ div#sets {background:#e0e0d5}
 div#schemes {background:#e0e0d5}
 div#projects,div#jobs {background:#f0f0e5}
 div#index img,#plugins img,#sets img, #restricted img {float:left;margin-right:10px;width:32px}
-div#index h2,#plugins h2,#sets h2, #restricted h2 {margin-left:42px}
 div#restricted {background:#e0d5d5}
 div#statuswarn, div.statuswarn {background:#e0e0d5;color:#404000}
 div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}

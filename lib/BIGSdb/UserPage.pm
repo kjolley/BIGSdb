@@ -36,6 +36,11 @@ sub print_content {
 	my ($self) = @_;
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		my $q = $self->{'cgi'};
+		if ($self->{'curate'} && $q->param('merge_user') && $q->param('user')){
+			$self->_select_merge_users;
+			return;
+		}
 		$self->_site_account;
 		return;
 	}
@@ -67,7 +72,9 @@ sub _site_account {
 	}
 	$self->_show_registration_details;
 	if ( $self->{'curate'} ) {
-		$self->_show_admin_roles;
+		
+			$self->_show_admin_roles;
+		
 	} else {
 		$self->_show_user_roles;
 	}
@@ -424,6 +431,7 @@ sub _show_admin_roles {
 	my ($self) = @_;
 	my $buffer;
 	$buffer .= $self->_import_dbase_config;
+	$buffer .= $self->_show_merge_user_accounts;
 	if ($buffer) {
 		say q(<div class="box" id="restricted">);
 		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
@@ -452,8 +460,8 @@ sub _get_autoreg_status {
 
 sub _import_dbase_config {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
 	return q() if !$self->{'permissions'}->{'import_dbase_configs'};
+	my $q = $self->{'cgi'};
 	if ( $q->param('add') ) {
 		foreach my $config ( $q->param('available') ) {
 			next if $self->_is_config_registered($config);
@@ -534,10 +542,44 @@ sub _import_dbase_config {
 	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("registered",false)' value="None" )
 	  . q(style="margin-top:1em" class="smallbutton" />);
-	$buffer .= q(</td></tr>);
+	$buffer .= q(</td></tr></table>);
 	$buffer .= $q->end_form;
 	$buffer .= q(</div>);
 	return $buffer;
+}
+
+sub _show_merge_user_accounts {
+	my ($self) = @_;
+	return q() if !$self->{'permissions'}->{'merge_users'};
+	my $users =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT user_name,first_name,surname FROM users ORDER BY surname, first_name, user_name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return q() if !@$users;
+	my $usernames = [''];
+	my $labels = {'' => 'Select user...'};
+	foreach my $user (@$users) {
+		push @$usernames, $user->{'user_name'};
+		$labels->{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+	}
+	my $buffer = q(<h2>Merge user accounts</h2>);
+	my $q      = $self->{'cgi'};
+	$buffer .= $q->start_form;
+	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
+	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= q(</fieldset>);
+	$buffer .= $q->hidden(merge_user=>1);
+	$buffer .=
+	  $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Select user' } );
+	$buffer .= q(<div style="clear:both"></div>);
+	$buffer .= $q->end_form;
+	return $buffer;
+}
+
+sub _select_merge_users {
+	my ($self) = @_;
+	
+	return;
 }
 
 sub _notify_db_admin {
