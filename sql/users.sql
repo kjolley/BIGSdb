@@ -98,3 +98,17 @@ PRIMARY KEY (user_name)
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON invalid_usernames TO apache;
+
+CREATE TABLE history (
+timestamp timestamptz NOT NULL,
+user_name text NOT NULL,
+field text NOT NULL,
+old text NOT NULL,
+new text NOT NUll,
+PRIMARY KEY (timestamp,user_name,field),
+CONSTRAINT h_user_name FOREIGN KEY (user_name) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON history TO apache;

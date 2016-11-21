@@ -25,11 +25,12 @@ use Log::Log4perl qw(get_logger);
 use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
 use Mail::Sender;
+use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
-my $logger = get_logger('BIGSdb.Application_Authentication');
+my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
 	my ($self) = @_;
@@ -59,11 +60,129 @@ sub _site_account {
 		$self->print_about_bigsdb;
 		return;
 	}
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+	my $q = $self->{'cgi'};
+	if ( $q->param('edit') ) {
+		$self->_edit_user;
+		return;
+	}
+	$self->_show_registration_details;
 	if ( $self->{'curate'} ) {
 		$self->_show_admin_roles;
 	} else {
 		$self->_show_user_roles;
+	}
+	return;
+}
+
+sub _show_registration_details {
+	my ($self) = @_;
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
+	say q(<h2>User details</h2>);
+	say q(<p>You are registered with the following details:</p>);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	say q(<dl class="data">)
+	  . qq(<dt>Username</dt><dd>$user_info->{'user_name'}</dd>)
+	  . qq(<dt>First name</dt><dd>$user_info->{'first_name'}</dd>)
+	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
+	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
+	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
+	my $edit  = EDIT;
+	my $class = RESET_BUTTON_CLASS;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="$class ui-button-text-only">)
+	  . qq(<span class="ui-button-text">$edit Edit details</span></a></p>);
+	say q(</div></div>);
+	return;
+}
+
+sub _edit_user {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('update') ) {
+		$self->_update_user;
+	}
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<span class="config_icon fa fa-edit fa-3x pull-left"></span>);
+	say q(<h2>User account details</h2>);
+	say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
+	  . q(associated with your record. The E-mail address will be used to send you notifications about your submissions.</p>);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	$q->param( $_ => $q->param($_) // $user_info->{$_} ) foreach qw(first_name surname email affiliation);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Edit details</legend>);
+	say q(<ul><li>);
+	say q(<label for="first_name" class="form">First name:</label>);
+	say $q->textfield( -name => 'first_name', -id => 'first_name', -required => 'required', size => 25 );
+	say q(</li><li>);
+	say q(<label for="surname" class="form">Last name/surname:</label>);
+	say $q->textfield( -name => 'surname', -id => 'surname', -required => 'required', size => 25 );
+	say q(</li><li>);
+	say q(<label for="email" class="form">E-mail:</label>);
+	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 30 );
+	say q(</li><li>);
+	say q(<label for="affiliation" class="form">Affiliation/institute:</label>);
+	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required' );
+	say q(</li></ul>);
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
+	$q->param( update => 1 );
+	say $q->hidden($_) foreach qw(edit update);
+	say $q->end_form;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}">Back to user page</a></p>);
+	say q(</div></div>);
+	return;
+}
+
+sub _update_user {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my @missing;
+	foreach my $param (qw (first_name surname email affiliation)) {
+		push @missing, $param if !$q->param($param) || $q->param($param) eq q();
+	}
+	my $address = Email::Valid->address( $q->param('email') );
+	my $error;
+	if (@missing) {
+		local $" = q(, );
+		$error = qq(Please enter the following parameters: @missing.);
+	} elsif ( !$address ) {
+		$error = q(Your E-mail address is not valid.);
+	}
+	if ($error) {
+		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
+		return;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my ( @changed_params, @new, %old );
+	foreach my $param (qw (first_name surname email affiliation)) {
+		if ( $q->param($param) ne $user_info->{$param} ) {
+			push @changed_params, $param;
+			push @new,            $q->param($param);
+			$old{$param} = $user_info->{$param};
+		}
+	}
+	if (@changed_params) {
+		local $" = q(,);
+		my @placeholders = ('?') x @changed_params;
+		my $qry          = "UPDATE users SET (@changed_params,datestamp)=(@placeholders,?) WHERE user_name=?";
+		eval {
+			$self->{'db'}->do( $qry, undef, @new, 'now', $self->{'username'} );
+			foreach my $param (@changed_params) {
+				$self->{'db'}->do( 'INSERT INTO history (timestamp,user_name,field,old,new) VALUES (?,?,?,?,?)',
+					undef, 'now', $self->{'username'}, $param, $user_info->{$param}, $q->param($param) );
+			}
+			$logger->info("$self->{'username'} updated user details.");
+		};
+		if ($@) {
+			say q(<div class="box" id="statusbad"><p>User detail update failed.</p></div>);
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			say q(<div class="box" id="resultsheader"><p>Details successfully updated</p></div>);
+			$self->{'db'}->commit;
+		}
+	} else {
+		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
 	}
 	return;
 }
@@ -92,6 +211,7 @@ sub _registrations {
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
 	return $buffer if !@$configs;
+	$buffer .= q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .= q(<p>Use this page to register your account with specific databases. )
 	  . q(You only need to do this if you need to submit data or access password-protected resources.<p>);
@@ -374,7 +494,8 @@ sub _import_dbase_config {
 	}
 	$buffer .= q(<h2>Database configurations</h2>);
 	if ( !@$registered_configs && !@$available_configs ) {
-		$buffer .= q(<p>There are no configurations available or registered. Please run the sync_user_dbase_users.pl )
+		$buffer .=
+		    q(<p>There are no configurations available or registered. Please run the sync_user_dbase_users.pl )
 		  . q(script to populate the available configurations.</p>);
 		return $buffer;
 	}
@@ -404,7 +525,8 @@ sub _import_dbase_config {
 		-style    => 'min-width:10em; min-height:15em'
 	);
 	$buffer .= q(</td></tr>);
-	$buffer .= q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
+	$buffer .=
+	    q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
 	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
 	  . q(style="margin-top:1em" class="smallbutton" /></td><td></td>);
@@ -531,5 +653,4 @@ sub _drop_connection {
 	$self->{'dataConnector'}->drop_connection($args);
 	return;
 }
-
 1;

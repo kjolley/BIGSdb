@@ -328,15 +328,22 @@ sub _print_registration_links {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user' || $self->{'curate'};
 	say q(<div class="box queryform">);
-	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
 	say q(<h2>Not registered?</h2>);
+	say q(<span class="main_icon fa fa-id-card-o fa-2x pull-left"></span>);
 	say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
-	  . q(Register for an account</a>.</li></ul>);
+	  . q(Register for a site-wide account</a>.</li></ul>);
 	if ( $self->{'config'}->{'site_admin_email'} ) {
-		say q(<span class="main_icon fa fa-envelope-o fa-3x pull-left"></span>);
 		say q(<h2>Forgotten username or password</h2>);
+		say q(<span class="main_icon fa fa-envelope fa-2x pull-left"></span>);
 		say qq(<ul class="toplevel"><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
 		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
+		say q(<h2>Multiple accounts?</h2>);
+		say q(<span class="main_icon fa fa-users fa-2x pull-left"></span>);
+		say q(<ul class="toplevel"><li>If you are registered for different databases with separate accounts, )
+		  . q(these can be merged so that you only need to log in with this one site account. )
+		  . q(Please first register for a site-wide account (see link above) and then )
+		  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">E-mail the site administrator</a> )
+		  . q(with a list of databases you are registered for and your respective usernames.</li></ul>);
 	}
 	say q(</div>);
 	return;
