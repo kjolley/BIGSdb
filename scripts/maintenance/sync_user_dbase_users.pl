@@ -87,7 +87,11 @@ sub main {
 	add_registered_users();
 	remove_unregistered_users();
 	set_auto_registration();
+	remove_deleted_users();
 	check_invalid_users();
+
+	#TODO Remove users from auth_db if they don't exist in any database
+	#TODO Automatic registration of paired databases
 	return;
 }
 
@@ -330,9 +334,11 @@ sub add_registered_users {
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
 		if ( defined $user_db_id ) {
-			my $user_names =
-			  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
-				$user_db_id, { fetch => 'col_arrayref', db => $db } );
+			my $user_names = $script->{'datastore'}->run_query(
+				q(SELECT user_name FROM users WHERE user_db=? AND user_name NOT LIKE 'REMOVED_USER%' ORDER BY surname),
+				$user_db_id,
+				{ fetch => 'col_arrayref', db => $db }
+			);
 			foreach my $user_name (@$user_names) {
 				next if is_user_registered_for_resource( $config, $user_name );
 				push @list, { config => $config, user_name => $user_name };
@@ -518,6 +524,40 @@ sub check_invalid_users {
 				say $user_name;
 			}
 			$script->{'db'}->commit;
+		}
+	}
+	return;
+}
+
+sub remove_deleted_users {
+	my $configs = get_registered_configs();
+	my @deleted_users;
+	foreach my $config (@$configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		my $users =
+		  $script->{'datastore'}->run_query( q(SELECT user_name FROM users WHERE user_name LIKE 'REMOVED_USER%'),
+			undef, { db => $db, fetch => 'col_arrayref' } );
+		eval {
+			foreach my $user (@$users)
+			{
+				$db->do( 'DELETE FROM users WHERE user_name=?', undef, $user );
+				push @deleted_users, { config => $config, username => $user };
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			$db->rollback;
+		} else {
+			$db->commit;
+		}
+		drop_connection($system);
+	}
+	if ( @deleted_users && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading('Removing deleted users');
+		foreach my $item (@deleted_users) {
+			say qq($item->{'config'}: $item->{'username'});
 		}
 	}
 	return;

@@ -562,7 +562,6 @@ sub initiate_userdbs {
 	return;
 }
 
-
 sub get_user_db {
 	my ( $self, $id ) = @_;
 	return $self->{'user_dbs'}->{$id}->{'db'};
@@ -571,8 +570,8 @@ sub get_user_db {
 sub get_user_dbs {
 	my ($self) = @_;
 	my $dbases = [];
-	foreach my $config_id (keys %{$self->{'user_dbs'}}){
-		push @$dbases,$self->{'user_dbs'}->{$config_id};
+	foreach my $config_id ( keys %{ $self->{'user_dbs'} } ) {
+		push @$dbases, $self->{'user_dbs'}->{$config_id};
 	}
 	return $dbases;
 }
@@ -587,7 +586,6 @@ sub user_db_defined {
 	my ( $self, $id ) = @_;
 	return defined $self->{'user_dbs'}->{$id} ? 1 : undef;
 }
-
 
 sub get_dbname_with_user_details {
 	my ( $self, $username ) = @_;
@@ -633,6 +631,7 @@ sub get_users {
 	$options->{'format'}     //= 'sfu';
 	$options->{'identifier'} //= 'id';
 	foreach my $user (@$data) {
+		next if $user->{'user_name'} =~ /^REMOVED_USER/x;
 		push @$ids, $user->{ $options->{'identifier'} };
 		if ( $options->{'format'} eq 'sfu' ) {
 			$labels->{ $user->{ $options->{'identifier'} } } =
@@ -2467,7 +2466,8 @@ sub get_tables_with_curator {
 		  scheme_members locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases
 		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
-		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes);
+		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
+		  isolates);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

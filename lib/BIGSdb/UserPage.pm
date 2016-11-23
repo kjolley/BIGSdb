@@ -37,7 +37,7 @@ sub print_content {
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
 		my $q = $self->{'cgi'};
-		if ($self->{'curate'} && $q->param('merge_user') && $q->param('user')){
+		if ( $self->{'curate'} && $q->param('merge_user') && $q->param('user') ) {
 			$self->_select_merge_users;
 			return;
 		}
@@ -72,9 +72,7 @@ sub _site_account {
 	}
 	$self->_show_registration_details;
 	if ( $self->{'curate'} ) {
-		
-			$self->_show_admin_roles;
-		
+		$self->_show_admin_roles;
 	} else {
 		$self->_show_user_roles;
 	}
@@ -557,7 +555,7 @@ sub _show_merge_user_accounts {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return q() if !@$users;
 	my $usernames = [''];
-	my $labels = {'' => 'Select user...'};
+	my $labels = { '' => 'Select user...' };
 	foreach my $user (@$users) {
 		push @$usernames, $user->{'user_name'};
 		$labels->{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
@@ -568,18 +566,214 @@ sub _show_merge_user_accounts {
 	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
 	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
 	$buffer .= q(</fieldset>);
-	$buffer .= $q->hidden(merge_user=>1);
-	$buffer .=
-	  $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Select user' } );
+	$buffer .= $q->hidden( merge_user => 1 );
+	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Select user' } );
 	$buffer .= q(<div style="clear:both"></div>);
 	$buffer .= $q->end_form;
 	return $buffer;
 }
 
 sub _select_merge_users {
-	my ($self) = @_;
-	
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+	if ( !$user_info ) {
+		say q(<div class="box" id="statusbad"><p>No information available for user.</p></div>);
+		return;
+	}
+	if ( !$self->{'permissions'}->{'merge_users'} ) {
+		say q(<div class="box" id="statusbad"><p>Your account does not have permission to merge accounts.</p></div>);
+		return;
+	}
+	if ( $q->param('merge') ) {
+		my $account;
+		if ( $q->param('dbase_config') && $q->param('username') ) {
+			$account = $q->param('dbase_config') . '|' . $q->param('username');
+		} else {
+			$account = $q->param('accounts');
+		}
+		$self->_merge( $q->param('user'), $account );
+	}
+	say q(<div class="box" id="queryform">);
+	say q(<h2>Merge user accounts</h2>);
+	say
+	  q(<p>Please note that merging of user accounts may fail due to a database timeout if the site user account below )
+	  . q(has multiple (1000+) records already associated with it in a specific database. This is unusual as the site user )
+	  . q(account is normally newly created, but can occur if you are trying to merge multiple user accounts in to one.</p>)
+	  . q(<p>Databases changes will be rolled back if this occurs so the system will always be in a consistent state.</p>);
+	say q(<p><strong>Site user:</strong></p>);
+	say q(<dl class="data">)
+	  . qq(<dt>Username</dt><dd>$user_info->{'user_name'}</dd>)
+	  . qq(<dt>First name</dt><dd>$user_info->{'first_name'}</dd>)
+	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
+	  . qq(<dt>E-mail</dt><dd>$user_info->{'email'}</dd>)
+	  . qq(<dt>Affiliation</dt><dd>$user_info->{'affiliation'}</dd>)
+	  . q(</dl>);
+	my $possible_accounts = $self->_get_possible_matching_accounts( $q->param('user') );
+	say q(<div class="scrollable">);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Possible matching accounts</legend>);
+
+	if (@$possible_accounts) {
+		my $accounts = [];
+		my $labels   = {};
+		foreach my $possible (@$possible_accounts) {
+			push @$accounts, "$possible->{'dbase_config'}|$possible->{'user_name'}";
+			$labels->{"$possible->{'dbase_config'}|$possible->{'user_name'}"} =
+			    "$possible->{'dbase_config'}: $possible->{'first_name'} $possible->{'surname'} "
+			  . "($possible->{'user_name'}) - $possible->{'email'} - $possible->{'affiliation'}";
+		}
+		say q(<p>The following accounts have been found by exact matches to first+last name or E-mail address.</p>);
+		say q(<p>Select each account in turn and click 'Merge' to replace these database-specific accounts )
+		  . q(with the above site account.</p>);
+		say $q->scrolling_list(
+			-name   => 'accounts',
+			-id     => 'accounts',
+			-values => $accounts,
+			-labels => $labels,
+			-size   => 5
+		);
+		say q(</fieldset>);
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Merge' } );
+		$q->param( merge => 1 );
+		say $q->hidden($_) foreach qw(merge merge_user user);
+	} else {
+		say q(<p>No matching database-specific accounts found based on )
+		  . q(matching first+last name or E-mail address.</p>);
+	}
+	say $q->end_form;
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Enter account username to merge</legend>);
+	say q(<p>If the database/user combination you want isn't listed above, you can enter it specifically below:</p>);
+	my $registered_configs =
+	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
+		undef, { fetch => 'col_arrayref' } );
+	unshift @$registered_configs, q();
+	say q(<ul><li>);
+	say q(<label for="dbase_config" class="form">Database configuration:</label>);
+	say $q->popup_menu(
+		-name   => 'dbase_config',
+		-id     => 'dbase_config',
+		values  => $registered_configs,
+		-labels => { '' => 'Select database...' }
+	);
+	say q(</li><li>);
+	say q(<label for="username" class="form">Username:</label>);
+	say $q->textfield( -name => 'username', id => 'username' );
+	say q(</li></ul>);
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Merge' } );
+	$q->param( merge => 1 );
+	say $q->hidden($_) foreach qw(merge merge_user user);
+	say $q->end_form;
+	say q(</div>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}">Back</a></p>);
+	say q(</div>);
 	return;
+}
+
+sub _merge {
+	my ( $self, $user, $account ) = @_;
+	return if !$account;
+	my @curator_tables = $self->{'datastore'}->get_tables_with_curator;
+	my ( $config, $remote_user ) = split /\|/x, $account;
+	my $system = $self->_read_config_xml($config);
+	my @sender_tables =
+	  $system->{'dbtype'} eq 'isolates'
+	  ? qw(isolates sequence_bin allele_designations)
+	  : q(sequences profiles );
+	my $db = $self->_get_db($system);
+	my $db_user_id =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM users WHERE user_name=?', $remote_user, { db => $db } );
+	my $site_user_id =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM users WHERE user_name=?', $user, { db => $db } );
+
+	if ( !$db_user_id ) {
+		say qq(<div class="box" id="statusbad"><p>User $remote_user is not found in $config.<p></div>);
+		return;
+	}
+	my $site_db =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );
+	return if !$site_db;
+	eval {
+		foreach my $table (@sender_tables)
+		{
+			$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
+		}
+		foreach my $table (@curator_tables) {
+			say "$table $db_user_id, $site_user_id";
+			$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
+		}
+
+		#Don't delete user - this can take a long time as there are a lot of constraints on the users table.
+		#We'll change the username instead and then reap these with an offline script.
+		my $username_to_delete = $self->_get_username_to_delete($db);
+		$db->do( 'UPDATE users SET (user_name,status,user_db,datestamp)=(?,?,null,?) WHERE id=?',
+			undef, $username_to_delete, 'user', 'now', $site_user_id );
+		$db->do(
+			'UPDATE users SET (user_name,surname,first_name,email,affiliation,user_db)='
+			  . '(?,null,null,null,null,?) WHERE id=?',
+			undef, $user, $site_db, $db_user_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$db->rollback;
+		say q(<div class="box" id="statusbad"><p>Account failed to merge</p></div>);
+	} else {
+		$db->commit;
+		say q(<div class="box" id="resultsheader"><p>Account successfully merged</p></div>);
+	}
+	$self->_drop_connection($system);
+	return;
+}
+
+sub _get_username_to_delete {
+	my ( $self, $db ) = @_;
+	my $i = 0;
+	while (1) {
+		$i++;
+		my $user_name = 'REMOVED_USER_' . $i;
+		my $exists =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)', $user_name, { db => $db } );
+		return $user_name if !$exists;
+	}
+	return;
+}
+
+sub _get_possible_matching_accounts {
+	my ( $self, $username ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
+	my $configs   = $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_users WHERE user_name=?',
+		$username, { fetch => 'col_arrayref' } );
+	my %db_checked;
+	my $accounts = [];
+	foreach my $config (@$configs) {
+		my $system = $self->_read_config_xml($config);
+		next if $db_checked{ $system->{'db'} };
+		my $db    = $self->_get_db($system);
+		my $users = $self->{'datastore'}->run_query(
+			'SELECT * FROM users WHERE ((first_name,surname)=(?,?) OR email=?) AND user_db IS NULL AND id>0',
+			[ $user_info->{'first_name'}, $user_info->{'surname'}, $user_info->{'email'} ],
+			{ db => $db, fetch => 'all_arrayref', slice => {} }
+		);
+		$db_checked{ $system->{'db'} } = 1;
+		foreach my $user (@$users) {
+			push @$accounts,
+			  {
+				dbase_config => $config,
+				user_name    => $user->{'user_name'},
+				first_name   => $user->{'first_name'},
+				surname      => $user->{'surname'},
+				affiliation  => $user->{'affiliation'},
+				email        => $user->{'email'},
+			  };
+		}
+		$self->_drop_connection($system);
+	}
+	return $accounts;
 }
 
 sub _notify_db_admin {
@@ -621,6 +815,7 @@ sub _notify_db_admin {
 		no warnings 'once';
 		$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
 	}
+	$self->_drop_connection($system);
 	return;
 }
 
