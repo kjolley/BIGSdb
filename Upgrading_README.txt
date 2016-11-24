@@ -20,6 +20,8 @@ Version 1.12: Change of authentication and seqdef database structures.
 Version 1.13: Change of seqdef and isolate database structures.
 Version 1.14: Change of seqdef and isolate database structures.
 Version 1.15: Change of seqdef and isolate database structures.
+Version 1.16: Change of authentication, seqdef and isolate database 
+              structures.
 
 Details can be found below.
 
@@ -328,9 +330,21 @@ Version 1.15
 There have been changes to both the sequence definition and isolate
 database structures mainly to support scheme descriptions.
 
-Please run the seqdefdb_v1.15.sql against sequence definition databases and
-isolatedb_v1.15.sql against isolate databases. These can be found in the 
+Please run the seqdefdb_v1.15.sql script against sequence definition databases
+and isolatedb_v1.15.sql against isolate databases. These can be found in the 
 sql/upgrade directory.
 
 Additionally, you need to update the bigsdb.css stylesheet and contents of
 the javascript directory.
+
+Version 1.16
+------------
+There are changes to the sequence definition, isolate and authentication
+databases to support site-wide user accounts.
+
+Please run the seqdefdb_v1.16.sql script against sequence definition databases,
+isolatedb_v1.16.sql against isolate databases and auth_v1.16.sql against the
+authentication database (bigsdb_auth).
+
+Additionally, you need to update the bigsdb.css stylesheet and the contents
+of the fonts directory.
