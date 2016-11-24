@@ -66,11 +66,9 @@ sub get_profile_by_primary_keys {
 	return if !$self->{'db'};
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
 		my $loci = $self->{'loci'};
-		my @locus_names;
-		push @locus_names, "profile[$self->{'locus_index'}->{$_}]" foreach @$loci;
 		local $" = ',';
 		my $table = "mv_scheme_$self->{'dbase_id'}";
-		my $qry   = "SELECT @locus_names FROM $table WHERE ";
+		my $qry   = "SELECT profile FROM $table WHERE ";
 		local $" = '=? AND ';
 		my $primary_keys = $self->{'primary_keys'};
 		$qry .= "@$primary_keys=?";
@@ -86,8 +84,8 @@ sub get_profile_by_primary_keys {
 			  . $self->{'db'}->errstr );
 		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
 	} else {
-		my @profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
-		return \@profile;
+		my $profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
+		return $profile;
 	}
 }
 
@@ -122,11 +120,9 @@ sub get_field_values_by_designations {
 	return {} if !@allele_ids;
 	local $" = ',';
 	my @locus_terms;
-	my @locus_list;
 	my $i = 0;
 	foreach my $locus (@used_loci) {
 		my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
-		push @locus_list, $locus_name;
 		my @temp_terms;
 		push @temp_terms, ("$locus_name=?") x $allele_count[$i];
 		push @temp_terms, "$locus_name='N'" if $self->{'allow_missing_loci'};
@@ -141,7 +137,7 @@ sub get_field_values_by_designations {
 
 	#Don't cache statement handle because it will vary depending on whether or not there are missing loci
 	#or differing numbers of allele designations at loci.
-	my $sql = $self->{'db'}->prepare("SELECT @locus_list,@$fields FROM $table WHERE $locus_term_string");
+	my $sql = $self->{'db'}->prepare("SELECT @$fields FROM $table WHERE $locus_term_string");
 	eval { $sql->execute(@allele_ids) };
 	if ($@) {
 		$logger->warn( q(Check database attributes in the scheme_fields table for )
