@@ -188,6 +188,7 @@ sub search_users {
 		$qry .= "$suffix $operator '$text'";
 	}
 	my $local_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	if ($suffix ne 'id'){
 	my $remote_db_ids =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
@@ -202,7 +203,7 @@ sub search_users {
 			my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
 			push @$local_ids, $user_info->{'id'} if $user_info->{'id'};
 		}
-	}
+	}}
 	$local_ids = [-999] if !@$local_ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$local_ids')";

@@ -355,7 +355,7 @@ sub _register {
 				undef, $config, $self->{'username'}, 'now' );
 			$db->do(
 				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
-				undef, $id, $self->{'username'}, 'user', 'now', 'now', $id, $user_db
+				undef, $id, $self->{'username'}, 'user', 'now', 'now', 0, $user_db
 			);
 			$db->commit;
 			$self->_drop_connection($system);

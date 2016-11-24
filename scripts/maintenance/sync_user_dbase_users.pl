@@ -34,6 +34,7 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Constants qw(:accounts);
 use List::MoreUtils qw(uniq);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -89,8 +90,8 @@ sub main {
 	set_auto_registration();
 	remove_deleted_users();
 	check_invalid_users();
+	remove_inactive_accounts();
 
-	#TODO Remove users is they have no linked data and account is older than INACTIVE_ACCOUNT_REMOVAL_DAYS
 	#TODO Remove users from auth_db if they don't exist in any database
 	#TODO Automatic registration of paired databases
 	return;
@@ -555,6 +556,80 @@ sub remove_deleted_users {
 	if ( @deleted_users && !$opts{'quiet'} ) {
 		local $" = qq(\t\n);
 		say heading('Removing deleted users');
+		foreach my $item (@deleted_users) {
+			say qq($item->{'config'}: $item->{'username'});
+		}
+	}
+	return;
+}
+
+sub remove_inactive_accounts {
+	my $configs = get_registered_configs();
+	my $inactive_time =
+	  BIGSdb::Utils::is_int( $script->{'config'}->{'inactive_account_removal_days'} )
+	  ? $script->{'config'}->{'inactive_account_removal_days'}
+	  : INACTIVE_ACCOUNT_REMOVAL_DAYS;
+	$script->initiate_authdb;
+	my @deleted_users;
+	my $old_users = $script->{'datastore'}->run_query(
+		qq(SELECT name FROM users WHERE dbase=? AND last_login<NOW()-INTERVAL '$inactive_time days'),
+		$script->{'system'}->{'db'},
+		{ fetch => 'col_arrayref', db => $script->{'auth_db'} }
+	);
+	my %old_user = map { $_ => 1 } @$old_users;
+  CONFIG: foreach my $config (@$configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		my $user_db_id =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
+		next CONFIG if !$user_db_id;
+		my $users =
+		  $script->{'datastore'}
+		  ->run_query( q(SELECT id,user_name FROM users WHERE status='user' AND id>0 AND user_db=?),
+			$user_db_id, { db => $db, fetch => 'all_arrayref', slice => {} } );
+		my @curator_tables = $script->{'datastore'}->get_tables_with_curator( { dbtype => $system->{'dbtype'} } );
+		my @sender_tables =
+		  $system->{'dbtype'} eq 'isolates'
+		  ? qw(isolates sequence_bin allele_designations)
+		  : q(sequences profiles );
+	  USER: foreach my $user (@$users) {
+			next if !$old_user{ $user->{'user_name'} };
+			my ( $is_sender, $is_curator );
+		  TABLE: foreach my $table (@sender_tables) {
+				if ( $script->{'datastore'}
+					->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE sender=?)", $user->{'id'}, { db => $db } ) )
+				{
+					$is_sender = 1;
+					last TABLE;
+				}
+			}
+			next USER if $is_sender;
+		  TABLE: foreach my $table (@curator_tables) {
+				if ( $script->{'datastore'}
+					->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE curator=?)", $user->{'id'}, { db => $db } ) )
+				{
+					$is_curator = 1;
+					last TABLE;
+				}
+			}
+			next USER if $is_curator;
+			eval {
+				$db->do( 'DELETE FROM users WHERE user_name=?', undef, $user->{'user_name'} );
+				push @deleted_users, { config => $config, username => $user->{'user_name'} };
+			};
+			if ($@) {
+				$db->rollback;
+				$logger->error("Could not delete $user->{'user_name'} for $config. $@");
+			} else {
+				$db->commit;
+			}
+		}
+		drop_connection($system);
+	}
+	if ( @deleted_users && !$opts{'quiet'} ) {
+		local $" = qq(\t\n);
+		say heading(qq(Removing users who haven't logged in for $inactive_time days));
 		foreach my $item (@deleted_users) {
 			say qq($item->{'config'}: $item->{'username'});
 		}

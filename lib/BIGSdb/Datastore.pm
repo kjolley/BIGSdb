@@ -2458,9 +2458,10 @@ sub get_tables {
 }
 
 sub get_tables_with_curator {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	my $dbtype = $options->{'dbtype'} // $self->{'system'}->{'dbtype'};
 	my @tables;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+	if ( $dbtype eq 'isolates' ) {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations loci schemes
 		  scheme_members locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases
@@ -2471,7 +2472,7 @@ sub get_tables_with_curator {
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+	} elsif ( $dbtype eq 'sequences' ) {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
