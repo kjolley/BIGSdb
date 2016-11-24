@@ -37,9 +37,12 @@ GetOptions(
 	'p|permission=s'  => \$opts{'permission'},
 	's|submit'        => \$opts{'s'},
 	'u|update'        => \$opts{'u'},
+	'U|dbuser=s'      => \$opts{'dbuser'},
+	'P|dbpass=s'      => \$opts{'dbpass'},
+	'H|dbhost=s'      => \$opts{'dbhost'},
+	'N|dbport=i'      => \$opts{'dbport'},
 	'v|version=s'     => \$opts{'v'}
 ) or die("Error in command line arguments\n");
-
 if ( $opts{'permission'} && $opts{'permission'} ne 'allow' && $opts{'permission'} ne 'deny' ) {
 	die("Allowed permissions are 'allow' or 'deny'.\n");
 }
@@ -55,7 +58,9 @@ if ( !$opts{'a'} ) {
 if ( $opts{'i'} && $opts{'u'} ) {
 	die "--update and --insert options are mutually exclusive!\n";
 }
-$opts{'v'} //= '';
+$opts{'v'}      //= '';
+$opts{'dbuser'} //= 'postgres';
+$opts{'dbpass'} //= '';
 main();
 exit;
 
@@ -69,9 +74,20 @@ sub main {
 		say "Client secret: $client_secret";
 	}
 	if ( $opts{'i'} || $opts{'u'} ) {
-		my $db = DBI->connect( 'DBI:Pg:dbname=' . DBASE,
-			'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-		  || croak q(couldn't open database);
+		my $db;
+		my $db_name = DBASE;
+		if ( $opts{'dbhost'} || $opts{'dbport'} ) {
+			$opts{'dbhost'} //= 'localhost';
+			$opts{'dbport'} //= 5432;
+			$db = DBI->connect( "DBI:Pg:dbname=$db_name;host=$opts{'dbhost'};port=$opts{'dbport'}",
+				$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+			  || croak q(couldn't open database);
+		} else {    #No host/port - use UNIX domain sockets
+			$db =
+			  DBI->connect( "DBI:Pg:dbname=$db_name",
+				$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+			  || croak q(couldn't open database);
+		}
 		my $sql = $db->prepare('SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))');
 		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
 		my $exists = $sql->fetchrow_array;
@@ -199,7 +215,22 @@ ${bold}-u, --update$norm
     
 ${bold}-v, --version ${under}VERSION$norm  
     Version of application (optional).
-    
+
+${bold}DATABASE CONNECTION OPTIONS$norm
+
+${bold}-U, --dbuser$norm
+   Database user used to connect to database server [DEFAULT 'postgres'].
+
+${bold}-P, --dbpass$norm
+   Database user password used to connect to database server.
+
+${bold}-H, --dbhost$norm
+   Database server hostname [DEFAULT 'localhost' if port set]. If neither 
+   dbhost or dbport are set then UNIX domain sockets will be used for the 
+   connection.
+
+${bold}-N, --dbport$norm
+   Database server port connection number [DEFAULT 5432 if host set].
 HELP
 	return;
 }

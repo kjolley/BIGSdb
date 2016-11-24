@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Scan');
 use List::MoreUtils qw(any );
 use Error qw(:try);
 use Fcntl qw(:flock);
+use Bio::Seq;
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 
 sub _get_word_size {
@@ -667,7 +668,12 @@ sub _scan_locus_by_locus {
 
 sub _check_if_new {
 	my ( $self, $match, $new_seqs_found, $new_alleles, $locus, $seq_filename ) = @_;
-	my $seq = $self->extract_seq_from_match($match);
+	my $seq        = $self->extract_seq_from_match($match);
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( $locus_info->{'data_type'} eq 'peptide' ) {
+		my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+		$seq = $seq_obj->translate->seq;
+	}
 	$$new_seqs_found = 1;
 	my $new = 1;
 	$new = 0 if any { $seq eq $_ } @{ $new_alleles->{$locus} };
