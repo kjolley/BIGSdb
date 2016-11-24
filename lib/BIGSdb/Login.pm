@@ -149,6 +149,8 @@ sub login_from_cookie {
 	}
 	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} }, $options ) || '';
 	throw BIGSdb::AuthenticationException('No valid session') if !$stored_hash;
+	throw BIGSdb::AuthenticationException('User not registered')
+	  if !$self->{'datastore'}->user_name_exists( $cookies{ $self->{'user_cookie'} } );
 	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
 	my $cookie_string    = Digest::MD5::md5_hex( $stored_hash->{'password'} . UNIQUE_STRING );
 	##############################################################
@@ -206,7 +208,7 @@ sub _check_password {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
 	}
 	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
-	if ( !$stored_hash ) {
+	if ( !$stored_hash || !$self->{'datastore'}->user_name_exists( $self->{'vars'}->{'user'}) ) {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	}

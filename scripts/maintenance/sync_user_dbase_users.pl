@@ -90,6 +90,7 @@ sub main {
 	remove_deleted_users();
 	check_invalid_users();
 
+	#TODO Remove users is they have no linked data and account is older than INACTIVE_ACCOUNT_REMOVAL_DAYS
 	#TODO Remove users from auth_db if they don't exist in any database
 	#TODO Automatic registration of paired databases
 	return;
@@ -176,8 +177,6 @@ sub uses_this_user_db {
 	my $user_dbnames =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(dbase_name) FROM user_dbases', undef, { fetch => 'col_arrayref', db => $db } );
-
-	#return if !@$user_dbnames;
 	my $match;
 	foreach my $user_dbname (@$user_dbnames) {
 

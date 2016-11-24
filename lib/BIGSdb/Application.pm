@@ -254,7 +254,7 @@ sub _initiate {
 
 sub _is_user_page {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	if ( !$q->param('db') || $q->param('page') eq 'user' ) {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
@@ -720,7 +720,7 @@ sub authenticate {
 						};
 					}
 				}
-			};
+			};			
 		}
 		if ( $login_requirement == OPTIONAL && $self->{'page'} eq 'login' ) {
 			$self->{'page'} = 'index';
@@ -728,8 +728,8 @@ sub authenticate {
 	}
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
-		$q->{'page'} = 'changePassword';
-		$self->{'page'} = 'changePassword';
+		$q->{'page'}                                    = 'changePassword';
+		$self->{'page'}                                 = 'changePassword';
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
 		my $config_access = $self->is_user_allowed_access( $page_attributes->{'username'} );

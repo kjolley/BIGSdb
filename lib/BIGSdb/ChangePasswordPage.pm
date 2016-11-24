@@ -253,6 +253,9 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2
 	  new_length user sent username_as_password);
 	say $q->end_form;
+	if ($q->param('page') eq 'changePassword'){
+		say q(<p>You will be required to log in again with the new password once you have changed it.</p>);
+	}
 	say q(</div>);
 	return;
 }
