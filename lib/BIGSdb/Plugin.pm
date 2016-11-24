@@ -873,7 +873,7 @@ sub _should_scheme_be_cited {
 	my ( $self, $scheme_id ) = @_;
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM scheme_flags WHERE (scheme_id,flag)=(?,?))',
-		[ $scheme_id, 'citation required' ],
+		[ $scheme_id, 'please cite' ],
 		{ cache => 'Plugin::should_scheme_be_cited' }
 	);
 }
