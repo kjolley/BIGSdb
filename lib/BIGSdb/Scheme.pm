@@ -65,8 +65,6 @@ sub get_profile_by_primary_keys {
 	my ( $self, $values ) = @_;
 	return if !$self->{'db'};
 	if ( !$self->{'sql'}->{'scheme_profiles'} ) {
-		my $loci = $self->{'loci'};
-		local $" = ',';
 		my $table = "mv_scheme_$self->{'dbase_id'}";
 		my $qry   = "SELECT profile FROM $table WHERE ";
 		local $" = '=? AND ';
