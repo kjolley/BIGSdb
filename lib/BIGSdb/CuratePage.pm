@@ -911,7 +911,7 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 		push @$ids, $db->{'id'};
 		$labels->{ $db->{'id'} } = $db->{'name'};
 	}
-	push $ids, 0;
+	push @$ids, 0;
 	my %disabled_field = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	my %disabled = $disabled_field{'user_db'} ? ( disabled => 'disabled' ) : ();
 	$labels->{0} = 'this database only';
