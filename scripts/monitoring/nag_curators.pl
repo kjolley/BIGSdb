@@ -52,6 +52,9 @@ if ( $opts{'h'} ) {
 }
 main();
 
+#This must be run on the server hosting the databases
+#TODO Enable this to run on remote server, respecting the db.conf settings.
+
 sub main {
 	binmode( STDOUT, ':encoding(UTF-8)' );
 	my $dbases = get_databases_with_submissions();
@@ -213,8 +216,8 @@ sub get_submission_details {
 				undef, $submission_id );
 			$submission->{'scheme_id'} = $profile_submission->{'scheme_id'};
 			my $plural = $profile_count == 1 ? q() : q(s);
-			my $desc = $db->selectrow_array( q(SELECT name FROM schemes WHERE id=?),
-				undef, $profile_submission->{'scheme_id'} );
+			my $desc =
+			  $db->selectrow_array( q(SELECT name FROM schemes WHERE id=?), undef, $profile_submission->{'scheme_id'} );
 			$submission->{'description'} = "$profile_count $desc profile$plural";
 		},
 		isolates => sub {
@@ -286,8 +289,31 @@ sub get_curators {
 	my $curators = $db->selectall_arrayref(
 		q(SELECT * FROM users WHERE status IN ('admin','curator') AND submission_emails AND id>0 ORDER BY email),
 		{ Slice => {} } );
+	foreach my $curator (@$curators) {
+		if ( $curator->{'user_db'} ) {
+			my $remote_db =
+			  $db->selectrow_hashref( 'SELECT * FROM user_dbases WHERE id=?', undef, $curator->{'user_db'} );
+			my $remote_user = get_remote_user( $remote_db, $curator->{'user_name'} );
+			foreach my $att (qw(surname first_name email)) {
+				$curator->{$att} = $remote_user->{$att};
+			}
+		}
+	}
 	$db->disconnect;
 	return $curators;
+}
+
+sub get_remote_user {
+	my ( $remote_db, $user_name ) = @_;
+	my $att = {
+		name => $remote_db->{'dbase_name'},
+		host => $remote_db->{'dbase_host'} // 'localhost',
+		port => $remote_db->{'dbase_port'} // 5432
+	};
+	my $db = db_connect($att);
+	my $user_info = $db->selectrow_hashref( 'SELECT * FROM users WHERE user_name=?', undef, $user_name );
+	$db->disconnect;
+	return $user_info;
 }
 
 sub db_connect {
@@ -311,7 +337,7 @@ sub get_databases_with_submissions {
 		open( my $config_fh, '<', $config_file ) || croak "Cannot open $config_file";
 		while ( my $line = <$config_fh> ) {
 			foreach my $term (qw(db submissions description host port)) {
-				if ( $line =~ /$term\s*="([^"]*)"/x ) {
+				if ( $line =~ /^\s*$term\s*="([^"]*)"/x ) {
 					$attributes{$term} = $1;
 				}
 			}
