@@ -129,7 +129,7 @@ sub _get_possible_users {
 	my $users = [];
 	foreach my $remote_user (@$remote_users) {
 		next if $local_usernames{ $remote_user->{'user_name'} };
-		push $users, $remote_user;
+		push @$users, $remote_user;
 	}
 	return $users;
 }
