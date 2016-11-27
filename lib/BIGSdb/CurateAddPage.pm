@@ -731,27 +731,25 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 				$msg .=
 				    qq( <a class="$class ui-button-text-only" href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
-				  . qq(user_name=$newdata->{'user_name'}"><span class="ui-button-text">Import user</span></a>)
-				  ;
+				  . qq(user_name=$newdata->{'user_name'}"><span class="ui-button-text">Import user</span></a>);
 			}
 			push @$problems, $msg;
 		} else {
-			push @$extra_transactions,
-			  {
+			push @$extra_transactions, {
 				statement => 'INSERT INTO users (user_name,surname,first_name,email,affiliation,'
-				  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?)',
+				  . 'date_entered,datestamp,status) VALUES (?,?,?,?,?,?,?,?)',
 				arguments => [
 					$newdata->{'user_name'},   $newdata->{'surname'},
 					$newdata->{'first_name'},  $newdata->{'email'},
 					$newdata->{'affiliation'}, 'now',
-					'now'
+					'now',                     'validated'
 				],
 				db => $user_db
-			  };
+			};
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
-	undef $newdata->{'user_db'} if ($newdata->{'user_db'} // 0) == 0;
+	undef $newdata->{'user_db'} if ( $newdata->{'user_db'} // 0 ) == 0;
 	return;
 }
 
