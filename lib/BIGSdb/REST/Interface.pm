@@ -123,6 +123,7 @@ sub _before {
 	send_error( 'No access to databases - undergoing maintenance.', 503 ) if !$self->{'db'};
 	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
+	$self->{'datastore'}->initiate_userdbs;
 	$self->_initiate_view;
 	$self->{'page_size'} =
 	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
@@ -168,19 +169,16 @@ sub _is_authorized {
 	$client_name .= " version $client->{'version'}" if $client->{'version'};
 	$self->{'client_name'} = $client_name;
 	$self->delete_old_sessions;
-	my $session_token = $self->{'datastore'}->run_query(
-		'SELECT * FROM api_sessions WHERE session=?',
-		 param('oauth_token'),
-		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
-	);
+	my $session_token = $self->{'datastore'}->run_query( 'SELECT * FROM api_sessions WHERE session=?',
+		param('oauth_token'),
+		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' } );
 	if ( !$session_token->{'secret'} ) {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
-	my $dbase = $self->{'datastore'}->get_dbname_with_user_details($session_token->{'username'});
-	if ($dbase ne $session_token->{'dbase'}){
+	my $dbase = $self->{'datastore'}->get_dbname_with_user_details( $session_token->{'username'} );
+	if ( $dbase ne $session_token->{'dbase'} ) {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
-	
 	my $query_params = params('query');
 	my $body_params  = params('body');
 	my $extra_params = {};
@@ -440,7 +438,7 @@ sub get_user_id {
 sub add_filters {
 	my ( $self, $qry, $allowed_args ) = @_;
 	my $params = params;
-	my ($added_after,$updated_after) = @{$params}{qw(added_after updated_after)};
+	my ( $added_after, $updated_after ) = @{$params}{qw(added_after updated_after)};
 	my @terms;
 	my %methods = (
 		added_after => sub {
@@ -460,7 +458,7 @@ sub add_filters {
 }
 
 sub get_full_path {
-	my ($self, $path, $allowed_args) = @_;
+	my ( $self, $path, $allowed_args ) = @_;
 	$self->get_param_string($allowed_args);
 	my $passed_params = $self->get_param_string($allowed_args);
 	$path .= "?$passed_params" if $passed_params;
