@@ -281,8 +281,8 @@ sub add_available_resource {
 	my ($config) = @_;
 	my $system = read_config_xml($config);
 	eval {
-		$script->{'db'}->do( 'INSERT INTO available_resources (dbase_config,description) VALUES (?,?)',
-			undef, $config, $system->{'description'} );
+		$script->{'db'}->do( 'INSERT INTO available_resources (dbase_config,dbase_name,description) VALUES (?,?,?)',
+			undef, $config, $system->{'db'}, $system->{'description'} );
 	};
 	if (@$) {
 		$script->{'logger'}->error($@);
