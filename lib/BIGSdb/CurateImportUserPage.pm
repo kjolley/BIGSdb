@@ -118,11 +118,10 @@ sub _print_interface {
 #Return users that do not have a corresponding username in local database
 sub _get_possible_users {
 	my ( $self, $user_db ) = @_;
-	my $remote_db    = $self->{'datastore'}->get_user_db($user_db);
-	my $remote_users = $self->{'datastore'}->run_query(
-		'SELECT * FROM users WHERE status=? ORDER BY surname,first_name',
-		'validated', { fetch => 'all_arrayref', slice => {}, db => $remote_db }
-	);
+	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
+	my $remote_users =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE status=? ORDER BY surname,first_name',
+		'validated', { fetch => 'all_arrayref', slice => {}, db => $remote_db } );
 	my $local_users =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM users', undef, { fetch => 'all_arrayref', slice => {} } );
 	my %local_usernames = map { $_->{'user_name'} => 1 } @$local_users;
@@ -134,6 +133,15 @@ sub _get_possible_users {
 	return $users;
 }
 
+sub _get_configs_using_same_database {
+	my ( $self, $user_db, $dbase_name ) = @_;
+	$self->{'datastore'}->run_query(
+'SELECT rr.dbase_config FROM available_resources ar JOIN registered_resources rr ON ar.dbase_config=rr.dbase_config WHERE dbase_name=?',
+		$dbase_name,
+		{ db => $user_db, fetch => 'col_arrayref' }
+	);
+}
+
 sub _import {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
@@ -141,6 +149,7 @@ sub _import {
 	my @users     = $q->param('users');
 	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
 	my $invalid_upload;
+	my $matching_configs = $self->_get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
 	eval {
 		foreach my $user_name (@users)
 		{
@@ -151,10 +160,14 @@ sub _import {
 				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
 				undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db
 			);
-			$remote_db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
-				undef, $self->{'instance'}, $user_name, 'now' );
-			$remote_db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)',
-				undef, $self->{'instance'}, $user_name );
+
+			#We need to identify all registered configs that use the same database
+			foreach my $config (@$matching_configs) {
+				$remote_db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+					undef, $config, $user_name, 'now' );
+				$remote_db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)',
+					undef, $config, $user_name );
+			}
 		}
 	};
 	if ($invalid_upload) {
