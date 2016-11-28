@@ -220,8 +220,11 @@ sub _display_record {
 		$primary_key = $scheme_info->{'primary_key'};
 	}
 	$self->modify_dataset_if_needed( $table, [$data] );
-	my $dbase_name = $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $data->{'user_db'} );
-	$data->{'user_db'} = $dbase_name;
+	if ( $data->{'user_db'} ) {
+		my $dbase_name =
+		  $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $data->{'user_db'} );
+		$data->{'user_db'} = $dbase_name;
+	}
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'} eq 'yes';
 		next if $att->{'noshow'};
