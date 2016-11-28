@@ -74,6 +74,7 @@ my $script = BIGSdb::Offline::Script->new(
 		options          => \%opts
 	}
 );
+return if !$script;
 my $is_user_db =
   $script->{'datastore'}
   ->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'registered_users' );
