@@ -54,29 +54,31 @@ main();
 
 #This must be run on the server hosting the databases
 #TODO Enable this to run on remote server, respecting the db.conf settings.
-
 sub main {
 	binmode( STDOUT, ':encoding(UTF-8)' );
-	my $dbases = get_databases_with_submissions();
-	my ( %dbase_by_email, %name_by_email );
+	my $dbases         = get_databases_with_submissions();
+	my $name_by_email  = {};
+	my $dbase_by_email = {};
+	my $ids_by_email   = {};
 	foreach my $db_name ( sort { $dbases->{$a}->{'description'} cmp $dbases->{$b}->{'description'} } keys %$dbases ) {
-		my $curators = get_curators( $dbases->{$db_name} );
+		my ( $curators, $ids ) = get_curators( $dbases->{$db_name} );
+		$ids_by_email->{$db_name} = $ids;
 		foreach my $curator (@$curators) {
 			$curator->{'email'} = lc( $curator->{'email'} );
 			next if $curator->{'email'} !~ /@/x;
-			$name_by_email{ $curator->{'email'} } = "$curator->{'first_name'} $curator->{'surname'}"
-			  if !$name_by_email{ $curator->{'email'} };
-			push @{ $dbase_by_email{ $curator->{'email'} } }, $dbases->{$db_name};
+			$name_by_email->{ $curator->{'email'} } = "$curator->{'first_name'} $curator->{'surname'}"
+			  if !$name_by_email->{ $curator->{'email'} };
+			push @{ $dbase_by_email->{ $curator->{'email'} } }, $dbases->{$db_name};
 		}
 	}
-	foreach my $email ( sort keys %dbase_by_email ) {
+	foreach my $email ( sort keys %$dbase_by_email ) {
 		my $summary;
 		my %mentioned;
 		my $buffer;
 		foreach my $run (qw(answered new)) {
 			my $run_buffer;
-			foreach my $dbase ( @{ $dbase_by_email{$email} } ) {
-				my $user_ids = get_user_id_by_email( $dbase, $email );
+			foreach my $dbase ( @{ $dbase_by_email->{$email} } ) {
+				my $user_ids = $ids_by_email->{ $dbase->{'name'} }->{$email} // [];
 				my @list;
 				foreach my $user_id (@$user_ids) {
 					my $submissions =
@@ -248,14 +250,6 @@ sub add_isolate_submission_details {
 	return;
 }
 
-sub get_user_id_by_email {
-	my ( $dbase, $email ) = @_;
-	my $db = db_connect($dbase);
-	my $ids = $db->selectcol_arrayref( q(SELECT id FROM users WHERE LOWER(email)=? AND id>0), undef, $email );
-	$db->disconnect;
-	return $ids;
-}
-
 sub get_submissions_answered_by_curator {
 	my ( $dbase, $curator ) = @_;
 	my $db          = db_connect($dbase);
@@ -289,6 +283,7 @@ sub get_curators {
 	my $curators = $db->selectall_arrayref(
 		q(SELECT * FROM users WHERE status IN ('admin','curator') AND submission_emails AND id>0 ORDER BY email),
 		{ Slice => {} } );
+	my $ids_by_email = {};
 	foreach my $curator (@$curators) {
 		if ( $curator->{'user_db'} ) {
 			my $remote_db =
@@ -298,9 +293,10 @@ sub get_curators {
 				$curator->{$att} = $remote_user->{$att};
 			}
 		}
+		push @{ $ids_by_email->{ $curator->{'email'} } }, $curator->{'id'};
 	}
 	$db->disconnect;
-	return $curators;
+	return ( $curators, $ids_by_email );
 }
 
 sub get_remote_user {
