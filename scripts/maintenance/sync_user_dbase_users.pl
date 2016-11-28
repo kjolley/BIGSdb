@@ -509,7 +509,6 @@ sub check_invalid_users {
 		foreach my $user_name (@$current_invalid)
 		{
 			next if $usernames_in_dbases{$user_name};
-			next if $users_in_this_db{$user_name};
 			push @to_remove, $user_name;
 			$script->{'db'}->do( 'DELETE FROM invalid_usernames WHERE user_name=?', undef, $user_name );
 		}
