@@ -123,7 +123,7 @@ sub _before {
 	send_error( 'No access to databases - undergoing maintenance.', 503 ) if !$self->{'db'};
 	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
-	$self->{'datastore'}->initiate_userdbs;
+	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
 	$self->_initiate_view;
 	$self->{'page_size'} =
 	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
