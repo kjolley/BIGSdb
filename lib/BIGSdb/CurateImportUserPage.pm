@@ -135,8 +135,9 @@ sub _get_possible_users {
 
 sub _get_configs_using_same_database {
 	my ( $self, $user_db, $dbase_name ) = @_;
-	$self->{'datastore'}->run_query(
-'SELECT rr.dbase_config FROM available_resources ar JOIN registered_resources rr ON ar.dbase_config=rr.dbase_config WHERE dbase_name=?',
+	return $self->{'datastore'}->run_query(
+		'SELECT rr.dbase_config FROM available_resources ar JOIN registered_resources rr '
+		  . 'ON ar.dbase_config=rr.dbase_config WHERE dbase_name=?',
 		$dbase_name,
 		{ db => $user_db, fetch => 'col_arrayref' }
 	);
