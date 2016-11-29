@@ -73,6 +73,8 @@ my $script = BIGSdb::Offline::Script->new(
 		instance         => $opts{'d'},
 	}
 );
+die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+  if !defined $script->{'db'};
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 die "The autodefiner user does not exist in the users table.\n" if !user_exists();
