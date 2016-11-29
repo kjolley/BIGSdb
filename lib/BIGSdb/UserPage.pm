@@ -697,20 +697,22 @@ sub _merge {
 	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );
 	return if !$site_db;
 	eval {
-		foreach my $table (@sender_tables)
+		if ( $db_user_id != $site_user_id )
 		{
-			$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
-		}
-		foreach my $table (@curator_tables) {
-			say "$table $db_user_id, $site_user_id";
-			$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
-		}
+			foreach my $table (@sender_tables) {
+				$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
+			}
+			foreach my $table (@curator_tables) {
+				$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
+			}
 
-		#Don't delete user - this can take a long time as there are a lot of constraints on the users table.
-		#We'll change the username instead and then reap these with an offline script.
-		my $username_to_delete = $self->_get_username_to_delete($db);
-		$db->do( 'UPDATE users SET (user_name,status,user_db,datestamp)=(?,?,null,?) WHERE id=?',
-			undef, $username_to_delete, 'user', 'now', $site_user_id );
+			#Don't delete user - this can take a long time as there are a lot of constraints on the users table.
+			#We'll change the username instead and then reap these with an offline script.
+			my $username_to_delete = $self->_get_username_to_delete($db);
+			$db->do( 'UPDATE users SET (user_name,status,user_db,datestamp)=(?,?,null,?) WHERE id=?',
+				undef, $username_to_delete, 'user', 'now', $site_user_id );
+		}
+		$self->{'auth_db'}->do( 'DELETE FROM users WHERE (dbase,name)=(?,?)', undef, $system->{'db'}, $remote_user );
 		$db->do(
 			'UPDATE users SET (user_name,surname,first_name,email,affiliation,user_db)='
 			  . '(?,null,null,null,null,?) WHERE id=?',
@@ -720,9 +722,11 @@ sub _merge {
 	if ($@) {
 		$logger->error($@);
 		$db->rollback;
+		$self->{'auth_db'}->rollback;
 		say q(<div class="box" id="statusbad"><p>Account failed to merge</p></div>);
 	} else {
 		$db->commit;
+		$self->{'auth_db'}->commit;
 		say q(<div class="box" id="resultsheader"><p>Account successfully merged</p></div>);
 	}
 	$self->_drop_connection($system);
