@@ -77,7 +77,8 @@ my $script = BIGSdb::Offline::Script->new(
 		options          => \%opts
 	}
 );
-return if !$script;
+die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+  if !defined $script->{'db'};
 if (
 	!$script->{'system'}->{'db'}
 	|| (   $script->{'system'}->{'dbtype'} ne 'isolates'
