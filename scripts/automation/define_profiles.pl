@@ -64,6 +64,7 @@ GetOptions(
 	'ignore_multiple_hits' => \$opts{'ignore_multiple_hits'},
 	'isolates=s'           => \$opts{'i'},
 	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
+	'match_missing'        => \$opts{'match_missing'},
 	'max=i'                => \$opts{'y'},
 	'min=i'                => \$opts{'x'},
 	'min_size=i'           => \$opts{'m'},
@@ -111,7 +112,8 @@ sub main {
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
 		next if $missing > $opts{'missing'};
 		my $field_values =
-		  $scheme->get_field_values_by_designations( $designations, { dont_match_missing_loci => 1 } );
+		  $scheme->get_field_values_by_designations( $designations,
+			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
 		next if @$field_values;    #Already defined
 		print "Isolate id: $isolate_id; ";
 		define_new_profile($designations);
@@ -464,6 +466,11 @@ ${bold}--isolates$norm ${under}LIST$norm
     
 ${bold}--isolate_list_file$norm ${under}FILE$norm  
     File containing list of isolate ids (ignored if -i or -p used).
+    
+${bold}--match_missing$norm
+    Treat missing loci as specific alleles rather than 'any'. This will 
+    allow profiles for every isolate that has <= threshold of missing alleles 
+    to be defined but may result in some isolates having >1 ST.
              
 ${bold}--max$norm ${under}ID$norm
     Maximum isolate id.
