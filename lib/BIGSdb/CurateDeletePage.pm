@@ -229,6 +229,7 @@ sub _display_record {
 		next if $att->{'hide_query'} eq 'yes';
 		next if $att->{'noshow'};
 		my ( $field, $value ) = $self->_get_display_values( $table, $primary_key, $data, $att );
+		$value = '&nbsp;' if $value eq q( );
 		$buffer .= qq(<dt>$field</dt><dd>$value</dd>);
 		if ( $table eq 'profiles' && $att->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
