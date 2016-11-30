@@ -120,7 +120,7 @@ sub main {
 			}
 
 			#Don't spam the outgoing mail server
-			sleep 5;
+			sleep 5 if !$opts{'t'};
 		}
 	}
 	return;
@@ -197,6 +197,14 @@ sub get_submission_details {
 	my $db             = db_connect($dbase);
 	my $submission     = $db->selectrow_hashref( q(SELECT * FROM submissions WHERE id=?), undef, $submission_id );
 	my $submitter_info = $db->selectrow_hashref( q(SELECT * FROM users WHERE id=?), undef, $submission->{'submitter'} );
+	if ( $submitter_info->{'user_db'} ) {
+		my $remote_db =
+		  $db->selectrow_hashref( 'SELECT * FROM user_dbases WHERE id=?', undef, $submitter_info->{'user_db'} );
+		my $remote_user = get_remote_user( $remote_db, $submitter_info->{'user_name'} );
+		foreach my $att (qw(surname first_name email)) {
+			$submitter_info->{$att} = $remote_user->{$att};
+		}
+	}
 	$submission->{'submitter_name'} = "$submitter_info->{'first_name'} $submitter_info->{'surname'}";
 	my %method = (
 		alleles => sub {
