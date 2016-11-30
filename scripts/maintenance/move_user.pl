@@ -34,8 +34,10 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::BIGSException;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
+use Error qw(:try);
 binmode( STDOUT, ':encoding(UTF-8)' );
 
 #Direct all library logging calls to screen
@@ -51,7 +53,7 @@ my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
 	'database=s'      => \$opts{'d'},
-	'user_name=s'      => \$opts{'user_name'},
+	'user_name=s'     => \$opts{'user_name'},
 	'user_database=s' => \$opts{'user_database'},
 	'help'            => \$opts{'h'}
 ) or die("Error in command line arguments\n");
@@ -64,21 +66,28 @@ if ( !$opts{'user_database'} || !$opts{'d'} || !$opts{'user_name'} ) {
 	say 'Help: move_user.pl --help';
 	exit;
 }
-my $script = BIGSdb::Offline::Script->new(
-	{
-		config_dir       => CONFIG_DIR,
-		lib_dir          => LIB_DIR,
-		dbase_config_dir => DBASE_CONFIG_DIR,
-		host             => HOST,
-		port             => PORT,
-		user             => USER,
-		password         => PASSWORD,
-		instance         => $opts{'d'},
-		options          => \%opts
-	}
-);
-die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
-  if !defined $script->{'db'};
+my $script;
+my $busy;
+$opts{'throw_busy_exception'} = 1;
+try {
+	$script = BIGSdb::Offline::Script->new(
+		{
+			config_dir       => CONFIG_DIR,
+			lib_dir          => LIB_DIR,
+			dbase_config_dir => DBASE_CONFIG_DIR,
+			host             => HOST,
+			port             => PORT,
+			user             => USER,
+			password         => PASSWORD,
+			instance         => $opts{'d'},
+			options          => \%opts,
+		}
+	);
+}
+catch BIGSdb::ServerBusyException with {
+	$busy = 1;
+};
+die "Script initialization failed - server is too busy.\n" if $busy;
 if (
 	!$script->{'system'}->{'db'}
 	|| (   $script->{'system'}->{'dbtype'} ne 'isolates'
