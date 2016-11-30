@@ -237,7 +237,8 @@ sub _registrations {
 			-multiple => 'true',
 			-disabled => 'disabled',
 			-style    => 'min-width:10em; min-height:9.5em',
-			-labels   => $labels
+			-labels   => $labels,
+			-size     => 9
 		);
 	} else {
 		$buffer .= q(<p>Nothing</p>);
@@ -702,6 +703,8 @@ sub _merge {
 			foreach my $table (@sender_tables) {
 				$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
 			}
+			$db->do( 'UPDATE submissions SET submitter=? WHERE submitter=?', undef, $db_user_id, $site_user_id )
+			  ;
 			foreach my $table (@curator_tables) {
 				$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
 			}
