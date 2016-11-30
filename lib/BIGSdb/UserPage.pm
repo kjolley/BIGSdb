@@ -704,6 +704,7 @@ sub _merge {
 				$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
 			}
 			$db->do( 'UPDATE submissions SET submitter=? WHERE submitter=?', undef, $db_user_id, $site_user_id );
+			$db->do( 'UPDATE messages SET user_id=? WHERE user_id=?',        undef, $db_user_id, $site_user_id );
 			foreach my $table (@curator_tables) {
 				$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
 			}
