@@ -420,7 +420,7 @@ sub _get_config_labels {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $labels = {};
 	foreach my $config (@$configs) {
-		my ($desc) = $self->get_truncated_label( $config->{'description'}, 50 );
+		my ($desc) = $self->get_truncated_label( $config->{'description'}, 50, { no_html => 1 } );
 		$labels->{ $config->{'dbase_config'} } = qq($desc ($config->{'dbase_config'}));
 	}
 	return $labels;

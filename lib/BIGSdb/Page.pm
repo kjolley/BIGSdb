@@ -1229,12 +1229,13 @@ sub get_sequence_method_filter {
 sub get_truncated_label {
 	my ( $self, $label, $length, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my $ellipsis = $options->{'no_html'} ? '...' : '&hellip;';
 	$length //= 25;
 	my $title;
 	if ( length $label > $length ) {
 		$title = $label;
 		$title =~ tr/\"//;
-		$label = substr( $label, 0, $length - 5 ) . '&hellip;';
+		$label = substr( $label, 0, $length - 5 ) . $ellipsis;
 	}
 	if ( $options->{'capitalize_first'} && $label =~ /^[a-z]+\s+/x ) {    #only if first word is all lower case
 		$label = ucfirst $label;
