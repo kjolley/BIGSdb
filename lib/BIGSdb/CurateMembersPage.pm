@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2015, University of Oxford
+#Copyright (c) 2012-2016, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -217,16 +217,20 @@ sub _perform_action {
 
 sub _print_user_form {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $list =
-	  $self->{'datastore'}
-	  ->run_query( q(SELECT id,user_name,first_name,surname from users WHERE id>0 AND status!='user' ORDER BY surname),
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $q      = $self->{'cgi'};
+	my $list   = $self->{'datastore'}->run_query( q(SELECT id FROM users WHERE id>0 AND status!='user'),
+		undef, { fetch => 'col_arrayref', slice => {} } );
 	my ( @users, %usernames );
-	foreach (@$list) {
-		push @users, $_->{'id'};
-		$usernames{ $_->{'id'} } = "$_->{'surname'}, $_->{'first_name'} ($_->{'user_name'})";
+
+	#We can't just get the user info directly from the users table as some users
+	#may be defined in an external users database.
+	foreach my $user_id (@$list) {
+		my $user_info = $self->{'datastore'}->get_user_info($user_id);
+		push @users, $user_id;
+		$usernames{ $user_info->{'id'} } =
+		  "$user_info->{'surname'}, $user_info->{'first_name'} ($user_info->{'user_name'})";
 	}
+	@users = sort { $usernames{$a} cmp $usernames{$b} } @users;
 	say q(<fieldset><legend>Select user</legend>);
 	say qq(<p>The user status must also be <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . q(page=tableQuery&amp;table=users">set to curator</a> for permissions to work.</p>)
