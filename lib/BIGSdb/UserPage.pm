@@ -660,7 +660,7 @@ sub _select_merge_users {
 	);
 	say q(</li><li>);
 	say q(<label for="username" class="form">Username:</label>);
-	say $q->textfield( -name => 'username', id => 'username' );
+	say $q->textfield( -name => 'username', id => 'username', -default => $q->param('user') );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Merge' } );
@@ -703,8 +703,7 @@ sub _merge {
 			foreach my $table (@sender_tables) {
 				$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
 			}
-			$db->do( 'UPDATE submissions SET submitter=? WHERE submitter=?', undef, $db_user_id, $site_user_id )
-			  ;
+			$db->do( 'UPDATE submissions SET submitter=? WHERE submitter=?', undef, $db_user_id, $site_user_id );
 			foreach my $table (@curator_tables) {
 				$db->do( "UPDATE $table SET curator=? WHERE curator=?", undef, $db_user_id, $site_user_id );
 			}
