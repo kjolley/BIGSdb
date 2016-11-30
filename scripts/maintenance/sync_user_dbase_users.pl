@@ -74,7 +74,8 @@ my $script = BIGSdb::Offline::Script->new(
 		options          => \%opts
 	}
 );
-return if !$script;
+die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+  if !defined $script->{'db'};
 my $is_user_db =
   $script->{'datastore'}
   ->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'registered_users' );
