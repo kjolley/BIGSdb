@@ -37,9 +37,14 @@ sub print_content {
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
 		my $q = $self->{'cgi'};
-		if ( $self->{'curate'} && $q->param('merge_user') && $q->param('user') ) {
-			$self->_select_merge_users;
-			return;
+		if ( $self->{'curate'} && $q->param('user') ) {
+			if ( $q->param('merge_user') ) {
+				$self->_select_merge_users;
+				return;
+			} elsif ( $q->param('update_user') ) {
+				$self->_edit_user( $q->param('user') );
+				return;
+			}
 		}
 		$self->_site_account;
 		return;
@@ -67,7 +72,7 @@ sub _site_account {
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('edit') ) {
-		$self->_edit_user;
+		$self->_edit_user($user_name);
 		return;
 	}
 	$self->_show_registration_details;
@@ -103,17 +108,24 @@ sub _show_registration_details {
 }
 
 sub _edit_user {
-	my ($self) = @_;
+	my ( $self, $username ) = @_;
 	my $q = $self->{'cgi'};
+	if ( !$self->{'permissions'}->{'modify_users'} && $username ne $self->{'username'} ) {
+		say q(<div class="box" id="statusbad"><p>You do not have permission to edit other users' accounts.</p></div>);
+		return;
+	}
 	if ( $q->param('update') ) {
-		$self->_update_user;
+		$self->_update_user($username);
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<span class="config_icon fa fa-edit fa-3x pull-left"></span>);
 	say q(<h2>User account details</h2>);
-	say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
-	  . q(associated with your record. The E-mail address will be used to send you notifications about your submissions.</p>);
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $username eq $self->{'username'} ) {
+		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
+		  . q(associated with your record. The E-mail address will be used to send you notifications about your )
+		  . q(submissions.</p>);
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	$q->param( $_ => $q->param($_) // $user_info->{$_} ) foreach qw(first_name surname email affiliation);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Edit details</legend>);
@@ -133,7 +145,7 @@ sub _edit_user {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 	$q->param( update => 1 );
-	say $q->hidden($_) foreach qw(edit update);
+	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}">Back to user page</a></p>);
 	say q(</div></div>);
@@ -141,7 +153,7 @@ sub _edit_user {
 }
 
 sub _update_user {
-	my ($self) = @_;
+	my ( $self, $username ) = @_;
 	my $q = $self->{'cgi'};
 	my @missing;
 	foreach my $param (qw (first_name surname email affiliation)) {
@@ -159,7 +171,7 @@ sub _update_user {
 		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
 		return;
 	}
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
 	foreach my $param (qw (first_name surname email affiliation)) {
 		if ( $q->param($param) ne $user_info->{$param} ) {
@@ -173,12 +185,12 @@ sub _update_user {
 		my @placeholders = ('?') x @changed_params;
 		my $qry          = "UPDATE users SET (@changed_params,datestamp)=(@placeholders,?) WHERE user_name=?";
 		eval {
-			$self->{'db'}->do( $qry, undef, @new, 'now', $self->{'username'} );
+			$self->{'db'}->do( $qry, undef, @new, 'now', $username );
 			foreach my $param (@changed_params) {
 				$self->{'db'}->do( 'INSERT INTO history (timestamp,user_name,field,old,new) VALUES (?,?,?,?,?)',
-					undef, 'now', $self->{'username'}, $param, $user_info->{$param}, $q->param($param) );
+					undef, 'now', $username, $param, $user_info->{$param}, $q->param($param) );
 			}
-			$logger->info("$self->{'username'} updated user details.");
+			$logger->info("$self->{'username'} updated user details for $username.");
 		};
 		if ($@) {
 			say q(<div class="box" id="statusbad"><p>User detail update failed.</p></div>);
@@ -435,6 +447,7 @@ sub _show_admin_roles {
 	my $buffer;
 	$buffer .= $self->_import_dbase_config;
 	$buffer .= $self->_show_merge_user_accounts;
+	$buffer .= $self->_show_modify_users;
 	if ($buffer) {
 		say q(<div class="box" id="restricted">);
 		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
@@ -551,20 +564,26 @@ sub _import_dbase_config {
 	return $buffer;
 }
 
-sub _show_merge_user_accounts {
+sub _get_users {
 	my ($self) = @_;
-	return q() if !$self->{'permissions'}->{'merge_users'};
 	my $users =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT user_name,first_name,surname FROM users ORDER BY surname, first_name, user_name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	return q() if !@$users;
 	my $usernames = [''];
 	my $labels = { '' => 'Select user...' };
 	foreach my $user (@$users) {
 		push @$usernames, $user->{'user_name'};
 		$labels->{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
 	}
+	return ( $usernames, $labels );
+}
+
+sub _show_merge_user_accounts {
+	my ($self) = @_;
+	return q() if !$self->{'permissions'}->{'merge_users'};
+	my ( $usernames, $labels ) = $self->_get_users;
+	return q() if !@$usernames;
 	my $buffer = q(<h2>Merge user accounts</h2>);
 	my $q      = $self->{'cgi'};
 	$buffer .= $q->start_form;
@@ -573,6 +592,23 @@ sub _show_merge_user_accounts {
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( merge_user => 1 );
 	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Select user' } );
+	$buffer .= q(<div style="clear:both"></div>);
+	$buffer .= $q->end_form;
+	return $buffer;
+}
+
+sub _show_modify_users {
+	my ($self) = @_;
+	return q() if !$self->{'permissions'}->{'modify_users'};
+	my ( $usernames, $labels ) = $self->_get_users;
+	my $buffer = q(<h2>Update user details</h2>);
+	my $q      = $self->{'cgi'};
+	$buffer .= $q->start_form;
+	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
+	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= q(</fieldset>);
+	$buffer .= $q->hidden( update_user => 1 );
+	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Update user' } );
 	$buffer .= q(<div style="clear:both"></div>);
 	$buffer .= $q->end_form;
 	return $buffer;
