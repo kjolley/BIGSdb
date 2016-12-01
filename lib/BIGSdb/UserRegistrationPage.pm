@@ -26,7 +26,7 @@ use Mail::Sender;
 use Email::Valid;
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Page');
+my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
 	my ($self) = @_;
@@ -188,6 +188,8 @@ sub _register {
 	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="$class ui-button-text-only">)
 	  . q(<span class="ui-button-text">Log in</span></a></p>);
 	say q(</div>);
+	$logger->info("User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.")
+	  ;
 	return;
 }
 

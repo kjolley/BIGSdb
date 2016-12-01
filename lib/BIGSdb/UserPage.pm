@@ -30,7 +30,7 @@ use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
-my $logger = get_logger('BIGSdb.Page');
+my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
 	my ($self) = @_;
@@ -376,6 +376,7 @@ sub _register {
 			);
 			$db->commit;
 			$self->_drop_connection($system);
+			$logger->info("User $self->{'username'} registered for $config.");
 		}
 	};
 	if ($@) {
@@ -417,6 +418,7 @@ sub _request {
 			$self->{'db'}->do( 'INSERT INTO pending_requests (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 				undef, $config, $self->{'username'}, 'now' );
 			$self->_notify_db_admin($config);
+			$logger->error("$self->{'username'} requests registration for $config.");
 		}
 	};
 	if ($@) {
