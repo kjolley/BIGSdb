@@ -84,7 +84,9 @@ sub _show_registration_details {
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
 	say q(<h2>User details</h2>);
-	say q(<p>You are registered with the following details:</p>);
+	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
+	  . q(appropriate capitalization etc. These details will be linked to any data you submit to the )
+	  . q(databases and will be visible to other users.</p>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	say q(<dl class="data">)
 	  . qq(<dt>Username</dt><dd>$user_info->{'user_name'}</dd>)
@@ -218,8 +220,10 @@ sub _registrations {
 	return $buffer if !@$configs;
 	$buffer .= q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
-	$buffer .= q(<p>Use this page to register your account with specific databases. )
-	  . q(You only need to do this if you need to submit data or access password-protected resources.<p>);
+	$buffer .=
+	    q(<p>Use this page to register your account with specific databases. )
+	  . q(<strong><em>You should only do this if you want to submit data to a specific database )
+	  . q(or access a password-protected resource.</em></strong></p>);
 	my $registered_configs =
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_users WHERE user_name=?',
 		$self->{'username'}, { fetch => 'col_arrayref' } );
@@ -795,6 +799,17 @@ sub _notify_db_admin {
 		[ 'admin', 'import_site_users' ],
 		{ db => $db, fetch => 'all_arrayref', slice => {} }
 	);
+	foreach my $recipient (@$recipients) {
+
+		if ( $recipient->{'user_db'} ) {
+			my $user_dbname =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT dbase_name FROM user_dbases WHERE id=?', $recipient->{'user_db'}, { db => $db } );
+			if ( $user_dbname eq $self->{'system'}->{'db'} ) {
+				$recipient = $self->{'datastore'}->get_user_info_from_username( $recipient->{'user_name'} );
+			}
+		}
+	}
 	if ( !@$recipients ) {
 		$logger->error(
 			"No admins or curators with permissions needed to import users to $system->{'description'} database.");
@@ -802,7 +817,7 @@ sub _notify_db_admin {
 	}
 	foreach my $user ( $sender, @$recipients ) {
 		if ( $user->{'email'} !~ /@/x ) {
-			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
+			$logger->error("Invalid E-mail address for user $user->{'id'}-$user->{'user_name'} - $user->{'email'}");
 			return;
 		}
 	}
