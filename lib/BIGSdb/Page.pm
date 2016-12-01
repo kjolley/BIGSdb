@@ -599,7 +599,7 @@ sub _print_login_details {
 		if ( !$self->{'username'} ) {
 			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
 				say q(<span class="fa fa-sign-in"></span> )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=${instance_clause}page=login">)
+				  . qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
 				  . q(Log in</a>);
 			} else {
 				say q(<i>Not logged in.</i>);
