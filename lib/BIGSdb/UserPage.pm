@@ -140,7 +140,7 @@ sub _edit_user {
 	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 30 );
 	say q(</li><li>);
 	say q(<label for="affiliation" class="form">Affiliation/institute:</label>);
-	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required' );
+	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
