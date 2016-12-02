@@ -838,7 +838,7 @@ sub _notify_db_admin {
 		{ db => $db, fetch => 'all_arrayref', slice => {} }
 	);
 	foreach my $recipient (@$recipients) {
-
+		next if !$recipient->{'submission_emails'};
 		if ( $recipient->{'user_db'} ) {
 			my $user_dbname =
 			  $self->{'datastore'}
