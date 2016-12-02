@@ -1486,20 +1486,18 @@ sub _modify_query_by_profile_status {
 				my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				my $param       = $q->param("scheme_$scheme_id\_profile_status_list");
 				my $locus_count = @$scheme_loci;
-				my %modify      = (
-					complete      => "=$locus_count",
-					partial       => "<$locus_count AND locus_count>0",
-					started       => '>0',
-					incomplete    => "<$locus_count",
-					'not started' => '=0'
+				my %clause      = (
+					complete => "$view.id IN (SELECT id FROM $table WHERE locus_count=$locus_count)",
+					partial  => "$view.id IN (SELECT id FROM $table WHERE locus_count<$locus_count AND locus_count>0)",
+					started  => "$view.id IN (SELECT id FROM $table WHERE locus_count>0)",
+					incomplete => "$view.id IN (SELECT id FROM $table WHERE locus_count<$locus_count) "
+					  . "OR $view.id NOT IN (SELECT id FROM $table)",
+					'not started' => "$view.id NOT IN (SELECT id FROM $table)"
 				);
-				if ( $modify{$param} ) {
-					my $clause = "$view.id IN (SELECT id FROM $table WHERE locus_count $modify{$param})";
-					if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
-						$$qry_ref .= " AND $clause";
-					} else {
-						$$qry_ref = "SELECT * FROM $view WHERE $clause";
-					}
+				if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+					$$qry_ref .= " AND ($clause{$param})";
+				} else {
+					$$qry_ref = "SELECT * FROM $view WHERE ($clause{$param})";
 				}
 			}
 		}
