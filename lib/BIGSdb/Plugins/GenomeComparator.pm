@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '1.8.0',
+		version     => '1.8.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -294,10 +294,11 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
+		my $filtered_loci = $self->_filter_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
-		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
-			$error .= '<p>You must either select one or more loci or schemes, provide '
-			  . "a genome accession number, or upload an annotated genome.</p>\n";
+		if ( !$accession && !$ref_upload && !@$filtered_loci && $continue ) {
+			$error .= q[<p>You must either select one or more loci or schemes (make sure these haven't been filtered ]
+			  . qq[by your options), provide a genome accession number, or upload an annotated genome.</p>\n];
 			$continue = 0;
 		}
 		if ($error) {
@@ -330,7 +331,7 @@ sub run {
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
 					isolates     => $filtered_ids,
-					loci         => $loci_selected
+					loci         => $filtered_loci
 				}
 			);
 			say $self->get_job_redirect($job_id);
@@ -339,6 +340,23 @@ sub run {
 	}
 	$self->_print_interface;
 	return;
+}
+
+sub _filter_loci {
+	my ( $self, $loci ) = @_;
+	my $q = $self->{'cgi'};
+	my $loci_info =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,data_type,complete_cds FROM loci', undef, { fetch => 'all_arrayref', slice => {} } );
+	my %peptide  = map { $_->{'id'} => $_->{'data_type'} eq 'peptide' ? 1 : 0 } @$loci_info;
+	my %complete = map { $_->{'id'} => $_->{'complete_cds'}           ? 1 : 0 } @$loci_info;
+	my $filtered = [];
+	foreach my $locus (@$loci) {
+		next if $q->param('exclude_peptide_loci') && $peptide{$locus};
+		next if $q->param('exclude_non_cds_loci') && !$complete{$locus};
+		push @$filtered, $locus;
+	}
+	return $filtered;
 }
 
 sub _upload_ref_file {
@@ -407,6 +425,7 @@ sub _print_interface {
 	);
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
+	$self->_print_filter_locus_fieldset;
 	$self->_print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
 	$self->_print_distance_matrix_fieldset;
@@ -563,6 +582,42 @@ sub _print_core_genome_fieldset {
 	);
 	say q( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will )
 	  . q(take longer to perform."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
+	return;
+}
+
+sub _print_filter_locus_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $has_peptide_loci =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE data_type=?)', 'peptide' );
+	my $has_complete_cds_loci = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM loci WHERE complete_cds)');
+	return if !$has_peptide_loci && !$has_complete_cds_loci;
+	say q(<fieldset style="float:left;height:12em"><legend>Filter loci</legend><ul>);
+	if ($has_peptide_loci) {
+		say q(<li>);
+		say $q->checkbox(
+			-name    => 'exclude_peptide_loci',
+			-id      => 'exclude_peptide_loci',
+			-label   => 'Exclude peptide loci',
+			-checked => 'checked'
+		);
+		say q( <a class="tooltip" title="Exclude peptide loci - Peptide loci often cover regions that are already )
+		  . q(covered by nucleotide loci. Scanning these also takes significantly longer.">)
+		  . q(<span class="fa fa-info-circle"></span></a></li>);
+	}
+	if ($has_complete_cds_loci) {
+		say q(<li>);
+		say $q->checkbox(
+			-name    => 'exclude_non_cds_loci',
+			-id      => 'exclude_non_cds_loci',
+			-label   => 'Exclude non complete CDS loci',
+			-checked => 'checked'
+		);
+		say q( <a class="tooltip" title="Exclude non complete CDS loci - If you are doing a cgMLST type analysis, )
+		  . q(you probably don't want to include loci that represent gene fragments.">)
+		  . q(<span class="fa fa-info-circle"></span></a></li>);
+	}
+	say q(</ul></fieldset>);
 	return;
 }
 

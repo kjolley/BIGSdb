@@ -29,3 +29,5 @@ ALTER TABLE users ALTER COLUMN affiliation DROP NOT NULL;
 ALTER TABLE curator_permissions RENAME TO permissions;
 
 UPDATE scheme_flags SET flag='please cite' where flag='citation required';
+
+ALTER TABLE loci ADD complete_cds boolean;
