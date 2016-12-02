@@ -134,6 +134,10 @@ sub _register {
 		$self->_print_registration_form;
 		return;
 	}
+	foreach my $param ( keys %$data ) {
+		$data->{$param} =~ s/^\s//x;
+		$data->{$param} =~ s/\s$//x;
+	}
 	$self->format_data( 'users', $data );
 	$data->{'password'} = $self->_create_password;
 	eval {
@@ -188,8 +192,7 @@ sub _register {
 	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="$class ui-button-text-only">)
 	  . q(<span class="ui-button-text">Log in</span></a></p>);
 	say q(</div>);
-	$logger->info("User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.")
-	  ;
+	$logger->info("User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.");
 	return;
 }
 
