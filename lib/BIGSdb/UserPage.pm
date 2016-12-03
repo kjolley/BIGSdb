@@ -840,6 +840,7 @@ sub _notify_db_admin {
 		{ db => $db, fetch => 'all_arrayref', slice => {} }
 	);
 	foreach my $recipient (@$recipients) {
+
 		if ( $recipient->{'user_db'} ) {
 			my $user_dbname =
 			  $self->{'datastore'}
@@ -855,7 +856,8 @@ sub _notify_db_admin {
 		return;
 	}
 	foreach my $user ( $sender, @$recipients ) {
-		if ( $user->{'email'} !~ /@/x ) {
+		my $address = Email::Valid->address( $user->{'email'} );
+		if ( !$address ) {
 			$logger->error("Invalid E-mail address for user $user->{'id'}-$user->{'user_name'} - $user->{'email'}");
 			return;
 		}
