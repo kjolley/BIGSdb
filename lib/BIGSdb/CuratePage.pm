@@ -38,7 +38,7 @@ sub print_content { }
 sub get_curator_name {
 	my ($self) = @_;
 	if ( $self->{'username'} ) {
-		my $name = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+		my $name = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		return $name ? "$name->{'first_name'} $name->{'surname'}" : 'unknown user';
 	}
 	return 'unknown user';
@@ -1266,18 +1266,6 @@ sub format_data {
 		}
 	}
 	return;
-}
-
-sub clean_value {
-	my ( $self, $value, $options ) = @_;
-	return if !defined $value;
-	$options = {} if ref $options ne 'HASH';
-	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
-	$value =~ s/\r//gx;
-	$value =~ s/[\n\t]/ /gx;
-	$value =~ s/^\s*//x;
-	$value =~ s/\s*$//x;
-	return $value;
 }
 
 sub update_history {

@@ -151,6 +151,18 @@ sub get_guid {
 	}
 }
 
+sub clean_value {
+	my ( $self, $value, $options ) = @_;
+	return if !defined $value;
+	$options = {} if ref $options ne 'HASH';
+	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
+	$value =~ s/\r//gx;
+	$value =~ s/[\n\t]/ /gx;
+	$value =~ s/^\s*//x;
+	$value =~ s/\s*$//x;
+	return $value;
+}
+
 sub print_banner {
 	my ($self) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";

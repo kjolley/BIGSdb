@@ -135,8 +135,11 @@ sub _register {
 		return;
 	}
 	foreach my $param ( keys %$data ) {
-		$data->{$param} =~ s/^\s//x;
-		$data->{$param} =~ s/\s$//x;
+		if ( $param eq 'affiliation' ) {
+			$data->{$param} =~ s/,?\s*\r?\n/, /gx;
+			$data->{$param} =~ s/,(\S)/, $1/gx;
+		}
+		$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
 	}
 	$self->format_data( 'users', $data );
 	$data->{'password'} = $self->_create_password;

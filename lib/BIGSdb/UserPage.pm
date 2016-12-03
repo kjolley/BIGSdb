@@ -157,8 +157,18 @@ sub _update_user {
 	my ( $self, $username ) = @_;
 	my $q = $self->{'cgi'};
 	my @missing;
+	my $data;
 	foreach my $param (qw (first_name surname email affiliation)) {
-		push @missing, $param if !$q->param($param) || $q->param($param) eq q();
+		if ( !$q->param($param) || $q->param($param) eq q() ) {
+			push @missing, $param;
+		} else {
+			$data->{$param} = $q->param($param);
+			if ( $param eq 'affiliation' ) {
+				$data->{$param} =~ s/,?\s*\r?\n/, /gx;
+				$data->{$param} =~ s/,(\S)/, $1/gx;
+			}
+			$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
+		}
 	}
 	my $address = Email::Valid->address( $q->param('email') );
 	my $error;
@@ -175,9 +185,9 @@ sub _update_user {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
 	foreach my $param (qw (first_name surname email affiliation)) {
-		if ( $q->param($param) ne $user_info->{$param} ) {
+		if ( $data->{$param} ne $user_info->{$param} ) {
 			push @changed_params, $param;
-			push @new,            $q->param($param);
+			push @new,            $data->{$param};
 			$old{$param} = $user_info->{$param};
 		}
 	}
@@ -189,7 +199,7 @@ sub _update_user {
 			$self->{'db'}->do( $qry, undef, @new, 'now', $username );
 			foreach my $param (@changed_params) {
 				$self->{'db'}->do( 'INSERT INTO history (timestamp,user_name,field,old,new) VALUES (?,?,?,?,?)',
-					undef, 'now', $username, $param, $user_info->{$param}, $q->param($param) );
+					undef, 'now', $username, $param, $user_info->{$param}, $data->{$param} );
 			}
 			$logger->info("$self->{'username'} updated user details for $username.");
 		};

@@ -564,6 +564,7 @@ sub remove_deleted_users {
 	return;
 }
 
+#TODO Add check for users.allow file. Don't delete these users.
 sub remove_inactive_accounts {
 	my $configs = get_registered_configs();
 	my $inactive_time =
