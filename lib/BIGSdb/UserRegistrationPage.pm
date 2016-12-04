@@ -136,6 +136,7 @@ sub _register {
 	}
 	foreach my $param ( keys %$data ) {
 		if ( $param eq 'affiliation' ) {
+			$data->{$param} =~ s/\r?\n*$//x;
 			$data->{$param} =~ s/,?\s*\r?\n/, /gx;
 			$data->{$param} =~ s/,(\S)/, $1/gx;
 		}

@@ -164,6 +164,7 @@ sub _update_user {
 		} else {
 			$data->{$param} = $q->param($param);
 			if ( $param eq 'affiliation' ) {
+				$data->{$param} =~ s/\r?\n*$//x;
 				$data->{$param} =~ s/,?\s*\r?\n/, /gx;
 				$data->{$param} =~ s/,(\S)/, $1/gx;
 			}
