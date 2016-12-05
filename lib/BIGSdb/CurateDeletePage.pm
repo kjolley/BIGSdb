@@ -386,20 +386,25 @@ sub _delete_user {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				$num_senders =
 				  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE sender=?", $data->{'id'} );
+			} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences'
+				&& ( $table eq 'profiles' || $table eq 'sequences' ) )
+			{
+				$num_senders =
+				  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE sender=?", $data->{'id'} );
 			}
 			if ( $num || $num_senders ) {
 				if ($num) {
 					my $plural = $num > 1 ? 's' : '';
 					$$nogo_buffer_ref .=
 					    qq(User '$data->{'id'}' is the curator for $num record$plural )
-					  . qq(in table '$table' - can not delete!<br />)
+					  . qq(in table '$table' - cannot delete!<br />)
 					  if $num;
 				}
 				if ($num_senders) {
 					my $plural = $num_senders > 1 ? 's' : '';
 					$$nogo_buffer_ref .=
 					    qq(User '$data->{'id'}' is the sender for $num_senders record$plural )
-					  . qq(in table '$table' - can not delete!<br />)
+					  . qq(in table '$table' - cannot delete!<br />)
 					  if $num_senders;
 				}
 				$$proceed_ref = 0;

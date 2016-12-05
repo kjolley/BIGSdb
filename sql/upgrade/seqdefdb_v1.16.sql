@@ -29,3 +29,10 @@ ALTER TABLE users ALTER COLUMN affiliation DROP NOT NULL;
 ALTER TABLE curator_permissions RENAME TO permissions;
 
 UPDATE scheme_flags SET flag='please cite' where flag='citation required';
+
+ALTER TABLE profiles DROP CONSTRAINT p_sender;
+ALTER TABLE profiles ADD CONSTRAINT p_sender FOREIGN KEY (sender) REFERENCES users(id)
+ON DELETE NO ACTION ON UPDATE CASCADE;
+ALTER TABLE profiles DROP CONSTRAINT p_curator;
+ALTER TABLE profiles ADD CONSTRAINT p_curator FOREIGN KEY (curator) REFERENCES users(id)
+ON DELETE NO ACTION ON UPDATE CASCADE;

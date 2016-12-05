@@ -2477,7 +2477,7 @@ sub get_tables_with_curator {
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  client_dbases client_dbase_loci client_dbase_schemes locus_links locus_descriptions locus_aliases
 		  locus_extended_attributes sequence_extended_attributes locus_refs profile_history classification_schemes
-		  classification_group_fields);
+		  classification_group_fields profiles retired_profiles);
 	}
 	return @tables;
 }
