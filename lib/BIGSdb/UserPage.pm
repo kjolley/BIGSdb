@@ -882,7 +882,7 @@ sub _notify_db_admin {
 	$message .= qq(This user already has a site-wide account. Please log in to the $system->{'description'} )
 	  . q(database curation system to import this user (please DO NOT create a new user account).);
 	foreach my $recipient (@$recipients) {
-		next if !$recipient->{'submission_emails'};
+		next if !$recipient->{'account_request_emails'};
 		my $args =
 		  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
 		my $mail_sender = Mail::Sender->new($args);

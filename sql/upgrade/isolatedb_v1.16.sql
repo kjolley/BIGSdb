@@ -25,6 +25,9 @@ ALTER TABLE users ALTER COLUMN surname DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN first_name DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 ALTER TABLE users ALTER COLUMN affiliation DROP NOT NULL;
+ALTER TABLE users ADD account_request_emails boolean;
+UPDATE users SET account_request_emails=FALSE;
+UPDATE users SET submission_emails=FALSE WHERE submission_emails IS NULL;
 
 ALTER TABLE curator_permissions RENAME TO permissions;
 

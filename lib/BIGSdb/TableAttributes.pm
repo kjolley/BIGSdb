@@ -67,10 +67,22 @@ sub get_users_table_attributes {
 		  {
 			name     => 'submission_emails',
 			type     => 'bool',
-			comments => 'Receive new submission E-mails',
+			comments => 'Receive new submission E-mails (curators only)',
 			tooltip  => 'submission emails - The user will be notified of new submissions that they have sufficient '
-			  . 'privileges to curate.  This is only relevant to curators and admins.'
+			  . 'privileges to curate.  This is only relevant to curators and admins.',
+			default => 'false'
 		  };
+	}
+	if ( $self->{'config'}->{'site_user_dbs'} ) {
+		push @$attributes, {
+			name     => 'account_request_emails',
+			type     => 'bool',
+			comments => 'Receive new account request E-mails (curators only)',
+			tooltip  => 'account request emails - The user will be notified if new accounts are requested. They must '
+			  . 'the permission set to allow them to import site user accounts. This is only relevant to curators '
+			  . 'and admins.',
+			default => 'false'
+		};
 	}
 	return $attributes;
 }
