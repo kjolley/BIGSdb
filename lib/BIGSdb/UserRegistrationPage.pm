@@ -62,6 +62,8 @@ sub _print_registration_form {
 	say q(<li>can contain only alpha-numeric characters (A-Z, a-z, 0-9) - no spaces, hyphens or punctuation</li>);
 	say q(<li>are case-sensitive</li>);
 	say q(</ul>);
+	say q(<p><strong><em>Please fill in your details completely with proper capitalization of names, full affiliation )
+	  . q(details etc. This information will be displayed with any data that you submit.</em></strong></p>);
 	say $q->start_form;
 	say q(<fieldset class="form" style="float:left"><legend>Please enter your details</legend>);
 	say q(<ul><li>);
