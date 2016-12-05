@@ -108,9 +108,9 @@ sub get_user_string {
 	$user .= "$info->{'first_name'} "               if $info->{'first_name'};
 	$user .= $info->{'surname'}                     if $info->{'surname'};
 	$user .= '</a>'                                 if $use_email;
-	$info->{'affiliation'} =~ s/^\s*//x;
 
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
+		$info->{'affiliation'} =~ s/^\s*//x;
 		$user .= ", $info->{'affiliation'}";
 	}
 	return $user;
@@ -2521,10 +2521,8 @@ sub get_login_requirement {
 	{
 		return REQUIRED;
 	}
-	if (
-		( $self->{'system'}->{'public_login'} // q() ) ne 'no'
-		&& $self->{'system'}->{'authentication'} eq 'builtin'
-	  )
+	if ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no'
+		&& $self->{'system'}->{'authentication'} eq 'builtin' )
 	{
 		return OPTIONAL;
 	}

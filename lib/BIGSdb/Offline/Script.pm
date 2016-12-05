@@ -71,9 +71,6 @@ sub new {
 
 sub initiate {
 	my ($self) = @_;
-	
-
-	
 	if ( $self->{'instance'} ) {
 		my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
@@ -84,12 +81,9 @@ sub initiate {
 			return;
 		}
 		$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	} elsif ($self->{'options'}->{'user_database'}){
-		$self->{'system'}->{'db'} = $self->{'options'}->{'user_database'};
-		
+	} elsif ( $self->{'options'}->{'user_database'} ) {
+		$self->{'system'}->{'db'}     = $self->{'options'}->{'user_database'};
 		$self->{'system'}->{'dbtype'} = 'user';
-
-		
 	}
 	$self->{'system'}->{'host'}     = $self->{'host'}     // $self->{'system'}->{'host'}     // 'localhost';
 	$self->{'system'}->{'port'}     = $self->{'port'}     // $self->{'system'}->{'port'}     // 5432;
@@ -118,6 +112,7 @@ sub initiate {
 			die "Invalid view selected.\n" if !$view_exists;
 			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
 		}
+		$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
 	}
 	return;
 }
