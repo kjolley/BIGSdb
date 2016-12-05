@@ -161,18 +161,17 @@ sub _print_isolate_field {
 		|| ( ( $attributes->{'userfield'} // q() ) eq 'yes' ) )
 	{
 		my $filter = $field eq 'curator' ? q( WHERE status IN ('curator','admin') AND id>0 ) : q( WHERE id>0 );
-		my $user_data = $self->{'datastore'}->run_query(
-			"SELECT id, surname, first_name, affiliation FROM users$filter"
-			  . "AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
-			undef,
-			{ fetch => 'all_arrayref' }
-		);
+		my $users =
+		  $self->{'datastore'}->run_query(
+			"SELECT id FROM users$filter" . "AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
+			undef, { fetch => 'col_arrayref' } );
 		my $buffer;
-		foreach my $data (@$user_data) {
-			next if !$used->{ $data->[0] };
-			s/\&/\&amp;/gx foreach @$data;
-			$buffer .= qq(<tr><td>$data->[0]</td><td>$data->[1]</td><td>$data->[2]</td>)
-			  . qq(<td style="text-align:left">$data->[3]</td></tr>\n);
+		foreach my $id (@$users) {
+			next if !$used->{$id};
+			my $data = $self->{'datastore'}->get_user_info($id);
+			$data->{'affiliation'} =~ s/\&/\&amp;/gx;
+			$buffer .= qq(<tr><td>$data->{'id'}</td><td>$data->{'surname'}</td><td>$data->{'first_name'}</td>)
+			  . qq(<td style="text-align:left">$data->{'affiliation'}</td></tr>\n);
 		}
 		if ($buffer) {
 			print q(<p>The integer stored in this field is the key to the following users);
