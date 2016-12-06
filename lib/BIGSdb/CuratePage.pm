@@ -1342,7 +1342,7 @@ sub get_form_icon {
 		plus   => 'fa-plus form_icon_plus',
 		edit   => 'fa-pencil form_icon_edit',
 		trash  => 'fa-times form_icon_trash',
-		import => 'fa-reply form_icon_plus'
+		import => 'fa-arrow-left form_icon_plus'
 	};
 	my $icon = $icons->{$table} // 'fa-file-text';
 	my $bordered =

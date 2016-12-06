@@ -571,6 +571,7 @@ sub get_user_dbs {
 	my ($self) = @_;
 	my $dbases = [];
 	foreach my $config_id ( keys %{ $self->{'user_dbs'} } ) {
+		$self->{'user_dbs'}->{$config_id}->{'id'} = $config_id;
 		push @$dbases, $self->{'user_dbs'}->{$config_id};
 	}
 	return $dbases;
@@ -585,6 +586,16 @@ sub user_dbs_defined {
 sub user_db_defined {
 	my ( $self, $id ) = @_;
 	return defined $self->{'user_dbs'}->{$id} ? 1 : undef;
+}
+
+sub get_configs_using_same_database {
+	my ( $self, $user_db, $dbase_name ) = @_;
+	return $self->run_query(
+		'SELECT rr.dbase_config FROM available_resources ar JOIN registered_resources rr '
+		  . 'ON ar.dbase_config=rr.dbase_config WHERE dbase_name=?',
+		$dbase_name,
+		{ db => $user_db, fetch => 'col_arrayref' }
+	);
 }
 
 sub get_dbname_with_user_details {

@@ -133,16 +133,6 @@ sub _get_possible_users {
 	return $users;
 }
 
-sub _get_configs_using_same_database {
-	my ( $self, $user_db, $dbase_name ) = @_;
-	return $self->{'datastore'}->run_query(
-		'SELECT rr.dbase_config FROM available_resources ar JOIN registered_resources rr '
-		  . 'ON ar.dbase_config=rr.dbase_config WHERE dbase_name=?',
-		$dbase_name,
-		{ db => $user_db, fetch => 'col_arrayref' }
-	);
-}
-
 sub _import {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
@@ -150,7 +140,7 @@ sub _import {
 	my @users     = $q->param('users');
 	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
 	my $invalid_upload;
-	my $matching_configs = $self->_get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
+	my $matching_configs = $self->{'datastore'}->get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
 	eval {
 		foreach my $user_name (@users)
 		{

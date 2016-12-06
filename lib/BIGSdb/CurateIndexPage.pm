@@ -256,7 +256,7 @@ sub print_content {
 	my $instance    = $self->{'instance'};
 	my $system      = $self->{'system'};
 	return if $self->_ajax_call;
-	my $desc         = $self->get_db_description;
+	my $desc = $self->get_db_description;
 	say "<h1>Database curator's interface - $desc</h1>";
 	my $td = 1;
 	my $can_do_something;
@@ -280,6 +280,9 @@ sub print_content {
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
+	}
+	if ( $self->{'datastore'}->user_dbs_defined ) {
+		$self->_print_account_requests_section;
 	}
 	$buffer = $self->_get_admin_links( \$can_do_something );
 	my $list_buffer = $self->_get_admin_list_links;
@@ -307,18 +310,19 @@ sub _get_admin_list_links {
 	my ($self) = @_;
 	my $list_buffer;
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' ) {
-		if ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin )
-		{
+		if ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) {
 			$list_buffer =
 			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=setPassword">Set user passwords</a> - Set a user password to enable them to log on )
 			  . qq(or change an existing password.</li>\n);
 		}
 	}
-	if ( ($self->{'permissions'}->{'import_site_users'} || $self->is_admin) && $self->{'datastore'}->user_dbs_defined ) {
+	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
+		&& $self->{'datastore'}->user_dbs_defined )
+	{
 		$list_buffer .=
-			    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=importUser">Import users</a> - Import user account from centralized user database.</li>\n);
+		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=importUser">Import users</a> - Import user account from centralized user database.</li>\n);
 	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
@@ -372,7 +376,7 @@ sub _print_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	  . q(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
 }
 
-sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_user_groups {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'user_groups',
@@ -384,7 +388,7 @@ sub _print_user_groups {            ## no critic (ProhibitUnusedPrivateSubroutin
 	);
 }
 
-sub _print_isolates {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_isolates {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	my $query_cell =
@@ -1148,6 +1152,118 @@ sub _print_submission_section {
 			say q(</div>);
 		}
 		say q(</div></div>);
+	}
+	return;
+}
+
+sub _print_account_requests_section {
+	my ($self) = @_;
+	my $curator = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return
+	  if !( $curator->{'account_request_emails'}
+		&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
+	my $q = $self->{'cgi'};
+	$self->_reject_user if ( $q->param('reject') );
+	$self->_import_user if ( $q->param('import') );
+	my $user_dbs = $self->{'datastore'}->get_user_dbs;
+	my @user_details;
+
+	foreach my $user_db (@$user_dbs) {
+		my $configs =
+		  $self->{'datastore'}->get_configs_using_same_database( $user_db->{'db'}, $self->{'system'}->{'db'} );
+		foreach my $config (@$configs) {
+			my $users =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT user_name,datestamp FROM pending_requests WHERE dbase_config=? ORDER BY datestamp',
+				$config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} } );
+			foreach my $user (@$users) {
+				my $user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
+					$user->{'user_name'}, { db => $user_db->{'db'}, fetch => 'row_hashref' } );
+				$user_info->{'request_date'} = $user->{'datestamp'};
+				$user_info->{'user_db'}      = $user_db->{'id'};
+				push @user_details, $user_info;
+			}
+		}
+	}
+	return if !@user_details;
+	say q(<div class="box" id="account_requests">);
+	say q(<span class="main_icon fa fa-user fa-3x pull-left"></span>);
+	say q(<h2>Account requests</h2>);
+	say q(<p>Please note that accepting or rejecting these requests does not currently notify the user.</p>);
+	say q(<div class="scrollable">);
+	say q(<table class="resultstable">);
+	say q(<tr><th>Accept</th><th>Reject</th><th>First name</th><th>Surname</th>)
+	  . q(<th>Affiliation</th><th>E-mail</th><th>Date requested</th></tr>);
+	my $td = 1;
+	my ( $good, $bad ) = ( GOOD, BAD );
+
+	foreach my $user (@user_details) {
+		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$good</a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(reject=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$bad</a></td>)
+		  . qq(<td>$user->{'first_name'}</td><td>$user->{'surname'}</td>)
+		  . qq(<td>$user->{'affiliation'}</td><td><a href="mailto:$user->{'email'}">$user->{'email'}</a></td>)
+		  . qq(<td>$user->{'request_date'}</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
+	say q(</div>);
+	say q(</div>);
+	return;
+}
+
+sub _reject_user {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $user_name, $user_db ) = ( $q->param('reject'), $q->param('user_db') );
+	return if !$user_name || !BIGSdb::Utils::is_int($user_db);
+	my $db = $self->{'datastore'}->get_user_db($user_db);
+	my $configs = $self->{'datastore'}->get_configs_using_same_database( $db, $self->{'system'}->{'db'} );
+	eval {
+		foreach my $config (@$configs)
+		{
+			$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)', undef, $config, $user_name );
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$db->rollback;
+	} else {
+		$db->commit;
+	}
+	return;
+}
+
+sub _import_user {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $user_name, $user_db ) = ( $q->param('import'), $q->param('user_db') );
+	return if !$user_name || !BIGSdb::Utils::is_int($user_db);
+	my $db         = $self->{'datastore'}->get_user_db($user_db);
+	my $configs    = $self->{'datastore'}->get_configs_using_same_database( $db, $self->{'system'}->{'db'} );
+	my $id         = $self->next_id('users');
+	my $curator_id = $self->get_curator_id;
+	eval {
+	$self->{'db'}
+	  ->do( 'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
+		undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db );
+
+	#We need to identify all registered configs that use the same database
+	foreach my $config (@$configs) {
+		$db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+			undef, $config, $user_name, 'now' );
+		$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)',
+			undef, $config, $user_name );
+	}
+	};
+	if ($@){
+		$logger->error($@);
+		$db->rollback;
+		$self->{'db'}->rollback;
+	} else {
+		$db->commit;
+		$self->{'db'}->commit;
 	}
 	return;
 }
