@@ -84,7 +84,7 @@ sub print_content {
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);
-		$self->_print_interface;
+		return if $self->_print_interface;    #Returns 1 if scheme is invalid
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	return;
@@ -115,7 +115,7 @@ sub _print_interface {
 	my $prefs     = $self->{'prefs'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
-	return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+	return 1 if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
 	$self->print_scheme_section( { with_pk => 1 } );
 	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	say q(<div class="box" id="queryform"><div class="scrollable">);
