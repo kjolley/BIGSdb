@@ -262,7 +262,7 @@ sub run_job {
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.fas", description => '10_Concatenated FASTA', } );
+					{ filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
 			}
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
 			my $tree_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
@@ -270,10 +270,15 @@ sub run_job {
 			system $cmd;
 			if ( -e $tree_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)', } );
+					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)'} );
 			}
+			
 			my $identifiers = $self->_get_identifier_list($fasta_file);
-			$self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
+			my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
+			if ($params->{'itol_dataset'} && -e $itol_file){
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
+			}
 		}
 		catch BIGSdb::CannotOpenFileException with {
 			$logger->error('Cannot create FASTA file from XMFA.');
@@ -289,9 +294,9 @@ sub _itol_upload {
 	$self->{'jobManager'}
 	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
 	my $tree_file          = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
-	my $itol_tree_filename = "$self->{'config'}->{'secure_tmp_dir'}/$job_id.tree";
+	my $itol_tree_filename = "$self->{'config'}->{'tmp_dir'}/$job_id.tree";
 	copy( $tree_file, $itol_tree_filename ) or $logger->error("Copy failed: $!");
-	chdir $self->{'config'}->{'secure_tmp_dir'};
+	chdir $self->{'config'}->{'tmp_dir'};
 	my $zip = Archive::Zip->new;
 	$zip->addFile("$job_id.tree");
 	my @files_to_delete = ($itol_tree_filename);
@@ -304,7 +309,9 @@ sub _itol_upload {
 			$i++;
 			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
 			next if !$file;
-			$zip->addFile($file);
+			(my $new_name = $field) =~ s/\|\|/_/x;
+			$new_name =~ s/^(e_|f_|s_\d+_)//x;
+			$zip->addFile($file, $new_name);
 			push @files_to_delete, $file;
 		}
 	}
@@ -345,8 +352,7 @@ sub _itol_upload {
 		$$message_html .= q(<p class="statusbad">iTOL upload failed.</p>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
 	}
-	unlink "$self->{'config'}->{'secure_tmp_dir'}/$job_id.zip";
-	return;
+	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";;
 }
 
 sub _create_itol_dataset {
@@ -372,7 +378,8 @@ sub _create_itol_dataset {
 	}
 	return if !$type;
 	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
-	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$field";
+	my $filename = "${job_id}_$field";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh 'DATASET_TEXT';
 	say $fh 'SEPARATOR TAB';
