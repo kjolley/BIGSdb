@@ -1478,13 +1478,12 @@ sub _modify_query_by_profile_status {
 	my $view    = $self->{'system'}->{'view'};
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
-		if ( defined $q->param("scheme_$scheme_id\_profile_status_list")
-			&& $q->param("scheme_$scheme_id\_profile_status_list") ne '' )
+		if ( ( $q->param("scheme_${scheme_id}_profile_status_list") // q() ) ne '' )
 		{
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			if (@$scheme_loci) {
 				my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-				my $param       = $q->param("scheme_$scheme_id\_profile_status_list");
+				my $param       = $q->param("scheme_${scheme_id}_profile_status_list");
 				my $locus_count = @$scheme_loci;
 				my %clause      = (
 					complete => "$view.id IN (SELECT id FROM $table WHERE locus_count=$locus_count)",
