@@ -1228,8 +1228,11 @@ CREATE OR REPLACE FUNCTION modify_profile() RETURNS TRIGGER AS $modify_profile$
 		END IF;
 		scheme_table := 'mv_scheme_' || OLD.scheme_id;
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=OLD.scheme_id AND primary_key;
-		IF (TG_OP = 'DELETE') THEN			
-			EXECUTE FORMAT('DELETE FROM %I WHERE %s=$1',scheme_table,pk) USING OLD.profile_id;
+		IF (TG_OP = 'DELETE') THEN
+			--If PK scheme field is deleted, this function is still triggered.
+			IF (pk IS NOT NULL) THEN
+				EXECUTE FORMAT('DELETE FROM %I WHERE %s=$1',scheme_table,pk) USING OLD.profile_id;
+			END IF;
 			RETURN OLD;
 		ELSIF (TG_OP = 'UPDATE') THEN
 			EXECUTE FORMAT('UPDATE %I SET (%s,sender,curator,date_entered,datestamp)=($1,$2,$3,$4,$5) WHERE %s=$6',
@@ -1263,8 +1266,11 @@ CREATE OR REPLACE FUNCTION modify_profile_field() RETURNS TRIGGER AS $modify_pro
 		END IF;
 		scheme_table := 'mv_scheme_' || OLD.scheme_id;
 		SELECT field INTO pk FROM scheme_fields WHERE scheme_id=OLD.scheme_id AND primary_key;
-		IF (TG_OP = 'DELETE') THEN			
-			EXECUTE FORMAT('UPDATE %I SET %s=null WHERE %s=$1',scheme_table,OLD.scheme_field,pk) USING OLD.profile_id;
+		IF (TG_OP = 'DELETE') THEN	
+			--If PK scheme field is deleted, this function is still triggered.
+			IF (pk IS NOT NULL) THEN
+				EXECUTE FORMAT('UPDATE %I SET %s=null WHERE %s=$1',scheme_table,OLD.scheme_field,pk) USING OLD.profile_id;
+			END IF;
 			RETURN OLD;
 		ELSIF (TG_OP = 'UPDATE') THEN
 			EXECUTE FORMAT('UPDATE %I SET %s=$1 WHERE %s=$2',scheme_table,NEW.scheme_field,pk) USING 
