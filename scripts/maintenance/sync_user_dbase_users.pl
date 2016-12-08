@@ -176,7 +176,6 @@ sub uses_this_user_db {
 	my ($config) = @_;
 	my $system   = read_config_xml($config);
 	my $db       = get_db($system);
-	return if _database_not_upgraded( $system, $db );    #TODO Remove
 	my $user_dbnames =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(dbase_name) FROM user_dbases', undef, { fetch => 'col_arrayref', db => $db } );
@@ -309,29 +308,12 @@ sub remove_resource {
 	return;
 }
 
-#TODO This can be removed when all databases upgraded.
-sub _database_not_upgraded {
-	my ( $system, $db ) = @_;
-	if (
-		!$script->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-			'user_dbases', { db => $db }
-		)
-	  )
-	{
-		drop_connection($system);
-		return 1;
-	}
-	return;
-}
-
 sub add_registered_users {
 	my $registered_configs = get_registered_configs();
 	my @list;
 	foreach my $config (@$registered_configs) {
 		my $system = read_config_xml($config);
 		my $db     = get_db($system);
-		return if _database_not_upgraded( $system, $db );    #TODO Remove
 		my $user_db_id =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
@@ -374,7 +356,6 @@ sub remove_unregistered_users {
 	foreach my $config (@$registered_configs) {
 		my $system = read_config_xml($config);
 		my $db     = get_db($system);
-		return if _database_not_upgraded( $system, $db );    #TODO Remove
 		my $user_db_id =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
