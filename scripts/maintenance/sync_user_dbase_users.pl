@@ -259,6 +259,7 @@ sub get_db_connection_args {
 }
 
 sub get_dbase_configs {
+	my ($options) = @_;
 	my @configs;
 	opendir( my $dh, $script->{'dbase_config_dir'} )
 	  || $logger->error("Cannot open $script->{'dbase_config_dir'} for reading");
@@ -270,7 +271,7 @@ sub get_dbase_configs {
 
 		#Don't include configs with symlinked config.xml - these largely duplicate
 		#other configs for specific projects.
-		next if -l "$script->{'dbase_config_dir'}/$item/config.xml";
+		next if -l "$script->{'dbase_config_dir'}/$item/config.xml" && !$options->{'include_symlinked'};
 		push @configs, $item;
 	}
 	closedir($dh);
@@ -545,7 +546,6 @@ sub remove_deleted_users {
 	return;
 }
 
-#TODO Add check for users.allow file. Don't delete these users.
 sub remove_inactive_accounts {
 	my $configs = get_registered_configs();
 	my $inactive_time =
@@ -561,8 +561,10 @@ sub remove_inactive_accounts {
 	);
 	my %old_user = map { $_ => 1 } @$old_users;
   CONFIG: foreach my $config (@$configs) {
-		my $system = read_config_xml($config);
-		my $db     = get_db($system);
+		my $special_users = get_users_allow_deny($config);
+		my %special_users = map { $_ => 1 } @$special_users;
+		my $system        = read_config_xml($config);
+		my $db            = get_db($system);
 		my $user_db_id =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
@@ -578,6 +580,7 @@ sub remove_inactive_accounts {
 		  : q(sequences profiles );
 	  USER: foreach my $user (@$users) {
 			next if !$old_user{ $user->{'user_name'} };
+			next if $special_users{ $user->{'user_name'} };
 			my ( $is_sender, $is_curator );
 		  TABLE: foreach my $table (@sender_tables) {
 				if ( $script->{'datastore'}
@@ -618,6 +621,42 @@ sub remove_inactive_accounts {
 		}
 	}
 	return;
+}
+
+sub get_users_allow_deny {
+	my ($config) = @_;
+	my %names;
+	my $configs = get_all_configs_using_same_database($config);
+	foreach my $this_config (@$configs) {
+		foreach my $allow_deny (qw(allow deny)) {
+			my $filename = "$script->{'dbase_config_dir'}/$this_config/users.$allow_deny";
+			if ( -e $filename ) {
+				open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
+				while ( my $line = <$fh> ) {
+					$line =~ s/[\s\r\n]//gx;
+					$names{$line} = 1;
+				}
+				close $fh;
+			}
+		}
+	}
+	my @names = sort keys %names;
+	return \@names;
+}
+
+sub get_all_configs_using_same_database {
+	my ($config) = @_;
+	my $all_configs = get_dbase_configs( { include_symlinked => 1 } );
+	state $configs_using_db = {};
+	if ( !keys %$configs_using_db ) {
+		foreach my $this_config (@$all_configs) {
+			my $this_system = read_config_xml($this_config);
+			push @{ $configs_using_db->{ $this_system->{'db'} } }, $this_config;
+		}
+	}
+	my $system  = read_config_xml($config);
+	my $db_name = $system->{'db'};
+	return $configs_using_db->{$db_name} // [];
 }
 
 sub show_help {
