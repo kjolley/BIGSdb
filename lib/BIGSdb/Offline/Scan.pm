@@ -283,8 +283,13 @@ sub _lookup_partial_matches {
 	$partial_matches->{$locus} //= [];
 	return if !@{ $partial_matches->{$locus} };
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $match ( @{ $partial_matches->{$locus} } ) {
 		my $seq       = $self->extract_seq_from_match($match);
+		if ($locus_info->{'data_type'} eq 'peptide'){
+			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+			$seq = $seq_obj->translate->seq;
+		}
 		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
