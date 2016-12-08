@@ -107,21 +107,13 @@ sub _print_interface {
 	);
 	say q(</li><li><label for="status" class="form" style="width:5em">status:!</label>);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
-	my $sender_data =
-	  $self->{'datastore'}->run_query( 'SELECT id,user_name,first_name,surname from users WHERE id>0 ORDER BY surname',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my ( @users, %usernames );
-
-	foreach my $sender (@$sender_data) {
-		push @users, $sender->{'id'};
-		$usernames{ $sender->{'id'} } = "$sender->{'surname'}, $sender->{'first_name'} ($sender->{'user_name'})";
-	}
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	say q(<li><label for="sender" class="form" style="width:5em">sender:!</label>);
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
-		-values   => [ '', @users ],
-		-labels   => \%usernames,
+		-values   => [ '', @$users ],
+		-labels   => $user_names,
 		-required => 'required'
 	);
 	say q(<li><label for="sequence" class="form" style="width:5em">sequence<br />(FASTA):!</label>);
