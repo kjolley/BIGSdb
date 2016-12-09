@@ -22,9 +22,13 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
 use BIGSdb::Constants qw(:accounts :interface);
-use Mail::Sender;
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
 use Email::Valid;
 use Digest::MD5;
+use constant DEFAULT_DOMAIN => 'pubmlst.org';
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.User');
 
@@ -241,12 +245,6 @@ sub _bad_username {
 
 sub _send_email {
 	my ( $self, $data ) = @_;
-	if ( !$self->{'config'}->{'smtp_server'} ) {
-		$logger->error('Cannot send E-mail - smtp_server is not set in bigsdb.conf.');
-		return;
-	}
-	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $data->{'email'}, from => $data->{'email'} };
-	my $mail_sender = Mail::Sender->new($args);
 	my $message =
 	    qq(An account has been set up for you on $self->{'config'}->{'domain'}\n\n)
 	  . qq(Please log in with the following details in the next $self->{'validate_time'} minutes. The account )
@@ -254,16 +252,16 @@ sub _send_email {
 	  . qq(You will be required to change your password when you first log in.\n\n)
 	  . qq(Username: $data->{'user_name'}\n)
 	  . qq(Password: $data->{'password'}\n);
-	$mail_sender->MailMsg(
-		{
-			subject => "New $self->{'config'}->{'domain'} user account",
-			ctype   => 'text/plain',
-			charset => 'utf-8',
-			msg     => $message
-		}
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	no warnings 'once';
-	$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
+	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $email = Email::Simple->create(
+		header => [ To => $data->{'email'}, From => "no_reply\@$domain", Subject => "New $domain user account", ],
+		body   => $message
+	);
+	try_to_sendmail( $email, { transport => $transport } )
+	  || $logger->error("Cannot send E-mail to  $data->{'email'}");
 	return;
 }
 
