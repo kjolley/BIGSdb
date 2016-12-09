@@ -24,7 +24,10 @@ use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
-use Mail::Sender;
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
 use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
@@ -859,8 +862,7 @@ sub _notify_db_admin {
 			if ( $user_dbname eq $self->{'system'}->{'db'} ) {
 				my $affiliation_details =
 				  $self->{'datastore'}->get_user_info_from_username( $recipient->{'user_name'} );
-				$recipient->{$_} = $affiliation_details->{$_}
-				  foreach qw(first_name surname affiliation email);
+				$recipient->{$_} = $affiliation_details->{$_} foreach qw(first_name surname affiliation email);
 			}
 		}
 	}
@@ -886,12 +888,18 @@ sub _notify_db_admin {
 	  . q(database curation system to import this user (please DO NOT create a new user account).);
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};
-		my $args =
-		  { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
-		my $mail_sender = Mail::Sender->new($args);
-		$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
-		no warnings 'once';
-		$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
+		my $transport = Email::Sender::Transport::SMTP->new(
+			{
+				host => $self->{'config'}->{'smtp_server'} // 'localhost',
+				port => $self->{'config'}->{'smtp_port'}   // 25,
+			}
+		);
+		my $email = Email::Simple->create(
+			header => [ To => $recipient->{'email'}, From => $sender->{'email'}, Subject => $subject, ],
+			body   => $message,
+		);
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
 	}
 	$self->_drop_connection($system);
 	return;
