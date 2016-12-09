@@ -348,3 +348,8 @@ authentication database (bigsdb_auth).
 
 Additionally, you need to update the bigsdb.css stylesheet and the contents
 of the fonts directory.
+
+The following Perl modules are now also dependencies and need to be installed:
+
+Email::Valid
+Email::Sender

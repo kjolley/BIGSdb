@@ -896,7 +896,7 @@ sub _notify_db_admin {
 		);
 		my $email = Email::Simple->create(
 			header => [ To => $recipient->{'email'}, From => $sender->{'email'}, Subject => $subject, ],
-			body   => $message,
+			body   => $message
 		);
 		try_to_sendmail( $email, { transport => $transport } )
 		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");

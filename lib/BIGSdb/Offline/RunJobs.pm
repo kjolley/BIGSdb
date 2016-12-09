@@ -25,6 +25,11 @@ use Error qw(:try);
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Parser;
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
+use Email::Valid;
 use constant DEFAULT_DOMAIN => 'pubmlst.org';
 
 sub initiate {
@@ -126,19 +131,9 @@ sub _notify_user {
 	my $job    = $self->{'jobManager'}->get_job($job_id);
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
 	return if !$params->{'enable_notifications'};
-	eval 'use Email::Valid';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$self->{'logger'}->error('Email::Valid not installed - cannot E-mail user.');
-	}
-	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$self->{'logger'}->error('Mail::Sender not installed - cannot E-mail user.');
-		return;
-	}
 	my $address = Email::Valid->address( $params->{'email'} );
 	return if !$address;
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $address, from => "no_reply\@$domain" };
 	my $subject = qq(Job finished: $job_id);
 	$subject .= qq( - $params->{'title'}) if $params->{'title'};
 	my $message = qq(The following job has finished:\n\n);
@@ -154,11 +149,16 @@ sub _notify_user {
 	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		$message .= qq(This job will remain on the server for $self->{'config'}->{'results_deleted_days'} days.);
 	}
-	my $mail_sender = Mail::Sender->new($args);
-	$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
-	$self->{'logger'}->info("Email to $address");
-	no warnings 'once';
-	$self->{'logger'}->error($Mail::Sender::Error) if $mail_sender->{'error'};
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
+	);
+	my $email = Email::Simple->create(
+		header => [ To => $address, From => "no_reply\@$domain", Subject => $subject, ],
+		body   => $message
+	);
+	$self->{'logger'}->info("Email job report to $address");
+	try_to_sendmail( $email, { transport => $transport } )
+	  || $self->{'logger'}->error("Cannot send E-mail to $address");
 	return;
 }
 1;
