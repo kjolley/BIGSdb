@@ -740,7 +740,7 @@ sub _merge {
 	my @sender_tables =
 	  $system->{'dbtype'} eq 'isolates'
 	  ? qw(isolates sequence_bin allele_designations)
-	  : q(sequences profiles );
+	  : qw(sequences profiles);
 	my $db = $self->_get_db($system);
 	my $db_user_id =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM users WHERE user_name=?', $remote_user, { db => $db } );
