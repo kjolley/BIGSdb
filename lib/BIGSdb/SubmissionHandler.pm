@@ -25,6 +25,11 @@ use File::Path qw(make_path remove_tree);
 use List::Util qw(max);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
+use Email::Valid;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:submissions SEQ_METHODS);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
@@ -1028,12 +1033,6 @@ sub _user_exists {
 
 sub email {
 	my ( $self, $submission_id, $params ) = @_;
-	return if !$self->{'config'}->{'smtp_server'};
-	eval 'use Mail::Sender';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$logger->error('Mail::Sender is not installed.');
-		return;
-	}
 	my $submission = $self->get_submission($submission_id);
 	my $subject = $params->{'subject'} // "Submission#$submission_id";
 	foreach (qw(sender recipient message)) {
@@ -1042,19 +1041,21 @@ sub email {
 	my $sender    = $self->{'datastore'}->get_user_info( $params->{'sender'} );
 	my $recipient = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
 	foreach my $user ( $sender, $recipient ) {
-		if ( $user->{'email'} !~ /@/x ) {
+		my $address = Email::Valid->address( $user->{'email'} );
+		if ( !$address ) {
 			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
 			return;
 		}
 	}
-	my $args = { smtp => $self->{'config'}->{'smtp_server'}, to => $recipient->{'email'}, from => $sender->{'email'} };
-	$args->{'cc'} = $sender->{'email'}
-	  if $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'};
-	my $mail_sender = Mail::Sender->new($args);
-	$mail_sender->MailMsg(
-		{ subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $params->{'message'} } );
-	no warnings 'once';
-	$logger->error($Mail::Sender::Error) if $mail_sender->{'error'};
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
+	);
+	my $email = Email::Simple->create(
+		header => [ To => $recipient->{'email'}, From => $sender->{'email'}, Subject => $subject, ],
+		body   => $params->{'message'}
+	);
+	try_to_sendmail( $email, { transport => $transport } )
+	  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
 	return;
 }
 
