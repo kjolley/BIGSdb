@@ -857,7 +857,10 @@ sub _notify_db_admin {
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT dbase_name FROM user_dbases WHERE id=?', $recipient->{'user_db'}, { db => $db } );
 			if ( $user_dbname eq $self->{'system'}->{'db'} ) {
-				$recipient = $self->{'datastore'}->get_user_info_from_username( $recipient->{'user_name'} );
+				my $affiliation_details =
+				  $self->{'datastore'}->get_user_info_from_username( $recipient->{'user_name'} );
+				$recipient->{$_} = $affiliation_details->{$_}
+				  foreach qw(first_name surname affiliation email);
 			}
 		}
 	}
