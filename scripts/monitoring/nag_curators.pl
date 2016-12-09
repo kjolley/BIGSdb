@@ -23,7 +23,10 @@ use warnings;
 use Carp;
 use DBI;
 use DateTime;
-use Mail::Sender;
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use 5.010;
@@ -37,6 +40,7 @@ use constant {
 	USER             => 'apache',
 	DOMAIN           => 'PubMLST',
 	SMTP_SERVER      => '127.0.0.1',
+	SMTP_PORT        => 25,
 	SENDER           => 'no_reply@pubmlst.org',
 
 	#Only remind about submissions last updated earlier than
@@ -395,12 +399,15 @@ sub calculate_age_in_days {
 }
 
 sub email {
-	my ( $email, $message ) = @_;
-	my $domain      = DOMAIN;
-	my $subject     = "Submission reminder ($domain)";
-	my $args        = { smtp => SMTP_SERVER, to => $email, from => SENDER };
-	my $mail_sender = Mail::Sender->new($args);
-	$mail_sender->MailMsg( { subject => $subject, ctype => 'text/plain', charset => 'utf-8', msg => $message } );
+	my ( $address, $message ) = @_;
+	my $domain  = DOMAIN;
+	my $subject = "Submission reminder ($domain)";
+	my $transport =
+	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25, } );
+	my $email =
+	  Email::Simple->create( header => [ To => $address, From => SENDER, Subject => $subject, ], body => $message );
+	try_to_sendmail( $email, { transport => $transport } )
+	  || say "Cannot send E-mail to $address";
 	return;
 }
 
