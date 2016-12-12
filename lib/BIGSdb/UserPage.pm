@@ -658,7 +658,7 @@ sub _select_merge_users {
 	  q(<p>Please note that merging of user accounts may fail due to a database timeout if the site user account below )
 	  . q(has multiple (1000+) records already associated with it in a specific database. This is unusual as the site user )
 	  . q(account is normally newly created, but can occur if you are trying to merge multiple user accounts in to one.</p>)
-	  . q(<p>Databases changes will be rolled back if this occurs so the system will always be in a consistent state.</p>);
+	  . q(<p>Database changes will be rolled back if this occurs so the system will always be in a consistent state.</p>);
 	say q(<p><strong>Site user:</strong></p>);
 	say q(<dl class="data">)
 	  . qq(<dt>Username</dt><dd>$user_info->{'user_name'}</dd>)
