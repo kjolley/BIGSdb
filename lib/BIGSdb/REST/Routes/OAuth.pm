@@ -287,7 +287,10 @@ sub _get_session_token {
 		);
 		$self->{'auth_db'}->do(
 			'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
-			undef, request->address, 'now', 'REST API',
+			undef,
+			( request->forwarded_for_address // request->address ),
+			'now',
+			'REST API',
 			param('oauth_consumer_key'),
 			$access_token->{'dbase'},
 			$access_token->{'username'}
