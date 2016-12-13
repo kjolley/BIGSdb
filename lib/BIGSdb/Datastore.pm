@@ -34,6 +34,7 @@ use BIGSdb::TableAttributes;
 use BIGSdb::Constants qw(IDENTITY_THRESHOLD :login_requirements);
 use IO::Handle;
 use Digest::MD5;
+use constant INF => 9**99;
 
 sub new {
 	my ( $class, @atr ) = @_;
@@ -1889,7 +1890,8 @@ sub run_blast {
 			my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
 			my $format = $options->{'alignment'} ? 0 : 6;
 			$options->{'num_results'} //= 1000000;    #effectively return all results
-			my %params = (
+			my $shortest_seq = $self->_get_shortest_seq_length($temp_fastafile);
+			my %params       = (
 				-num_threads => $blast_threads,
 				-word_size   => $word_size,
 				-db          => $temp_fastafile,
@@ -1904,9 +1906,16 @@ sub run_blast {
 			} else {
 				$params{'-max_target_seqs'} = $options->{'num_results'};
 			}
-			$params{'-comp_based_stats'} = 0
-			  if $program ne 'blastn'
-			  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
+
+			#Ensure matches with low-complexity regions are returned.
+			if ( $program ne 'blastn' && $program ne 'tblastx' ) {
+				$params{'-comp_based_stats'} = 0;
+			}
+
+			#Very short sequences won't be matched unless we increase the expect value significantly
+			if ( $shortest_seq <= 20 ) {
+				$params{'-evalue'} = 1000;
+			}
 			system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 			if ( $run eq 'DNA' ) {
 				rename( $temp_outfile, "${temp_outfile}.1" );
@@ -1926,6 +1935,19 @@ sub run_blast {
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x && !/outfile.txt/x }
 	}
 	return ( $outfile_url, $options->{'job'} );
+}
+
+sub _get_shortest_seq_length {
+	my ( $self, $fasta ) = @_;
+	my $shortest = INF;
+	open( my $fh, '<', $fasta ) || $logger->error("Cannot open $fasta for reading");
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^>/x;
+		my $length = length $line;
+		$shortest = $length if $length < $shortest;
+	}
+	close $fh;
+	return $shortest;
 }
 
 #Is a specific locus selected rather then 'All loci' or a scheme or scheme group

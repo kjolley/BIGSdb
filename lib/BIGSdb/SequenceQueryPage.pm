@@ -358,7 +358,6 @@ sub _run_single_query {
 		$self->_output_single_query_exact( $exact_matches, $data_ref );
 	} else {
 		if ( $distinct_locus_selected && $qry_type ne $locus_info->{'data_type'} ) {
-			unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 			$self->_output_single_query_nonexact_mismatched($data_ref);
 			$self->_delete_temp_files($blast_file);
 			say q(</div>);
@@ -373,7 +372,6 @@ sub _run_single_query {
 			say q(</div>);
 		}
 	}
-	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	$self->_delete_temp_files($job);
 	return;
 }
