@@ -153,8 +153,13 @@ sub _notify_user {
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
 	my $email = Email::Simple->create(
-		header => [ To => $address, From => "no_reply\@$domain", Subject => $subject, ],
-		body   => $message
+		header => [
+			To             => $address,
+			From           => "no_reply\@$domain",
+			Subject        => $subject,
+			'Content-Type' => 'text/plain; charset=UTF-8'
+		],
+		body => $message
 	);
 	$self->{'logger'}->info("Email job report to $address");
 	try_to_sendmail( $email, { transport => $transport } )

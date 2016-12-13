@@ -404,8 +404,11 @@ sub email {
 	my $subject = "Submission reminder ($domain)";
 	my $transport =
 	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25, } );
-	my $email =
-	  Email::Simple->create( header => [ To => $address, From => SENDER, Subject => $subject, ], body => $message );
+	my $email = Email::Simple->create(
+		header =>
+		  [ To => $address, From => SENDER, Subject => $subject, 'Content-Type' => 'text/plain; charset=UTF-8' ],
+		body => $message
+	);
 	try_to_sendmail( $email, { transport => $transport } )
 	  || say "Cannot send E-mail to $address";
 	return;

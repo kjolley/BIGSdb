@@ -257,8 +257,13 @@ sub _send_email {
 	);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	my $email = Email::Simple->create(
-		header => [ To => $data->{'email'}, From => "no_reply\@$domain", Subject => "New $domain user account", ],
-		body   => $message
+		header => [
+			To             => $data->{'email'},
+			From           => "no_reply\@$domain",
+			Subject        => "New $domain user account",
+			'Content-Type' => 'text/plain; charset=UTF-8'
+		],
+		body => $message
 	);
 	try_to_sendmail( $email, { transport => $transport } )
 	  || $logger->error("Cannot send E-mail to  $data->{'email'}");

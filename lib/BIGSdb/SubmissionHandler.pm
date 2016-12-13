@@ -1052,7 +1052,13 @@ sub email {
 	);
 	my $cc = $sender->{'email'} ne $recipient->{'email'} ? $sender->{'email'} : undef;
 	my $email = Email::Simple->create(
-		header => [ To => $recipient->{'email'}, From => $sender->{'email'}, Cc => $cc, Subject => $subject, ]
+		header => [
+			To             => $recipient->{'email'},
+			From           => $sender->{'email'},
+			Cc             => $cc,
+			Subject        => $subject,
+			'Content-Type' => 'text/plain; charset=UTF-8'
+		  ]
 		,
 		body => $params->{'message'}
 	);
