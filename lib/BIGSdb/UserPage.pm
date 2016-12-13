@@ -584,9 +584,9 @@ sub _import_dbase_config {
 sub _get_users {
 	my ($self) = @_;
 	my $users =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT user_name,first_name,surname FROM users ORDER BY surname, first_name, user_name',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}->run_query(
+		'SELECT user_name,first_name,surname FROM users WHERE status=? ORDER BY surname, first_name, user_name',
+		'validated', { fetch => 'all_arrayref', slice => {} } );
 	my $usernames = [''];
 	my $labels = { '' => 'Select user...' };
 	foreach my $user (@$users) {
