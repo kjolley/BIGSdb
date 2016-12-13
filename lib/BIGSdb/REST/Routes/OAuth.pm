@@ -285,10 +285,11 @@ sub _get_session_token {
 			param('oauth_timestamp'),
 			time
 		);
+		my $ip_address = _get_ip_address();
 		$self->{'auth_db'}->do(
 			'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
 			undef,
-			( request->forwarded_for_address // request->address ),
+			$ip_address,
 			'now',
 			'REST API',
 			param('oauth_consumer_key'),
@@ -303,5 +304,14 @@ sub _get_session_token {
 		$self->{'auth_db'}->commit;
 	}
 	return { oauth_token => $session_token, oauth_token_secret => $session_token_secret };
+}
+
+#We may be running behind a proxy so need to try to find real address of client
+sub _get_ip_address {
+	if ( request->forwarded_for_address ) {
+		my @addresses = split /,/x, request->forwarded_for_address;
+		return $addresses[0];
+	}
+	return request->address;
 }
 1;
