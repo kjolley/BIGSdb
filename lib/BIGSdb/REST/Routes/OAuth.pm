@@ -288,10 +288,7 @@ sub _get_session_token {
 		my $ip_address = _get_ip_address();
 		$self->{'auth_db'}->do(
 			'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
-			undef,
-			$ip_address,
-			'now',
-			'REST API',
+			undef, $ip_address, 'now', 'REST API',
 			param('oauth_consumer_key'),
 			$access_token->{'dbase'},
 			$access_token->{'username'}
@@ -308,7 +305,7 @@ sub _get_session_token {
 
 #We may be running behind a proxy so need to try to find real address of client
 sub _get_ip_address {
-	if ( request->forwarded_for_address ) {
+	if ( setting('behind_proxy') && request->forwarded_for_address ) {
 		my @addresses = split /,/x, request->forwarded_for_address;
 		return $addresses[0];
 	}
