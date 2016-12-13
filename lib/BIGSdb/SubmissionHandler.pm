@@ -1050,7 +1050,10 @@ sub email {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	my $cc = $sender->{'email'} ne $recipient->{'email'} ? $sender->{'email'} : undef;
+	my $cc =
+	  ( $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'} )
+	  ? $sender->{'email'}
+	  : undef;
 	my $email = Email::Simple->create(
 		header => [
 			To             => $recipient->{'email'},
@@ -1058,8 +1061,7 @@ sub email {
 			Cc             => $cc,
 			Subject        => $subject,
 			'Content-Type' => 'text/plain; charset=UTF-8'
-		  ]
-		,
+		],
 		body => $params->{'message'}
 	);
 	try_to_sendmail( $email, { transport => $transport } )
