@@ -346,6 +346,8 @@ Please run the seqdefdb_v1.16.sql script against sequence definition databases,
 isolatedb_v1.16.sql against isolate databases and auth_v1.16.sql against the
 authentication database (bigsdb_auth).
 
+Additional logging directives have been added to logging.conf (/etc/bigsdb).
+
 Additionally, you need to update the bigsdb.css stylesheet and the contents
 of the fonts directory.
 
