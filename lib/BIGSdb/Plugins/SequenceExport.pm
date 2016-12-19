@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.10',
+		version          => '1.5.11',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -350,7 +350,7 @@ sub _run_job_isolates {
 	my $limit         = $self->_get_limit;
 	if ( $params->{'align'} && @$ids > $limit ) {
 		my $message_html =
-		  q(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
+		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
 	my $ret_val = $self->make_isolate_seq_file(
