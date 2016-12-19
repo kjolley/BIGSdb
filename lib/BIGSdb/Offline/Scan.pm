@@ -285,8 +285,8 @@ sub _lookup_partial_matches {
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	foreach my $match ( @{ $partial_matches->{$locus} } ) {
-		my $seq       = $self->extract_seq_from_match($match);
-		if ($locus_info->{'data_type'} eq 'peptide'){
+		my $seq = $self->extract_seq_from_match($match);
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$seq = $seq_obj->translate->seq;
 		}
@@ -298,7 +298,15 @@ sub _lookup_partial_matches {
 			$match->{'allele'}               = $allele_id;
 			$match->{'start'}                = $match->{'predicted_start'};
 			$match->{'end'}                  = $match->{'predicted_end'};
-			push @{ $exact_matches->{$locus} }, $match;
+			$match->{'length'}               = abs( $match->{'predicted_end'} - $match->{'predicted_start'} ) + 1;
+			if ( $locus_info->{'match_longest'} && @{ $exact_matches->{$locus} } ) {
+
+				if ( $match->{'length'} > $exact_matches->{$locus}->[0]->{'length'} ) {
+					@{ $exact_matches->{$locus} } = ($match);
+				}
+			} else {
+				push @{ $exact_matches->{$locus} }, $match;
+			}
 		}
 	}
 	return;
@@ -1045,12 +1053,19 @@ sub _parse_blast_exact {
 				$match->{'predicted_end'}   = $match->{'end'};
 				$match->{'reverse'}         = $self->_is_match_reversed($record);
 				$match->{'e-value'}         = $record->[10];
+				$match->{'length'}          = abs( $match->{'predicted_end'} - $match->{'predicted_start'} ) + 1;
 				next RECORD
 				  if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
 				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
 				$region_matched_already->{$locus}->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
-				next RECORD if $locus_info->{$locus}->{'match_longest'} && @{ $matches->{$locus} };
-				push @{ $matches->{$locus} }, $match;
+
+				if ( $locus_info->{$locus}->{'match_longest'} && @{ $matches->{$locus} } ) {
+					if ( $match->{'length'} > $matches->{$locus}->[0]->{'length'} ) {
+						@{ $matches->{$locus} } = ($match);
+					}
+				} else {
+					push @{ $matches->{$locus} }, $match;
+				}
 			}
 		}
 	}
