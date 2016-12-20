@@ -74,7 +74,8 @@ sub get_users_table_attributes {
 		  };
 	}
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
-		push @$attributes, {
+		push @$attributes,
+		  {
 			name     => 'account_request_emails',
 			type     => 'bool',
 			comments => 'Receive new account request E-mails (curators only)',
@@ -82,7 +83,7 @@ sub get_users_table_attributes {
 			  . 'the permission set to allow them to import site user accounts. This is only relevant to curators '
 			  . 'and admins.',
 			default => 'false'
-		};
+		  };
 	}
 	return $attributes;
 }
@@ -298,9 +299,15 @@ sub get_loci_table_attributes {
 			}
 		  );
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
 		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
+		{
+			name        => 'complete_cds',
+			type        => 'bool',
+			hide_public => 'yes',
+			tooltip     => 'complete cds - Sequences should be complete reading frames with a start '
+			  . 'and stop codon and no internal stop codons.'
+		},
 		{
 			name        => 'orf',
 			type        => 'int',
@@ -324,7 +331,7 @@ sub get_loci_table_attributes {
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
 		}
-	  );
+	);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my %defaults;
 		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
@@ -475,13 +482,6 @@ sub get_loci_table_attributes {
 	} else {    #Seqdef database
 		my $id_threshold = IDENTITY_THRESHOLD;
 		push @$attributes,
-		  {
-			name        => 'complete_cds',
-			type        => 'bool',
-			hide_public => 'yes',
-			tooltip     => 'complete cds - Sequences should be complete reading frames with a start '
-			  . 'and stop codon and no internal stop codons.'
-		  },
 		  {
 			name        => 'no_submissions',
 			type        => 'bool',
