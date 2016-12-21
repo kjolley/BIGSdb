@@ -85,7 +85,7 @@ sub print_content {
 	$buffer .= $self->print_action_fieldset(
 		{
 			get_only      => 1,
-			no_reset      => 0,
+			no_reset      => 1,
 			submit_label  => 'Delete',
 			submit2       => 'delete_and_retire',
 			submit2_label => 'Delete and Retire'
