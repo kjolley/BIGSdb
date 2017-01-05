@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,12 +103,15 @@ sub _run_query {
 	say q(<div class="box" id="resultstable">);
 	say q(<div class="scrollable">);
 	say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
+	local $" = qq(\t);
+	my $text_buffer   = qq(Isolate\t@cleaned_loci);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 
 	foreach my $field (@$scheme_fields) {
 		my $cleaned = $field;
 		$cleaned =~ tr/_/ /;
 		print qq(<th>$cleaned</th>);
+		$text_buffer .= qq(\t$cleaned);
 	}
 	local $" = ',';
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
@@ -122,6 +125,7 @@ sub _run_query {
 	local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
 	$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
 	say q(</tr>);
+	$text_buffer .= qq(\n);
 	my $td = 1;
 	local $| = 1;
 
@@ -133,11 +137,14 @@ sub _run_query {
 			$allele =~ s/\s+$//gx;
 		}
 		say qq(<tr class="td$td"><td>$isolate</td>);
+		$text_buffer .= $isolate;
 		for my $i ( 0 .. @$loci - 1 ) {
 			if ( $profile[$i] ) {
 				print qq(<td>$profile[$i]</td>);
+				$text_buffer .= qq(\t$profile[$i]);
 			} else {
 				print q(<td class="statusbad" style="font-size:2em">-</td>);
+				$text_buffer .= qq(\t-);
 			}
 		}
 		my $incomplete;
@@ -147,27 +154,52 @@ sub _run_query {
 				pop @profile;
 			}
 			@field_data =
-			  $self->{'datastore'}->run_query( $qry, \@profile, { cache => 'BatchProfileQueryPage::print_content' } );
+			  $self->{'datastore'}->run_query( $qry, \@profile, { cache => 'BatchProfileQueryPage::run_query' } );
 		} else {
 			$incomplete = 1;
 		}
 		my $i = 0;
 		foreach (@$scheme_fields) {
 			if ( exists $field_data[$i] ) {
-				print defined $field_data[$i] ? qq(<td>$field_data[$i]</td>) : q(<td></td>);
+				if ( defined $field_data[$i] ) {
+					print qq(<td>$field_data[$i]</td>);
+					$text_buffer .= qq(\t$field_data[$i]);
+				} else {
+					print q(<td></td>);
+					$text_buffer .= qq(\t);
+				}
 			} else {
 				print q(<td class="statusbad" style="font-size:2em">-</td>);
+				$text_buffer .= qq(\t);
 			}
 			$i++;
 		}
 		say q(</tr>);
+		$text_buffer .= qq(\n);
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	say q(</table></div></div>);
+	say q(</table>);
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $out_file   = qq($prefix.txt);
+	my $excel_file = qq($prefix.xlsx);
+	my $full_path  = "$self->{'config'}->{'tmp_dir'}/$out_file";
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh $text_buffer;
+	close $fh;
+
+	if ( -e $full_path ) {
+		say qq(<p style="margin-top:1em">Download: <a href="/tmp/$out_file">tab-delimited text</a>);
+		my $excel = BIGSdb::Utils::text2excel($full_path);
+		if ( -e $excel ) {
+			say qq( | <a href="/tmp/$excel_file">Excel format</a>);
+		}
+		say q(</p>);
+	}
+	say q(</div></div>);
 	return;
 }
 
