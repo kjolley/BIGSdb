@@ -65,82 +65,8 @@ sub print_content {
 		$self->print_scheme_section( { with_pk => 1 } );
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	if ( $q->param('profiles') ) {
-		my $profiles = $q->param('profiles');
-		my @rows = split /\n/x, $profiles;
-		my @cleaned_loci;
-		push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
-		local $" = q(</th><th>);
-		say q(<div class="box" id="resultstable">);
-		say q(<div class="scrollable">);
-		say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-
-		foreach my $field (@$scheme_fields) {
-			my $cleaned = $field;
-			$cleaned =~ tr/_/ /;
-			print qq(<th>$cleaned</th>);
-		}
-		local $" = ',';
-		my $scheme_warehouse = "mv_scheme_$scheme_id";
-		my $qry              = "SELECT @$scheme_fields FROM $scheme_warehouse WHERE ";
-		my @cleaned_loci_db;
-		foreach my $locus (@$loci) {
-			push @cleaned_loci_db, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
-		}
-		my $set_id = $self->get_set_id;
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
-		$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
-		say q(</tr>);
-		my $td = 1;
-		local $| = 1;
-
-		foreach my $row (@rows) {
-			my @profile = split /\t/x, $row;
-			my $isolate = shift @profile;
-			foreach my $allele (@profile) {
-				$allele =~ s/^\s+//gx;
-				$allele =~ s/\s+$//gx;
-			}
-			say qq(<tr class="td$td"><td>$isolate</td>);
-			for my $i ( 0 .. @$loci - 1 ) {
-				if ( $profile[$i] ) {
-					print qq(<td>$profile[$i]</td>);
-				} else {
-					print q(<td class="statusbad" style="font-size:2em">-</td>);
-				}
-			}
-			my $incomplete;
-			my @field_data;
-			if ( @profile >= @$loci ) {
-				while ( @profile > @$loci ) {
-					pop @profile;
-				}
-				@field_data =
-				  $self->{'datastore'}
-				  ->run_query( $qry, \@profile, { cache => 'BatchProfileQueryPage::print_content' } );
-			} else {
-				$incomplete = 1;
-			}
-			my $i = 0;
-			foreach (@$scheme_fields) {
-				if ( exists $field_data[$i] ) {
-					print defined $field_data[$i] ? qq(<td>$field_data[$i]</td>) : q(<td></td>);
-				} else {
-					print q(<td class="statusbad" style="font-size:2em">-</td>);
-				}
-				$i++;
-			}
-			say q(</tr>);
-			$td = $td == 1 ? 2 : 1;
-			if ( $ENV{'MOD_PERL'} ) {
-				$self->{'mod_perl_request'}->rflush;
-				return if $self->{'mod_perl_request'}->connection->aborted;
-			}
-		}
-		say q(</table></div></div>);
+		$self->_run_query($scheme_id);
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -162,6 +88,86 @@ sub print_content {
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say q(</div>);
+	return;
+}
+
+sub _run_query {
+	my ( $self, $scheme_id ) = @_;
+	my $q        = $self->{'cgi'};
+	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $profiles = $q->param('profiles');
+	my @rows     = split /\n/x, $profiles;
+	my @cleaned_loci;
+	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
+	local $" = q(</th><th>);
+	say q(<div class="box" id="resultstable">);
+	say q(<div class="scrollable">);
+	say qq(<table class="resultstable"><tr><th>Isolate</th><th>@cleaned_loci</th>);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+
+	foreach my $field (@$scheme_fields) {
+		my $cleaned = $field;
+		$cleaned =~ tr/_/ /;
+		print qq(<th>$cleaned</th>);
+	}
+	local $" = ',';
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $qry              = "SELECT @$scheme_fields FROM $scheme_warehouse WHERE ";
+	my @cleaned_loci_db;
+	foreach my $locus (@$loci) {
+		push @cleaned_loci_db, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
+	}
+	my $set_id = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+	local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
+	$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
+	say q(</tr>);
+	my $td = 1;
+	local $| = 1;
+
+	foreach my $row (@rows) {
+		my @profile = split /\t/x, $row;
+		my $isolate = shift @profile;
+		foreach my $allele (@profile) {
+			$allele =~ s/^\s+//gx;
+			$allele =~ s/\s+$//gx;
+		}
+		say qq(<tr class="td$td"><td>$isolate</td>);
+		for my $i ( 0 .. @$loci - 1 ) {
+			if ( $profile[$i] ) {
+				print qq(<td>$profile[$i]</td>);
+			} else {
+				print q(<td class="statusbad" style="font-size:2em">-</td>);
+			}
+		}
+		my $incomplete;
+		my @field_data;
+		if ( @profile >= @$loci ) {
+			while ( @profile > @$loci ) {
+				pop @profile;
+			}
+			@field_data =
+			  $self->{'datastore'}->run_query( $qry, \@profile, { cache => 'BatchProfileQueryPage::print_content' } );
+		} else {
+			$incomplete = 1;
+		}
+		my $i = 0;
+		foreach (@$scheme_fields) {
+			if ( exists $field_data[$i] ) {
+				print defined $field_data[$i] ? qq(<td>$field_data[$i]</td>) : q(<td></td>);
+			} else {
+				print q(<td class="statusbad" style="font-size:2em">-</td>);
+			}
+			$i++;
+		}
+		say q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+		if ( $ENV{'MOD_PERL'} ) {
+			$self->{'mod_perl_request'}->rflush;
+			return if $self->{'mod_perl_request'}->connection->aborted;
+		}
+	}
+	say q(</table></div></div>);
 	return;
 }
 
