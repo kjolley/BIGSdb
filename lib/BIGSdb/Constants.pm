@@ -59,12 +59,14 @@ use constant UPLOAD   => q(<span class="fa fa-lg fa-upload" style="color:#4a4"><
 use constant QUERY    => q(<span class="fa fa-lg fa-search" style="color:#44a"></span>);
 use constant GOOD     => q(<span class="statusgood fa fa-lg fa-check"></span>);
 use constant BAD      => q(<span class="statusbad fa fa-lg fa-times"></span>);
+use constant TRUE     => q(<span class="fa fa-lg fa-check-square-o"></span>);
+use constant FALSE    => q(<span class="fa fa-lg fa-square-o"></span>);
 use constant DOWNLOAD => q(<span class="fa fa-lg fa-download" style="color:#44a"></span>);
 use constant BACK     => q(<span class="main_icon fa fa-2x fa-arrow-circle-o-left"></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 my @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD QUERY GOOD BAD DOWNLOAD BACK FLANKING MAX_ROWS);
+  EDIT DELETE ADD COMPARE UPLOAD QUERY GOOD BAD TRUE FALSE DOWNLOAD BACK FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

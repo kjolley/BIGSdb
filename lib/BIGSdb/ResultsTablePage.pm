@@ -1407,7 +1407,7 @@ sub _print_bool_field {
 	if ( $data->{ lc($field) } eq q() ) {
 		print q(<td></td>);
 	} else {
-		my $value = $data->{ lc($field) } ? 'true' : 'false';
+		my $value = $data->{ lc($field) } ? TRUE : FALSE;
 		print qq(<td>$value</td>);
 	}
 	if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
