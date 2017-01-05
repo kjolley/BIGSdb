@@ -311,7 +311,9 @@ sub _registrations {
 	if (@$request_reg) {
 		@$request_reg = sort { $labels->{$a} cmp $labels->{$b} } @$request_reg;
 		$buffer .= q(<fieldset style="float:left"><legend>Admin authorization</legend>);
-		$buffer .= q(<p>Access to the listed resources can be requested but require authorization.<br />);
+		$buffer .= q(<p>Access to the listed resources can be requested but requires authorization.<br />);
+		$buffer .= q(<strong><em>Check respective web sites for licencing )
+		  . q(and access conditions.</em></strong><br />);
 		$buffer .= q(Select from list and click 'Request' button.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= $self->popup_menu(
@@ -319,7 +321,7 @@ sub _registrations {
 			-id       => 'request_reg',
 			-values   => $request_reg,
 			-multiple => 'true',
-			-style    => 'min-width:10em; min-height:8em',
+			-style    => 'min-width:10em; min-height:7em',
 			-labels   => $labels
 		);
 		$buffer .= q(<div style='text-align:right'>);
