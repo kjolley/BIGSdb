@@ -299,7 +299,8 @@ sub get_loci_table_attributes {
 			}
 		  );
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
 		{
 			name        => 'complete_cds',
@@ -331,7 +332,7 @@ sub get_loci_table_attributes {
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my %defaults;
 		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
@@ -1865,12 +1866,25 @@ sub get_projects_table_attributes {
 			name    => 'isolate_display',
 			type    => 'bool',
 			tooltip => 'isolate display - Select to list this project on an isolate information page '
-			  . '(also requires a full description to be entered).'
+			  . '(also requires a full description to be entered).',
+			required => 'yes',
+			default  => 'false'
 		},
 		{
-			name    => 'list',
+			name     => 'list',
+			type     => 'bool',
+			tooltip  => 'list - Select to include in list of projects linked from the contents page.',
+			required => 'yes',
+			default  => 'false'
+		},
+		{
+			name    => 'private',
 			type    => 'bool',
-			tooltip => 'list - Select to include in list of projects linked from the contents page.'
+			tooltip => 'private - Select to make the project private. You will be set as the project user '
+			  . 'and will be the only user able to access it. You can add additional users or user groups who '
+			  . 'will be able to access and update the project data later.',
+			required => 'yes',
+			default  => 'false'
 		},
 		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
 		{ name => 'datestamp', type => 'date', required => 'yes' }
