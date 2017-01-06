@@ -140,7 +140,8 @@ sub _import {
 	my @users     = $q->param('users');
 	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
 	my $invalid_upload;
-	my $matching_configs = $self->{'datastore'}->get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
+	my $matching_configs =
+	  $self->{'datastore'}->get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
 	eval {
 		foreach my $user_name (@users)
 		{
@@ -148,8 +149,9 @@ sub _import {
 			my $id         = $self->next_id('users');
 			my $curator_id = $self->get_curator_id;
 			$self->{'db'}->do(
-				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
-				undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db
+				'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,submission_emails,'
+				  . 'account_request_emails,user_db) VALUES (?,?,?,?,?,?,?,?,?)',
+				undef, $id, $user_name, 'user', 'now', 'now', $curator_id,, 'false', 'false', $user_db
 			);
 
 			#We need to identify all registered configs that use the same database

@@ -1404,12 +1404,9 @@ sub _print_record_field {
 sub _print_bool_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $data, $field ) = @{$args}{qw(table data field)};
-	if ( $data->{ lc($field) } eq q() ) {
-		print q(<td></td>);
-	} else {
-		my $value = $data->{ lc($field) } ? TRUE : FALSE;
-		print qq(<td>$value</td>);
-	}
+	my $value = $data->{ lc($field) } ? TRUE : FALSE;
+	print qq(<td>$value</td>);
+	
 	if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
 		my $flags = $self->{'datastore'}->get_sequence_flags( $data->{'id'} );
 		local $" = q(</a> <a class="seqflag_tooltip">);
