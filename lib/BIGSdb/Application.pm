@@ -203,10 +203,12 @@ sub _initiate {
 	if ( $self->{'curate'} && $self->{'system'}->{'curate_path_includes'} ) {
 		if ( $self->{'script_name'} !~ /$self->{'system'}->{'curate_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
+			$logger->error("Invalid curate script path - $self->{'script_name'}");
 		}
 	} elsif ( !$self->{'curate'} && $self->{'system'}->{'script_path_includes'} ) {
 		if ( $self->{'script_name'} !~ /$self->{'system'}->{'script_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
+			$logger->error("Invalid script path - $self->{'script_name'}");
 		}
 	}
 	if ( !$self->{'system'}->{'authentication'} ) {
@@ -720,7 +722,7 @@ sub authenticate {
 						};
 					}
 				}
-			};			
+			};
 		}
 		if ( $login_requirement == OPTIONAL && $self->{'page'} eq 'login' ) {
 			$self->{'page'} = 'index';
