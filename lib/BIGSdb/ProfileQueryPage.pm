@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -353,6 +353,20 @@ sub _generate_query {
 	return ( $qry, $list_file, $errors );
 }
 
+sub _get_data_type {
+	my ( $self, $scheme_id, $field ) = @_;
+	my %date_fields = map { $_ => 1 } qw(date_entered datestamp);
+	my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
+	if ($is_locus) {
+		return $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
+	} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
+		return $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
+	} elsif ( $date_fields{$field} ) {
+		return 'date';
+	}
+	return;
+}
+
 sub _generate_query_from_locus_fields {
 	my ( $self, $scheme_id ) = @_;
 	my $q                = $self->{'cgi'};
@@ -362,21 +376,32 @@ sub _generate_query_from_locus_fields {
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $andor            = $q->param('c0');
 	my $first_value      = 1;
+	my %standard_fields  = map { $_ => 1 } (
+		'sender (id)',
+		'sender (surname)',
+		'sender (first_name)',
+		'sender (affiliation)',
+		'curator (id)',
+		'curator (surname)',
+		'curator (first_name)',
+		'curator (affiliation)',
+		'date_entered',
+		'datestamp'
+	);
+
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
-		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
-		my $type;
-		if ($is_locus) {
-			$type = $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
-		} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-			$type = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field )->{'type'};
-		} elsif ( $field =~ /^date/x ) {
-			$type = 'date';
+		my $type = $self->_get_data_type( $scheme_id, $field );
+		if ( !defined $type && !$standard_fields{$field} ) {
+			push @$errors, "Field $field is not recognized.";
+			$logger->error("Attempt to modify fieldname: $field");
+			next;
 		}
 		my $operator = $q->param("y$i") // '=';
 		my $text = $q->param("t$i");
 		$self->process_value( \$text );
+		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
 		next
 		  if !($scheme_info->{'allow_missing_loci'}
 			&& $is_locus
@@ -386,6 +411,7 @@ sub _generate_query_from_locus_fields {
 		  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@$errors );
 		my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 		$first_value = 0;
+
 		if ( $field =~ /(.*)\ \(id\)$/x
 			&& !BIGSdb::Utils::is_int($text) )
 		{
