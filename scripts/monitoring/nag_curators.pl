@@ -60,7 +60,7 @@ main();
 #TODO Enable this to run on remote server, respecting the db.conf settings.
 sub main {
 	binmode( STDOUT, ':encoding(UTF-8)' );
-	my $dbases         = get_databases_with_submissions();
+	my $dbases = get_databases_with_submissions();
 	my $name_by_email  = {};
 	my $dbase_by_email = {};
 	my $ids_by_email   = {};
@@ -72,7 +72,9 @@ sub main {
 			next if $curator->{'email'} !~ /@/x;
 			$name_by_email->{ $curator->{'email'} } = "$curator->{'first_name'} $curator->{'surname'}"
 			  if !$name_by_email->{ $curator->{'email'} };
-			push @{ $dbase_by_email->{ $curator->{'email'} } }, $dbases->{$db_name};
+
+			#Make shallow copy of hash, otherwise very weird things happen!
+			push @{ $dbase_by_email->{ $curator->{'email'} } }, { %{ $dbases->{$db_name} } };
 		}
 	}
 	foreach my $email ( sort keys %$dbase_by_email ) {
@@ -305,7 +307,7 @@ sub get_curators {
 				$curator->{$att} = $remote_user->{$att};
 			}
 		}
-		push @{ $ids_by_email->{ $curator->{'email'} } }, $curator->{'id'};
+		push @{ $ids_by_email->{ lc $curator->{'email'} } }, $curator->{'id'};
 	}
 	$db->disconnect;
 	return ( $curators, $ids_by_email );
