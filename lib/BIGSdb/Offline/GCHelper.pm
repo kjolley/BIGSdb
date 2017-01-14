@@ -25,8 +25,8 @@ use parent qw(BIGSdb::Offline::Scan);
 sub run_script {
 	my ($self) = @_;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $loci     = $self->get_selected_loci;
-	my $isolates = $self->get_isolates;
+	my $loci        = $self->get_selected_loci;
+	my $isolates    = $self->get_isolates;
 	my $merged_data = {};
 	foreach my $isolate_id (@$isolates) {
 		my $data = $self->_get_allele_designations( $isolate_id, $loci );
@@ -39,6 +39,11 @@ sub run_script {
 sub get_results {
 	my ($self) = @_;
 	return $self->{'results'};
+}
+
+sub get_new_sequences {
+	my ($self) = @_;
+	return { seq_lookup => $self->{'seq_lookup'}, allele_lookup => $self->{'allele_lookup'} };
 }
 
 sub _get_allele_designations {
@@ -229,10 +234,11 @@ sub _get_new_allele_designation {
 		return $self->{'allele_lookup'}->{$locus}->{$hash};
 	}
 	my $i = 1;
-	$i++ while $self->{'seq_lookup'}->{$locus}->{"new#$i"};
-	$self->{'seq_lookup'}->{$locus}->{"new#$i"} = $$seq_ref;
-	$self->{'allele_lookup'}->{$locus}->{$hash} = "new#$i";
-	return "new#$i";
+	my $name = $self->{'options'}->{'global_new'} ? 'new' : 'local_new';
+	$i++ while $self->{'seq_lookup'}->{$locus}->{"$name#$i"};
+	$self->{'seq_lookup'}->{$locus}->{"$name#$i"} = $$seq_ref;
+	$self->{'allele_lookup'}->{$locus}->{$hash} = "$name#$i";
+	return "$name#$i";
 }
 
 sub _translate {

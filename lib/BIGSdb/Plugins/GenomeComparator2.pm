@@ -23,6 +23,8 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
+my $THREADS = 6;
+my $PROGRAM = '/home/keith/git/BIGSdb/scripts/helpers/gc_scan.pl';
 
 #use BIGSdb::Offline::Scan;
 use BIGSdb::Offline::GCHelper;
@@ -212,8 +214,7 @@ sub _print_interface {
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_filter_locus_fieldset;
-
-	#	$self->_print_reference_genome_fieldset;
+	$self->_print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
 
 	#	$self->_print_distance_matrix_fieldset;
@@ -283,6 +284,55 @@ sub _print_parameters_fieldset {
 	  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.">)
 	  . q(<span class="fa fa-info-circle"></span></a></li>);
 	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_reference_genome_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
+	say q(Enter accession number:<br />);
+	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
+	say q( <a class="tooltip" title="Reference genome - Use of a reference genome will override any locus )
+	  . q(or scheme settings."><span class="fa fa-info-circle"></span></a><br />);
+	my $set_id = $self->get_set_id;
+	my $set_annotation =
+	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} )
+	  ? $self->{'system'}->{"set_$set_id\_annotation"}
+	  : '';
+
+	if ( $self->{'system'}->{'annotation'} || $set_annotation ) {
+		my @annotations = $self->{'system'}->{'annotation'} ? split /;/x, $self->{'system'}->{'annotation'} : ();
+		my @set_annotations = $set_annotation ? split /;/x, $set_annotation : ();
+		push @annotations, @set_annotations;
+		my @names = ('');
+		my %labels;
+		$labels{''} = ' ';
+		foreach (@annotations) {
+			my ( $accession, $name ) = split /\|/x, $_;
+			if ( $accession && $name ) {
+				push @names, $accession;
+				$labels{$accession} = $name;
+			}
+		}
+		if (@names) {
+			say q(or choose annotated genome:<br />);
+			say $q->popup_menu(
+				-name     => 'annotation',
+				-id       => 'annotation',
+				-values   => \@names,
+				-labels   => \%labels,
+				-onChange => 'enable_seqs()',
+			);
+		}
+		say q(<br />);
+	}
+	say q(or upload Genbank/EMBL/FASTA file:<br />);
+	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
+	say q( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
+	  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -475,7 +525,70 @@ sub _analyse_by_loci {
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
 	  . qq(are marked as 'I'.\n\n);
 	$self->_print_isolate_header( 0, $ids, $worksheet );
-	$self->_assemble_data( { by_reference => 0, job_id => $job_id, ids => $ids, loci => $loci } );
+	$self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
+	$self->delete_temp_files("$job_id*");
+	return;
+}
+
+sub _analyse_by_reference {
+	my ( $self, $data ) = @_;
+	my ( $job_id, $accession, $seq_obj, $ids, $worksheet ) = @{$data}{qw(job_id accession seq_obj ids worksheet)};
+	my @cds;
+	foreach ( $seq_obj->get_SeqFeatures ) {
+		push @cds, $_ if $_->primary_tag eq 'CDS';
+	}
+	$self->{'html_buffer'} = q(<h3>Analysis by reference genome</h3>);
+	my %att;
+	eval {
+		%att = (
+			accession   => $accession,
+			version     => $seq_obj->seq_version,
+			type        => $seq_obj->alphabet,
+			length      => $seq_obj->length,
+			description => $seq_obj->description,
+			cds         => scalar @cds,
+		);
+	};
+	if ($@) {
+		throw BIGSdb::PluginException('Invalid data in reference genome.');
+	}
+	my %abb = ( cds => 'coding regions' );
+	$self->{'html_buffer'} .= q(<dl class="data">);
+	my $td = 1;
+	$self->{'file_buffer'} = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
+	foreach my $field (qw (accession version type length description cds)) {
+		if ( $att{$field} ) {
+			my $field_name = $abb{$field} // $field;
+			$self->{'html_buffer'} .= qq(<dt>$field_name</dt><dd>$att{$field}</dd>\n);
+			$self->{'file_buffer'} .= qq($field_name: $att{$field}\n);
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	$self->{'html_buffer'} .= q(</dl>);
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
+	my $max_ref_loci =
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_max_ref_loci'} )
+	  ? $self->{'system'}->{'genome_comparator_max_ref_loci'}
+	  : MAX_REF_LOCI;
+	if ( @cds > $max_ref_loci ) {
+		my $nice_limit = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
+		my $cds_count  = @cds;
+		throw BIGSdb::PluginException( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
+			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
+			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
+	}
+	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
+	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
+	$self->{'html_buffer'} .=
+	    q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
+	  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
+	  . q((located at end of contig) are marked as )
+	  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
+	$self->{'file_buffer'} .=
+	    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
+	  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
+	$self->_print_isolate_header( 1, $ids, $worksheet );
+	$self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -556,30 +669,117 @@ sub _get_identifier {
 	return $value;
 }
 
-sub _assemble_data {
+sub _assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
-	my ( $by_reference, $job_id, $ids, $loci ) = @{$args}{qw(by_reference job_id ids loci )};
+	my ( $job_id, $ids, $loci ) = @{$args}{qw(job_id ids loci )};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Setting up job' } );
 	my $locus_list   = $self->_create_list_file( $job_id, 'loci',     $loci );
 	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
-	my $THREADS      = 6;
-	my $PROGRAM      = '/home/keith/git/BIGSdb/scripts/helpers/gc_scan.pl';
-	local $" = q(,);
-	my @params = (
+	my $params       = [
 		'--database'          => $self->{'params'}->{'db'},
 		'--isolate_list_file' => $isolate_list,
 		'--locus_list_file'   => $locus_list,
 		'--threads'           => $THREADS,
-		qw(--fast --exemplar --use_tagged)
-	);
+		qw(--exemplar --use_tagged)
+	];
+	$self->_run_helper($params);
+	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
+	return;
+}
+
+sub _assemble_data_for_reference_genome {
+	my ( $self, $args ) = @_;
+	my ( $job_id, $ids, $cds ) = @{$args}{qw(job_id ids cds )};
+	my $locus_data = {};
+	my $loci       = [];
+	foreach my $cds_record (@$cds) {
+		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details($cds_record);
+		next if !$locus_name;
+		$locus_data->{$locus_name} =
+		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
+		push @$loci, $locus_name;
+	}
+	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
+	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
+	my $params = [
+		'--database'          => $self->{'params'}->{'db'},
+		'--isolate_list_file' => $isolate_list,
+		'--reference_file'    => $ref_seq_file,
+		'--threads'           => $THREADS,
+	];
+	$self->_run_helper($params);
+	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
+	return;
+}
+
+sub _run_helper {
+	my ($self, $params ) = @_;
 	local $" = q( );
-	my $cmd  = "$PROGRAM @params";
+	my $cmd  = "$PROGRAM @$params";
 	my $json = `$cmd`;
 	my $data = decode_json($json);
 	use Data::Dumper;
 	$logger->error( Dumper $data);
-	$self->_touch_output_files("$job_id*");                   #Prevents premature deletion by cleanup scripts
 	return;
+}
+
+sub _extract_cds_details {
+	my ( $self, $cds ) = @_;
+	my ( $start, $desc );
+	my @aliases;
+	my $locus;
+	foreach (qw (locus_tag gene gene_synonym old_locus_tag)) {
+		my @values = $cds->has_tag($_) ? $cds->get_tag_values($_) : ();
+		foreach my $value (@values) {
+			if ($locus) {
+				push @aliases, $value;
+			} else {
+				$locus = $value;
+			}
+		}
+	}
+	local $" = '|';
+	my $locus_name = $locus;
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;    #Invalid entry in reference file.
+	my $full_name = $locus_name;
+	$full_name .= "|@aliases" if @aliases;
+	my $seq;
+	try {
+		$seq = $cds->seq->seq;
+	}
+	catch Bio::Root::Exception with {
+		my $err = shift;
+		if ( $err =~ /MSG:([^\.]*\.)/x ) {
+			throw BIGSdb::PluginException("Invalid data in annotation: $1");
+		} else {
+			$logger->error($err);
+			throw BIGSdb::PluginException('Invalid data in annotation.');
+		}
+	};
+	return if !$seq;
+	my @tags;
+	try {
+		push @tags, $_ foreach ( $cds->each_tag_value('product') );
+	}
+	catch Bio::Root::Exception with {
+		push @tags, 'no product';
+	};
+	$start = $cds->start;
+	local $" = '; ';
+	$desc = "@tags";
+	return ( $locus_name, $full_name, \$seq, $start, $desc );
+}
+
+sub _create_reference_FASTA_file {
+	my ( $self, $job_id, $locus_data ) = @_;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_refseq.fasta";
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+	foreach my $locus ( keys %$locus_data ) {
+		say $fh ">$locus";
+		say $fh $locus_data->{$locus}->{'sequence'};
+	}
+	close $fh;
+	return $filename;
 }
 
 sub _create_list_file {

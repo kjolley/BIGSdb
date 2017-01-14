@@ -37,23 +37,24 @@ GetOptions(
 	'alignment=i'         => \$opts{'alignment'},
 	'database=s'          => \$opts{'d'},
 	'exemplar'            => \$opts{'exemplar'},
-	'fast'                => \$opts{'fast'},
 	'identity=i'          => \$opts{'identity'},
 	'isolates=s'          => \$opts{'i'},
 	'isolate_list_file=s' => \$opts{'isolate_list_file'},
 	'loci=s'              => \$opts{'l'},
 	'locus_list_file=s'   => \$opts{'locus_list_file'},
+	'reference_file=s'    => \$opts{'reference_file'},
 	'sequences'           => \$opts{'sequences'},
 	'threads=i'           => \$opts{'threads'},
 	'use_tagged'          => \$opts{'use_tagged'},
 	'word_size=i'         => \$opts{'word_size'},
 	'help'                => \$opts{'h'},
 ) or die("Error in command line arguments\n");
+
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
-if ( !$opts{'d'} || ( !$opts{'l'} && !$opts{'locus_list_file'} ) ) {
+if ( !$opts{'d'} || ( !$opts{'l'} && !$opts{'locus_list_file'} && !$opts{'reference_file'} ) ) {
 	show_help();
 	exit;
 }
@@ -68,37 +69,43 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			instance         => $opts{'d'},
 		}
 	);
-	die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
+	die "Script initialization failed - check logs (authentication problem?).\n"
 	  if !defined $script->{'db'};
 	my $loci = $script->get_selected_loci;
 	die "No valid loci selected.\n" if !@$loci;
 	my $isolates = $script->get_isolates;
 	delete $opts{$_} foreach qw(i);    #Remove options that impact isolate list
 	$script->{'logger'}->info("$opts{'d'}:GCHelper (up to $opts{'threads'} threads)");
-	my $data = {};
-	my $pm   = Parallel::ForkManager->new( $opts{'threads'} );
+	my $data     = {};
+	my $new_seqs = {};
+	my $pm       = Parallel::ForkManager->new( $opts{'threads'} );
 	$pm->run_on_finish(
 		sub {
-			my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $isolate_data ) = @_;
-			$data->{$_} = $isolate_data->{$_} foreach keys %$isolate_data;
+			my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
+			$data->{$_} = $ret_data->{'designations'}->{$_} foreach keys %{ $ret_data->{'designations'} };
+			$new_seqs->{ $ret_data->{'isolate_id'} }->{$_} = $ret_data->{'local_new_seqs'}->{$_}
+			  foreach keys %{ $ret_data->{'local_new_seqs'} };
 		}
 	);
 	foreach my $isolate_id (@$isolates) {
-		$pm->start and next;           #Forks
+		$pm->start and next;    #Forks
 		my $helper = BIGSdb::Offline::GCHelper->new(
 			{
 				config_dir       => CONFIG_DIR,
 				lib_dir          => LIB_DIR,
 				dbase_config_dir => DBASE_CONFIG_DIR,
-				options          => { i => $isolate_id, always_run => 1, %opts },
+				options          => { i => $isolate_id, always_run => 1, fast => 1, %opts },
 				instance         => $opts{'d'},
 			}
 		);
-		my $isolate_data = $helper->get_results;
-		$pm->finish( 0, $isolate_data );    #Terminates child process
+		my $isolate_data   = $helper->get_results;
+		my $local_new_seqs = $helper->get_new_sequences;
+		$pm->finish( 0,
+			{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } )
+		  ;    #Terminates child process
 	}
 	$pm->wait_all_children;
-	$script->{'logger'}->info("$opts{'d'}:All GCHelper threads finished");
+	correct_new_designations( $data, $new_seqs );
 	say encode_json($data);
 	exit;
 }
@@ -109,12 +116,39 @@ my $helper = BIGSdb::Offline::GCHelper->new(
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
 		dbase_config_dir => DBASE_CONFIG_DIR,
-		options          => { always_run => 1, %opts },
+		options          => { always_run => 1, fast => 1, global_new => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );
 my $batch_data = $helper->get_results;
 say encode_json($batch_data);
+
+sub correct_new_designations {
+	my ( $data, $new_seqs ) = @_;
+	my @isolates;
+	my %loci;
+	foreach my $isolate_id ( sort { $a <=> $b } keys %$new_seqs ) {
+		push @isolates, $isolate_id;
+		foreach my $locus ( sort { $a cmp $b } keys %{ $new_seqs->{$isolate_id}->{'allele_lookup'} } ) {
+			$loci{$locus} = 1;
+		}
+	}
+	my @loci = sort keys %loci;
+	foreach my $locus (@loci) {
+		my $i = 1;
+		my %hash_names;
+		foreach my $isolate_id (@isolates) {
+			foreach my $md5_hash ( keys %{ $new_seqs->{$isolate_id}->{'allele_lookup'}->{$locus} } ) {
+				if ( !$hash_names{$md5_hash} ) {
+					$hash_names{$md5_hash} = "new#$i";
+					$i++;
+				}
+				$data->{$isolate_id}->{'designations'}->{$locus} = $hash_names{$md5_hash};
+			}
+		}
+	}
+	return;
+}
 
 sub show_help {
 	my $termios = POSIX::Termios->new;
@@ -145,12 +179,6 @@ ${bold}--exemplar$norm
     but will be at the expense of sensitivity. If no exemplar alleles are set 
     for a locus then all alleles will be used. Sets default word size to 15.
 
-${bold}--fast$norm
-    Perform single BLAST query against all selected loci together. This will
-    take longer to return any results but the overall scan should finish 
-    quicker. This method will also use more memory - this can be used with
-    --exemplar to mititgate against this.
-
 ${bold}--help$norm
     This help page.
     
@@ -172,6 +200,9 @@ ${bold}--loci$norm ${under}LIST$norm
     
 ${bold}--locus_list_file$norm ${under}FILE$norm
     File containing locus names. Each locus should be on its own line.
+    
+${bold}--reference_file$norm ${under}FILE$norm
+    File containing sequences of loci from a reference genome (FASTA format).
     
 ${bold}--sequences
     Return sequences as well as designations.
