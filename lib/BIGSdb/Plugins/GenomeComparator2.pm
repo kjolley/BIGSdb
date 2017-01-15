@@ -23,11 +23,11 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
+use BIGSdb::GCForkScan;
 my $THREADS = 6;
-my $PROGRAM = '/home/keith/git/BIGSdb/scripts/helpers/gc_scan.pl';
 
 #use BIGSdb::Offline::Scan;
-use BIGSdb::Offline::GCHelper;
+#use BIGSdb::Offline::GCHelper;
 use Digest::MD5;
 use List::MoreUtils qw(uniq);
 use Error qw(:try);
@@ -675,13 +675,16 @@ sub _assemble_data_for_defined_loci {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Setting up job' } );
 	my $locus_list   = $self->_create_list_file( $job_id, 'loci',     $loci );
 	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
-	my $params       = [
-		'--database'          => $self->{'params'}->{'db'},
-		'--isolate_list_file' => $isolate_list,
-		'--locus_list_file'   => $locus_list,
-		'--threads'           => $THREADS,
-		qw(--exemplar --use_tagged)
-	];
+	my $params       = {
+		database          => $self->{'params'}->{'db'},
+		isolate_list_file => $isolate_list,
+		locus_list_file   => $locus_list,
+		threads           => $THREADS,
+		job_id            => $job_id,
+		exemplar          => 1,
+		use_tagged        => 1
+	};
+	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
 	$self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	return;
@@ -706,6 +709,7 @@ sub _assemble_data_for_reference_genome {
 		'--isolate_list_file' => $isolate_list,
 		'--reference_file'    => $ref_seq_file,
 		'--threads'           => $THREADS,
+		'--job_id'            => $job_id
 	];
 	$self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
@@ -713,11 +717,18 @@ sub _assemble_data_for_reference_genome {
 }
 
 sub _run_helper {
-	my ($self, $params ) = @_;
-	local $" = q( );
-	my $cmd  = "$PROGRAM @$params";
-	my $json = `$cmd`;
-	my $data = decode_json($json);
+	my ( $self, $params ) = @_;
+	my $scanner = BIGSdb::GCForkScan->new(
+		{
+			config_dir       => $self->{'params'}->{'config_dir'},
+			lib_dir          => $self->{'params'}->{'lib_dir'},
+			dbase_config_dir => $self->{'params'}->{'dbase_config_dir'},
+			jobManager       => $self->{'jobManager'},
+			job_id           => $params->{'job_id'},
+			logger           => $logger,
+		}
+	);
+	my $data = $scanner->run($params);
 	use Data::Dumper;
 	$logger->error( Dumper $data);
 	return;

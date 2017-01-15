@@ -126,7 +126,7 @@ sub new {
 			}
 			$self->{'datastore'}->initiate_userdbs;
 			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
-			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
+			$self->initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
 			  && $job_manager_pages{ $q->param('page') }
 			  && $self->{'config'}->{'jobs_db'};
@@ -343,7 +343,7 @@ sub initiate_plugins {
 	return;
 }
 
-sub _initiate_jobmanager {
+sub initiate_jobmanager {
 	my ( $self, $config_dir, $dbase_config_dir, ) = @_;
 	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
 		{

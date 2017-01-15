@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,7 +68,7 @@ sub _db_connect {
 		password   => $self->{'password'},
 	);
 	if ( $options->{'reconnect'} ) {
-		$self->{'db'} = $self->{'dataConnector'}->drop_connection( \%att );
+		$self->{'db'} = $self->{'dataConnector'}->drop_all_connections;
 	}
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -309,10 +309,9 @@ sub update_job_status {
 		$logger->error('status hash not passed as a ref');
 		throw BIGSdb::DataException('status hash not passed as a ref');
 	}
-
-	#Exceptions in BioPerl appear to sometimes cause the connection to the jobs database to be broken
-	#No idea why - so reconnect if status is 'failed'.
-	$self->_db_connect( { reconnect => 1 } ) if ( $status_hash->{'status'} // '' ) eq 'failed';
+	if ( !$self->{'db'}->ping ) {
+		$self->_db_connect( { reconnect => 1 } );
+	}
 	my ( @keys, @values );
 	foreach my $key ( sort keys %$status_hash ) {
 		push @keys,   $key;
@@ -328,7 +327,7 @@ sub update_job_status {
 	eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
 	if ($@) {
 		$logger->logcarp($@);
-		local $"=q(;);
+		local $" = q(;);
 		$logger->error("Values were: @values");
 		$self->{'db'}->rollback;
 	} else {
@@ -453,6 +452,9 @@ sub get_next_job_id {
 #Cutdown version of Datastore::run_query as Datastore not initialized.
 sub _run_query {
 	my ( $self, $qry, $values, $options ) = @_;
+	if ( !$self->{'db'}->ping ) {
+		$self->_db_connect( { reconnect => 1 } );
+	}
 	if ( defined $values ) {
 		$values = [$values] if ref $values ne 'ARRAY';
 	} else {

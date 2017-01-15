@@ -16,7 +16,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Offline::GCHelper;
+package BIGSdb::GCHelper;
 use strict;
 use warnings;
 use 5.010;
@@ -24,15 +24,20 @@ use parent qw(BIGSdb::Offline::Scan);
 
 sub run_script {
 	my ($self) = @_;
-	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $loci        = $self->get_selected_loci;
-	my $isolates    = $self->get_isolates;
-	my $merged_data = {};
-	foreach my $isolate_id (@$isolates) {
-		my $data = $self->_get_allele_designations( $isolate_id, $loci );
-		$merged_data->{$isolate_id} = $data;
+ 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
+	my $isolates = $self->get_isolates;
+	if ( $self->{'options'}->{'reference_file'} ) {
+		foreach my $isolate_id (@$isolates) {
+		}
+	} else {
+		my $loci        = $self->get_selected_loci;
+		my $merged_data = {};
+		foreach my $isolate_id (@$isolates) {
+			my $data = $self->_get_allele_designations( $isolate_id, $loci );
+			$merged_data->{$isolate_id} = $data;
+		}
+		$self->{'results'} = $merged_data;
 	}
-	$self->{'results'} = $merged_data;
 	return;
 }
 
@@ -60,7 +65,7 @@ sub _get_allele_designations {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $designation->{'locus'} );
 
 		#Always BLAST if it is a peptide locus and we need the nucleotide sequence for alignment
-		next if $locus_info->{'data_type'} eq 'peptide' && $self->{'options'}->{'sequences'};
+		next if $locus_info->{'data_type'} eq 'peptide' && $self->{'options'}->{'align'};
 		if ( $designations->{ $designation->{'locus'} } ) {
 
 			#Make sure allele ordering is consistent.
@@ -74,7 +79,7 @@ sub _get_allele_designations {
 		}
 	}
 	my $sequences = {};
-	if ( $self->{'options'}->{'sequences'} ) {
+	if ( $self->{'options'}->{'align'} ) {
 		$sequences = $self->_get_designation_seqs($designations);
 	}
 	my $missing_loci = [];
@@ -85,11 +90,11 @@ sub _get_allele_designations {
 
 	#Merge looked up and scanned designations and sequences.
 	%$designations = ( %$designations, %$scanned_designations );
-	if ( $self->{'options'}->{'sequences'} ) {
+	if ( $self->{'options'}->{'align'} ) {
 		%$sequences = ( %$sequences, %$scanned_sequences );
 	}
 	my $return_hash = { designations => $designations };
-	$return_hash->{'sequences'} = $sequences if $self->{'options'}->{'sequences'};
+	$return_hash->{'sequences'} = $sequences if $self->{'options'}->{'align'};
 	return $return_hash;
 }
 
@@ -117,7 +122,7 @@ sub _scan_by_loci {
 		if (@$sorted_allele_ids) {
 			local $" = q(;);
 			$designations->{$locus} = qq(@$sorted_allele_ids);
-			if ( $self->{'options'}->{'sequences'} ) {
+			if ( $self->{'options'}->{'align'} ) {
 				$seqs->{$locus} = $self->_get_seqs_from_matches( $locus, $sorted_allele_ids, $exact_matches->{$locus} );
 			}
 		}
@@ -142,7 +147,7 @@ sub _scan_by_loci {
 		$designations->{$locus} = $self->_get_new_allele_designation( $locus, \$seq );
 		$seqs->{$locus} = $seq;
 	}
-	$self->delete_temp_files("$_*") foreach ( $isolate_prefix, $locus_prefix );
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/$_*") foreach ( $isolate_prefix, $locus_prefix );
 	return ( $designations, $seqs );
 }
 
