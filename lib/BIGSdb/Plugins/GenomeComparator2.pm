@@ -116,9 +116,10 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
-		my $filtered_loci = $self->_filter_loci($loci_selected);
+
+		#		my $filtered_loci = $self->_filter_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
-		if ( !$accession && !$ref_upload && !@$filtered_loci && $continue ) {
+		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
 			$error .= q[<p>You must either select one or more loci or schemes (make sure these haven't been filtered ]
 			  . qq[by your options), provide a genome accession number, or upload an annotated genome.</p>\n];
 			$continue = 0;
@@ -153,7 +154,7 @@ sub run {
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
 					isolates     => $filtered_ids,
-					loci         => $filtered_loci
+					loci         => $loci_selected
 				}
 			);
 			say $self->get_job_redirect($job_id);
@@ -213,7 +214,8 @@ sub _print_interface {
 	);
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
-	$self->_print_filter_locus_fieldset;
+
+	#	$self->_print_filter_locus_fieldset;
 	$self->_print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
 
@@ -230,42 +232,41 @@ sub _print_interface {
 	return;
 }
 
-sub _print_filter_locus_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $has_peptide_loci =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE data_type=?)', 'peptide' );
-	my $has_complete_cds_loci = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM loci WHERE complete_cds)');
-	return if !$has_peptide_loci && !$has_complete_cds_loci;
-	say q(<fieldset style="float:left;height:12em"><legend>Filter loci</legend><ul>);
-	if ($has_peptide_loci) {
-		say q(<li>);
-		say $q->checkbox(
-			-name    => 'exclude_peptide_loci',
-			-id      => 'exclude_peptide_loci',
-			-label   => 'Exclude peptide loci',
-			-checked => 'checked'
-		);
-		say q( <a class="tooltip" title="Exclude peptide loci - Peptide loci often cover regions that are already )
-		  . q(covered by nucleotide loci. Scanning these also takes significantly longer.">)
-		  . q(<span class="fa fa-info-circle"></span></a></li>);
-	}
-	if ($has_complete_cds_loci) {
-		say q(<li>);
-		say $q->checkbox(
-			-name    => 'exclude_non_cds_loci',
-			-id      => 'exclude_non_cds_loci',
-			-label   => 'Exclude non complete CDS loci',
-			-checked => 'checked'
-		);
-		say q( <a class="tooltip" title="Exclude non complete CDS loci - If you are doing a cgMLST type analysis, )
-		  . q(you probably don't want to include loci that represent gene fragments.">)
-		  . q(<span class="fa fa-info-circle"></span></a></li>);
-	}
-	say q(</ul></fieldset>);
-	return;
-}
-
+#sub _print_filter_locus_fieldset {
+#	my ($self) = @_;
+#	my $q = $self->{'cgi'};
+#	my $has_peptide_loci =
+#	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE data_type=?)', 'peptide' );
+#	my $has_complete_cds_loci = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM loci WHERE complete_cds)');
+#	return if !$has_peptide_loci && !$has_complete_cds_loci;
+#	say q(<fieldset style="float:left;height:12em"><legend>Filter loci</legend><ul>);
+#	if ($has_peptide_loci) {
+#		say q(<li>);
+#		say $q->checkbox(
+#			-name    => 'exclude_peptide_loci',
+#			-id      => 'exclude_peptide_loci',
+#			-label   => 'Exclude peptide loci',
+#			-checked => 'checked'
+#		);
+#		say q( <a class="tooltip" title="Exclude peptide loci - Peptide loci often cover regions that are already )
+#		  . q(covered by nucleotide loci. Scanning these also takes significantly longer.">)
+#		  . q(<span class="fa fa-info-circle"></span></a></li>);
+#	}
+#	if ($has_complete_cds_loci) {
+#		say q(<li>);
+#		say $q->checkbox(
+#			-name    => 'exclude_non_cds_loci',
+#			-id      => 'exclude_non_cds_loci',
+#			-label   => 'Exclude non complete CDS loci',
+#			-checked => 'checked'
+#		);
+#		say q( <a class="tooltip" title="Exclude non complete CDS loci - If you are doing a cgMLST type analysis, )
+#		  . q(you probably don't want to include loci that represent gene fragments.">)
+#		  . q(<span class="fa fa-info-circle"></span></a></li>);
+#	}
+#	say q(</ul></fieldset>);
+#	return;
+#}
 sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -373,23 +374,22 @@ sub _print_alignment_fieldset {
 	return;
 }
 
-sub _filter_loci {
-	my ( $self, $loci ) = @_;
-	my $q = $self->{'cgi'};
-	my $loci_info =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id,data_type,complete_cds FROM loci', undef, { fetch => 'all_arrayref', slice => {} } );
-	my %peptide  = map { $_->{'id'} => $_->{'data_type'} eq 'peptide' ? 1 : 0 } @$loci_info;
-	my %complete = map { $_->{'id'} => $_->{'complete_cds'}           ? 1 : 0 } @$loci_info;
-	my $filtered = [];
-	foreach my $locus (@$loci) {
-		next if $q->param('exclude_peptide_loci') && $peptide{$locus};
-		next if $q->param('exclude_non_cds_loci') && !$complete{$locus};
-		push @$filtered, $locus;
-	}
-	return $filtered;
-}
-
+#sub _filter_loci {
+#	my ( $self, $loci ) = @_;
+#	my $q = $self->{'cgi'};
+#	my $loci_info =
+#	  $self->{'datastore'}
+#	  ->run_query( 'SELECT id,data_type,complete_cds FROM loci', undef, { fetch => 'all_arrayref', slice => {} } );
+#	my %peptide  = map { $_->{'id'} => $_->{'data_type'} eq 'peptide' ? 1 : 0 } @$loci_info;
+#	my %complete = map { $_->{'id'} => $_->{'complete_cds'}           ? 1 : 0 } @$loci_info;
+#	my $filtered = [];
+#	foreach my $locus (@$loci) {
+#		next if $q->param('exclude_peptide_loci') && $peptide{$locus};
+#		next if $q->param('exclude_non_cds_loci') && !$complete{$locus};
+#		push @$filtered, $locus;
+#	}
+#	return $filtered;
+#}
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
@@ -399,6 +399,7 @@ sub run_job {
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $accession   = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload  = $params->{'ref_upload'};
+
 	if ( !@$isolate_ids ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -444,6 +445,7 @@ sub run_job {
 	#	);
 	#	$self->{'excel_format'}->{'normal'} = $self->{'workbook'}->add_format( align => 'center' );
 	if ( $accession || $ref_upload ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Retrieving reference genome' } );
 		my $seq_obj;
 		if ($accession) {
 			$accession =~ s/\s*//gx;
@@ -702,15 +704,20 @@ sub _assemble_data_for_reference_genome {
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
 	}
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning: isolate record#1' } );
 	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
-	my $params = [
-		'--database'          => $self->{'params'}->{'db'},
-		'--isolate_list_file' => $isolate_list,
-		'--reference_file'    => $ref_seq_file,
-		'--threads'           => $THREADS,
-		'--job_id'            => $job_id
-	];
+	my $params = {
+		database          => $self->{'params'}->{'db'},
+		isolate_list_file => $isolate_list,
+		reference_file    => $ref_seq_file,
+		locus_count       => scalar @$loci,
+		threads           => $THREADS,
+		job_id            => $job_id,
+		user_params       => $self->{'params'},
+		locus_data        => $locus_data
+	};
+	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
 	$self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	return;
@@ -728,10 +735,41 @@ sub _run_helper {
 			logger           => $logger,
 		}
 	);
-	my $data = $scanner->run($params);
+	my $data              = $scanner->run($params);
+	my $in_all            = $self->_find_missing_and_paralogous_loci_in_all($data);
+	my $paralogous_in_all = $in_all->{'paralogous_in_all'};
+	my $missing_in_all    = $in_all->{'missing_in_all'};
 	use Data::Dumper;
 	$logger->error( Dumper $data);
+	$logger->error( Dumper $in_all);
 	return;
+}
+
+sub _find_missing_and_paralogous_loci_in_all {
+	my ( $self, $data ) = @_;
+	my @isolates = keys %$data;
+	my %loci;
+	foreach my $locus ( keys %{ $data->{ $isolates[0] }->{'designations'} } ) {
+		$loci{$locus} = 1;
+	}
+	my $paralogous = [];
+	my $missing    = [];
+	foreach my $locus ( sort keys %loci ) {
+		my $paralogous_in_all = 1;
+		my $missing_in_all    = 1;
+		foreach my $isolate_id (@isolates) {
+			if ( $data->{$isolate_id}->{'designations'}->{$locus} ne 'missing' ) {
+				$missing_in_all = 0;
+				my %isolate_paralogous = map { $_ => 1 } @{ $data->{$isolate_id}->{'paralogous'} };
+				if ( !$isolate_paralogous{$locus} ) {
+					$paralogous_in_all = 0;
+				}
+			}
+		}
+		push @$paralogous, $locus if $paralogous_in_all && !$missing_in_all;
+		push @$missing, $locus if $missing_in_all;
+	}
+	return { paralogous_in_all => $paralogous, missing_in_all => $missing };
 }
 
 sub _extract_cds_details {

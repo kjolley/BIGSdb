@@ -38,6 +38,7 @@ sub new {
 
 sub run {
 	my ( $self, $params ) = @_;
+	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script = BIGSdb::GCHelper->new(    #Create script object to use methods to determine isolate list
@@ -48,6 +49,7 @@ sub run {
 				logger           => $self->{'logger'},
 				options          => { query_only => 1, always_run => 1, %$params },
 				instance         => $params->{'database'},
+				params           => $params->{'user_params'}
 			}
 		);
 		my $loci = $script->get_selected_loci;
@@ -69,8 +71,13 @@ sub run {
 				$isolate_count++;
 				if ( $params->{'job_id'} ) {
 					my $percent_complete = int( ( $isolate_count * 80 ) / @$isolates );
-					$self->{'jobManager'}->update_job_status( $params->{'job_id'},
-						{ percent_complete => $percent_complete, stage => "Scanning: isolate record#$isolate_count complete" } );
+					$self->{'jobManager'}->update_job_status(
+						$params->{'job_id'},
+						{
+							percent_complete => $percent_complete,
+							stage            => "Scanning: isolate record#$isolate_count complete"
+						}
+					);
 				}
 			}
 		);
@@ -84,17 +91,18 @@ sub run {
 					logger           => $self->{'logger'},
 					options          => { i => $isolate_id, always_run => 1, fast => 1, %$params },
 					instance         => $params->{'database'},
+					params           => $params->{'user_params'},
+					locus_data       => $params->{'locus_data'}
 				}
 			);
 			my $isolate_data   = $helper->get_results;
 			my $local_new_seqs = $helper->get_new_sequences;
 			$pm->finish( 0,
-				{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } )
-			  ;  
+				{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } );
 			undef $helper;
 		}
 		$pm->wait_all_children;
-		$self->_correct_new_designations( $data, $new_seqs );
+		$self->_correct_new_designations( $data, $new_seqs, $by_ref );
 		return $data;
 	}
 
@@ -107,14 +115,20 @@ sub run {
 			logger           => $self->{'logger'},
 			options          => { always_run => 1, fast => 1, global_new => 1, %$params },
 			instance         => $params->{'database'},
+			user_params      => $params->{'user_params'},
+			locus_data       => $params->{'locus_data'}
 		}
 	);
 	my $batch_data = $helper->get_results;
+	my $new_seqs   = $helper->get_new_sequences;
+	if ($by_ref){
+		$self->_rename_ref_designations_from_single_thread($batch_data);
+	}
 	return $batch_data;
 }
 
 sub _correct_new_designations {
-	my ( $self, $data, $new_seqs ) = @_;
+	my ( $self, $data, $new_seqs, $by_ref ) = @_;
 	my @isolates;
 	my %loci;
 	foreach my $isolate_id ( sort { $a <=> $b } keys %$new_seqs ) {
@@ -130,11 +144,21 @@ sub _correct_new_designations {
 		foreach my $isolate_id (@isolates) {
 			foreach my $md5_hash ( keys %{ $new_seqs->{$isolate_id}->{'allele_lookup'}->{$locus} } ) {
 				if ( !$hash_names{$md5_hash} ) {
-					$hash_names{$md5_hash} = "new#$i";
+					$hash_names{$md5_hash} = $by_ref ? ( $i + 1 ) : "new#$i";
 					$i++;
 				}
 				$data->{$isolate_id}->{'designations'}->{$locus} = $hash_names{$md5_hash};
 			}
+		}
+	}
+	return;
+}
+
+sub _rename_ref_designations_from_single_thread {
+	my ( $self, $data) = @_;
+	foreach my $isolate_id (keys %$data){
+		foreach my $locus (keys $data->{$isolate_id}->{'designations'}){
+			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
 		}
 	}
 	return;
