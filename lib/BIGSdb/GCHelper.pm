@@ -130,8 +130,7 @@ sub _parse_blast {
 			my $sequence = $self->_extract_sequence($final_match);
 			if ( $sequence eq $locus_data->{$locus}->{'sequence'} ) {
 				$designations->{$locus} = '1';
-			} elsif ( !$final_match->{'exact'} && $final_match->{'predicted_start'} && $final_match->{'predicted_end'} )
-			{
+			} elsif ( defined $final_match->{'predicted_start'} && defined $final_match->{'predicted_end'} ) {
 				my $seqbin_length = $self->{'datastore'}->run_query(
 					'SELECT length(sequence) FROM sequence_bin where id=?',
 					$final_match->{'seqbin_id'},
@@ -153,9 +152,9 @@ sub _parse_blast {
 			  if $self->_is_paralogous( $blast->{$locus}, $required_alignment, $identity, $alignment );
 		}
 	}
-	my $return_hash = { designations => $designations, paralogous => $paralogous };
-	$return_hash->{'sequences'} = $sequences if $self->{'options'}->{'align'};
-	return $return_hash;
+	my $results = { designations => $designations, paralogous => $paralogous };
+	$results->{'sequences'} = $sequences if $self->{'options'}->{'align'};
+	return $results;
 }
 
 sub _is_paralogous {

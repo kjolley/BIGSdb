@@ -270,6 +270,10 @@ sub update_job_output {
 		$logger->error('status hash not passed as a ref');
 		throw BIGSdb::DataException('status hash not passed as a ref');
 	}
+	if ( !$self->{'db'}->ping ) {
+		$self->_db_connect( { reconnect => 1 } );
+		undef $self->{'sql'};
+	}
 	if ( $output_hash->{'compress'} ) {
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$output_hash->{'filename'}";
 		if ( -s $full_path > ( 10 * 1024 * 1024 ) ) {    #>10 MB
@@ -311,6 +315,7 @@ sub update_job_status {
 	}
 	if ( !$self->{'db'}->ping ) {
 		$self->_db_connect( { reconnect => 1 } );
+		undef $self->{'sql'};
 	}
 	my ( @keys, @values );
 	foreach my $key ( sort keys %$status_hash ) {
@@ -454,6 +459,7 @@ sub _run_query {
 	my ( $self, $qry, $values, $options ) = @_;
 	if ( !$self->{'db'}->ping ) {
 		$self->_db_connect( { reconnect => 1 } );
+		undef $self->{'sql'};
 	}
 	if ( defined $values ) {
 		$values = [$values] if ref $values ne 'ARRAY';

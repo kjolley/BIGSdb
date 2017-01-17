@@ -527,7 +527,7 @@ sub _analyse_by_loci {
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
 	  . qq(are marked as 'I'.\n\n);
 	$self->_print_isolate_header( 0, $ids, $worksheet );
-	$self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
+	my $scan_data = $self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -539,7 +539,6 @@ sub _analyse_by_reference {
 	foreach ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $_ if $_->primary_tag eq 'CDS';
 	}
-	$self->{'html_buffer'} = q(<h3>Analysis by reference genome</h3>);
 	my %att;
 	eval {
 		%att = (
@@ -555,19 +554,20 @@ sub _analyse_by_reference {
 		throw BIGSdb::PluginException('Invalid data in reference genome.');
 	}
 	my %abb = ( cds => 'coding regions' );
-	$self->{'html_buffer'} .= q(<dl class="data">);
+	my $html_buffer = q(<h3>Analysis by reference genome</h3>);
+	$html_buffer .= q(<dl class="data">);
 	my $td = 1;
 	$self->{'file_buffer'} = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
 	foreach my $field (qw (accession version type length description cds)) {
 		if ( $att{$field} ) {
 			my $field_name = $abb{$field} // $field;
-			$self->{'html_buffer'} .= qq(<dt>$field_name</dt><dd>$att{$field}</dd>\n);
+			$html_buffer .= qq(<dt>$field_name</dt><dd>$att{$field}</dd>\n);
 			$self->{'file_buffer'} .= qq($field_name: $att{$field}\n);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
-	$self->{'html_buffer'} .= q(</dl>);
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $self->{'html_buffer'} } );
+	$html_buffer .= q(</dl>);
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	my $max_ref_loci =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_max_ref_loci'} )
 	  ? $self->{'system'}->{'genome_comparator_max_ref_loci'}
@@ -579,26 +579,122 @@ sub _analyse_by_reference {
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
-	$self->{'html_buffer'} .= "<h3>All loci</h3>\n";
 	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
-	$self->{'html_buffer'} .=
-	    q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
-	  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
-	  . q((located at end of contig) are marked as )
-	  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
 	$self->{'file_buffer'} .=
 	    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
 	  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
-	$self->_print_isolate_header( 1, $ids, $worksheet );
-	$self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
+
+	#	$self->_print_isolate_header( 1, $ids, $worksheet );
+	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
+	$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
+
+	#Unique strains
+	#Paralogous loci
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	$self->delete_temp_files("$job_id*");
 	return;
 }
 
-sub _print_isolate_header {
-	my ( $self, $by_reference, $ids, $worksheet ) = @_;
+sub _get_html_output {
+	my ( $self, $by_ref, $ids, $scan_data ) = @_;
+	my $buffer;
+	$buffer .= q(<h3>All loci</h3>);
+	$buffer .=
+	    q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
+	  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
+	  . q((located at end of contig) are marked as )
+	  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
+	$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'loci'} );
+	my $variable_count = @{ $scan_data->{'variable'} };
+	if ($variable_count) {
+		$buffer .= q(<h3>Loci with sequence differences among isolates</h3>);
+		$buffer .= qq(<p>Variable loci: $variable_count</p>);
+		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'variable'} );
+	}
+	my $missing_count = @{ $scan_data->{'missing_in_all'} };
+	if ($missing_count) {
+		$buffer .= q(<h3>Loci missing in all isolates</h3>);
+		$buffer .= qq(<p>Missing loci: $missing_count</p>);
+		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'missing_in_all'} );
+	}
+	my $identical_count = @{ $scan_data->{'identical_in_all'} };
+	if ($identical_count) {
+		$buffer .= q(<h3>Exactly matching loci</h3>);
+		$buffer .= q(<p>These loci are identical in all isolates.</p>);
+		$buffer .= qq(<p>Matches: $identical_count</p>);
+		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'identical_in_all'} );
+	}
+	my $identical_except_ref_count = @{ $scan_data->{'identical_in_all_except_ref'} };
+	if ($identical_except_ref_count) {
+		$buffer .= q(<h3>Loci exactly the same in all compared genomes except the reference</h3>);
+		$buffer .= qq(<p>Matches: $identical_except_ref_count</p>);
+		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'identical_in_all_except_ref'} );
+	}
+	my $incomplete_count = @{ $scan_data->{'incomplete_in_some'} };
+	if ($incomplete_count) {
+		$buffer .= q(<h3>Loci that are incomplete in some isolates</h3>);
+		$buffer .= q(<p>These loci are incomplete and located at the ends of contigs in at least one isolate.</p>);
+		$buffer .= qq(<p>Matches: $incomplete_count</p>);
+		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'incomplete_in_some'} );
+	}
+	return $buffer;
+}
+
+sub _get_html_table {
+	my ( $self, $by_ref, $ids, $scan_data, $loci ) = @_;
+	my $total_records = @$ids;
+	$total_records++ if $by_ref;
+	my $buffer = q(<div class="scrollable"><table class="resultstable">);
+	$buffer .= $self->_get_isolate_table_header( $by_ref, $ids, 'html' );
+	my $td = 1;
+	$td = $td == 1 ? 2 : 1;
+	foreach my $locus (@$loci) {
+		my %value_colour;
+		my $locus_data = $scan_data->{'locus_data'}->{$locus};
+		my $length     = length( $locus_data->{'sequence'} );
+		$buffer .= qq(<tr class="td$td">);
+		if ($by_ref){
+			$buffer .=qq(<td>$locus_data->{'full_name'}</td><td>$locus_data->{'description'}</td>)
+		  . qq(<td>$length</td><td>$locus_data->{'start'}</td>);
+		} else {
+			$buffer .=qq(<td>$locus</td>);
+		}
+		my $colour = 1;
+		$value_colour{'1'} = $colour;
+		my $formatted_value = $self->_get_html_formatted_value( '1', $value_colour{'1'}, $total_records );
+		$buffer .= $formatted_value;
+
+		foreach my $isolate_id (@$ids) {
+			my $value = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
+			if ( !$value_colour{$value} ) {
+				$colour++;
+				$value_colour{$value} = $colour;
+			}
+			$formatted_value = $self->_get_html_formatted_value( $value, $value_colour{$value}, $total_records );
+			$buffer .= $formatted_value;
+		}
+		$buffer .= qq(</tr>\n);
+	}
+	$buffer .= q(</table></div>);
+	return $buffer;
+}
+
+sub _get_html_formatted_value {
+	my ( $self, $value, $colour, $id_count ) = @_;
+	my %formatted = (
+		incomplete => q(<td style="background:green;color:white">I</td>),
+		missing    => q(<td style="background:black;color:white">X</td>)
+	);
+	if ( $formatted{$value} ) {
+		return $formatted{$value};
+	}
+	my $style = BIGSdb::Utils::get_heatmap_colour_style( $colour, $id_count );
+	return qq(<td style="$style">$value</td>);
+}
+
+sub _get_isolate_table_header {
+	my ( $self, $by_reference, $ids, $format ) = @_;
 	my @header = 'Locus';
-	$self->{'html_buffer'} .= q(<div class="scrollable"><table class="resultstable"><tr>);
 	if ($by_reference) {
 		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
 	}
@@ -606,8 +702,27 @@ sub _print_isolate_header {
 		my $isolate = $self->_get_isolate_name($id);
 		push @header, $isolate;
 	}
-	local $" = q(</th><th>);
-	$self->{'html_buffer'} .= qq(<th>@header</th></tr>);
+	if ( $format eq 'html' ) {
+		local $" = q(</th><th>);
+		return qq(<tr><th>@header</th></tr>);
+	}
+	return;
+}
+
+sub _print_isolate_header {
+	my ( $self, $by_reference, $ids, $worksheet ) = @_;
+	my @header = 'Locus';
+
+	#	$self->{'html_buffer'} .= q(<div class="scrollable"><table class="resultstable"><tr>);
+	#	if ($by_reference) {
+	#		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
+	#	}
+	#	foreach my $id (@$ids) {
+	#		my $isolate = $self->_get_isolate_name($id);
+	#		push @header, $isolate;
+	#	}
+	#	local $" = q(</th><th>);
+	#	$self->{'html_buffer'} .= qq(<th>@header</th></tr>);
 	local $" = "\t";
 	$self->{'file_buffer'} .= qq(@header\n);
 	my $col = 0;
@@ -687,9 +802,9 @@ sub _assemble_data_for_defined_loci {
 		use_tagged        => 1
 	};
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
-	$self->_run_helper($params);
+	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
-	return;
+	return $data;
 }
 
 sub _assemble_data_for_reference_genome {
@@ -715,12 +830,13 @@ sub _assemble_data_for_reference_genome {
 		threads           => $THREADS,
 		job_id            => $job_id,
 		user_params       => $self->{'params'},
-		locus_data        => $locus_data
+		locus_data        => $locus_data,
+		loci              => $loci
 	};
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
-	$self->_run_helper($params);
+	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
-	return;
+	return $data;
 }
 
 sub _run_helper {
@@ -735,30 +851,51 @@ sub _run_helper {
 			logger           => $logger,
 		}
 	);
-	my $data              = $scanner->run($params);
-	my $in_all            = $self->_find_missing_and_paralogous_loci_in_all($data);
-	my $paralogous_in_all = $in_all->{'paralogous_in_all'};
-	my $missing_in_all    = $in_all->{'missing_in_all'};
-	use Data::Dumper;
-	$logger->error( Dumper $data);
-	$logger->error( Dumper $in_all);
-	return;
+	my $data             = $scanner->run($params);
+	my $locus_attributes = $self->_get_locus_attributes($data);
+	my $results          = $locus_attributes;
+	$results->{'isolate_data'} = $data;
+	$results->{'locus_data'}   = $params->{'locus_data'} if $params->{'locus_data'};
+	$results->{'loci'}         = $params->{'loci'} if $params->{'loci'};
+	return $results;
 }
 
-sub _find_missing_and_paralogous_loci_in_all {
+sub _get_locus_attributes {
 	my ( $self, $data ) = @_;
 	my @isolates = keys %$data;
 	my %loci;
 	foreach my $locus ( keys %{ $data->{ $isolates[0] }->{'designations'} } ) {
 		$loci{$locus} = 1;
 	}
-	my $paralogous = [];
-	my $missing    = [];
+	my $paralogous           = [];
+	my $missing              = [];
+	my $variable             = [];
+	my $identical            = [];
+	my $identical_except_ref = [];
+	my $incomplete_in_some   = [];
+	my %not_counted          = map { $_ => 1 } qw(missing incomplete);
 	foreach my $locus ( sort keys %loci ) {
-		my $paralogous_in_all = 1;
-		my $missing_in_all    = 1;
+		my $paralogous_in_all           = 1;
+		my $missing_in_all              = 1;
+		my $identical_in_all            = 1;
+		my $identical_in_all_except_ref = 1;
+		my $incomplete                  = 0;
+		my %variants;
 		foreach my $isolate_id (@isolates) {
-			if ( $data->{$isolate_id}->{'designations'}->{$locus} ne 'missing' ) {
+			my $allele = $data->{$isolate_id}->{'designations'}->{$locus};
+			if ( $allele ne '2' ) {
+				$identical_in_all_except_ref = 0;
+			}
+			if ( $allele ne '1' ) {
+				$identical_in_all = 0;
+			}
+			if ( $allele eq 'incomplete' ) {
+				$incomplete = 1;
+			}
+			if ( !$not_counted{$allele} ) {
+				$variants{$allele} = 1;
+			}
+			if ( $allele ne 'missing' ) {
 				$missing_in_all = 0;
 				my %isolate_paralogous = map { $_ => 1 } @{ $data->{$isolate_id}->{'paralogous'} };
 				if ( !$isolate_paralogous{$locus} ) {
@@ -767,9 +904,20 @@ sub _find_missing_and_paralogous_loci_in_all {
 			}
 		}
 		push @$paralogous, $locus if $paralogous_in_all && !$missing_in_all;
-		push @$missing, $locus if $missing_in_all;
+		push @$missing,    $locus if $missing_in_all;
+		push @$variable,   $locus if keys %variants > 1;
+		push @$identical,  $locus if $identical_in_all;
+		push @$identical_except_ref, $locus if $identical_in_all_except_ref;
+		push @$incomplete_in_some,   $locus if $incomplete;
 	}
-	return { paralogous_in_all => $paralogous, missing_in_all => $missing };
+	return {
+		paralogous_in_all           => $paralogous,
+		missing_in_all              => $missing,
+		variable                    => $variable,
+		identical_in_all            => $identical,
+		identical_in_all_except_ref => $identical_except_ref,
+		incomplete_in_some          => $incomplete_in_some
+	};
 }
 
 sub _extract_cds_details {
