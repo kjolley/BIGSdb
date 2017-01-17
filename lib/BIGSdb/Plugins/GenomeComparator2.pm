@@ -637,6 +637,7 @@ sub _get_html_output {
 		$buffer .= qq(<p>Matches: $incomplete_count</p>);
 		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'incomplete_in_some'} );
 	}
+	$buffer .= $self->_get_unique_strain_html_table( $ids, $scan_data );
 	return $buffer;
 }
 
@@ -653,17 +654,16 @@ sub _get_html_table {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
 		my $length     = length( $locus_data->{'sequence'} );
 		$buffer .= qq(<tr class="td$td">);
-		if ($by_ref){
-			$buffer .=qq(<td>$locus_data->{'full_name'}</td><td>$locus_data->{'description'}</td>)
-		  . qq(<td>$length</td><td>$locus_data->{'start'}</td>);
+		if ($by_ref) {
+			$buffer .= qq(<td>$locus_data->{'full_name'}</td><td>$locus_data->{'description'}</td>)
+			  . qq(<td>$length</td><td>$locus_data->{'start'}</td>);
 		} else {
-			$buffer .=qq(<td>$locus</td>);
+			$buffer .= qq(<td>$locus</td>);
 		}
 		my $colour = 1;
 		$value_colour{'1'} = $colour;
 		my $formatted_value = $self->_get_html_formatted_value( '1', $value_colour{'1'}, $total_records );
 		$buffer .= $formatted_value;
-
 		foreach my $isolate_id (@$ids) {
 			my $value = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
 			if ( !$value_colour{$value} ) {
@@ -690,6 +690,33 @@ sub _get_html_formatted_value {
 	}
 	my $style = BIGSdb::Utils::get_heatmap_colour_style( $colour, $id_count );
 	return qq(<td style="$style">$value</td>);
+}
+
+sub _get_unique_strain_html_table {
+	my ( $self, $ids, $data ) = @_;
+	my $buffer       = q(<h3>Unique strains</h3>);
+	my $strain_count = keys %{ $data->{'unique_strains'}->{'strain_counts'} };
+	$buffer .= qq(<p>Unique strains: $strain_count</p>);
+	$buffer .= q(<div class="scrollable"><table class="resultstable">);
+	my @strain_hashes =
+	  sort { $data->{'unique_strains'}->{'strain_counts'}->{$a} <=> $data->{'unique_strains'}->{'strain_counts'}->{$b} }
+	  keys %{ $data->{'unique_strains'}->{'strain_counts'} };
+	my $strain_num = 1;
+	$buffer .= q(<tr>);
+
+	foreach my $strain (@strain_hashes) {
+		$buffer .= qq(<th>Strain $strain_num</th>);
+		$strain_num++;
+	}
+	$buffer .= q(</tr><tr>);
+	my $td = 1;
+	foreach my $hash (@strain_hashes) {
+		my $isolates = $data->{'unique_strains'}->{'strain_isolates'}->{$hash};
+		local $" = q(br />);
+		$buffer .= qq(<td class="td$td">@$isolates</td>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	return $buffer .= q(</tr></table></div>);
 }
 
 sub _get_isolate_table_header {
@@ -853,10 +880,12 @@ sub _run_helper {
 	);
 	my $data             = $scanner->run($params);
 	my $locus_attributes = $self->_get_locus_attributes($data);
+	my $unique_strains   = $self->_get_unique_strains($data);
 	my $results          = $locus_attributes;
-	$results->{'isolate_data'} = $data;
-	$results->{'locus_data'}   = $params->{'locus_data'} if $params->{'locus_data'};
-	$results->{'loci'}         = $params->{'loci'} if $params->{'loci'};
+	$results->{'isolate_data'}   = $data;
+	$results->{'unique_strains'} = $unique_strains;
+	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
+	$results->{'loci'}           = $params->{'loci'} if $params->{'loci'};
 	return $results;
 }
 
@@ -918,6 +947,27 @@ sub _get_locus_attributes {
 		identical_in_all_except_ref => $identical_except_ref,
 		incomplete_in_some          => $incomplete_in_some
 	};
+}
+
+sub _get_unique_strains {
+	my ( $self, $data ) = @_;
+	my @isolates = keys %$data;
+	my %loci;
+	foreach my $locus ( keys %{ $data->{ $isolates[0] }->{'designations'} } ) {
+		$loci{$locus} = 1;
+	}
+	my $strain_counts = {};
+	my $strain_ids    = {};
+	foreach my $isolate_id (@isolates) {
+		my $profile;
+		foreach my $locus ( sort keys %loci ) {
+			$profile .= $data->{$isolate_id}->{'designations'}->{$locus} . '|';
+		}
+		my $profile_hash = Digest::MD5::md5_hex($profile);    #key could get very long otherwise
+		$strain_counts->{$profile_hash}++;
+		push @{ $strain_ids->{$profile_hash} }, $self->_get_isolate_name($isolate_id);
+	}
+	return { strain_counts => $strain_counts, strain_isolates => $strain_ids };
 }
 
 sub _extract_cds_details {
