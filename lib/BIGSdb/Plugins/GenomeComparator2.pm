@@ -340,7 +340,9 @@ sub _print_alignment_fieldset {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
+
+	#Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
 	$self->{'params'} = $params;
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -366,30 +368,6 @@ sub run_job {
 		);
 		return;
 	}
-
-	#	open( my $excel_fh, '>', \my $excel )
-	#	  or $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
-	#	$self->{'excel'}    = \$excel;
-	#	$self->{'workbook'} = Excel::Writer::XLSX->new($excel_fh);
-	#	$self->{'workbook'}->set_tempdir( $self->{'config'}->{'secure_tmp_dir'} );
-	#	$self->{'workbook'}->set_optimization;                         #Reduce memory usage
-	#	my $worksheet = $self->{'workbook'}->add_worksheet('all');
-	#	$self->{'excel_format'}->{'header'} = $self->{'workbook'}->add_format(
-	#		bg_color     => 'navy',
-	#		color        => 'white',
-	#		bold         => 1,
-	#		align        => 'center',
-	#		border       => 1,
-	#		border_color => 'white'
-	#	);
-	#	$self->{'excel_format'}->{'locus'} = $self->{'workbook'}->add_format(
-	#		bg_color     => '#D0D0D0',
-	#		color        => 'black',
-	#		align        => 'center',
-	#		border       => 1,
-	#		border_color => '#A0A0A0'
-	#	);
-	#	$self->{'excel_format'}->{'normal'} = $self->{'workbook'}->add_format( align => 'center' );
 	if ( $accession || $ref_upload ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Retrieving reference genome' } );
 		my $seq_obj;
@@ -444,6 +422,14 @@ sub run_job {
 	return;
 }
 
+sub _signal_kill_job {
+	my ( $self, $job_id ) = @_;
+	my $touch_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.CANCEL";
+	open( my $fh, '>', $touch_file ) || $logger->error("Cannot touch $touch_file");
+	close $fh;
+	return;
+}
+
 sub _analyse_by_loci {
 	my ( $self, $data ) = @_;
 	my ( $job_id, $loci, $ids, $worksheet ) = @{$data}{qw(job_id loci ids worksheet)};
@@ -467,8 +453,10 @@ sub _analyse_by_loci {
 	  . qq(are marked as 'I'.\n\n);
 	my $scan_data = $self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
-	$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+	if ( !$self->{'exit'} ) {
+		$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+	}
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -525,8 +513,10 @@ sub _analyse_by_reference {
 	    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
 	  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
-	$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+	if ( !$self->{'exit'} ) {
+		$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+	}
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -824,8 +814,10 @@ sub _run_helper {
 			jobManager       => $self->{'jobManager'},
 			job_id           => $params->{'job_id'},
 			logger           => $logger,
+			config           => $self->{'config'}
 		}
 	);
+	return {} if $self->{'exit'};
 	my $data             = $scanner->run($params);
 	my $by_ref           = $params->{'reference_file'} ? 1 : 0;
 	my $locus_attributes = $self->_get_locus_attributes( $by_ref, $data );

@@ -32,6 +32,7 @@ sub new {
 	$self->{'lib_dir'}          = $params->{'lib_dir'};
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
+	$self->{'config'}           = $params->{'config'};
 	bless( $self, $class );
 	return $self;
 }
@@ -82,6 +83,7 @@ sub run {
 			}
 		);
 		foreach my $isolate_id (@$isolates) {
+			last if $self->_is_job_cancelled( $params->{'job_id'} );
 			$pm->start and next;
 			my $helper = BIGSdb::GCHelper->new(
 				{
@@ -121,10 +123,17 @@ sub run {
 	);
 	my $batch_data = $helper->get_results;
 	my $new_seqs   = $helper->get_new_sequences;
-	if ($by_ref){
+	if ($by_ref) {
 		$self->_rename_ref_designations_from_single_thread($batch_data);
 	}
 	return $batch_data;
+}
+
+sub _is_job_cancelled {
+	my ( $self, $job_id ) = @_;
+	my $signal_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.CANCEL";
+	return 1 if -e $signal_file;
+	return;
 }
 
 sub _correct_new_designations {
@@ -155,9 +164,9 @@ sub _correct_new_designations {
 }
 
 sub _rename_ref_designations_from_single_thread {
-	my ( $self, $data) = @_;
-	foreach my $isolate_id (keys %$data){
-		foreach my $locus (keys $data->{$isolate_id}->{'designations'}){
+	my ( $self, $data ) = @_;
+	foreach my $isolate_id ( keys %$data ) {
+		foreach my $locus ( keys $data->{$isolate_id}->{'designations'} ) {
 			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
 		}
 	}
