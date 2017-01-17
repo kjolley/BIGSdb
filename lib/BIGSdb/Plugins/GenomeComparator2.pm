@@ -216,8 +216,7 @@ sub _print_interface {
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
-
-	#	$self->_print_distance_matrix_fieldset;
+	$self->_print_distance_matrix_fieldset;
 	$self->_print_alignment_fieldset;
 
 	#	$self->_print_core_genome_fieldset;
@@ -334,6 +333,35 @@ sub _print_alignment_fieldset {
 		say q(</li><li>);
 	}
 	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_distance_matrix_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
+	say q(With incomplete loci:);
+	say q(<ul><li>);
+	my $labels = {
+		exclude       => 'Completely exclude from analysis',
+		include_as_T  => 'Treat as distinct allele',
+		pairwise_same => 'Ignore in pairwise comparison'
+	};
+	say $q->radio_group(
+		-name      => 'truncated',
+		-values    => [qw (exclude include_as_T pairwise_same)],
+		-labels    => $labels,
+		-default   => 'pairwise_same',
+		-linebreak => 'true'
+	);
+	say q(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
+	say $q->checkbox(
+		-name    => 'exclude_paralogous',
+		-id      => 'exclude_paralogous',
+		-label   => 'Exclude paralogous loci',
+		-checked => 'checked'
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -456,6 +484,7 @@ sub _analyse_by_loci {
 	if ( !$self->{'exit'} ) {
 		$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		$self->_generate_splits( $job_id, $scan_data );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -516,6 +545,7 @@ sub _analyse_by_reference {
 	if ( !$self->{'exit'} ) {
 		$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		$self->_generate_splits( $job_id, $scan_data );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -642,7 +672,7 @@ sub _get_unique_strain_html_table {
 	$buffer .= qq(<p>Unique strains: $strain_count</p>);
 	$buffer .= q(<div class="scrollable"><table class="resultstable">);
 	my @strain_hashes =
-	  sort { $data->{'unique_strains'}->{'strain_counts'}->{$a} <=> $data->{'unique_strains'}->{'strain_counts'}->{$b} }
+	  sort { $data->{'unique_strains'}->{'strain_counts'}->{$b} <=> $data->{'unique_strains'}->{'strain_counts'}->{$a} }
 	  keys %{ $data->{'unique_strains'}->{'strain_counts'} };
 	my $strain_num = 1;
 	$buffer .= q(<tr>);
@@ -655,7 +685,7 @@ sub _get_unique_strain_html_table {
 	my $td = 1;
 	foreach my $hash (@strain_hashes) {
 		my $isolates = $data->{'unique_strains'}->{'strain_isolates'}->{$hash};
-		local $" = q(br />);
+		local $" = q(<br />);
 		$buffer .= qq(<td class="td$td">@$isolates</td>);
 		$td = $td == 1 ? 2 : 1;
 	}
@@ -750,6 +780,173 @@ sub _get_identifier {
 	return $value;
 }
 
+sub _generate_splits {
+	my ( $self, $job_id, $data ) = @_;
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { percent_complete => 80, stage => 'Generating distance matrix' } );
+	my $dismat  = $self->_generate_distance_matrix($data);
+	my $options = {
+		truncated          => $self->{'params'}->{'truncated'},
+		exclude_paralogous => $self->{'params'}->{'exclude_paralogous'},
+		by_reference       => $data->{'by_ref'}
+	};
+	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
+
+	#	$self->_add_distance_matrix_worksheet($dismat);
+	$self->{'jobManager'}->update_job_output(
+		$job_id,
+		{
+			filename    => $nexus_file,
+			description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
+			  . '<a href="http://www.splitstree.org">SplitsTree</a>. Distances between taxa are '
+			  . 'calculated as the number of loci with different allele sequences'
+		}
+	);
+	return if ( keys %$data ) > MAX_SPLITS_TAXA;
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 90, stage => 'Generating NeighborNet' } );
+	my $splits_img = "$job_id.png";
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
+	}
+	$splits_img = "$job_id.svg";
+	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
+		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => $splits_img,
+				description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in '
+				  . '<a href="http://inkscape.org">Inkscape</a> or other vector graphics editors'
+			}
+		);
+	}
+	return;
+}
+
+sub _generate_distance_matrix {
+	my ( $self, $data ) = @_;
+	my $dismat       = {};
+	my $isolate_data = $data->{'isolate_data'};
+	my $ignore_loci  = [];
+	push @$ignore_loci, @{ $data->{'incomplete_in_some'} } if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
+	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous'};
+	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
+	if ( $data->{'by_ref'} ) {
+
+		foreach my $locus ( @{ $data->{'loci'} } ) {
+			$isolate_data->{0}->{'designations'}->{$locus} = '1';
+		}
+	}
+	my @ids = sort { $a <=> $b } keys %$isolate_data;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		foreach my $j ( 0 .. $i ) {
+			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
+			foreach my $locus ( @{ $data->{'loci'} } ) {
+				next if $ignore_loci{$locus};
+				my $i_value = $isolate_data->{ $ids[$i] }->{'designations'}->{$locus};
+				my $j_value = $isolate_data->{ $ids[$j] }->{'designations'}->{$locus};
+				if ( $self->_is_different( $i_value, $j_value ) ) {
+					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
+				}
+			}
+		}
+	}
+	return $dismat;
+}
+
+#Helper for distance matrix generation
+sub _is_different {
+	my ( $self, $i_value, $j_value ) = @_;
+	my $different;
+	if ( $i_value ne $j_value ) {
+		if ( ( $self->{'params'}->{'truncated'} // q() ) eq 'pairwise_same' ) {
+			if (   ( $i_value eq 'incomplete' && $j_value eq 'missing' )
+				|| ( $i_value eq 'missing' && $j_value eq 'incomplete' )
+				|| ( $i_value ne 'incomplete' && $j_value ne 'incomplete' ) )
+			{
+				$different = 1;
+			}
+		} else {
+			$different = 1;
+		}
+	}
+	return $different;
+}
+
+sub _make_nexus_file {
+	my ( $self, $job_id, $dismat, $options ) = @_;
+	$options = {} if ref $options ne 'HASH';
+	my $timestamp = scalar localtime;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	my %labels;
+	foreach my $id (@ids) {
+		if ( $id == 0 ) {
+			$labels{$id} = 'ref';
+		} else {
+			$labels{$id} = $self->_get_identifier($id);
+		}
+	}
+	my $num_taxa         = @ids;
+	my $truncated_labels = {
+		exclude       => 'completely excluded from analysis',
+		include_as_T  => 'included as a special allele indistinguishable from other incomplete alleles',
+		pairwise_same => 'ignored in pairwise comparisons unless locus is missing in one isolate'
+	};
+	my $truncated  = "[Incomplete loci are $truncated_labels->{$options->{'truncated'}}]";
+	my $paralogous = '';
+	if ( $options->{'by_reference'} ) {
+		$paralogous =
+		  '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
+	}
+	my $header = <<"NEXUS";
+#NEXUS
+[Distance matrix calculated by BIGSdb Genome Comparator ($timestamp)]
+[Jolley & Maiden 2010 BMC Bioinformatics 11:595]
+$truncated
+$paralogous
+
+BEGIN taxa;
+   DIMENSIONS ntax = $num_taxa;	
+
+END;
+
+BEGIN distances;
+   DIMENSIONS ntax = $num_taxa;
+   FORMAT
+      triangle=LOWER
+      diagonal
+      labels
+      missing=?
+   ;
+MATRIX
+NEXUS
+	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" )
+	  || $logger->error("Can't open $job_id.nex for writing");
+	print $nexus_fh $header;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		print $nexus_fh $labels{ $ids[$i] };
+		print $nexus_fh "\t" . $dismat->{ $ids[$i] }->{ $ids[$_] } foreach ( 0 .. $i );
+		print $nexus_fh "\n";
+	}
+	print $nexus_fh "   ;\nEND;\n";
+	close $nexus_fh;
+	return "$job_id.nex";
+}
+
+sub _run_splitstree {
+	my ( $self, $nexus_file, $output_file, $format ) = @_;
+	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
+		system( $self->{'config'}->{'splitstree_path'},
+			'+g', 'false', '-S', 'true', '-x',
+			"EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT" );
+	}
+	return;
+}
+
 sub _assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $ids, $loci ) = @{$args}{qw(job_id ids loci )};
@@ -825,6 +1022,7 @@ sub _run_helper {
 	my $paralogous       = $self->_get_potentially_paralogous_loci($data);
 	my $results          = $locus_attributes;
 	$results->{'isolate_data'}   = $data;
+	$results->{'by_ref'}         = $by_ref;
 	$results->{'unique_strains'} = $unique_strains;
 	$results->{'paralogous'}     = $paralogous;
 	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
@@ -902,7 +1100,7 @@ sub _get_locus_attributes {
 
 sub _get_unique_strains {
 	my ( $self, $data ) = @_;
-	my @isolates = keys %$data;
+	my @isolates = sort { $a <=> $b } keys %$data;
 	my %loci;
 	foreach my $locus ( keys %{ $data->{ $isolates[0] }->{'designations'} } ) {
 		$loci{$locus} = 1;

@@ -58,11 +58,12 @@ sub run {
 			$self->{'logger'}->error('No valid loci selected.');
 			return;
 		}
-		my $isolates      = $script->get_isolates;
-		my $data          = {};
-		my $new_seqs      = {};
-		my $pm            = Parallel::ForkManager->new( $params->{'threads'} );
-		my $isolate_count = 0;
+		my $isolates        = $script->get_isolates;
+		my $data            = {};
+		my $new_seqs        = {};
+		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
+		my $isolate_count   = 0;
+		my $finish_progress = $params->{'align'} ? 40 : 80;
 		$pm->run_on_finish(
 			sub {
 				my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
@@ -71,7 +72,7 @@ sub run {
 				  foreach keys %{ $ret_data->{'local_new_seqs'} };
 				$isolate_count++;
 				if ( $params->{'job_id'} ) {
-					my $percent_complete = int( ( $isolate_count * 80 ) / @$isolates );
+					my $percent_complete = int( ( $isolate_count * $finish_progress ) / @$isolates );
 					$self->{'jobManager'}->update_job_status(
 						$params->{'job_id'},
 						{
