@@ -165,8 +165,7 @@ sub _is_paralogous {
 		if ( $record->[3] >= $alignment * 0.01 * $required_alignment && $record->[2] >= $identity ) {
 			my $this_match        = $self->_extract_match( $record, $required_alignment, $required_alignment );
 			my $match_seq         = $self->_extract_sequence($this_match);
-			my $seq_already_found = 0;
-			if ( !$seq_already_found ) {
+			if ( !$existing_match_seqs{$match_seq} ) {
 				$existing_match_seqs{$match_seq} = 1;
 				$good_matches++;
 			}

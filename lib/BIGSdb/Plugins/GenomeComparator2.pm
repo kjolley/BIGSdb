@@ -638,6 +638,7 @@ sub _get_html_output {
 		$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'incomplete_in_some'} );
 	}
 	$buffer .= $self->_get_unique_strain_html_table( $ids, $scan_data );
+	$buffer .= $self->_get_paralogous_loci_table( $ids, $scan_data );
 	return $buffer;
 }
 
@@ -648,7 +649,6 @@ sub _get_html_table {
 	my $buffer = q(<div class="scrollable"><table class="resultstable">);
 	$buffer .= $self->_get_isolate_table_header( $by_ref, $ids, 'html' );
 	my $td = 1;
-	$td = $td == 1 ? 2 : 1;
 	foreach my $locus (@$loci) {
 		my %value_colour;
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
@@ -674,6 +674,7 @@ sub _get_html_table {
 			$buffer .= $formatted_value;
 		}
 		$buffer .= qq(</tr>\n);
+		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= q(</table></div>);
 	return $buffer;
@@ -717,6 +718,28 @@ sub _get_unique_strain_html_table {
 		$td = $td == 1 ? 2 : 1;
 	}
 	return $buffer .= q(</tr></table></div>);
+}
+
+sub _get_paralogous_loci_table {
+	my ( $self, $ids, $data ) = @_;
+	my $loci = $data->{'paralogous_in_all'};
+	return q() if !@$loci;
+	my $buffer = q(<h3>Potentially paralogous loci</h3>);
+	$buffer .= q(<p>The table shows the loci that had multiple hits in every isolate )
+	  . q((except those where the locus was absent).</p>);
+	my $count = @$loci;
+	$buffer .= qq(<p>Paralogous: $count</p>);
+	$buffer .= q(<div class="scrollable"><table class="resultstable">);
+	$buffer .= q(<tr><th>Locus</th><th>Isolate count</th></tr>);
+	my $td = 1;
+
+	foreach my $locus (@$loci) {
+		my $isolate_count = $data->{'paralogous'}->{$locus};
+		$buffer .= qq(<tr class="td$td"><td>$locus</td><td>$isolate_count</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	$buffer .= q(</table></div>);
+	return $buffer;
 }
 
 sub _get_isolate_table_header {
@@ -881,9 +904,11 @@ sub _run_helper {
 	my $data             = $scanner->run($params);
 	my $locus_attributes = $self->_get_locus_attributes($data);
 	my $unique_strains   = $self->_get_unique_strains($data);
+	my $paralogous       = $self->_get_potentially_paralogous_loci($data);
 	my $results          = $locus_attributes;
 	$results->{'isolate_data'}   = $data;
 	$results->{'unique_strains'} = $unique_strains;
+	$results->{'paralogous'}     = $paralogous;
 	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
 	$results->{'loci'}           = $params->{'loci'} if $params->{'loci'};
 	return $results;
@@ -968,6 +993,19 @@ sub _get_unique_strains {
 		push @{ $strain_ids->{$profile_hash} }, $self->_get_isolate_name($isolate_id);
 	}
 	return { strain_counts => $strain_counts, strain_isolates => $strain_ids };
+}
+
+sub _get_potentially_paralogous_loci {
+	my ( $self, $data ) = @_;
+	my @isolates      = keys %$data;
+	my $paralogous_in = {};
+	foreach my $isolate_id (@isolates) {
+		my $loci = $data->{$isolate_id}->{'paralogous'};
+		foreach my $locus (@$loci) {
+			$paralogous_in->{$locus}++;
+		}
+	}
+	return $paralogous_in;
 }
 
 sub _extract_cds_details {
