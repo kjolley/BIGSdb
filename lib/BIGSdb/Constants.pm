@@ -24,7 +24,7 @@ our @EXPORT_OK;
 our %EXPORT_TAGS;
 
 #Limits
-use constant MAX_SPLITS_TAXA       => 200;
+use constant MAX_SPLITS_TAXA       => 150;
 use constant MAX_MUSCLE_MB         => 4 * 1024;    #4GB
 use constant MAX_ISOLATES_DROPDOWN => 1000;
 push @EXPORT_OK, qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN);

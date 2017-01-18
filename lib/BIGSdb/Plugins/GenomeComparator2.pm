@@ -482,6 +482,7 @@ sub _analyse_by_loci {
 	my $scan_data = $self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
+		$self->_align( $job_id, 1, $ids, $scan_data );
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
@@ -543,6 +544,7 @@ sub _analyse_by_reference {
 	}
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
+		$self->_align( $job_id, 1, $ids, $scan_data );
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
@@ -935,8 +937,6 @@ sub _generate_splits {
 		by_reference       => $data->{'by_ref'}
 	};
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
-
-	#	$self->_add_distance_matrix_worksheet($dismat);
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
@@ -951,10 +951,12 @@ sub _generate_splits {
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
+
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
 	}
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 95 } );
 	$splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
@@ -1091,6 +1093,263 @@ sub _run_splitstree {
 	return;
 }
 
+sub _align {
+	my ( $self, $job_id, $by_ref, $ids, $scan_data ) = @_;
+	my $params = $self->{'params'};
+	return if !$params->{'align'};
+	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id.align";
+	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id.align_stats";
+	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	state $xmfa_start = 1;
+	state $xmfa_end   = 1;
+	my $temp           = BIGSdb::Utils::get_random();
+	my $loci           = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
+	my $progress_start = 20;
+	my $progress_total = 40;
+	my $locus_count    = 0;
+
+	foreach my $locus (@$loci) {
+		last if $self->{'exit'};
+		my $progress = int( ( $progress_total * $locus_count ) / @$loci ) + $progress_start;
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => $progress, stage => "Aligning locus: $locus" } );
+		$locus_count++;
+		( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/gx;
+		$escaped_locus =~ tr/ /_/;
+		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.fasta";
+		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.aligned";
+		my $seq_count   = 0;
+		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Cannot open $fasta_file for writing");
+		my $names        = {};
+		my $ids_to_align = [];
+
+		if ( $by_ref && $params->{'include_ref'} ) {
+			push @$ids_to_align, 'ref';
+			$names->{'ref'} = 'ref';
+			say $fasta_fh '>ref';
+			say $fasta_fh $scan_data->{'locus_data'}->{$locus}->{'sequence'};
+		}
+		foreach my $id (@$ids) {
+			push @$ids_to_align, $id;
+			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
+			$name =~ s/[\(\)]//gx;
+			$name =~ s/ /|/;         #replace space separating id and name
+			$name =~ tr/[:, ]/_/;
+			$names->{$id} = $name;
+			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
+			if ($seq) {
+				$seq_count++;
+				say $fasta_fh ">$id";
+				say $fasta_fh $seq;
+			}
+		}
+		close $fasta_fh;
+		$self->{'distances'}->{$locus} = $self->_run_alignment(
+			{
+				ids         => $ids_to_align,
+				locus       => $locus,
+				seq_count   => $seq_count,
+				aligned_out => $aligned_out,
+				fasta_file  => $fasta_file,
+				align_file  => $align_file,
+
+				#				core_locus       => $core_locus,
+				align_stats_file => $align_stats_file,
+				xmfa_out         => $xmfa_file,
+
+				#				core_xmfa_out    => $core_xmfa_file,
+				xmfa_start_ref => \$xmfa_start,
+				xmfa_end_ref   => \$xmfa_end,
+				names          => $names
+			}
+		);
+		unlink $fasta_file;
+	}
+	if ( -e $align_file && !-z $align_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id\.align", description => '30_Alignments', compress => 1 } );
+	}
+	if ( -e $align_stats_file && !-z $align_stats_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } );
+	}
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename      => "$job_id.xmfa",
+				description   => '35_Extracted sequences (XMFA format)',
+				compress      => 1,
+				keep_original => 1
+			}
+		);
+		try {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
+			my $fasta_file =
+			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
+			if ( -e $fasta_file ) {
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => "$job_id.fas",
+						description => '36_Concatenated aligned sequences (FASTA format)',
+						compress    => 1
+					}
+				);
+			}
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$logger->error('Cannot create FASTA file from XMFA.');
+		};
+	}
+	if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename      => "$job_id\_core.xmfa",
+				description   => '37_Extracted core sequences (XMFA format)',
+				compress      => 1,
+				keep_original => 1
+			}
+		);
+		try {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA' } );
+			my $fasta_file =
+			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
+			if ( -e $fasta_file ) {
+				$self->{'jobManager'}->update_job_output(
+					$job_id,
+					{
+						filename    => "$job_id\_core.fas",
+						description => '38_Concatenated core aligned sequences (FASTA format)',
+						compress    => 1
+					}
+				);
+			}
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$logger->error('Cannot create core FASTA file from XMFA.');
+		};
+	}
+	return;
+}
+
+sub _run_alignment {
+	my ( $self, $args ) = @_;
+	my (
+		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
+		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
+	  )
+	  = @{$args}{
+		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out
+		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
+	  };
+	return if $seq_count <= 1;
+	my $params = $self->{'params'};
+	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
+		my $threads =
+		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+		system(
+"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase --clustalout $fasta_file > $aligned_out"
+		);
+	} elsif ( $params->{'aligner'} eq 'MUSCLE'
+		&& $self->{'config'}->{'muscle_path'}
+		&& -e $fasta_file
+		&& -s $fasta_file )
+	{
+		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
+		system( $self->{'config'}->{'muscle_path'},
+			-in    => $fasta_file,
+			-out   => $aligned_out,
+			-maxmb => $max_mb,
+			'-quiet', '-clwstrict'
+		);
+	} else {
+		$logger->error('No aligner selected');
+	}
+	my $distance;
+	if ( -e $aligned_out ) {
+		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
+		my ( %id_has_seq, $seq_length );
+		my $xmfa_buffer;
+		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		foreach my $seq ( $align->each_seq ) {
+			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
+			my $id = $seq->id;
+			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
+			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
+			$xmfa_buffer .= "$sequence\n";
+			$id_has_seq{$id} = 1;
+			$seq_length = $seq->length if !$seq_length;
+		}
+		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
+		foreach my $id (@$ids) {
+			next if $id_has_seq{$id};
+			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
+		}
+		$xmfa_buffer .= '=';
+		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
+		close $fh_xmfa;
+		if ($core_locus) {
+			open( my $fh_core_xmfa, '>>', $core_xmfa_out )
+			  or $logger->error("Can't open output file $core_xmfa_out for appending");
+			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
+			close $fh_core_xmfa;
+		}
+		$$xmfa_start_ref = $$xmfa_end_ref + 1;
+		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
+		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
+		say $align_fh "$heading_locus";
+		say $align_fh '-' x ( length $heading_locus ) . "\n";
+		close $align_fh;
+		BIGSdb::Utils::append( $aligned_out, $align_file, { blank_after => 1 } );
+		$args->{'alignment'} = $aligned_out;
+		$distance = $self->_run_infoalign($args);
+		unlink $aligned_out;
+	}
+	return $distance;
+}
+
+sub _run_infoalign {
+
+	#returns mean distance
+	my ( $self, $values ) = @_;
+	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
+		my $prefix  = BIGSdb::Utils::get_random();
+		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
+		system(
+			"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa "
+			  . '-nosimcount -noweight -nodescription 2> /dev/null' );
+		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
+		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
+		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
+		print $fh_stats "$heading_locus\n";
+		print $fh_stats '-' x ( length $heading_locus ) . "\n\n";
+		close $fh_stats;
+
+		if ( -e $outfile ) {
+			BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } );
+			open( my $fh, '<', $outfile )
+			  or $logger->error("Can't open alignment stats file file $outfile for reading");
+			my $row        = 0;
+			my $total_diff = 0;
+			while (<$fh>) {
+				next if /^\#/x;
+				my @values = split /\s+/x;
+				my $diff   = $values[7];     # % difference from consensus
+				$total_diff += $diff;
+				$row++;
+			}
+			my $mean_distance = $total_diff / ( $row * 100 );
+			close $fh;
+			unlink $outfile;
+			return $mean_distance;
+		}
+	}
+	return;
+}
+
 sub _assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $ids, $loci ) = @{$args}{qw(job_id ids loci )};
@@ -1125,7 +1384,7 @@ sub _assemble_data_for_reference_genome {
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning: isolate record:1' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
 	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
 	my $params = {

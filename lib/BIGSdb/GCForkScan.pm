@@ -63,7 +63,7 @@ sub run {
 		my $new_seqs        = {};
 		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
 		my $isolate_count   = 0;
-		my $finish_progress = $params->{'align'} ? 40 : 80;
+		my $finish_progress = $params->{'align'} ? 20 : 80;
 		$pm->run_on_finish(
 			sub {
 				my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
@@ -77,7 +77,7 @@ sub run {
 						$params->{'job_id'},
 						{
 							percent_complete => $percent_complete,
-							stage            => "Scanning: isolate record#$isolate_count complete"
+							stage            => "Scanning isolate record $isolate_count complete"
 						}
 					);
 				}
