@@ -1761,8 +1761,12 @@ sub _core_analysis {
 sub _core_mean_distance {
 	my ( $self, $args, $out_file, $core_loci, $loci ) = @_;
 	return if !@$core_loci;
+	
+	
+
+	
 	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
-	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
+	my $largest_distance = $self->_get_largest_distance( $core_loci );
 	my ( @labels, @values );
 	if ( !$largest_distance ) {
 		$file_buffer .= "All loci are identical.\n";
@@ -1832,7 +1836,7 @@ sub _core_mean_distance {
 }
 
 sub _get_largest_distance {
-	my ( $self, $core_loci, $loci ) = @_;
+	my ( $self, $core_loci ) = @_;
 	my $largest = 0;
 	foreach my $locus (@$core_loci) {
 		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;

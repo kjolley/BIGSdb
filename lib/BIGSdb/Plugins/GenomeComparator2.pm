@@ -24,6 +24,9 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
 use BIGSdb::GCForkScan;
+use Bio::AlignIO;
+use Bio::Seq;
+use Bio::SeqIO;
 my $THREADS = 6;
 
 #use BIGSdb::Offline::Scan;
@@ -218,8 +221,7 @@ sub _print_interface {
 	$self->_print_parameters_fieldset;
 	$self->_print_distance_matrix_fieldset;
 	$self->_print_alignment_fieldset;
-
-	#	$self->_print_core_genome_fieldset;
+	$self->_print_core_genome_fieldset;
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
@@ -362,6 +364,25 @@ sub _print_distance_matrix_fieldset {
 		-checked => 'checked'
 	);
 	say q(</li></ul></fieldset>);
+	return;
+}
+
+sub _print_core_genome_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
+	say q(<li><label for="core_threshold">Core threshold (%):</label>);
+	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
+	say q( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present )
+	  . q(in to be considered part of the core genome."><span class="fa fa-info-circle"></span></a></li><li>);
+	say $q->checkbox(
+		-name     => 'calc_distances',
+		-id       => 'calc_distances',
+		-label    => 'Calculate mean distances',
+		-onChange => 'enable_seqs()'
+	);
+	say q( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will )
+	  . q(take longer to perform."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
 	return;
 }
 
@@ -545,6 +566,7 @@ sub _analyse_by_reference {
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->_align( $job_id, 1, $ids, $scan_data );
+		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
@@ -1100,12 +1122,13 @@ sub _align {
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id.align_stats";
 	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa";
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
 	my $temp           = BIGSdb::Utils::get_random();
 	my $loci           = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
 	my $progress_start = 20;
-	my $progress_total = 40;
+	my $progress_total = 60;
 	my $locus_count    = 0;
 
 	foreach my $locus (@$loci) {
@@ -1144,23 +1167,23 @@ sub _align {
 			}
 		}
 		close $fasta_fh;
+		my $core_threshold = BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
+		my $core_locus = ( $scan_data->{'frequency'}->{$locus} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
 		$self->{'distances'}->{$locus} = $self->_run_alignment(
 			{
-				ids         => $ids_to_align,
-				locus       => $locus,
-				seq_count   => $seq_count,
-				aligned_out => $aligned_out,
-				fasta_file  => $fasta_file,
-				align_file  => $align_file,
-
-				#				core_locus       => $core_locus,
+				ids              => $ids_to_align,
+				locus            => $locus,
+				seq_count        => $seq_count,
+				aligned_out      => $aligned_out,
+				fasta_file       => $fasta_file,
+				align_file       => $align_file,
+				core_locus       => $core_locus,
 				align_stats_file => $align_stats_file,
 				xmfa_out         => $xmfa_file,
-
-				#				core_xmfa_out    => $core_xmfa_file,
-				xmfa_start_ref => \$xmfa_start,
-				xmfa_end_ref   => \$xmfa_end,
-				names          => $names
+				core_xmfa_out    => $core_xmfa_file,
+				xmfa_start_ref   => \$xmfa_start,
+				xmfa_end_ref     => \$xmfa_end,
+				names            => $names
 			}
 		);
 		unlink $fasta_file;
@@ -1447,11 +1470,13 @@ sub _get_locus_attributes {
 	my $identical_except_ref = [];
 	my $incomplete_in_some   = [];
 	my %not_counted          = map { $_ => 1 } qw(missing incomplete);
+	my $frequency            = {};
 	foreach my $locus ( sort keys %loci ) {
 		my $paralogous_in_all = 1;
 		my $missing_in_all    = 1;
 		my $identical_in_all  = 0;
 		my $incomplete        = 0;
+		my $presence          = 0;
 		my %variants_not_ref;
 		my %variants_including_ref;
 		if ($by_ref) {
@@ -1465,6 +1490,7 @@ sub _get_locus_attributes {
 				$incomplete = 1;
 			}
 			if ( $allele ne 'missing' ) {
+				$presence++;
 				$missing_in_all = 0;
 				my %isolate_paralogous = map { $_ => 1 } @{ $data->{$isolate_id}->{'paralogous'} };
 				if ( !$isolate_paralogous{$locus} ) {
@@ -1490,6 +1516,7 @@ sub _get_locus_attributes {
 		push @$missing,    $locus if $missing_in_all;
 		push @$variable,   $locus if keys %variants_not_ref > 1;
 		push @$incomplete_in_some, $locus if $incomplete;
+		$frequency->{$locus} = $presence;
 	}
 	return {
 		paralogous_in_all           => $paralogous,
@@ -1497,7 +1524,8 @@ sub _get_locus_attributes {
 		variable                    => $variable,
 		identical_in_all            => $identical,
 		identical_in_all_except_ref => $identical_except_ref,
-		incomplete_in_some          => $incomplete_in_some
+		incomplete_in_some          => $incomplete_in_some,
+		frequency                   => $frequency
 	};
 }
 
@@ -1592,6 +1620,186 @@ sub _create_reference_FASTA_file {
 	}
 	close $fh;
 	return $filename;
+}
+
+sub _core_analysis {
+	my ( $self, $data, $args ) = @_;
+	my $loci = $data->{'loci'};
+	return if !@$loci;
+	my $params     = $self->{'params'};
+	my $core_count = 0;
+	my @core_loci;
+	my $isolate_count = @{ $args->{'ids'} };
+	my $locus_count   = @$loci;
+	my $out_file      = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.txt";
+	open( my $fh, '>', $out_file ) || $logger->error("Can't open $out_file for writing");
+	say $fh 'Core genome analysis';
+	say $fh "--------------------\n";
+	say $fh 'Parameters:';
+	say $fh "Min % identity: $params->{'identity'}";
+	say $fh "Min % alignment: $params->{'alignment'}";
+	say $fh "BLASTN word size: $params->{'word_size'}";
+	my $threshold =
+	  ( $params->{'core_threshold'} && BIGSdb::Utils::is_int( $params->{'core_threshold'} ) )
+	  ? $params->{'core_threshold'}
+	  : 90;
+	say $fh "Core threshold (percentage of isolates that contain locus): $threshold\%\n";
+	print $fh "Locus\tSequence length\tGenome position\tIsolate frequency\tIsolate percentage\tCore";
+	print $fh "\tMean distance" if $params->{'calc_distances'};
+	print $fh "\n";
+	my %range;
+
+	foreach my $locus (@$loci) {
+		my $locus_name;
+		if ( !$args->{'by_reference'} ) {
+			$locus_name = $self->clean_locus( $locus, { text_output => 1 } );
+		} else {
+			$locus_name = $locus;
+		}
+		my $length = length( $data->{'locus_data'}->{$locus}->{'sequence'} ) // '';
+		my $pos    = $data->{'locus_data'}->{$locus}->{'start'}              // '';
+		my $freq   = $data->{'frequency'}->{$locus}                          // 0;
+		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
+		my $core;
+		if ( $percentage >= $threshold ) {
+			$core = 'Y';
+			push @core_loci, $locus;
+		} else {
+			$core = '-';
+		}
+		$core_count++ if $percentage >= $threshold;
+		print $fh "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
+		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 )
+		  if $params->{'calc_distances'};
+		print $fh "\n";
+		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
+			$range{$upper_range}++ if $percentage >= ( $upper_range - 5 ) && $percentage < $upper_range;
+		}
+		$range{'all_isolates'}++ if $percentage == 100;
+	}
+	say $fh "\nCore loci: $core_count\n";
+	say $fh "Present in % of isolates\tNumber of loci\tPercentage (%) of loci";
+	my ( @labels, @values );
+	for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
+		my $label      = ( $upper_range - 5 ) . " - <$upper_range";
+		my $value      = $range{$upper_range} // 0;
+		my $percentage = BIGSdb::Utils::decimal_place( $value * 100 / $locus_count, 1 );
+		say $fh "$label\t$value\t$percentage";
+		push @labels, $label;
+		push @values, $value;
+	}
+	$range{'all_isolates'} //= 0;
+	my $percentage = BIGSdb::Utils::decimal_place( $range{'all_isolates'} * 100 / $locus_count, 1 );
+	say $fh "100\t$range{'all_isolates'}\t$percentage";
+	push @labels, 100;
+	push @values, $range{'all_isolates'};
+	close $fh;
+	$self->_core_mean_distance( $args, $out_file, \@core_loci, $loci ) if $params->{'calc_distances'};
+
+	if ( -e $out_file ) {
+		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
+			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency' } );
+	}
+	if ( $self->{'config'}->{'chartdirector'} ) {
+		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.png";
+		BIGSdb::Charts::barchart(
+			\@labels, \@values, $image_file, 'large',
+			{ 'x-title'      => 'Present in % of isolates', 'y-title' => 'Number of loci' },
+			{ no_transparent => 1 }
+		);
+		if ( -e $image_file ) {
+			$self->{'jobManager'}->update_job_output(
+				$args->{'job_id'},
+				{
+					filename    => "$args->{'job_id'}\_core.png",
+					description => '41_Locus presence frequency chart (PNG format)'
+				}
+			);
+		}
+	}
+	return;
+}
+
+sub _core_mean_distance {
+	my ( $self, $args, $out_file, $core_loci, $loci ) = @_;
+	return if !@$core_loci;
+	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
+	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
+	my ( @labels, @values );
+	if ( !$largest_distance ) {
+		$file_buffer .= "All loci are identical.\n";
+	} else {
+		my $increment;
+
+		#Aim to have <50 points
+		foreach (qw(0.0001 0.0002 0.0005 0.001 0.002 0.005 0.01 0.02)) {
+			if ( ( $largest_distance / $_ ) <= 50 ) {
+				$increment = $_;
+				last;
+			}
+		}
+		$increment //= 0.02;
+		my %upper_range;
+		foreach my $locus (@$core_loci) {
+			my $range = 0;
+			if ( $self->{'distances'}->{$locus} ) {
+				my $distance = $self->{'distances'}->{$locus} =~ /^([\d\.]+)$/x ? $1 : 0;    #untaint
+				while ( $range < $distance ) { $range += $increment }
+			}
+			$upper_range{$range}++;
+		}
+		$file_buffer .= "Mean distance*\tFrequency\tPercentage\n";
+		$file_buffer .= "0\t"
+		  . ( $upper_range{0} // 0 ) . "\t"
+		  . BIGSdb::Utils::decimal_place( ( ( $upper_range{0} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+		my $range = 0;
+		push @labels, 0;
+		push @values, $upper_range{0} // 0;
+		while ( $range <= $largest_distance ) {
+			$range += $increment;
+			$range = ( int( ( $range * 10000.0 ) + 0.5 ) / 10000.0 );                        #Set float precision
+			my $label = '>' . ( $range - $increment ) . " - $range";
+			my $value = $upper_range{$range} // 0;
+			push @labels, $label;
+			push @values, $value;
+			$file_buffer .=
+			  "$label\t$value\t"
+			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
+		}
+		$file_buffer .=
+		  "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
+	}
+	open( my $fh, '>>', $out_file ) || $logger->error("Cannot open $out_file for appending");
+	say $fh $file_buffer;
+	close $fh;
+	if ( @labels && $self->{'config'}->{'chartdirector'} ) {
+		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core2.png";
+		BIGSdb::Charts::barchart(
+			\@labels, \@values, $image_file, 'large',
+			{ 'x-title'      => 'Overall mean distance', 'y-title' => 'Number of loci' },
+			{ no_transparent => 1 }
+		);
+		if ( -e $image_file ) {
+			$self->{'jobManager'}->update_job_output(
+				$args->{'job_id'},
+				{
+					filename    => "$args->{'job_id'}\_core2.png",
+					description => '42_Overall mean distance (from consensus sequence) '
+					  . 'of core genome alleles (PNG format)'
+				}
+			);
+		}
+	}
+	return;
+}
+
+sub _get_largest_distance {
+	my ( $self, $core_loci, $loci ) = @_;
+	my $largest = 0;
+	foreach my $locus (@$core_loci) {
+		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;
+	}
+	return $largest;
 }
 
 sub _create_list_file {
