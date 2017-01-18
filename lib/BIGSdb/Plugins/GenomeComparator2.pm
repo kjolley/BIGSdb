@@ -29,7 +29,6 @@ use Bio::Seq;
 use Bio::SeqIO;
 use Excel::Writer::XLSX;
 use Digest::MD5;
-my $THREADS = 6;
 
 #use BIGSdb::Offline::Scan;
 #use BIGSdb::Offline::GCHelper;
@@ -391,6 +390,10 @@ sub _print_core_genome_fieldset {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
+	$self->{'threads'} =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
+	  ? $self->{'config'}->{'genome_comparator_threads'}
+	  : 1;
 
 	#Allow temp files to be cleaned on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
@@ -1734,7 +1737,6 @@ sub _write_excel_parameters {
 		{ label   => 'Min % identity', value => $params->{'identity'} },
 		{ label   => 'Min % alignment', value => $params->{'alignment'} },
 		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
-		{ label   => 'Use TBLASTX', value => $params->{'tblastx'} ? 'yes' : 'no' }
 	  );
 
 	#Distance matrix
@@ -1786,8 +1788,8 @@ sub _write_excel_parameters {
 }
 
 sub _write_excel_citations {
-	my ( $self, $args ) = @_;
-	my ( $workbook, $formats ) =  @{$args}{qw(workbook formats)};
+	my ( $self,     $args )    = @_;
+	my ( $workbook, $formats ) = @{$args}{qw(workbook formats)};
 	my $params    = $self->{'params'};
 	my $worksheet = $workbook->add_worksheet('citation');
 	my %excel_format;
@@ -1843,7 +1845,7 @@ sub _assemble_data_for_defined_loci {
 		database          => $self->{'params'}->{'db'},
 		isolate_list_file => $isolate_list,
 		locus_list_file   => $locus_list,
-		threads           => $THREADS,
+		threads           => $self->{'threads'},
 		job_id            => $job_id,
 		exemplar          => 1,
 		use_tagged        => 1,
@@ -1875,7 +1877,7 @@ sub _assemble_data_for_reference_genome {
 		isolate_list_file => $isolate_list,
 		reference_file    => $ref_seq_file,
 		locus_count       => scalar @$loci,
-		threads           => $THREADS,
+		threads           => $self->{'threads'},
 		job_id            => $job_id,
 		user_params       => $self->{'params'},
 		locus_data        => $locus_data,
