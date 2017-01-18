@@ -55,7 +55,7 @@ sub get_attributes {
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
-		order       => 30,
+		order       => 31,
 		requires    => 'aligner,offline_jobs,js_tree',
 		input       => 'query',
 		help        => 'tooltips',
@@ -472,9 +472,9 @@ sub _analyse_by_loci {
 		);
 		return;
 	}
-	$self->{'file_buffer'} = qq(Analysis against defined loci\n);
-	$self->{'file_buffer'} .= q(Time: ) . ( localtime(time) ) . qq(\n\n);
-	$self->{'file_buffer'} .=
+	my $file_buffer = qq(Analysis against defined loci\n);
+	$file_buffer .= q(Time: ) . ( localtime(time) ) . qq(\n\n);
+	$file_buffer .=
 	    q(Allele numbers are used where these have been defined, otherwise sequences will be )
 	  . qq(marked as 'New#1, 'New#2' etc.\n)
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
@@ -482,8 +482,12 @@ sub _analyse_by_loci {
 	my $scan_data = $self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
-		$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		}
+		$file_buffer .= $self->_get_text_output( 0, $ids, $scan_data );
+		$self->_output_file_buffer( $job_id, $file_buffer );
 		$self->_generate_splits( $job_id, $scan_data );
 	}
 	$self->delete_temp_files("$job_id*");
@@ -515,12 +519,12 @@ sub _analyse_by_reference {
 	my $html_buffer = q(<h3>Analysis by reference genome</h3>);
 	$html_buffer .= q(<dl class="data">);
 	my $td = 1;
-	$self->{'file_buffer'} = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
+	my $file_buffer = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
 	foreach my $field (qw (accession version type length description cds)) {
 		if ( $att{$field} ) {
 			my $field_name = $abb{$field} // $field;
 			$html_buffer .= qq(<dt>$field_name</dt><dd>$att{$field}</dd>\n);
-			$self->{'file_buffer'} .= qq($field_name: $att{$field}\n);
+			$file_buffer .= qq($field_name: $att{$field}\n);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
@@ -537,17 +541,83 @@ sub _analyse_by_reference {
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
-	$self->{'file_buffer'} .= "\n\nAll loci\n--------\n\n";
-	$self->{'file_buffer'} .=
-	    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
-	  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
-		$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
+		}
+		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
+		$self->_output_file_buffer( $job_id, $file_buffer );
 		$self->_generate_splits( $job_id, $scan_data );
 	}
 	$self->delete_temp_files("$job_id*");
+	return;
+}
+
+sub _get_text_underlined {
+	my ( $self, $title ) = @_;
+	my $buffer = qq($title\n);
+	$buffer .= q(-) x length($title) . qq(\n\n);
+	return $buffer;
+}
+
+sub _get_text_output {
+	my ( $self, $by_ref, $ids, $scan_data ) = @_;
+	my $buffer = qq(\n);
+	$buffer .= $self->_get_text_underlined('All loci');
+	if ($by_ref) {
+		$buffer .=
+		    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
+		  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
+	}
+	$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'loci'} );
+	my $variable_count = @{ $scan_data->{'variable'} };
+	if ($variable_count) {
+		$buffer .= $self->_get_text_underlined('Loci with sequence differences among isolates');
+		$buffer .= qq(Variable loci: $variable_count\n\n);
+		$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'variable'} );
+	}
+	my $missing_count = @{ $scan_data->{'missing_in_all'} };
+	if ($missing_count) {
+		$buffer .= $self->_get_text_underlined('Loci missing in all isolates');
+		$buffer .= qq(Missing loci: $missing_count\n\n);
+		$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'missing_in_all'} );
+	}
+	my $identical_count = @{ $scan_data->{'identical_in_all'} };
+	if ($identical_count) {
+		$buffer .= $self->_get_text_underlined('Exactly matching loci');
+		$buffer .= qq(Matches: $identical_count\n\n);
+		$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'identical_in_all'} );
+	}
+	if ($by_ref) {
+		my $identical_except_ref_count = @{ $scan_data->{'identical_in_all_except_ref'} };
+		if ($identical_except_ref_count) {
+			$buffer .= $self->_get_text_underlined(
+				'Loci exactly the same in all compared genomes with possible exception of the reference');
+			$buffer .= qq(Matches: $identical_except_ref_count\n\n);
+			$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'identical_in_all_except_ref'} );
+		}
+	}
+	my $incomplete_count = @{ $scan_data->{'incomplete_in_some'} };
+	if ($incomplete_count) {
+		$buffer .= $self->_get_text_underlined('Loci that are incomplete in some isolates');
+		$buffer .= qq(Incomplete: $incomplete_count\n\n);
+		$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'incomplete_in_some'} );
+	}
+	$buffer .= $self->_get_unique_strain_text_table( $ids, $scan_data );
+	$buffer .= $self->_get_paralogous_loci_text_table( $ids, $scan_data );
+	return $buffer;
+}
+
+sub _output_file_buffer {
+	my ( $self, $job_id, $buffer ) = @_;
+	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	open( my $job_fh, '>', $job_file ) || $logger->error("Cannot open $job_file for writing");
+	say $job_fh $buffer;
+	close $job_fh;
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
 	return;
 }
 
@@ -593,7 +663,7 @@ sub _get_html_output {
 		my $identical_except_ref_count = @{ $scan_data->{'identical_in_all_except_ref'} };
 		if ($identical_except_ref_count) {
 			$buffer .=
-			  q(<h3>Loci exactly the same in all compared genomes ) . q(with possible exception of the reference</h3>);
+			  q(<h3>Loci exactly the same in all compared genomes with possible exception of the reference</h3>);
 			$buffer .= qq(<p>Matches: $identical_except_ref_count</p>);
 			$buffer .= $self->_get_html_table( $by_ref, $ids, $scan_data, $scan_data->{'identical_in_all_except_ref'} );
 		}
@@ -652,6 +722,36 @@ sub _get_html_table {
 	return $buffer;
 }
 
+sub _get_text_table {
+	my ( $self, $by_ref, $ids, $scan_data, $loci ) = @_;
+	my $total_records = @$ids;
+	$total_records++ if $by_ref;
+	my $buffer = $self->_get_isolate_table_header( $by_ref, $ids, 'text' );
+	foreach my $locus (@$loci) {
+		my $locus_data = $scan_data->{'locus_data'}->{$locus};
+		my $length     = length( $locus_data->{'sequence'} );
+		if ($by_ref) {
+			$buffer .=
+			  qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t) . qq($length\t$locus_data->{'start'});
+		} else {
+			my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
+			$buffer .= $locus_name;
+		}
+		if ($by_ref) {
+			$buffer .= qq(\t1);
+		}
+		foreach my $isolate_id (@$ids) {
+			my $value = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
+			$value = 'X' if $value eq 'missing';
+			$value = 'I' if $value eq 'incomplete';
+			$buffer .= qq(\t$value);
+		}
+		$buffer .= qq(\n);
+	}
+	$buffer .= qq(\n###\n\n);
+	return $buffer;
+}
+
 sub _get_html_formatted_value {
 	my ( $self, $value, $colour, $id_count ) = @_;
 	my %formatted = (
@@ -689,7 +789,8 @@ sub _get_unique_strain_html_table {
 		$buffer .= qq(<td class="td$td">@$isolates</td>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	return $buffer .= q(</tr></table></div>);
+	$buffer .= q(</tr></table></div>);
+	return $buffer;
 }
 
 sub _get_paralogous_loci_html_table {
@@ -714,6 +815,46 @@ sub _get_paralogous_loci_html_table {
 	return $buffer;
 }
 
+sub _get_unique_strain_text_table {
+	my ( $self, $ids, $data ) = @_;
+	my $buffer       = $self->_get_text_underlined('Unique strains');
+	my $strain_count = keys %{ $data->{'unique_strains'}->{'strain_counts'} };
+	$buffer .= qq(Unique strains: $strain_count\n\n);
+	my @strain_hashes =
+	  sort { $data->{'unique_strains'}->{'strain_counts'}->{$b} <=> $data->{'unique_strains'}->{'strain_counts'}->{$a} }
+	  keys %{ $data->{'unique_strains'}->{'strain_counts'} };
+	my $strain_num = 1;
+	foreach my $strain (@strain_hashes) {
+		$buffer .= qq(Strain $strain_num:\n);
+		my $isolates = $data->{'unique_strains'}->{'strain_isolates'}->{$strain};
+		foreach my $isolate (@$isolates) {
+			$buffer .= qq($isolate\n);
+		}
+		$buffer .= qq(\n);
+		$strain_num++;
+	}
+	$buffer .= qq(###\n\n);
+	return $buffer;
+}
+
+sub _get_paralogous_loci_text_table {
+	my ( $self, $ids, $data ) = @_;
+	my $loci = $data->{'paralogous_in_all'};
+	return q() if !@$loci;
+	my $buffer = $self->_get_text_underlined('Potentially paralogous loci');
+	$buffer .= q(The table shows the loci that had multiple hits in every isolate )
+	  . qq((except those where the locus was absent).\n\n);
+	my $count = @$loci;
+	$buffer .= qq(Paralogous: $count\n\n);
+	$buffer .= qq(Locus\tIsolate count\n);
+
+	foreach my $locus (@$loci) {
+		my $isolate_count = $data->{'paralogous'}->{$locus};
+		$buffer .= qq($locus\t$isolate_count\n);
+	}
+	return $buffer;
+}
+
 sub _get_isolate_table_header {
 	my ( $self, $by_reference, $ids, $format ) = @_;
 	my @header = 'Locus';
@@ -727,6 +868,9 @@ sub _get_isolate_table_header {
 	if ( $format eq 'html' ) {
 		local $" = q(</th><th>);
 		return qq(<tr><th>@header</th></tr>);
+	} else {
+		local $" = qq(\t);
+		return qq(@header\n);
 	}
 	return;
 }
@@ -981,7 +1125,7 @@ sub _assemble_data_for_reference_genome {
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning: isolate record#1' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning: isolate record:1' } );
 	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
 	my $params = {
