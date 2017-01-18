@@ -77,7 +77,7 @@ sub run {
 						$params->{'job_id'},
 						{
 							percent_complete => $percent_complete,
-							stage            => "Scanning isolate record $isolate_count complete"
+							stage            => "Scanning: isolate record $isolate_count complete"
 						}
 					);
 				}

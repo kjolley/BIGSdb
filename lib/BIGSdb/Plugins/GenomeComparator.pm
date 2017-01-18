@@ -1635,7 +1635,7 @@ sub _report_citations {
 	my @schemes = split /,/x, ( $params->{'cite_schemes'} // q() );
 
 	foreach my $scheme_id (@schemes) {
-		if ( $self->_should_scheme_be_cited($scheme_id) ) {
+		if ( $self->should_scheme_be_cited($scheme_id) ) {
 			my $pmids =
 			  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
 				$scheme_id, { fetch => 'col_arrayref' } );

@@ -27,6 +27,8 @@ use BIGSdb::GCForkScan;
 use Bio::AlignIO;
 use Bio::Seq;
 use Bio::SeqIO;
+use Excel::Writer::XLSX;
+use Digest::MD5;
 my $THREADS = 6;
 
 #use BIGSdb::Offline::Scan;
@@ -51,7 +53,7 @@ sub get_attributes {
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Compare genomes at defined loci or against loci defined in a reference genome',
 		category    => 'Analysis',
-		buttontext  => 'GC2 beta',
+		buttontext  => 'Genome Comparator 2',
 		menutext    => 'Genome comparator 2 (beta)',
 		module      => 'GenomeComparator2',
 		version     => '2.0.0',
@@ -504,13 +506,15 @@ sub _analyse_by_loci {
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
 		$self->_align( $job_id, 1, $ids, $scan_data );
+		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
+		my $dismat = $self->_generate_splits( $job_id, $scan_data );
+		$self->_generate_excel_file( $job_id, 0, $ids, $scan_data, $dismat );
 		$file_buffer .= $self->_get_text_output( 0, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
-		$self->_generate_splits( $job_id, $scan_data );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -573,7 +577,8 @@ sub _analyse_by_reference {
 		}
 		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
-		$self->_generate_splits( $job_id, $scan_data );
+		my $dismat = $self->_generate_splits( $job_id, $scan_data );
+		$self->_generate_excel_file( $job_id, 1, $ids, $scan_data, $dismat );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -748,8 +753,6 @@ sub _get_html_table {
 
 sub _get_text_table {
 	my ( $self, $by_ref, $ids, $scan_data, $loci ) = @_;
-	my $total_records = @$ids;
-	$total_records++ if $by_ref;
 	my $buffer = $self->_get_isolate_table_header( $by_ref, $ids, 'text' );
 	foreach my $locus (@$loci) {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
@@ -992,7 +995,7 @@ sub _generate_splits {
 			}
 		);
 	}
-	return;
+	return $dismat;
 }
 
 sub _generate_distance_matrix {
@@ -1371,6 +1374,463 @@ sub _run_infoalign {
 		}
 	}
 	return;
+}
+
+sub _generate_excel_file {
+	my ( $self, $job_id, $by_ref, $ids, $scan_data, $dismat ) = @_;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating Excel file' } );
+	open( my $excel_fh, '>', \my $excel )
+	  || $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
+	my $excel_data = \$excel;
+	my $workbook   = Excel::Writer::XLSX->new($excel_fh);
+	$workbook->set_tempdir( $self->{'config'}->{'secure_tmp_dir'} );
+	$workbook->set_optimization;                                   #Reduce memory usage
+	my $formats = {};
+	$formats->{'header'} = $workbook->add_format(
+		bg_color     => 'navy',
+		color        => 'white',
+		bold         => 1,
+		align        => 'center',
+		border       => 1,
+		border_color => 'white'
+	);
+	$formats->{'locus'} = $workbook->add_format(
+		bg_color     => '#D0D0D0',
+		color        => 'black',
+		align        => 'center',
+		border       => 1,
+		border_color => '#A0A0A0'
+	);
+	$formats->{'I'} = $workbook->add_format(
+		bg_color     => 'green',
+		color        => 'white',
+		align        => 'center',
+		border       => 1,
+		border_color => 'white'
+	);
+	$formats->{'X'} = $workbook->add_format(
+		bg_color     => 'black',
+		color        => 'white',
+		align        => 'center',
+		border       => 1,
+		border_color => 'white'
+	);
+	$formats->{'normal'} = $workbook->add_format( align => 'center' );
+	my $args = {
+		workbook  => $workbook,
+		formats   => $formats,
+		job_id    => $job_id,
+		by_ref    => $by_ref,
+		ids       => $ids,
+		scan_data => $scan_data
+	};
+	my $locus_set = {
+		'all'             => $scan_data->{'loci'},
+		'variable'        => $scan_data->{'variable'},
+		'missing in all'  => $scan_data->{'missing_in_all'},
+		'same in all'     => $scan_data->{'identical_in_all'},
+		'same except ref' => $scan_data->{'identical_in_all_except_ref'},
+		'incomplete'      => $scan_data->{'incomplete_in_some'}
+	};
+
+	foreach my $tab ( 'all', 'variable', 'missing in all', 'same in all', 'same except ref', 'incomplete' ) {
+		$args->{'loci'} = $locus_set->{$tab};
+		$args->{'tab'}  = $tab;
+		$self->_write_excel_table_worksheet($args);
+	}
+	$self->_write_excel_unique_strains($args);
+	$self->_write_excel_paralogous_loci($args);
+	$self->_write_excel_distance_matrix( $dismat, $args );
+	$self->_write_excel_parameters($args);
+	$self->_write_excel_citations($args);
+	$workbook->close;
+	my $excel_file = "$self->{'config'}->{'tmp_dir'}/$job_id.xlsx";
+	open( $excel_fh, '>', $excel_file ) || $logger->error("Cannot open $excel_file for writing.");
+	binmode $excel_fh;
+	print $excel_fh $$excel_data;
+	close $excel_fh;
+
+	if ( -e $excel_file ) {
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } );
+	}
+	return;
+}
+
+sub _write_excel_table_worksheet {
+	my ( $self, $args ) = @_;
+	my ( $workbook, $formats, $tab, $by_ref, $ids, $scan_data, $loci ) =
+	  @{$args}{qw(workbook formats tab by_ref ids scan_data loci)};
+	return if !@$loci;
+	my $total_records = @$ids;
+	$total_records++ if $by_ref;
+	my @header = 'Locus';
+	if ($by_ref) {
+		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
+	}
+	foreach my $id (@$ids) {
+		my $isolate = $self->_get_isolate_name($id);
+		push @header, $isolate;
+	}
+	my $worksheet     = $workbook->add_worksheet($tab);
+	my $col           = 0;
+	my $col_max_width = {};
+	foreach my $heading (@header) {
+		$worksheet->write( 0, $col, $heading, $formats->{'header'} );
+		if ( length $heading > ( $col_max_width->{$col} // 0 ) ) {
+			$col_max_width->{$col} = length $heading;
+		}
+		$col++;
+	}
+	$worksheet->freeze_panes( 1, 1 );
+	my $row = 0;
+	foreach my $locus (@$loci) {
+		$col = 0;
+		$row++;
+		my $colour = 0;
+		my %value_colour;
+		my $locus_data = $scan_data->{'locus_data'}->{$locus};
+		if ($by_ref) {
+			my @locus_desc = (
+				$locus_data->{'full_name'},          $locus_data->{'description'},
+				length( $locus_data->{'sequence'} ), $locus_data->{'start'}
+			);
+			foreach my $locus_value (@locus_desc) {
+				$worksheet->write( $row, $col, $locus_value, $formats->{'locus'} );
+				if ( length($locus_value) > ( $col_max_width->{$col} // 0 ) ) {
+					$col_max_width->{$col} = length($locus_value);
+				}
+				$col++;
+			}
+			$colour++;
+			$value_colour{1} = $colour;
+			my $style = BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $total_records );
+			if ( !$formats->{$colour} ) {
+				my $excel_style =
+				  BIGSdb::Utils::get_heatmap_colour_style( $value_colour{1}, $total_records, { excel => 1 } );
+				$formats->{$colour} = $workbook->add_format(%$excel_style);
+			}
+			$worksheet->write( $row, $col, 1, $formats->{$colour} );
+		} else {
+			$worksheet->write( $row, $col, $locus, $formats->{'locus'} );
+		}
+		foreach my $isolate_id (@$ids) {
+			$col++;
+			my $value = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
+			if ( $value eq 'missing' ) {
+				$value = 'X';
+				$worksheet->write( $row, $col, $value, $formats->{'X'} );
+			} elsif ( $value eq 'incomplete' ) {
+				$value = 'I';
+				$worksheet->write( $row, $col, $value, $formats->{'I'} );
+			} else {
+				if ( !$value_colour{$value} ) {
+					$colour++;
+					$value_colour{$value} = $colour;
+				}
+				if ( !$formats->{$colour} ) {
+					my $excel_style =
+					  BIGSdb::Utils::get_heatmap_colour_style( $value_colour{$value}, $total_records, { excel => 1 } );
+					$formats->{$colour} = $workbook->add_format(%$excel_style);
+				}
+				$worksheet->write( $row, $col, $value, $formats->{ $value_colour{$value} } );
+			}
+		}
+	}
+	foreach my $col ( keys %$col_max_width ) {
+		$worksheet->set_column( $col, $col, $self->_excel_col_width( $col_max_width->{$col} ) );
+	}
+	return;
+}
+
+sub _excel_col_width {
+	my ( $self, $length ) = @_;
+	my $width = int( 0.9 * ($length) + 2 );
+	$width = 50 if $width > 50;
+	$width = 5  if $width < 5;
+	return $width;
+}
+
+sub _write_excel_unique_strains {
+	my ( $self, $args ) = @_;
+	my ( $workbook, $formats, $by_ref, $ids, $scan_data ) = @{$args}{qw(workbook formats by_ref ids scan_data)};
+	my $strain_count = keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
+	my @strain_hashes =
+	  sort {
+		$scan_data->{'unique_strains'}->{'strain_counts'}->{$b} <=> $scan_data->{'unique_strains'}->{'strain_counts'}
+		  ->{$a}
+	  }
+	  keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
+	my $num_strains = @strain_hashes;
+	my $worksheet   = $workbook->add_worksheet('unique strains');
+	my $col         = 0;
+
+	foreach ( 1 .. $num_strains ) {
+		$worksheet->write( 0, $col, "Strain $_", $formats->{'header'} );
+		$col++;
+	}
+	$col = 0;
+
+	#With Excel::Writer::XLSX->set_optimization() switched on, rows need to be written in sequential order
+	#So we need to calculate them first, then write them afterwards.
+	my $excel_values        = [];
+	my $excel_col_max_width = [];
+	my $strain_id           = 1;
+	foreach my $strain (@strain_hashes) {
+		my $row        = 1;
+		my $max_length = 5;
+		my $isolates   = $scan_data->{'unique_strains'}->{'strain_isolates'}->{$strain};
+		foreach my $isolate (@$isolates) {
+			$excel_values->[$row]->[$col] = $isolate;
+			$max_length = length $isolate if length $isolate > $max_length;
+			$row++;
+		}
+		$excel_col_max_width->[$col] = $self->_excel_col_width($max_length);
+		$col++;
+		$strain_id++;
+	}
+	for my $row ( 1 .. @$excel_values - 1 ) {
+		for my $col ( 0 .. @{ $excel_values->[$row] } - 1 ) {
+			$worksheet->write( $row, $col, $excel_values->[$row]->[$col], $self->{'excel_format'}->{'normal'} );
+		}
+	}
+	for my $col ( 0 .. @$excel_col_max_width - 1 ) {
+		$worksheet->set_column( $col, $col, $excel_col_max_width->[$col] );
+	}
+	$self->{'html_buffer'} .= "</tr></table></div>\n";
+	$worksheet->freeze_panes( 1, 0 );
+	return;
+}
+
+sub _write_excel_paralogous_loci {
+	my ( $self, $args ) = @_;
+	my ( $workbook, $formats, $scan_data ) = @{$args}{qw(workbook formats scan_data)};
+	my $loci = $scan_data->{'paralogous_in_all'};
+	return if !@$loci;
+	my $worksheet = $workbook->add_worksheet('paralogous loci');
+	$worksheet->write( 0, 0, 'Locus',         $formats->{'header'} );
+	$worksheet->write( 0, 1, 'Isolate count', $formats->{'header'} );
+	my $row        = 1;
+	my $max_length = 5;
+
+	foreach my $locus (@$loci) {
+		$max_length = length $locus if length $locus > $max_length;
+		my $isolate_count = $scan_data->{'paralogous'}->{$locus};
+		$worksheet->write( $row, 0, $locus,         $formats->{'normal'} );
+		$worksheet->write( $row, 1, $isolate_count, $formats->{'normal'} );
+		$row++;
+	}
+	my $excel_col_max_width = $self->_excel_col_width( $max_length + 2 );
+	$worksheet->set_column( 0, 0, $excel_col_max_width );
+	$worksheet->set_column( 1, 1, 15 );
+	$worksheet->freeze_panes( 1, 0 );
+	return;
+}
+
+sub _write_excel_distance_matrix {
+	my ( $self, $dismat, $args ) = @_;
+	my ( $workbook, $formats, $by_ref, $ids, $scan_data ) = @{$args}{qw(workbook formats by_ref ids scan_data)};
+	my %labels;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	foreach my $id (@ids) {
+		if ( $id == 0 ) {
+			$labels{$id} = 'ref';
+		} else {
+			$labels{$id} = $self->_get_identifier($id);
+		}
+	}
+	my $worksheet = $workbook->add_worksheet('distance matrix');
+	my $max       = $self->_get_max_from_dismat($dismat);
+	my $col       = 1;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		$worksheet->write( 0, $col, $labels{ $ids[$i] } );
+		$col++;
+	}
+	my $row = 1;
+	$col = 0;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		$worksheet->write( $row, $col, $labels{ $ids[$i] } );
+		foreach my $j ( 0 .. $i ) {
+			$col++;
+			my $value = $dismat->{ $ids[$i] }->{ $ids[$j] };
+			if ( !$formats->{"d$value"} ) {
+				my $excel_style = BIGSdb::Utils::get_heatmap_colour_style( $value, $max, { excel => 1 } );
+				$formats->{"d$value"} = $workbook->add_format(%$excel_style);
+			}
+			$worksheet->write( $row, $col, $dismat->{ $ids[$i] }->{ $ids[$j] }, $formats->{"d$value"} );
+		}
+		$col = 0;
+		$row++;
+	}
+	$worksheet->freeze_panes( 1, 1 );
+	return;
+}
+
+sub _get_max_from_dismat {
+	my ( $self, $dismat ) = @_;
+	my $max = 0;
+	my @ids = sort { $a <=> $b } keys %$dismat;
+	foreach my $i ( 0 .. @ids - 1 ) {
+		foreach my $j ( 0 .. $i ) {
+			my $value = $dismat->{ $ids[$i] }->{ $ids[$j] };
+			$max = $value if $value > $max;
+		}
+	}
+	return $max;
+}
+
+sub _write_excel_parameters {
+	my ( $self, $args ) = @_;
+	my ( $ids, $job_id, $scan_data, $by_ref, $workbook, $formats ) =
+	  @{$args}{qw(ids job_id scan_data by_ref workbook formats)};
+	my $loci      = $scan_data->{'loci'};
+	my $worksheet = $workbook->add_worksheet('parameters');
+	my $row       = 0;
+	$formats->{'heading'} = $workbook->add_format( size  => 14,      align => 'left', bold => 1 );
+	$formats->{'key'}     = $workbook->add_format( align => 'right', bold  => 1 );
+	$formats->{'value'}   = $workbook->add_format( align => 'left' );
+	my $job = $self->{'jobManager'}->get_job($job_id);
+	my $total_time;
+	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
+
+	if ($@) {
+		$total_time = int( $job->{'elapsed'} ) . ' s';
+	} else {
+		$total_time = duration( $job->{'elapsed'} );
+		$total_time = '<1 second' if $total_time eq 'just now';
+	}
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
+	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//x;
+	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//x;
+
+	#Job attributes
+	my @parameters = (
+		{ section => 'Job attributes', nospace => 1 },
+		{ label   => 'Plugin version', value   => $self->get_attributes->{'version'} },
+		{ label   => 'Job',            value   => $job_id },
+		{ label   => 'Database',       value   => $job->{'dbase_config'} },
+		{ label   => 'Submit time',    value   => $submit_time },
+		{ label   => 'Start time',     value   => $start_time },
+		{ label   => 'Stop time',      value   => $stop_time },
+		{ label   => 'Total time',     value   => $total_time },
+		{ label   => 'Isolates',       value   => scalar @$ids },
+		{ label   => 'Analysis type',  value   => $by_ref ? 'against reference genome' : 'against defined loci' },
+	);
+	my $params = $self->{'params'};
+	if ($by_ref) {
+		push @parameters,
+		  {
+			label => 'Accession',
+			value => $params->{'annotation'} || $params->{'accession'} || $params->{'upload_filename'}
+		  };
+	} else {
+		push @parameters, { label => 'Loci', value => scalar @$loci };
+	}
+
+	#Parameters/options
+	push @parameters,
+	  (
+		{ section => 'Parameters' },
+		{ label   => 'Min % identity', value => $params->{'identity'} },
+		{ label   => 'Min % alignment', value => $params->{'alignment'} },
+		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
+		{ label   => 'Use TBLASTX', value => $params->{'tblastx'} ? 'yes' : 'no' }
+	  );
+
+	#Distance matrix
+	my $labels = {
+		exclude       => 'Completely exclude from analysis',
+		include_as_T  => 'Treat as distinct allele',
+		pairwise_same => 'Ignore in pairwise comparison'
+	};
+	push @parameters,
+	  (
+		{ section => 'Distance matrix calculation' },
+		{ label   => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) }
+	  );
+	push @parameters, { label => 'Exclude paralogous loci', value => $params->{'exclude_paralogous'} ? 'yes' : 'no' };
+
+	#Alignments
+	push @parameters,
+	  ( { section => 'Alignments' }, { label => 'Produce alignments', value => $params->{'align'} ? 'yes' : 'no' } );
+	if ( $params->{'align'} ) {
+		push @parameters,
+		  (
+			{ label => 'Align all', value => $params->{'align_all'} ? 'yes' : 'no' },
+			{ label => 'Aligner', value => $params->{'aligner'} }
+		  );
+	}
+
+	#Core genome analysis
+	push @parameters,
+	  (
+		{ section => 'Core genome analysis' },
+		{ label   => 'Core threshold %', value => $params->{'core_threshold'} },
+		{ label   => 'Calculate mean distances', value => $params->{'calc_distances'} ? 'yes' : 'no' }
+	  );
+	my $longest_length = 0;
+	foreach my $parameter (@parameters) {
+		if ( $parameter->{'section'} ) {
+			$row++ if !$parameter->{'nospace'};
+			$worksheet->write( $row, 0, $parameter->{'section'}, $formats->{'heading'} );
+		} else {
+			$worksheet->write( $row, 0, $parameter->{'label'} . ':', $formats->{'key'} );
+			$worksheet->write( $row, 1, $parameter->{'value'},       $formats->{'value'} );
+		}
+		$row++;
+		next if !$parameter->{'label'};
+		$longest_length = length( $parameter->{'label'} ) if length( $parameter->{'label'} ) > $longest_length;
+	}
+	$worksheet->set_column( 0, 0, $self->_excel_col_width($longest_length) );
+	return;
+}
+
+sub _write_excel_citations {
+	my ( $self, $args ) = @_;
+	my ( $workbook, $formats ) =  @{$args}{qw(workbook formats)};
+	my $params    = $self->{'params'};
+	my $worksheet = $workbook->add_worksheet('citation');
+	my %excel_format;
+	$formats = $workbook->add_format( size => 12, align => 'left', bold => 1 );
+	$formats = $workbook->add_format( align => 'left' );
+	$worksheet->write( 0, 0, 'Please cite the following:',                         $excel_format{'heading'} );
+	$worksheet->write( 2, 0, q(BIGSdb Genome Comparator),                          $excel_format{'heading'} );
+	$worksheet->write( 3, 0, q(Jolley & Maiden (2010). BMC Bioinformatics 11:595), $excel_format{'value'} );
+	my $row = 5;
+	my @schemes = split /,/x, ( $params->{'cite_schemes'} // q() );
+
+	foreach my $scheme_id (@schemes) {
+		if ( $self->should_scheme_be_cited($scheme_id) ) {
+			my $pmids =
+			  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
+				$scheme_id, { fetch => 'col_arrayref' } );
+			my $citations = $self->{'datastore'}->get_citation_hash($pmids);
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			$worksheet->write( $row, 0, $scheme_info->{'name'}, $excel_format{'heading'} );
+			foreach my $pmid (@$pmids) {
+				$row++;
+				$worksheet->write( $row, 0, $citations->{$pmid}, $excel_format{'value'} );
+			}
+			$row += 2;
+		}
+	}
+	return;
+}
+
+sub _upload_ref_file {
+	my ($self) = @_;
+	my $temp = BIGSdb::Utils::get_random();
+	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/x ? $1 : q();
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_ref$format";
+	my $buffer;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload('ref_upload');
+	binmode $fh2;
+	binmode $fh;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	print $fh $buffer;
+	close $fh;
+	return "$temp\_ref$format";
 }
 
 sub _assemble_data_for_defined_loci {
@@ -1757,7 +2217,7 @@ sub _core_mean_distance {
 		push @values, $upper_range{0} // 0;
 		while ( $range <= $largest_distance ) {
 			$range += $increment;
-			$range = ( int( ( $range * 10000.0 ) + 0.5 ) / 10000.0 );                        #Set float precision
+			$range = ( int( ( $range * 10000.0 ) + 0.5 ) / 10000.0 );    #Set float precision
 			my $label = '>' . ( $range - $increment ) . " - $range";
 			my $value = $upper_range{$range} // 0;
 			push @labels, $label;
