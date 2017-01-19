@@ -848,7 +848,7 @@ sub add_scheme_loci {
 		next if !$q->param("s_$scheme_id");
 		push @selected_schemes, $scheme_id;
 		$q->delete("s_$scheme_id");
-		if ( $self->_should_scheme_be_cited($scheme_id) ) {
+		if ( $self->should_scheme_be_cited($scheme_id) ) {
 			push @{ $self->{'cite_schemes'} }, $scheme_id;
 		}
 	}
@@ -869,7 +869,7 @@ sub add_scheme_loci {
 	return;
 }
 
-sub _should_scheme_be_cited {
+sub should_scheme_be_cited {
 	my ( $self, $scheme_id ) = @_;
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM scheme_flags WHERE (scheme_id,flag)=(?,?))',

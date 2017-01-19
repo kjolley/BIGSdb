@@ -24,7 +24,7 @@ no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
-use List::MoreUtils qw(any );
+use List::MoreUtils qw(any);
 use Error qw(:try);
 use Fcntl qw(:flock);
 use Bio::Seq;
