@@ -60,6 +60,11 @@ sub _get_allele_designations_from_reference {
 	my $word_size = BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} ) ? $self->{'params'}->{'word_size'} : 15;
 	my $out_file =
 	  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'options'}->{'job_id'}_isolate_${isolate_id}_outfile.txt";
+	if (!$self->_does_isolate_have_sequence_data($isolate_id) ) {
+		#Don't bother with BLAST but we do not an empty results file.
+		open (my $fh, '>', $out_file) || $self->{'logger'}->error("Cannot touch $out_file");
+		close $fh;
+	} else {
 	$self->_blast(
 		{
 			word_size   => $word_size,
@@ -69,6 +74,7 @@ sub _get_allele_designations_from_reference {
 			out_file    => $out_file,
 		}
 	);
+	}
 	return $self->_parse_blast($out_file);
 }
 
@@ -163,8 +169,8 @@ sub _is_paralogous {
 	my %existing_match_seqs;
 	foreach my $record (@$locus_blast_records) {
 		if ( $record->[3] >= $alignment * 0.01 * $required_alignment && $record->[2] >= $identity ) {
-			my $this_match        = $self->_extract_match( $record, $required_alignment, $required_alignment );
-			my $match_seq         = $self->_extract_sequence($this_match);
+			my $this_match = $self->_extract_match( $record, $required_alignment, $required_alignment );
+			my $match_seq = $self->_extract_sequence($this_match);
 			if ( !$existing_match_seqs{$match_seq} ) {
 				$existing_match_seqs{$match_seq} = 1;
 				$good_matches++;
@@ -330,6 +336,12 @@ sub _get_allele_designations_from_defined_loci {
 	return $return_hash;
 }
 
+sub _does_isolate_have_sequence_data {
+	my ( $self, $isolate_id ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id=?)',
+		$isolate_id, { cache => 'GCHelper::does_isolate_have_sequence_data' } );
+}
+
 sub _scan_by_loci {
 	my ( $self, $isolate_id, $loci ) = @_;
 	return ( {}, {}, {} ) if !@$loci;
@@ -337,8 +349,14 @@ sub _scan_by_loci {
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	my $params         = {};
 	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast identity alignment word_size);
-	my ( $exact_matches, $partial_matches ) =
-	  $self->blast_multiple_loci( $params, $loci, $isolate_id, $isolate_prefix, $locus_prefix );
+	my ( $exact_matches, $partial_matches );
+	if ( !$self->_does_isolate_have_sequence_data($isolate_id) ) {
+		$exact_matches   = {};
+		$partial_matches = {};
+	} else {
+		( $exact_matches, $partial_matches ) =
+		  $self->blast_multiple_loci( $params, $loci, $isolate_id, $isolate_prefix, $locus_prefix );
+	}
 	my $designations = {};
 	my $seqs         = {};
 	my $paralogous   = {};
