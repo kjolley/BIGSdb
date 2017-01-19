@@ -167,7 +167,7 @@ sub _correct_new_designations {
 sub _rename_ref_designations_from_single_thread {
 	my ( $self, $data ) = @_;
 	foreach my $isolate_id ( keys %$data ) {
-		foreach my $locus ( keys $data->{$isolate_id}->{'designations'} ) {
+		foreach my $locus ( keys %{$data->{$isolate_id}->{'designations'}} ) {
 			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
 		}
 	}
