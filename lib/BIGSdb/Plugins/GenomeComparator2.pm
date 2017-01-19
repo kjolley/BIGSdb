@@ -29,14 +29,9 @@ use Bio::Seq;
 use Bio::SeqIO;
 use Excel::Writer::XLSX;
 use Digest::MD5;
-
-#use BIGSdb::Offline::Scan;
-#use BIGSdb::Offline::GCHelper;
-use Digest::MD5;
 use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use JSON;
-use Excel::Writer::XLSX;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_DISPLAY_TAXA => 150;
@@ -393,7 +388,7 @@ sub run_job {
 	$self->{'threads'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
 	  ? $self->{'config'}->{'genome_comparator_threads'}
-	  : 1;
+	  : 2;
 
 	#Allow temp files to be cleaned on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
