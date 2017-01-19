@@ -73,13 +73,11 @@ sub run {
 				$isolate_count++;
 				if ( $params->{'job_id'} ) {
 					my $percent_complete = int( ( $isolate_count * $finish_progress ) / @$isolates );
-					$self->{'jobManager'}->update_job_status(
-						$params->{'job_id'},
-						{
-							percent_complete => $percent_complete,
-							stage            => "Scanning: isolate record $isolate_count complete"
-						}
-					);
+					if ( $isolate_count < @$isolates ) {
+						my $next_id = $isolate_count + 1;
+						$self->{'jobManager'}->update_job_status( $params->{'job_id'},
+							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } );
+					}
 				}
 			}
 		);
@@ -167,7 +165,7 @@ sub _correct_new_designations {
 sub _rename_ref_designations_from_single_thread {
 	my ( $self, $data ) = @_;
 	foreach my $isolate_id ( keys %$data ) {
-		foreach my $locus ( keys %{$data->{$isolate_id}->{'designations'}} ) {
+		foreach my $locus ( keys %{ $data->{$isolate_id}->{'designations'} } ) {
 			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
 		}
 	}

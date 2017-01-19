@@ -33,9 +33,9 @@ use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_DISPLAY_TAXA => 150;
-use constant MAX_GENOMES      => 1000;
-use constant MAX_REF_LOCI     => 10000;
+use constant MAX_DISPLAY_CELLS => 100_000;
+use constant MAX_GENOMES       => 1000;
+use constant MAX_REF_LOCI      => 10000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -503,7 +503,8 @@ sub _analyse_by_loci {
 	if ( !$self->{'exit'} ) {
 		$self->_align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
-		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
+		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
@@ -567,7 +568,8 @@ sub _analyse_by_reference {
 	if ( !$self->{'exit'} ) {
 		$self->_align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
-		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
+		if ( @$ids <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
