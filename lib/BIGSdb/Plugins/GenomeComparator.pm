@@ -969,7 +969,7 @@ sub _generate_splits {
 			  . 'calculated as the number of loci with different allele sequences'
 		}
 	);
-	return if ( keys %$data ) > MAX_SPLITS_TAXA;
+	return if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 90, stage => 'Generating NeighborNet' } );
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
