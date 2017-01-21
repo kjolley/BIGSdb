@@ -42,6 +42,7 @@ sub new {
 	$self->{'dataConnector'} = BIGSdb::Dataconnector->new;
 	bless( $self, $class );
 	$self->_initiate( $options->{'config_dir'} );
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->_db_connect;
 	return $self;
 }
@@ -49,6 +50,7 @@ sub new {
 sub _initiate {
 	my ( $self, $config_dir ) = @_;
 	$self->read_config_file($config_dir);
+	$self->read_host_mapping_file($config_dir);
 	return;
 }
 
