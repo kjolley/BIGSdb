@@ -261,8 +261,8 @@ sub run_job {
 			  ->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
+				$self->{'jobManager'}
+				  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
 			}
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
 			my $tree_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
@@ -270,12 +270,12 @@ sub run_job {
 			system $cmd;
 			if ( -e $tree_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)'} );
+					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
 			}
-			
+
 			my $identifiers = $self->_get_identifier_list($fasta_file);
 			my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
-			if ($params->{'itol_dataset'} && -e $itol_file){
+			if ( $params->{'itol_dataset'} && -e $itol_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
 					{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
 			}
@@ -309,9 +309,9 @@ sub _itol_upload {
 			$i++;
 			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
 			next if !$file;
-			(my $new_name = $field) =~ s/\|\|/_/x;
+			( my $new_name = $field ) =~ s/\|\|/_/x;
 			$new_name =~ s/^(e_|f_|s_\d+_)//x;
-			$zip->addFile($file, $new_name);
+			$zip->addFile( $file, $new_name );
 			push @files_to_delete, $file;
 		}
 	}
@@ -325,25 +325,31 @@ sub _itol_upload {
 		Content_Type => 'form-data',
 		Content      => [ zipFile => ["$job_id.zip"] ]
 	);
+
 	if ( $response->is_success ) {
-		my @res = split /\n/x, $response->content;
-		foreach my $res_line (@res) {
+		if ( !$response->content ) {
+			$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
+		} else {
+			my @res = split /\n/x, $response->content;
 
-			#check for an upload error
-			if ( $res_line =~ /^ERR/x ) {
-				$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned )
-				  . qq(the following error message:\n\n$res[-1]</p>);
-				$logger->error("@res");
-				last;
-			}
+			foreach my $res_line (@res) {
 
-			#upload without warnings, ID on first line
-			if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
-				my $url    = ITOL_TREE_URL . "/$1";
-				my $domain = ITOL_DOMAIN;
-				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
-				  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
-				last;
+				#check for an upload error
+				if ( $res_line =~ /^ERR/x ) {
+					$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned )
+					  . qq(the following error message:\n\n$res[-1]</p>);
+					$logger->error("@res");
+					last;
+				}
+
+				#upload without warnings, ID on first line
+				if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
+					my $url    = ITOL_TREE_URL . "/$1";
+					my $domain = ITOL_DOMAIN;
+					$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
+					  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
+					last;
+				}
 			}
 		}
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
@@ -352,7 +358,7 @@ sub _itol_upload {
 		$$message_html .= q(<p class="statusbad">iTOL upload failed.</p>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
 	}
-	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";;
+	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";
 }
 
 sub _create_itol_dataset {
@@ -378,8 +384,8 @@ sub _create_itol_dataset {
 	}
 	return if !$type;
 	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
-	my $filename = "${job_id}_$field";
-	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $filename      = "${job_id}_$field";
+	my $full_path     = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh 'DATASET_TEXT';
 	say $fh 'SEPARATOR TAB';
