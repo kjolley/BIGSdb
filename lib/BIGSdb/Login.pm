@@ -264,7 +264,7 @@ sub _print_login_form {
 	say q(<h2>Please enter your account details.</h2>);
 	if (!$ENV{'HTTP_COOKIE'}){
 		say q(<p class="highlight">You need to enable cookies to create a session.</p>);
-		$logger->error('Log in attempted with cookies disabled.');
+		$logger->info('Log in attempted with cookies disabled.');
 	}
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are hashed using Javascript prior to transmitting to the server.</p></noscript>);
