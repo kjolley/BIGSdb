@@ -147,7 +147,7 @@ sub _get_form_fields {
 			my %field_checks = (
 				primary_key    => sub { $self->_get_primary_key_field($args) },
 				no_user_update => sub { $self->_get_no_update_field($args) },
-				sender         => sub { $self->_get_sender_field($args) },
+				sender         => sub { $self->_get_user_field($args) },
 				allele_id      => sub { $self->_get_allele_id_field($args) },
 				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
 				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
@@ -283,11 +283,11 @@ sub _get_no_update_field {
 	return $buffer;
 }
 
-sub _get_sender_field {
+sub _get_user_field {
 	my ( $self, $args ) = @_;
 	my ( $name, $newdata, $att, $html5_args ) = @$args{qw(name newdata att html5_args)};
-	return q() if $att->{'name'} ne 'sender';
-	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
+	return q() if $att->{'name'} ne 'sender' && !$att->{'user_field'};
+	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { curators => $att->{'is_curator_only'} } );
 	my $q = $self->{'cgi'};
 	return $q->popup_menu(
 		-name    => $name,

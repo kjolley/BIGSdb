@@ -54,8 +54,7 @@ sub paged_display {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_${view}_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x )
-				{
+				if ( $qry =~ /temp_${view}_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				if ( $qry =~ /temp_${view}_scheme_completion_$scheme_id\D/x ) {
@@ -1095,8 +1094,8 @@ sub _print_plugin_buttons {
 
 sub _hide_field {
 	my ( $self, $attr ) = @_;
-	return 1 if $attr->{'hide'}         eq 'yes';
-	return 1 if $attr->{'hide_public'}  eq 'yes' && !$self->{'curate'};
+	return 1 if $attr->{'hide'} eq 'yes';
+	return 1 if $attr->{'hide_public'} eq 'yes' && !$self->{'curate'};
 	return 1 if $attr->{'main_display'} eq 'no';
 	return;
 }
@@ -1126,8 +1125,8 @@ sub _get_record_table_info {
 			push @headers, 'sequence length'
 			  if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
 			push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
-			push @headers, 'flag' if $table eq 'allele_sequences' && $attr->{'name'} eq 'complete';
-			push @headers, 'citation' if $attr->{'name'} eq 'pubmed_id';
+			push @headers, 'flag'            if $table eq 'allele_sequences'       && $attr->{'name'} eq 'complete';
+			push @headers, 'citation'        if $attr->{'name'} eq 'pubmed_id';
 		}
 		$type{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
@@ -1342,6 +1341,7 @@ sub _print_record_field {
 	my ( $table, $table_info, $data, $field, $primary_key, $query_values, $scheme_info ) =
 	  @{$args}{qw(table table_info data field primary_key query_values scheme_info)};
 	my $fields_to_query = {};
+	my %user_field = map { $_ => 1 } qw(sender curator curator_id);
 	$data->{ lc($field) } //= '';
 	if ( $primary_key->{$field} && !$self->{'curate'} ) {
 		$self->_print_pk_field($args);
@@ -1361,7 +1361,7 @@ sub _print_record_field {
 		print q(<td>) . ( length $data->{'sequence'} ) . q(</td>) if $table eq 'sequences';
 		return;
 	}
-	if ( $field eq 'curator' || $field eq 'sender' ) {
+	if ( $user_field{$field} ) {
 		my $user_info = $self->{'datastore'}->get_user_info( $data->{ lc($field) } );
 		print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
 		return;
@@ -1406,7 +1406,7 @@ sub _print_bool_field {
 	my ( $table, $data, $field ) = @{$args}{qw(table data field)};
 	my $value = $data->{ lc($field) } ? TRUE : FALSE;
 	print qq(<td>$value</td>);
-	
+
 	if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
 		my $flags = $self->{'datastore'}->get_sequence_flags( $data->{'id'} );
 		local $" = q(</a> <a class="seqflag_tooltip">);

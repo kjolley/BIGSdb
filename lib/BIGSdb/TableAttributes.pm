@@ -299,7 +299,8 @@ sub get_loci_table_attributes {
 			}
 		  );
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
 		{
 			name        => 'complete_cds',
@@ -331,7 +332,7 @@ sub get_loci_table_attributes {
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my %defaults;
 		if ( $self->{'system'}->{'default_seqdef_dbase'} ) {
@@ -1677,7 +1678,7 @@ sub get_scheme_curators_table_attributes {
 			primary_key     => 'yes',
 			foreign_key     => 'users',
 			is_curator_only => 1,
-			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			user_field      => 1,
 			dropdown_query  => 'yes'
 		}
 	];
@@ -1701,7 +1702,7 @@ sub get_locus_curators_table_attributes {
 			primary_key     => 'yes',
 			foreign_key     => 'users',
 			is_curator_only => 1,
-			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			user_field      => 1,
 			dropdown_query  => 'yes'
 		},
 		{
