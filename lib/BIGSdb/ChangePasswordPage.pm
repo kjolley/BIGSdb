@@ -229,8 +229,8 @@ sub _print_interface {
 			say q(<li><label class="form" style="width:10em">Domain:</label>);
 			say qq(<span><strong>$domain</strong></span></li>);
 			say $q->hidden('user_db');
-			say $q->hidden( existing => '' );
 		}
+		say $q->hidden( existing => '' );
 	} else {
 		my ( $user_names, $labels ) = $self->{'datastore'}->get_users( { identifier => 'user_name', format => 'sfu' } );
 		unshift @$user_names, '';
