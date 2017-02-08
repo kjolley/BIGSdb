@@ -905,8 +905,10 @@ sub _get_isolate_name {
 	$options = {} if ref $options ne 'HASH';
 	my $isolate = $id;
 	if ( $options->{'name_only'} ) {
-		my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
-		$isolate .= "|$name";
+		if ( !$options->{'no_name'} ) {
+			my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
+			$isolate .= "|$name";
+		}
 		return $isolate;
 	}
 	my $additional_fields = $self->_get_identifier( $id, { no_id => 1 } );
@@ -1116,6 +1118,15 @@ sub _run_splitstree {
 	return;
 }
 
+sub _is_isolate_name_selected {
+	my ($self) = @_;
+	my @includes;
+	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	my %includes = map { $_ => 1 } @includes;
+	return 1 if $includes{ $self->{'system'}->{'labelfield'} };
+	return;
+}
+
 sub _align {
 	my ( $self, $job_id, $by_ref, $ids, $scan_data ) = @_;
 	my $params = $self->{'params'};
@@ -1126,11 +1137,12 @@ sub _align {
 	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa";
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
-	my $temp           = BIGSdb::Utils::get_random();
-	my $loci           = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
-	my $progress_start = 20;
-	my $progress_total = 50;
-	my $locus_count    = 0;
+	my $temp                  = BIGSdb::Utils::get_random();
+	my $loci                  = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
+	my $progress_start        = 20;
+	my $progress_total        = 50;
+	my $locus_count           = 0;
+	my $isolate_name_selected = $self->_is_isolate_name_selected;
 
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
@@ -1155,7 +1167,7 @@ sub _align {
 		}
 		foreach my $id (@$ids) {
 			push @$ids_to_align, $id;
-			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
+			my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 			$name =~ s/[\(\)]//gx;
 			$name =~ s/ /|/;    #replace space separating id and name
 			$name =~ tr/[:, ]/_/;
@@ -1238,7 +1250,8 @@ sub _align {
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
 			my $fasta_file =
 			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
