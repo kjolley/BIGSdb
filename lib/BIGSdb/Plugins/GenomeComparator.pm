@@ -569,7 +569,7 @@ sub _analyse_by_reference {
 		$self->_align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
-		if ( @$ids <= MAX_DISPLAY_CELLS ) {
+		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
