@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.1',
+		version     => '2.0.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -971,7 +971,7 @@ sub _generate_splits {
 			  . 'calculated as the number of loci with different allele sequences'
 		}
 	);
-	return if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
+	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 90, stage => 'Generating NeighborNet' } );
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
