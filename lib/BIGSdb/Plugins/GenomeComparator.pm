@@ -1129,7 +1129,7 @@ sub _align {
 	my $temp           = BIGSdb::Utils::get_random();
 	my $loci           = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
 	my $progress_start = 20;
-	my $progress_total = 60;
+	my $progress_total = 50;
 	my $locus_count    = 0;
 
 	foreach my $locus (@$loci) {
@@ -1208,7 +1208,8 @@ sub _align {
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA', percent_complete => 70 } );
 			my $fasta_file =
 			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
@@ -1237,7 +1238,7 @@ sub _align {
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA' } );
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
 			my $fasta_file =
 			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
