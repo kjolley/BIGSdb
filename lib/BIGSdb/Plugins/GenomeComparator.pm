@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.0',
+		version     => '2.0.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1157,7 +1157,7 @@ sub _align {
 			push @$ids_to_align, $id;
 			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
 			$name =~ s/[\(\)]//gx;
-			$name =~ s/ /|/;         #replace space separating id and name
+			$name =~ s/ /|/;    #replace space separating id and name
 			$name =~ tr/[:, ]/_/;
 			$names->{$id} = $name;
 			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
@@ -1510,6 +1510,9 @@ sub _write_excel_table_worksheet {
 			}
 			$worksheet->write( $row, $col, 1, $formats->{$colour} );
 		} else {
+			if ( length($locus) > ( $col_max_width->{$col} // 0 ) ) {
+				$col_max_width->{$col} = length($locus);
+			}
 			$worksheet->write( $row, $col, $locus, $formats->{'locus'} );
 		}
 		foreach my $isolate_id (@$ids) {
@@ -1555,8 +1558,8 @@ sub _write_excel_unique_strains {
 	my $strain_count = keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
 	my @strain_hashes =
 	  sort {
-		$scan_data->{'unique_strains'}->{'strain_counts'}->{$b} <=> $scan_data->{'unique_strains'}->{'strain_counts'}
-		  ->{$a}
+		$scan_data->{'unique_strains'}->{'strain_counts'}->{$b}
+		  <=> $scan_data->{'unique_strains'}->{'strain_counts'}->{$a}
 	  }
 	  keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
 	my $num_strains = @strain_hashes;
@@ -1698,8 +1701,8 @@ sub _write_excel_parameters {
 		$total_time = '<1 second' if $total_time eq 'just now';
 	}
 	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
-	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//x;
-	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//x;
+	( my $start_time  = $job->{'start_time'} ) =~ s/\..*?$//x;
+	( my $stop_time   = $job->{'query_time'} ) =~ s/\..*?$//x;
 
 	#Job attributes
 	my @parameters = (
