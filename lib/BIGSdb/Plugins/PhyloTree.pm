@@ -1,6 +1,6 @@
 #PhyloTree.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.0.0',
+		version          => '1.0.1',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -79,22 +79,6 @@ sub run {
 			  . 'Please install one of these or check the settings in bigsdb.conf.' );
 		$allow_alignment = 0;
 	}
-	my $pk;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$pk = 'id';
-	} else {
-		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
-		if ( !$q->param('submit') ) {
-			$self->print_scheme_section( { with_pk => 1 } );
-			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
-		}
-		if ( !defined $scheme_id ) {
-			say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
-			return;
-		}
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		$pk = $scheme_info->{'primary_key'};
-	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -102,36 +86,35 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
+		my @list = split /[\r\n]+/x, $q->param('list');
+		@list = uniq @list;
+
+		if ( !@list ) {
+			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+			@list = @$id_list;
+		}
+		my @errors;
+		if ( !@list || @list < 2 ) {
+			push @errors, q(You must select at least two valid isolate ids.);
+		}
 		if (@$invalid_loci) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>The following loci in your pasted list are )
-			  . qq(invalid: @$invalid_loci.</p></div>);
-		} elsif ( !@$loci_selected ) {
-			print q(<div class="box" id="statusbad"><p>You must select one or more loci);
-			print q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say q(.</p></div>);
-		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
+			push @errors, qq(The following loci in your pasted list are invalid: @$invalid_loci.);
+		}
+		if ( !@$loci_selected ) {
+			push @errors, q(You must select one or more loci or schemes.);
+		}
+		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+			push @errors, q(Invalid data detected in list.);
+		}
+		if (@errors) {
+			local $" = qq(</p>\n<p>);
+			say qq(<div class="box" id="statusbad"><p>@errors</p></div>);
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			$params->{'pk'}     = $pk;
 			$params->{'set_id'} = $self->get_set_id;
-			my @list = split /[\r\n]+/x, $q->param('list');
-			@list = uniq @list;
-			if ( !@list ) {
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-					my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-					@list = @$id_list;
-				} else {
-					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-					my $qry = 'SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ';
-					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
-					my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
-					@list = @$id_list;
-				}
-			}
 			my $total_seqs = @$loci_selected * @list;
 			if ( $total_seqs > $max_seqs ) {
 				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $total_seqs sequences )
@@ -170,8 +153,8 @@ sub run {
 	my $commify_max_records = BIGSdb::Utils::commify($max_records);
 	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
-	my $list = $self->get_id_list( $pk, $query_file );
-	$self->print_sequence_export_form( $pk, $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
+	my $list = $self->get_id_list( 'id', $query_file );
+	$self->print_sequence_export_form( 'id', $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
 	say q(</div>);
 	return;
 }
@@ -272,7 +255,6 @@ sub run_job {
 				$self->{'jobManager'}->update_job_output( $job_id,
 					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
 			}
-
 			my $identifiers = $self->_get_identifier_list($fasta_file);
 			my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
 			if ( $params->{'itol_dataset'} && -e $itol_file ) {
@@ -325,13 +307,11 @@ sub _itol_upload {
 		Content_Type => 'form-data',
 		Content      => [ zipFile => ["$job_id.zip"] ]
 	);
-
 	if ( $response->is_success ) {
 		if ( !$response->content ) {
 			$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
 		} else {
 			my @res = split /\n/x, $response->content;
-
 			foreach my $res_line (@res) {
 
 				#check for an upload error
