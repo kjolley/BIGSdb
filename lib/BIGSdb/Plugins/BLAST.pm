@@ -29,7 +29,7 @@ use Apache2::Connection ();
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
-use constant MAX_TAXA         => 5_000;
+use constant MAX_TAXA         => 10_000;
 use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
