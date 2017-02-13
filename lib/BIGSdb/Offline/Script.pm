@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -145,20 +145,22 @@ sub _go {
 	my ($self) = @_;
 	my $load_average;
 	$self->read_config_file( $self->{'config_dir'} );
-	my $max_load = $self->{'config'}->{'max_load'} || 8;
-	try {
-		$load_average = $self->get_load_average;
-	}
-	catch BIGSdb::DataException with {
-		$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
-		exit;
-	};
-	if ( $load_average > $max_load ) {
-		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
-		if ( $self->{'options'}->{'throw_busy_exception'} ) {
-			throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
+	if ( !$self->{'options'}->{'always_run'} ) {
+		my $max_load = $self->{'config'}->{'max_load'} || 8;
+		try {
+			$load_average = $self->get_load_average;
 		}
-		return;
+		catch BIGSdb::DataException with {
+			$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
+			exit;
+		};
+		if ( $load_average > $max_load ) {
+			$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+			if ( $self->{'options'}->{'throw_busy_exception'} ) {
+				throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
+			}
+			return;
+		}
 	}
 	$self->read_host_mapping_file( $self->{'config_dir'} );
 	$self->initiate;
@@ -337,19 +339,32 @@ sub get_selected_loci {
 		$loci_qry .= $loci_qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
 		$loci_qry .= "data_type='$self->{'options'}->{'datatype'}'";
 	}
+	my $and_or = $loci_qry =~ /WHERE/x ? 'AND' : 'WHERE';
 	if ( $self->{'options'}->{'s'} ) {
 		my @schemes = split( ',', $self->{'options'}->{'s'} );
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
 		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND "
 		  . "locus IN ($loci_qry) ORDER BY scheme_id,field_order,locus";
+	} elsif ( $self->{'options'}->{'locus_list_file'} ) {
+		open( my $fh, '<', $self->{'options'}->{'locus_list_file'} )
+		  || die "Cannot open locus list file $self->{'options'}->{'locus_list_file'}.\n";
+		my @list;
+		while ( my $line = <$fh> ) {
+			next if !$line;
+			$line =~ s/^\s//x;
+			$line =~ s/\s$//x;
+			push @list, $line;
+		}
+		close $fh;
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list );
+		$qry = "$loci_qry $and_or id IN (SELECT value FROM $temp_table) ORDER BY id";
 	} elsif ( $self->{'options'}->{'l'} ) {
 		my @loci = split( ',', $self->{'options'}->{'l'} );
 		foreach (@loci) {
 			$_ =~ s/'/\\'/gx;
 		}
 		local $" = q(',E');
-		my $and_or = $loci_qry =~ /WHERE/x ? 'AND' : 'WHERE';
 		$qry = "$loci_qry $and_or id IN (E'@loci') ORDER BY id";
 	} else {
 		$qry = "$loci_qry ORDER BY id";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -92,7 +92,7 @@ sub run_script {
 		exit;
 	}
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
-	$params->{'dbase_config_dir'} = $self->{'dbase_config_dir'};
+	$params->{$_} = $self->{$_} foreach qw(lib_dir config_dir dbase_config_dir);
 	my $instance = $job->{'dbase_config'};
 	$self->_initiate_db($instance);
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};

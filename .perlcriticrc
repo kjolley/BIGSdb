@@ -1,8 +1,13 @@
 severity = stern
 
+[ControlStructures::ProhibitCascadingIfElse]
+severity = stern
+
 [-ErrorHandling::RequireCheckingReturnValueOfEval]
 
 [-InputOutput::RequireBriefOpen]
+
+[-Miscellanea::ProhibitUselessNoCritic]
 
 [-TestingAndDebugging::ProhibitNoWarnings]
 
@@ -15,9 +20,6 @@ severity = stern
 [InputOutput::ProhibitBacktickOperators]
 only_in_void_context = 1
 
-[Miscellanea::ProhibitUselessNoCritic]
-severity = stern
-
 [NamingConventions::ProhibitAmbiguousNames]
 forbid = bases close contract left no right second set
 
@@ -27,6 +29,9 @@ max_mccabe = 30
 [Subroutines::ProhibitManyArgs]
 severity = stern
 max_arguments = 6
+
+[Subroutines::ProhibitUnusedPrivateSubroutines]
+severity = stern
 
 [Subroutines::ProtectPrivateSubs]
 severity = stern

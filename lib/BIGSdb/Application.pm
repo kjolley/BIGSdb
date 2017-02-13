@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.16.0');
+use version; our $VERSION = version->declare('v1.16.2');
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
@@ -126,7 +126,7 @@ sub new {
 			}
 			$self->{'datastore'}->initiate_userdbs;
 			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
-			$self->_initiate_jobmanager( $config_dir, $dbase_config_dir )
+			$self->initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
 			  && $job_manager_pages{ $q->param('page') }
 			  && $self->{'config'}->{'jobs_db'};
@@ -203,10 +203,12 @@ sub _initiate {
 	if ( $self->{'curate'} && $self->{'system'}->{'curate_path_includes'} ) {
 		if ( $self->{'script_name'} !~ /$self->{'system'}->{'curate_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
+			$logger->error("Invalid curate script path - $self->{'script_name'}");
 		}
 	} elsif ( !$self->{'curate'} && $self->{'system'}->{'script_path_includes'} ) {
 		if ( $self->{'script_name'} !~ /$self->{'system'}->{'script_path_includes'}/x ) {
 			$self->{'error'} = 'invalidScriptPath';
+			$logger->error("Invalid script path - $self->{'script_name'}");
 		}
 	}
 	if ( !$self->{'system'}->{'authentication'} ) {
@@ -341,7 +343,7 @@ sub initiate_plugins {
 	return;
 }
 
-sub _initiate_jobmanager {
+sub initiate_jobmanager {
 	my ( $self, $config_dir, $dbase_config_dir, ) = @_;
 	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
 		{
@@ -720,7 +722,7 @@ sub authenticate {
 						};
 					}
 				}
-			};			
+			};
 		}
 		if ( $login_requirement == OPTIONAL && $self->{'page'} eq 'login' ) {
 			$self->{'page'} = 'index';

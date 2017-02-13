@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2016, University of Oxford
+#Copyright (c) 2013-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -392,6 +392,9 @@ sub _check_existing_profile_id {
 	my ( $field_type, $field, $value, $scheme_info, $problem ) = @$args{qw(field_type field value scheme_info problem)};
 	return if $$problem;
 	return if ( $field_type // q() ) ne 'field';
+	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_info->{'id'}, $field );
+
+	return if !$field_info->{'primary_key'};
 	my $new_pk_exists = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT $scheme_info->{'primary_key'} FROM mv_scheme_$scheme_info->{'id'} "
 		  . "WHERE $scheme_info->{'primary_key'}=? UNION SELECT profile_id FROM retired_profiles "

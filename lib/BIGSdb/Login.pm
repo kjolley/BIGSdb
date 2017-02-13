@@ -262,6 +262,10 @@ sub _print_login_form {
 	$self->print_file($reg_file) if -e $reg_file;
 	say q(<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>);
 	say q(<h2>Please enter your account details.</h2>);
+	if (!$ENV{'HTTP_COOKIE'}){
+		say q(<p class="highlight">You need to enable cookies to create a session.</p>);
+		$logger->info('Log in attempted with cookies disabled.');
+	}
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are hashed using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => q(password.value=password_field.value; password_field.value=''; )

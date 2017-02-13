@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -148,7 +148,7 @@ sub print_content {
 			return;
 		}
 	}
-	$self->_delete_old_closed_submissions;
+	$self->_delete_old_submissions;
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
@@ -298,13 +298,13 @@ sub _print_new_submission_links {
 	return;
 }
 
-sub _delete_old_closed_submissions {
+sub _delete_old_submissions {
 	my ($self) = @_;
 	my $days = $self->get_submission_days;
 	my $submissions =
-	  $self->{'datastore'}
-	  ->run_query( qq(SELECT id FROM submissions WHERE status=? AND datestamp<now()-interval '$days days'),
-		'closed', { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query(
+		qq(SELECT id FROM submissions WHERE status IN ('closed','started') AND datestamp<now()-interval '$days days'),
+		undef, { fetch => 'col_arrayref' } );
 	foreach my $submission_id (@$submissions) {
 		$self->{'submissionHandler'}->delete_submission($submission_id);
 	}
@@ -582,7 +582,7 @@ sub _get_isolate_submissions_for_curation {
 	my $td = 1;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
-		next if $submission->{'type'} eq 'genomes' && !$self->can_modify_table('sequence_bin');
+		next if $submission->{'type'} eq 'genomes'  && !$self->can_modify_table('sequence_bin');
 		my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -678,8 +678,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return if !$submission || $submission->{'status'} ne 'started';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
-		if ( $submission->{'type'} eq 'alleles' )
-		{
+		if ( $submission->{'type'} eq 'alleles' ) {
 			$self->{'db'}->do(
 				'UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software)=(?,?,?,?,?) '
 				  . 'WHERE submission_id=? AND submission_id IN (SELECT id FROM submissions WHERE submitter=?)',
@@ -1218,8 +1217,7 @@ sub _start_profile_submission {
 sub _start_isolate_submission {
 	my ( $self, $submission_id, $isolates, $positions ) = @_;
 	eval {
-		foreach my $field ( keys %$positions )
-		{
+		foreach my $field ( keys %$positions ) {
 			$self->{'db'}->do( 'INSERT INTO isolate_submission_field_order (submission_id,field,index) VALUES (?,?,?)',
 				undef, $submission_id, $field, $positions->{$field} );
 		}
@@ -1791,8 +1789,11 @@ sub _print_update_button {
 	}
 	if ( $options->{'record_status'} ) {
 		say q(<label for="record_status">Record status:</label>);
-		say $q->popup_menu( -name => 'record_status', id => 'record_status',
-			values => [qw(pending accepted rejected)] );
+		say $q->popup_menu(
+			-name  => 'record_status',
+			id     => 'record_status',
+			values => [qw(pending accepted rejected)]
+		);
 	}
 	say $q->submit( -name => 'update', -label => 'Update', -class => BUTTON_CLASS );
 	say q(</div>);

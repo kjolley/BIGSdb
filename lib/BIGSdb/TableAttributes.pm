@@ -1678,7 +1678,7 @@ sub get_scheme_curators_table_attributes {
 			primary_key     => 'yes',
 			foreign_key     => 'users',
 			is_curator_only => 1,
-			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			user_field      => 1,
 			dropdown_query  => 'yes'
 		}
 	];
@@ -1702,7 +1702,7 @@ sub get_locus_curators_table_attributes {
 			primary_key     => 'yes',
 			foreign_key     => 'users',
 			is_curator_only => 1,
-			labels          => '|$surname|, |$first_name| (|$user_name|)',
+			user_field      => 1,
 			dropdown_query  => 'yes'
 		},
 		{

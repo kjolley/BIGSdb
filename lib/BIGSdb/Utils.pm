@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -182,8 +182,8 @@ sub is_bool {
 	return 1
 	  if ( lc($qry) eq 'true'
 		|| lc($qry) eq 'false'
-		|| $qry     eq '1'
-		|| $qry     eq '0' );
+		|| $qry eq '1'
+		|| $qry eq '0' );
 	return;
 }
 
@@ -211,7 +211,7 @@ sub is_float {
 }
 
 sub get_random {
-	return 'BIGSdb_' . $$ . '_' . (time) . '_' . int( rand(99999) );
+	return 'BIGSdb_' . sprintf( '%05d', $$ ) . '_' . (time) . '_' . sprintf( '%05d', int( rand(99999) ) );
 }
 
 sub pad_length {

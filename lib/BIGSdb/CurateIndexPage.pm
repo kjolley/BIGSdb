@@ -1245,19 +1245,20 @@ sub _import_user {
 	my $id         = $self->next_id('users');
 	my $curator_id = $self->get_curator_id;
 	eval {
-	$self->{'db'}
-	  ->do( 'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) VALUES (?,?,?,?,?,?,?)',
-		undef, $id, $user_name, 'user', 'now', 'now', $curator_id, $user_db );
+		$self->{'db'}->do(
+			'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,submission_emails,'
+			  . 'account_request_emails,user_db) VALUES (?,?,?,?,?,?,?,?,?)',
+			undef, $id, $user_name, 'user', 'now', 'now', $curator_id, 'false', 'false', $user_db
+		);
 
-	#We need to identify all registered configs that use the same database
-	foreach my $config (@$configs) {
-		$db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
-			undef, $config, $user_name, 'now' );
-		$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)',
-			undef, $config, $user_name );
-	}
+		#We need to identify all registered configs that use the same database
+		foreach my $config (@$configs) {
+			$db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+				undef, $config, $user_name, 'now' );
+			$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)', undef, $config, $user_name );
+		}
 	};
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		$db->rollback;
 		$self->{'db'}->rollback;
