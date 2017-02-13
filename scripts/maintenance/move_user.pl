@@ -62,7 +62,7 @@ if ( $opts{'h'} ) {
 	exit;
 }
 if ( !$opts{'user_database'} || !$opts{'d'} || !$opts{'user_name'} ) {
-	say "\nUsage: move_user.pl --database <NAME> --username <NAME> --user_database <NAME>\n";
+	say "\nUsage: move_user.pl --database <NAME> --user_name <NAME> --user_database <NAME>\n";
 	say 'Help: move_user.pl --help';
 	exit;
 }
