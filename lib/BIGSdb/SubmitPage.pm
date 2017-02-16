@@ -158,10 +158,12 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
+	my $back = BACK;
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . q(Return to index page</a></p>);
+	  . qq($back</a></p>);
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
+
 	if ($closed_buffer) {
 		my $class = RESET_BUTTON_CLASS;
 		say qq(<a id="show_closed" class="$class ui-button-text-only" >)
@@ -2189,6 +2191,10 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
 	$self->_print_close_submission_fieldset($submission_id) if $curate;
+	my $back = BACK;
+	my $page = $self->{'curate'} ? 'index' : 'submit';
+	say qq(<div style="clear:both"><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=$page">$back</a></div>);
 	say q(</div></div>);
 	return;
 }
