@@ -66,11 +66,11 @@ sub get_javascript {
 	check_technology();
 	\$( "#show_closed" ).click(function() {
 		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'block');
+			\$("span#show_closed_text").css('display', 'inline');
 			\$("span#hide_closed_text").css('display', 'none');
 		} else {
 			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'block');
+			\$("span#hide_closed_text").css('display', 'inline');
 		}
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
@@ -158,21 +158,20 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
-	my $back = BACK;
-	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . qq($back</a></p>);
+	my ($back, $show, $hide) = (BACK,EYE_SHOW,EYE_HIDE);
+	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}" title="Back">$back</a>);
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 
 	if ($closed_buffer) {
-		my $class = RESET_BUTTON_CLASS;
-		say qq(<a id="show_closed" class="$class ui-button-text-only" >)
-		  . q(<span id="show_closed_text" class="ui-button-text" )
-		  . q(style="display:block">Show closed submissions</span>)
-		  . q(<span id="hide_closed_text" class="ui-button-text" )
-		  . q(style="display:none">Hide closed submissions</span></a>);
+		say q(<a id="show_closed" style="cursor:pointer;margin-left:1em">)
+		  . q(<span id="show_closed_text" title="Show closed submissions" )
+		  . qq(style="display:inline">$show</span>)
+		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+		  . qq(style="display:none">$hide</span></a>);
 	}
-	say q(</div></div>);
+	say q(</p></div></div>);
 	if ($closed_buffer) {
 		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
 		say q(<h2>Closed submissions for which you had curator rights</h2>);
@@ -2193,8 +2192,8 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_close_submission_fieldset($submission_id) if $curate;
 	my $back = BACK;
 	my $page = $self->{'curate'} ? 'index' : 'submit';
-	say qq(<div style="clear:both"><a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=$page">$back</a></div>);
+	say qq(<div style="clear:both;padding-bottom:0.5em"><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=$page" title="Back to submissions">$back</a></div>);
 	say q(</div></div>);
 	return;
 }
