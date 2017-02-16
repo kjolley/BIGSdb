@@ -48,11 +48,11 @@ sub get_javascript {
 \$(function () {
 	\$( "#show_closed" ).click(function() {
 		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'block');
+			\$("span#show_closed_text").css('display', 'inline');
 			\$("span#hide_closed_text").css('display', 'none');
 		} else {
 			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'block');
+			\$("span#hide_closed_text").css('display', 'inline');
 		}
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
@@ -1136,13 +1136,16 @@ sub _print_submission_section {
 		  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
 		say $buffer if $buffer;
 		if ($closed_buffer) {
-			say q(<h2>Submissions</h2>) if !$buffer;
-			my $class = RESET_BUTTON_CLASS;
-			say qq(<a id="show_closed" class="$class ui-button-text-only" >)
-			  . q(<span id="show_closed_text" class="ui-button-text" )
-			  . q(style="display:block">Show closed submissions</span>)
-			  . q(<span id="hide_closed_text" class="ui-button-text" )
-			  . q(style="display:none">Hide closed submissions</span></a>);
+			if ( !$buffer ) {
+				say q(<h2>Submissions</h2>);
+				say q(<p>No pending submissions.</p>);
+			}
+			my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+			say q(<a id="show_closed" style="cursor:pointer">)
+			  . q(<span id="show_closed_text" title="Show closed submissions" )
+			  . qq(style="display:inline">$show</span>)
+			  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+			  . qq(style="display:none">$hide</span></a>);
 			say q(<div id="closed" style="display:none">)
 			  . q(<h2>Closed submissions for which you had curator rights</h2>);
 			my $days = $self->get_submission_days;
@@ -1221,8 +1224,7 @@ sub _reject_user {
 	my $db = $self->{'datastore'}->get_user_db($user_db);
 	my $configs = $self->{'datastore'}->get_configs_using_same_database( $db, $self->{'system'}->{'db'} );
 	eval {
-		foreach my $config (@$configs)
-		{
+		foreach my $config (@$configs) {
 			$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)', undef, $config, $user_name );
 		}
 	};

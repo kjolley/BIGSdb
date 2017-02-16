@@ -188,8 +188,7 @@ sub _print_interface {
 	my ($self) = @_;
 	say q(<div class="box" id="queryform">);
 	if ( $self->{'system'}->{'password_update_required'} ) {
-		say q(<p>The system requires that you update your password. )
-		  . q(This may be due to a security upgrade or alert.</p>);
+		say q(<p>You are required to update your password.</p>);
 	}
 	my $q = $self->{'cgi'};
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
@@ -253,7 +252,8 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2
 	  new_length user sent username_as_password);
 	say $q->end_form;
-	if ($q->param('page') eq 'changePassword'){
+
+	if ( $q->param('page') eq 'changePassword' ) {
 		say q(<p>You will be required to log in again with the new password once you have changed it.</p>);
 	}
 	say q(</div>);

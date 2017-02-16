@@ -28,7 +28,7 @@ use Apache2::Connection ();
 use Bio::SeqIO;
 use constant MAX_INSTANT_RUN => 100;
 use constant MAX_SEQUENCES   => 2000;
-use constant STYLESHEET      => 'http://pubmlst.org/css/bigsdb.css';
+use constant STYLESHEET      => 'https://pubmlst.org/css/bigsdb.css';
 
 sub get_attributes {
 	my ($self) = @_;

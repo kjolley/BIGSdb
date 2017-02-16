@@ -1,3 +1,5 @@
+v1.16.3: *BLAST plugin limits.
+         *Minor bug fixes.
 v1.16.2: *Fix password setting issue in non-site databases.
 v1.16.1: *Faster, multi-threaded Genome Comparator.
 v1.16.0: *Support for site-wide accounts.
