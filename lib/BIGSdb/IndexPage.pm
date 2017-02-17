@@ -49,24 +49,75 @@ sub initiate {
 sub print_content {
 	my ($self)      = @_;
 	my $script_name = $self->{'system'}->{'script_name'};
-	my $instance    = $self->{'instance'};
-	my $system      = $self->{'system'};
 	my $q           = $self->{'cgi'};
 	my $desc        = $self->get_db_description;
 	say qq(<h1>$desc database</h1>);
 	$self->print_banner;
 	$self->_print_jobs;
-	my $set_id = $self->get_set_id;
-
-	#Append to URLs to ensure unique caching.
-	my $cache_string = $self->get_cache_string;
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
-	say q(<div class="box" id="index"><div class="scrollable"><div style="float:left;margin-right:1em">);
+	$self->_print_main_section;
+	$self->_print_plugin_section;
+	return;
+}
+
+sub _print_jobs {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'read_access'} eq 'public' || !$self->{'config'}->{'jobs_db'};
+	return if !defined $self->{'username'};
+	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
+	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
+	return if !@$jobs;
+	my %status_counts;
+	$status_counts{ $_->{'status'} }++ foreach @$jobs;
+	my $days_plural = $days == 1  ? '' : 's';
+	my $jobs_plural = @$jobs == 1 ? '' : 's';
+	say q(<div class="box" id="jobs">);
+	say q(<span class="job_icon fa fa-briefcase fa-3x pull-left"></span>);
+	say q(<h2>Jobs</h2>);
+	say q(<p>You have submitted or run )
+	  . @$jobs
+	  . qq( offline job$jobs_plural in the past )
+	  . ( $days_plural ? $days : '' )
+	  . qq( day$days_plural. )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=jobs">Show jobs</a></p>);
+	my %replace = ( started => 'running', submitted => 'queued' );
+	my @breakdown;
+
+	foreach my $status (qw (started submitted finished failed cancelled terminated)) {
+		push @breakdown, ( $replace{$status} // $status ) . ": $status_counts{$status}" if $status_counts{$status};
+	}
+	local $" = '; ';
+	say qq(<p>@breakdown</p>);
+	say q(</div>);
+	return;
+}
+
+sub _print_main_section {
+	my ($self) = @_;
+	say q(<div class="box" id="index"><div class="scrollable">);
+	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
+	$self->_print_query_section($scheme_data);
+	$self->_print_download_section($scheme_data) if $self->{'system'}->{'dbtype'} eq 'sequences';
+	$self->_print_options_section;
+	$self->_print_submissions_section;
+	$self->_print_general_info_section($scheme_data);
+	say q(</div></div>);
+	return;
+}
+
+sub _print_query_section {
+	my ( $self, $scheme_data ) = @_;
+	my $system   = $self->{'system'};
+	my $instance = $self->{'instance'};
+
+	#Append to URLs to ensure unique caching.
+	my $cache_string = $self->get_cache_string;
+	my $set_id       = $self->get_set_id;
+	say q(<div style="float:left;margin-right:1em">);
 	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
-	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		say qq(<li><a href="${url_root}page=query">Search or browse database</a></li>);
@@ -107,44 +158,6 @@ sub print_content {
 		}
 	}
 	say q(</ul></div>);
-	$self->_print_download_section($scheme_data) if $system->{'dbtype'} eq 'sequences';
-	$self->_print_options_section;
-	$self->_print_submissions_section;
-	$self->_print_general_info_section($scheme_data);
-	say q(</div></div>);
-	$self->_print_plugin_section($scheme_data);
-	return;
-}
-
-sub _print_jobs {
-	my ($self) = @_;
-	return if !$self->{'system'}->{'read_access'} eq 'public' || !$self->{'config'}->{'jobs_db'};
-	return if !defined $self->{'username'};
-	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
-	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
-	return if !@$jobs;
-	my %status_counts;
-	$status_counts{ $_->{'status'} }++ foreach @$jobs;
-	my $days_plural = $days == 1  ? '' : 's';
-	my $jobs_plural = @$jobs == 1 ? '' : 's';
-	say q(<div class="box" id="jobs">);
-	say q(<span class="job_icon fa fa-briefcase fa-3x pull-left"></span>);
-	say q(<h2>Jobs</h2>);
-	say q(<p>You have submitted or run )
-	  . @$jobs
-	  . qq( offline job$jobs_plural in the past )
-	  . ( $days_plural ? $days : '' )
-	  . qq( day$days_plural. )
-	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=jobs">Show jobs</a></p>);
-	my %replace = ( started => 'running', submitted => 'queued' );
-	my @breakdown;
-
-	foreach my $status (qw (started submitted finished failed cancelled terminated)) {
-		push @breakdown, ( $replace{$status} // $status ) . ": $status_counts{$status}" if $status_counts{$status};
-	}
-	local $" = '; ';
-	say qq(<p>@breakdown</p>);
-	say q(</div>);
 	return;
 }
 
@@ -302,8 +315,9 @@ sub _print_general_info_section {
 }
 
 sub _print_plugin_section {
-	my ( $self,           $scheme_data ) = @_;
-	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
+	my ($self) = @_;
+	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	my $q            = $self->{'cgi'};
 	my $set_id       = $self->get_set_id;
 	my $cache_string = $self->get_cache_string;
