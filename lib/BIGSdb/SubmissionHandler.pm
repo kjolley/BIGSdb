@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,7 @@ use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Email::Valid;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:submissions SEQ_METHODS);
@@ -1054,18 +1053,24 @@ sub email {
 	  ( $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'} )
 	  ? $sender->{'email'}
 	  : undef;
-	my $email = Email::Simple->create(
-		header => [
-			To             => $recipient->{'email'},
-			From           => $sender->{'email'},
-			Cc             => $cc,
-			Subject        => $subject,
-			'Content-Type' => 'text/plain; charset=UTF-8'
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $recipient->{'email'},
+			From    => $sender->{'email'},
+			Cc      => $cc,
+			Subject => $subject
 		],
-		body => $params->{'message'}
+		body_str => $params->{'message'}
 	);
-	try_to_sendmail( $email, { transport => $transport } )
-	  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+	eval {
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+	};
+	$logger->error($@) if $@;
 	return;
 }
 

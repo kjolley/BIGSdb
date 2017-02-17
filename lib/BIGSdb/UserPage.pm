@@ -26,8 +26,7 @@ use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
@@ -312,8 +311,8 @@ sub _registrations {
 		@$request_reg = sort { $labels->{$a} cmp $labels->{$b} } @$request_reg;
 		$buffer .= q(<fieldset style="float:left"><legend>Admin authorization</legend>);
 		$buffer .= q(<p>Access to the listed resources can be requested but requires authorization.<br />);
-		$buffer .= q(<strong><em>Check respective web sites for licencing )
-		  . q(and access conditions.</em></strong><br />);
+		$buffer .=
+		  q(<strong><em>Check respective web sites for licencing ) . q(and access conditions.</em></strong><br />);
 		$buffer .= q(Select from list and click 'Request' button.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= $self->popup_menu(
@@ -364,8 +363,7 @@ sub _register {
 	return if !@configs;
 	my $current_config;
 	eval {
-		foreach my $config (@configs)
-		{
+		foreach my $config (@configs) {
 			$current_config = $config;
 			my $auto_reg =
 			  $self->{'datastore'}
@@ -421,8 +419,7 @@ sub _request {
 	my @configs = $q->param('request_reg');
 	return if !@configs;
 	eval {
-		foreach my $config (@configs)
-		{
+		foreach my $config (@configs) {
 			my $already_requested = $self->{'datastore'}->run_query(
 				'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?)) OR '
 				  . 'EXISTS(SELECT * FROM pending_requests WHERE (dbase_config,user_name)=(?,?))',
@@ -758,8 +755,7 @@ sub _merge {
 	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );
 	return if !$site_db;
 	eval {
-		if ( $db_user_id != $site_user_id )
-		{
+		if ( $db_user_id != $site_user_id ) {
 			foreach my $table (@sender_tables) {
 				$db->do( "UPDATE $table SET sender=? WHERE sender=?", undef, $db_user_id, $site_user_id );
 			}
@@ -896,17 +892,23 @@ sub _notify_db_admin {
 				port => $self->{'config'}->{'smtp_port'}   // 25,
 			}
 		);
-		my $email = Email::Simple->create(
-			header => [
-				To             => $recipient->{'email'},
-				From           => $sender->{'email'},
-				Subject        => $subject,
-				'Content-Type' => 'text/plain; charset=UTF-8'
+		my $email = Email::MIME->create(
+			attributes => {
+				encoding => 'quoted-printable',
+				charset  => 'UTF-8',
+			},
+			header_str => [
+				To      => $recipient->{'email'},
+				From    => $sender->{'email'},
+				Subject => $subject
 			],
-			body => $message
+			body_str => $message
 		);
-		try_to_sendmail( $email, { transport => $transport } )
-		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+		eval {
+			try_to_sendmail( $email, { transport => $transport } )
+			  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+		};
+		$logger->error($@) if $@;
 	}
 	$self->_drop_connection($system);
 	return;

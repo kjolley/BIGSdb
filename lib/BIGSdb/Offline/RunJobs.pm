@@ -27,8 +27,7 @@ use BIGSdb::PluginManager;
 use BIGSdb::Parser;
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Email::Valid;
 use constant DEFAULT_DOMAIN => 'pubmlst.org';
 
@@ -152,18 +151,25 @@ sub _notify_user {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	my $email = Email::Simple->create(
-		header => [
-			To             => $address,
-			From           => "no_reply\@$domain",
-			Subject        => $subject,
-			'Content-Type' => 'text/plain; charset=UTF-8'
+		my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $address,
+			From    => "no_reply\@$domain",
+			Subject => $subject
 		],
-		body => $message
+		body_str => $message
 	);
+
 	$self->{'logger'}->info("Email job report to $address");
+	eval {
 	try_to_sendmail( $email, { transport => $transport } )
 	  || $self->{'logger'}->error("Cannot send E-mail to $address");
+	};
+	$self->{'logger'}->error($@) if $@;
 	return;
 }
 1;

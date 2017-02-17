@@ -24,8 +24,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
 use BIGSdb::Constants qw(:accounts :interface);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Email::Valid;
 use Digest::MD5;
 use constant DEFAULT_DOMAIN => 'pubmlst.org';
@@ -256,17 +255,23 @@ sub _send_email {
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $email = Email::Simple->create(
-		header => [
-			To             => $data->{'email'},
-			From           => "no_reply\@$domain",
-			Subject        => "New $domain user account",
-			'Content-Type' => 'text/plain; charset=UTF-8'
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $data->{'email'},
+			From    => "no_reply\@$domain",
+			Subject => "New $domain user account",
 		],
-		body => $message
+		body_str => $message
 	);
-	try_to_sendmail( $email, { transport => $transport } )
-	  || $logger->error("Cannot send E-mail to  $data->{'email'}");
+	eval {
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to  $data->{'email'}");
+	};
+	$logger->error($@) if $@;
 	return;
 }
 

@@ -1,3 +1,5 @@
+//TODO Note new Email::MIME dependency in next release.
+
 v1.16.3: *BLAST plugin limits.
          *Minor bug fixes.
 v1.16.2: *Fix password setting issue in non-site databases.
