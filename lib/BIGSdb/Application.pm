@@ -67,6 +67,7 @@ use BIGSdb::SubmissionHandler;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::UserPage;
+use BIGSdb::UserProjectsPage;
 use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
 use BIGSdb::CGI::as_utf8;
@@ -574,6 +575,7 @@ sub print_page {
 		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
 		user               => 'UserPage',
+		userProjects       => 'UserProjectsPage',
 		version            => 'VersionPage'
 	);
 	my $page;
@@ -601,7 +603,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
