@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.3.1',
+		version     => '1.4.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -137,7 +137,7 @@ sub run_job {
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	my $method     = $params->{'seq_method_list'};
 	my $experiment = $params->{'experiment_list'};
-	$self->_initiate_statement_handles( { method => $method, experiment => $experiment } );
+	my ( $statements, $arguments ) = $self->_get_query_statements( { method => $method, experiment => $experiment } );
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
@@ -154,7 +154,8 @@ sub run_job {
 	}
 	my $locus_count = @$loci;
 	foreach my $id (@$isolate_ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, { gc => $params->{'gc'} } );
+		my $contig_info =
+		  $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, { gc => $params->{'gc'} } );
 		$row++;
 		next if !$contig_info->{'contigs'};
 		$row_with_data++;
@@ -294,7 +295,7 @@ sub _print_table {
 	my ( $self, $ids, $loci, $params ) = @_;
 	my $method     = $params->{'seq_method_list'};
 	my $experiment = $params->{'experiment_list'};
-	$self->_initiate_statement_handles( { method => $method, experiment => $experiment } );
+	my ( $statements, $arguments ) = $self->_get_query_statements( { method => $method, experiment => $experiment } );
 	my $temp = BIGSdb::Utils::get_random();
 	my $td   = 1;
 	local $| = 1;
@@ -307,7 +308,8 @@ sub _print_table {
 	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
 	foreach my $id (@$ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, { gc => $params->{'gc'} } );
+		my $contig_info =
+		  $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, { gc => $params->{'gc'} } );
 		next if !$contig_info->{'contigs'};
 		if ( !$header_displayed ) {
 			say $fh $self->_get_text_table_header( { gc => $params->{'gc'} } );
@@ -420,16 +422,17 @@ sub _get_text_table_row {
 }
 
 sub _get_isolate_contig_data {
-	my ( $self, $isolate_id, $loci, $options ) = @_;
+	my ( $self, $isolate_id, $loci, $statements, $arguments, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	eval { $self->{'sql'}->{'contig_info'}->execute( $isolate_id, @{ $self->{'criteria'} } ) };
-	$logger->error($@) if $@;
-	my $set_id        = $self->get_set_id;
-	my $data          = $self->{'sql'}->{'contig_info'}->fetchrow_hashref;
+	my $values = [ $isolate_id, @$arguments ];
+	my $q      = $self->{'cgi'};
+	my $set_id = $self->get_set_id;
+	my $data   = $self->{'datastore'}->run_query( $statements->{'contig_info'},
+		$values, { fetch => 'row_hashref', cache => 'SeqbinBreakdown::contig_info' } );
 	my %selected_loci = map { $_ => 1 } @$loci;
 	if ( $data->{'contigs'} ) {
-		$data->{'lengths'}      = $self->_get_contig_lengths($isolate_id);
+		$data->{'lengths'} = $self->{'datastore'}->run_query( $statements->{'contig_lengths'},
+			$values, { fetch => 'col_arrayref', cache => 'SeqbinBreakdown::contig_lengths' } );
 		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
 		$data->{'allele_designations'} = 0;
@@ -447,36 +450,25 @@ sub _get_isolate_contig_data {
 		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
 	}
 	if ( $options->{'gc'} ) {
-		eval { $self->{'sql'}->{'gc'}->execute( $isolate_id, @{ $self->{'criteria'} } ) };
-		$logger->error($@) if $@;
-		( $data->{'gc'} ) =
-		  BIGSdb::Utils::decimal_place( ( ( $self->{'sql'}->{'gc'}->fetchrow_array ) // 0 ) * 100, 1 );
+		my $gc_value = $self->{'datastore'}
+		  ->run_query( $statements->{'gc'}, $values, { fetch => 'row_array', cache => 'SeqbinBreakdown::gc' } );
+		$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 1 );
 	}
 	return $data;
 }
 
-sub _get_contig_lengths {
-	my ( $self, $isolate_id ) = @_;
-	eval { $self->{'sql'}->{'contig_lengths'}->execute( $isolate_id, @{ $self->{'criteria'} } ) };
-	$logger->error($@) if $@;
-	my @lengths;
-	while ( my ($length) = $self->{'sql'}->{'contig_lengths'}->fetchrow_array ) {
-		push @lengths, $length;
-	}
-	return \@lengths;
-}
-
-sub _initiate_statement_handles {
+sub _get_query_statements {
 	my ( $self,   $args )       = @_;
 	my ( $method, $experiment ) = @{$args}{qw (method experiment)};
 	my $exclusion_clause = '';
+	my $arguments        = [];
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
 			return;
 		}
 		$exclusion_clause .= ' AND method=?';
-		push @{ $self->{'criteria'} }, $method;
+		push @$arguments, $method;
 	}
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
@@ -484,27 +476,20 @@ sub _initiate_statement_handles {
 			return;
 		}
 		$exclusion_clause .= ' AND experiment_id=?';
-		push @{ $self->{'criteria'} }, $experiment;
+		push @$arguments, $experiment;
 	}
-	$self->{'sql'}->{'contig_info'} =
-	  $self->{'db'}->prepare( q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
+	my $statements = {
+		contig_info => q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
 		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
 		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
-		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause] );
-	$self->{'sql'}->{'contig_lengths'} =
-	  $self->{'db'}->prepare( q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
-		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC] );
-	$self->{'sql'}->{'gc'} =
-	  $self->{'db'}->prepare( q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
+		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause],
+		contig_lengths => q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
+		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC],
+		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
 		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
-		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ] );
-	my $set_id = $self->get_set_id;
-	my $set_clause =
-	  $set_id
-	  ? q[AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes ]
-	  . qq[WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))]
-	  : q();
-	return;
+		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
+	};
+	return ( $statements, $arguments );
 }
 
 sub _get_rounded_width {
