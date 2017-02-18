@@ -145,7 +145,6 @@ sub run_job {
 	my $row           = 0;
 	my $row_with_data = 0;
 	my $disabled_html = @$isolate_ids > MAX_HTML_OUTPUT ? 1 : 0;
-
 	if ($disabled_html) {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ message_html => 'HTML output disabled as more than ' . MAX_HTML_OUTPUT . ' records selected.' } );
@@ -476,9 +475,10 @@ sub _get_isolate_contig_data {
 
 sub _get_query_statements {
 	my ( $self, $args ) = @_;
-	my ( $method, $experiment, $contig_analysis ) = @{$args}{qw (method experiment contig_analysis)};
+	my ( $method, $experiment, $contig_analysis ) = @{$args}{qw (seq_method_list experiment_list contig_analysis)};
 	my $exclusion_clause = '';
 	my $arguments        = [];
+	my $use_seqbin_table;
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -486,6 +486,7 @@ sub _get_query_statements {
 		}
 		$exclusion_clause .= ' AND method=?';
 		push @$arguments, $method;
+		$use_seqbin_table = 1;
 	}
 	if ($experiment) {
 		if ( !BIGSdb::Utils::is_int($experiment) ) {
@@ -494,6 +495,7 @@ sub _get_query_statements {
 		}
 		$exclusion_clause .= ' AND experiment_id=?';
 		push @$arguments, $experiment;
+		$use_seqbin_table = 1;
 	}
 	my $statements = {
 		contig_lengths => q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
@@ -502,15 +504,14 @@ sub _get_query_statements {
 		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
 		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
 	};
-	if ($contig_analysis) {
+	if ( $contig_analysis || $use_seqbin_table ) {
 		$statements->{'contig_info'} =
 		    q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
 		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
 		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
 		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause];
 	} else {
-		$statements->{'contig_info'} =
-		  q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE ] . qq[isolate_id=?$exclusion_clause];
+		$statements->{'contig_info'} = q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE isolate_id=?];
 	}
 	return ( $statements, $arguments );
 }
