@@ -7,11 +7,11 @@ UPDATE projects SET list=false WHERE list IS NULL;
 ALTER TABLE projects ALTER COLUMN list SET NOT NULL;
 
 --Not yet added to isolatedb.sql
-ALTER TABLE projects ADD
 
 CREATE TABLE project_users (
 project_id integer NOT NULL,
 user_id integer NOT NULL,
+admin boolean NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (project_id,user_id),
