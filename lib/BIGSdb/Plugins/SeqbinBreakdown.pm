@@ -135,9 +135,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
-	my $method     = $params->{'seq_method_list'};
-	my $experiment = $params->{'experiment_list'};
-	my ( $statements, $arguments ) = $self->_get_query_statements( { method => $method, experiment => $experiment } );
+	my ( $statements, $arguments ) = $self->_get_query_statements($params);
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
@@ -154,19 +152,18 @@ sub run_job {
 	}
 	my $locus_count = @$loci;
 	foreach my $id (@$isolate_ids) {
-		my $contig_info =
-		  $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, { gc => $params->{'gc'} } );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
 		$row++;
 		next if !$contig_info->{'contigs'};
 		$row_with_data++;
-		$html_buffer .= $self->_get_html_table_row( $id, $contig_info, $td, { gc => $params->{'gc'} } ) . "\n";
-		$text_buffer .= $self->_get_text_table_row( $id, $contig_info, { gc => $params->{'gc'} } ) . "\n";
+		$html_buffer .= $self->_get_html_table_row( $id, $contig_info, $td, $params ) . "\n";
+		$text_buffer .= $self->_get_text_table_row( $id, $contig_info, $params ) . "\n";
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		my $html_message =
 		    qq(<p>Loci selected: $locus_count</p>)
 		  . q(<div class="scrollable">)
-		  . $self->_get_html_table_header( { gc => $params->{'gc'} } )
+		  . $self->_get_html_table_header($params)
 		  . $html_buffer
 		  . q(</tbody></table></div>);
 		my $complete = int( $row * 100 / @$isolate_ids );
@@ -193,7 +190,8 @@ sub run_job {
 	} else {
 		my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 		open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
-		say $job_fh $self->_get_text_table_header( { gc => $params->{'gc'} } );
+		say $job_fh $self->_get_text_table_header(
+			{ gc => $params->{'gc'}, contig_analysis => $params->{'contig_analysis'} } );
 		print $job_fh $text_buffer;
 		close $job_fh;
 		$self->{'jobManager'}->update_job_output( $job_id,
@@ -206,7 +204,9 @@ sub run_job {
 				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
 		}
 		my $file_order = 10;
-		foreach my $type (qw (contigs sum mean lengths)) {
+		my @types      = qw(contigs sum);
+		push @types, qw(mean lengths) if $params->{'contig_analysis'};
+		foreach my $type (@types) {
 			my $prefix = BIGSdb::Utils::get_random();
 			my $chart_data = $self->_make_chart( $data, $prefix, $type );
 			if ( $chart_data->{'file_name'} ) {
@@ -285,17 +285,17 @@ sub _print_interface {
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<fieldset style="float:left"><legend>Options</legend><ul><li>);
+	say $q->checkbox( -name => 'contig_analysis', -label => 'Contig analysis (min, max, N50 etc.)' );
+	say q(</li><li>);
 	say $q->checkbox( -name => 'gc', -label => 'Calculate %GC' );
-	say q(</fieldset>);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
 sub _print_table {
 	my ( $self, $ids, $loci, $params ) = @_;
-	my $method     = $params->{'seq_method_list'};
-	my $experiment = $params->{'experiment_list'};
-	my ( $statements, $arguments ) = $self->_get_query_statements( { method => $method, experiment => $experiment } );
+	my ( $statements, $arguments ) = $self->_get_query_statements($params);
 	my $temp = BIGSdb::Utils::get_random();
 	my $td   = 1;
 	local $| = 1;
@@ -308,16 +308,15 @@ sub _print_table {
 	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
 
 	foreach my $id (@$ids) {
-		my $contig_info =
-		  $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, { gc => $params->{'gc'} } );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
 		next if !$contig_info->{'contigs'};
 		if ( !$header_displayed ) {
-			say $fh $self->_get_text_table_header( { gc => $params->{'gc'} } );
-			say $self->_get_html_table_header( { gc => $params->{'gc'} } );
+			say $fh $self->_get_text_table_header($params);
+			say $self->_get_html_table_header($params);
 			$header_displayed = 1;
 		}
-		say $self->_get_html_table_row( $id, $contig_info, $td, { gc => $params->{'gc'} } );
-		say $fh $self->_get_text_table_row( $id, $contig_info, { gc => $params->{'gc'} } );
+		say $self->_get_html_table_row( $id, $contig_info, $td, $params );
+		say $fh $self->_get_text_table_row( $id, $contig_info, $params );
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		if ( $ENV{'MOD_PERL'} ) {
@@ -340,14 +339,14 @@ sub _print_table {
 		say q(<p>There are no records with contigs matching your criteria.</p>);
 	}
 	say q(</div></div>);
-	$self->_print_charts( $data, $temp ) if $self->{'config'}->{'chartdirector'} && $header_displayed;
+	$self->_print_charts( $data, $temp, $params ) if $self->{'config'}->{'chartdirector'} && $header_displayed;
 	return;
 }
 
 sub _update_totals {
 	my ( $self, $data, $contig_info ) = @_;
 	my ( $contigs, $sum, $mean, $lengths ) = @{$contig_info}{qw( contigs sum mean lengths )};
-	push @{ $data->{'lengths'} }, @$lengths;
+	push @{ $data->{'lengths'} }, @$lengths if ref $lengths;
 	push @{ $data->{'contigs'} }, $contigs;
 	push @{ $data->{'sum'} },     $sum;
 	push @{ $data->{'mean'} },    $mean;
@@ -361,10 +360,15 @@ sub _get_html_table_header {
 	my $gc = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
 	my $buffer =
 	    q(<table class="tablesorter" id="sortTable"><thead>)
-	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th><th>Min</th>)
-	  . q(<th>Max</th><th>Mean</th><th>&sigma;</th><th>N50 contig number</th><th>N50 contig length (L50)</th>)
-	  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
-	  . qq(<th>N95 contig length (L95)</th>$gc<th>Alleles designated</th><th>% Alleles designated</th>)
+	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th>);
+	if ( $options->{'contig_analysis'} ) {
+		$buffer .=
+		    q(<th>Min</th>)
+		  . q(<th>Max</th><th>Mean</th><th>&sigma;</th><th>N50 contig number</th><th>N50 contig length (L50)</th>)
+		  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
+		  . q(<th>N95 contig length (L95)</th>);
+	}
+	$buffer .= qq($gc<th>Alleles designated</th><th>% Alleles designated</th>)
 	  . q(<th>Loci tagged</th><th>% Loci tagged</th><th>Sequence bin</th></tr></thead><tbody>);
 	return $buffer;
 }
@@ -379,11 +383,13 @@ sub _get_html_table_row {
 		  allele_designations percent_alleles tagged percent_tagged n_stats)
 	  };
 	my $q      = $self->{'cgi'};
-	my $buffer = qq(<tr class="td$td"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td>)
-	  . qq(<td>$sum</td><td>$min</td><td>$max</td><td>$mean</td>);
-	$buffer .= defined $stddev ? qq(<td>$stddev</td>) : q(<td></td>);
-	$buffer .= qq(<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td>)
-	  . qq(<td>$n_stats->{'L90'}</td><td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>);
+	my $buffer = qq(<tr class="td$td"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td>) . qq(<td>$sum</td>);
+	if ( $options->{'contig_analysis'} ) {
+		$buffer .= qq(<td>$min</td><td>$max</td><td>$mean</td>);
+		$buffer .= defined $stddev ? qq(<td>$stddev</td>) : q(<td></td>);
+		$buffer .= qq(<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td>)
+		  . qq(<td>$n_stats->{'L90'}</td><td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>);
+	}
 	$buffer .= qq(<td>$gc</td>) if $options->{'gc'};
 	$buffer .=
 	    qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>)
@@ -396,11 +402,16 @@ sub _get_text_table_header {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $gc = $options->{'gc'} ? "%GC\t" : '';
-	return
-	    qq(Isolate id\t$labelfield\tContigs\tTotal length\tMin\tMax\tMean\tStdDev\tN50 contig number\t)
-	  . qq(N50 contig length (L50)\tN90 contig number\tN90 contig length (L90)\tN95 contig number\t)
-	  . qq(N95 contig length (L95)\t${gc}Alleles designated\t%Alleles designated\tLoci tagged\t%Loci tagged);
+	my $gc         = $options->{'gc'} ? "%GC\t" : '';
+	my $header     = qq(Isolate id\t$labelfield\tContigs\tTotal length);
+	if ( $options->{'contig_analysis'} ) {
+		$header .=
+		    qq(\tMin\tMax\tMean\tStdDev\tN50 contig number\t)
+		  . qq(N50 contig length (L50)\tN90 contig number\tN90 contig length (L90)\tN95 contig number\t)
+		  . q(N95 contig length (L95));
+	}
+	$header .= qq(\t${gc}Alleles designated\t%Alleles designated\tLoci tagged\t%Loci tagged);
+	return $header;
 }
 
 sub _get_text_table_row {
@@ -412,12 +423,15 @@ sub _get_text_table_row {
 		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations
 		  percent_alleles tagged percent_tagged n_stats)
 	  };
-	my $buffer = qq($isolate_id\t$isolate_name\t$contigs\t$sum\t$min\t$max\t$mean\t);
-	$buffer .= $stddev if defined $stddev;
-	$buffer .= qq(\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t)
-	  . qq($n_stats->{'N95'}\t$n_stats->{'L95'}\t);
-	$buffer .= qq($gc\t) if $options->{'gc'};
-	$buffer .= qq($allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
+	my $buffer = qq($isolate_id\t$isolate_name\t$contigs\t$sum);
+	if ( $options->{'contig_analysis'} ) {
+		$buffer .= qq(\t$min\t$max\t$mean\t);
+		$buffer .= $stddev if defined $stddev;
+		$buffer .= qq(\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t)
+		  . qq($n_stats->{'N95'}\t$n_stats->{'L95'});
+	}
+	$buffer .= qq(\t$gc) if $options->{'gc'};
+	$buffer .= qq(\t$allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
 	return $buffer;
 }
 
@@ -431,8 +445,11 @@ sub _get_isolate_contig_data {
 		$values, { fetch => 'row_hashref', cache => 'SeqbinBreakdown::contig_info' } );
 	my %selected_loci = map { $_ => 1 } @$loci;
 	if ( $data->{'contigs'} ) {
-		$data->{'lengths'} = $self->{'datastore'}->run_query( $statements->{'contig_lengths'},
-			$values, { fetch => 'col_arrayref', cache => 'SeqbinBreakdown::contig_lengths' } );
+
+		if ( $options->{'contig_analysis'} ) {
+			$data->{'lengths'} = $self->{'datastore'}->run_query( $statements->{'contig_lengths'},
+				$values, { fetch => 'col_arrayref', cache => 'SeqbinBreakdown::contig_lengths' } );
+		}
 		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
 		$data->{'allele_designations'} = 0;
@@ -458,8 +475,8 @@ sub _get_isolate_contig_data {
 }
 
 sub _get_query_statements {
-	my ( $self,   $args )       = @_;
-	my ( $method, $experiment ) = @{$args}{qw (method experiment)};
+	my ( $self, $args ) = @_;
+	my ( $method, $experiment, $contig_analysis ) = @{$args}{qw (method experiment contig_analysis)};
 	my $exclusion_clause = '';
 	my $arguments        = [];
 	if ($method) {
@@ -479,16 +496,22 @@ sub _get_query_statements {
 		push @$arguments, $experiment;
 	}
 	my $statements = {
-		contig_info => q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
-		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
-		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
-		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause],
 		contig_lengths => q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
 		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC],
 		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
 		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
 		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
 	};
+	if ($contig_analysis) {
+		$statements->{'contig_info'} =
+		    q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
+		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
+		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
+		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause];
+	} else {
+		$statements->{'contig_info'} =
+		  q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE ] . qq[isolate_id=?$exclusion_clause];
+	}
 	return ( $statements, $arguments );
 }
 
@@ -504,7 +527,7 @@ sub _get_rounded_width {
 }
 
 sub _make_chart {
-	my ( $self, $data, $prefix, $type ) = @_;
+	my ( $self, $data, $prefix, $type, $params ) = @_;
 	my %title = (
 		contigs => 'Number of contigs',
 		sum     => 'Total length',
@@ -556,11 +579,13 @@ sub _make_chart {
 }
 
 sub _print_charts {
-	my ( $self, $data, $prefix ) = @_;
+	my ( $self, $data, $prefix, $params ) = @_;
 	say q(<div class="box" id="resultsfooter">);
 	say q(<p>Click on the following charts to enlarge</p>);
-	foreach my $type (qw (contigs sum mean lengths)) {
-		my $chart_data = $self->_make_chart( $data, $prefix, $type );
+	my @types = qw(contigs sum);
+	push @types, qw(mean lengths) if $params->{'contig_analysis'};
+	foreach my $type (@types) {
+		my $chart_data = $self->_make_chart( $data, $prefix, $type, $params );
 		say q(<div style="float:left;padding-right:1em">);
 		say qq(<h2>$chart_data->{'title'}</h2>);
 		say qq(Overall mean: $chart_data->{'mean'}<br />);
