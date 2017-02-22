@@ -314,6 +314,8 @@ sub _make_artemis_jnlp {
 	# create the EMBL file on demand, which is quicker and prevents cluttering
 	# the temporary directory.
 	my $url;
+	my $ssl = $self->{'cgi'}->https;
+	my $prefix = $ssl ? 'https://' : 'http://';
 	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) {
 		my $embl_filename = "$temp\_$seqbin_id.embl";
 		my $full_path     = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
@@ -328,10 +330,10 @@ sub _make_artemis_jnlp {
 		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
 		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { get_buffer => 1 } );
 		close $fh_embl;
-		$url = q(http://) . $self->{'cgi'}->virtual_host . qq(/tmp/$embl_filename);
+		$url = $prefix . $self->{'cgi'}->virtual_host . qq(/tmp/$embl_filename);
 	} else {
 		$url =
-		    q(http://)
+		    $prefix
 		  . $self->{'cgi'}->virtual_host
 		  . qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$seqbin_id);
 	}
