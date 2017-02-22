@@ -30,7 +30,7 @@ use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
 use BIGSdb::Utils;
-use constant MAX_RECORDS     => 1000;
+use constant MAX_RECORDS     => 2000;
 use constant MAX_SEQS        => 100_000;
 use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
 use constant ITOL_DOMAIN     => 'itol.embl.de';
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.0.1',
+		version          => '1.0.2',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -70,6 +70,8 @@ sub run {
 	my $desc       = $self->get_db_description;
 	my $max_records = $self->{'system'}->{'phylotree_record_limit'} // MAX_RECORDS;
 	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
+	my $commify_max_records = BIGSdb::Utils::commify($max_records);
+	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	say "<h1>Generate phylogenetic trees - $desc</h1>";
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
@@ -108,6 +110,17 @@ sub run {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
+		my $total_seqs         = @$loci_selected * @list;
+		my $commify_total_seqs = BIGSdb::Utils::commify($total_seqs);
+		if ( $total_seqs > $max_seqs ) {
+			push @errors, qq(Output is limited to a total of $commify_max_seqs sequences )
+			  . qq((records x loci). You have selected $commify_total_seqs.);
+		}
+		if ( @list > $max_records ) {
+			my $commify_total_records = BIGSdb::Utils::commify( scalar @list );
+			push @errors, qq(Output is limited to a total of $commify_max_records records. )
+			  . qq(You have selected $commify_total_records.);
+		}
 		if (@errors) {
 			local $" = qq(</p>\n<p>);
 			say qq(<div class="box" id="statusbad"><p>@errors</p></div>);
@@ -115,12 +128,6 @@ sub run {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
-			my $total_seqs = @$loci_selected * @list;
-			if ( $total_seqs > $max_seqs ) {
-				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $total_seqs sequences )
-				  . qq((records x loci).  You have selected $total_seqs.</p></div>);
-				return;
-			}
 			$q->delete('list');
 			my @itol_dataset = $q->param('itol_dataset');
 			$q->delete('itol_dataset');
@@ -150,8 +157,6 @@ sub run {
 	  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
 	  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	my $commify_max_records = BIGSdb::Utils::commify($max_records);
-	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
@@ -232,12 +237,12 @@ sub run_job {
 	my $problem_ids = $ret_val->{'problem_ids'};
 	if (@$problem_ids) {
 		local $" = ', ';
-		$message_html = "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n";
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n);
 	}
 	my $no_output = $ret_val->{'no_output'};
 	if ($no_output) {
-		$message_html .=
-		  "<p>No output generated. Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .= q(<p>No output generated. Please ensure that your )
+		  . qq(sequences have been defined for these isolates.</p>\n);
 	} else {
 		try {
 			$self->{'jobManager'}
