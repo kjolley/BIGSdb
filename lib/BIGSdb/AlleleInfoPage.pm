@@ -101,7 +101,7 @@ sub print_content {
 		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
 		say qq(<dt>curator</dt><dd>$curator</dd>);
 	}
-	say "<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>" if $seq_ref->{'comments'};
+	say qq(<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>) if $seq_ref->{'comments'};
 	$self->_process_flags( $locus, $allele_id );
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
 	foreach my $ext (@$extended_attributes) {
