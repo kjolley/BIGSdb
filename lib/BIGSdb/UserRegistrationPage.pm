@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub print_content {
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'user' ) {
-		say q(<div class="box" id="statusbad"><p>Account registrations can not be performed )
+		say q(<div class="box" id="statusbad"><p>Account registrations cannot be performed )
 		  . q(when accessing a database.<p></div>);
 		return;
 	}
@@ -48,7 +48,69 @@ sub print_content {
 		$self->_register;
 		return;
 	}
+	if ( $q->param('page') eq 'usernameRemind' && $q->param('email') ) {
+		$self->username_reminder( $q->param('email') );
+		return;
+	}
 	$self->_print_registration_form;
+	return;
+}
+
+sub username_reminder {
+	my ( $self, $email_address ) = @_;
+	my $address = Email::Valid->address($email_address);
+	if ( !$address ) {
+		say q(<div class="box" id="statusbad"><p>The passed E-mail address is not valid.</p></div>);
+		return;
+	}
+
+	#Only send E-mail if we find an account but don't tell user if we don't (to stop this being used
+	#to check if specific addresses have registered accounts).
+	my $usernames = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE email=? ORDER BY user_name',
+		$email_address, { fetch => 'col_arrayref' } );
+	my $back = BACK;
+	say qq(<div class="box" id="resultsheader"><p>A user name reminder has been sent to $email_address.</p>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></div>);
+	return if !@$usernames;
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
+	);
+	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $message = qq(A user name reminder has been requested for the address $email_address.\n);
+	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
+	my $plural = @$usernames == 1 ? q() : q(s);
+	$message .= qq(This address is associated with the following user name$plural:\n\n);
+
+	foreach my $username (@$usernames) {
+		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
+		if ( $status eq 'validated' ) {
+			$message .= qq($username\n);
+		} else {
+			$message .= qq($username (not yet validated - will be removed automatically soon)\n);
+		}
+	}
+	if ( $self->{'config'}->{'site_admin_email'} ) {
+		$message .= qq(\nPlease contact $self->{'config'}->{'site_admin_email'} if you need to reset your password.\n);
+	}
+	$message .= qq(\n);
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $email_address,
+			From    => "no_reply\@$domain",
+			Subject => "$domain user name reminder",
+		],
+		body_str => $message
+	);
+	eval {
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $email_address.");
+	};
+	$logger->error($@) if $@;
+	$logger->info("Username reminder requested for $email_address.");
 	return;
 }
 
@@ -210,6 +272,19 @@ sub _bad_email {
 	my $address = Email::Valid->address($email);
 	if ( !$address ) {
 		say q(<div class="box" id="statusbad"><p>The provided E-mail address is not valid.</p></div>);
+		return 1;
+	}
+	my $registration_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE email=?)', $email );
+	if ($registration_exists) {
+		say q(<div class="box" id="statusbad"><p>An account has already been registered with this E-mail address. </p>)
+		  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
+		  . q(for a reminder of your user name to be sent to this address.</p>);
+		if ( $self->{'config'}->{'site_admin_email'} ) {
+			say qq(<p>Contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">site administrator</a> )
+			  . q(if you need to reset your password.</p>);
+		}
+		say q(</div>);
 		return 1;
 	}
 	return;
