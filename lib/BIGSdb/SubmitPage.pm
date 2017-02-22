@@ -137,7 +137,7 @@ sub print_content {
 	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
+		say q(<div class="box" id="statusbad"><p>You are not a recognized user. Submissions are disabled.</p></div>);
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -158,7 +158,7 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
-	my ($back, $show, $hide) = (BACK,EYE_SHOW,EYE_HIDE);
+	my ( $back, $show, $hide ) = ( BACK, EYE_SHOW, EYE_HIDE );
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?)
 	  . qq(db=$self->{'instance'}" title="Back">$back</a>);
 	my $closed_buffer =
@@ -288,6 +288,14 @@ sub _print_new_submission_links {
 				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit)
 				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'name'} profiles</a></li>);
 			}
+		}
+		if ( $self->{'system'}->{'isolate_database'} && ( $self->{'system'}->{'isolate_submissions'} // q() ) eq 'yes' )
+		{
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
+			  . q(page=submit&amp;isolates=1">isolates</a> <span class="link">Link to isolate database</span></li>);
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
+			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with associated assembly files) )
+			  . q(<span class="link">Link to isolate database</span></li>);
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
