@@ -28,7 +28,6 @@ use BIGSdb::Utils;
 #Isolate database routes
 get '/db/:db/isolates'     => sub { _get_isolates() };
 get '/db/:db/isolates/:id' => sub { _get_isolate() };
-get '/db/:db/fields'       => sub { _get_fields() };
 
 sub _get_isolates {
 	my $self = setting('self');
@@ -207,31 +206,5 @@ sub _get_isolate_projects {
 	return;
 }
 
-sub _get_fields {
-	my $self = setting('self');
-	$self->check_isolate_database;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	my $values = [];
-	foreach my $field (@$fields) {
-		my $value = {};
-		$value->{'name'} = $field;
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$thisfield->{'required'} //= 'yes';    #This is the default and may not be specified in config.xml.
-		foreach (qw ( type required length min max regex comments)) {
-			next if !defined $thisfield->{$_};
-			if ( $_ eq 'min' || $_ eq 'max' || $_ eq 'length' ) {
-				$value->{$_} = int( $thisfield->{$_} );
-			} elsif ( $_ eq 'required' ) {
-				$value->{$_} = $thisfield->{$_} eq 'yes' ? JSON::true : JSON::false;
-			} else {
-				$value->{$_} = $thisfield->{$_};
-			}
-		}
-		if ( ( $thisfield->{'optlist'} // '' ) eq 'yes' ) {
-			$value->{'allowed_values'} = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-		push @$values, $value;
-	}
-	return $values;
-}
+
 1;

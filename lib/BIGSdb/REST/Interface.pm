@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,7 @@ use BIGSdb::Utils;
 use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Contigs;
+use BIGSdb::REST::Routes::Fields;
 use BIGSdb::REST::Routes::Isolates;
 use BIGSdb::REST::Routes::Loci;
 use BIGSdb::REST::Routes::OAuth;
