@@ -211,31 +211,28 @@ sub _query_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my ( $db, $fields ) = ( params->{'db'}, params->{'fields'} );
-	my $page          = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $offset        = ( $page - 1 ) * $self->{'page_size'};
-	my $count_qry     = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
-	my $qry           = "SELECT id FROM $self->{'system'}->{'view'}";
+	my $page      = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $offset    = ( $page - 1 ) * $self->{'page_size'};
+	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
+	my $qry       = "SELECT id FROM $self->{'system'}->{'view'}";
 	my ( @clauses, @values );
-	if (!params->{'all_versions'}){
+
+	if ( !params->{'all_versions'} ) {
 		push @clauses, 'new_version IS NULL';
 	}
 	my ( $field_query, $field_values ) = _get_field_query($fields);
-
 	if ($field_query) {
-		push @clauses, $field_query ;
-		push @values, @$field_values;
+		push @clauses, $field_query;
+		push @values,  @$field_values;
 	}
-	if (@clauses){
+	if (@clauses) {
 		local $" = q[) AND (];
-		$qry .= qq( WHERE (@clauses));
+		$qry       .= qq( WHERE (@clauses));
 		$count_qry .= qq( WHERE (@clauses));
 	}
-	
-	my $isolate_count = $self->{'datastore'}->run_query($count_qry,\@values);
-	
+	my $isolate_count = $self->{'datastore'}->run_query( $count_qry, \@values );
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
-	$self->{'logger'}->error($count_qry);
 	my $ids = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
 	my $pages  = ceil( $isolate_count / $self->{'page_size'} );
@@ -249,39 +246,64 @@ sub _query_isolates {
 }
 
 sub _get_field_query {
-	  my ($fields) = @_;
-	  $fields //= {};
-	  my $self        = setting('self');
-	  my @field_names = ();
-	  my $values      = [];
-	  foreach my $field ( keys %$fields ) {
-		  if ( !$self->{'xmlHandler'}->is_field($field) ) {
-			  send_error( "$field is not a valid field.", 400 );
-		  }
-		  my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		  if ( $att->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $fields->{$field} ) ) {
-			  send_error( "$field is an integer field.", 400 );
-		  }
-		  if ( $att->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $fields->{$field} ) ) {
-			  send_error( "$field is a boolean field.", 400 );
-		  }
-		  if ( $att->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $fields->{$field} ) ) {
-			  send_error( "$field is a date field.", 400 );
-		  }
-		  if ( $att->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
-			  send_error( "$field is a float field.", 400 );
-		  }
-		  if ( $att->{'type'} eq 'text'){
-		  	push @field_names, qq(UPPER($field));
-		  	push @$values,     uc($fields->{$field});
-		  } else {
-			  push @field_names, $field;
-			  push @$values,     $fields->{$field};
-		  }
-		  
-	  }
-	  local $" = q(=? AND );
-	  my $qry = qq(@field_names=?);
-	  return ( $qry, $values );
+	my ($fields) = @_;
+	$fields //= {};
+	my $self = setting('self');
+	my @field_names;
+	my @extended_fields;
+	my %extended_primary_field;
+	my %extended_value;
+	my $values = [];
+
+	foreach my $field ( keys %$fields ) {
+		my $is_extended_field = $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE attribute=?)', $field );
+		if ($is_extended_field) {
+			push @extended_fields, $field;
+			my $ext_att =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT * FROM isolate_field_extended_attributes WHERE attribute=? LIMIT 1',
+				$field, { fetch => 'row_hashref' } );
+			$extended_primary_field{$field} = $ext_att->{'isolate_field'};
+			$extended_value{$field}         = $fields->{$field};
+			next;
+		}
+		if ( !$self->{'xmlHandler'}->is_field($field) ) {
+			send_error( "$field is not a valid field.", 400 );
+		}
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( $att->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $fields->{$field} ) ) {
+			send_error( "$field is an integer field.", 400 );
+		}
+		if ( $att->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $fields->{$field} ) ) {
+			send_error( "$field is a boolean field.", 400 );
+		}
+		if ( $att->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $fields->{$field} ) ) {
+			send_error( "$field is a date field.", 400 );
+		}
+		if ( $att->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
+			send_error( "$field is a float field.", 400 );
+		}
+		if ( $att->{'type'} eq 'text' ) {
+			push @field_names, qq(UPPER($field));
+			push @$values,     uc( $fields->{$field} );
+		} else {
+			push @field_names, $field;
+			push @$values,     $fields->{$field};
+		}
+	}
+	my $qry;
+	if (@field_names) {
+		local $" = q(=? AND );
+		$qry = qq(@field_names=?);
+	}
+	foreach my $ext_field (@extended_fields) {
+		$qry .= q( AND ) if $qry;
+		$qry .= qq[($extended_primary_field{$ext_field} IN ]
+		  . q[(SELECT field_value FROM isolate_value_extended_attributes WHERE ]
+		  . q[(isolate_field,attribute,UPPER(value))=(?,?,UPPER(?))))];
+		push @$values, $extended_primary_field{$ext_field}, $ext_field, $extended_value{$ext_field};
+	}
+	return ( $qry, $values );
 }
 1;
