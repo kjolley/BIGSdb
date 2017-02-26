@@ -210,7 +210,7 @@ sub _get_isolate_projects {
 sub _query_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
-	my ( $db, $fields ) = ( params->{'db'}, params->{'fields'} );
+	my $db        = params->{'db'};
 	my $page      = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $offset    = ( $page - 1 ) * $self->{'page_size'};
 	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
@@ -220,10 +220,16 @@ sub _query_isolates {
 	if ( !params->{'all_versions'} ) {
 		push @clauses, 'new_version IS NULL';
 	}
-	my ( $field_query, $field_values ) = _get_field_query($fields);
-	if ($field_query) {
-		push @clauses, $field_query;
-		push @values,  @$field_values;
+	my $methods = {
+		fields => \&_get_field_query,
+		loci   => \&_get_locus_query
+	};
+	foreach my $category (qw (fields loci)) {
+		my ( $cat_qry, $cat_values ) = $methods->{$category}->( params->{$category} );
+		if ($cat_qry) {
+			push @clauses, $cat_qry;
+			push @values,  @$cat_values;
+		}
 	}
 	if (@clauses) {
 		local $" = q[) AND (];
@@ -299,10 +305,36 @@ sub _get_field_query {
 	}
 	foreach my $ext_field (@extended_fields) {
 		$qry .= q( AND ) if $qry;
-		$qry .= qq[($extended_primary_field{$ext_field} IN ]
+		$qry .=
+		    qq[($extended_primary_field{$ext_field} IN ]
 		  . q[(SELECT field_value FROM isolate_value_extended_attributes WHERE ]
 		  . q[(isolate_field,attribute,UPPER(value))=(?,?,UPPER(?))))];
 		push @$values, $extended_primary_field{$ext_field}, $ext_field, $extended_value{$ext_field};
+	}
+	return ( $qry, $values );
+}
+
+sub _get_locus_query {
+	my ($loci) = @_;
+	$loci //= {};
+	my $self = setting('self');
+	my @locus_names;
+	my $values = [];
+	foreach my $locus ( keys %$loci ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if ( !$locus_info ) {
+			send_error( "$locus is not a valid locus", 400 );
+		}
+		push @locus_names, $locus;
+	}
+	my $qry;
+	if (@locus_names) {
+		my $view = $self->{'system'}->{'view'};
+		foreach my $locus (@locus_names) {
+			$qry .= q( AND ) if $qry;
+			$qry .= qq($view.id IN (SELECT isolate_id FROM allele_designations WHERE (locus,allele_id)=(?,?)));
+			push @$values, $locus, $loci->{$locus};
+		}
 	}
 	return ( $qry, $values );
 }
