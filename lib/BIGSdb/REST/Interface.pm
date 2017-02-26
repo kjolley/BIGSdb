@@ -73,10 +73,24 @@ sub new {
 }
 
 sub _initiate {
-	my ( $self, ) = @_;
+	my ($self) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
 	$self->{'logger'} = $logger;
+	return;
+}
+
+#We cannot currently catch an error when the serializer encounters malformed
+#JSON. It will log it, but will fail to deserialize body parameters. As far
+#as the sender knows, there is no error, so this ensures that they get a
+#400 response if there is a POST payload but no parameters deserialized.
+sub check_post_payload {
+	my ($self)      = @_;
+	my $body        = request->body;
+	my $body_params = body_parameters;
+	if ( $body && !keys %$body_params ) {
+		send_error( 'Malformed request', 400 );
+	}
 	return;
 }
 

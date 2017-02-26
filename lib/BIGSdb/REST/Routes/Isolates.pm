@@ -210,6 +210,7 @@ sub _get_isolate_projects {
 sub _query_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
+	$self->check_post_payload;
 	my $db        = params->{'db'};
 	my $page      = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $offset    = ( $page - 1 ) * $self->{'page_size'};
