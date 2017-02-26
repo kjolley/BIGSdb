@@ -222,10 +222,11 @@ sub _query_isolates {
 		push @clauses, 'new_version IS NULL';
 	}
 	my $methods = {
-		fields => \&_get_field_query,
-		loci   => \&_get_locus_query
+		fields  => \&_get_field_query,
+		loci    => \&_get_locus_query,
+		schemes => \&_get_scheme_query
 	};
-	foreach my $category (qw (fields loci)) {
+	foreach my $category (qw (fields loci schemes)) {
 		my ( $cat_qry, $cat_values ) = $methods->{$category}->( params->{$category} );
 		if ($cat_qry) {
 			push @clauses, $cat_qry;
@@ -335,6 +336,50 @@ sub _get_locus_query {
 			$qry .= q( AND ) if $qry;
 			$qry .= qq($view.id IN (SELECT isolate_id FROM allele_designations WHERE (locus,allele_id)=(?,?)));
 			push @$values, $locus, $loci->{$locus};
+		}
+	}
+	return ( $qry, $values );
+}
+
+sub _get_scheme_query {
+	my ($schemes) = @_;
+	$schemes //= {};
+	my $self = setting('self');
+	my $qry;
+	my $values = [];
+	my $view   = $self->{'system'}->{'view'};
+	foreach my $scheme_id ( keys %$schemes ) {
+		if ( BIGSdb::Utils::is_int($scheme_id) ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			if ( !$scheme_info ) {
+				send_error( "Scheme $scheme_id does not exist", 400 );
+			}
+			foreach my $field ( keys %{ $schemes->{$scheme_id} } ) {
+				my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				if ( !$field_info ) {
+					send_error( "Scheme $scheme_id field $field does not exist", 400 );
+				}
+				if ( $field_info->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is an integer field.", 400 );
+				}
+				if ( $field_info->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is a boolean field.", 400 );
+				}
+				if ( $field_info->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is a date field.", 400 );
+				}
+				if ( $field_info->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $schemes->{$scheme_id}->{$field} ) )
+				{
+					send_error( "$field is a float field.", 400 );
+				}
+				my $isolate_scheme_field_view =
+				  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				$qry .= q( AND ) if $qry;
+				$qry .= qq($view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE $field=?));
+				push @$values, $schemes->{$scheme_id}->{$field};
+			}
+		} else {
+			send_error( 'Scheme id must be an integer', 400 );
 		}
 	}
 	return ( $qry, $values );
