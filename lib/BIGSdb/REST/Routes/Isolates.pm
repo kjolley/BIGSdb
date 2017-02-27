@@ -207,6 +207,29 @@ sub _get_isolate_projects {
 	return;
 }
 
+sub _unflatten_params {
+	my $self         = setting('self');
+	my $params       = body_parameters;
+	my $query        = {};
+	my @defined_cats = qw(field locus scheme);
+	my %defined      = map { $_ => 1 } @defined_cats;
+	foreach my $param ( keys %$params ) {
+		next if $param =~ /^oauth_/x;
+		my ( $cat, $field_or_scheme, $scheme_id ) = split /\./x, $param;
+		if ( !$defined{$cat} ) {
+			send_error( "$cat is not a recognized query parameter", 400 );
+		}
+		if ( $cat eq 'field' || $cat eq 'locus' ) {
+			$query->{$cat}->{$field_or_scheme} = $params->{$param};
+			next;
+		}
+		if ( $cat eq 'scheme' ) {
+			$query->{$cat}->{$field_or_scheme}->{$scheme_id} = $params->{$param};
+		}
+	}
+	return $query;
+}
+
 sub _query_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
@@ -216,18 +239,22 @@ sub _query_isolates {
 	my $offset    = ( $page - 1 ) * $self->{'page_size'};
 	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
 	my $qry       = "SELECT id FROM $self->{'system'}->{'view'}";
+	my $params    = _unflatten_params();
+	if ( !keys %$params ) {
+		send_error( 'No query passed', 400 );
+	}
+	my @categories = keys %$params;
 	my ( @clauses, @values );
-
 	if ( !params->{'all_versions'} ) {
 		push @clauses, 'new_version IS NULL';
 	}
 	my $methods = {
-		fields  => \&_get_field_query,
-		loci    => \&_get_locus_query,
-		schemes => \&_get_scheme_query
+		field  => \&_get_field_query,
+		locus  => \&_get_locus_query,
+		scheme => \&_get_scheme_query
 	};
-	foreach my $category (qw (fields loci schemes)) {
-		my ( $cat_qry, $cat_values ) = $methods->{$category}->( params->{$category} );
+	foreach my $category (@categories) {
+		my ( $cat_qry, $cat_values ) = $methods->{$category}->( $params->{$category} );
 		if ($cat_qry) {
 			push @clauses, $cat_qry;
 			push @values,  @$cat_values;
@@ -263,6 +290,9 @@ sub _get_field_query {
 	my %extended_value;
 	my $values = [];
 
+	if ( ref $fields ne 'HASH' ) {
+		send_error( 'Malformed request', 400 );
+	}
 	foreach my $field ( keys %$fields ) {
 		my $is_extended_field = $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE attribute=?)', $field );

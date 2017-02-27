@@ -264,7 +264,8 @@ sub _check_client_authorization {
 	if ( !$client_authorized ) {
 		send_error( 'Client is unauthorized to access this database.', 401 );
 	}
-	my $method = uc( request->method );
+	my $method      = uc( request->method );
+	my $request_uri = request->uri();
 	if ( $method ne 'GET' ) {
 		my $client_submission;
 		if ( $client->{'default_submission'} ) {
@@ -279,13 +280,10 @@ sub _check_client_authorization {
 			$client_curation = ( !defined $db_curation || !$db_curation ) ? 0 : 1;
 		}
 		my $submission_route = "/db/$self->{'instance'}/submissions";
-		my $request_uri      = request->uri();
 		if ( $request_uri =~ /$submission_route/x ) {
 			if ( !$client_submission ) {
 				send_error( 'Client is unauthorized to make submissions.', 401 );
 			}
-		} elsif ( !$client_curation ) {
-			send_error( "Client is unauthorized to use $method method.", 401 );
 		}
 	}
 	return;
