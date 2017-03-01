@@ -694,7 +694,9 @@ sub _check_locus_descriptions {
 		push @existing_links, "$link_data->{'link_order'}|$link_data->{'url'}|$link_data->{'description'}";
 	}
 	foreach my $existing (@existing_links) {
+		
 		if ( !@new_links || none { $existing eq $_ } @new_links ) {
+			
 			if ( $existing =~ /^\d+\|(.+?)\|.+$/x ) {
 				my $url = $1;
 				push @$extra_inserts,
@@ -706,7 +708,7 @@ sub _check_locus_descriptions {
 		}
 	}
 	foreach my $new (@new_links) {
-		$new =~ s/\s//gx;
+		$new =~ s/^\s+|\s+$//xg;
 		next if $new eq '';
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
