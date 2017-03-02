@@ -178,8 +178,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'} eq 'yes' && $showing_required )
-		|| ( ( !$att->{'required'} || $att->{'required'} eq 'no' ) && !$showing_required ) )
+	if (   ( $att->{'required'}  && $showing_required )
+		|| (  !$att->{'required'}  && !$showing_required ) )
 	{
 		return 1;
 	}
@@ -204,7 +204,7 @@ sub _get_label {
 	  : q();
 	my $buffer = qq(<label$for class="form" style="width:${width}em"$title_attribute>);
 	$buffer .= qq($label:);
-	$buffer .= q(!) if $att->{'required'} eq 'yes';
+	$buffer .= q(!) if $att->{'required'} ;
 	$buffer .= q(</label>);
 	return $buffer;
 }
@@ -213,7 +213,7 @@ sub _get_label {
 sub _get_html5_args {
 	my ( $self, $att ) = @_;
 	my %html5_args;
-	$html5_args{'required'} = 'required' if $att->{'required'} eq 'yes';
+	$html5_args{'required'} = 'required' if $att->{'required'};
 	if ( !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 		if ( $att->{'type'} eq 'int' && !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 			@html5_args{qw(type min step)} = qw(number 0 1);
@@ -260,7 +260,7 @@ sub _get_no_update_field {
 	my ( $self,    $args ) = @_;
 	my ( $newdata, $att )  = @$args{qw(newdata att)};
 	my $q = $self->{'cgi'};
-	return q() if !( $q->param('page') eq 'update' && ( $att->{'user_update'} // '' ) eq 'no' );
+	return q() if !( $q->param('page') eq 'update' && $att->{'no_user_update'}  );
 	my $buffer = qq(<span id="$att->{'name'}">\n);
 	if ( $att->{'name'} eq 'sequence' ) {
 		my $data_length = length( $newdata->{ $att->{'name'} } );
@@ -353,7 +353,7 @@ sub _get_non_admin_locus_field {
 sub _get_foreign_key_dropdown_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
-	return q() if !( ( $att->{'dropdown_query'} // '' ) eq 'yes' && $att->{'foreign_key'} );
+	return q() if !(  $att->{'dropdown_query'} && $att->{'foreign_key'} );
 	my @fields_to_query;
 	my $desc;
 	if ( $att->{'labels'} ) {
@@ -945,7 +945,7 @@ sub check_record {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my @primary_key_query;
   ATT: foreach my $att (@$attributes) {
-		next if $update && $att->{'user_update'} && $att->{'user_update'} eq 'no';
+		next if $update && $att->{'no_user_update'};
 		if ( $att->{'name'} =~ /sequence$/x ) {
 			$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } // '' );
 			$newdata->{ $att->{'name'} } =~ s/\s//gx;
@@ -1040,7 +1040,7 @@ sub check_record {
 
 sub _check_is_missing {
 	my ( $self, $att, $newdata ) = @_;
-	if ( $att->{'required'} eq 'yes'
+	if ( $att->{'required'} 
 		&& ( !defined $newdata->{ $att->{'name'} } || $newdata->{ $att->{'name'} } eq '' ) )
 	{
 		return 1;

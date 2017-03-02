@@ -1094,8 +1094,8 @@ sub _print_plugin_buttons {
 
 sub _hide_field {
 	my ( $self, $attr ) = @_;
-	return 1 if $attr->{'hide'} eq 'yes';
-	return 1 if $attr->{'hide_public'} eq 'yes' && !$self->{'curate'};
+	return 1 if $attr->{'hide'} ;
+	return 1 if $attr->{'hide_public'} && !$self->{'curate'};
 	return 1 if $attr->{'main_display'} eq 'no';
 	return;
 }
@@ -1119,7 +1119,7 @@ sub _get_record_table_info {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}
-		if ( $attr->{'hide_query'} ne 'yes' ) {
+		if ( !$attr->{'hide_query'} ) {
 			push @headers, $cleaned;
 			push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
 			push @headers, 'sequence length'
@@ -1240,13 +1240,13 @@ sub _print_record_table {
 		my %primary_key;
 		local $" = '&amp;';
 		foreach my $att (@$attributes) {
-			if ( $att->{'primary_key'} && $att->{'primary_key'} eq 'yes' ) {
+			if ( $att->{'primary_key'}  ) {
 				$primary_key{ $att->{'name'} } = 1;
 				my $value = $data->{ $att->{'name'} };
 				$value = CGI::Util::escape($value);
 				push @query_values, "$att->{'name'}=$value";
 			}
-			$hide_field{ $att->{'name'} } = 1 if $att->{'hide_query'} eq 'yes';
+			$hide_field{ $att->{'name'} } = 1 if $att->{'hide_query'};
 		}
 		print qq(<tr class="td$td">);
 		if ( $self->{'curate'} ) {

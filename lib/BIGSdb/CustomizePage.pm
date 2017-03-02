@@ -78,7 +78,7 @@ sub print_content {
 	my ( @display, @cleaned_headers );
 	my %type;
 	foreach my $att (@$attributes) {
-		next if $att->{'hide'} eq 'yes';
+		next if $att->{'hide'};
 		if (   $att->{'primary_key'}
 			|| $att->{'name'} =~ /display/
 			|| ( any { $att->{'name'} eq $_ } qw (name query_field analysis disable) )
@@ -149,7 +149,7 @@ sub print_content {
 
 	foreach my $att (@$attributes) {
 		next
-		  if $att->{'hide'} eq 'yes'
+		  if $att->{'hide'} 
 		  || ( !$action{ $att->{'name'} } && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
 		( my $cleaned = $att->{'name'} ) =~ tr/_/ /;
 		my $tooltip = $self->_get_tooltip( $att->{'name'} );

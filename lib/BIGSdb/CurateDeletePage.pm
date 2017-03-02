@@ -227,7 +227,7 @@ sub _display_record {
 		$data->{'user_db'} = $dbase_name;
 	}
 	foreach my $att (@$attributes) {
-		next if $att->{'hide_query'} eq 'yes';
+		next if $att->{'hide_query'};
 		next if $att->{'noshow'};
 		my ( $field, $value ) = $self->_get_display_values( $table, $primary_key, $data, $att );
 		$value = '&nbsp;' if $value eq q( );

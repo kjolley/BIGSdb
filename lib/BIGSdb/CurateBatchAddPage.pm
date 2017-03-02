@@ -382,7 +382,7 @@ sub _get_unique_fields {
 	if ( !( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach my $att (@$attributes) {
-			if ( $att->{'unique'} && $att->{'unique'} eq 'yes' ) {
+			if ( $att->{'unique'} ) {
 				$unique_field{ $att->{'name'} } = 1;
 			}
 		}

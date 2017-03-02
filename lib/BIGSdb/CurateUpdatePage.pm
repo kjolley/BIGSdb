@@ -233,7 +233,7 @@ sub _upload {
 			my %new_value;
 			my $scheme_structure_changed = 0;
 			foreach my $att (@$attributes) {
-				next if $att->{'user_update'} && $att->{'user_update'} eq 'no';
+				next if $att->{'no_user_update'};
 				push @table_fields, $att->{'name'};
 				push @placeholders, '?';
 				if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $table eq 'scheme_fields' ) {
