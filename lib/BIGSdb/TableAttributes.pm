@@ -163,7 +163,8 @@ sub get_user_group_members_table_attributes {
 			foreign_key    => 'users',
 			primary_key    => 'yes',
 			dropdown_query => 'yes',
-			labels         => '|$surname|, |$first_name|'
+			user_field => 1
+#			labels         => '|$surname|, |$first_name|'
 		},
 		{
 			name           => 'user_group',

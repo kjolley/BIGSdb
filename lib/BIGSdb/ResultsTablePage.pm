@@ -1341,7 +1341,7 @@ sub _print_record_field {
 	my ( $table, $table_info, $data, $field, $primary_key, $query_values, $scheme_info ) =
 	  @{$args}{qw(table table_info data field primary_key query_values scheme_info)};
 	my $fields_to_query = {};
-	my %user_field = map { $_ => 1 } qw(sender curator curator_id);
+	my %user_field = map { $_ => 1 } qw(sender curator curator_id user_id);
 	$data->{ lc($field) } //= '';
 	if ( $primary_key->{$field} && !$self->{'curate'} ) {
 		$self->_print_pk_field($args);
