@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.0.2',
+		version          => '1.0.3',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -317,17 +317,20 @@ sub _itol_upload {
 			$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
 		} else {
 			my @res = split /\n/x, $response->content;
+			my $err;
+
+			#check for an upload error
 			foreach my $res_line (@res) {
-
-				#check for an upload error
 				if ( $res_line =~ /^ERR/x ) {
-					$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned )
-					  . qq(the following error message:\n\n$res[-1]</p>);
-					$logger->error("@res");
-					last;
+					$err .= $res_line;
 				}
-
-				#upload without warnings, ID on first line
+			}
+			if ($err) {
+				$$message_html .= q(<p class="statusbad">iTOL encountered an error but may have been )
+				  . qq(able to make a tree. iTOL returned the following error message:\n\n$err</p>);
+				$logger->error($err);
+			}
+			foreach my $res_line (@res) {
 				if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
 					my $url    = ITOL_TREE_URL . "/$1";
 					my $domain = ITOL_DOMAIN;
@@ -412,6 +415,7 @@ sub _create_itol_dataset {
 				$value_colour{$data} = BIGSdb::Utils::get_heatmap_colour_style( $i, $distinct, { rgb => 1 } );
 				$i++;
 			}
+			$identifier =~ s/,/_/gx;
 			say $fh "$identifier\t$data\t-1\t$value_colour{$data}\tnormal\t1";
 		}
 	}
