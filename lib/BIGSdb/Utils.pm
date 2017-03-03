@@ -211,7 +211,7 @@ sub is_float {
 }
 
 sub get_random {
-	return 'BIGSdb_' . sprintf( '%05d', $$ ) . '_' . (time) . '_' . sprintf( '%05d', int( rand(99999) ) );
+	return 'BIGSdb_' . sprintf( '%06d', $$ ) . '_' . (time) . '_' . sprintf( '%05d', int( rand(99999) ) );
 }
 
 sub pad_length {
