@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -341,33 +341,29 @@ sub _make_artemis_jnlp {
 	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
 	print $fh <<"JNLP";
 <?xml version="1.0" encoding="UTF-8"?>
-<jnlp
-        spec="1.0+"
-        codebase="http://www.genedb.org/artemis/"
-        href="artemis.jnlp">
-         <information>
-           <title>Artemis</title>
-           <vendor>Sanger Institute</vendor> 
-           <homepage href="http://www.sanger.ac.uk/resources/software/artemis/"/>
-           <description>Artemis</description>
-           <description kind="short">DNA sequence viewer and annotation tool.
-           </description>
-           <offline-allowed/>
-         </information>
-         <security>
-           <all-permissions/>
-         </security>
-         <resources>
-           <j2se version="1.5+" initial-heap-size="32m" max-heap-size="400m"/>
-           <jar href="sartemis.jar"/>
-           <property name="com.apple.mrj.application.apple.menu.about.name" value="Artemis" />
-           <property name="artemis.environment" value="UNIX" />
-           <property name="j2ssh" value="" />
-           <property name="apple.laf.useScreenMenuBar" value="true" />
-         </resources>
-         <application-desc main-class="uk.ac.sanger.artemis.components.ArtemisMain">
-           <argument>$url</argument>
-         </application-desc>
+<jnlp spec="1.0+" codebase="http://www.genedb.org/artemis/">
+ <information>
+   <title>Artemis</title>
+   <vendor>Sanger Institute</vendor> 
+   <homepage href="http://www.sanger.ac.uk/resources/software/artemis/"/>
+   <description>Artemis</description>
+   <description kind="short">DNA sequence viewer and annotation tool.</description>
+   <offline-allowed/>
+ </information>
+ <security>
+   <all-permissions/>
+ </security>
+ <resources>
+   <j2se version="1.5+" initial-heap-size="32m" max-heap-size="400m"/>
+   <jar href="sartemis.jar"/>
+   <property name="com.apple.mrj.application.apple.menu.about.name" value="Artemis" />
+   <property name="artemis.environment" value="UNIX" />
+   <property name="j2ssh" value="" />
+   <property name="apple.laf.useScreenMenuBar" value="true" />
+ </resources>
+ <application-desc main-class="uk.ac.sanger.artemis.components.ArtemisMain">
+   <argument>$url</argument>
+ </application-desc>
 </jnlp>
 JNLP
 	close $fh;
