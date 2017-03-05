@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.0.3',
+		version          => '1.1.0',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -190,6 +190,15 @@ sub print_extra_form_elements {
 		-multiple => 'true'
 	);
 	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
+	$labels = { text_label => 'text labels', colour_strips => 'coloured strips' };
+	say $q->radio_group(
+		-name      => 'data_type',
+		-values    => [qw(text_label colour_strips)],
+		-labels    => $labels,
+		-linebreak => 'true'
+	);
+	say q(</fieldset>);
 	return;
 }
 
@@ -294,7 +303,7 @@ sub _itol_upload {
 		foreach my $field (@itol_dataset_fields) {
 			my $colour = BIGSdb::Utils::get_heatmap_colour_style( $i, scalar @itol_dataset_fields, { rgb => 1 } );
 			$i++;
-			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
+			my $file = $self->_create_itol_dataset( $job_id, $params->{'data_type'}, $identifiers, $field, $colour );
 			next if !$file;
 			( my $new_name = $field ) =~ s/\|\|/_/x;
 			$new_name =~ s/^(e_|f_|s_\d+_)//x;
@@ -350,7 +359,7 @@ sub _itol_upload {
 }
 
 sub _create_itol_dataset {
-	my ( $self, $job_id, $identifiers, $field, $colour ) = @_;
+	my ( $self, $job_id, $data_type, $identifiers, $field, $colour ) = @_;
 	my $field_info = $self->_get_field_type($field);
 	my ( $type, $name, $extended_field, $scheme_id ) = @{$field_info}{qw(type field extended_field scheme_id)};
 	$extended_field //= q();
@@ -375,12 +384,16 @@ sub _create_itol_dataset {
 	my $filename      = "${job_id}_$field";
 	my $full_path     = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
-	say $fh 'DATASET_TEXT';
+	my $dataset_type = {
+		text_label    => 'TEXT',
+		colour_strips => 'COLORSTRIP'
+	};
+	$data_type //= 'text_label';
+	say $fh "DATASET_$dataset_type->{$data_type}";
 	say $fh 'SEPARATOR TAB';
 	say $fh "DATASET_LABEL\t$dataset_label{$type}";
 	say $fh "COLOR\t$colour";
-	say $fh 'DATA';
-	my %value_colour;
+	my $value_colour = {};
 
 	#Find out how many distinct values there are in dataset
 	if ( !$self->{'temp_list_created'} ) {
@@ -388,39 +401,83 @@ sub _create_itol_dataset {
 		$self->{'temp_list_created'} = 1;
 	}
 	my $distinct_qry = {
-		field => "SELECT COUNT(DISTINCT($name)) FROM $self->{'system'}->{'view'} "
-		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL",
-		extended_field => 'SELECT COUNT(DISTINCT(e.value)) FROM isolate_value_extended_attributes AS e '
+		field => "SELECT DISTINCT($name) FROM $self->{'system'}->{'view'} "
+		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL ORDER BY $name",
+		extended_field => 'SELECT DISTINCT(e.value) FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND e.attribute=E'$cleaned_ext_field' "
-		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id)",
-		scheme_field => "SELECT COUNT(DISTINCT(value)) FROM $scheme_temp_table"
+		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id) AND e.value IS NOT NULL "
+		  . 'ORDER BY e.value',
+		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
 	};
-	my $distinct = $self->{'datastore'}->run_query( $distinct_qry->{$type} );
-	my $count    = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
-	my $i        = 1;
-	my $qry      = {
+	my $distinct_values = $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
+	
+	my $distinct        = @$distinct_values;
+	my $i               = 1;
+	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
+	foreach my $value (sort {$all_ints? $a <=> $b : $a cmp $b} @$distinct_values) {
+		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
+		$i++;
+	}
+	my $init_output = { colour_strips => \&colour_strips_init };
+	if ( $init_output->{$data_type} ) {
+		say $fh $init_output->{$data_type}->( $dataset_label{$type}, $value_colour );
+	}
+	say $fh 'DATA';
+	my $row_output = {
+		text_label    => \&text_label_output,
+		colour_strips => \&colour_strips_output
+	};
+	my $qry = {
 		field          => "SELECT $name FROM $self->{'system'}->{'view'} WHERE id=?",
 		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
 		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
 		scheme_field => "SELECT value FROM $scheme_temp_table WHERE id=?"
 	};
+	my $buffer = q();
 	foreach my $identifier (@$identifiers) {
 		if ( $identifier =~ /^(\d+)/x ) {
 			my $id = $1;
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "PhyloTree::itol_dataset::$field" } );
 			next if !defined $data;
-			if ( !$value_colour{$data} ) {
-				$value_colour{$data} = BIGSdb::Utils::get_heatmap_colour_style( $i, $distinct, { rgb => 1 } );
-				$i++;
-			}
 			$identifier =~ s/,/_/gx;
-			say $fh "$identifier\t$data\t-1\t$value_colour{$data}\tnormal\t1";
+			my @args = ( $identifier, $data, $value_colour->{$data} );
+			$buffer .= $row_output->{$data_type}->(@args) . qq(\n);
 		}
 	}
+	say $fh $buffer;
 	close $fh;
 	return $filename;
+}
+
+sub colour_strips_init {
+	my ( $field, $value_colour ) = @_;
+	my $buffer = qq(LEGEND_TITLE\t$field\n);
+	my ( @colours, @labels );
+	my @values = keys %$value_colour;
+	my $all_ints = BIGSdb::Utils::all_ints(\@values);
+	foreach my $value ( sort {$all_ints? $a <=> $b : $a cmp $b}@values ) {
+		push @colours, $value_colour->{$value};
+		push @labels,  $value;
+	}
+	local $" = qq(\t);
+	my @shapes = (2) x @labels;
+	$buffer .= qq(LEGEND_SHAPES\t@shapes\n);
+	$buffer .= qq(LEGEND_COLORS\t@colours\n);
+	$buffer .= qq(LEGEND_LABELS\t@labels\n);
+	$buffer .= qq(BORDER_WIDTH\t1\n);
+	return $buffer;
+}
+
+sub text_label_output {
+	my ( $identifier, $value, $colour ) = @_;
+	return qq($identifier\t$value\t-1\t$colour\tnormal\t1);
+}
+
+sub colour_strips_output {
+	my ( $identifier, $value, $colour ) = @_;
+	return qq($identifier\t$colour\t$value);
 }
 
 sub _create_scheme_field_temp_table {
