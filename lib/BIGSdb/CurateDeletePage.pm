@@ -295,7 +295,7 @@ sub _delete {
 	if ( $table eq 'users' ) {
 		$self->_delete_user( $data, \$nogo_buffer, \$proceed );
 	}
-	my %dont_check = map { $_ => 1 } qw(composite_fields schemes classification_schemes);
+	my %dont_check = map { $_ => 1 } qw(composite_fields schemes classification_schemes projects);
 
 	#Check if record is a foreign key in another table
 	if ( $proceed && !$dont_check{$table} ) {
@@ -340,7 +340,7 @@ sub _delete {
 		if ($num) {
 			my $plural = $num > 1 ? 's' : '';
 			$nogo_buffer .= qq(Sequence $data->{'locus'}-$data->{'allele_id'} is referenced by )
-			  . qq($num allelic profile$plural - can not delete!<br />);
+			  . qq($num allelic profile$plural - cannot delete!<br />);
 			$proceed = 0;
 		}
 	} elsif ( $proceed
