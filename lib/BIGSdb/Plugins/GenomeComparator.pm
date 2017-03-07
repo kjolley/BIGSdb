@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.2',
+		version     => '2.0.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1874,9 +1874,11 @@ sub _assemble_data_for_reference_genome {
 	my ( $job_id, $ids, $cds ) = @{$args}{qw(job_id ids cds )};
 	my $locus_data = {};
 	my $loci       = [];
+	my $locus_num  = 1;
 	foreach my $cds_record (@$cds) {
-		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details($cds_record);
-		next if !$locus_name;
+		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) =
+		  $self->_extract_cds_details( $cds_record, $locus_num );
+		$locus_num++;
 		$locus_data->{$locus_name} =
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
@@ -2038,7 +2040,7 @@ sub _get_potentially_paralogous_loci {
 }
 
 sub _extract_cds_details {
-	my ( $self, $cds ) = @_;
+	my ( $self, $cds, $locus_num ) = @_;
 	my ( $start, $desc );
 	my @aliases;
 	my $locus;
@@ -2053,8 +2055,8 @@ sub _extract_cds_details {
 		}
 	}
 	local $" = '|';
-	my $locus_name = $locus;
-	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;    #Invalid entry in reference file.
+	my $locus_name = $locus // 'locus' . sprintf( '%05d', $locus_num );
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;                     #Invalid entry in reference file.
 	my $full_name = $locus_name;
 	$full_name .= "|@aliases" if @aliases;
 	my $seq;

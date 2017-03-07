@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,8 +25,7 @@ use DBI;
 use DateTime;
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use 5.010;
@@ -60,7 +59,7 @@ main();
 #TODO Enable this to run on remote server, respecting the db.conf settings.
 sub main {
 	binmode( STDOUT, ':encoding(UTF-8)' );
-	my $dbases = get_databases_with_submissions();
+	my $dbases         = get_databases_with_submissions();
 	my $name_by_email  = {};
 	my $dbase_by_email = {};
 	my $ids_by_email   = {};
@@ -137,7 +136,7 @@ sub is_allowed_to_curate {
 	my $db = db_connect($dbase);
 	my $status = $db->selectrow_array( q(SELECT status FROM users WHERE id=?), undef, $user_id );
 	return 1 if $status eq 'admin';
-	return if $status ne 'curator';
+	return   if $status ne 'curator';
 	my $is_allowed;
 	my %method = (
 		alleles => sub {
@@ -405,11 +404,18 @@ sub email {
 	my $domain  = DOMAIN;
 	my $subject = "Submission reminder ($domain)";
 	my $transport =
-	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25, } );
-	my $email = Email::Simple->create(
-		header =>
-		  [ To => $address, From => SENDER, Subject => $subject, 'Content-Type' => 'text/plain; charset=UTF-8' ],
-		body => $message
+	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25 } );
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $address,
+			From    => SENDER,
+			Subject => $subject
+		],
+		body_str => $message
 	);
 	try_to_sendmail( $email, { transport => $transport } )
 	  || say "Cannot send E-mail to $address";

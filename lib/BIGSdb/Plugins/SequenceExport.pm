@@ -597,7 +597,7 @@ sub _append_sequences {
 	} else {
 		$output_file = $temp_file;
 	}
-	if ( -e $output_file ) {
+	if ( -e $output_file && !-z $output_file ) {
 		$$no_output_ref = 0;
 		my $seq_in = Bio::SeqIO->new( -format => 'fasta', -file => $output_file );
 		while ( my $seq = $seq_in->next_seq ) {

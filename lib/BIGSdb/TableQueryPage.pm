@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -142,7 +142,7 @@ sub _get_select_items {
 	}
 	my %labels;
 	foreach my $att (@$attributes) {
-		next if ( $att->{'hide_query'} // '' ) eq 'yes';
+		next if $att->{'hide_query'};
 		if ( any { $att->{'name'} eq $_ } qw (sender curator user_id) ) {
 			push @select_items, "$att->{'name'} (id)", "$att->{'name'} (surname)", "$att->{'name'} (first_name)",
 			  "$att->{'name'} (affiliation)";
@@ -274,7 +274,7 @@ sub _print_interface {
 		( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
 		my $sub = 'Select a value to filter your search to only those with the selected attribute.';
 		$tooltip =~ s/ - / filter - $sub/x;
-		if ( ( $att->{'dropdown_query'} // q() ) eq 'yes' ) {
+		if ( $att->{'dropdown_query'} ) {
 			my $dropdown_filter = $self->_get_dropdown_filter( $table, $att );
 			push @filters, $dropdown_filter if $dropdown_filter;
 		} elsif ( $att->{'optlist'} ) {
@@ -843,7 +843,7 @@ sub _modify_loci_for_sets {
 	my %table_with_locus =
 	  map { $_ => 1 } qw(locus_descriptions locus_aliases scheme_members allele_designations sequences);
 	my $identifier;
-	if ( $table eq 'loci' ) { $identifier = 'id' }
+	if    ( $table eq 'loci' )          { $identifier = 'id' }
 	elsif ( $table_with_locus{$table} ) { $identifier = 'locus' }
 	else                                { return }
 	if ($set_id) {

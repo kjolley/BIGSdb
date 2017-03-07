@@ -23,16 +23,16 @@ use List::MoreUtils qw(any);
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS IDENTITY_THRESHOLD);
 
 #Attributes
-#hide => 'yes': Do not display in results table and do not return field values in query
-#hide_public =>'yes': Only display in results table in curation interface
-#hide_query => 'yes': Do not display in results table or allow querying but do return field values in query
-#hide_in_form => 'yes': Do not display in add/update forms.
+#hide => 1: Do not display in results table and do not return field values in query
+#hide_public =>1: Only display in results table in curation interface
+#hide_query => 1: Do not display in results table or allow querying but do return field values in query
+#hide_in_form => 1: Do not display in add/update forms.
 sub get_isolate_aliases_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
-		{ name => 'alias',      type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' },
-		{ name => 'curator', type => 'int', required => 'yes', dropdown_query => 'yes' }
+		{ name => 'isolate_id', type => 'int',  required => 1, primary_key => 1, foreign_key => 'isolates' },
+		{ name => 'alias',      type => 'text', required => 1, primary_key => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 },
+		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -42,25 +42,25 @@ sub get_users_table_attributes {
 	my $status =
 	  ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'user;curator;submitter;admin' : 'user;curator;admin';
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', length => 6, unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, length => 6, unique => 1, primary_key => 1 },
 		{
 			name           => 'user_name',
 			type           => 'text',
-			required       => 'yes',
+			required       => 1,
 			length         => 12,
-			unique         => 'yes',
-			dropdown_query => 'yes',
-			user_update    => 'no'
+			unique         => 1,
+			dropdown_query => 1,
+			no_user_update => 1
 		},
-		{ name => 'surname',      type => 'text', required => 'yes', length  => 40,      dropdown_query => 'yes' },
-		{ name => 'first_name',   type => 'text', required => 'yes', length  => 40,      dropdown_query => 'yes' },
-		{ name => 'email',        type => 'text', required => 'yes', length  => 50 },
-		{ name => 'affiliation',  type => 'text', required => 'yes', length  => 255 },
-		{ name => 'status',       type => 'text', required => 'yes', optlist => $status, default        => 'user' },
-		{ name => 'date_entered', type => 'date', required => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' },
-		{ name => 'curator', type => 'int', required     => 'yes', dropdown_query => 'yes' },
-		{ name => 'user_db', type => 'int', hide_in_form => 'yes' }
+		{ name => 'surname',      type => 'text', required => 1, length  => 40,      dropdown_query => 1 },
+		{ name => 'first_name',   type => 'text', required => 1, length  => 40,      dropdown_query => 1 },
+		{ name => 'email',        type => 'text', required => 1, length  => 50 },
+		{ name => 'affiliation',  type => 'text', required => 1, length  => 255 },
+		{ name => 'status',       type => 'text', required => 1, optlist => $status, default        => 'user' },
+		{ name => 'date_entered', type => 'date', required => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 },
+		{ name => 'curator', type => 'int', required     => 1, dropdown_query => 1 },
+		{ name => 'user_db', type => 'int', hide_in_form => 1 }
 	];
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' && $self->{'config'}->{'submission_dir'} ) {
 		push @$attributes,
@@ -69,7 +69,7 @@ sub get_users_table_attributes {
 			type     => 'bool',
 			comments => 'Receive new submission E-mails (curators only)',
 			tooltip  => 'submission emails - The user will be notified of new submissions that they have sufficient '
-			  . 'privileges to curate.  This is only relevant to curators and admins.',
+			  . 'privileges to curate. This is only relevant to curators and admins.',
 			default => 'false'
 		  };
 	}
@@ -90,21 +90,21 @@ sub get_users_table_attributes {
 
 sub get_user_dbases_table_attributes {
 	my $attributes = [
-		{ name => 'id',   type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'name', type => 'text', required => 'yes', length      => 30, comments => 'Site/domain name' },
+		{ name => 'id',   type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'name', type => 'text', required => 1, length      => 30, comments => 'Site/domain name' },
 		{ name => 'list_order',        type => 'int' },
 		{ name => 'auto_registration', type => 'bool', comments => 'Allow user to register themself for database' },
 		{
 			name     => 'dbase_name',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			length   => 60,
 			comments => 'Name of the database holding user data'
 		},
 		{
 			name     => 'dbase_host',
 			type     => 'text',
-			hide     => 'yes',
+			hide     => 1,
 			comments => 'IP address of database host',
 			tooltip  => 'dbase_host - Leave this blank if your database engine is running on the '
 			  . 'same machine as the webserver software.'
@@ -112,7 +112,7 @@ sub get_user_dbases_table_attributes {
 		{
 			name     => 'dbase_port',
 			type     => 'int',
-			hide     => 'yes',
+			hide     => 1,
 			comments => 'Network port accepting database connections',
 			tooltip  => 'dbase_port - This can be left blank unless the database engine is '
 			  . 'listening on a non-standard port.'
@@ -120,36 +120,36 @@ sub get_user_dbases_table_attributes {
 		{
 			name    => 'dbase_user',
 			type    => 'text',
-			hide    => 'yes',
+			hide    => 1,
 			tooltip => 'dbase_user - Depending on configuration of the database engine '
 			  . 'you may be able to leave this blank.'
 		},
 		{
 			name    => 'dbase_password',
 			type    => 'text',
-			hide    => 'yes',
+			hide    => 1,
 			tooltip => 'dbase_password - Depending on configuration of the database engine '
 			  . 'you may be able to leave this blank.'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_user_groups_table_attributes {
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', length => 6, unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, length => 6, unique => 1, primary_key => 1 },
 		{
 			name           => 'description',
 			type           => 'text',
-			required       => 'yes',
+			required       => 1,
 			length         => 60,
-			unique         => 'yes',
-			dropdown_query => 'yes'
+			unique         => 1,
+			dropdown_query => 1
 		},
-		{ name => 'datestamp', type => 'date', required => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' }
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -159,22 +159,24 @@ sub get_user_group_members_table_attributes {
 		{
 			name           => 'user_id',
 			type           => 'int',
-			required       => 'yes',
+			required       => 1,
 			foreign_key    => 'users',
-			primary_key    => 'yes',
-			dropdown_query => 'yes',
-			labels         => '|$surname|, |$first_name|'
+			primary_key    => 1,
+			dropdown_query => 1,
+			user_field     => 1
+
+			  #			labels         => '|$surname|, |$first_name|'
 		},
 		{
 			name           => 'user_group',
 			type           => 'int',
-			required       => 'yes',
+			required       => 1,
 			foreign_key    => 'user_groups',
-			dropdown_query => 'yes',
+			dropdown_query => 1,
 			labels         => '|$id|) |$description|'
 		},
-		{ name => 'datestamp', type => 'date', required => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' }
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -193,25 +195,25 @@ sub get_permissions_table_attributes {
 		{
 			name           => 'user_id',
 			type           => 'int',
-			required       => 'yes',
+			required       => 1,
 			foreign_key    => 'users',
-			primary_key    => 'yes',
-			dropdown_query => 'yes',
+			primary_key    => 1,
+			dropdown_query => 1,
 			labels         => '|$surname|, |$first_name|'
 		},
-		{ name => 'permission', type => 'text', required => 'yes', optlist        => "@optlist", primary_key => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
+		{ name => 'permission', type => 'text', required => 1, optlist        => "@optlist", primary_key => 1 },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 },
 	];
 	return $attributes;
 }
 
 sub get_history_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
-		{ name => 'timestamp', type => 'timestamp', required => 'yes', primary_key => 'yes', query_datestamp => 'yes' },
-		{ name => 'action',  type => 'text', required => 'yes' },
-		{ name => 'curator', type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
+		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
+		{ name => 'action',     type => 'text',      required => 1 },
+		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 },
 	];
 	return $attributes;
 }
@@ -221,15 +223,15 @@ sub get_profile_history_table_attributes {
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'profile_id', type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'timestamp', type => 'timestamp', required => 'yes', primary_key => 'yes', query_datestamp => 'yes' },
-		{ name => 'action',  type => 'text', required => 'yes' },
-		{ name => 'curator', type => 'int',  required => 'yes', dropdown_query => 'yes' },
+		{ name => 'profile_id', type => 'text',      required => 1, primary_key => 1 },
+		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
+		{ name => 'action',  type => 'text', required => 1 },
+		{ name => 'curator', type => 'int',  required => 1, dropdown_query => 1 },
 	];
 	return $attributes;
 }
@@ -237,30 +239,30 @@ sub get_profile_history_table_attributes {
 sub get_loci_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'text', length => 50, required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'text', length => 50, required => 1, unique => 1, primary_key => 1 },
 		{
 			name        => 'formatted_name',
 			type        => 'text',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'formatted name - Name with HTML formatting.'
 		},
 		{
 			name        => 'common_name',
 			type        => 'text',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'common name - Name that the locus is commonly known as.'
 		},
 		{
 			name        => 'formatted_common_name',
 			type        => 'text',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'formatted common name - Common name with HTML formatting.'
 		},
-		{ name => 'data_type', type => 'text', required => 'yes', optlist => 'DNA;peptide', default => 'DNA' },
+		{ name => 'data_type', type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' },
 		{
 			name     => 'allele_id_format',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			optlist  => 'integer;text',
 			default  => 'integer',
 			tooltip  => 'allele id format - Format for allele identifiers'
@@ -268,7 +270,7 @@ sub get_loci_table_attributes {
 		{
 			name        => 'allele_id_regex',
 			type        => 'text',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'allele id regex - Regular expression that constrains allele id values.'
 		},
 		{
@@ -279,7 +281,7 @@ sub get_loci_table_attributes {
 		{
 			name     => 'length_varies',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			default  => 'false',
 			tooltip  => 'length varies - Set to true if this locus can have variable length sequences.'
 		}
@@ -301,11 +303,11 @@ sub get_loci_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'coding_sequence', type => 'bool', required => 'yes', default => 'true' },
+		{ name => 'coding_sequence', type => 'bool', required => 1, default => 'true' },
 		{
 			name        => 'complete_cds',
 			type        => 'bool',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'complete cds - Sequences should be complete reading frames with a start '
 			  . 'and stop codon and no internal stop codons.'
 		},
@@ -313,21 +315,21 @@ sub get_loci_table_attributes {
 			name        => 'orf',
 			type        => 'int',
 			optlist     => '1;2;3;4;5;6',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'open reading frame - This is used for certain analyses that require translation.'
 		},
 		{
 			name        => 'genome_position',
 			type        => 'int',
 			length      => 10,
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'genome position - starting position in reference genome.  '
 			  . 'This is used to order concatenated output functions.'
 		},
 		{
 			name        => 'match_longest',
 			type        => 'bool',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'match longest - Only select the longest exact match when tagging/querying.  '
 			  . 'This is useful when there may be overlapping alleles that are identical apart '
 			  . 'from one lacking an end sequence.'
@@ -352,14 +354,14 @@ sub get_loci_table_attributes {
 				name        => 'reference_sequence',
 				type        => 'text',
 				length      => 30000,
-				hide_public => 'yes',
+				hide_public => 1,
 				tooltip     => 'reference_sequence - Used by the automated sequence comparison algorithms '
 				  . 'to identify sequences matching this locus.'
 			},
 			{
 				name        => 'pcr_filter',
 				type        => 'bool',
-				hide_public => 'yes',
+				hide_public => 1,
 				comments    => 'Do NOT set to true unless you define PCR reactions linked to this locus.',
 				tooltip     => 'pcr filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions that are amplified by <i>in silico</i> PCR reaction. If you do not also '
@@ -369,7 +371,7 @@ sub get_loci_table_attributes {
 			{
 				name        => 'probe_filter',
 				type        => 'bool',
-				hide_public => 'yes',
+				hide_public => 1,
 				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
 				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
@@ -377,7 +379,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'dbase_name',
 				type     => 'text',
-				hide     => 'yes',
+				hide     => 1,
 				length   => 60,
 				comments => 'Name of the database holding allele sequences',
 				default  => $defaults{'dbase_name'}
@@ -385,7 +387,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'dbase_host',
 				type     => 'text',
-				hide     => 'yes',
+				hide     => 1,
 				comments => 'IP address of database host',
 				tooltip  => 'dbase host - Leave this blank if your database engine is running on the same '
 				  . 'machine as the webserver software.'
@@ -393,7 +395,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'dbase_port',
 				type     => 'int',
-				hide     => 'yes',
+				hide     => 1,
 				comments => 'Network port accepting database connections',
 				tooltip  => 'dbase port - This can be left blank unless the database engine is '
 				  . 'listening on a non-standard port.'
@@ -401,21 +403,21 @@ sub get_loci_table_attributes {
 			{
 				name    => 'dbase_user',
 				type    => 'text',
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'dbase user - Depending on configuration of the database engine you '
 				  . 'may be able to leave this blank.'
 			},
 			{
 				name    => 'dbase_password',
 				type    => 'text',
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'dbase password - Depending on configuration of the database engine '
 				  . 'you may be able to leave this blank.'
 			},
 			{
 				name     => 'dbase_id',
 				type     => 'text',
-				hide     => 'yes',
+				hide     => 1,
 				comments => 'Name of locus in seqdef database',
 				default  => $defaults{'dbase_id'}
 			},
@@ -423,7 +425,7 @@ sub get_loci_table_attributes {
 				name    => 'description_url',
 				type    => 'text',
 				length  => 150,
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'description url - The URL used to hyperlink to locus information in '
 				  . 'the isolate information page.',
 				default => $defaults{'description_url'}
@@ -432,7 +434,7 @@ sub get_loci_table_attributes {
 				name    => 'url',
 				type    => 'text',
 				length  => 150,
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'url - The URL used to hyperlink allele numbers in the isolate information '
 				  . 'page.  Instances of [?] within the URL will be substituted with the allele id.',
 				default => $defaults{'url'}
@@ -440,7 +442,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'isolate_display',
 				type     => 'text',
-				required => 'yes',
+				required => 1,
 				optlist  => 'allele only;sequence;hide',
 				default  => 'allele only',
 				tooltip  => 'isolate display - Sets how to display the locus in the isolate info page '
@@ -449,7 +451,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'main_display',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'false',
 				tooltip  => 'main display - Sets whether to display locus in isolate query results '
 				  . 'table (can be overridden by user preference).'
@@ -457,7 +459,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'query_field',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'query field - Sets whether this locus can be used in isolate queries '
 				  . '(can be overridden by user preference).'
@@ -465,7 +467,7 @@ sub get_loci_table_attributes {
 			{
 				name     => 'analysis',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'analysis - Sets whether to include this locus in analysis functions '
 				  . '(can be overridden by user preference).'
@@ -473,7 +475,7 @@ sub get_loci_table_attributes {
 			{
 				name        => 'submission_template',
 				type        => 'bool',
-				hide_public => 'yes',
+				hide_public => 1,
 				default     => 'false',
 				comments    => 'Include column in isolate submission template for this locus',
 				tooltip     => 'submission_template - Do not include too many loci by default as the submission '
@@ -486,7 +488,7 @@ sub get_loci_table_attributes {
 		  {
 			name        => 'no_submissions',
 			type        => 'bool',
-			hide_public => 'yes',
+			hide_public => 1,
 			comments    => 'Set to true to prevent submission of alleles of this '
 			  . 'locus via the automated submission system.'
 		  },
@@ -506,29 +508,29 @@ sub get_loci_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', hide => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes', hide           => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes', hide           => 'yes' }
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1, hide => 1 },
+		{ name => 'date_entered', type => 'date', required => 1, hide           => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1, hide           => 1 }
 	  );
 	return $attributes;
 }
 
 sub get_pcr_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
-		{ name => 'description', type => 'text', length   => '50',  required => 'yes' },
+		{ name => 'id',          type => 'int',  required => 1,    unique   => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', length   => '50', required => 1 },
 		{
 			name     => 'primer1',
 			type     => 'text',
 			length   => '128',
-			required => 'yes',
+			required => 1,
 			regex    => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$'
 		},
 		{
 			name     => 'primer2',
 			type     => 'text',
 			length   => '128',
-			required => 'yes',
+			required => 1,
 			regex    => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$'
 		},
 		{ name => 'min_length', type => 'int', comments => 'Minimum length of product to return' },
@@ -540,8 +542,8 @@ sub get_pcr_table_attributes {
 			comments => 'Maximum sequence mismatch per primer',
 			tooltip  => 'max primer mismatch - Do not set this too high or the reactions will run slowly.'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -551,39 +553,39 @@ sub get_pcr_locus_table_attributes {
 		{
 			name           => 'pcr_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'pcr',
-			dropdown_query => 'yes',
+			dropdown_query => 1,
 			labels         => '|$id|) |$description|',
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_probes_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes', unique   => 'yes', primary_key => 'yes' },
-		{ name => 'description', type => 'text', length   => '50',  required => 'yes' },
+		{ name => 'id',          type => 'int',  required => 1,    unique   => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', length   => '50', required => 1 },
 		{
 			name     => 'sequence',
 			type     => 'text',
 			length   => '2048',
-			required => 'yes',
+			required => 1,
 			regex    => '^[ACGTURYSWKMBDHVNacgturyswkmbdhvn ]+$'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -593,24 +595,24 @@ sub get_probe_locus_table_attributes {
 		{
 			name           => 'probe_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'probes',
-			dropdown_query => 'yes',
+			dropdown_query => 1,
 			labels         => '|$id|) |$description|',
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name     => 'max_distance',
 			type     => 'int',
-			required => 'yes',
+			required => 1,
 			comments => 'Maximum distance of probe from end of locus'
 		},
 		{
@@ -620,8 +622,8 @@ sub get_probe_locus_table_attributes {
 		},
 		{ name => 'max_mismatch', type => 'int',  comments => 'Maximum sequence mismatch (default: 0)' },
 		{ name => 'max_gaps',     type => 'int',  comments => 'Maximum gaps in alignment (default: 0)' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' }
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -632,20 +634,20 @@ sub get_locus_aliases_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'alias', type => 'text', required => 'yes', primary_key => 'yes' }
+		{ name => 'alias', type => 'text', required => 1, primary_key => 1 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes, ( { name => 'use_alias', type => 'bool', required => 'yes', default => 'true' } );
+		push @$attributes, ( { name => 'use_alias', type => 'bool', required => 1, default => 'true' } );
 	}
 	push @$attributes,
 	  (
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -655,16 +657,16 @@ sub get_locus_links_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'url',         type => 'text', required => 'yes', primary_key    => 'yes' },
+		{ name => 'url',         type => 'text', required => 1, primary_key    => 1 },
 		{ name => 'description', type => 'text', length   => 256 },
 		{ name => 'link_order',  type => 'int',  length   => 4 },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -674,14 +676,14 @@ sub get_locus_refs_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'pubmed_id', type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'pubmed_id', type => 'int',  required => 1, primary_key    => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -691,14 +693,14 @@ sub get_retired_allele_ids_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'string', required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',   type => 'int',    required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date',   required => 'yes' }
+		{ name => 'allele_id', type => 'string', required => 1, primary_key    => 1 },
+		{ name => 'curator',   type => 'int',    required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date',   required => 1 }
 	];
 	return $attributes;
 }
@@ -708,26 +710,26 @@ sub get_retired_profiles_table_attributes {
 		{
 			name            => 'scheme_id',
 			type            => 'int',
-			required        => 'yes',
-			primary_key     => 'yes',
+			required        => 1,
+			primary_key     => 1,
 			foreign_key     => 'schemes',
 			labels          => '|$name| (id |$id|)',
-			dropdown_query  => 'yes',
+			dropdown_query  => 1,
 			with_pk_only    => 1,
 			is_curator_only => 1
 		},
-		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' }
+		{ name => 'profile_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_retired_isolates_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' }
+		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1 },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -737,16 +739,16 @@ sub get_locus_extended_attributes_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'field', type => 'text', required => 1, primary_key => 1 },
 		{
 			name     => 'value_format',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			optlist  => 'integer;text;boolean',
 			default  => 'text'
 		},
@@ -765,7 +767,7 @@ sub get_locus_extended_attributes_table_attributes {
 		{ name => 'length', type => 'integer' },
 		{
 			name     => 'required',
-			required => 'yes',
+			required => 1,
 			type     => 'bool',
 			default  => 'false',
 			tooltip  => 'required - Specifies whether value is required for each sequence.'
@@ -774,12 +776,12 @@ sub get_locus_extended_attributes_table_attributes {
 		{
 			name     => 'main_display',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			default  => 'true',
 			tooltip  => 'main display - Specifies whether to display field in main results table.'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -789,16 +791,16 @@ sub get_locus_descriptions_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{ name => 'full_name',   type => 'text', length   => 120 },
 		{ name => 'product',     type => 'text', length   => 120 },
 		{ name => 'description', type => 'text', length   => 2048 },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -808,45 +810,45 @@ sub get_sequence_extended_attributes_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'field',     type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'value',     type => 'text', required => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' }
+		{ name => 'field',     type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'value',     type => 'text', required => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
 
 sub get_client_dbases_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'name',        type => 'text', required => 'yes', length      => 30 },
-		{ name => 'description', type => 'text', required => 'yes', length      => 256 },
+		{ name => 'id',          type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'name',        type => 'text', required => 1, length      => 30 },
+		{ name => 'description', type => 'text', required => 1, length      => 256 },
 		{
 			name     => 'dbase_name',
 			type     => 'text',
-			required => 'yes',
-			hide     => 'yes',
+			required => 1,
+			hide     => 1,
 			length   => 60,
 			comments => 'Name of the database holding isolate data'
 		},
 		{
 			name     => 'dbase_config_name',
 			type     => 'text',
-			required => 'yes',
-			hide     => 'yes',
+			required => 1,
+			hide     => 1,
 			length   => 60,
 			comments => 'Name of the database configuration'
 		},
 		{
 			name     => 'dbase_host',
 			type     => 'text',
-			hide     => 'yes',
+			hide     => 1,
 			comments => 'IP address of database host',
 			tooltip  => 'dbase_host - Leave this blank if your database engine is running on the '
 			  . 'same machine as the webserver software.'
@@ -854,7 +856,7 @@ sub get_client_dbases_table_attributes {
 		{
 			name     => 'dbase_port',
 			type     => 'int',
-			hide     => 'yes',
+			hide     => 1,
 			comments => 'Network port accepting database connections',
 			tooltip  => 'dbase_port - This can be left blank unless the database engine is '
 			  . 'listening on a non-standard port.'
@@ -862,21 +864,21 @@ sub get_client_dbases_table_attributes {
 		{
 			name    => 'dbase_user',
 			type    => 'text',
-			hide    => 'yes',
+			hide    => 1,
 			tooltip => 'dbase_user - Depending on configuration of the database engine '
 			  . 'you may be able to leave this blank.'
 		},
 		{
 			name    => 'dbase_password',
 			type    => 'text',
-			hide    => 'yes',
+			hide    => 1,
 			tooltip => 'dbase_password - Depending on configuration of the database engine '
 			  . 'you may be able to leave this blank.'
 		},
-		{ name => 'dbase_view', type => 'text', required => 'no', comments => 'View of isolates table to use' },
-		{ name => 'url', type => 'text', length => 80, required => 'no', comments => 'Web URL to database script' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'dbase_view', type => 'text', required => 0, comments => 'View of isolates table to use' },
+		{ name => 'url', type => 'text', length => 80, required => 0, comments => 'Web URL to database script' },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -886,39 +888,39 @@ sub get_client_dbase_loci_fields_table_attributes {
 		{
 			name           => 'client_dbase_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'client_dbases',
 			labels         => '|$id|) |$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'isolate_field', type => 'text', length => 50, required => 'yes', primary_key => 'yes' },
+		{ name => 'isolate_field', type => 'text', length => 50, required => 1, primary_key => 1 },
 		{
 			name     => 'allele_query',
 			type     => 'bool',
 			default  => 'true',
 			comments => 'set to true to display field values when an allele query is done.'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_experiments_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  length   => 10,    required       => 'yes', primary_key => 'yes' },
-		{ name => 'description', type => 'text', required => 'yes', length         => 48,    unique      => 'yes' },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'id',          type => 'int',  length   => 10, required       => 1,  primary_key => 1 },
+		{ name => 'description', type => 'text', required => 1,  length         => 48, unique      => 1 },
+		{ name => 'curator',     type => 'int',  required => 1,  dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -928,15 +930,15 @@ sub get_experiment_sequences_table_attributes {
 		{
 			name           => 'experiment_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'experiments',
 			labels         => '|$id|) |$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'seqbin_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'seqbin_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'sequence_bin' },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -946,28 +948,28 @@ sub get_client_dbase_loci_table_attributes {
 		{
 			name           => 'client_dbase_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'client_dbases',
 			labels         => '|$id|) |$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name     => 'locus_alias',
 			type     => 'text',
-			required => 'no',
+			required => 0,
 			comments => 'name that this locus is referred by in client database (if different)'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -977,38 +979,38 @@ sub get_client_dbase_schemes_table_attributes {
 		{
 			name           => 'client_dbase_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'client_dbases',
 			labels         => '|$id|) |$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name     => 'client_scheme_id',
 			type     => 'int',
 			comments => 'id number of the scheme in the client database (if different)'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_refs_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
-		{ name => 'pubmed_id',  type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' }
+		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'isolates' },
+		{ name => 'pubmed_id',  type => 'int',  required => 1, primary_key    => 1 },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1018,15 +1020,15 @@ sub get_sequence_refs_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'pubmed_id', type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'pubmed_id', type => 'int',  required => 1, primary_key    => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1036,15 +1038,15 @@ sub get_allele_flags_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'flag',      type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'flag',      type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1054,46 +1056,46 @@ sub get_profile_refs_table_attributes {
 		{
 			name            => 'scheme_id',
 			type            => 'int',
-			required        => 'yes',
-			primary_key     => 'yes',
+			required        => 1,
+			primary_key     => 1,
 			foreign_key     => 'schemes',
 			labels          => '|$name| (id |$id|)',
-			dropdown_query  => 'yes',
+			dropdown_query  => 1,
 			with_pk_only    => 1,
 			is_curator_only => 1
 		},
-		{ name => 'profile_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'pubmed_id',  type => 'int',  required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' }
+		{ name => 'profile_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'pubmed_id',  type => 'int',  required => 1, primary_key    => 1 },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_allele_designations_table_attributes {
 	my $attributes = [
-		{ name => 'isolate_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'isolates' },
+		{ name => 'isolate_id', type => 'int', required => 1, primary_key => 1, foreign_key => 'isolates' },
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'sender',    type => 'int',  required => 'yes', foreign_key => 'users', dropdown_query => 'yes' },
+		{ name => 'allele_id', type => 'text', required => 1, primary_key => 1 },
+		{ name => 'sender',    type => 'int',  required => 1, foreign_key => 'users', dropdown_query => 1 },
 		{
 			name     => 'status',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			optlist  => 'confirmed;provisional;ignore',
 			default  => 'confirmed'
 		},
-		{ name => 'method', type => 'text', required => 'yes', optlist => 'manual;automatic', default => 'manual' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes' },
+		{ name => 'method',  type => 'text', required => 1, optlist        => 'manual;automatic', default => 'manual' },
+		{ name => 'curator', type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 },
+		{ name => 'date_entered', type => 'date', required => 1 },
 		{ name => 'comments',     type => 'text', length   => 64 }
 	];
 	return $attributes;
@@ -1102,16 +1104,16 @@ sub get_allele_designations_table_attributes {
 sub get_schemes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, unique => 1, primary_key => 1 },
 		{
 			name     => 'name',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			length   => 50,
-			unique   => 'yes',
+			unique   => 1,
 			tooltip  => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
-		{ name => 'description', type => 'text', hide => 'yes', length => 1000 }
+		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -1119,48 +1121,48 @@ sub get_schemes_table_attributes {
 			{
 				name        => 'dbase_name',
 				type        => 'text',
-				hide_public => 'yes',
+				hide_public => 1,
 				tooltip     => 'dbase_name - Name of the database holding profile or field information for this scheme',
 				length      => 60
 			},
 			{
 				name        => 'dbase_host',
 				type        => 'text',
-				hide_public => 'yes',
+				hide_public => 1,
 				tooltip     => 'dbase_host - Leave this blank if your database engine is running on the same '
 				  . 'machine as the webserver software.'
 			},
 			{
 				name        => 'dbase_port',
 				type        => 'int',
-				hide_public => 'yes',
+				hide_public => 1,
 				tooltip     => 'dbase_port - Leave this blank if your database engine is running on the same '
 				  . 'machine as the webserver software.'
 			},
 			{
 				name    => 'dbase_user',
 				type    => 'text',
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'dbase_user - Depending on configuration of the database engine you '
 				  . 'may be able to leave this blank.'
 			},
 			{
 				name    => 'dbase_password',
 				type    => 'text',
-				hide    => 'yes',
+				hide    => 1,
 				tooltip => 'dbase_password - Depending on configuration of the database engine you may be able '
 				  . 'to leave this blank.'
 			},
 			{
 				name        => 'dbase_id',
 				type        => 'int',
-				hide_public => 'yes',
+				hide_public => 1,
 				tooltip     => 'dbase_id - Scheme id in remote database.'
 			},
 			{
 				name     => 'isolate_display',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'isolate_display - Sets whether to display the scheme in the isolate info page, '
 				  . 'setting to false overrides values for individual loci and scheme fields '
@@ -1169,7 +1171,7 @@ sub get_schemes_table_attributes {
 			{
 				name     => 'main_display',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'main_display - Sets whether to display the scheme in isolate query results table, '
 				  . 'setting to false overrides values for individual loci and scheme fields '
@@ -1178,7 +1180,7 @@ sub get_schemes_table_attributes {
 			{
 				name     => 'query_field',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'query_field - Sets whether this scheme can be used in isolate queries, '
 				  . 'setting to false overrides values for individual loci and scheme fields '
@@ -1187,7 +1189,7 @@ sub get_schemes_table_attributes {
 			{
 				name     => 'query_status',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'false',
 				tooltip  => 'query_status - Sets whether a drop-down list box should be used in '
 				  . 'query interface to select profile completion status for this scheme.'
@@ -1195,7 +1197,7 @@ sub get_schemes_table_attributes {
 			{
 				name     => 'analysis',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'analysis - Sets whether to include this scheme in analysis functions '
 				  . '(can be overridden by user preference).'
@@ -1207,13 +1209,13 @@ sub get_schemes_table_attributes {
 		{
 			name        => 'display_order',
 			type        => 'int',
-			hide_public => 'yes',
+			hide_public => 1,
 			tooltip     => 'display_order - order of appearance in interface.'
 		},
 		{
 			name        => 'allow_missing_loci',
 			type        => 'bool',
-			hide_public => 'yes',
+			hide_public => 1,
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		}
@@ -1229,7 +1231,7 @@ sub get_schemes_table_attributes {
 			{
 				name        => 'no_submissions',
 				type        => 'bool',
-				hide_public => 'yes',
+				hide_public => 1,
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
@@ -1237,9 +1239,9 @@ sub get_schemes_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'curator',      type => 'int',  hide_public => 'yes', required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',    type => 'date', hide_public => 'yes', required => 'yes' },
-		{ name => 'date_entered', type => 'date', hide_public => 'yes', required => 'yes' }
+		{ name => 'curator',      type => 'int',  hide_public => 1, required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',    type => 'date', hide_public => 1, required => 1 },
+		{ name => 'date_entered', type => 'date', hide_public => 1, required => 1 }
 	  );
 	return $attributes;
 }
@@ -1250,19 +1252,19 @@ sub get_scheme_members_table_attributes {
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		}
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -1270,15 +1272,15 @@ sub get_scheme_members_table_attributes {
 		  {
 			name     => 'profile_name',
 			type     => 'text',
-			required => 'no',
+			required => 0,
 			tooltip  => 'profile_name - This is the name of the locus within the sequence definition database.'
 		  };
 	}
 	push @$attributes,
 	  (
-		{ name => 'field_order', type => 'int',  required => 'no' },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' }
+		{ name => 'field_order', type => 'int',  required => 0 },
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -1289,33 +1291,33 @@ sub get_scheme_fields_table_attributes {
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
-		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' },
+		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;date' },
 		{
 			name     => 'primary_key',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			default  => 'false',
 			tooltip  => 'primary key - Sets whether this field defines a profile '
 			  . '(you can only have one primary key field).'
 		},
-		{ name => 'description', type => 'text', required => 'no', length      => 64, },
-		{ name => 'field_order', type => 'int',  required => 'no', hide_public => 'yes' }
+		{ name => 'description', type => 'text', required => 0, length      => 64, },
+		{ name => 'field_order', type => 'int',  required => 0, hide_public => 1 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
-			{ name => 'url', type => 'text', required => 'no', length => 120, hide_public => 'yes' },
+			{ name => 'url', type => 'text', required => 0, length => 120, hide_public => 1 },
 			{
 				name     => 'isolate_display',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'isolate display - Sets how to display the locus in the isolate info page '
 				  . '(can be overridden by user preference).'
@@ -1323,7 +1325,7 @@ sub get_scheme_fields_table_attributes {
 			{
 				name     => 'main_display',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'false',
 				tooltip  => 'main display - Sets whether to display locus in isolate query results table '
 				  . '(can be overridden by user preference).'
@@ -1331,7 +1333,7 @@ sub get_scheme_fields_table_attributes {
 			{
 				name     => 'query_field',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'true',
 				tooltip  => 'query field - Sets whether this locus can be used in isolate queries '
 				  . '(can be overridden by user preference).'
@@ -1339,7 +1341,7 @@ sub get_scheme_fields_table_attributes {
 			{
 				name     => 'dropdown',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'false',
 				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
 				  . '(can be overridden by user preference).'
@@ -1351,14 +1353,14 @@ sub get_scheme_fields_table_attributes {
 			{
 				name     => 'index',
 				type     => 'bool',
-				required => 'no',
+				required => 0,
 				tooltip  => 'index - Sets whether the field is indexed in the database.  This setting '
 				  . 'is ignored for primary key fields which are always indexed.'
 			},
 			{
 				name     => 'dropdown',
 				type     => 'bool',
-				required => 'yes',
+				required => 1,
 				default  => 'false',
 				tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
 				  . '(can be overridden by user preference).'
@@ -1372,8 +1374,8 @@ sub get_scheme_fields_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -1381,14 +1383,14 @@ sub get_scheme_fields_table_attributes {
 sub get_scheme_groups_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, unique => 1, primary_key => 1 },
 		{
 			name           => 'name',
 			type           => 'text',
-			required       => 'yes',
+			required       => 1,
 			length         => 50,
-			dropdown_query => 'yes',
-			unique         => 'yes',
+			dropdown_query => 1,
+			unique         => 1,
 			tooltip        => 'name - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{ name => 'description',   type => 'text', length => 256 },
@@ -1407,8 +1409,8 @@ sub get_scheme_groups_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -1418,23 +1420,23 @@ sub get_scheme_group_scheme_members_table_attributes {
 		{
 			name           => 'group_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'scheme_groups',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1444,23 +1446,23 @@ sub get_scheme_group_group_members_table_attributes {
 		{
 			name           => 'parent_group_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'scheme_groups',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'group_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'scheme_groups',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1470,28 +1472,28 @@ sub get_composite_fields_table_attributes {
 		{
 			name        => 'id',
 			type        => 'text',
-			required    => 'yes',
-			primary_key => 'yes',
+			required    => 1,
+			primary_key => 1,
 			comments    => 'name of the field as it will appear in the web interface'
 		},
 		{
 			name           => 'position_after',
 			type           => 'text',
-			required       => 'yes',
+			required       => 1,
 			comments       => 'field present in the isolate table',
-			dropdown_query => 'yes',
+			dropdown_query => 1,
 			optlist        => 'isolate_fields'
 		},
 		{
 			name     => 'main_display',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			default  => 'false',
 			comments => 'Sets whether to display field in isolate query results table '
 			  . '(can be overridden by user preference).'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1501,12 +1503,12 @@ sub get_composite_field_values_table_attributes {
 		{
 			name           => 'composite_field_id',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'composite_fields',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'field_order', type => 'int', required => 'yes', primary_key => 'yes' },
+		{ name => 'field_order', type => 'int', required => 1, primary_key => 1 },
 		{ name => 'empty_value', type => 'text' },
 		{
 			name    => 'regex',
@@ -1516,9 +1518,9 @@ sub get_composite_field_values_table_attributes {
 			  . q(on the displayed value. For example: <br /><br /><b>s/ST-(\S+) complex.*/cc$1/</b><br /><br />)
 			  . q(will convert something like 'ST-41/44 complex/lineage III' to 'cc41/44')
 		},
-		{ name => 'field',     type => 'text', length   => 40,    required       => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' },
-		{ name => 'int',       type => 'text', required => 'yes', dropdown_query => 'yes' }
+		{ name => 'field',     type => 'text', length   => 40, required       => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'int',       type => 'text', required => 1,  dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -1531,26 +1533,26 @@ sub get_sequences_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'sequence',  type => 'text', required => 'yes', length      => 32768, user_update => 'no' },
-		{ name => 'status',    type => 'text', required => 'yes', optlist     => "@optlist", hide_public => 'yes' },
+		{ name => 'allele_id', type => 'text', required => 1, primary_key => 1 },
+		{ name => 'sequence',  type => 'text', required => 1, length      => 32768, no_user_update => 1 },
+		{ name => 'status',    type => 'text', required => 1, optlist     => "@optlist", hide_public => 1 },
 		{
 			name     => 'type_allele',
 			type     => 'bool',
 			comments => 'New allele searches can be constrained to use just type alleles in comparisons',
 		},
-		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes', hide_public => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes', hide_public    => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes', hide_public    => 'yes' }
+		{ name => 'sender',       type => 'int',  required => 1, dropdown_query => 1, hide_public => 1 },
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1, hide_public => 1 },
+		{ name => 'date_entered', type => 'date', required => 1, hide_public    => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1, hide_public    => 1 }
 	];
 	if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
-		push @$attributes, ( { name => 'comments', type => 'text', required => 'no', length => 120 } );
+		push @$attributes, ( { name => 'comments', type => 'text', required => 0, length => 120 } );
 	}
 	return $attributes;
 }
@@ -1565,12 +1567,12 @@ sub get_accession_table_attributes {
 			{
 				name           => 'locus',
 				type           => 'text',
-				required       => 'yes',
-				primary_key    => 'yes',
+				required       => 1,
+				primary_key    => 1,
 				foreign_key    => 'loci',
-				dropdown_query => 'yes'
+				dropdown_query => 1
 			},
-			{ name => 'allele_id', type => 'text', required => 'yes', primary_key => 'yes' },
+			{ name => 'allele_id', type => 'text', required => 1, primary_key => 1 },
 		  );
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
@@ -1578,8 +1580,8 @@ sub get_accession_table_attributes {
 			{
 				name        => 'seqbin_id',
 				type        => 'int',
-				required    => 'yes',
-				primary_key => 'yes',
+				required    => 1,
+				primary_key => 1,
 				foreign_key => 'sequence_bin'
 			}
 		  );
@@ -1587,43 +1589,43 @@ sub get_accession_table_attributes {
 	local $" = ';';
 	push @$attributes,
 	  (
-		{ name => 'databank',    type => 'text', required => 'yes', primary_key    => 'yes', optlist => "@databanks" },
-		{ name => 'databank_id', type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'curator',     type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',   type => 'date', required => 'yes' },
+		{ name => 'databank',    type => 'text', required => 1, primary_key    => 1, optlist => "@databanks" },
+		{ name => 'databank_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 },
 	  );
 	return $attributes;
 }
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'id',         type => 'int',  hide_query => 'yes', primary_key => 'yes' },
-		{ name => 'isolate_id', type => 'int',  required   => 'yes', foreign_key => 'isolates' },
-		{ name => 'seqbin_id',  type => 'int',  required   => 'yes', foreign_key => 'sequence_bin' },
-		{ name => 'locus',      type => 'text', required   => 'yes', foreign_key => 'loci', dropdown_query => 'yes' },
+		{ name => 'id',         type => 'int',  hide_query => 1, primary_key => 1 },
+		{ name => 'isolate_id', type => 'int',  required   => 1, foreign_key => 'isolates' },
+		{ name => 'seqbin_id',  type => 'int',  required   => 1, foreign_key => 'sequence_bin' },
+		{ name => 'locus',      type => 'text', required   => 1, foreign_key => 'loci', dropdown_query => 1 },
 		{
 			name     => 'start_pos',
 			type     => 'int',
-			required => 'yes',
+			required => 1,
 			comments => 'start position of locus within sequence'
 		},
-		{ name => 'end_pos', type => 'int', required => 'yes', comments => 'end position of locus within sequence' },
+		{ name => 'end_pos', type => 'int', required => 1, comments => 'end position of locus within sequence' },
 		{
 			name     => 'reverse',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			comments => 'true if sequence is reverse complemented',
 			default  => 'false'
 		},
 		{
 			name     => 'complete',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			comments => 'true if complete locus represented',
 			default  => 'true'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1632,10 +1634,10 @@ sub get_sequence_flags_table_attributes {
 	my @flags = SEQ_FLAGS;
 	local $" = ';';
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'allele_sequences' },
-		{ name => 'flag',      type => 'text', required => 'yes', optlist        => "@flags" },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'id',        type => 'int',  required => 1, primary_key    => 1, foreign_key => 'allele_sequences' },
+		{ name => 'flag',      type => 'text', required => 1, optlist        => "@flags" },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1645,17 +1647,17 @@ sub get_profiles_table_attributes {
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'profile_id',   type => 'text', required => 'yes', primary_key    => 'yes' },
-		{ name => 'sender',       type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'curator',      type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'date_entered', type => 'date', required => 'yes' },
-		{ name => 'datestamp',    type => 'date', required => 'yes' }
+		{ name => 'profile_id',   type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'sender',       type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'date_entered', type => 'date', required => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1665,21 +1667,21 @@ sub get_scheme_curators_table_attributes {
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name            => 'curator_id',
 			type            => 'int',
-			required        => 'yes',
-			primary_key     => 'yes',
+			required        => 1,
+			primary_key     => 1,
 			foreign_key     => 'users',
 			is_curator_only => 1,
 			user_field      => 1,
-			dropdown_query  => 'yes'
+			dropdown_query  => 1
 		}
 	];
 	return $attributes;
@@ -1690,20 +1692,20 @@ sub get_locus_curators_table_attributes {
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name            => 'curator_id',
 			type            => 'int',
-			required        => 'yes',
-			primary_key     => 'yes',
+			required        => 1,
+			primary_key     => 1,
 			foreign_key     => 'users',
 			is_curator_only => 1,
 			user_field      => 1,
-			dropdown_query  => 'yes'
+			dropdown_query  => 1
 		},
 		{
 			name     => 'hide_public',
@@ -1718,11 +1720,11 @@ sub get_locus_curators_table_attributes {
 sub get_sequence_attributes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'key', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[A-z]\w*$' },
-		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;float;date', default => 'text' },
+		{ name => 'key', type => 'text', required => 1, primary_key => 1, regex => '^[A-z]\w*$' },
+		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;float;date', default => 'text' },
 		{ name => 'description', type => 'text' },
-		{ name => 'curator',     type => 'int', required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',     type => 'int', required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1730,17 +1732,17 @@ sub get_sequence_attributes_table_attributes {
 sub get_sequence_attribute_values_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'seqbin_id', type => 'int', required => 'yes', primary_key => 'yes', foreign_key => 'sequence_bin' },
+		{ name => 'seqbin_id', type => 'int', required => 1, primary_key => 1, foreign_key => 'sequence_bin' },
 		{
 			name        => 'key',
 			type        => 'text',
-			required    => 'yes',
-			primary_key => 'yes',
+			required    => 1,
+			primary_key => 1,
 			foreign_key => 'sequence_attributes'
 		},
-		{ name => 'value',     type => 'text', required => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'value',     type => 'text', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1750,18 +1752,18 @@ sub get_sequence_bin_table_attributes {
 	my @methods = SEQ_METHODS;
 	local $" = ';';
 	my $attributes = [
-		{ name => 'id',         type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'isolate_id', type => 'int',  required => 'yes', foreign_key => 'isolates' },
-		{ name => 'sequence',   type => 'text', required => 'yes', length      => 2048, user_update => 'no' },
-		{ name => 'method',     type => 'text', required => 'yes', optlist     => "@methods" },
+		{ name => 'id',         type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'isolate_id', type => 'int',  required => 1, foreign_key => 'isolates' },
+		{ name => 'sequence',   type => 'text', required => 1, length      => 2048, no_user_update => 1 },
+		{ name => 'method',     type => 'text', required => 1, optlist     => "@methods" },
 		{ name => 'run_id',               type => 'text', length   => 32 },
 		{ name => 'assembly_id',          type => 'text', length   => 32 },
 		{ name => 'original_designation', type => 'text', length   => 100 },
 		{ name => 'comments',             type => 'text', length   => 64 },
-		{ name => 'sender',               type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'curator',              type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'date_entered',         type => 'date', required => 'yes' },
-		{ name => 'datestamp',            type => 'date', required => 'yes' }
+		{ name => 'sender',               type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'curator',              type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'date_entered',         type => 'date', required => 1 },
+		{ name => 'datestamp',            type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1779,15 +1781,15 @@ sub get_isolate_field_extended_attributes_table_attributes {
 		{
 			name        => 'isolate_field',
 			type        => 'text',
-			required    => 'yes',
-			primary_key => 'yes',
+			required    => 1,
+			primary_key => 1,
 			optlist     => "@select_fields"
 		},
-		{ name => 'attribute', type => 'text', required => 'yes', primary_key => 'yes' },
+		{ name => 'attribute', type => 'text', required => 1, primary_key => 1 },
 		{
 			name     => 'value_format',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			optlist  => 'integer;float;text;date',
 			default  => 'text'
 		},
@@ -1801,14 +1803,14 @@ sub get_isolate_field_extended_attributes_table_attributes {
 			name    => 'url',
 			type    => 'text',
 			length  => 120,
-			hide    => 'yes',
+			hide    => 1,
 			tooltip => 'url - The URL used to hyperlink values in the isolate information page.  '
 			  . 'Instances of [?] within the URL will be substituted with the value.'
 		},
 		{ name => 'length',      type => 'integer' },
 		{ name => 'field_order', type => 'int', length => 4 },
-		{ name => 'curator',     type => 'int', required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',     type => 'int', required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1829,29 +1831,29 @@ sub get_isolate_value_extended_attributes_table_attributes {
 		{
 			name        => 'isolate_field',
 			type        => 'text',
-			required    => 'yes',
-			primary_key => 'yes',
+			required    => 1,
+			primary_key => 1,
 			optlist     => "@select_fields"
 		},
-		{ name => 'attribute',   type => 'text', required => 'yes', primary_key => 'yes', optlist => "@$attributes" },
-		{ name => 'field_value', type => 'text', required => 'yes', primary_key => 'yes' },
-		{ name => 'value',       type => 'text', required => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'attribute',   type => 'text', required => 1, primary_key => 1, optlist => "@$attributes" },
+		{ name => 'field_value', type => 'text', required => 1, primary_key => 1 },
+		{ name => 'value',       type => 'text', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_projects_table_attributes {
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, primary_key => 1 },
 		{
 			name           => 'short_description',
 			type           => 'text',
-			required       => 'yes',
+			required       => 1,
 			length         => 40,
-			dropdown_query => 'yes',
-			unique         => 'yes',
+			dropdown_query => 1,
+			unique         => 1,
 			tooltip => 'description - Ensure this is short since it is used in table headings and drop-down lists.'
 		},
 		{
@@ -1886,8 +1888,8 @@ sub get_projects_table_attributes {
 			required => 'yes',
 			default  => 'false'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1897,23 +1899,23 @@ sub get_project_members_table_attributes {
 		{
 			name           => 'project_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'projects',
 			labels         => '|$id|) |$short_description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'isolate_id', type => 'int',  required => 'yes', primary_key    => 'yes', foreign_key => 'isolates' },
-		{ name => 'curator',    type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',  type => 'date', required => 'yes' }
+		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'isolates' },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_sets_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 'yes', primary_key => 'yes' },
-		{ name => 'description', type => 'text', required => 'yes', length      => 40, unique => 'yes' },
+		{ name => 'id',          type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', required => 1, length      => 40, unique => 1 },
 		{ name => 'long_description', type => 'text', length => 256 },
 		{ name => 'display_order',    type => 'int' },
 		{
@@ -1922,8 +1924,8 @@ sub get_sets_table_attributes {
 			tooltip => 'hidden - Do not show this set in selection lists.  When selected this set can '
 			  . 'only be used by specifying the set_id in the database configuration file.'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1933,26 +1935,26 @@ sub get_set_loci_table_attributes {
 		{
 			name           => 'set_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'sets',
 			labels         => '|$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'locus',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'loci',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{ name => 'set_name',                  type => 'text', length   => 40 },
 		{ name => 'formatted_set_name',        type => 'text', length   => 60 },
 		{ name => 'set_common_name',           type => 'text', length   => 40 },
 		{ name => 'formatted_set_common_name', type => 'text', length   => 60 },
-		{ name => 'curator',                   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp',                 type => 'date', required => 'yes' }
+		{ name => 'curator',                   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',                 type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1962,24 +1964,24 @@ sub get_set_schemes_table_attributes {
 		{
 			name           => 'set_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'sets',
 			labels         => '|$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{ name => 'set_name',  type => 'text', length   => 40 },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1992,22 +1994,22 @@ sub get_set_metadata_table_attributes {
 		{
 			name           => 'set_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'sets',
 			labels         => '|$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
 		{
 			name           => 'metadata_id',
 			type           => 'text',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			optlist        => "@$metadata",
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -2015,38 +2017,38 @@ sub get_set_metadata_table_attributes {
 sub get_classification_schemes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 'yes', unique => 'yes', primary_key => 'yes' },
+		{ name => 'id', type => 'int', required => 1, unique => 1, primary_key => 1 },
 		{
 			name           => 'scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes',
+			dropdown_query => 1,
 			with_pk_only   => 1,
 		},
 		{
 			name     => 'name',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			length   => 50,
-			unique   => 'yes',
-			tooltip =>
-'name - This can be up to 50 characters - it is short since it is used in table headings and drop-down lists.'
+			unique   => 1,
+			tooltip  => 'name - This can be up to 50 characters - it is short since '
+			  . 'it is used in table headings and drop-down lists.'
 		},
 		{ name => 'description', type => 'text', length => 256 },
 		{
 			name     => 'inclusion_threshold',
 			type     => 'int',
-			required => 'yes',
+			required => 1,
 			comments =>
 			  'Maximum number of different alleles allowed between profile and at least one group member profile.'
 		},
 		{
 			name     => 'use_relative_threshold',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			comments => 'Calculate threshold using ratio of shared/present in both profiles in pairwise comparison.',
 			tooltip  => 'use_relative_threshold - Due to missing data the threshold can be calculated using the '
 			  . 'number of loci present in both samples as the denominator instead of the number of loci in the '
@@ -2072,12 +2074,12 @@ sub get_classification_schemes_table_attributes {
 		{
 			name     => 'status',
 			type     => 'text',
-			required => 'yes',
+			required => 1,
 			optlist  => 'experimental;stable',
 			default  => 'experimental'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -2088,14 +2090,14 @@ sub get_classification_group_fields_table_attributes {
 		{
 			name           => 'cg_scheme_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'classification_schemes',
 			labels         => '|$name|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'field', type => 'text', required => 'yes', primary_key => 'yes', regex => '^[a-zA-Z][\w_]*$' },
-		{ name => 'type', type => 'text', required => 'yes', optlist => 'text;integer;date' }
+		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;date' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
@@ -2109,18 +2111,18 @@ sub get_classification_group_fields_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'description', type => 'text', required => 'no', length => 64, },
-		{ name => 'field_order', type => 'int',  required => 'no' },
+		{ name => 'description', type => 'text', required => 0, length => 64, },
+		{ name => 'field_order', type => 'int',  required => 0 },
 		{
 			name     => 'dropdown',
 			type     => 'bool',
-			required => 'yes',
+			required => 1,
 			default  => 'false',
 			tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
 			  . '(can be overridden by user preference).'
 		},
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
@@ -2133,15 +2135,15 @@ sub get_set_view_table_attributes {
 		{
 			name           => 'set_id',
 			type           => 'int',
-			required       => 'yes',
-			primary_key    => 'yes',
+			required       => 1,
+			primary_key    => 1,
 			foreign_key    => 'sets',
 			labels         => '|$description|',
-			dropdown_query => 'yes'
+			dropdown_query => 1
 		},
-		{ name => 'view',      type => 'text', required => 'yes', optlist        => "@views", dropdown_query => 'yes' },
-		{ name => 'curator',   type => 'int',  required => 'yes', dropdown_query => 'yes' },
-		{ name => 'datestamp', type => 'date', required => 'yes' }
+		{ name => 'view',      type => 'text', required => 1, optlist        => "@views", dropdown_query => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }

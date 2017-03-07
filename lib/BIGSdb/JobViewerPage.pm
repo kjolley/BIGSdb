@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -87,7 +87,16 @@ END
 		.children('.ui-progressbar-value')
     	.html($percent + '%')
     	.css("display", "block");
-    \$("#sortTable").tablesorter({widgets:['zebra']});     
+    \$("#sortTable").tablesorter({widgets:['zebra']}); 
+    \$("#email").change(function(){
+    	\$("#enable_notifications").prop('checked',true);
+    });
+    \$("#title").change(function(){
+    	\$("#enable_notifications").prop('checked',true);
+    });
+    \$("#description").change(function(){
+    	\$("#enable_notifications").prop('checked',true);
+    });
 });
 END
 	return $buffer;
@@ -95,9 +104,9 @@ END
 
 sub _print_status {
 	my ( $self, $job ) = @_;
-	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//x;    #remove fractions of second
-	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : q() ) =~ s/\.\d+$//x;
-	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : q() ) =~ s/\.\d+$//x;
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//x;                              #remove fractions of second
+	( my $start_time  = $job->{'start_time'} ? $job->{'start_time'} : q() ) =~ s/\.\d+$//x;
+	( my $stop_time   = $job->{'stop_time'} ? $job->{'stop_time'} : q() ) =~ s/\.\d+$//x;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
 	if ( $job->{'status'} eq 'submitted' ) {
 		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue( $job->{'id'} );
@@ -169,21 +178,24 @@ sub _print_notification_form {
 	say q(<dt>E-mail address</dt><dd>);
 	my $params = $self->{'jobManager'}->get_job_params( $job->{'id'} );
 	my $default_email = $params->{'email'} // $job->{'email'};
-	say $q->textfield( -name => 'email', -default => $default_email, -size => 30 );
+	say $q->textfield( -id => 'email', -name => 'email', -default => $default_email, -size => 30 );
 	say q(</dd>);
 	say q(<dt>Title</dt><dd>);
 	my $default_title = $params->{'title'};
-	say $q->textfield( -name => 'title', -default => $default_title, -size => 30 );
+	say $q->textfield( -id => 'title', -name => 'title', -default => $default_title, -size => 30 );
 	say q(</dd>);
 	say q(<dt>Description</dt><dd>);
 	my $default_desc = $params->{'description'};
-	say $q->textarea( -name => 'description', -default => $default_desc, -cols => 25 );
+	say $q->textarea( -id => 'description', -name => 'description', -default => $default_desc, -cols => 25 );
 	say q(</dd>);
 	say q(<dt>Enable</dt><dd>);
-	say $q->checkbox( -name => 'enable_notifications', -label => '', -checked => $params->{'enable_notifications'} );
-	say q(<strong style="margin-right:1em">)
-	  . ( $params->{'enable_notifications'} ? 'ON' : 'OFF' )
-	  . q(</strong>);
+	say $q->checkbox(
+		-id      => 'enable_notifications',
+		-name    => 'enable_notifications',
+		-label   => '',
+		-checked => $params->{'enable_notifications'}
+	);
+	say q(<strong style="margin-right:1em">) . ( $params->{'enable_notifications'} ? 'ON' : 'OFF' ) . q(</strong>);
 	say $q->submit( -name => 'Update', -class => BUTTON_CLASS );
 	say q(</dd>);
 	say q(</dl>);
@@ -261,8 +273,7 @@ sub print_content {
 	say qq(<p>This page will reload in $refresh. You can refresh it any time, )
 	  . q(or bookmark it and close your browser if you wish.</p>)
 	  if $self->{'refresh'};
-	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) )
-	{
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		say q(<p>Please note that job results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
 	} else {

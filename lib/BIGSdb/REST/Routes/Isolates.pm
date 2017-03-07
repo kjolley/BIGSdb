@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,9 +26,9 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-get '/db/:db/isolates'     => sub { _get_isolates() };
-get '/db/:db/isolates/:id' => sub { _get_isolate() };
-get '/db/:db/fields'       => sub { _get_fields() };
+get '/db/:db/isolates'         => sub { _get_isolates() };
+get '/db/:db/isolates/:id'     => sub { _get_isolate() };
+post '/db/:db/isolates/search' => sub { _query_isolates() };
 
 sub _get_isolates {
 	my $self = setting('self');
@@ -207,31 +207,211 @@ sub _get_isolate_projects {
 	return;
 }
 
-sub _get_fields {
+sub _unflatten_params {
+	my $self         = setting('self');
+	my $params       = body_parameters;
+	my $query        = {};
+	my @defined_cats = qw(field locus scheme);
+	my %defined      = map { $_ => 1 } @defined_cats;
+	foreach my $param ( keys %$params ) {
+		next if $param =~ /^oauth_/x;
+		my ( $cat, $field_or_scheme, $scheme_id ) = split /\./x, $param;
+		if ( !$defined{$cat} ) {
+			send_error( "$cat is not a recognized query parameter", 400 );
+		}
+		if ( $cat eq 'field' || $cat eq 'locus' ) {
+			$query->{$cat}->{$field_or_scheme} = $params->{$param};
+			next;
+		}
+		if ( $cat eq 'scheme' ) {
+			$query->{$cat}->{$field_or_scheme}->{$scheme_id} = $params->{$param};
+		}
+	}
+	return $query;
+}
+
+sub _query_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	my $values = [];
-	foreach my $field (@$fields) {
-		my $value = {};
-		$value->{'name'} = $field;
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		$thisfield->{'required'} //= 'yes';    #This is the default and may not be specified in config.xml.
-		foreach (qw ( type required length min max regex comments)) {
-			next if !defined $thisfield->{$_};
-			if ( $_ eq 'min' || $_ eq 'max' || $_ eq 'length' ) {
-				$value->{$_} = int( $thisfield->{$_} );
-			} elsif ( $_ eq 'required' ) {
-				$value->{$_} = $thisfield->{$_} eq 'yes' ? JSON::true : JSON::false;
-			} else {
-				$value->{$_} = $thisfield->{$_};
-			}
-		}
-		if ( ( $thisfield->{'optlist'} // '' ) eq 'yes' ) {
-			$value->{'allowed_values'} = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-		push @$values, $value;
+	$self->check_post_payload;
+	my $db        = params->{'db'};
+	my $page      = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $offset    = ( $page - 1 ) * $self->{'page_size'};
+	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
+	my $qry       = "SELECT id FROM $self->{'system'}->{'view'}";
+	my $params    = _unflatten_params();
+	if ( !keys %$params ) {
+		send_error( 'No query passed', 400 );
 	}
+	my @categories = keys %$params;
+	my ( @clauses, @values );
+	if ( !params->{'all_versions'} ) {
+		push @clauses, 'new_version IS NULL';
+	}
+	my $methods = {
+		field  => \&_get_field_query,
+		locus  => \&_get_locus_query,
+		scheme => \&_get_scheme_query
+	};
+	foreach my $category (@categories) {
+		my ( $cat_qry, $cat_values ) = $methods->{$category}->( $params->{$category} );
+		if ($cat_qry) {
+			push @clauses, $cat_qry;
+			push @values,  @$cat_values;
+		}
+	}
+	if (@clauses) {
+		local $" = q[) AND (];
+		$qry       .= qq( WHERE (@clauses));
+		$count_qry .= qq( WHERE (@clauses));
+	}
+	my $isolate_count = $self->{'datastore'}->run_query( $count_qry, \@values );
+	$qry .= ' ORDER BY id';
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $ids = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'col_arrayref' } );
+	my $values = { records => int($isolate_count) };
+	my $pages  = ceil( $isolate_count / $self->{'page_size'} );
+	my $path   = $self->get_full_path("/db/$db/isolates");
+	my $paging = $self->get_paging( $path, $pages, $page );
+	$values->{'paging'} = $paging if %$paging;
+	my @links;
+	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	$values->{'isolates'} = \@links;
 	return $values;
+}
+
+sub _get_field_query {
+	my ($fields) = @_;
+	$fields //= {};
+	my $self = setting('self');
+	my @field_names;
+	my @extended_fields;
+	my %extended_primary_field;
+	my %extended_value;
+	my $values = [];
+
+	if ( ref $fields ne 'HASH' ) {
+		send_error( 'Malformed request', 400 );
+	}
+	foreach my $field ( keys %$fields ) {
+		my $is_extended_field = $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE attribute=?)', $field );
+		if ($is_extended_field) {
+			push @extended_fields, $field;
+			my $ext_att =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT * FROM isolate_field_extended_attributes WHERE attribute=? LIMIT 1',
+				$field, { fetch => 'row_hashref' } );
+			$extended_primary_field{$field} = $ext_att->{'isolate_field'};
+			$extended_value{$field}         = $fields->{$field};
+			next;
+		}
+		if ( !$self->{'xmlHandler'}->is_field($field) ) {
+			send_error( "$field is not a valid field.", 400 );
+		}
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( $att->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $fields->{$field} ) ) {
+			send_error( "$field is an integer field.", 400 );
+		}
+		if ( $att->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $fields->{$field} ) ) {
+			send_error( "$field is a boolean field.", 400 );
+		}
+		if ( $att->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $fields->{$field} ) ) {
+			send_error( "$field is a date field.", 400 );
+		}
+		if ( $att->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
+			send_error( "$field is a float field.", 400 );
+		}
+		if ( $att->{'type'} eq 'text' ) {
+			push @field_names, qq(UPPER($field));
+			push @$values,     uc( $fields->{$field} );
+		} else {
+			push @field_names, $field;
+			push @$values,     $fields->{$field};
+		}
+	}
+	my $qry;
+	if (@field_names) {
+		local $" = q(=? AND );
+		$qry = qq(@field_names=?);
+	}
+	foreach my $ext_field (@extended_fields) {
+		$qry .= q( AND ) if $qry;
+		$qry .=
+		    qq[($extended_primary_field{$ext_field} IN ]
+		  . q[(SELECT field_value FROM isolate_value_extended_attributes WHERE ]
+		  . q[(isolate_field,attribute,UPPER(value))=(?,?,UPPER(?))))];
+		push @$values, $extended_primary_field{$ext_field}, $ext_field, $extended_value{$ext_field};
+	}
+	return ( $qry, $values );
+}
+
+sub _get_locus_query {
+	my ($loci) = @_;
+	$loci //= {};
+	my $self = setting('self');
+	my @locus_names;
+	my $values = [];
+	foreach my $locus ( keys %$loci ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if ( !$locus_info ) {
+			send_error( "$locus is not a valid locus", 400 );
+		}
+		push @locus_names, $locus;
+	}
+	my $qry;
+	if (@locus_names) {
+		my $view = $self->{'system'}->{'view'};
+		foreach my $locus (@locus_names) {
+			$qry .= q( AND ) if $qry;
+			$qry .= qq($view.id IN (SELECT isolate_id FROM allele_designations WHERE (locus,allele_id)=(?,?)));
+			push @$values, $locus, $loci->{$locus};
+		}
+	}
+	return ( $qry, $values );
+}
+
+sub _get_scheme_query {
+	my ($schemes) = @_;
+	$schemes //= {};
+	my $self = setting('self');
+	my $qry;
+	my $values = [];
+	my $view   = $self->{'system'}->{'view'};
+	foreach my $scheme_id ( keys %$schemes ) {
+		if ( BIGSdb::Utils::is_int($scheme_id) ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			if ( !$scheme_info ) {
+				send_error( "Scheme $scheme_id does not exist", 400 );
+			}
+			foreach my $field ( keys %{ $schemes->{$scheme_id} } ) {
+				my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+				if ( !$field_info ) {
+					send_error( "Scheme $scheme_id field $field does not exist", 400 );
+				}
+				if ( $field_info->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is an integer field.", 400 );
+				}
+				if ( $field_info->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is a boolean field.", 400 );
+				}
+				if ( $field_info->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $schemes->{$scheme_id}->{$field} ) ) {
+					send_error( "$field is a date field.", 400 );
+				}
+				if ( $field_info->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $schemes->{$scheme_id}->{$field} ) )
+				{
+					send_error( "$field is a float field.", 400 );
+				}
+				my $isolate_scheme_field_view =
+				  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				$qry .= q( AND ) if $qry;
+				$qry .= qq($view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE $field=?));
+				push @$values, $schemes->{$scheme_id}->{$field};
+			}
+		} else {
+			send_error( 'Scheme id must be an integer', 400 );
+		}
+	}
+	return ( $qry, $values );
 }
 1;
