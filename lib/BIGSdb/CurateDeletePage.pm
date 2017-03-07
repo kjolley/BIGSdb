@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -140,7 +140,8 @@ sub _get_display_values {
 			return ( $field, qq(<span class="seq">$seq</span>) );
 		}
 	}
-	if ( $att->{'name'} eq 'curator' or $att->{'name'} eq 'sender' ) {
+	my %user_field = map { $_ => 1 } qw (curator sender user_id);
+	if ( $user_field{ $att->{'name'} } ) {
 		my $user = $self->{'datastore'}->get_user_info($value);
 		$user->{'first_name'} //= '';
 		$user->{'surname'}    //= '';
@@ -226,7 +227,7 @@ sub _display_record {
 		$data->{'user_db'} = $dbase_name;
 	}
 	foreach my $att (@$attributes) {
-		next if $att->{'hide_query'} eq 'yes';
+		next if $att->{'hide_query'};
 		next if $att->{'noshow'};
 		my ( $field, $value ) = $self->_get_display_values( $table, $primary_key, $data, $att );
 		$value = '&nbsp;' if $value eq q( );
@@ -446,8 +447,7 @@ sub _confirm {
 		}
 	}
 	eval {
-		foreach my $qry (@queries)
-		{
+		foreach my $qry (@queries) {
 			$self->{'db'}->do( $qry->{'statement'}, undef, @{ $qry->{'arguments'} } );
 		}
 		if ( ( $table eq 'scheme_members' || $table eq 'scheme_fields' )

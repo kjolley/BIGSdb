@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,7 @@ use BIGSdb::Utils;
 use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::Contigs;
+use BIGSdb::REST::Routes::Fields;
 use BIGSdb::REST::Routes::Isolates;
 use BIGSdb::REST::Routes::Loci;
 use BIGSdb::REST::Routes::OAuth;
@@ -72,10 +73,24 @@ sub new {
 }
 
 sub _initiate {
-	my ( $self, ) = @_;
+	my ($self) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
 	$self->{'logger'} = $logger;
+	return;
+}
+
+#We cannot currently catch an error when the serializer encounters malformed
+#JSON. It will log it, but will fail to deserialize body parameters. As far
+#as the sender knows, there is no error, so this ensures that they get a
+#400 response if there is a POST payload but no parameters deserialized.
+sub check_post_payload {
+	my ($self)      = @_;
+	my $body        = request->body;
+	my $body_params = body_parameters;
+	if ( $body && !keys %$body_params ) {
+		send_error( 'Malformed request', 400 );
+	}
 	return;
 }
 
@@ -249,7 +264,8 @@ sub _check_client_authorization {
 	if ( !$client_authorized ) {
 		send_error( 'Client is unauthorized to access this database.', 401 );
 	}
-	my $method = uc( request->method );
+	my $method      = uc( request->method );
+	my $request_uri = request->uri();
 	if ( $method ne 'GET' ) {
 		my $client_submission;
 		if ( $client->{'default_submission'} ) {
@@ -264,13 +280,10 @@ sub _check_client_authorization {
 			$client_curation = ( !defined $db_curation || !$db_curation ) ? 0 : 1;
 		}
 		my $submission_route = "/db/$self->{'instance'}/submissions";
-		my $request_uri      = request->uri();
 		if ( $request_uri =~ /$submission_route/x ) {
 			if ( !$client_submission ) {
 				send_error( 'Client is unauthorized to make submissions.', 401 );
 			}
-		} elsif ( !$client_curation ) {
-			send_error( "Client is unauthorized to use $method method.", 401 );
 		}
 	}
 	return;

@@ -120,12 +120,13 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $locus = $q->param('locus') // '';
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	$locus =~ s/^cn_//x;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $desc          = $self->get_db_description;
-	say "<h1>Query $cleaned_locus sequences - $desc database</h1>";
+	say qq(<h1>Query $cleaned_locus sequences - $desc database</h1>);
 	my $qry;
 
 	if (   !defined $q->param('currentpage')
@@ -217,6 +218,10 @@ sub _print_interface {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
+	if ($locus) {
+		$locus =~ s/%27/'/gx;    #Web-escaped locus
+		$q->param( locus => $locus );    #In case of escape
+	}
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	my $set_id = $self->get_set_id;
@@ -326,6 +331,8 @@ sub _run_query {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	my $locus      = $q->param('locus');
 	$locus =~ s/^cn_//x;
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
+
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$logger->error("Invalid locus $locus");
 		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);

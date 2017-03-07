@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.0',
+		version     => '2.0.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -569,7 +569,7 @@ sub _analyse_by_reference {
 		$self->_align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
-		if ( @$ids <= MAX_DISPLAY_CELLS ) {
+		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
@@ -905,8 +905,10 @@ sub _get_isolate_name {
 	$options = {} if ref $options ne 'HASH';
 	my $isolate = $id;
 	if ( $options->{'name_only'} ) {
-		my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
-		$isolate .= "|$name";
+		if ( !$options->{'no_name'} ) {
+			my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
+			$isolate .= "|$name";
+		}
 		return $isolate;
 	}
 	my $additional_fields = $self->_get_identifier( $id, { no_id => 1 } );
@@ -969,7 +971,7 @@ sub _generate_splits {
 			  . 'calculated as the number of loci with different allele sequences'
 		}
 	);
-	return if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
+	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 90, stage => 'Generating NeighborNet' } );
 	my $splits_img = "$job_id.png";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
@@ -1116,6 +1118,15 @@ sub _run_splitstree {
 	return;
 }
 
+sub _is_isolate_name_selected {
+	my ($self) = @_;
+	my @includes;
+	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	my %includes = map { $_ => 1 } @includes;
+	return 1 if $includes{ $self->{'system'}->{'labelfield'} };
+	return;
+}
+
 sub _align {
 	my ( $self, $job_id, $by_ref, $ids, $scan_data ) = @_;
 	my $params = $self->{'params'};
@@ -1126,11 +1137,12 @@ sub _align {
 	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa";
 	state $xmfa_start = 1;
 	state $xmfa_end   = 1;
-	my $temp           = BIGSdb::Utils::get_random();
-	my $loci           = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
-	my $progress_start = 20;
-	my $progress_total = 60;
-	my $locus_count    = 0;
+	my $temp                  = BIGSdb::Utils::get_random();
+	my $loci                  = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
+	my $progress_start        = 20;
+	my $progress_total        = 50;
+	my $locus_count           = 0;
+	my $isolate_name_selected = $self->_is_isolate_name_selected;
 
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
@@ -1155,9 +1167,9 @@ sub _align {
 		}
 		foreach my $id (@$ids) {
 			push @$ids_to_align, $id;
-			my $name = $self->_get_isolate_name( $id, { name_only => 1 } );
+			my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 			$name =~ s/[\(\)]//gx;
-			$name =~ s/ /|/;         #replace space separating id and name
+			$name =~ s/ /|/;    #replace space separating id and name
 			$name =~ tr/[:, ]/_/;
 			$names->{$id} = $name;
 			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
@@ -1208,7 +1220,8 @@ sub _align {
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA', percent_complete => 70 } );
 			my $fasta_file =
 			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
@@ -1237,7 +1250,8 @@ sub _align {
 			}
 		);
 		try {
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA' } );
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
 			my $fasta_file =
 			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
@@ -1510,6 +1524,9 @@ sub _write_excel_table_worksheet {
 			}
 			$worksheet->write( $row, $col, 1, $formats->{$colour} );
 		} else {
+			if ( length($locus) > ( $col_max_width->{$col} // 0 ) ) {
+				$col_max_width->{$col} = length($locus);
+			}
 			$worksheet->write( $row, $col, $locus, $formats->{'locus'} );
 		}
 		foreach my $isolate_id (@$ids) {
@@ -1555,8 +1572,8 @@ sub _write_excel_unique_strains {
 	my $strain_count = keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
 	my @strain_hashes =
 	  sort {
-		$scan_data->{'unique_strains'}->{'strain_counts'}->{$b} <=> $scan_data->{'unique_strains'}->{'strain_counts'}
-		  ->{$a}
+		$scan_data->{'unique_strains'}->{'strain_counts'}->{$b}
+		  <=> $scan_data->{'unique_strains'}->{'strain_counts'}->{$a}
 	  }
 	  keys %{ $scan_data->{'unique_strains'}->{'strain_counts'} };
 	my $num_strains = @strain_hashes;
@@ -1698,8 +1715,8 @@ sub _write_excel_parameters {
 		$total_time = '<1 second' if $total_time eq 'just now';
 	}
 	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
-	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//x;
-	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//x;
+	( my $start_time  = $job->{'start_time'} ) =~ s/\..*?$//x;
+	( my $stop_time   = $job->{'query_time'} ) =~ s/\..*?$//x;
 
 	#Job attributes
 	my @parameters = (
@@ -1857,9 +1874,11 @@ sub _assemble_data_for_reference_genome {
 	my ( $job_id, $ids, $cds ) = @{$args}{qw(job_id ids cds )};
 	my $locus_data = {};
 	my $loci       = [];
+	my $locus_num  = 1;
 	foreach my $cds_record (@$cds) {
-		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) = $self->_extract_cds_details($cds_record);
-		next if !$locus_name;
+		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) =
+		  $self->_extract_cds_details( $cds_record, $locus_num );
+		$locus_num++;
 		$locus_data->{$locus_name} =
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
@@ -2021,7 +2040,7 @@ sub _get_potentially_paralogous_loci {
 }
 
 sub _extract_cds_details {
-	my ( $self, $cds ) = @_;
+	my ( $self, $cds, $locus_num ) = @_;
 	my ( $start, $desc );
 	my @aliases;
 	my $locus;
@@ -2036,8 +2055,8 @@ sub _extract_cds_details {
 		}
 	}
 	local $" = '|';
-	my $locus_name = $locus;
-	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;    #Invalid entry in reference file.
+	my $locus_name = $locus // 'locus' . sprintf( '%05d', $locus_num );
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;                     #Invalid entry in reference file.
 	my $full_name = $locus_name;
 	$full_name .= "|@aliases" if @aliases;
 	my $seq;

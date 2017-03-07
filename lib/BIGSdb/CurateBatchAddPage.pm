@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -382,7 +382,7 @@ sub _get_unique_fields {
 	if ( !( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		foreach my $att (@$attributes) {
-			if ( $att->{'unique'} && $att->{'unique'} eq 'yes' ) {
+			if ( $att->{'unique'} ) {
 				$unique_field{ $att->{'name'} } = 1;
 			}
 		}
@@ -962,12 +962,26 @@ sub _check_data_users {
 }
 
 sub _check_data_scheme_fields {
-
-	#special case to prevent a new user with curator or admin status unless user is admin themselves
 	my ( $self, $arg_ref ) = @_;
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
+
+	#special case to check that only one primary key field is set for a scheme field
+	my $field_order = $arg_ref->{'file_header_pos'};
+	my $scheme_id   = $arg_ref->{'data'}->[ $field_order->{'scheme_id'} ];
+	my %false       = map { $_ => 1 } qw(false 0);
+	if ( $field eq 'primary_key' && !$false{ lc $value } ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
+			my $problem_text = q(This scheme already has a primary key field set.<br />);
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+		$self->{'pk_already_in_this_upload'}->{$scheme_id} = 1;
+	}
+
+	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
 	if ( $field eq 'field' && $value eq 'id' ) {
 		my $problem_text = q(Scheme fields can not be called 'id'.<br />);
 		if ( !defined $arg_ref->{'problems'}->{$pk_combination}
@@ -1598,7 +1612,6 @@ sub _check_isolate_id_not_retired {
 	     if $field ne 'id'
 	  || !defined $file_header_pos->{'id'}
 	  || !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'id'} ] );
-
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
@@ -1720,8 +1733,7 @@ sub _upload_data {
 				$self->{'datastore'}->mark_cache_stale;
 			}
 			eval {
-				foreach my $insert (@inserts)
-				{
+				foreach my $insert (@inserts) {
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
 			};
@@ -2184,7 +2196,7 @@ sub _in_genome_submission {
 	my $submission_id = $q->param('submission_id');
 	return if !$submission_id;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return if !$submission;
+	return   if !$submission;
 	return 1 if $submission->{'type'} eq 'genomes';
 	return;
 }

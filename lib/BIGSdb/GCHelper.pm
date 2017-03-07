@@ -60,20 +60,21 @@ sub _get_allele_designations_from_reference {
 	my $word_size = BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} ) ? $self->{'params'}->{'word_size'} : 15;
 	my $out_file =
 	  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'options'}->{'job_id'}_isolate_${isolate_id}_outfile.txt";
-	if (!$self->_does_isolate_have_sequence_data($isolate_id) ) {
+	if ( !$self->_does_isolate_have_sequence_data($isolate_id) ) {
+
 		#Don't bother with BLAST but we do not an empty results file.
-		open (my $fh, '>', $out_file) || $self->{'logger'}->error("Cannot touch $out_file");
+		open( my $fh, '>', $out_file ) || $self->{'logger'}->error("Cannot touch $out_file");
 		close $fh;
 	} else {
-	$self->_blast(
-		{
-			word_size   => $word_size,
-			fasta_file  => $isolate_fasta,
-			in_file     => $self->{'options'}->{'reference_file'},
-			locus_count => $self->{'options'}->{'locus_count'},
-			out_file    => $out_file,
-		}
-	);
+		$self->_blast(
+			{
+				word_size   => $word_size,
+				fasta_file  => $isolate_fasta,
+				in_file     => $self->{'options'}->{'reference_file'},
+				locus_count => $self->{'options'}->{'locus_count'},
+				out_file    => $out_file,
+			}
+		);
 	}
 	return $self->_parse_blast($out_file);
 }
@@ -295,6 +296,7 @@ sub _get_allele_designations_from_defined_loci {
 	foreach my $designation (@$all_designations) {
 		next if !$self->{'options'}->{'use_tagged'};
 		next if !$loci{ $designation->{'locus'} };
+		next if $designation->{'allele_id'} eq '0';
 		my $locus_info = $self->{'datastore'}->get_locus_info( $designation->{'locus'} );
 
 		#Always BLAST if it is a peptide locus and we need the nucleotide sequence for alignment
@@ -419,11 +421,16 @@ sub _sort_allele_list {
 sub _get_designation_seqs {
 	my ( $self, $designations ) = @_;
 	my $seqs = {};
+	my %null_alleles = map { $_ => 1 } qw (0 N);
 	foreach my $locus ( keys %$designations ) {
 		my @allele_ids = split /;/x, $designations->{$locus};
 		foreach my $allele_id (@allele_ids) {
-			my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-			$seqs->{$locus} .= $$seq_ref;
+			if ( $null_alleles{$allele_id} ) {
+				next;
+			} else {
+				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+				$seqs->{$locus} .= $$seq_ref;
+			}
 		}
 	}
 	return $seqs;

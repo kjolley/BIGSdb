@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,10 @@ sub _get_user {
 	foreach my $field (qw(id first_name surname affiliation email)) {
 
 		#Only include E-mail for curators/admins
-		next if $field eq 'email' && !$self->{'system'}->{'privacy'} && $user->{'status'} eq 'user';
+		next
+		  if $field eq 'email'
+		  && ( ( !$self->{'system'}->{'privacy'} && $user->{'status'} eq 'user' )
+			|| $self->{'config'}->{'rest_hide_emails'} );
 		$values->{$field} = $user->{$field};
 	}
 	return $values;

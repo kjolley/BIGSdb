@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -290,7 +290,10 @@ sub _lookup_partial_matches {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$seq = $seq_obj->translate->seq;
 		}
-		my $allele_id = $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq );
+		my $allele_id =
+		    $locus_info->{'dbase_name'}
+		  ? $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq )
+		  : undef;
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
 			$match->{'partial_match_allele'} = $match->{'allele'};
@@ -364,7 +367,11 @@ sub _create_fasta_index {
 			return if !$ok;
 		} else {
 			return if !$locus_info->{'reference_sequence'};
-			say $fasta_fh ">ref\n$locus_info->{'reference_sequence'}";
+			if ( $options->{'multiple_loci'} ) {
+				say $fasta_fh ">$locus_name|ref\n$locus_info->{'reference_sequence'}";
+			} else {
+				say $fasta_fh ">ref\n$locus_info->{'reference_sequence'}";
+			}
 		}
 		$dbtype = $locus_info->{'data_type'} eq 'DNA' ? 'nucl' : 'prot';
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -66,11 +66,11 @@ sub get_javascript {
 	check_technology();
 	\$( "#show_closed" ).click(function() {
 		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'block');
+			\$("span#show_closed_text").css('display', 'inline');
 			\$("span#hide_closed_text").css('display', 'none');
 		} else {
 			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'block');
+			\$("span#hide_closed_text").css('display', 'inline');
 		}
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
@@ -137,7 +137,7 @@ sub print_content {
 	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>You are not a recognized user.  Submissions are disabled.</p></div>);
+		say q(<div class="box" id="statusbad"><p>You are not a recognized user. Submissions are disabled.</p></div>);
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -148,7 +148,7 @@ sub print_content {
 			return;
 		}
 	}
-	$self->_delete_old_closed_submissions;
+	$self->_delete_old_submissions;
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
@@ -158,19 +158,20 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
-	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . q(Return to index page</a></p>);
+	my ( $back, $show, $hide ) = ( BACK, EYE_SHOW, EYE_HIDE );
+	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}" title="Back">$back</a>);
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
+
 	if ($closed_buffer) {
-		my $class = RESET_BUTTON_CLASS;
-		say qq(<a id="show_closed" class="$class ui-button-text-only" >)
-		  . q(<span id="show_closed_text" class="ui-button-text" )
-		  . q(style="display:block">Show closed submissions</span>)
-		  . q(<span id="hide_closed_text" class="ui-button-text" )
-		  . q(style="display:none">Hide closed submissions</span></a>);
+		say q(<a id="show_closed" style="cursor:pointer;margin-left:1em">)
+		  . q(<span id="show_closed_text" title="Show closed submissions" )
+		  . qq(style="display:inline">$show</span>)
+		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+		  . qq(style="display:none">$hide</span></a>);
 	}
-	say q(</div></div>);
+	say q(</p></div></div>);
 	if ($closed_buffer) {
 		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
 		say q(<h2>Closed submissions for which you had curator rights</h2>);
@@ -288,6 +289,14 @@ sub _print_new_submission_links {
 				  . qq(&amp;profiles=1&amp;scheme_id=$scheme->{'id'}">$scheme->{'name'} profiles</a></li>);
 			}
 		}
+		if ( $self->{'system'}->{'isolate_database'} && ( $self->{'system'}->{'isolate_submissions'} // q() ) eq 'yes' )
+		{
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
+			  . q(page=submit&amp;isolates=1">isolates</a> <span class="link">Link to isolate database</span></li>);
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
+			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with associated assembly files) )
+			  . q(<span class="link">Link to isolate database</span></li>);
+		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(isolates=1">isolates</a></li>)
@@ -298,13 +307,13 @@ sub _print_new_submission_links {
 	return;
 }
 
-sub _delete_old_closed_submissions {
+sub _delete_old_submissions {
 	my ($self) = @_;
 	my $days = $self->get_submission_days;
 	my $submissions =
-	  $self->{'datastore'}
-	  ->run_query( qq(SELECT id FROM submissions WHERE status=? AND datestamp<now()-interval '$days days'),
-		'closed', { fetch => 'col_arrayref' } );
+	  $self->{'datastore'}->run_query(
+		qq(SELECT id FROM submissions WHERE status IN ('closed','started') AND datestamp<now()-interval '$days days'),
+		undef, { fetch => 'col_arrayref' } );
 	foreach my $submission_id (@$submissions) {
 		$self->{'submissionHandler'}->delete_submission($submission_id);
 	}
@@ -582,7 +591,7 @@ sub _get_isolate_submissions_for_curation {
 	my $td = 1;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
-		next if $submission->{'type'} eq 'genomes' && !$self->can_modify_table('sequence_bin');
+		next if $submission->{'type'} eq 'genomes'  && !$self->can_modify_table('sequence_bin');
 		my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
 		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
@@ -678,8 +687,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return if !$submission || $submission->{'status'} ne 'started';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
-		if ( $submission->{'type'} eq 'alleles' )
-		{
+		if ( $submission->{'type'} eq 'alleles' ) {
 			$self->{'db'}->do(
 				'UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software)=(?,?,?,?,?) '
 				  . 'WHERE submission_id=? AND submission_id IN (SELECT id FROM submissions WHERE submitter=?)',
@@ -1218,8 +1226,7 @@ sub _start_profile_submission {
 sub _start_isolate_submission {
 	my ( $self, $submission_id, $isolates, $positions ) = @_;
 	eval {
-		foreach my $field ( keys %$positions )
-		{
+		foreach my $field ( keys %$positions ) {
 			$self->{'db'}->do( 'INSERT INTO isolate_submission_field_order (submission_id,field,index) VALUES (?,?,?)',
 				undef, $submission_id, $field, $positions->{$field} );
 		}
@@ -1791,8 +1798,11 @@ sub _print_update_button {
 	}
 	if ( $options->{'record_status'} ) {
 		say q(<label for="record_status">Record status:</label>);
-		say $q->popup_menu( -name => 'record_status', id => 'record_status',
-			values => [qw(pending accepted rejected)] );
+		say $q->popup_menu(
+			-name  => 'record_status',
+			id     => 'record_status',
+			values => [qw(pending accepted rejected)]
+		);
 	}
 	say $q->submit( -name => 'update', -label => 'Update', -class => BUTTON_CLASS );
 	say q(</div>);
@@ -2188,6 +2198,10 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
 	$self->_print_close_submission_fieldset($submission_id) if $curate;
+	my $back = BACK;
+	my $page = $self->{'curate'} ? 'index' : 'submit';
+	say qq(<div style="clear:both;padding-bottom:0.5em"><a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=$page" title="Back to submissions">$back</a></div>);
 	say q(</div></div>);
 	return;
 }

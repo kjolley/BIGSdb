@@ -1,6 +1,6 @@
 #PhyloTree.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
 use BIGSdb::Utils;
-use constant MAX_RECORDS     => 1000;
+use constant MAX_RECORDS     => 2000;
 use constant MAX_SEQS        => 100_000;
 use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
 use constant ITOL_DOMAIN     => 'itol.embl.de';
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.0.0',
+		version          => '1.1.0',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -70,6 +70,8 @@ sub run {
 	my $desc       = $self->get_db_description;
 	my $max_records = $self->{'system'}->{'phylotree_record_limit'} // MAX_RECORDS;
 	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
+	my $commify_max_records = BIGSdb::Utils::commify($max_records);
+	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	say "<h1>Generate phylogenetic trees - $desc</h1>";
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
@@ -79,22 +81,6 @@ sub run {
 			  . 'Please install one of these or check the settings in bigsdb.conf.' );
 		$allow_alignment = 0;
 	}
-	my $pk;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$pk = 'id';
-	} else {
-		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
-		if ( !$q->param('submit') ) {
-			$self->print_scheme_section( { with_pk => 1 } );
-			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
-		}
-		if ( !defined $scheme_id ) {
-			say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
-			return;
-		}
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		$pk = $scheme_info->{'primary_key'};
-	}
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -102,42 +88,46 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
+		my @list = split /[\r\n]+/x, $q->param('list');
+		@list = uniq @list;
+
+		if ( !@list ) {
+			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+			@list = @$id_list;
+		}
+		my @errors;
+		if ( !@list || @list < 2 ) {
+			push @errors, q(You must select at least two valid isolate ids.);
+		}
 		if (@$invalid_loci) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>The following loci in your pasted list are )
-			  . qq(invalid: @$invalid_loci.</p></div>);
-		} elsif ( !@$loci_selected ) {
-			print q(<div class="box" id="statusbad"><p>You must select one or more loci);
-			print q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say q(.</p></div>);
-		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
+			push @errors, qq(The following loci in your pasted list are invalid: @$invalid_loci.);
+		}
+		if ( !@$loci_selected ) {
+			push @errors, q(You must select one or more loci or schemes.);
+		}
+		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+			push @errors, q(Invalid data detected in list.);
+		}
+		my $total_seqs         = @$loci_selected * @list;
+		my $commify_total_seqs = BIGSdb::Utils::commify($total_seqs);
+		if ( $total_seqs > $max_seqs ) {
+			push @errors, qq(Output is limited to a total of $commify_max_seqs sequences )
+			  . qq((records x loci). You have selected $commify_total_seqs.);
+		}
+		if ( @list > $max_records ) {
+			my $commify_total_records = BIGSdb::Utils::commify( scalar @list );
+			push @errors, qq(Output is limited to a total of $commify_max_records records. )
+			  . qq(You have selected $commify_total_records.);
+		}
+		if (@errors) {
+			local $" = qq(</p>\n<p>);
+			say qq(<div class="box" id="statusbad"><p>@errors</p></div>);
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			$params->{'pk'}     = $pk;
 			$params->{'set_id'} = $self->get_set_id;
-			my @list = split /[\r\n]+/x, $q->param('list');
-			@list = uniq @list;
-			if ( !@list ) {
-				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-					my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-					@list = @$id_list;
-				} else {
-					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-					my $qry = 'SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ';
-					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
-					my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
-					@list = @$id_list;
-				}
-			}
-			my $total_seqs = @$loci_selected * @list;
-			if ( $total_seqs > $max_seqs ) {
-				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $total_seqs sequences )
-				  . qq((records x loci).  You have selected $total_seqs.</p></div>);
-				return;
-			}
 			$q->delete('list');
 			my @itol_dataset = $q->param('itol_dataset');
 			$q->delete('itol_dataset');
@@ -167,11 +157,9 @@ sub run {
 	  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
 	  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	my $commify_max_records = BIGSdb::Utils::commify($max_records);
-	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
-	my $list = $self->get_id_list( $pk, $query_file );
-	$self->print_sequence_export_form( $pk, $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
+	my $list = $self->get_id_list( 'id', $query_file );
+	$self->print_sequence_export_form( 'id', $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
 	say q(</div>);
 	return;
 }
@@ -200,6 +188,15 @@ sub print_extra_form_elements {
 		-labels   => $labels,
 		-size     => 8,
 		-multiple => 'true'
+	);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
+	$labels = { text_label => 'text labels', colour_strips => 'coloured strips' };
+	say $q->radio_group(
+		-name      => 'data_type',
+		-values    => [qw(text_label colour_strips)],
+		-labels    => $labels,
+		-linebreak => 'true'
 	);
 	say q(</fieldset>);
 	return;
@@ -249,20 +246,20 @@ sub run_job {
 	my $problem_ids = $ret_val->{'problem_ids'};
 	if (@$problem_ids) {
 		local $" = ', ';
-		$message_html = "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n";
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n);
 	}
 	my $no_output = $ret_val->{'no_output'};
 	if ($no_output) {
-		$message_html .=
-		  "<p>No output generated. Please ensure that your sequences have been defined for these isolates.</p>\n";
+		$message_html .= q(<p>No output generated. Please ensure that your )
+		  . qq(sequences have been defined for these isolates.</p>\n);
 	} else {
 		try {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
 			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 			if ( -e $fasta_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
+				$self->{'jobManager'}
+				  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
 			}
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
 			my $tree_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
@@ -270,12 +267,11 @@ sub run_job {
 			system $cmd;
 			if ( -e $tree_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)'} );
+					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
 			}
-			
 			my $identifiers = $self->_get_identifier_list($fasta_file);
 			my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
-			if ($params->{'itol_dataset'} && -e $itol_file){
+			if ( $params->{'itol_dataset'} && -e $itol_file ) {
 				$self->{'jobManager'}->update_job_output( $job_id,
 					{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
 			}
@@ -307,11 +303,11 @@ sub _itol_upload {
 		foreach my $field (@itol_dataset_fields) {
 			my $colour = BIGSdb::Utils::get_heatmap_colour_style( $i, scalar @itol_dataset_fields, { rgb => 1 } );
 			$i++;
-			my $file = $self->_create_itol_dataset( $job_id, $identifiers, $field, $colour );
+			my $file = $self->_create_itol_dataset( $job_id, $params->{'data_type'}, $identifiers, $field, $colour );
 			next if !$file;
-			(my $new_name = $field) =~ s/\|\|/_/x;
+			( my $new_name = $field ) =~ s/\|\|/_/x;
 			$new_name =~ s/^(e_|f_|s_\d+_)//x;
-			$zip->addFile($file, $new_name);
+			$zip->addFile( $file, $new_name );
 			push @files_to_delete, $file;
 		}
 	}
@@ -326,24 +322,31 @@ sub _itol_upload {
 		Content      => [ zipFile => ["$job_id.zip"] ]
 	);
 	if ( $response->is_success ) {
-		my @res = split /\n/x, $response->content;
-		foreach my $res_line (@res) {
+		if ( !$response->content ) {
+			$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
+		} else {
+			my @res = split /\n/x, $response->content;
+			my $err;
 
 			#check for an upload error
-			if ( $res_line =~ /^ERR/x ) {
-				$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned )
-				  . qq(the following error message:\n\n$res[-1]</p>);
-				$logger->error("@res");
-				last;
+			foreach my $res_line (@res) {
+				if ( $res_line =~ /^ERR/x ) {
+					$err .= $res_line;
+				}
 			}
-
-			#upload without warnings, ID on first line
-			if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
-				my $url    = ITOL_TREE_URL . "/$1";
-				my $domain = ITOL_DOMAIN;
-				$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
-				  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
-				last;
+			if ($err) {
+				$$message_html .= q(<p class="statusbad">iTOL encountered an error but may have been )
+				  . qq(able to make a tree. iTOL returned the following error message:\n\n$err</p>);
+				$logger->error($err);
+			}
+			foreach my $res_line (@res) {
+				if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
+					my $url    = ITOL_TREE_URL . "/$1";
+					my $domain = ITOL_DOMAIN;
+					$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
+					  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
+					last;
+				}
 			}
 		}
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
@@ -352,11 +355,11 @@ sub _itol_upload {
 		$$message_html .= q(<p class="statusbad">iTOL upload failed.</p>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
 	}
-	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";;
+	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";
 }
 
 sub _create_itol_dataset {
-	my ( $self, $job_id, $identifiers, $field, $colour ) = @_;
+	my ( $self, $job_id, $data_type, $identifiers, $field, $colour ) = @_;
 	my $field_info = $self->_get_field_type($field);
 	my ( $type, $name, $extended_field, $scheme_id ) = @{$field_info}{qw(type field extended_field scheme_id)};
 	$extended_field //= q();
@@ -378,15 +381,19 @@ sub _create_itol_dataset {
 	}
 	return if !$type;
 	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
-	my $filename = "${job_id}_$field";
-	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $filename      = "${job_id}_$field";
+	my $full_path     = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
-	say $fh 'DATASET_TEXT';
+	my $dataset_type = {
+		text_label    => 'TEXT',
+		colour_strips => 'COLORSTRIP'
+	};
+	$data_type //= 'text_label';
+	say $fh "DATASET_$dataset_type->{$data_type}";
 	say $fh 'SEPARATOR TAB';
 	say $fh "DATASET_LABEL\t$dataset_label{$type}";
 	say $fh "COLOR\t$colour";
-	say $fh 'DATA';
-	my %value_colour;
+	my $value_colour = {};
 
 	#Find out how many distinct values there are in dataset
 	if ( !$self->{'temp_list_created'} ) {
@@ -394,38 +401,83 @@ sub _create_itol_dataset {
 		$self->{'temp_list_created'} = 1;
 	}
 	my $distinct_qry = {
-		field => "SELECT COUNT(DISTINCT($name)) FROM $self->{'system'}->{'view'} "
-		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL",
-		extended_field => 'SELECT COUNT(DISTINCT(e.value)) FROM isolate_value_extended_attributes AS e '
+		field => "SELECT DISTINCT($name) FROM $self->{'system'}->{'view'} "
+		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL ORDER BY $name",
+		extended_field => 'SELECT DISTINCT(e.value) FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND e.attribute=E'$cleaned_ext_field' "
-		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id)",
-		scheme_field => "SELECT COUNT(DISTINCT(value)) FROM $scheme_temp_table"
+		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id) AND e.value IS NOT NULL "
+		  . 'ORDER BY e.value',
+		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
 	};
-	my $distinct = $self->{'datastore'}->run_query( $distinct_qry->{$type} );
-	my $count    = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $job_id");
-	my $i        = 1;
-	my $qry      = {
+	my $distinct_values = $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
+	
+	my $distinct        = @$distinct_values;
+	my $i               = 1;
+	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
+	foreach my $value (sort {$all_ints? $a <=> $b : $a cmp $b} @$distinct_values) {
+		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
+		$i++;
+	}
+	my $init_output = { colour_strips => \&colour_strips_init };
+	if ( $init_output->{$data_type} ) {
+		say $fh $init_output->{$data_type}->( $dataset_label{$type}, $value_colour );
+	}
+	say $fh 'DATA';
+	my $row_output = {
+		text_label    => \&text_label_output,
+		colour_strips => \&colour_strips_output
+	};
+	my $qry = {
 		field          => "SELECT $name FROM $self->{'system'}->{'view'} WHERE id=?",
 		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
 		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
 		scheme_field => "SELECT value FROM $scheme_temp_table WHERE id=?"
 	};
+	my $buffer = q();
 	foreach my $identifier (@$identifiers) {
 		if ( $identifier =~ /^(\d+)/x ) {
 			my $id = $1;
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "PhyloTree::itol_dataset::$field" } );
 			next if !defined $data;
-			if ( !$value_colour{$data} ) {
-				$value_colour{$data} = BIGSdb::Utils::get_heatmap_colour_style( $i, $distinct, { rgb => 1 } );
-				$i++;
-			}
-			say $fh "$identifier\t$data\t-1\t$value_colour{$data}\tnormal\t1";
+			$identifier =~ s/,/_/gx;
+			my @args = ( $identifier, $data, $value_colour->{$data} );
+			$buffer .= $row_output->{$data_type}->(@args) . qq(\n);
 		}
 	}
+	say $fh $buffer;
 	close $fh;
 	return $filename;
+}
+
+sub colour_strips_init {
+	my ( $field, $value_colour ) = @_;
+	my $buffer = qq(LEGEND_TITLE\t$field\n);
+	my ( @colours, @labels );
+	my @values = keys %$value_colour;
+	my $all_ints = BIGSdb::Utils::all_ints(\@values);
+	foreach my $value ( sort {$all_ints? $a <=> $b : $a cmp $b}@values ) {
+		push @colours, $value_colour->{$value};
+		push @labels,  $value;
+	}
+	local $" = qq(\t);
+	my @shapes = (2) x @labels;
+	$buffer .= qq(LEGEND_SHAPES\t@shapes\n);
+	$buffer .= qq(LEGEND_COLORS\t@colours\n);
+	$buffer .= qq(LEGEND_LABELS\t@labels\n);
+	$buffer .= qq(BORDER_WIDTH\t1\n);
+	return $buffer;
+}
+
+sub text_label_output {
+	my ( $identifier, $value, $colour ) = @_;
+	return qq($identifier\t$value\t-1\t$colour\tnormal\t1);
+}
+
+sub colour_strips_output {
+	my ( $identifier, $value, $colour ) = @_;
+	return qq($identifier\t$colour\t$value);
 }
 
 sub _create_scheme_field_temp_table {

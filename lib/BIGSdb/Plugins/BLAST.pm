@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,7 +28,8 @@ use Error qw(:try);
 use Apache2::Connection ();
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
-use constant MAX_DISPLAY_TAXA => 2000;
+use constant MAX_DISPLAY_TAXA => 1000;
+use constant MAX_TAXA         => 10_000;
 use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
 {
@@ -108,7 +109,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.1',
+		version     => '1.4.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -148,21 +149,29 @@ sub run {
 	@ids = uniq @ids;
 	if (@$invalid_ids) {
 		local $" = ', ';
-		$self->_print_interface;
 		say q(<div class="box" id="statusbad"><p>The following isolates in your )
 		  . qq(pasted list are invalid: @$invalid_ids.</p></div>);
+		$self->_print_interface;
 		return;
 	}
 	if ( !@ids ) {
-		$self->_print_interface;
 		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
+		$self->_print_interface;
+		return;
+	}
+	if ( @ids > MAX_TAXA ) {
+		my $selected = BIGSdb::Utils::commify( scalar @ids );
+		my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
+		say qq(<div class="box" id="statusbad"><p>Analysis is restricted to $limit isolates. )
+		  . qq(You have selected $selected.</p></div>);
+		$self->_print_interface;
 		return;
 	}
 	if ( length $q->param('sequence') > MAX_QUERY_LENGTH ) {
-		$self->_print_interface;
 		my $limit = BIGSdb::Utils::commify(MAX_QUERY_LENGTH);
 		say q(<div class="box" id="statusbad"><p>Query sequence is limited to a )
 		  . qq(maximum of $limit characters.</p></div>);
+		$self->_print_interface;
 		return;
 	}
 	my @includes = $q->param('includes');
@@ -784,9 +793,9 @@ sub _blast {
 	}
 	close $fastafile_fh;
 	return [] if -z $temp_fastafile;
-	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1 : 11;
-	my $hits             = $form_params->{'hits'}      =~ /(\d+)/x ? $1 : 1;
-	my $word_size = $program eq 'blastn' ? ($blastn_word_size) : 3;
+	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1                  : 11;
+	my $hits             = $form_params->{'hits'} =~ /(\d+)/x      ? $1                  : 1;
+	my $word_size        = $program eq 'blastn'                    ? ($blastn_word_size) : 3;
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;

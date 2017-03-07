@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.16.0');
+use version; our $VERSION = version->declare('v1.16.3');
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
@@ -261,7 +261,7 @@ sub _is_user_page {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration);
+		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind);
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
 		return 1;
@@ -574,6 +574,7 @@ sub print_page {
 		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
 		user               => 'UserPage',
+		usernameRemind     => 'UserRegistrationPage',
 		version            => 'VersionPage'
 	);
 	my $page;
@@ -601,7 +602,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -611,7 +611,7 @@ sub print_page {
 		}
 		return;
 	}
-	if ( $self->{'db'} && $self->{'page'} ne 'registration' ) {
+	if ( $self->{'db'} && $self->{'page'} ne 'registration' && $self->{'page'} ne 'usernameRemind' ) {
 		my $login_requirement = $self->{'datastore'}->get_login_requirement;
 		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )

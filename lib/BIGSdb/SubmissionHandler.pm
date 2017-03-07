@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,7 @@ use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
-use Email::Simple;
-use Email::Simple::Creator;
+use Email::MIME;
 use Email::Valid;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:submissions SEQ_METHODS);
@@ -891,7 +890,7 @@ sub _is_field_bad_other {
 sub _check_other_required {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	return if defined $value && $value ne q();
-	if ( !$thisfield->{'required'} || $thisfield->{'required'} ne 'yes' ) {
+	if ( !$thisfield->{'required'} ) {
 		return;
 	} else {
 		my $msg = 'is a required field and cannot be left blank.';
@@ -954,7 +953,7 @@ sub _check_other_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my ( $self, $thisfield, $value ) = @_;
 	return if !$thisfield->{'regex'};
 	if ( $value !~ /^$thisfield->{regex}$/x ) {
-		if ( !( ( $thisfield->{'required'} // q() ) eq 'no' && $value eq q() ) ) {
+		if ( $thisfield->{'required'} && $value ne q() ) {
 			return 'does not conform to the required formatting.';
 		}
 	}
@@ -972,14 +971,14 @@ sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 			return;
 		}
 	}
-	if ( $thisfield->{'required'} && $thisfield->{'required'} eq 'no' ) {
+	if ( !$thisfield->{'required'} ) {
 		return if ( $value eq q() );
 	}
 	return qq('$value' is not on the list of allowed values for this field.);
 }
 
 #Make sure field is not too long
-sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_length {                 ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'}).";
@@ -988,7 +987,7 @@ sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 }
 
 #Make sure the datestamp is today
-sub _check_other_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_datestamp {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'datestamp';
 	my $datestamp = BIGSdb::Utils::get_datestamp();
@@ -999,7 +998,7 @@ sub _check_other_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 }
 
 #Make sure the date_entered is today
-sub _check_other_date_entered {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_date_entered {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'date_entered';
 	my $datestamp = BIGSdb::Utils::get_datestamp();
@@ -1054,18 +1053,24 @@ sub email {
 	  ( $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'} )
 	  ? $sender->{'email'}
 	  : undef;
-	my $email = Email::Simple->create(
-		header => [
-			To             => $recipient->{'email'},
-			From           => $sender->{'email'},
-			Cc             => $cc,
-			Subject        => $subject,
-			'Content-Type' => 'text/plain; charset=UTF-8'
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $recipient->{'email'},
+			From    => $sender->{'email'},
+			Cc      => $cc,
+			Subject => $subject
 		],
-		body => $params->{'message'}
+		body_str => $params->{'message'}
 	);
-	try_to_sendmail( $email, { transport => $transport } )
-	  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+	eval {
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+	};
+	$logger->error($@) if $@;
 	return;
 }
 

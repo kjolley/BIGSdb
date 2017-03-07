@@ -1286,19 +1286,27 @@ sub clean_locus {
 	$options = {} if ref $options ne 'HASH';
 	my $set_id = $self->get_set_id;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
+	my $formatting_defined;
 	if ( $set_id && $locus_info->{'set_name'} ) {
 		$locus = $locus_info->{'set_name'};
-		$locus = $locus_info->{'formatted_set_name'}
-		  if !$options->{'text_output'} && $locus_info->{'formatted_set_name'};
+		if ( !$options->{'text_output'} && $locus_info->{'formatted_set_name'} ) {
+			$locus              = $locus_info->{'formatted_set_name'};
+			$formatting_defined = 1;
+		}
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
-			$common_name = " ($locus_info->{'formatted_set_common_name'})"
-			  if !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'};
+			if ( !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'} ) {
+				$common_name        = " ($locus_info->{'formatted_set_common_name'})";
+				$formatting_defined = 1;
+			}
 			$locus .= $common_name;
 		}
 	} else {
-		$locus = $locus_info->{'formatted_name'} if !$options->{'text_output'} && $locus_info->{'formatted_name'};
+		if ( !$options->{'text_output'} && $locus_info->{'formatted_name'} ) {
+			$locus              = $locus_info->{'formatted_name'};
+			$formatting_defined = 1;
+		}
 
 		#Locus names can't begin with a digit, so people can use an underscore,
 		#but this looks untidy in the interface.
@@ -1306,16 +1314,20 @@ sub clean_locus {
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
-			$common_name = " ($locus_info->{'formatted_common_name'})"
-			  if !$options->{'text_output'} && $locus_info->{'formatted_common_name'};
+			if ( !$options->{'text_output'} && $locus_info->{'formatted_common_name'} ) {
+				$common_name        = " ($locus_info->{'formatted_common_name'})";
+				$formatting_defined = 1;
+			}
 			$locus .= $common_name;
 		}
 	}
 	if ( !$options->{'text_output'} ) {
-		if ( ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
-			$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/x;
+		if ( !$formatting_defined ) {
+			if ( ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
+				$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/x;
+			}
+			$locus =~ tr/_/ /;
 		}
-		$locus =~ tr/_/ /;
 		if ( $options->{'strip_links'} ) {
 			$locus =~ s/<[a|A]\s+[href|HREF].+?>//gx;
 			$locus =~ s/<\/[a|A]>//gx;
@@ -1753,7 +1765,7 @@ sub is_admin {
 	if ( $self->{'username'} ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
 			$self->{'username'}, { cache => 'Page::is_admin' } );
-		return if !$status;
+		return   if !$status;
 		return 1 if $status eq 'admin';
 	}
 	return;
