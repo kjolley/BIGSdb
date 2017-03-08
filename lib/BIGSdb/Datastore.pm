@@ -2362,8 +2362,9 @@ sub create_temp_allele_table {
 	my $table = 'temp_seqs_' . int( rand(99999999) );
 	eval {
 		$self->{'db'}->do(
-			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
-			  . 'AS sequence FROM sequences WHERE locus=?',
+			    "CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
+			  . 'AS sequence FROM sequences WHERE locus=?;'
+			  . "CREATE INDEX i_${table}_seq ON $table(md5(sequence))",
 			undef, $locus
 		);
 	};

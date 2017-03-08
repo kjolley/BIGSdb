@@ -1504,7 +1504,7 @@ sub _print_sequence_table {
 		say qq(<td class="seq">$sequence</td>$cds);
 		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(
-			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
+			"SELECT allele_id FROM $locus_seq_table WHERE md5(sequence)=md5(?)",
 			uc( $seq->{'sequence'} ),
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
