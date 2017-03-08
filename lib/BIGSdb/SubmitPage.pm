@@ -1517,7 +1517,7 @@ sub _print_sequence_table {
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
 		} else {
-			if ( $seq->{'status'} eq 'pending' ) {
+			if ( $seq->{'status'} eq 'pending' || $seq->{'status'} eq 'rejected' ) {
 				$self->{'submissionHandler'}
 				  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
 				$seq->{'status'} = 'assigned';
