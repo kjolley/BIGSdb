@@ -86,11 +86,12 @@ sub _autofill {
 	my $pk_value = $q->param($primary_key);
 	if ( !@errors ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 			try {
 				my $loci_values =
 				  $self->{'datastore'}->get_scheme($scheme_id)->get_profile_by_primary_keys( [$pk_value] );
-				foreach my $i ( 0 .. @$loci - 1 ) {
-					$q->param( "l_$loci->[$i]", $loci_values->[$i] );
+				foreach my $locus (@$loci) {
+					$q->param( "l_$locus" => $loci_values->[ $indices->{$locus} ] );
 				}
 			}
 			catch BIGSdb::DatabaseConfigurationException with {
