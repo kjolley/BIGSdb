@@ -1782,6 +1782,7 @@ sub can_modify_table {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $locus     = $q->param('locus');
+	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
 	my %general_permissions = (
@@ -2544,6 +2545,10 @@ sub populate_submission_params {
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
 		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
 		$q->param( sequence => $submission_seq );
+		if ( $q->param('locus') ) {
+			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
+			$q->param( locus => $locus );
+		}
 	}
 	return;
 }

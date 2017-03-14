@@ -121,7 +121,6 @@ sub _get_form_fields {
 	my $q = $self->{'cgi'};
 	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
-	my %newdata = %{$newdata_ref};
 	my $buffer  = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
