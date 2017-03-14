@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -173,7 +173,7 @@ sub _reason_plugin_disabled {
 	  if $attr->{'dbtype'} !~ /$dbtype/x;
 	return 'Not specifically enabled for this database.'
 	  if (
-		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
+		!( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
 		&& $attr->{'system_flag'}
 		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
@@ -192,6 +192,10 @@ sub _print_software_versions {
 	say qq(<li>$pg_version</li>);
 	my $apache = $q->server_software;
 	say qq(<li>$apache</li>);
+
+	if ( $ENV{'MOD_PERL'} ) {
+		say qq(<li>$ENV{'MOD_PERL'}</li>);
+	}
 	say q(</ul>);
 	say q(</div>);
 	return;

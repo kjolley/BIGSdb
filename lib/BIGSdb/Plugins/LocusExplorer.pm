@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.4',
+		version          => '1.3.5',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -750,8 +750,16 @@ sub _run_translate {
 		}
 	}
 	close $fh;
+	my %orf_frame = (
+		1 => 1,
+		2 => 2,
+		3 => 3,
+		4 => -1,
+		5 => -2,
+		6 => -3
+	);
 	system( "$self->{'config'}->{'emboss_path'}/transeq -sequence $temp_file -outseq "
-		  . "$out_file -frame $orf -trim -clean 2> /dev/null" );
+		  . "$out_file -frame $orf_frame{$orf} -trim -clean 2> /dev/null" );
 	if ( $seq_count > 1 ) {
 		if ( $self->_does_seq_length_vary( $locus, $allele_ids ) ) {
 			my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";

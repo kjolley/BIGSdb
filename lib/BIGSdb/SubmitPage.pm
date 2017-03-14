@@ -1504,7 +1504,7 @@ sub _print_sequence_table {
 		say qq(<td class="seq">$sequence</td>$cds);
 		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(
-			"SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
+			"SELECT allele_id FROM $locus_seq_table WHERE md5(sequence)=md5(?)",
 			uc( $seq->{'sequence'} ),
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
@@ -1517,7 +1517,7 @@ sub _print_sequence_table {
 			}
 			push @$pending_seqs, $seq if $seq->{'status'} ne 'rejected';
 		} else {
-			if ( $seq->{'status'} eq 'pending' ) {
+			if ( $seq->{'status'} eq 'pending' || $seq->{'status'} eq 'rejected' ) {
 				$self->{'submissionHandler'}
 				  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $assigned );
 				$seq->{'status'} = 'assigned';
