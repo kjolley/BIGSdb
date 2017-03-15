@@ -53,3 +53,20 @@ SELECT project_id,user_id FROM project_users UNION
 user_group_members ugm ON pug.user_group=ugm.user_group);
 
 GRANT SELECT ON merged_project_users TO apache;
+
+CREATE TABLE user_limits (
+user_id integer NOT NULL,
+attribute text NOT NULL,
+value integer NOT NULL,
+curator integer NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (user_id,attribute),
+CONSTRAINT ul_user_id FOREIGN KEY (user_id) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT ul_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON user_limits TO apache;
