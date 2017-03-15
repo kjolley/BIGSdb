@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.3',
+		version     => '2.0.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -113,8 +113,6 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
-
-		#		my $filtered_loci = $self->_filter_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
 			$error .= q[<p>You must either select one or more loci or schemes (make sure these haven't been filtered ]
@@ -458,7 +456,6 @@ sub run_job {
 			if ($@) {
 				throw BIGSdb::PluginException('Invalid data in uploaded reference file.');
 			}
-			unlink "$self->{'config'}->{'tmp_dir'}/$ref_upload";
 		}
 		return if !$seq_obj;
 		$self->_analyse_by_reference(
