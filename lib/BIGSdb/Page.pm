@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -369,7 +369,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20161206';
+	my $version   = '20170315';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -1165,16 +1165,20 @@ sub get_isolate_publication_filter {
 sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $sql =
-	  $self->{'db'}
-	  ->prepare( q[SELECT id, short_description FROM projects WHERE id IN (SELECT project_id FROM project_members ]
-		  . qq[WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) ORDER BY UPPER(short_description)] );
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $args = [];
+	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
+	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}))";
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
+		push @$args, $user_info->{'id'};
+	}
+	$qry .= ' ORDER BY UPPER(short_description)';
+	my $projects = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'all_arrayref', slice => {} } );
 	my ( @project_ids, %labels );
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @project_ids, $id;
-		$labels{$id} = $desc;
+	foreach my $project (@$projects) {
+		push @project_ids, $project->{'id'};
+		$labels{ $project->{'id'} } = $project->{'short_description'};
 	}
 	if ( @project_ids && $options->{'any'} ) {
 		unshift @project_ids, 'none';

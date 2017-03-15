@@ -70,16 +70,26 @@ sub _add_new_project {
 		  . q(Please choose a different name.</p></div>);
 		return;
 	}
-	my $id = $self->next_id('projects');
+	my $id        = $self->next_id('projects');
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
 			  . 'list,private,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)',
-			undef, $id, $short_desc, $q->param('full_description'),'false','false','true',$user_info->{'id'},'now'
+			undef,
+			$id,
+			$short_desc,
+			$q->param('full_description'),
+			'false',
+			'false',
+			'true',
+			$user_info->{'id'},
+			'now'
 		);
+		$self->{'db'}->do( 'INSERT INTO project_users (project_id,user_id,admin,curator,datestamp) VALUES (?,?,?,?,?)',
+			undef, $id, $user_info->{'id'}, 'true', $user_info->{'id'}, 'now' );
 	};
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		say q(<div class="box" id="statusbad"><p>Could not add project at this time. Please try again later.</p></div>);
 		$self->{'db'}->rollback;
@@ -87,6 +97,7 @@ sub _add_new_project {
 		say q(<div class="box" id="resultsheader"></p>Project successfully added.</p></div>);
 		$self->{'db'}->commit;
 	}
+	$q->delete($_) foreach qw(short_description full_description);
 	return;
 }
 
@@ -97,6 +108,7 @@ sub _print_user_projects {
 	say q(<p>Projects allow you to group isolates so that you can analyse them easily together.</p>);
 	say q(<p>Please enter the details for a new project. The project name needs to be unique on the system. )
 	  . q(A description is optional.</p>);
+	say q(<div class="scrollable">);
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>New project</legend>);
@@ -111,23 +123,67 @@ sub _print_user_projects {
 	);
 	say q(</li><li>);
 	say q(<li><label for="full_description" class="form" style="width:6em">Description:</label>);
-	say $q->textarea( -name => 'full_description', -id => 'full_description' );
+	say $q->textarea( -name => 'full_description', -id => 'full_description', -cols => 40 );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	$q->param( new_project => 1 );
 	say $q->hidden($_) foreach qw(db page new_project);
 	say $q->end_form;
-	say q(<h2>Existing projects</h2>);
+	say q(</div></div>);
+	say q(<div class="box" id="resultstable">);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $projects  = $self->{'datastore'}->run_query( 'SELECT project_id FROM merged_project_users WHERE user_id=?',
 		$user_info->{'id'}, { fetch => 'col_arrayref' } );
 
 	if (@$projects) {
+		my $admin_projects = $self->{'datastore'}->run_query(
+			'SELECT p.id,p.short_description,p.full_description FROM project_users AS pu JOIN projects AS p ON '
+			  . 'p.id=pu.project_id WHERE user_id=? AND admin ORDER BY UPPER(short_description)',
+			$user_info->{'id'},
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+		if (@$admin_projects) {
+			say q(<h2>Projects that you can administer</h2>);
+			say q(<div class="scrollable"><table class="resultstable">);
+			say q(<tr><th>Project</th><th>Description</th><th>Isolates</th><th>Browse</th></tr>);
+			my $td = 1;
+			foreach my $project (@$admin_projects) {
+				say $self->_get_project_row( $project, $td );
+				$td = $td == 1 ? 2 : 1;
+			}
+			say q(</table></div>);
+		}
 	} else {
+		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
 	say q(</div>);
 	return;
+}
+
+sub _get_project_row {
+	my ( $self, $project, $td ) = @_;
+	my $count = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM project_members WHERE project_id=? '
+		  . "AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
+		$project->{'id'},
+		{ cache => 'UserProjectsPage::isolate_count' }
+	);
+	my $q = $self->{'cgi'};
+	my $buffer= qq(<tr class="td$td"><td>$project->{'short_description'}</td>)
+	  . qq(<td>$project->{'full_description'}</td><td>$count</td><td>);
+#	  		$buffer.= $q->start_form( -style => 'display:inline' );
+#		$q->param( project_list => $project->{'id'} );
+#		$q->param( submit       => 1 );
+#		$q->param( page         => 'query' );
+#		$buffer.=$q->hidden($_) foreach qw(db page project_list submit);
+#		$buffer.= q(<button type="submit" class="main fa fa-binoculars smallbutton"></button>);
+#		$buffer.= $q->submit( -value => 'Browse', -class => 'submit' );
+#		$buffer.= $q->end_form;
+		$buffer.=qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="main fa fa-binoculars action_link"></span></td>);
+	  $buffer.=q(</td></tr>);
+	  return $buffer;
 }
 1;
