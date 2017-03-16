@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,14 +60,9 @@ sub print_content {
 		$project->{'full_description'} //= q();
 		say qq(<tr class="td$td"><td>$project->{'id'}</td><td>$project->{'short_description'}</td>)
 		  . qq(<td>$project->{'full_description'}</td><td>$isolates</td><td>);
-		say $q->start_form( -style => 'display:inline' );
-		$q->param( project_list => $project->{'id'} );
-		$q->param( submit       => 1 );
-		$q->param( page         => 'query' );
-		say $q->hidden($_) foreach qw(db page project_list submit);
-		say $q->submit( -value => 'Browse', -class => 'submit' );
-		say $q->end_form;
-		say q(</td></tr>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . q(</span></a></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</tbody></table>);

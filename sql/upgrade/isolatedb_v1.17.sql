@@ -48,8 +48,8 @@ ON UPDATE CASCADE
 GRANT SELECT,UPDATE,INSERT,DELETE ON project_user_groups TO apache;
 
 CREATE VIEW merged_project_users AS
-SELECT project_id,user_id FROM project_users UNION 
-(SELECT project_id,user_id FROM project_user_groups AS pug LEFT JOIN 
+SELECT project_id,user_id,admin FROM project_users UNION 
+(SELECT project_id,user_id,null FROM project_user_groups AS pug LEFT JOIN 
 user_group_members ugm ON pug.user_group=ugm.user_group);
 
 GRANT SELECT ON merged_project_users TO apache;

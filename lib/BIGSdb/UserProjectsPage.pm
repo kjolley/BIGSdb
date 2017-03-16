@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -54,8 +55,59 @@ sub print_content {
 	}
 	my $q = $self->{'cgi'};
 	$self->_add_new_project if $q->param('new_project');
+	$self->_delete_project  if $q->param('delete');
 	$self->_print_user_projects;
 	return;
+}
+
+sub _delete_project {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	return if !BIGSdb::Utils::is_int($project_id);
+	if ( !$self->_is_project_admin($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>You cannot delete a project that you are not an admin for.</p></div>);
+		return;
+	}
+	my $isolates =
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM project_members WHERE project_id=?', $project_id );
+	if ($isolates) {
+		if ( $q->param('confirm') ) {
+			$self->_actually_delete_project($project_id);
+		} else {
+			my $plural       = $isolates > 1 ? q(s) : q();
+			my $button_class = RESET_BUTTON_CLASS;
+			my $delete       = DELETE;
+			say qq(<div class="box" id="restricted"><p>This project contains $isolates isolate$plural. Please )
+			  . q(confirm that you wish to remove the project (the isolates in the project will not be deleted).</p>)
+			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project_id&amp;confirm=1" )
+			  . qq(class="$button_class ui-button-text-only"><span class="ui-button-text">)
+			  . qq($delete Delete project</span></a></p></div>);
+		}
+	} else {
+		$self->_actually_delete_project($project_id);
+	}
+}
+
+sub _actually_delete_project {
+	my ( $self, $project_id ) = @_;
+	eval { $self->{'db'}->do( 'DELETE FROM projects WHERE id=?', undef, $project_id ); };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		say q(<div class="box" id="statusbad"><p>Cannot delete project.</p></div>);
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub _is_project_admin {
+	my ( $self, $project_id ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND admin)',
+		[ $project_id, $user_info->{'id'} ] );
 }
 
 sub _add_new_project {
@@ -133,26 +185,30 @@ sub _print_user_projects {
 	say q(</div></div>);
 	say q(<div class="box" id="resultstable">);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $projects  = $self->{'datastore'}->run_query( 'SELECT project_id FROM merged_project_users WHERE user_id=?',
-		$user_info->{'id'}, { fetch => 'col_arrayref' } );
+	my $projects  = $self->{'datastore'}->run_query(
+		'SELECT p.id,p.short_description,p.full_description,pu.admin FROM merged_project_users AS pu JOIN projects '
+		  . 'AS p ON p.id=pu.project_id WHERE user_id=? ORDER BY UPPER(short_description)',
+		$user_info->{'id'},
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 
 	if (@$projects) {
-		my $admin_projects = $self->{'datastore'}->run_query(
-			'SELECT p.id,p.short_description,p.full_description FROM project_users AS pu JOIN projects AS p ON '
-			  . 'p.id=pu.project_id WHERE user_id=? AND admin ORDER BY UPPER(short_description)',
-			$user_info->{'id'},
-			{ fetch => 'all_arrayref', slice => {} }
-		);
-		if (@$admin_projects) {
-			say q(<h2>Projects that you can administer</h2>);
-			say q(<div class="scrollable"><table class="resultstable">);
-			say q(<tr><th>Project</th><th>Description</th><th>Isolates</th><th>Browse</th></tr>);
-			my $td = 1;
-			foreach my $project (@$admin_projects) {
-				say $self->_get_project_row( $project, $td );
-				$td = $td == 1 ? 2 : 1;
-			}
-			say q(</table></div>);
+		my $is_admin = $self->_is_admin_of_any($projects);
+		say q(<h2>Your projects</h2>);
+		say q(<div class="scrollable"><table class="resultstable">);
+		say q(<tr>);
+		if ($is_admin) {
+			say q(<th>Delete</th>);
+		}
+		say q(<th>Project</th><th>Description</th><th>Administrator</th><th>Isolates</th><th>Browse</th></tr>);
+		my $td = 1;
+		foreach my $project (@$projects) {
+			say $self->_get_project_row( $is_admin, $project, $td );
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</table></div>);
+		if ($is_admin) {
+			say q(<p>Note that deleting a project will not delete its member isolates.</p>);
 		}
 	} else {
 		say q(<h2>Existing projects</h2>);
@@ -163,27 +219,39 @@ sub _print_user_projects {
 }
 
 sub _get_project_row {
-	my ( $self, $project, $td ) = @_;
+	my ( $self, $is_admin, $project, $td ) = @_;
 	my $count = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM project_members WHERE project_id=? '
 		  . "AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
 		$project->{'id'},
 		{ cache => 'UserProjectsPage::isolate_count' }
 	);
-	my $q = $self->{'cgi'};
-	my $buffer= qq(<tr class="td$td"><td>$project->{'short_description'}</td>)
-	  . qq(<td>$project->{'full_description'}</td><td>$count</td><td>);
-#	  		$buffer.= $q->start_form( -style => 'display:inline' );
-#		$q->param( project_list => $project->{'id'} );
-#		$q->param( submit       => 1 );
-#		$q->param( page         => 'query' );
-#		$buffer.=$q->hidden($_) foreach qw(db page project_list submit);
-#		$buffer.= q(<button type="submit" class="main fa fa-binoculars smallbutton"></button>);
-#		$buffer.= $q->submit( -value => 'Browse', -class => 'submit' );
-#		$buffer.= $q->end_form;
-		$buffer.=qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="main fa fa-binoculars action_link"></span></td>);
-	  $buffer.=q(</td></tr>);
-	  return $buffer;
+	my $q      = $self->{'cgi'};
+	my $admin  = $project->{'admin'} ? TRUE : FALSE;
+	my $buffer = qq(<tr class="td$td">);
+	if ($is_admin) {
+		if ( $project->{'admin'} ) {
+			my $delete = DELETE;
+			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
+		} else {
+			$buffer .= q(<td></td>);
+		}
+	}
+	$buffer .= qq(<td>$project->{'short_description'}</td>)
+	  . qq(<td>$project->{'full_description'}</td><td>$admin</td><td>$count</td><td>);
+	$buffer .=
+	    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+	  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+	  . q(</span></a></td></tr>);
+	return $buffer;
+}
+
+sub _is_admin_of_any {
+	my ( $self, $projects ) = @_;
+	foreach my $project (@$projects) {
+		return 1 if $project->{'admin'};
+	}
+	return;
 }
 1;
