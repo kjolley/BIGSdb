@@ -27,14 +27,10 @@ use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
-sub paged_display {
-
-	# $count is optional - if not provided it will be calculated, but this may not be the most
-	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
-	# it is better to not recalculate it.
+sub _calculate_totals {
 	my ( $self, $args ) = @_;
-	my ( $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) =
-	  @{$args}{qw (table query message hidden_attributes count passed_qry_file)};
+	my ( $table, $qry, $count, $passed_qry_file ) =
+	  @{$args}{qw (table query count passed_qry_file)};
 	my $q = $self->{'cgi'};
 	$count //= $q->param('records');
 	my $passed_qry;
@@ -49,7 +45,6 @@ sub paged_display {
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
-	my $continue = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		try {
@@ -71,7 +66,7 @@ sub paged_display {
 			say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
 			  . q( The query can not be performed.</p></div>);
 			$logger->error('Cannot create temporary table');
-			$continue = 0;
+			return;
 		};
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
@@ -79,19 +74,15 @@ sub paged_display {
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
-	return if !$continue;
-	$message = $q->param('message') if !$message;
 
 	#sort allele_id integers numerically
 	my $sub = qq{(case when $table.allele_id ~ '^[0-9]+\$' THEN }
 	  . qq{lpad\($table.allele_id,10,'0'\) else $table.allele_id end\)};
 	$qry =~ s/ORDER\ BY\ (.+),\s*\S+\.allele_id(.*)/ORDER BY $1,$sub$2/x;
 	$qry =~ s/ORDER\ BY\ \S+\.allele_id(.*)/ORDER BY $sub$1/x;
-	my $totalpages = 1;
 	if ( $q->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') eq 'all' ? 0 : $q->param('displayrecs');
 	}
-	my $currentpage = $self->_get_current_page;
 	my $records;
 	if ($count) {
 		$records = $count;
@@ -106,10 +97,32 @@ sub paged_display {
 		$qrycount =~ s/ORDER\ BY.*//x;
 		$records = $self->{'datastore'}->run_query($qrycount);
 	}
-	$q->param( query_file  => $passed_qry_file );
+	return {
+		records  => $records,
+		qry_file => $passed_qry_file
+	};
+}
+
+sub paged_display {
+
+	# $count is optional - if not provided it will be calculated, but this may not be the most
+	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
+	# it is better to not recalculate it.
+	my ( $self, $args ) = @_;
+	my ( $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) =
+	  @{$args}{qw (table query message hidden_attributes count passed_qry_file)};
+	my $q = $self->{'cgi'};
+	my ($record_calcs) = $self->_calculate_totals($args);
+	return if !ref $record_calcs;
+	my ( $records, $qry_file ) = @{$record_calcs}{qw(records qry_file)};
+	$message = $q->param('message') if !$message;
+	my $currentpage = $self->_get_current_page;
+	$q->param( query_file  => $qry_file );
 	$q->param( currentpage => $currentpage );
 	$q->param( displayrecs => $self->{'prefs'}->{'displayrecs'} );
 	$q->param( records     => $records );
+	my $totalpages;
+
 	if ( $self->{'prefs'}->{'displayrecs'} > 0 ) {
 		$totalpages = $records / $self->{'prefs'}->{'displayrecs'};
 	} else {
@@ -184,6 +197,7 @@ sub _print_results_header {
 		}
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
+		$self->_print_project_add_function if $self->{'system'}->{'dbtype'} eq 'isolates';
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		say q(<p>No records found!</p>);
@@ -296,6 +310,39 @@ sub _print_curate_headerbar_functions {
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}
 	$q->param( page => $page );    #reset
+	return;
+}
+
+sub _print_project_add_function {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	return if !$self->{'addProjects'};
+	my $q = $self->{'cgi'};
+	return if $q->param('page') eq 'tableQuery';
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $projects  = $self->{'datastore'}->run_query(
+		'SELECT p.id,p.short_description FROM project_users AS pu JOIN projects '
+		  . 'AS p ON p.id=pu.project_id WHERE user_id=? AND admin ORDER BY UPPER(short_description)',
+		$user_info->{'id'},
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	return if !@$projects;
+	my $project_ids = [0];
+	my $labels = { 0 => 'Select project...' };
+
+	foreach my $project (@$projects) {
+		push @$project_ids, $project->{'id'};
+		$labels->{ $project->{'id'} } = $project->{'short_description'};
+	}
+	say q(<fieldset><legend>Your projects</legend>);
+	say $q->start_form;
+	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
+	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>) if $self->{'project_add_message'};
+	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->end_form;
+	
+	say q(</fieldset>);
 	return;
 }
 
@@ -1094,7 +1141,7 @@ sub _print_plugin_buttons {
 
 sub _hide_field {
 	my ( $self, $attr ) = @_;
-	return 1 if $attr->{'hide'} ;
+	return 1 if $attr->{'hide'};
 	return 1 if $attr->{'hide_public'} && !$self->{'curate'};
 	return 1 if $attr->{'main_display'} eq 'no';
 	return;
@@ -1240,7 +1287,7 @@ sub _print_record_table {
 		my %primary_key;
 		local $" = '&amp;';
 		foreach my $att (@$attributes) {
-			if ( $att->{'primary_key'}  ) {
+			if ( $att->{'primary_key'} ) {
 				$primary_key{ $att->{'name'} } = 1;
 				my $value = $data->{ $att->{'name'} };
 				$value = CGI::Util::escape($value);
@@ -1406,7 +1453,6 @@ sub _print_bool_field {
 	my ( $table, $data, $field ) = @{$args}{qw(table data field)};
 	my $value = $data->{ lc($field) } ? TRUE : FALSE;
 	print qq(<td>$value</td>);
-
 	if ( $table eq 'allele_sequences' && $field eq 'complete' ) {
 		my $flags = $self->{'datastore'}->get_sequence_flags( $data->{'id'} );
 		local $" = q(</a> <a class="seqflag_tooltip">);
@@ -1624,5 +1670,70 @@ sub _initiate_urls_for_loci {
 	}
 	$self->{'urls_defined'} = 1;
 	return;
+}
+
+sub add_to_project {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project');
+	return if !$project_id || !BIGSdb::Utils::is_int($project_id);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $is_admin =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM project_users WHERE (project_id,user_id)=(?,?) AND admin)',
+		[ $project_id, $user_info->{'id'} ] );
+	if ( !$is_admin ) {
+		$logger->error( "User $self->{'username'} attempted to add isolates to project "
+			  . "$project_id for which they are not an admin." );
+		return;
+	}
+	my $ids = $self->get_query_ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my @msg;
+	my $to_add = $self->{'datastore'}->run_query(
+		"SELECT COUNT(value) FROM $temp_table WHERE value NOT IN(SELECT isolate_id "
+		  . 'FROM project_members WHERE project_id=?)',
+		$project_id
+	);
+	my $plural = $to_add == 1 ? q() : q(s);
+	push @msg, "$to_add record$plural added";
+	my $already_in = $self->{'datastore'}->run_query(
+		"SELECT COUNT(value) FROM $temp_table WHERE value IN(SELECT isolate_id "
+		  . 'FROM project_members WHERE project_id=?)',
+		$project_id
+	);
+	$plural = $already_in == 1 ? q() : q(s);
+	push @msg, "$already_in record$plural from this query already in project" if $already_in;
+	local $" = q(; );
+	my $message = qq(@msg.);
+	eval {
+		$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) '
+			  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table WHERE value NOT IN "
+			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)" );
+	};
+	if ($@){
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->{'project_add_message'} = $message;
+	}
+	return;
+}
+
+sub get_query_ids {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return [] if !$q->param('query_file');
+	my $qry  = $self->get_query_from_temp_file( $q->param('query_file') );
+	my $view = $self->{'system'}->{'view'};
+	$qry =~ s/ORDER\ BY.*$//gx;
+	$qry =~ s/SELECT\ \*/SELECT $view.id/x;
+	if ( $q->param('list_file') && $q->param('datatype') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	return $ids;
 }
 1;

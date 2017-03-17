@@ -19,6 +19,7 @@ $(function () {
       $('.showhide').toggle();
       $('.hideshow').toggle();
     });	
+	$('.flash_message').effect('highlight',{},2000);
 	
 	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		

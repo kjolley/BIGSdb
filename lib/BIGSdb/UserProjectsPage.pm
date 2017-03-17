@@ -209,7 +209,9 @@ sub _print_user_projects {
 		}
 		say q(</table></div>);
 		if ($is_admin) {
-			say q(<p>Note that deleting a project will not delete its member isolates.</p>);
+			say q(<p>You can add isolates to projects from the results of a )
+			. qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
+			say q(Note that deleting a project will not delete its member isolates.</p>);
 		}
 	} else {
 		say q(<h2>Existing projects</h2>);

@@ -117,12 +117,20 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $scheme_info;
-	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
-	elsif ( $q->param('save_options') ) { $self->_save_options; return }
+	if ( $q->param('no_header') ) {
+		$self->_ajax_content;
+		return;
+	}
+	if ( $q->param('save_options') ) {
+		$self->_save_options;
+		return;
+	}
+	if ($q->param('add_to_project')){
+		$self->add_to_project;
+	}
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;
-
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
 		  . q(in your browser.</p></div></noscript>);
@@ -861,8 +869,11 @@ sub _print_loci_fields {
 		-labels => $locus_labels,
 		-class  => 'fieldlist'
 	);
-	say $q->popup_menu( -name => "designation_operator$row", -id => "designation_operator$row",
-		-values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "designation_operator$row",
+		-id     => "designation_operator$row",
+		-values => [OPERATORS]
+	);
 	say $q->textfield(
 		-name        => "designation_value$row",
 		-id          => "designation_value$row",
@@ -1478,8 +1489,7 @@ sub _modify_query_by_profile_status {
 	my $view    = $self->{'system'}->{'view'};
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
-		if ( ( $q->param("scheme_${scheme_id}_profile_status_list") // q() ) ne '' )
-		{
+		if ( ( $q->param("scheme_${scheme_id}_profile_status_list") // q() ) ne '' ) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			if (@$scheme_loci) {
 				my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
@@ -2407,7 +2417,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->SUPER::initiate;
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw(noCache addProjects);
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;

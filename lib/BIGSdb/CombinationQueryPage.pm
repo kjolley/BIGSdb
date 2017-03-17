@@ -28,7 +28,7 @@ use BIGSdb::Constants qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	return;
 }
@@ -50,6 +50,9 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
 	my $desc = $self->get_db_description;
+	if ($q->param('add_to_project')){
+		$self->add_to_project;
+	}
 	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
