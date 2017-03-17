@@ -88,6 +88,7 @@ sub _delete_project {
 	} else {
 		$self->_actually_delete_project($project_id);
 	}
+	return;
 }
 
 sub _actually_delete_project {

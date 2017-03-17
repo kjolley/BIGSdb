@@ -1167,13 +1167,13 @@ sub get_project_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $args = [];
 	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
-	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}))";
+	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
 		push @$args, $user_info->{'id'};
 	}
-	$qry .= ' ORDER BY UPPER(short_description)';
+	$qry .= ') ORDER BY UPPER(short_description)';
 	my $projects = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'all_arrayref', slice => {} } );
 	my ( @project_ids, %labels );
 	foreach my $project (@$projects) {
