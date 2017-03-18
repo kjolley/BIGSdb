@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -170,14 +170,7 @@ sub _print_projects_section {
 	if ($listed_projects) {
 		push @list, qq(<a href="${url_root}page=projects">Main public projects</a>);
 	}
-	if (
-		(
-			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
-			|| $self->{'system'}->{'read_access'} ne 'public'
-		)
-		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
-	  )
-	{
+	if ( $self->show_user_projects ) {
 		push @list, qq(<a href="${url_root}page=userProjects">Your projects</a>);
 	}
 	return if !@list;

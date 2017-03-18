@@ -151,6 +151,21 @@ sub get_guid {
 	}
 }
 
+sub show_user_projects {
+	my ($self) = @_;
+	if (
+		(
+			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
+			|| $self->{'system'}->{'read_access'} ne 'public'
+		)
+		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
+	  )
+	{
+		return 1;
+	}
+	return;
+}
+
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	return if !defined $value;

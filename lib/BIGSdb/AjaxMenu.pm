@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,7 +104,7 @@ sub _home {
 
 sub _get_base_url {
 	my ($self) = @_;
-	my $cache_string = $self->get_cache_string;   
+	my $cache_string = $self->get_cache_string;
 	return qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string);
 }
 
@@ -138,8 +138,6 @@ sub _isolate_items {
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=query">Search or browse</a></li>);
 	say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
-	my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
-	say qq(<li><a href="$base_url&amp;page=projects">Projects</a></li>) if $projects;
 
 	#Field help
 	my $publications =
@@ -148,6 +146,15 @@ sub _isolate_items {
 	say qq(<li><a href="$base_url&amp;page=plugin&amp;name=PublicationBreakdown">Publications</a></li>)
 	  if $publications;
 	say q(</ul>);
+	my $main_projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
+	my $user_projects = $self->show_user_projects;
+	if ( $main_projects || $user_projects ) {
+		say q(<span class="main_icon fa fa-list-alt fa-lg pull-left"></span>);
+		say q(<ul class="menu">);
+		say qq(<li><a href="$base_url&amp;page=projects">Public projects</a></li>) if $main_projects;
+		say qq(<li><a href="$base_url&amp;page=userProjects">Your projects</a></li>) if $user_projects;
+		say q(</ul>);
+	}
 	$self->_options_link;
 	$self->_submissions_link;
 	say q(<span class="main_icon fa fa-info-circle fa-lg pull-left"></span>);
