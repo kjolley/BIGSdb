@@ -1402,14 +1402,14 @@ sub get_refs {
 	if (@$pmids) {
 		my $count = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
-		$buffer .= qq(<h2>Publication$plural ($count));
+		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
 		my $display = @$pmids > 4 ? 'none' : 'block';
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
-		    q(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" )
-		  . q(style="cursor:pointer"><span id="show_refs_text" style="display:inline">show</span>)
-		  . q(<span id="hide_refs_text" style="display:none">hide</span></a></span>)
+		    q(<span style="margin-left:1em"><a id="show_refs" )
+		  . qq(style="cursor:pointer"><span id="show_refs_text" title="Show references" style="display:inline">$show</span>)
+		  . qq(<span id="hide_refs_text" title="Hide references" style="display:none">$hide</span></a></span>)
 		  if $display eq 'none';
-		$buffer .= qq(</h2>\n);
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
 		$buffer .= qq(<ul id="$id" style="display:$display">\n);
 		my $citations =
@@ -1504,8 +1504,7 @@ sub _print_projects {
 		my $private_projects = $self->{'datastore'}->run_query(
 			q[SELECT short_description||' (private)' AS short_description,full_description FROM projects WHERE ]
 			  . q[length(full_description)>0 AND private AND id IN (SELECT project_id FROM project_members WHERE ]
-			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id]
-			,
+			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id],
 			[ $isolate_id, $user_info->{'id'} ],
 			{ fetch => 'all_arrayref', slice => {} }
 		);
