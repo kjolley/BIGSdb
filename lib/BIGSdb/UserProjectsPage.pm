@@ -160,7 +160,8 @@ sub _print_user_projects {
 	say q(<h2>New private projects</h2>);
 	say q(<p>Projects allow you to group isolates so that you can analyse them easily together.</p>);
 	say q(<p>Please enter the details for a new project. The project name needs to be unique on the system. )
-	  . q(A description is optional.</p>);
+	  . q(A description is optional but only projects with descriptions will be displayed on an isolate )
+	  . q(record page.</p>);
 	say q(<div class="scrollable">);
 	my $q = $self->{'cgi'};
 	say $q->start_form;
@@ -179,7 +180,7 @@ sub _print_user_projects {
 	say $q->textarea( -name => 'full_description', -id => 'full_description', -cols => 40 );
 	say q(</li></ul>);
 	say q(</fieldset>);
-	$self->print_action_fieldset( { no_reset => 1 } );
+	$self->print_action_fieldset( { submit_label => 'Create', no_reset => 1 } );
 	$q->param( new_project => 1 );
 	say $q->hidden($_) foreach qw(db page new_project);
 	say $q->end_form;
@@ -210,7 +211,7 @@ sub _print_user_projects {
 		say q(</table></div>);
 		if ($is_admin) {
 			say q(<p>You can add isolates to projects from the results of a )
-			. qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
+			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
 			say q(Note that deleting a project will not delete its member isolates.</p>);
 		}
 	} else {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1493,11 +1493,24 @@ sub _get_seqbin_link {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		'SELECT * FROM projects WHERE full_description IS NOT NULL AND isolate_display AND id '
-		  . 'IN (SELECT project_id FROM project_members WHERE isolate_id=?) ORDER BY id',
+		q[SELECT short_description,full_description FROM projects WHERE full_description IS NOT NULL AND ]
+		  . q[isolate_display AND NOT private AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ]
+		  . q[ORDER BY id],
 		$isolate_id,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
+	if ( $self->{'username'} ) {
+		my $user_info        = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $private_projects = $self->{'datastore'}->run_query(
+			q[SELECT short_description||' (private)' AS short_description,full_description FROM projects WHERE ]
+			  . q[length(full_description)>0 AND private AND id IN (SELECT project_id FROM project_members WHERE ]
+			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id]
+			,
+			[ $isolate_id, $user_info->{'id'} ],
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+		push @$projects, @$private_projects;
+	}
 	if (@$projects) {
 		say q(<div class="box" id="projects"><div class="scrollable">);
 		say q(<h2>Projects</h2>);
