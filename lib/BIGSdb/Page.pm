@@ -1059,7 +1059,7 @@ sub get_filter {
 	}
 
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
-	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
+	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->scrolling_list(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>)
 	  if $options->{'tooltip'};

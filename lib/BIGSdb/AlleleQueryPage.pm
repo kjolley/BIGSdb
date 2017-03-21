@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -651,6 +651,7 @@ sub _not {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatc
 		  $this_field->{'type'} eq 'text'
 		  ? "NOT UPPER($field) = UPPER(E'$text')"
 		  : "NOT $field = E'$text'";
+		$$qry_ref .= " OR $field IS NULL";
 	}
 	return;
 }
@@ -692,10 +693,11 @@ sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	  $this_field->{'type'} eq 'text'
 	  ? "NOT $field ILIKE E'\%$text\%'"
 	  : "NOT CAST($field AS text) LIKE E'\%$text\%'";
+	$$qry_ref .= " OR $field IS NULL";
 	return;
 }
 
-sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _equals {                             ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	if ( lc($text) eq 'null' ) {
