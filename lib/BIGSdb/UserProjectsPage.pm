@@ -56,6 +56,10 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	$self->_add_new_project if $q->param('new_project');
 	$self->_delete_project  if $q->param('delete');
+	if ( $q->param('edit') ) {
+		$self->_edit_members;
+		return;
+	}
 	$self->_print_user_projects;
 	return;
 }
@@ -100,6 +104,145 @@ sub _actually_delete_project {
 		say q(<div class="box" id="statusbad"><p>Cannot delete project.</p></div>);
 	}
 	$self->{'db'}->commit;
+	return;
+}
+
+sub _edit_members {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	if ( !BIGSdb::Utils::is_int($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>No valid project id passed.</p></div>);
+		return;
+	}
+	if ( !$self->_is_project_admin($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>You cannot edit members for a project )
+		  . q(that you are not an admin for.</p></div>);
+		return;
+	}
+	my $view        = $self->{'system'}->{'view'};
+	my $current_ids = $self->{'datastore'}->run_query(
+		"SELECT pm.isolate_id FROM project_members AS pm JOIN $view AS i ON pm.isolate_id=i.id "
+		  . 'WHERE pm.project_id=? ORDER BY pm.isolate_id',
+		$project_id,
+		{ fetch => 'col_arrayref' }
+	);
+	if ( $q->param('update') ) {
+		my $new_ids = [];
+		my @invalid;
+		my @no_isolate;
+		my @ids = split /\n/x, $q->param('ids');
+		my $valid_ids = $self->{'datastore'}->run_query( "SELECT id FROM $view", undef, { fetch => 'col_arrayref' } );
+		my %valid_ids = map { $_ => 1 } @$valid_ids;
+		foreach my $id (@ids) {
+			$id =~ s/^\s+|\s+$//gx;
+			next if !$id;
+			if ( !BIGSdb::Utils::is_int($id) ) {
+				push @invalid, $id;
+			} elsif ( !$valid_ids{$id} ) {
+				push @no_isolate, $id;
+			} else {
+				push @$new_ids, $id;
+			}
+		}
+		local $" = q(, );
+		my @errors;
+		if (@invalid) {
+			push @errors, qq(The following ids are not integers: @invalid);
+		}
+		if (@no_isolate) {
+			push @errors, qq(The following ids are not found in the current database view: @no_isolate);
+		}
+		if (@errors) {
+			local $" = q(</p><p>);
+			say qq(<div class="box" id="statusbad"><p>Update failed: @errors</p></div>);
+		} else {
+			$self->_update_project_members( $project_id, $current_ids, $new_ids );
+		}
+	}
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	my $project = $self->{'datastore'}->run_query( 'SELECT short_description,full_description FROM projects WHERE id=?',
+		$project_id, { fetch => 'row_hashref' } );
+	say qq(<h2>Project: $project->{'short_description'}</h2>);
+	say qq(<p>$project->{'full_description'}</p>) if $project->{'full_description'};
+	say q(<p>The list below contains id numbers for isolate records belonging to this project. You can add and remove )
+	  . q(records to this project by modifying the list of isolate ids. This only affects which records belong to the )
+	  . q(project - you will not remove isolate records from the database by removing them from this list.</p>);
+	say q(<fieldset style="float:left"><legend>Isolate ids</legend>);
+	local $" = qq(\n);
+	say $q->start_form;
+	say $q->textarea( -name => 'ids', -rows => 10, -cols => 8, -default => qq(@$current_ids) );
+	say q(</fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Update', project_id => $project_id, edit => 1 } );
+	$q->param( update => 1 );
+	say $q->hidden($_) foreach qw(db page project_id edit update);
+	say $q->end_form;
+	say q(</div>);
+	say q(<p>You can also add isolate records to this project from the results of a )
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
+	say q(</div>);
+	return;
+}
+
+sub _update_project_members {
+	my ( $self, $project_id, $current_ids, $new_ids ) = @_;
+	my %new = map { $_ => 1 } @$new_ids;
+	my %old = map { $_ => 1 } @$current_ids;
+	my $add = [];
+	my $remove = [];
+	foreach my $new_id (@$new_ids) {
+		next if $old{$new_id};
+		push @$add, $new_id;
+	}
+	foreach my $old_id (@$current_ids) {
+		next if $new{$old_id};
+		push @$remove, $old_id;
+	}
+	local $" = q(, );
+	my @results;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+
+	#Populate temp tables with new and old to do batch add and remove with a single call.
+	if (@$add) {
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $add );
+		eval {
+			$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) '
+				  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table" );
+		};
+		if ($@){
+			$logger->error($@);
+			say q(<div class="box" id="statusbad"><p>Adding ids to project failed.</p></div>);
+			$self->{'db'}->rollback;
+			return;
+		}
+		my $count = @$add;
+		my $plural = $count == 1 ? q() : q(s);
+		push @results, qq($count record$plural added.);
+	}
+	if (@$remove){
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $remove );
+		eval {
+			$self->{'db'}->do('DELETE FROM project_members WHERE project_id=? AND isolate_id IN '
+			. "(SELECT value FROM $temp_table)",undef,$project_id);
+		};
+		if ($@){
+			$logger->error($@);
+			say q(<div class="box" id="statusbad"><p>Removing ids from project failed.</p></div>);
+			$self->{'db'}->rollback;
+			return;
+		}
+		my $count = @$remove;
+		my $plural = $count == 1 ? q() : q(s);
+		push @results, qq($count record$plural removed.);
+	}
+	$self->{'db'}->commit;
+	if (@$add || @$remove){
+		local $" = q(</p><p>);
+	
+		say qq(<div class="box" id="resultsheader"><p>@results</p></div>);
+	} else {
+		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
+	}
 	return;
 }
 
@@ -200,7 +343,7 @@ sub _print_user_projects {
 		say q(<div class="scrollable"><table class="resultstable">);
 		say q(<tr>);
 		if ($is_admin) {
-			say q(<th>Delete</th>);
+			say q(<th>Delete</th><th>Add/remove records</th>);
 		}
 		say q(<th>Project</th><th>Description</th><th>Administrator</th><th>Isolates</th><th>Browse</th></tr>);
 		my $td = 1;
@@ -210,7 +353,7 @@ sub _print_user_projects {
 		}
 		say q(</table></div>);
 		if ($is_admin) {
-			say q(<p>You can add isolates to projects from the results of a )
+			say q(<p>You can also add isolates to projects from the results of a )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
 			say q(Note that deleting a project will not delete its member isolates.</p>);
 		}
@@ -235,9 +378,11 @@ sub _get_project_row {
 	my $buffer = qq(<tr class="td$td">);
 	if ($is_admin) {
 		if ( $project->{'admin'} ) {
-			my $delete = DELETE;
+			my ( $delete, $edit ) = ( DELETE, EDIT );
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
+			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
 		} else {
 			$buffer .= q(<td></td>);
 		}

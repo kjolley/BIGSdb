@@ -524,14 +524,15 @@ sub print_action_fieldset {
 	my $legend       = $options->{'legend'}       // 'Action';
 	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
-	my @fields = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id modify);
+	my @fields = qw (isolate_id id scheme_id table name ruleset locus
+	  profile_id simple set_id modify project_id edit);
 
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );
 		push @fields, @$pk_fields;
 	}
-	foreach ( uniq @fields ) {
-		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
+	foreach my $field ( uniq @fields ) {
+		$url .= "&amp;$field=$options->{$field}" if defined $options->{$field};
 	}
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
