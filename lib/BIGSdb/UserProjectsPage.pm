@@ -209,7 +209,7 @@ sub _update_project_members {
 			$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) '
 				  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table" );
 		};
-		if ($@){
+		if ($@) {
 			$logger->error($@);
 			say q(<div class="box" id="statusbad"><p>Adding ids to project failed.</p></div>);
 			$self->{'db'}->rollback;
@@ -219,13 +219,15 @@ sub _update_project_members {
 		my $plural = $count == 1 ? q() : q(s);
 		push @results, qq($count record$plural added.);
 	}
-	if (@$remove){
+	if (@$remove) {
 		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $remove );
 		eval {
-			$self->{'db'}->do('DELETE FROM project_members WHERE project_id=? AND isolate_id IN '
-			. "(SELECT value FROM $temp_table)",undef,$project_id);
+			$self->{'db'}->do(
+				'DELETE FROM project_members WHERE project_id=? AND isolate_id IN ' . "(SELECT value FROM $temp_table)",
+				undef, $project_id
+			);
 		};
-		if ($@){
+		if ($@) {
 			$logger->error($@);
 			say q(<div class="box" id="statusbad"><p>Removing ids from project failed.</p></div>);
 			$self->{'db'}->rollback;
@@ -236,9 +238,8 @@ sub _update_project_members {
 		push @results, qq($count record$plural removed.);
 	}
 	$self->{'db'}->commit;
-	if (@$add || @$remove){
+	if ( @$add || @$remove ) {
 		local $" = q(</p><p>);
-	
 		say qq(<div class="box" id="resultsheader"><p>@results</p></div>);
 	} else {
 		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
@@ -271,7 +272,7 @@ sub _add_new_project {
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
-			  . 'list,private,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)',
+			  . 'list,private,no_limit,curator,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
 			undef,
 			$id,
 			$short_desc,
@@ -279,11 +280,14 @@ sub _add_new_project {
 			'false',
 			'false',
 			'true',
+			'false',
 			$user_info->{'id'},
 			'now'
 		);
-		$self->{'db'}->do( 'INSERT INTO project_users (project_id,user_id,admin,curator,datestamp) VALUES (?,?,?,?,?)',
-			undef, $id, $user_info->{'id'}, 'true', $user_info->{'id'}, 'now' );
+		$self->{'db'}->do(
+			'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			undef, $id, $user_info->{'id'}, 'true', 'true', $user_info->{'id'}, 'now'
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -383,9 +387,10 @@ sub _get_project_row {
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
-			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			$buffer .=
+			    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project->{'id'}" class="action">)
-			  . qq($users</a></td>);  
+			  . qq($users</a></td>);
 		} else {
 			$buffer .= q(<td></td>);
 		}
