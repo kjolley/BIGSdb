@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1043,7 +1043,7 @@ sub get_filter {
 	}
 
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
-	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
+	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->scrolling_list(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>)
 	  if $options->{'tooltip'};
