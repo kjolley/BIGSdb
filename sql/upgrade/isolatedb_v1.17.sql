@@ -7,11 +7,15 @@ UPDATE projects SET list=false WHERE list IS NULL;
 ALTER TABLE projects ALTER COLUMN list SET NOT NULL;
 
 --Not yet added to isolatedb.sql
+ALTER TABLE projects ADD no_limit boolean;
+UPDATE projects SET no_limit=false;
+ALTER TABLE projects ALTER COLUMN no_limit SET NOT NULL;
 
 CREATE TABLE project_users (
 project_id integer NOT NULL,
 user_id integer NOT NULL,
 admin boolean NOT NULL,
+modify boolean NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (project_id,user_id),
@@ -31,6 +35,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON project_users TO apache;
 CREATE TABLE project_user_groups (
 project_id integer NOT NULL,
 user_group integer NOT NULL,
+modify boolean NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (project_id,user_group),
@@ -47,10 +52,10 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON project_user_groups TO apache;
 
-CREATE VIEW merged_project_users AS
-SELECT project_id,user_id,admin FROM project_users UNION 
-(SELECT project_id,user_id,null FROM project_user_groups AS pug LEFT JOIN 
-user_group_members ugm ON pug.user_group=ugm.user_group);
+CREATE VIEW merged_project_users AS SELECT project_id,user_id,bool_or(admin) AS admin,bool_or(modify) AS modify 
+FROM (SELECT project_id,user_id,admin,modify FROM project_users UNION ALL SELECT project_id,user_id,false,modify 
+FROM project_user_groups AS pug LEFT JOIN user_group_members ugm ON pug.user_group=ugm.user_group) AS merged 
+GROUP BY project_id,user_id;
 
 GRANT SELECT ON merged_project_users TO apache;
 

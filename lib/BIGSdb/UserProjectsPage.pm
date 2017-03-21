@@ -343,7 +343,7 @@ sub _print_user_projects {
 		say q(<div class="scrollable"><table class="resultstable">);
 		say q(<tr>);
 		if ($is_admin) {
-			say q(<th>Delete</th><th>Add/remove records</th>);
+			say q(<th>Delete</th><th>Add/remove records</th><th>Modify users</th>);
 		}
 		say q(<th>Project</th><th>Description</th><th>Administrator</th><th>Isolates</th><th>Browse</th></tr>);
 		my $td = 1;
@@ -378,11 +378,14 @@ sub _get_project_row {
 	my $buffer = qq(<tr class="td$td">);
 	if ($is_admin) {
 		if ( $project->{'admin'} ) {
-			my ( $delete, $edit ) = ( DELETE, EDIT );
+			my ( $delete, $edit, $users ) = ( DELETE, EDIT, USERS );
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
+			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project->{'id'}" class="action">)
+			  . qq($users</a></td>);  
 		} else {
 			$buffer .= q(<td></td>);
 		}
