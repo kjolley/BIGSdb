@@ -390,18 +390,19 @@ sub _get_dropdown_filter {
 	}
 	my $desc;
 	my $values;
-	my @fields_to_query;
 	my %user_special_fields = map { $_ => 1 } qw(surname first_name);
 	if ( $att->{'foreign_key'} ) {
 		next if $att->{'name'} eq 'scheme_id';
+		my @order_fields;
+		
 		if ( $att->{'labels'} ) {
 			( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
-			@fields_to_query = @$fields_ref;
+			@order_fields = @$fields_ref;
 		} else {
-			push @fields_to_query, 'id';
+			push @order_fields, 'id';
 		}
 		local $" = ',';
-		$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query",
+		$values = $self->{'datastore'}->run_query( "SELECT id FROM $att->{'foreign_key'} ORDER BY @order_fields",
 			undef, { fetch => 'col_arrayref' } );
 		return if !@$values;
 	} elsif ( $table eq 'users' && $user_special_fields{ $att->{'name'} } ) {

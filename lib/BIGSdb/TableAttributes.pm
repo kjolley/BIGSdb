@@ -164,8 +164,6 @@ sub get_user_group_members_table_attributes {
 			primary_key    => 1,
 			dropdown_query => 1,
 			user_field     => 1
-
-			  #			labels         => '|$surname|, |$first_name|'
 		},
 		{
 			name           => 'user_group',
@@ -173,7 +171,7 @@ sub get_user_group_members_table_attributes {
 			required       => 1,
 			foreign_key    => 'user_groups',
 			dropdown_query => 1,
-			labels         => '|$id|) |$description|'
+			labels         => '|$description|'
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }

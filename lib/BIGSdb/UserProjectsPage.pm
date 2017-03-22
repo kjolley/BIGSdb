@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
+use List::MoreUtils qw(uniq);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
@@ -60,7 +61,17 @@ sub print_content {
 		$self->_edit_members;
 		return;
 	}
+	if ( $q->param('modify_users') ) {
+		$self->_modify_users;
+		return;
+	}
 	$self->_print_user_projects;
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
 	return;
 }
 
@@ -69,10 +80,7 @@ sub _delete_project {
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	return if !BIGSdb::Utils::is_int($project_id);
-	if ( !$self->_is_project_admin($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>You cannot delete a project that you are not an admin for.</p></div>);
-		return;
-	}
+	return if $self->_fails_admin_check($project_id);
 	my $isolates =
 	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM project_members WHERE project_id=?', $project_id );
 	if ($isolates) {
@@ -107,19 +115,30 @@ sub _actually_delete_project {
 	return;
 }
 
+sub _fails_project_check {
+	my ( $self, $project_id ) = @_;
+	if ( !BIGSdb::Utils::is_int($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>No valid project id passed.</p></div>);
+		return 1;
+	}
+	return;
+}
+
+sub _fails_admin_check {
+	my ( $self, $project_id ) = @_;
+	if ( !$self->_is_project_admin($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>You are not an admin for this project.</p></div>);
+		return 1;
+	}
+	return;
+}
+
 sub _edit_members {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
-	if ( !BIGSdb::Utils::is_int($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>No valid project id passed.</p></div>);
-		return;
-	}
-	if ( !$self->_is_project_admin($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>You cannot edit members for a project )
-		  . q(that you are not an admin for.</p></div>);
-		return;
-	}
+	return if $self->_fails_project_check($project_id);
+	return if $self->_fails_admin_check($project_id);
 	my $view        = $self->{'system'}->{'view'};
 	my $current_ids = $self->{'datastore'}->run_query(
 		"SELECT pm.isolate_id FROM project_members AS pm JOIN $view AS i ON pm.isolate_id=i.id "
@@ -247,6 +266,166 @@ sub _update_project_members {
 	return;
 }
 
+sub _get_project_user_groups {
+	my ( $self, $project_id ) = @_;
+	return $self->{'datastore'}->run_query(
+		    'SELECT pug.user_group FROM project_user_groups AS pug JOIN user_groups AS ug ON '
+		  . 'pug.user_group=ug.id WHERE pug.project_id=? ORDER BY UPPER(ug.description)'
+		,
+		$project_id, { fetch => 'col_arrayref', cache => 'UserProjectsPage::get_project_user_groups' }
+	);
+}
+
+sub _modify_users {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	return if $self->_fails_project_check($project_id);
+	return if $self->_fails_admin_check($project_id);
+	my $user_info   = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_groups = $self->{'datastore'}->run_query(
+		'SELECT ug.id,ug.description FROM user_group_members AS ugm JOIN user_groups ug ON '
+		  . 'ugm.user_group=ug.id WHERE user_id=? ORDER BY UPPER(ug.description)',
+		$user_info->{'id'},
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	$self->_update_user_groups($project_id) if $q->param('update_user_groups');
+	say q(<div class="box" id="resultstable">);
+
+	if (@$user_groups) {
+		$self->_print_user_group_form( $project_id, $user_groups );
+	}
+	say q(</div>);
+	return;
+}
+
+sub _print_user_group_form {
+	my ( $self, $project_id, $user_groups ) = @_;
+	my $user_group_members = $self->_get_project_user_groups($project_id);
+	my $q                  = $self->{'cgi'};
+	my $ids                = [];
+	my $labels             = {};
+	foreach my $ug (@$user_groups) {
+		push @$ids, $ug->{'id'};
+		$labels->{ $ug->{'id'} } = $ug->{'description'};
+	}
+	say q(<h2>User groups</h2>);
+	say q(<p>All members of selected user groups can view this project )
+	  . q((only user groups that you are a member of are shown).</p>);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Select user groups</legend>);
+	say q(<p>Select user groups able to access project</p>);
+	say $q->scrolling_list(
+		-name     => 'user_groups',
+		-id       => 'user_groups',
+		-values   => $ids,
+		-labels   => $labels,
+		-default  => $user_group_members,
+		-multiple => 'multiple',
+		-size     => 4,
+		-class    => 'multiselect'
+	);
+	say q(</fieldset>);
+
+	if (@$user_group_members) {
+		say q(<fieldset style="float:left"><legend>User group permissions</legend>);
+		say q(<table class="resultstable">);
+		say q(<tr><th>User group</th><th>Add/Remove isolates</th></tr>);
+		my $td = 1;
+		foreach my $group_id (@$user_group_members) {
+			my $group = $self->{'datastore'}->run_query(
+				'SELECT ug.description,pug.modify FROM user_groups AS ug JOIN project_user_groups '
+				  . 'AS pug ON ug.id=pug.user_group WHERE (pug.project_id,pug.user_group)=(?,?)',
+				[ $project_id, $group_id ],
+				{ fetch => 'row_hashref' }
+			);
+			say qq(<tr class="td$td"><td>$group->{'description'}</td><td>);
+			say $q->checkbox(
+				-name    => "ug_${group_id}_modify",
+				-label   => '',
+				-checked => $group->{'modify'} ? 'checked' : ''
+			);
+			say q(</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</table>);
+		say q(</fieldset>);
+	}
+	( undef, $labels ) = $self->{'datastore'}->get_users;
+	my $user_ids = $self->{'datastore'}->run_query(
+		'SELECT user_id FROM user_group_members WHERE user_group IN '
+		  . '(SELECT user_group FROM project_user_groups WHERE project_id=?)',
+		$project_id,
+		{ fetch => 'col_arrayref' }
+	);
+	@$user_ids = sort { $labels->{$a} cmp $labels->{$b} } @$user_ids;
+	say q(<fieldset style="float:left"><legend>Group members</legend>);
+	if (@$user_ids) {
+		@$user_ids = uniq(@$user_ids);
+		say $q->scrolling_list(
+			-name     => 'user_group_members',
+			-disabled => 'disabled',
+			-values   => $user_ids,
+			-labels   => $labels,
+			-size     => 5
+		);
+	} else {
+		say q(<p>No group users.</p>);
+	}
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update user groups' } );
+	$q->param( update_user_groups => 1 );
+	say $q->hidden($_) foreach qw(db page modify_users project_id update_user_groups);
+	say $q->end_form;
+	return;
+}
+
+sub _update_user_groups {
+	my ( $self, $project_id ) = @_;
+	my $user_info          = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_group_members = $self->_get_project_user_groups($project_id);
+	my %existing           = map { $_ => 1 } @$user_group_members;
+	my $q                  = $self->{'cgi'};
+	my @new_groups         = $q->param('user_groups');
+	my %new_groups         = map { $_ => 1 } @new_groups;
+	eval {
+		foreach my $new (@new_groups) {
+			my $can_currently_modify =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT modify FROM project_user_groups WHERE (project_id,user_group)=(?,?)',
+				[ $project_id, $new ] );
+			my $modify = $q->param("ug_${new}_modify");
+			next if !$existing{$new};
+			if ( ( $can_currently_modify && !$modify ) || ( !$can_currently_modify && $q->param("ug_${new}_modify") ) )
+			{
+				$self->{'db'}->do(
+'UPDATE project_user_groups SET (modify,curator,datestamp)=(?,?,?) WHERE (project_id,user_group)=(?,?)',
+					undef, $modify ? 'true' : 'false', $user_info->{'id'}, 'now', $project_id, $new
+				);
+			}
+		}
+		foreach my $new (@new_groups) {
+			next if $existing{$new};
+			$self->{'db'}->do(
+				'INSERT INTO project_user_groups (project_id,user_group,modify,curator,datestamp) VALUES (?,?,?,?,?)',
+				undef, $project_id, $new, 'false', $user_info->{'id'}, 'now' );
+		}
+		foreach my $existing_group (@$user_group_members) {
+			next if $new_groups{$existing_group};
+			$self->{'db'}->do( 'DELETE FROM project_user_groups WHERE (project_id,user_group)=(?,?)',
+				undef, $project_id, $existing_group );
+		}
+	};
+	if ($@) {
+		say q(<div class="box" id="statusbad"><p>Cannot update user groups.</p></div>);
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub _is_project_admin {
 	my ( $self, $project_id ) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -284,10 +463,9 @@ sub _add_new_project {
 			$user_info->{'id'},
 			'now'
 		);
-		$self->{'db'}->do(
-			'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
-			undef, $id, $user_info->{'id'}, 'true', 'true', $user_info->{'id'}, 'now'
-		);
+		$self->{'db'}
+		  ->do( 'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			undef, $id, $user_info->{'id'}, 'true', 'true', $user_info->{'id'}, 'now' );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -392,7 +570,9 @@ sub _get_project_row {
 			  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project->{'id'}" class="action">)
 			  . qq($users</a></td>);
 		} else {
-			$buffer .= q(<td></td>);
+			if ($is_admin) {
+				$buffer .= q(<td></td><td></td><td></td>);
+			}
 		}
 	}
 	$buffer .= qq(<td>$project->{'short_description'}</td>)
@@ -410,5 +590,17 @@ sub _is_admin_of_any {
 		return 1 if $project->{'admin'};
 	}
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	if (! Modernizr.touch){
+  	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
+  	}
+});	
+END
+	return $buffer;
 }
 1;
