@@ -269,10 +269,10 @@ sub _update_project_members {
 sub _get_project_user_groups {
 	my ( $self, $project_id ) = @_;
 	return $self->{'datastore'}->run_query(
-		    'SELECT pug.user_group FROM project_user_groups AS pug JOIN user_groups AS ug ON '
-		  . 'pug.user_group=ug.id WHERE pug.project_id=? ORDER BY UPPER(ug.description)'
-		,
-		$project_id, { fetch => 'col_arrayref', cache => 'UserProjectsPage::get_project_user_groups' }
+		'SELECT pug.user_group FROM project_user_groups AS pug JOIN user_groups AS ug ON '
+		  . 'pug.user_group=ug.id WHERE pug.project_id=? ORDER BY UPPER(ug.description)',
+		$project_id,
+		{ fetch => 'col_arrayref', cache => 'UserProjectsPage::get_project_user_groups' }
 	);
 }
 
@@ -291,10 +291,13 @@ sub _modify_users {
 	);
 	$self->_update_user_groups($project_id) if $q->param('update_user_groups');
 	say q(<div class="box" id="resultstable">);
+	my $project = $self->_get_project($project_id);
+	say qq(<p><strong>Project: $project->{'short_description'}</strong></p>);
 
 	if (@$user_groups) {
 		$self->_print_user_group_form( $project_id, $user_groups );
 	}
+	$self->_print_user_form($project_id);
 	say q(</div>);
 	return;
 }
@@ -351,28 +354,6 @@ sub _print_user_group_form {
 		say q(</table>);
 		say q(</fieldset>);
 	}
-	( undef, $labels ) = $self->{'datastore'}->get_users;
-	my $user_ids = $self->{'datastore'}->run_query(
-		'SELECT user_id FROM user_group_members WHERE user_group IN '
-		  . '(SELECT user_group FROM project_user_groups WHERE project_id=?)',
-		$project_id,
-		{ fetch => 'col_arrayref' }
-	);
-	@$user_ids = sort { $labels->{$a} cmp $labels->{$b} } @$user_ids;
-	say q(<fieldset style="float:left"><legend>Group members</legend>);
-	if (@$user_ids) {
-		@$user_ids = uniq(@$user_ids);
-		say $q->scrolling_list(
-			-name     => 'user_group_members',
-			-disabled => 'disabled',
-			-values   => $user_ids,
-			-labels   => $labels,
-			-size     => 5
-		);
-	} else {
-		say q(<p>No group users.</p>);
-	}
-	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update user groups' } );
 	$q->param( update_user_groups => 1 );
 	say $q->hidden($_) foreach qw(db page modify_users project_id update_user_groups);
@@ -399,7 +380,8 @@ sub _update_user_groups {
 			if ( ( $can_currently_modify && !$modify ) || ( !$can_currently_modify && $q->param("ug_${new}_modify") ) )
 			{
 				$self->{'db'}->do(
-'UPDATE project_user_groups SET (modify,curator,datestamp)=(?,?,?) WHERE (project_id,user_group)=(?,?)',
+					'UPDATE project_user_groups SET (modify,curator,datestamp)=(?,?,?) '
+					  . 'WHERE (project_id,user_group)=(?,?)',
 					undef, $modify ? 'true' : 'false', $user_info->{'id'}, 'now', $project_id, $new
 				);
 			}
@@ -423,6 +405,96 @@ sub _update_user_groups {
 	} else {
 		$self->{'db'}->commit;
 	}
+	return;
+}
+
+sub _print_user_form {
+	my ( $self, $project_id ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('remove_user') ) {
+		$self->_remove_user( $project_id, $q->param('remove_user') );
+	}
+	say q(<h2>Users</h2>);
+	my $users = $self->{'datastore'}->run_query( 'SELECT * FROM merged_project_users WHERE project_id=?',
+		$project_id, { fetch => 'all_arrayref', slice => {} } );
+	if ( !@$users ) {
+		say q(<p>No users have permission to view this project.</p>);
+		return;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my @user_ids;
+	( undef, my $labels ) = $self->{'datastore'}->get_users;
+	@$users = sort { $labels->{ $a->{'user_id'} } cmp $labels->{ $b->{'user_id'} } } @$users;
+	my $users_not_in_group = $self->{'datastore'}->run_query(
+		'SELECT user_id FROM project_users WHERE project_id=? AND user_id NOT IN '
+		  . '(SELECT user_id FROM user_group_members WHERE user_group IN '
+		  . '(SELECT user_group FROM project_user_groups WHERE project_id=?)) AND user_id!=?',
+		[ $project_id, $project_id, $user_info->{'id'} ],
+		{ fetch => 'col_arrayref' }
+	);
+	my %users_not_in_group = map { $_ => 1 } @$users_not_in_group;
+	push @user_ids, $_->{'user_id'} foreach @$users;
+	say q(<p>The following users have permission to access the project )
+	  . q((either explicitly or through membership of a user group).</p>);
+	say q(<div class="scrollable"><table class="resultstable">);
+	say q(<tr>);
+
+	if (@$users_not_in_group) {
+		say q(<th>Remove</th>);
+	}
+	say q(<th>User</th><th>Admin</th><th>Add/Remove isolates</th></tr>);
+	my $td = 1;
+	foreach my $user (@$users) {
+		my $disabled = $user->{'user_id'} == $user_info->{'id'};
+		say qq(<tr class="td$td"><td>);
+		if (@$users_not_in_group) {
+			if ( $users_not_in_group{ $user->{'user_id'} } ) {
+				my $remove = DELETE;
+				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project_id&amp;)
+				  . qq(remove_user=$user->{'user_id'}" class="action">$remove</a>);
+			}
+			say q(</td><td>);
+		}
+		say qq($labels->{$user->{'user_id'}}</td><td>);
+		say $q->checkbox(
+			-name    => "user_$user->{'user_id'}_admin",
+			-label   => '',
+			-checked => $user->{'admin'} ? 'checked' : '',
+			$disabled ? ( -disabled => $disabled ) : undef
+		);
+		say q(</td><td>);
+		$user->{'modify'} = 1 if $user->{'admin'};
+		say $q->checkbox(
+			-name    => "user_$user->{'user_id'}_modify",
+			-label   => '',
+			-checked => $user->{'modify'} ? 'checked' : '',
+			$disabled ? ( -disabled => $disabled ) : undef
+		);
+		say q(</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table></div>);
+	return;
+}
+
+sub _remove_user {
+	my ( $self, $project_id, $user_id ) = @_;
+	return if $self->_fails_project_check($project_id);
+	return if $self->_fails_admin_check($project_id);
+	return if !BIGSdb::Utils::is_int($user_id);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if $user_id == $user_info->{'id'};    #Don't remove yourself.
+	eval {
+		$self->{'db'}->do( 'DELETE FROM project_users WHERE (project_id,user_id)=(?,?)', undef, $project_id, $user_id );
+	};
+
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit;
 	return;
 }
 
@@ -545,6 +617,12 @@ sub _print_user_projects {
 	}
 	say q(</div>);
 	return;
+}
+
+sub _get_project {
+	my ( $self, $project_id ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM projects WHERE id=?', $project_id, { fetch => 'row_hashref' } );
 }
 
 sub _get_project_row {
