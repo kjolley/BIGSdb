@@ -333,7 +333,7 @@ sub _print_user_group_form {
 	if (@$user_group_members) {
 		say q(<fieldset style="float:left"><legend>User group permissions</legend>);
 		say q(<table class="resultstable">);
-		say q(<tr><th>User group</th><th>Add/Remove isolates</th></tr>);
+		say q(<tr><th>User group</th><th>Add/Remove records</th></tr>);
 		my $td = 1;
 		foreach my $group_id (@$user_group_members) {
 			my $group = $self->{'datastore'}->run_query(
@@ -414,9 +414,11 @@ sub _print_user_form {
 	if ( $q->param('remove_user') ) {
 		$self->_remove_user( $project_id, $q->param('remove_user') );
 	}
+	if ( $q->param('update_users') ) {
+		$self->_update_users($project_id);
+	}
 	say q(<h2>Users</h2>);
-	my $users = $self->{'datastore'}->run_query( 'SELECT * FROM merged_project_users WHERE project_id=?',
-		$project_id, { fetch => 'all_arrayref', slice => {} } );
+	my $users = $self->_get_project_users($project_id);
 	if ( !@$users ) {
 		say q(<p>No users have permission to view this project.</p>);
 		return;
@@ -436,13 +438,15 @@ sub _print_user_form {
 	push @user_ids, $_->{'user_id'} foreach @$users;
 	say q(<p>The following users have permission to access the project )
 	  . q((either explicitly or through membership of a user group).</p>);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Users</legend>);
 	say q(<div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
 
 	if (@$users_not_in_group) {
 		say q(<th>Remove</th>);
 	}
-	say q(<th>User</th><th>Admin</th><th>Add/Remove isolates</th></tr>);
+	say q(<th>User</th><th>Admin</th><th>Add/Remove records</th></tr>);
 	my $td = 1;
 	foreach my $user (@$users) {
 		my $disabled = $user->{'user_id'} == $user_info->{'id'};
@@ -457,6 +461,7 @@ sub _print_user_form {
 			say q(</td><td>);
 		}
 		say qq($labels->{$user->{'user_id'}}</td><td>);
+		$q->delete("user_$user->{'user_id'}_admin");
 		say $q->checkbox(
 			-name    => "user_$user->{'user_id'}_admin",
 			-label   => '',
@@ -465,6 +470,9 @@ sub _print_user_form {
 		);
 		say q(</td><td>);
 		$user->{'modify'} = 1 if $user->{'admin'};
+		$disabled = 1
+		  if $user->{'modify'} && $self->_user_in_group_with_modify_permissions( $project_id, $user->{'user_id'} );
+		$q->delete("user_$user->{'user_id'}_modify");
 		say $q->checkbox(
 			-name    => "user_$user->{'user_id'}_modify",
 			-label   => '',
@@ -474,8 +482,22 @@ sub _print_user_form {
 		say q(</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say q(</table></div>);
+	say q(</table></div></fieldset>);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update users' } );
+	$q->param( update_users => 1 );
+	say $q->hidden($_) foreach qw(db page modify_users project_id update_users);
+	say $q->end_form;
 	return;
+}
+
+sub _user_in_group_with_modify_permissions {
+	my ( $self, $project_id, $user_id ) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT bool_or(modify) FROM project_user_groups AS pug JOIN user_group_members AS ugm '
+		  . 'ON pug.user_group=ugm.user_group WHERE (ugm.user_id,pug.project_id)=(?,?)',
+		[ $user_id, $project_id ],
+		{ cache => 'UserProjectsPage::user_in_group_with_modify_permissions' }
+	);
 }
 
 sub _remove_user {
@@ -495,6 +517,50 @@ sub _remove_user {
 		return;
 	}
 	$self->{'db'}->commit;
+	return;
+}
+
+sub _update_users {
+	my ( $self, $project_id ) = @_;
+	return if $self->_fails_project_check($project_id);
+	return if $self->_fails_admin_check($project_id);
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $users     = $self->_get_project_users($project_id);
+	my $explicit_permissions =
+	  $self->{'datastore'}->run_query( 'SELECT user_id,admin,modify FROM project_users WHERE project_id=?',
+		$project_id, { fetch => 'all_hashref', key => 'user_id' } );
+	eval {
+		foreach my $user (@$users) {
+			my $user_id = $user->{'user_id'};
+			next if $user_id == $user_info->{'id'};
+			my ( $modify, $admin ) =
+			  ( $q->param("user_${user_id}_modify") ? 1 : 0, $q->param("user_${user_id}_admin") ? 1 : 0 );
+			if ( ( $modify || $admin ) && !$explicit_permissions->{$user_id} ) {
+				$self->{'db'}->do(
+					'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) '
+					  . 'VALUES (?,?,?,?,?,?)',
+					undef, $project_id, $user_id, $admin, $modify, $user_info->{'id'}, 'now'
+				);
+			} else {
+				if (   $modify != $explicit_permissions->{$user_id}->{'modify'}
+					|| $admin != $explicit_permissions->{$user_id}->{'admin'} )
+				{
+					$self->{'db'}->do(
+						'UPDATE project_users SET (admin,modify,curator,datestamp)=(?,?,?,?) WHERE '
+						  . '(project_id,user_id)=(?,?)',
+						undef, $admin, $modify, $user_info->{'id'}, 'now', $project_id, $user_id
+					);
+				}
+			}
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
@@ -623,6 +689,12 @@ sub _get_project {
 	my ( $self, $project_id ) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM projects WHERE id=?', $project_id, { fetch => 'row_hashref' } );
+}
+
+sub _get_project_users {
+	my ( $self, $project_id ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT * FROM merged_project_users WHERE project_id=?',
+		$project_id, { fetch => 'all_arrayref', slice => {}, cache => 'UserProjectsPage::get_project_users' } );
 }
 
 sub _get_project_row {
