@@ -19,7 +19,7 @@ $(function () {
       $('.showhide').toggle();
       $('.hideshow').toggle();
     });	
-	$('.flash_message').effect('highlight',{},2000);
+	$('.flash_message').effect('highlight',{},2000).hide('fade',{},1000);
 	
 	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		

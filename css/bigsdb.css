@@ -564,7 +564,7 @@ span.flag {
 	border-bottom-style:solid;
 	padding:0 0.1em
 }
-span.flash_message {color:purple}
+.flash_message {color:purple}
 
 .hiddenbydefault {display:none}
 pre.sixpack {font-size:1.3em}

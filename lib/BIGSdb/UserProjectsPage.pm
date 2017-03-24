@@ -411,11 +411,15 @@ sub _update_user_groups {
 sub _print_user_form {
 	my ( $self, $project_id ) = @_;
 	my $q = $self->{'cgi'};
+	my $add_user_message;
 	if ( $q->param('remove_user') ) {
 		$self->_remove_user( $project_id, $q->param('remove_user') );
 	}
 	if ( $q->param('update_users') ) {
 		$self->_update_users($project_id);
+	}
+	if ( $q->param('add_user') ) {
+		$add_user_message = $self->_add_user($project_id);
 	}
 	say q(<h2>Users</h2>);
 	my $users = $self->_get_project_users($project_id);
@@ -487,6 +491,18 @@ sub _print_user_form {
 	$q->param( update_users => 1 );
 	say $q->hidden($_) foreach qw(db page modify_users project_id update_users);
 	say $q->end_form;
+	say q(<div style="clear:both"></div>);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Add user</legend>);
+	say q(<label for="add_user">Enter username:</label>);
+	say $q->textfield( -name => 'add_user' );
+	say q(<p class="comment">You need to know the username of any user you wish to add.</p>);
+	say qq(<p class="flash_message">$add_user_message</p>) if $add_user_message;
+	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Add user' } );
+	$q->param( add_user => 1 );
+	say $q->hidden($_) foreach qw(db page modify_users project_id add_user);
+	say $q->end_form;
 	return;
 }
 
@@ -556,6 +572,38 @@ sub _update_users {
 		}
 	};
 	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub _add_user {
+	my ( $self, $project_id ) = @_;
+	return if $self->_fails_project_check($project_id);
+	return if $self->_fails_admin_check($project_id);
+	my $q        = $self->{'cgi'};
+	my $username = $q->param('add_user');
+	return if !$username;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
+	if ( !$user_info ) {
+		return 'Username is not registered in this database.';
+	}
+	my $curator_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_already_member =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?))',
+		[ $project_id, $user_info->{'id'} ] );
+	if ($user_already_member) {
+		return 'User can already access this project.';
+	}
+	eval {
+		$self->{'db'}->do('INSERT INTO project_users(project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',undef,
+		$project_id,$user_info->{'id'},'false','false',$curator_info->{'id'},'now');
+	};
+	if ($@){
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
