@@ -568,6 +568,9 @@ sub _check_data {
 				},
 				retired_allele_ids => sub {
 					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+				},
+				projects => sub {
+					$self->_check_projects( $locus, $new_args, \%problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -655,6 +658,20 @@ sub _check_field_bad {
 	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
 	my $set_id = $self->get_set_id;
 	return $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
+}
+
+sub _check_projects {
+	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
+	my $data            = $args->{'data'};
+	my $list            = $data->[ $args->{'file_header_pos'}->{'list'} ];
+	my $private         = $data->[ $args->{'file_header_pos'}->{'private'} ];
+	my $isolate_display = $data->[ $args->{'file_header_pos'}->{'isolate_display'} ];
+	my %true            = map { $_ => 1 } qw(true 1);
+	if ( $true{ lc $private } && ( $true{ lc $list } || $true{ lc $isolate_display } ) ) {
+		$problems->{$pk_combination} .=
+		  'You cannot make a project both private and list it on the projects or isolate information pages. ';
+	}
+	return;
 }
 
 sub _check_permissions {
@@ -1714,23 +1731,45 @@ sub _upload_data {
 				};
 				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";
-			} elsif ( $table eq 'loci' ) {
-				my $loci_extra_inserts = $self->_prepare_loci_extra_inserts(
-					{ id => $id, curator => $curator, data => \@data, field_order => $field_order, extras => \@extras }
-				);
-				push @inserts, @$loci_extra_inserts;
-			} elsif ( $table eq 'sequences' ) {
-				my $sequences_extra_inserts = $self->_prepare_sequences_extra_inserts(
-					{
-						locus               => $locus,
-						extended_attributes => $extended_attributes,
-						data                => \@data,
-						field_order         => $field_order,
-						curator             => $curator
-					}
-				);
-				push @inserts, @$sequences_extra_inserts;
-				$self->{'datastore'}->mark_cache_stale;
+			}
+			my $extra_methods = {
+				loci => sub {
+					return $self->_prepare_loci_extra_inserts(
+						{
+							id          => $id,
+							curator     => $curator,
+							data        => \@data,
+							field_order => $field_order,
+							extras      => \@extras
+						}
+					);
+				},
+				sequences => sub {
+					$self->{'datastore'}->mark_cache_stale;
+					return $self->_prepare_sequences_extra_inserts(
+						{
+							locus               => $locus,
+							extended_attributes => $extended_attributes,
+							data                => \@data,
+							field_order         => $field_order,
+							curator             => $curator
+						}
+					);
+				},
+				projects => sub {
+					return $self->_prepare_projects_extra_inserts(
+						{
+							id          => $id,
+							curator     => $curator,
+							data        => \@data,
+							field_order => $field_order,
+						}
+					);
+				  }
+			};
+			if ( $extra_methods->{$table} ) {
+				my $extra_inserts = $extra_methods->{$table}->();
+				push @inserts, @$extra_inserts;
 			}
 			eval {
 				foreach my $insert (@inserts) {
@@ -1934,6 +1973,24 @@ sub _prepare_loci_extra_inserts {
 		    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
 		  . 'VALUES (?,?,?,?,?,?)';
 		push @inserts, { statement => $qry, arguments => [ $id, $curator, 'now', $full_name, $product, $description ] };
+	}
+	return \@inserts;
+}
+
+sub _prepare_projects_extra_inserts {
+	my ( $self, $args ) = @_;
+	my ( $id, $curator, $data, $field_order ) = @{$args}{qw(id curator data field_order )};
+	my $private = $data->[ $field_order->{'private'} ];
+	my %true = map { $_ => 1 } qw(1 true);
+	my @inserts;
+	if ( $true{ lc $private } ) {
+		my $project_id = $data->[ $field_order->{'id'} ];
+		my $qry = 'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)';
+		push @inserts,
+		  {
+			statement => $qry,
+			arguments => [ $project_id, $curator, 'true', 'true', $curator, 'now' ]
+		  };
 	}
 	return \@inserts;
 }

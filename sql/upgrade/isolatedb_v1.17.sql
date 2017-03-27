@@ -7,9 +7,6 @@ UPDATE projects SET list=false WHERE list IS NULL;
 ALTER TABLE projects ALTER COLUMN list SET NOT NULL;
 
 --Not yet added to isolatedb.sql
-ALTER TABLE projects ADD no_limit boolean;
-UPDATE projects SET no_limit=false;
-ALTER TABLE projects ALTER COLUMN no_limit SET NOT NULL;
 
 CREATE TABLE project_users (
 project_id integer NOT NULL,

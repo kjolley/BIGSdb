@@ -215,7 +215,7 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users);
+	  retired_isolates schemes users projects);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -409,7 +409,7 @@ sub _check_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSu
 #Check for sequence length in sequences table, that sequence doesn't already
 #exist and is similar to existing etc. Prepare extra inserts for PubMed/Genbank
 #records and sequence flags.
-sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q          = $self->{'cgi'};
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
@@ -677,6 +677,23 @@ sub _check_locus_aliases {                  ## no critic (ProhibitUnusedPrivateS
 	return;
 }
 
+sub _check_projects {                       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	if ( $newdata->{'private'} eq 'true'
+		&& ( $newdata->{'list'} eq 'true' || $newdata->{'isolate_display'} eq 'true' ) )
+	{
+		push @$problems,
+		  'You cannot make a project both private and list it on the projects or isolate information pages.';
+	}
+	push @$extra_inserts,
+	  {
+		statement =>
+		  'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
+		arguments => [ $newdata->{'id'}, $newdata->{'curator'}, 'true', 'true', $newdata->{'curator'}, 'now' ]
+	  };
+	return;
+}
+
 sub _check_locus_aliases_when_updating_other_table {
 	my ( $self, $locus, $newdata, $problems, $extra_inserts ) = @_;
 	my $q = $self->{'cgi'};
@@ -735,7 +752,8 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			}
 			push @$problems, $msg;
 		} else {
-			push @$extra_transactions, {
+			push @$extra_transactions,
+			  {
 				statement => 'INSERT INTO users (user_name,surname,first_name,email,affiliation,'
 				  . 'date_entered,datestamp,status) VALUES (?,?,?,?,?,?,?,?)',
 				arguments => [
@@ -745,7 +763,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 					'now',                     'validated'
 				],
 				db => $user_db
-			};
+			  };
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}

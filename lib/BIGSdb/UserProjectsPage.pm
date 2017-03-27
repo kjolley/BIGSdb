@@ -663,7 +663,7 @@ sub _add_new_project {
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
-			  . 'list,private,no_limit,curator,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
+			  . 'list,private,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)',
 			undef,
 			$id,
 			$short_desc,
@@ -671,7 +671,6 @@ sub _add_new_project {
 			'false',
 			'false',
 			'true',
-			'false',
 			$user_info->{'id'},
 			'now'
 		);
@@ -806,6 +805,7 @@ sub _get_project_row {
 			}
 		}
 	}
+	$project->{'full_description'} //= q();
 	$buffer .=
 	    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
