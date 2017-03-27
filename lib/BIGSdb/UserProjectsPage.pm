@@ -24,6 +24,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(uniq);
+use Email::Valid;
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
@@ -63,6 +64,10 @@ sub print_content {
 	}
 	if ( $q->param('modify_users') ) {
 		$self->_modify_users;
+		return;
+	}
+	if ( $q->param('project_info') ) {
+		$self->_project_info( $q->param('project_info') );
 		return;
 	}
 	$self->_print_user_projects;
@@ -119,6 +124,20 @@ sub _fails_project_check {
 	my ( $self, $project_id ) = @_;
 	if ( !BIGSdb::Utils::is_int($project_id) ) {
 		say q(<div class="box" id="statusbad"><p>No valid project id passed.</p></div>);
+		return 1;
+	}
+	my $project = $self->_get_project($project_id);
+	if ( !$project ) {
+		say q(<div class="box" id="statusbad"><p>Project does not exist.</p></div>);
+		return 1;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $is_project_user =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?))',
+		[ $project_id, $user_info->{'id'} ] );
+	if ( !$is_project_user ) {
+		say q(<div class="box" id="statusbad"><p>You account is not registered to view this project.</p></div>);
 		return 1;
 	}
 	return;
@@ -199,6 +218,9 @@ sub _edit_members {
 	say q(</div>);
 	say q(<p>You can also add isolate records to this project from the results of a )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
+	  . qq(title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }
@@ -298,6 +320,9 @@ sub _modify_users {
 		$self->_print_user_group_form( $project_id, $user_groups );
 	}
 	$self->_print_user_form($project_id);
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
+	  . qq(title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }
@@ -600,10 +625,11 @@ sub _add_user {
 		return 'User can already access this project.';
 	}
 	eval {
-		$self->{'db'}->do('INSERT INTO project_users(project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',undef,
-		$project_id,$user_info->{'id'},'false','false',$curator_info->{'id'},'now');
+		$self->{'db'}
+		  ->do( 'INSERT INTO project_users(project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			undef, $project_id, $user_info->{'id'}, 'false', 'false', $curator_info->{'id'}, 'now' );
 	};
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
@@ -729,6 +755,8 @@ sub _print_user_projects {
 		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }
@@ -745,14 +773,19 @@ sub _get_project_users {
 		$project_id, { fetch => 'all_arrayref', slice => {}, cache => 'UserProjectsPage::get_project_users' } );
 }
 
-sub _get_project_row {
-	my ( $self, $is_admin, $project, $td ) = @_;
-	my $count = $self->{'datastore'}->run_query(
+sub _get_isolate_count {
+	my ( $self, $project_id ) = @_;
+	return $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM project_members WHERE project_id=? '
 		  . "AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
-		$project->{'id'},
+		$project_id,
 		{ cache => 'UserProjectsPage::isolate_count' }
 	);
+}
+
+sub _get_project_row {
+	my ( $self, $is_admin, $project, $td ) = @_;
+	my $count  = $self->_get_isolate_count( $project->{'id'} );
 	my $q      = $self->{'cgi'};
 	my $admin  = $project->{'admin'} ? TRUE : FALSE;
 	my $buffer = qq(<tr class="td$td">);
@@ -773,13 +806,57 @@ sub _get_project_row {
 			}
 		}
 	}
-	$buffer .= qq(<td>$project->{'short_description'}</td>)
+	$buffer .=
+	    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
+	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
 	  . qq(<td>$project->{'full_description'}</td><td>$admin</td><td>$count</td><td>);
 	$buffer .=
 	    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 	  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
 	  . q(</span></a></td></tr>);
 	return $buffer;
+}
+
+sub _project_info {
+	my ( $self, $project_id ) = @_;
+	return if $self->_fails_project_check($project_id);
+	my $project = $self->_get_project($project_id);
+	say q(<div class="box" id="resultspanel">);
+	say qq(<h2>Project: $project->{'short_description'}</h2>);
+	say qq(<p>$project->{'full_description'}</p>) if $project->{'full_description'};
+	say q(<dl class="data">);
+	my $records = $self->_get_isolate_count($project_id);
+	say qq(<dt>Records</dt><dd>$records</dd>);
+	my $users =
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM merged_project_users WHERE project_id=?', $project_id );
+	say qq(<dt>Users</dt><dd>$users</dd>);
+	my $admins = $self->{'datastore'}->run_query( 'SELECT user_id FROM project_users WHERE project_id=? AND admin',
+		$project_id, { fetch => 'col_arrayref' } );
+
+	if (@$admins) {
+		my ( undef, $labels ) = $self->{'datastore'}->get_users( { format => 'fs' } );
+		my @admin_links;
+		foreach my $admin_id ( sort { $labels->{$a} cmp $labels->{$b} } @$admins ) {
+			my $user_info = $self->{'datastore'}->get_user_info($admin_id);
+			my $email     = Email::Valid->address( $user_info->{'email'} );
+			if ($email) {
+				push @admin_links, qq(<a href="mailto:$email">$labels->{$admin_id}</a>);
+			} else {
+				push @admin_links, $labels->{$admin_id};
+			}
+		}
+		local $" = q(, );
+		say qq(<dt>Admins</dt><dd>@admin_links</dd>);
+	}
+	say q(</dl>);
+	if ( !$self->_is_project_admin($project_id) ) {
+		say q(<p>Please contact a project admin if you wish to be removed from the project.</p>);
+	}
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
+	  . qq(title="Back">$back</a></p>);
+	say q(</div>);
+	return;
 }
 
 sub _is_admin_of_any {

@@ -645,9 +645,13 @@ sub get_users {
 	foreach my $user (@$data) {
 		next if $user->{'user_name'} =~ /^REMOVED_USER/x;
 		push @$ids, $user->{ $options->{'identifier'} };
-		if ( $options->{'format'} eq 'sfu' ) {
-			$labels->{ $user->{ $options->{'identifier'} } } =
-			  "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+		my %format = (
+			fs  => "$user->{'first_name'} $user->{'surname'}",
+			sf  => "$user->{'surname'}, $user->{'first_name'}",
+			sfu => "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})"
+		);
+		if ( $format{ $options->{'format'} } ) {
+			$labels->{ $user->{ $options->{'identifier'} } } = $format{ $options->{'format'} };
 		}
 	}
 	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
@@ -2362,7 +2366,7 @@ sub create_temp_allele_table {
 	my $table = 'temp_seqs_' . int( rand(99999999) );
 	eval {
 		$self->{'db'}->do(
-			    "CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
+			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
 			  . 'AS sequence FROM sequences WHERE locus=?;'
 			  . "CREATE INDEX i_${table}_seq ON $table(md5(sequence))",
 			undef, $locus
