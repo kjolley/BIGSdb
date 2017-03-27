@@ -749,7 +749,7 @@ sub _print_user_projects {
 		if ($is_admin) {
 			say q(<p>You can also add isolates to projects from the results of a )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
-			say q(Note that deleting a project will not delete its member isolates.</p>);
+			say q(<p>Note that deleting a project will not delete its member isolates.</p>);
 		}
 	} else {
 		say q(<h2>Existing projects</h2>);
@@ -810,10 +810,13 @@ sub _get_project_row {
 	    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
 	  . qq(<td>$project->{'full_description'}</td><td>$admin</td><td>$count</td><td>);
-	$buffer .=
-	    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-	  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
-	  . q(</span></a></td></tr>);
+	if ($count) {
+		$buffer .=
+		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . q(</span></a>);
+	}
+	$buffer .= q(</td></tr>);
 	return $buffer;
 }
 
