@@ -1867,14 +1867,14 @@ sub get_projects_table_attributes {
 			type    => 'bool',
 			tooltip => 'isolate display - Select to list this project on an isolate information page '
 			  . '(also requires a full description to be entered).',
-			required => 'yes',
+			required => 1,
 			default  => 'false'
 		},
 		{
 			name     => 'list',
 			type     => 'bool',
 			tooltip  => 'list - Select to include in list of projects linked from the contents page.',
-			required => 'yes',
+			required => 1,
 			default  => 'false'
 		},
 		{
@@ -1883,8 +1883,16 @@ sub get_projects_table_attributes {
 			tooltip => 'private - Select to make the project private. You will be set as the project user '
 			  . 'and will be the only user able to access it. You can add additional users or user groups who '
 			  . 'will be able to access and update the project data later.',
-			required => 'yes',
+			required => 1,
 			default  => 'false'
+		},
+		{
+			name => 'no_quota',
+			type => 'bool',
+			tooltip => q(no_quota - Isolates added to this project will not count against a user's quota of )
+			  . q(private records (only relevant to private projects)),
+			required => 1,
+			default => 'true'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

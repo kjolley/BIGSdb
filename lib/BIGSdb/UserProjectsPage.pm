@@ -663,7 +663,7 @@ sub _add_new_project {
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
-			  . 'list,private,curator,datestamp) VALUES (?,?,?,?,?,?,?,?)',
+			  . 'list,private,no_quota,curator,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
 			undef,
 			$id,
 			$short_desc,
@@ -671,6 +671,7 @@ sub _add_new_project {
 			'false',
 			'false',
 			'true',
+			'false',
 			$user_info->{'id'},
 			'now'
 		);

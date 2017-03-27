@@ -7,6 +7,9 @@ UPDATE projects SET list=false WHERE list IS NULL;
 ALTER TABLE projects ALTER COLUMN list SET NOT NULL;
 
 --Not yet added to isolatedb.sql
+ALTER TABLE projects ADD no_quota boolean;
+UPDATE projects SET no_quota=true;
+ALTER TABLE projects ALTER COLUMN no_quota SET NOT NULL;
 
 CREATE TABLE project_users (
 project_id integer NOT NULL,
