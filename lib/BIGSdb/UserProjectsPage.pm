@@ -649,7 +649,7 @@ sub _is_project_admin {
 sub _add_new_project {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $short_desc = CGI::escapeHTML($q->param('short_description'));
+	my $short_desc = CGI::escapeHTML( $q->param('short_description') );
 	return if !$short_desc;
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
@@ -667,7 +667,7 @@ sub _add_new_project {
 			undef,
 			$id,
 			$short_desc,
-			CGI::escapeHTML($q->param('full_description')),
+			CGI::escapeHTML( $q->param('full_description') ),
 			'false',
 			'false',
 			'true',
@@ -824,10 +824,36 @@ sub _get_project_row {
 sub _project_info {
 	my ( $self, $project_id ) = @_;
 	return if $self->_fails_project_check($project_id);
+	my $q       = $self->{'cgi'};
 	my $project = $self->_get_project($project_id);
+	if ( $q->param('update_details') ) {
+		$self->_update_project_details($project_id);
+	}
 	say q(<div class="box" id="resultspanel">);
-	say qq(<h2>Project: $project->{'short_description'}</h2>);
-	say qq(<p>$project->{'full_description'}</p>) if $project->{'full_description'};
+	if ( $self->_is_project_admin($project_id) ) {
+		say $q->start_form;
+		say q(<fieldset style="float:left"><legend>Update project details</legend>);
+		say q(<ul><li>);
+		say q(<label for="short_description" class="form" style="width:6em">Name:</label>);
+		say $q->textfield( -name => 'short_description', default => $project->{'short_description'} );
+		say q(</li><li>);
+		say q(<li><label for="full_description" class="form" style="width:6em">Description:</label>);
+		say $q->textarea(
+			-name   => 'full_description',
+			-id     => 'full_description',
+			-cols   => 40,
+			default => $project->{'full_description'}
+		);
+		say q(</li></ul>);
+		say q(</fieldset>);
+		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
+		$q->param( update_details => 1 );
+		say $q->hidden($_) foreach qw(db page project_info update_details);
+		say $q->end_form;
+	} else {
+		say qq(<h2>Project: $project->{'short_description'}</h2>);
+		say qq(<p>$project->{'full_description'}</p>) if $project->{'full_description'};
+	}
 	say q(<dl class="data">);
 	my $records = $self->_get_isolate_count($project_id);
 	say qq(<dt>Records</dt><dd>$records</dd>);
@@ -836,7 +862,6 @@ sub _project_info {
 	say qq(<dt>Users</dt><dd>$users</dd>);
 	my $admins = $self->{'datastore'}->run_query( 'SELECT user_id FROM project_users WHERE project_id=? AND admin',
 		$project_id, { fetch => 'col_arrayref' } );
-
 	if (@$admins) {
 		my ( undef, $labels ) = $self->{'datastore'}->get_users( { format => 'fs' } );
 		my @admin_links;
@@ -860,6 +885,39 @@ sub _project_info {
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
 	  . qq(title="Back">$back</a></p>);
 	say q(</div>);
+	return;
+}
+
+sub _update_project_details {
+	my ( $self, $project_id ) = @_;
+	return if $self->_fails_admin_check($project_id);
+	my $project    = $self->_get_project($project_id);
+	my $q          = $self->{'cgi'};
+	my $short_desc = CGI::escapeHTML( $q->param('short_description') );
+	my $full_desc  = CGI::escapeHTML( $q->param('full_description') );
+	my $name_used =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=? AND id!=?)',
+		[ $short_desc, $project_id ] );
+	if ($name_used) {
+		say q(<div class="box" id="statusbad"><p>A project already exists with that name.</p></div>);
+		return;
+	}
+	if ( $short_desc ne $project->{'short_description'} || $full_desc ne $project->{'full_description'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		eval {
+			$self->{'db'}
+			  ->do( 'UPDATE projects SET (short_description,full_description,curator,datestamp)=(?,?,?,?) WHERE id=?',
+				undef, $short_desc, $full_desc, $user_info->{'id'}, 'now', $project_id );
+		};
+		if ($@) {
+			say q(<div class="box" id="statusbad"><p>Cannot update project details.</p></div>);
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			say q(<div class="box" id="resultsheader"><p>Project details updated.</p></div>);
+			$self->{'db'}->commit;
+		}
+	}
 	return;
 }
 
