@@ -649,7 +649,7 @@ sub _is_project_admin {
 sub _add_new_project {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $short_desc = $q->param('short_description');
+	my $short_desc = CGI::escapeHTML($q->param('short_description'));
 	return if !$short_desc;
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
@@ -667,7 +667,7 @@ sub _add_new_project {
 			undef,
 			$id,
 			$short_desc,
-			$q->param('full_description'),
+			CGI::escapeHTML($q->param('full_description')),
 			'false',
 			'false',
 			'true',
