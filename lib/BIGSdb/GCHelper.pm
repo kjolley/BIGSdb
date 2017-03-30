@@ -440,7 +440,7 @@ sub _get_seqs_from_matches {
 	my ( $self, $locus, $allele_ids, $matches ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $seq;
-	if ( $locus_info->{'data_type'} eq 'DNA' ) {
+	if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'dbase_name'} ) {
 		foreach my $allele_id (@$allele_ids) {
 			my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
 			$seq .= $$seq_ref;
