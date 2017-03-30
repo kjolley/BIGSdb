@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,6 +37,10 @@ sub print_content {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $set_id    = $self->get_set_id;
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		say q(This is not a sequence definition database.);
+		return;
+	}
 	if ( !$scheme_id ) {
 		say q(No scheme id passed.);
 		return;
