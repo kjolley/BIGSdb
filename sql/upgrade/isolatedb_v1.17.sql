@@ -59,6 +59,21 @@ GROUP BY project_id,user_id;
 
 GRANT SELECT ON merged_project_users TO apache;
 
+CREATE TABLE private_isolates (
+isolate_id integer NOT NULL,
+user_id INTEGER NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (isolate_id),
+CONSTRAINT pi_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT pi_user_id FOREIGN KEY (user_id) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON private_isolates TO apache;
+
 CREATE TABLE user_limits (
 user_id integer NOT NULL,
 attribute text NOT NULL,
