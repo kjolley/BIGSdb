@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -169,7 +169,7 @@ sub _seqdef_items {
 	say qq(<li><a href="$base_url&amp;page=batchSequenceQuery">Batch sequences</a></li>);
 	say qq(<li><a href="$base_url&amp;page=tableQuery&amp;table=sequences">Sequence attributes</a></li>);
 	say qq(<li><a href="$base_url&amp;page=plugin&amp;name=SequenceComparison">Sequence comparison</a></li>);
-	say qq(<li><a href="$base_url&amp;page=profiles">Allelic profiles</a></li>);
+	say qq(<li><a href="$base_url&amp;page=query">Allelic profiles</a></li>);
 	say qq(<li><a href="$base_url&amp;page=batchProfiles">Batch profiles</a></li>);
 	say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
 	say q(</ul>);
