@@ -604,6 +604,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
@@ -757,23 +758,23 @@ sub authenticate {
 
 sub is_user_allowed_access {
 	my ( $self, $username ) = @_;
+	my %valid_user_type = map { $_ => 1 } qw(user submitter curator admin);
 	if ( ( $self->{'system'}->{'curators_only'} // q() ) eq 'yes' ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
-		return 0 if !$status || $status eq 'user';
-		return 0 if $status eq 'submitter' && !$self->{'curate'};
+		return if !$status || $status eq 'user' || !$valid_user_type{$status};
+		return if $status eq 'submitter' && !$self->{'curate'};
 	}
 	return 1 if !$self->{'system'}->{'default_access'};
 	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
 		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
 		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
-		return 0;
+		return;
 	} elsif ( $self->{'system'}->{'default_access'} eq 'allow' ) {
 		my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
-		return 0 if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
+		return if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
 		return 1;
-	} else {
-		return 0;
 	}
+	return;
 }
 
 sub _is_name_in_file {

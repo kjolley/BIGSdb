@@ -138,6 +138,7 @@ sub get_user_dbases_table_attributes {
 }
 
 sub get_user_groups_table_attributes {
+	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 1, length => 6, unique => 1, primary_key => 1 },
 		{
@@ -147,13 +148,28 @@ sub get_user_groups_table_attributes {
 			length         => 60,
 			unique         => 1,
 			dropdown_query => 1
-		},
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @$attributes,
+		  (
+			{
+				name     => 'co_curate',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'co_curate - Setting to true allows members with a status of submitter '
+				  . 'to curate data of other members of the usergroup.'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
-	];
+	  );
 	return $attributes;
 }
-
 sub get_user_group_members_table_attributes {
 	my $attributes = [
 		{
@@ -1887,12 +1903,12 @@ sub get_projects_table_attributes {
 			default  => 'false'
 		},
 		{
-			name => 'no_quota',
-			type => 'bool',
+			name    => 'no_quota',
+			type    => 'bool',
 			tooltip => q(no_quota - Isolates added to this project will not count against a user's quota of )
 			  . q(private records (only relevant to private projects)),
 			required => 1,
-			default => 'true'
+			default  => 'true'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

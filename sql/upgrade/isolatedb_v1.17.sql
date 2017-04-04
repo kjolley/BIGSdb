@@ -7,6 +7,10 @@ UPDATE projects SET list=false WHERE list IS NULL;
 ALTER TABLE projects ALTER COLUMN list SET NOT NULL;
 
 --Not yet added to isolatedb.sql
+ALTER TABLE user_groups ADD co_curate boolean;
+UPDATE user_groups SET co_curate=true;
+ALTER TABLE user_groups ALTER COLUMN co_curate SET NOT NULL;
+
 ALTER TABLE projects ADD no_quota boolean;
 UPDATE projects SET no_quota=true;
 ALTER TABLE projects ALTER COLUMN no_quota SET NOT NULL;

@@ -2280,21 +2280,53 @@ sub initiate_view {
 			$self->{'system'}->{'view'} = $set_view if $set_view;
 		}
 	}
-	if ( $self->{'curate'} && $username ) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
-		return if !$user_info;
-		if ( $user_info->{'status'} eq 'submitter' ) {
-			eval {
-				$self->{'db'}->do(
-					"CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} WHERE "
-					  . 'sender=? OR sender IN (SELECT user_id FROM user_group_members WHERE user_group IN '
-					  . '(SELECT user_group FROM user_group_members WHERE user_id=?))',
-					undef, $user_info->{'id'}, $user_info->{'id'}
-				);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
+	my $qry       = "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} v WHERE ";
+	my @args;
+	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
+	use constant OWN_PRIVATE_ISOLATES   => 'EXISTS(SELECT 1 FROM private_isolates WHERE (isolate_id,user_id)=(v.id,?))';
+	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
+	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
+	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
+	  . 'WHERE isolate_id=v.id))';
+	use constant PUBLIC_ISOLATES => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
+	use constant ISOLATES_FROM_USER_PROJECT =>
+	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
+	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
+
+	if ( !$user_info ) {                                    #Not logged in
+		$qry .= PUBLIC_ISOLATES;
+	} else {
+		my @user_terms;
+		if ( $self->{'curate'} ) {
+			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
+			my $method = {
+				submitter => sub {
+					@user_terms =
+					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
+				},
+				curator => sub {
+					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES );
+				  }
 			};
-			$logger->error($@) if $@;
-			$self->{'system'}->{'view'} = 'temp_view';
+			if ( $method->{ $user_info->{'status'} } ) {
+				$method->{ $user_info->{'status'} }->();
+			} else {
+				return;
+			}
+		} else {
+			@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, ISOLATES_FROM_USER_PROJECT );
 		}
+		local $" = q( OR );
+		$qry .= qq(@user_terms);
+		my $user_term_count = () = $qry =~ /\?/gx;    #apply list context to capture
+		@args = ( $user_info->{'id'} ) x $user_term_count;
+	}
+	if ($qry) {
+		eval { $self->{'db'}->do( $qry, undef, @args ) };
+		$logger->error($@) if $@;
+		$self->{'system'}->{'view'} = 'temp_view';
 	}
 	return;
 }
@@ -2563,7 +2595,8 @@ sub populate_submission_params {
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_id');
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
-		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
+		my $submission_seq =
+		  $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
 		$q->param( sequence => $submission_seq );
 		if ( $q->param('locus') ) {
 			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
