@@ -650,6 +650,7 @@ sub _add_new_project {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $short_desc = CGI::escapeHTML( $q->param('short_description') );
+	$short_desc =~ s/^\s+|\s+$//gx;
 	return if !$short_desc;
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
