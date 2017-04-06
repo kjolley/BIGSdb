@@ -115,7 +115,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );		
 		}
 		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
@@ -125,7 +125,8 @@ sub _get_javascript_paths {
 			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
-			'CryptoJS.MD5'        => [qw(md5.js)]
+			'CryptoJS.MD5'        => [qw(md5.js)],
+			'packery'             => [qw(packery.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};

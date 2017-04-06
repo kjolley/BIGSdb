@@ -176,7 +176,7 @@ sub _seqdef_items {
 	say qq(<li><a href="$base_url&amp;page=batchSequenceQuery">Batch sequences</a></li>);
 	say qq(<li><a href="$base_url&amp;page=tableQuery&amp;table=sequences">Sequence attributes</a></li>);
 	say qq(<li><a href="$base_url&amp;page=plugin&amp;name=SequenceComparison">Sequence comparison</a></li>);
-	say qq(<li><a href="$base_url&amp;page=profiles">Allelic profiles</a></li>);
+	say qq(<li><a href="$base_url&amp;page=query">Allelic profiles</a></li>);
 	say qq(<li><a href="$base_url&amp;page=batchProfiles">Batch profiles</a></li>);
 	say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
 	say q(</ul>);

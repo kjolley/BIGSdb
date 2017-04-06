@@ -17,6 +17,9 @@ This product uses the jQuery Javascript library and associated plugins.  These
 have been released under the GNU General Public License version 2 (GPL) or MIT
 license.
 
+This product uses the Packery Javascript library. This has been released under
+the GNU General Public License version 3 (GPL).
+
 This product includes perl-md5-login Perl/CGI + JavaScript user authorization 
 (https://sourceforge.net/projects/perl-md5-login/). This has been released 
 under the GNU Lesser General Public License (LGPL).

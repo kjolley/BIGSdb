@@ -35,8 +35,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{'jQuery'}  = 1;
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw(jQuery packery noCache);
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
@@ -94,9 +93,35 @@ sub _print_jobs {
 	return;
 }
 
+sub get_javascript {
+	return <<"JS";
+\$(document).ready(function() 
+    { 
+    	var \$grid = \$(".grid").packery({
+        	itemSelector: '.grid-item',
+  			gutter: 10,
+        });        
+        \$(window).resize(function() {
+    		delay(function(){
+      			\$grid.packery();
+    		}, 1000);
+ 		});
+    }  
+    	
+); 
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();
+JS
+}
+
 sub _print_main_section {
 	my ($self) = @_;
-	say q(<div class="box" id="index"><div class="scrollable">);
+	say q(<div class="box" id="index"><div class="scrollable"><div class="grid">);
 	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 	$self->_print_query_section($scheme_data);
 	$self->_print_projects_section;
@@ -106,7 +131,7 @@ sub _print_main_section {
 	$self->_print_private_data_section;
 	
 	$self->_print_general_info_section($scheme_data);
-	say q(</div></div>);
+	say q(</div></div></div>);
 	return;
 }
 
@@ -118,7 +143,7 @@ sub _print_query_section {
 	#Append to URLs to ensure unique caching.
 	my $cache_string = $self->get_cache_string;
 	my $set_id       = $self->get_set_id;
-	say q(<div style="float:left;margin-right:1em">);
+	say q(<div style="float:left;margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
@@ -238,7 +263,7 @@ sub _print_download_section {
 		  . qq($scheme_data->[0]->{'name'} profiles</a></li>);
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
-		say q(<div style="float:left; margin-right:1em">);
+		say q(<div style="float:left; margin-right:1em" class="grid-item">);
 		say q(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
 		say q(<h2>Downloads</h2>);
 		say q(<ul class="toplevel">);
@@ -252,7 +277,7 @@ sub _print_download_section {
 sub _print_options_section {
 	my ($self) = @_;
 	my $cache_string = $self->get_cache_string;
-	say q(<div style="float:left; margin-right:1em">);
+	say q(<div style="float:left; margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
 	say q(<h2>Option settings</h2>);
 	say q(<ul class="toplevel">);
@@ -292,7 +317,7 @@ sub _print_submissions_section {
 		$logger->error('Submission directory is not configured in bigsdb.conf.');
 		return;
 	}
-	say q(<div style="float:left; margin-right:1em">);
+	say q(<div style="float:left; margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
@@ -305,7 +330,7 @@ sub _print_submissions_section {
 
 sub _print_general_info_section {
 	my ( $self, $scheme_data ) = @_;
-	say q(<div style="float:left; margin-right:1em">);
+	say q(<div style="float:left; margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
 	say q(<h2>General information</h2><ul class="toplevel">);
 	my $cache_string = $self->get_cache_string;
@@ -370,7 +395,7 @@ sub _print_plugin_section {
 		{ set_id => $set_id }
 	);
 	if (@$plugins) {
-		say q(<div class="box" id="plugins"><div class="scrollable">);
+		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
 		my %icon =
 		  ( breakdown => 'pie-chart', export => 'save', analysis => 'line-chart', miscellaneous => 'file-text-o' );
 		foreach my $section (qw (breakdown export analysis miscellaneous)) {
@@ -379,7 +404,7 @@ sub _print_plugin_section {
 			  $self->{'pluginManager'}
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
-			say q(<div style="float:left; margin-right:1em">);
+			say q(<div style="float:left; margin-right:1em" class="grid-item">);
 			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
 			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
@@ -398,7 +423,7 @@ sub _print_plugin_section {
 			}
 			say q(</ul></div>);
 		}
-		say q(</div></div>);
+		say q(</div></div></div>);
 	}
 	return;
 }
