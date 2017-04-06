@@ -1,5 +1,12 @@
-//TODO Note new Email::MIME dependency in next release.
-
+v1.16.4: *Seqbin breakdown option to only calculate contig stats (faster
+          for large databases).
+         *Fix for Artemis link in seqbin breakdown page.
+         *Searching of isolate database via RESTful API.
+         *Improved fluid layout for index page.
+         *Please note new Perl module dependency: Email::MIME
+          and new Javascript dependency: packery.js (found in Javascript
+          directory).
+         *Various bug fixes.
 v1.16.3: *BLAST plugin limits.
          *Minor bug fixes.
 v1.16.2: *Fix password setting issue in non-site databases.
