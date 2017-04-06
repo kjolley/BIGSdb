@@ -695,11 +695,12 @@ sub _add_new_project {
 sub _print_user_projects {
 	my ($self) = @_;
 	say q(<div class="box" id="queryform">);
+	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
 	say q(<h2>New private projects</h2>);
 	say q(<p>Projects allow you to group isolates so that you can analyse them easily together.</p>);
 	say q(<p>Please enter the details for a new project. The project name needs to be unique on the system. )
 	  . q(A description is optional but only projects with descriptions will be displayed on an isolate )
-	  . q(record page.</p>);
+	  . q(record page (only you and users you give access will see this).</p>);
 	say q(<div class="scrollable">);
 	my $q = $self->{'cgi'};
 	say $q->start_form;

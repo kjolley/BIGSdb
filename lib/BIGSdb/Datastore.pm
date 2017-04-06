@@ -2564,4 +2564,15 @@ sub get_login_requirement {
 	}
 	return NOT_ALLOWED;
 }
+
+sub get_user_private_isolate_limit {
+	my ( $self, $user_id ) = @_;
+	return 0 if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $default_limit = $self->{'system'}->{'default_private_records'} // 0;
+	return if !BIGSdb::Utils::is_int($default_limit);
+	my $user_limit = $self->run_query( 'SELECT value FROM user_limits WHERE (user_id,attribute)=(?,?)',
+		[ $user_id, 'private_isolates' ] );
+	my $limit = $user_limit // $default_limit;
+	return $limit;
+}
 1;

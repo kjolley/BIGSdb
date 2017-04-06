@@ -103,6 +103,8 @@ sub _print_main_section {
 	$self->_print_download_section($scheme_data);
 	$self->_print_options_section;
 	$self->_print_submissions_section;
+	$self->_print_private_data_section;
+	
 	$self->_print_general_info_section($scheme_data);
 	say q(</div></div>);
 	return;
@@ -179,6 +181,24 @@ sub _print_projects_section {
 	say q(<h2>Projects</h2><ul class="toplevel">);
 	local $" = qq(</li>\n<li>);
 	say qq(<li>@list</li>);
+	say q(</ul></div>);
+	return;
+}
+
+sub _print_private_data_section {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	return if !$limit;
+	my $cache_string = $self->get_cache_string;
+	say q(<div style="float:left;margin-right:1em">);
+	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	say q(<h2>Private data</h2><ul class="toplevel">);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
+	  . q(page=privateRecords">Upload/manage records</a></li>);
 	say q(</ul></div>);
 	return;
 }
