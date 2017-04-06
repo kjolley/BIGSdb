@@ -201,7 +201,7 @@ sub _print_projects_section {
 		push @list, qq(<a href="${url_root}page=userProjects">Your projects</a>);
 	}
 	return if !@list;
-	say q(<div style="float:left;margin-right:1em">);
+	say q(<div style="float:left;margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
 	say q(<h2>Projects</h2><ul class="toplevel">);
 	local $" = qq(</li>\n<li>);
@@ -219,7 +219,7 @@ sub _print_private_data_section {
 	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
 	return if !$limit;
 	my $cache_string = $self->get_cache_string;
-	say q(<div style="float:left;margin-right:1em">);
+	say q(<div style="float:left;margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
 	say q(<h2>Private data</h2><ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
