@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -125,7 +125,7 @@ sub print_content {
 		$self->_save_options;
 		return;
 	}
-	if ($q->param('add_to_project')){
+	if ( $q->param('add_to_project') ) {
 		$self->add_to_project;
 	}
 	my $desc = $self->get_db_description;
@@ -632,24 +632,8 @@ sub _print_filters_fieldset {
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
-	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	if ($linked_seqs) {
-		my @values = ( 'Any sequence data', 'No sequence data' );
-		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
-			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
-				push @values, "Sequence bin size >= $value Mbp";
-			}
-		}
-		push @filters,
-		  $self->get_filter(
-			'linked_sequences',
-			\@values,
-			{
-				text    => 'Sequence bin',
-				tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
-			}
-		  );
-	}
+	my $seqbin_filter = $self->_get_seqbin_filter;
+	push @filters, $seqbin_filter if $seqbin_filter;
 	push @filters, $self->get_old_version_filter;
 	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
@@ -753,6 +737,28 @@ sub _get_profile_filters {
 		}
 	}
 	return \@filters;
+}
+
+sub _get_seqbin_filter {
+	my ($self) = @_;
+	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	if ($linked_seqs) {
+		my @values = ( 'Any sequence data', 'No sequence data' );
+		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
+			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
+				push @values, "Sequence bin size >= $value Mbp";
+			}
+		}
+		return $self->get_filter(
+			'linked_sequences',
+			\@values,
+			{
+				text    => 'Sequence bin',
+				tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
+			}
+		);
+	}
+	return;
 }
 
 sub _print_provenance_fields {
