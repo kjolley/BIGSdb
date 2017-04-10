@@ -52,6 +52,7 @@ use BIGSdb::OptionsPage;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
+use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
 use BIGSdb::ProjectsPage;
@@ -562,6 +563,7 @@ sub print_page {
 		pubquery           => 'PubQueryPage',
 		query              => $query_page,
 		plugin             => 'Plugin',
+		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
 		projects           => 'ProjectsPage',
@@ -604,7 +606,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'} = $self->{'error'};
 		$page = BIGSdb::ErrorPage->new(%page_attributes);

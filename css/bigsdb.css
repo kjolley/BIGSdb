@@ -33,7 +33,7 @@ h3 {
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
-ul.toplevel {margin-left:16px}
+ul.toplevel {margin-left:8px}
 table {font-size: 1em;border-spacing:1px}
 
 a {color:#00b;text-decoration:none;z-index:9}
