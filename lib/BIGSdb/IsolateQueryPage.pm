@@ -536,94 +536,11 @@ sub _get_list_attribute_data {
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
-	my $prefs  = $self->{'prefs'};
 	my $q      = $self->{'cgi'};
 	my @filters;
-	my $extended      = $self->get_extended_attributes;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	foreach my $field (@$field_list) {
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $dropdownlist;
-		my %dropdownlabels;
-		if ( $prefs->{'dropdownfields'}->{$field} ) {
-			if (   $field eq 'sender'
-				|| $field eq 'curator'
-				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
-			{
-				push @filters, $self->get_user_filter($field);
-			} else {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				if ( $thisfield->{'optlist'} ) {
-					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
-					if (   $thisfield->{'required'}
-						&& $thisfield->{'required'} eq 'no' )
-					{
-						push @$dropdownlist, '<blank>';
-						$dropdownlabels{'<blank>'} = '<blank>';
-					}
-				} elsif ( defined $metaset ) {
-					my $list = $self->{'datastore'}->run_query(
-						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
-						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
-						undef,
-						{ fetch => 'col_arrayref' }
-					);
-					push @$dropdownlist, @$list;
-				} else {
-					my $list = $self->{'datastore'}->run_query(
-						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
-						  . "WHERE $field IS NOT NULL ORDER BY $field",
-						undef,
-						{ fetch => 'col_arrayref' }
-					);
-					push @$dropdownlist, @$list;
-				}
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-				my $display_field = $metafield // $field;
-				push @filters,
-				  $self->get_filter(
-					$field,
-					$dropdownlist,
-					{
-						text => $metafield // undef,
-						labels => \%dropdownlabels,
-						tooltip =>
-						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
-						  . "isolates that match the selected $display_field.",
-						capitalize_first => 1
-					}
-				  ) if @$dropdownlist;
-			}
-		}
-		my $extatt = $extended->{$field};
-		if ( ref $extatt eq 'ARRAY' ) {
-			foreach my $extended_attribute (@$extatt) {
-				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
-					my $values = $self->{'datastore'}->run_query(
-						'SELECT DISTINCT value FROM isolate_value_extended_attributes '
-						  . 'WHERE isolate_field=? AND attribute=? ORDER BY value',
-						[ $field, $extended_attribute ],
-						{ fetch => 'col_arrayref' }
-					);
-					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-					push @filters,
-					  $self->get_filter(
-						"$field\..$extended_attribute",
-						$values,
-						{
-							text => $extended_attribute,
-							tooltip =>
-							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
-							  . "search to only those isolates that match the selected $field."
-						}
-					  );
-				}
-			}
-		}
-	}
+	my $field_filters = $self->_get_field_filters;
+	push @filters, @$field_filters if @$field_filters;
+
 	if ( $self->{'prefs'}->{'dropdownfields'}->{'Publications'} ) {
 		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
 		push @filters, $buffer if $buffer;
@@ -637,7 +554,7 @@ sub _print_filters_fieldset {
 	push @filters, $self->get_old_version_filter;
 	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
-	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
+	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 	say q(</ul></div></fieldset>);
 	$self->{'filters_fieldset_exists'} = 1;
 	return;
@@ -759,6 +676,99 @@ sub _get_seqbin_filter {
 		);
 	}
 	return;
+}
+
+sub _get_field_filters {
+	my ($self) = @_;
+		my $prefs  = $self->{'prefs'};
+	
+	my $filters =[];
+		my $extended      = $self->get_extended_attributes;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $dropdownlist;
+		my %dropdownlabels;
+		if ( $prefs->{'dropdownfields'}->{$field} ) {
+			if (   $field eq 'sender'
+				|| $field eq 'curator'
+				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
+			{
+				push @$filters, $self->get_user_filter($field);
+			} else {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				if ( $thisfield->{'optlist'} ) {
+					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
+					if (   $thisfield->{'required'}
+						&& $thisfield->{'required'} eq 'no' )
+					{
+						push @$dropdownlist, 'null';
+						$dropdownlabels{'null'} = '[null]';
+					}
+				} elsif ( defined $metaset ) {
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
+						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
+					push @$dropdownlist, @$list;
+				} else {
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
+						  . "WHERE $field IS NOT NULL ORDER BY $field",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
+					push @$dropdownlist, @$list;
+				}
+				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
+				my $display_field = $metafield // $field;
+				push @$filters,
+				  $self->get_filter(
+					$field,
+					$dropdownlist,
+					{
+						text => $metafield // undef,
+						labels => \%dropdownlabels,
+						tooltip =>
+						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
+						  . "isolates that match the selected $display_field.",
+						capitalize_first => 1
+					}
+				  ) if @$dropdownlist;
+			}
+		}
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
+					my $values = $self->{'datastore'}->run_query(
+						'SELECT DISTINCT value FROM isolate_value_extended_attributes '
+						  . 'WHERE isolate_field=? AND attribute=? ORDER BY value',
+						[ $field, $extended_attribute ],
+						{ fetch => 'col_arrayref' }
+					);
+					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
+					push @$filters,
+					  $self->get_filter(
+						"$field\..$extended_attribute",
+						$values,
+						{
+							text => $extended_attribute,
+							tooltip =>
+							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
+							  . "search to only those isolates that match the selected $field."
+						}
+					  );
+				}
+			}
+		}
+	}
+	return $filters;
 }
 
 sub _print_provenance_fields {

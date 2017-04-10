@@ -60,14 +60,17 @@ sub print_content {
 	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
 	say q(<h2>Limits</h2>);
 	my $private = $self->_get_private_isolate_count( $user_info->{'id'} );
+	my $total_private = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM private_isolates WHERE user_id=?',$user_info->{'id'});
 	my $limit   = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
-	say q(<p>Accounts have a quota for the number of private records that they can upload.<p>);
+	say q(<p>Accounts have a quota for the number of private records that they can upload. )
+	  . q(Uploading of private data to some registered projects may not count against your quota.<p>);
 	say q(<dl class="data">);
-	say qq(<dt>Uploaded</dt><dd>$private</dd>);
+	say qq(<dt>Records (total)</dt><dd>$total_private</dd>);
+	say qq(<dt>Records (quota)</dt><dd>$private</dd>);
 	say qq(<dt>Quota</dt><dd>$limit</dd>);
 	my $available = $limit - $private;
 	$available = 0 if $available < 0;
-	say qq(<dt>Available</dt><dd>$available</dd>);
+	say qq(<dt>You can upload</dt><dd>$available</dd>);
 	say q(</dl>);
 	say q(</div>);
 	return;
