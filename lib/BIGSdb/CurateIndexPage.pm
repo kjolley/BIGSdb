@@ -646,7 +646,7 @@ sub _print_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	if ($set_id) {
 		my $schemes_in_set =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
-		return !$schemes_in_set;
+		return if !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
 		return if !$scheme_count;
@@ -789,7 +789,7 @@ sub _print_profile_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	if ($set_id) {
 		my $schemes_in_set =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
-		return !$schemes_in_set;
+		return if !$schemes_in_set;
 	} else {
 		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
 		return if !$scheme_count;
