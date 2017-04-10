@@ -115,7 +115,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );		
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
 		}
 		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
@@ -1155,7 +1155,7 @@ sub get_isolate_publication_filter {
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
-			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			my @values = sort { uc( $labels->{$a} ) cmp uc( $labels->{$b} ) } keys %$labels;
 			if ( @$pmid && $options->{'any'} ) {
 				unshift @values, 'none';
 				$labels->{'none'} = 'not linked to any publication';

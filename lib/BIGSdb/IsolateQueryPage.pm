@@ -216,7 +216,6 @@ sub _print_designations_fieldset {
 	say q(<legend>Allele designations/scheme fields</legend><div>);
 
 	#Get contents now if fieldset is visible, otherwise load via AJAX call
-	#	if ( $self->_should_display_fieldset('allele_designations') ) {
 	if ( $self->_highest_entered_fields('loci') ) {
 		$self->_print_designations_fieldset_contents;
 	}
@@ -536,11 +535,10 @@ sub _get_list_attribute_data {
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my @filters;
 	my $field_filters = $self->_get_field_filters;
 	push @filters, @$field_filters if @$field_filters;
-
 	if ( $self->{'prefs'}->{'dropdownfields'}->{'Publications'} ) {
 		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
 		push @filters, $buffer if $buffer;
@@ -551,6 +549,8 @@ sub _print_filters_fieldset {
 	push @filters, @$profile_filters;
 	my $seqbin_filter = $self->_get_seqbin_filter;
 	push @filters, $seqbin_filter if $seqbin_filter;
+	my $private_data_filter = $self->_get_private_data_filter;
+	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
 	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
@@ -678,12 +678,36 @@ sub _get_seqbin_filter {
 	return;
 }
 
-sub _get_field_filters {
+sub _get_private_data_filter {
 	my ($self) = @_;
-		my $prefs  = $self->{'prefs'};
-	
-	my $filters =[];
-		my $extended      = $self->get_extended_attributes;
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $private = $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+	return if !$private;
+	return $self->get_filter(
+		'private_records',
+		[ 1 .. 4 ],
+		{
+			labels => {
+				1 => 'my private records only',
+				2 => 'private records (in quota)',
+				3 => 'private records (excluded from quota)',
+				4 => 'public records only'
+			},
+			text    => 'Private records',
+			tooltip => 'private records filter - Filter by whether the isolate record is private. '
+			  . 'The default is to include both your private and public records.'
+		}
+	);
+}
+
+sub _get_field_filters {
+	my ($self)        = @_;
+	my $prefs         = $self->{'prefs'};
+	my $filters       = [];
+	my $extended      = $self->get_extended_attributes;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -1489,6 +1513,7 @@ sub _modify_query_for_filters {
 		}
 	}
 	$self->_modify_query_by_profile_status( \$qry );
+	$self->_modify_query_by_private_status( \$qry );
 	if ( !$q->param('include_old') ) {
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND ($view.new_version IS NULL)";
@@ -1552,6 +1577,38 @@ sub _modify_query_by_profile_status {
 				}
 			}
 		}
+	}
+	return;
+}
+
+sub _modify_query_by_private_status {
+	my ( $self, $qry_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	return if !$q->param('private_records_list');
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $clause;
+	my $my_private   = "$view.id IN (SELECT isolate_id FROM private_isolates WHERE user_id=$user_info->{'id'})";
+	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
+	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
+	my $term = {
+		1 => sub { $clause = "($my_private)" },
+		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		3 => sub { $clause = "($my_private AND $not_in_quota)" },
+		4 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+	};
+
+	if ( $term->{ $q->param('private_records_list') } ) {
+		$term->{ $q->param('private_records_list') }->();
+	} else {
+		return;
+	}
+	if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+		$$qry_ref .= "AND $clause";
+	} else {
+		$$qry_ref = "SELECT * FROM $view WHERE $clause";
 	}
 	return;
 }
