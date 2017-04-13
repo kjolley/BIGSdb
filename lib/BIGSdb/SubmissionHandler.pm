@@ -978,7 +978,7 @@ sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 }
 
 #Make sure field is not too long
-sub _check_other_length {                 ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'}).";
@@ -987,7 +987,7 @@ sub _check_other_length {                 ## no critic (ProhibitUnusedPrivateSub
 }
 
 #Make sure the datestamp is today
-sub _check_other_datestamp {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'datestamp';
 	my $datestamp = BIGSdb::Utils::get_datestamp();
@@ -998,7 +998,7 @@ sub _check_other_datestamp {              ## no critic (ProhibitUnusedPrivateSub
 }
 
 #Make sure the date_entered is today
-sub _check_other_date_entered {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_other_date_entered {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	return if $field ne 'date_entered';
 	my $datestamp = BIGSdb::Utils::get_datestamp();
@@ -1053,18 +1053,19 @@ sub email {
 	  ( $params->{'cc_sender'} && $sender->{'email'} ne $recipient->{'email'} )
 	  ? $sender->{'email'}
 	  : undef;
+	my $header_params = [
+		To      => $recipient->{'email'},
+		From    => $sender->{'email'},
+		Subject => $subject
+	];
+	push @$header_params, [ Cc => $cc ] if defined $cc;
 	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
 			charset  => 'UTF-8',
 		},
-		header_str => [
-			To      => $recipient->{'email'},
-			From    => $sender->{'email'},
-			Cc      => $cc,
-			Subject => $subject
-		],
-		body_str => $params->{'message'}
+		header_str => $header_params,
+		body_str   => $params->{'message'}
 	);
 	eval {
 		try_to_sendmail( $email, { transport => $transport } )

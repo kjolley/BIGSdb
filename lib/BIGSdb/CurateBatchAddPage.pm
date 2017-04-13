@@ -168,9 +168,10 @@ sub _print_interface {
 	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited header for your spreadsheet</a>)
 	  . q( - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste the data.</li>);
+	my $order_clause = $table eq 'isolates' ? q(&amp;order=scheme) : q();
 	say
 	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
-	  . qq($locus_attribute">Download submission template (xlsx format)</a>);
+	  . qq($locus_attribute$order_clause">Download submission template (xlsx format)</a>);
 	if ( $table eq 'sequences' && !$q->param('locus') ) {
 		$self->_print_interface_locus_selection;
 	}
