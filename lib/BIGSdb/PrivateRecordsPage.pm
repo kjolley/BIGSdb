@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Constants qw(:interface);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
@@ -56,16 +57,28 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>You are not a recognized user.</p></div>);
 		return;
 	}
+	if ( $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates') ) {
+		say q(<div class="box" id="statusbad"><p>Your account does not have )
+		  . q(permission to upload private records.</p></div>);
+		return;
+	}
+	$self->_print_limits( $user_info->{'id'} );
+	$self->_print_projects( $user_info->{'id'} );
+	return;
+}
+
+sub _print_limits {
+	my ( $self, $user_id ) = @_;
 	say q(<div class="box" id="resultspanel">);
 	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
 	say q(<h2>Limits</h2>);
-	my $private       = $self->_get_private_isolate_count( $user_info->{'id'} );
+	my $private       = $self->_get_private_isolate_count($user_id);
 	my $total_private = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
 		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
-		$user_info->{'id'}
+		$user_id
 	);
-	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $limit = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	say q(<p>Accounts have a quota for the number of private records that they can upload. )
 	  . q(Uploading of private data to some registered projects may not count against your quota.<p>);
 	say q(<dl class="data">);
@@ -79,6 +92,82 @@ sub print_content {
 	say qq(<dt>You can upload</dt><dd>$available</dd>);
 	say q(</dl>);
 	say q(</div>);
+	return;
+}
+
+sub _get_available_quota {
+	my ( $self, $user_id ) = @_;
+	my $private   = $self->_get_private_isolate_count($user_id);
+	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
+	my $available = $limit - $private;
+	$available = 0 if $available < 0;
+	return $available;
+}
+
+sub _get_upload_link {
+	my ($self) = @_;
+	my $instance = $self->{'system'}->{'curate_config'} // $self->{'instance'};
+	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;table=isolates";
+}
+
+sub _print_projects {
+	my ( $self, $user_id ) = @_;
+	my $projects = $self->{'datastore'}->run_query(
+		'SELECT p.id,p.short_description,p.full_description,p.no_quota FROM projects p JOIN merged_project_users m ON '
+		  . 'p.id=m.project_id WHERE m.user_id=? AND m.modify ORDER BY UPPER(short_description)',
+		$user_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	return if !@$projects;
+	my $available = $self->_get_available_quota($user_id);
+	say q(<div class="box" id="resultstable">);
+	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<h2>Projects</h2>);
+	if ( $available > 0 ) {
+		say q(<p>You can upload private data to the following projects. Anything you upload will be )
+		  . q(visible to any other user of the project (indicated by the users column).);
+	} else {
+		say q(<p>Your available quota is zero. You can only upload private data )
+		  . q(to projects that are excluded from the personal quota</p>);
+	}
+	say q(<div class="scrollable"><table class="resultstable"><tr><th>Project</th><th>Description</th><th>Users</th>)
+	  . q(<th>Isolates</th><th>Quota free</th><th>Browse</th><th>Upload</th></tr>);
+	my $td               = 1;
+	my $upload_link_root = $self->_get_upload_link;
+	foreach my $project (@$projects) {
+		$project->{'full_description'} //= q();
+		my $users = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM merged_project_users WHERE project_id=?',
+			$project->{'id'}, { cache => 'PrivateRecordsPage::project_users' } );
+		my $isolates = $self->{'datastore'}->run_query(
+			'SELECT COUNT(*) FROM project_members WHERE project_id=? '
+			  . "AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
+			$project->{'id'},
+			{ cache => 'PrivateRecordsPage::isolate_count' }
+		);
+		my $quota_free = $project->{'no_quota'} ? GOOD : q();
+		say qq(<tr class="td$td"><td>$project->{'short_description'}</td><td>$project->{'full_description'}</td>)
+		  . qq(<td>$users</td><td>$isolates</td><td>$quota_free</td>);
+		say $isolates
+		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . q(</span></a></td>)
+		  : q(<td></td>);
+		my $can_upload = $project->{'no_quota'} || $available > 0;
+		my ( $BAN, $UPLOAD ) = ( BAN, UPLOAD );
+		say $can_upload
+		  ? qq(<td><a href="$upload_link_root&amp;project_id=$project->{'id'}" class="action">$UPLOAD</a></td>)
+		  : qq(<td>$BAN</td>);
+		say q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table></div>);
+	say q(</div>);
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery noCache);
 	return;
 }
 1;

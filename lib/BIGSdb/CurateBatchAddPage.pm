@@ -131,6 +131,9 @@ sub _print_interface {
 	my $table       = $arg_ref->{'table'};
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
+	if ( $table eq 'isolates' && $q->param('project_id') ) {
+		return if !$self->_is_member_of_private_project( $q->param('project_id') );
+	}
 	say qq(<div class="box" id="queryform"><div class="scrollable"><p>This page allows you to upload $record_name )
 	  . q(data as tab-delimited text or copied from a spreadsheet.</p>);
 	say q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be )
@@ -171,8 +174,8 @@ sub _print_interface {
 	if ( $table eq 'sequences' && !$q->param('locus') ) {
 		$self->_print_interface_locus_selection;
 	}
-	print "</ul>\n";
-	print $q->start_form;
+	say q(</ul>);
+	say $q->start_form;
 	if ( $arg_ref->{'has_sender_field'} ) {
 		$self->_print_interface_sender_field;
 	}
@@ -191,11 +194,52 @@ sub _print_interface {
 	return;
 }
 
+sub _is_member_of_private_project {
+	my ( $self, $project_id, $options ) = @_;
+	if ( !BIGSdb::Utils::is_int($project_id) ) {
+		say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+		return;
+	}
+	my $project = $self->{'datastore'}->run_query( 'SELECT short_description,no_quota FROM projects WHERE id=?',
+		$project_id, { fetch => 'row_hashref' } );
+	if ( !$project ) {
+		say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+		return;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $is_project_user =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND modify)',
+		[ $project_id, $user_info->{'id'} ] );
+	if ( !$is_project_user ) {
+		say q(<div class="box" id="statusbad"><p>You are not a registered user for )
+		  . qq(the $project->{'short_description'} project.</p></div>);
+		return;
+	}
+	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	if ( !$project->{'no_quota'} && !$limit ) {
+		say q(<div class="box" id="statusbad"><p>Your account cannot upload private data.</p></div>);
+		return;
+	}
+	if ( !$options->{'no_message'} ) {
+		say q(<div class="box" id="resultspanel">);
+		say q(<h2>Upload to project</h2>);
+		say qq(<p>These isolates will be added to the private $project->{'short_description'} project.</p>);
+		if ( $project->{'no_quota'} ) {
+			say q(<p>These will not count against your quota of private data.</p>) if $limit;
+		} else {
+			say q(<p>These will count against your quota of private data.</p>);
+		}
+		say q(</div>);
+	}
+	return 1;
+}
+
 sub _print_interface_sender_field {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ( $user_info->{'status'} eq 'submitter' ) {
+	if ( $user_info->{'status'} eq 'submitter' || $q->param('project_id') ) {
 		say $q->hidden( sender => $user_info->{'id'} );
 		return;
 	}
