@@ -2575,4 +2575,23 @@ sub get_user_private_isolate_limit {
 	my $limit = $user_limit // $default_limit;
 	return $limit;
 }
+
+sub get_private_isolate_count {
+	my ( $self, $user_id ) = @_;
+	return $self->run_query(
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND NOT EXISTS'
+		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
+		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
+		$user_id
+	);
+}
+
+sub get_available_quota {
+	my ( $self, $user_id ) = @_;
+	my $private   = $self->get_private_isolate_count($user_id);
+	my $limit     = $self->get_user_private_isolate_limit($user_id);
+	my $available = $limit - $private;
+	$available = 0 if $available < 0;
+	return $available;
+}
 1;

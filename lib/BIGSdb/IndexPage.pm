@@ -216,6 +216,7 @@ sub _print_private_data_section {
 	return if !$self->{'username'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
+	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
 	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
 	return if !$limit;
 	my $cache_string = $self->get_cache_string;

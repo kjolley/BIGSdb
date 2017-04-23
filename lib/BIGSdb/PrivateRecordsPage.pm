@@ -31,15 +31,7 @@ sub get_title {
 	return "Private records - $desc";
 }
 
-sub _get_private_isolate_count {
-	my ( $self, $user_id ) = @_;
-	return $self->{'datastore'}->run_query(
-		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND NOT EXISTS'
-		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
-		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
-		$user_id
-	);
-}
+
 
 sub print_content {
 	my ($self) = @_;
@@ -72,7 +64,7 @@ sub _print_limits {
 	say q(<div class="box" id="resultspanel">);
 	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
 	say q(<h2>Limits</h2>);
-	my $private       = $self->_get_private_isolate_count($user_id);
+	my $private       = $self->{'datastore'}->get_private_isolate_count($user_id);
 	my $total_private = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
 		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
@@ -91,23 +83,20 @@ sub _print_limits {
 	$available = 0 if $available < 0;
 	say qq(<dt>You can upload</dt><dd>$available</dd>);
 	say q(</dl>);
+	if ($available){
+		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+		say q(<h2>Upload</h2>);
+	}
 	say q(</div>);
 	return;
 }
 
-sub _get_available_quota {
-	my ( $self, $user_id ) = @_;
-	my $private   = $self->_get_private_isolate_count($user_id);
-	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
-	my $available = $limit - $private;
-	$available = 0 if $available < 0;
-	return $available;
-}
+
 
 sub _get_upload_link {
 	my ($self) = @_;
 	my $instance = $self->{'system'}->{'curate_config'} // $self->{'instance'};
-	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;table=isolates";
+	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;table=isolates&amp;private=1";
 }
 
 sub _print_projects {
@@ -119,7 +108,7 @@ sub _print_projects {
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	return if !@$projects;
-	my $available = $self->_get_available_quota($user_id);
+	my $available = $self->{'datastore'}->get_available_quota($user_id);
 	say q(<div class="box" id="resultstable">);
 	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
 	say q(<h2>Projects</h2>);

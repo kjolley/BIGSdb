@@ -131,8 +131,8 @@ sub _print_interface {
 	my $table       = $arg_ref->{'table'};
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
-	if ( $table eq 'isolates' && $q->param('project_id') ) {
-		return if !$self->_is_member_of_private_project( $q->param('project_id') );
+	if ( $table eq 'isolates' ) {
+		return if $self->_cannot_upload_private_data( $q->param('private'), $q->param('project_id') );
 	}
 	say qq(<div class="box" id="queryform"><div class="scrollable"><p>This page allows you to upload $record_name )
 	  . q(data as tab-delimited text or copied from a spreadsheet.</p>);
@@ -187,7 +187,7 @@ sub _print_interface {
 	  . q((<strong>include a field header line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
-	say $q->hidden($_) foreach qw (page db table locus submission_id);
+	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id);
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
@@ -195,45 +195,88 @@ sub _print_interface {
 	return;
 }
 
-sub _is_member_of_private_project {
-	my ( $self, $project_id, $options ) = @_;
-	if ( !BIGSdb::Utils::is_int($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
-		return;
+sub _get_private_project_id {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	if ( BIGSdb::Utils::is_int($project_id) ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $is_project_user =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND modify)',
+			[ $project_id, $user_info->{'id'} ] );
+		return $project_id if $is_project_user;
 	}
-	my $project = $self->{'datastore'}->run_query( 'SELECT short_description,no_quota FROM projects WHERE id=?',
-		$project_id, { fetch => 'row_hashref' } );
-	if ( !$project ) {
-		say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
-		return;
-	}
+	return;
+}
+
+sub _is_private_record {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q = $self->{'cgi'};
+	return if !$q->param('private');
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $is_project_user =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND modify)',
-		[ $project_id, $user_info->{'id'} ] );
-	if ( !$is_project_user ) {
-		say q(<div class="box" id="statusbad"><p>You are not a registered user for )
-		  . qq(the $project->{'short_description'} project.</p></div>);
-		return;
-	}
-	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
-	if ( !$project->{'no_quota'} && !$limit ) {
+	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	return 1 if $limit;
+	return;
+}
+
+sub _cannot_upload_private_data {
+	my ( $self, $private, $project_id, $options ) = @_;
+	return if !$private;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $available = $self->{'datastore'}->get_available_quota( $user_info->{'id'} );
+	my $project;
+	if ($project_id) {
+		if ( !BIGSdb::Utils::is_int($project_id) ) {
+			say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+			return 1;
+		}
+		$project = $self->{'datastore'}->run_query( 'SELECT short_description,no_quota FROM projects WHERE id=?',
+			$project_id, { fetch => 'row_hashref' } );
+		if ( !$project ) {
+			say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+			return 1;
+		}
+		my $is_project_user =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND modify)',
+			[ $project_id, $user_info->{'id'} ] );
+		if ( !$is_project_user ) {
+			say q(<div class="box" id="statusbad"><p>You are not a registered user for )
+			  . qq(the $project->{'short_description'} project.</p></div>);
+			return 1;
+		}
+		if ( !$project->{'no_quota'} && !$limit ) {
+			say q(<div class="box" id="statusbad"><p>Your account cannot upload private data.</p></div>);
+			return 1;
+		}
+	} elsif ( !$limit ) {
 		say q(<div class="box" id="statusbad"><p>Your account cannot upload private data.</p></div>);
-		return;
+		return 1;
 	}
 	if ( !$options->{'no_message'} ) {
 		say q(<div class="box" id="resultspanel">);
-		say q(<h2>Upload to project</h2>);
-		say qq(<p>These isolates will be added to the private $project->{'short_description'} project.</p>);
-		if ( $project->{'no_quota'} ) {
-			say q(<p>These will not count against your quota of private data.</p>) if $limit;
+		say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+		say q(<h2>Private data upload</h2>);
+		if ($project) {
+			say q(<p>These isolates will be added to the private )
+			  . qq(<strong>$project->{'short_description'}</strong> project.</p>);
+			if ( $project->{'no_quota'} ) {
+				say q(<p>These will not count against your quota of private data.</p>) if $limit;
+			} else {
+				say q(<p>These will count against your quota of private data.</p>);
+				say qq(<p>Quota available: $available</p>);
+			}
 		} else {
-			say q(<p>These will count against your quota of private data.</p>);
+			say q(<p>These isolates will count against your quota of private data.</p>);
+			say qq(<p>Quota available: $available</p>);
 		}
 		say q(</div>);
 	}
-	return 1;
+	return;
 }
 
 sub _print_interface_sender_field {
@@ -472,7 +515,6 @@ sub _check_data {
 	foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
-		my @profile;
 		my $checked_record;
 		if ($record) {
 			my @data = split /\t/x, $record;
@@ -630,6 +672,7 @@ sub _check_data {
 		  . q(you've included the header line.</p></div>);
 		return;
 	}
+	return if $self->_is_over_quota( $table, scalar @checked_buffer );
 	$self->_report_check(
 		{
 			table          => $table,
@@ -640,6 +683,28 @@ sub _check_data {
 			sender_message => \$sender_message
 		}
 	);
+	return;
+}
+
+sub _is_over_quota {
+	my ( $self, $table, $record_count ) = @_;
+	my $q = $self->{'cgi'};
+	return if $table ne 'isolates' || !$q->param('private');
+	my $project_id = $q->param('project_id');
+	if ( BIGSdb::Utils::is_int($project_id) ) {
+		my $no_quota = $self->{'datastore'}->run_query( 'SELECT no_quota FROM projects WHERE id=?', $project_id );
+		return if $no_quota;
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $available = $self->{'datastore'}->get_available_quota( $user_info->{'id'} );
+	if ( $record_count > $available ) {
+		my $av_plural = $available == 1    ? q() : q(s);
+		my $up_plural = $record_count == 1 ? q() : q(s);
+		say
+		  qq(<div class="box" id="statusbad"><p>Your available quota for private data is $available record$av_plural. )
+		  . qq(You are attempting to upload $record_count record$up_plural.</p></div>);
+		return 1;
+	}
 	return;
 }
 
@@ -865,7 +930,7 @@ sub _report_check {
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity submission_id);
+		  complete_CDS ignore_similarity submission_id project_id private);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->end_form;
@@ -1697,11 +1762,12 @@ sub _upload_data {
 	my $field_order = $self->_get_field_order($records);
 	my ( $fields_to_include, $meta_fields, $extended_attributes ) = $self->_get_fields_to_include( $table, $locus );
 	my @history;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $project_id = $self->_get_private_project_id;
+	my $private    = $self->_is_private_record;
 
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
-		my @profile;
 		if ($record) {
 			my @data = split /\t/x, $record;
 			@data = $self->_process_fields( \@data );
@@ -1754,7 +1820,9 @@ sub _upload_data {
 						data        => \@data,
 						field_order => $field_order,
 						extras      => \@extras,
-						ref_extras  => \@ref_extras
+						ref_extras  => \@ref_extras,
+						project_id  => $project_id,
+						private     => $private
 					}
 				);
 				push @inserts, @$isolate_extra_inserts;
@@ -1916,8 +1984,8 @@ sub _get_locus_list {
 
 sub _prepare_isolate_extra_inserts {
 	my ( $self, $args ) = @_;
-	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras ) =
-	  @{$args}{qw(id sender curator data field_order extras ref_extras)};
+	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras, $project_id, $private ) =
+	  @{$args}{qw(id sender curator data field_order extras ref_extras project_id private)};
 	my @inserts;
 	my $locus_list = $self->_get_locus_list;
 	foreach (@$locus_list) {
@@ -1957,6 +2025,20 @@ sub _prepare_isolate_extra_inserts {
 				push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
 			}
 		}
+	}
+	if ($project_id) {
+		push @inserts,
+		  {
+			statement => 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [ $project_id, $id, $curator, 'now' ]
+		  };
+	}
+	if ($private) {
+		push @inserts,
+		  {
+			statement => 'INSERT INTO private_isolates (isolate_id,user_id,datestamp) VALUES (?,?,?)',
+			arguments => [ $id, $curator, 'now' ]
+		  };
 	}
 	return \@inserts;
 }
