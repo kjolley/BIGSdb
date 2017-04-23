@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2362,8 +2362,9 @@ sub create_temp_allele_table {
 	my $table = 'temp_seqs_' . int( rand(99999999) );
 	eval {
 		$self->{'db'}->do(
-			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
-			  . 'AS sequence FROM sequences WHERE locus=?',
+			    "CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
+			  . 'AS sequence FROM sequences WHERE locus=?;'
+			  . "CREATE INDEX i_${table}_seq ON $table(md5(sequence))",
 			undef, $locus
 		);
 	};
@@ -2502,9 +2503,7 @@ sub get_tables_with_curator {
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
 		  isolates);
-		push @tables, $self->{'system'}->{'view'}
-		  ? $self->{'system'}->{'view'}
-		  : 'isolates';
+		push @tables, $self->{'system'}->{'view'} if ( $self->{'system'}->{'view'} // q() ) ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members

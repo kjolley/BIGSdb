@@ -73,9 +73,18 @@ sub print_content {
 		$self->_ajax_content($table);
 		return;
 	}
+	if ( $table eq 'isolates'
+		|| ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) )
+	{
+		say q(<h1>Table query</h1>);
+		say q(<div class="box" id="statusbad"><p>You cannot use this function to query the isolate table.</p></div>)
+		  ;
+		return;
+	}
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
+		say q(<h1>Table query</h1>);
 		say qq(<div class="box" id="statusbad"><p>Table '$table' is not defined.</p></div>);
 		return;
 	}

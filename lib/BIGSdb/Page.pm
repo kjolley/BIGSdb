@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,7 +115,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );		
 		}
 		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
@@ -125,7 +125,8 @@ sub _get_javascript_paths {
 			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
-			'CryptoJS.MD5'        => [qw(md5.js)]
+			'CryptoJS.MD5'        => [qw(md5.js)],
+			'packery'             => [qw(packery.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -1043,7 +1044,7 @@ sub get_filter {
 	}
 
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
-	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->popup_menu(%args) : $self->popup_menu(%args);
+	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->scrolling_list(%args) : $self->popup_menu(%args);
 	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
 	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>)
 	  if $options->{'tooltip'};
@@ -1782,6 +1783,7 @@ sub can_modify_table {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $locus     = $q->param('locus');
+	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
 	my %general_permissions = (
@@ -2544,6 +2546,10 @@ sub populate_submission_params {
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
 		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
 		$q->param( sequence => $submission_seq );
+		if ( $q->param('locus') ) {
+			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
+			$q->param( locus => $locus );
+		}
 	}
 	return;
 }
