@@ -1,3 +1,47 @@
+CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
+	DECLARE
+		scheme_table text;
+		create_command text;
+		pk text;
+		x RECORD;
+	BEGIN
+		scheme_table := 'mv_scheme_' || i_id;
+		PERFORM id FROM schemes WHERE id=i_id;
+		IF NOT FOUND THEN
+			RAISE EXCEPTION 'Scheme % does not exist', i_id;
+		END IF;
+		PERFORM scheme_id FROM scheme_fields WHERE primary_key AND scheme_id=i_id;
+		IF NOT FOUND THEN
+			RAISE EXCEPTION 'Scheme % does not have a primary key', i_id;
+		END IF;
+		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=scheme_table) THEN
+			EXECUTE FORMAT('DROP TABLE %I', scheme_table);
+		END IF;
+		PERFORM set_scheme_warehouse_indices(i_id);
+		create_command := FORMAT('CREATE TABLE %s (',scheme_table);
+		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
+			create_command := FORMAT('%s %s text',create_command, x.field);
+			IF x.primary_key THEN
+				pk := x.field;
+				create_command := create_command || ' NOT NULL';
+			END IF;
+			create_command := create_command || ',';
+		END LOOP;
+		EXECUTE FORMAT('%ssender int NOT NULL,curator int NOT NULL,date_entered date NOT NULL,'
+		|| 'datestamp date NOT NULL,profile text[], PRIMARY KEY (%s))', 
+		create_command, pk);
+		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
+			IF x.index THEN
+				EXECUTE FORMAT('CREATE INDEX ON %I(UPPER(%s))',scheme_table,x.field);
+			END IF;
+		END LOOP;
+		EXECUTE FORMAT('CREATE UNIQUE INDEX ON %I(md5(profile))',scheme_table);
+		EXECUTE FORMAT('CREATE INDEX ON %I ((profile[1]))',scheme_table);
+		--We need to be able to drop and recreate as apache user.
+		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', scheme_table);
+	END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int)
   RETURNS void AS $$
 	DECLARE
