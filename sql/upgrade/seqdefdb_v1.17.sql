@@ -97,4 +97,9 @@ CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int)
 		RAISE NOTICE '% profiles cached', counter;		
 	END;
 $$ LANGUAGE plpgsql; 
-  
+
+--Regenerate scheme caches only for schemes that have indexed text scheme fields as we 
+--have changed the index definitions to the upper case values of these fields.
+SELECT initiate_scheme_warehouse(scheme_id) FROM scheme_fields WHERE PRIMARY_KEY AND 
+scheme_id IN (SELECT scheme_id FROM scheme_members) AND 
+scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE type='text' AND index);
