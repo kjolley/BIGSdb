@@ -1058,7 +1058,7 @@ sub email {
 		From    => $sender->{'email'},
 		Subject => $subject
 	];
-	push @$header_params, [ Cc => $cc ] if defined $cc;
+	push @$header_params, ( Cc => $cc ) if defined $cc;
 	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
