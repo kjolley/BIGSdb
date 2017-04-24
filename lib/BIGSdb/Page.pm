@@ -106,7 +106,7 @@ sub _get_javascript_paths {
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
-		if ( $self->{'config'}->{'intranet'} eq 'yes' ) {
+		if ( $self->{'config'}->{'no_cdn'} ) {
 			push @javascript, ( { src => '/javascript/jquery.js',    @language } );
 			push @javascript, ( { src => '/javascript/jquery-ui.js', @language } );
 		} else {
@@ -115,7 +115,7 @@ sub _get_javascript_paths {
 			push @javascript,
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );		
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
 		}
 		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
 		my %js = (
@@ -659,7 +659,7 @@ sub _print_help_panel {
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
-			if ( $plugin_att->{'url'} && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
 				  . q(title="Open help in new window">Help <span class="fa fa-external-link"></span></a></span>);
 			}
@@ -669,7 +669,7 @@ sub _print_help_panel {
 		}
 	} else {
 		my $url = $self->get_help_url;
-		if ( $url && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			say qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
 			  . q(<span class="fa fa-external-link"></span></a></span>);
 		}

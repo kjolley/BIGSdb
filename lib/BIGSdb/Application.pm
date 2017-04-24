@@ -387,7 +387,10 @@ sub read_config_file {
 			undef $self->{'config'}->{$param};
 		}
 	}
-	$self->{'config'}->{'intranet'} ||= 'no';
+	foreach my $param (qw(intranet disable_updates)){
+		$self->{'config'}->{$param} //= 0;
+		$self->{'config'}->{$param} = 0 if $self->{'config'}->{$param} eq 'no';
+	}
 	$self->{'config'}->{'cache_days'} //= 7;
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)
