@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -153,7 +153,7 @@ sub _print_interface {
 	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
 	say q(</fieldset>);
 
-	if ( $page eq 'sequenceQuery' && ( $self->{'config'}->{'intranet'} // '' ) ne 'yes' ) {
+	if ( $page eq 'sequenceQuery' && !$self->{'config'}->{'intranet'} ) {
 		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
 		say $q->textfield( -name => 'accession' );
 		say q(</fieldset>);
