@@ -580,8 +580,9 @@ sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	return if !$self->{'instance'};
+	my $q = $self->{'cgi'};
 	my @potential_headers;
-	if ( $self->{'curate'} ) {
+	if ( $self->{'curate'} && !$q->param('user_header') ) {
 		push @potential_headers,
 		  (
 			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_header.html",

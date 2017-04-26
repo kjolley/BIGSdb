@@ -31,8 +31,6 @@ sub get_title {
 	return "Private records - $desc";
 }
 
-
-
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Private records</h1>);
@@ -83,20 +81,29 @@ sub _print_limits {
 	$available = 0 if $available < 0;
 	say qq(<dt>You can upload</dt><dd>$available</dd>);
 	say q(</dl>);
-	if ($available){
+
+	if ($available) {
 		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 		say q(<h2>Upload</h2>);
+		my $link = $self->_get_upload_link;
+		say qq(<ul class="toplevel"><li><a href="$link">Upload private isolate records</a></li></ul>);
+	}
+	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
+	if ($user_id) {
+		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say q(<h2>Curate</h2>);
+		say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
+		  . q(Update private records</a> <span class="link">Curator's interface</span></li></ul>);
 	}
 	say q(</div>);
 	return;
 }
 
-
-
 sub _get_upload_link {
 	my ($self) = @_;
 	my $instance = $self->{'system'}->{'curate_config'} // $self->{'instance'};
-	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;table=isolates&amp;private=1";
+	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;"
+	  . 'table=isolates&amp;private=1&amp;user_header=1';
 }
 
 sub _print_projects {

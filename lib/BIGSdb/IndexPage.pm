@@ -129,7 +129,6 @@ sub _print_main_section {
 	$self->_print_options_section;
 	$self->_print_submissions_section;
 	$self->_print_private_data_section;
-	
 	$self->_print_general_info_section($scheme_data);
 	say q(</div></div></div>);
 	return;
@@ -217,8 +216,13 @@ sub _print_private_data_section {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
-	my $limit = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
-	return if !$limit;
+	my $limit                         = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $is_member_of_no_quota_project = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users m JOIN projects p '
+		  . 'ON m.project_id=p.id WHERE user_id=? AND modify)',
+		$user_info->{'id'}
+	);
+	return if !$limit && !$is_member_of_no_quota_project;
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);

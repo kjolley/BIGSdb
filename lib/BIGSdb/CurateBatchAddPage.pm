@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -187,7 +187,7 @@ sub _print_interface {
 	  . q((<strong>include a field header line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
-	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id);
+	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
@@ -283,7 +283,7 @@ sub _print_interface_sender_field {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ( $user_info->{'status'} eq 'submitter' || $q->param('project_id') ) {
+	if ( $user_info->{'status'} eq 'submitter' || $q->param('private') ) {
 		say $q->hidden( sender => $user_info->{'id'} );
 		return;
 	}
@@ -930,7 +930,7 @@ sub _report_check {
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity submission_id project_id private);
+		  complete_CDS ignore_similarity submission_id project_id private user_header);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->end_form;
@@ -1958,7 +1958,9 @@ sub _display_update_footer_links {
 		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a> | );
 		$self->_update_submission_database($submission_id);
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>);
+	my $back = BACK;
+	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	say qq(<a href="$script?db=$self->{'instance'}" title="Back">$back</a>);
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
