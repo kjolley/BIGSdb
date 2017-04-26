@@ -106,7 +106,7 @@ sub _get_javascript_paths {
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
-		if ( $self->{'config'}->{'no_cdn'} ) {
+		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
 			push @javascript, ( { src => '/javascript/jquery.js',    @language } );
 			push @javascript, ( { src => '/javascript/jquery-ui.js', @language } );
 		} else {
