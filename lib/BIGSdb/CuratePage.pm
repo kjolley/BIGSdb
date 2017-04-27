@@ -121,7 +121,7 @@ sub _get_form_fields {
 	my $q = $self->{'cgi'};
 	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
-	my $buffer  = q();
+	my $buffer = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
 			next FIELD if $att->{'hide_in_form'};
@@ -177,8 +177,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'}  && $showing_required )
-		|| (  !$att->{'required'}  && !$showing_required ) )
+	if (   ( $att->{'required'} && $showing_required )
+		|| ( !$att->{'required'} && !$showing_required ) )
 	{
 		return 1;
 	}
@@ -203,7 +203,7 @@ sub _get_label {
 	  : q();
 	my $buffer = qq(<label$for class="form" style="width:${width}em"$title_attribute>);
 	$buffer .= qq($label:);
-	$buffer .= q(!) if $att->{'required'} ;
+	$buffer .= q(!) if $att->{'required'};
 	$buffer .= q(</label>);
 	return $buffer;
 }
@@ -259,7 +259,7 @@ sub _get_no_update_field {
 	my ( $self,    $args ) = @_;
 	my ( $newdata, $att )  = @$args{qw(newdata att)};
 	my $q = $self->{'cgi'};
-	return q() if !( $q->param('page') eq 'update' && $att->{'no_user_update'}  );
+	return q() if !( $q->param('page') eq 'update' && $att->{'no_user_update'} );
 	my $buffer = qq(<span id="$att->{'name'}">\n);
 	if ( $att->{'name'} eq 'sequence' ) {
 		my $data_length = length( $newdata->{ $att->{'name'} } );
@@ -352,7 +352,7 @@ sub _get_non_admin_locus_field {
 sub _get_foreign_key_dropdown_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
-	return q() if !(  $att->{'dropdown_query'} && $att->{'foreign_key'} );
+	return q() if !( $att->{'dropdown_query'} && $att->{'foreign_key'} );
 	my @fields_to_query;
 	my $desc;
 	if ( $att->{'labels'} ) {
@@ -898,11 +898,19 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $width, $options ) = @_;
-	my $q        = $self->{'cgi'};
+	my $q = $self->{'cgi'};
+	my $buffer = $self->_get_user_site_db_field( $newdata, $width, $options );
+	$buffer .= $self->_get_user_quota_field( $newdata, $width, $options );
+	return $buffer;
+}
+
+sub _get_user_site_db_field {
+	my ( $self, $newdata, $width, $options ) = @_;
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return q() if !@$user_dbs;
 	return q() if !$options->{'update'} && !$self->{'permissions'}->{'modify_site_users'};
+	my $q      = $self->{'cgi'};
 	my $ids    = [];
 	my $labels = {};
 	my $default_db;
@@ -930,6 +938,36 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 		%disabled
 	);
 	$buffer .= qq(</li>\n);
+	return $buffer;
+}
+
+sub _get_user_quota_field {
+	my ( $self, $newdata, $width, $options ) = @_;
+	return q() if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q = $self->{'cgi'};
+	if ( $options->{'update'} ) {
+		if ( $newdata->{'status'} eq 'user' ) {
+			$newdata->{'quota'} = 0;
+		} else {
+			my $current_quota =
+			  $self->{'datastore'}->run_query( 'SELECT value FROM user_limits WHERE (user_id,attribute)=(?,?)',
+				[ $newdata->{'id'}, 'private_isolates' ] );
+			$newdata->{'quota'} = $current_quota // $self->{'system'}->{'default_private_records'} // 0;
+		}
+	} else {
+		$newdata->{'quota'} = $q->param('quota') // $self->{'system'}->{'default_private_records'} // 0;
+	}
+	my $buffer = qq(<li><label for="quota" class="form" style="width:${width}em">private quota:</label>\n);
+	$buffer .= $self->textfield(
+		-name  => 'quota',
+		-id    => 'quota',
+		-style => 'width:6em',
+		-value => $newdata->{'quota'},
+		-type  => 'number',
+		-min   => 0
+	);
+	$buffer .= q( <span class="comment">User must be either a submitter, curator, )
+	  . q(or admin to upload private records</span>);
 	return $buffer;
 }
 
@@ -1039,7 +1077,7 @@ sub check_record {
 
 sub _check_is_missing {
 	my ( $self, $att, $newdata ) = @_;
-	if ( $att->{'required'} 
+	if ( $att->{'required'}
 		&& ( !defined $newdata->{ $att->{'name'} } || $newdata->{ $att->{'name'} } eq '' ) )
 	{
 		return 1;
