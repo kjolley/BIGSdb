@@ -1076,14 +1076,24 @@ sub _check_data_users {
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'status' ) {
-		if ( defined $value && $value ne 'user' && !$self->is_admin ) {
-			my $problem_text = q(Only a user with admin status can add a user with a status other than 'user'.<br />);
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination}
-			  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
+	my $check          = {
+		status => sub {
+			if ( defined $value && $value ne 'user' && !$self->is_admin ) {
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  q(Only a user with admin status can add a user with a status other than 'user'.<br />);
+				${ $arg_ref->{'special_problem'} } = 1;
+			}
+		},
+		user_db => sub {
+			if ( defined $value && $value ne q() ) {
+				$arg_ref->{'problems'}->{$pk_combination} .= q(You cannot batch add users from external )
+				  . q(user databases using this function. You need to import them.);
+				${ $arg_ref->{'special_problem'} } = 1;
+			}
+		  }
+	};
+	if ( $check->{$field} ) {
+		$check->{$field}->();
 	}
 	return;
 }
