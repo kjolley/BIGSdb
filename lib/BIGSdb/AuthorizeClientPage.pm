@@ -169,9 +169,10 @@ sub _modify_authorization {
 		my @revoked;
 		foreach my $client (@$known_clients) {
 			next if !$q->param( $client->{'client_id'} );
+			my $user_db_name = $self->get_user_db_name($self->{'username'});
 			eval {
-				$self->{'auth_db'}->do( 'DELETE FROM access_tokens WHERE (username,client_id)=(?,?)',
-					undef, $self->{'username'}, $client->{'client_id'} );
+				$self->{'auth_db'}->do( 'DELETE FROM access_tokens WHERE (username,client_id,dbase)=(?,?,?)',
+					undef, $self->{'username'}, $client->{'client_id'}, $user_db_name);
 			};
 			if ($@) {
 				$logger->error($@);

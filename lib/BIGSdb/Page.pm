@@ -2274,62 +2274,11 @@ sub _initiate_isolatedb_scheme_prefs {
 
 sub initiate_view {
 	my ( $self, $username ) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	my $args = { username => $username };
+	$args->{'curate'} = $self->{'curate'} if $self->{'curate'};
 	my $set_id = $self->get_set_id;
-	if ( defined $self->{'system'}->{'view'} && $set_id ) {
-		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
-			my $set_view = $self->{'datastore'}->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
-			$self->{'system'}->{'view'} = $set_view if $set_view;
-		}
-	}
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
-	my $qry       = "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} v WHERE ";
-	my @args;
-	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
-	use constant OWN_PRIVATE_ISOLATES   => 'EXISTS(SELECT 1 FROM private_isolates WHERE (isolate_id,user_id)=(v.id,?))';
-	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
-	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
-	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
-	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
-	  . 'WHERE isolate_id=v.id))';
-	use constant PUBLIC_ISOLATES => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
-	use constant ISOLATES_FROM_USER_PROJECT =>
-	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
-	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
-
-	if ( !$user_info ) {                                    #Not logged in
-		$qry .= PUBLIC_ISOLATES;
-	} else {
-		my @user_terms;
-		if ( $self->{'curate'} ) {
-			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
-			my $method = {
-				submitter => sub {
-					@user_terms =
-					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
-				},
-				curator => sub {
-					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES );
-				  }
-			};
-			if ( $method->{ $user_info->{'status'} } ) {
-				$method->{ $user_info->{'status'} }->();
-			} else {
-				return;
-			}
-		} else {
-			@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, ISOLATES_FROM_USER_PROJECT );
-		}
-		local $" = q( OR );
-		$qry .= qq(@user_terms);
-		my $user_term_count = () = $qry =~ /\?/gx;    #apply list context to capture
-		@args = ( $user_info->{'id'} ) x $user_term_count;
-	}
-	if ($qry) {
-		eval { $self->{'db'}->do( $qry, undef, @args ) };
-		$logger->error($@) if $@;
-		$self->{'system'}->{'view'} = 'temp_view';
-	}
+	$args->{'set_id'} = $set_id if $set_id;
+	$self->{'datastore'}->initiate_view($args);
 	return;
 }
 
@@ -2674,5 +2623,19 @@ sub use_correct_user_database {
 		$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
 	}
 	return;
+}
+
+sub get_user_db_name {
+	my ( $self, $user_name ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+		return $self->{'system'}->{'db'};
+	}
+	my $db_name = $self->{'datastore'}->run_query(
+		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+		$user_name
+	);
+	$db_name //= $self->{'system'}->{'db'};
+	return $db_name;
 }
 1;

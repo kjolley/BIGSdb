@@ -300,10 +300,16 @@ sub _print_options_section {
 	} else {
 		say qq(<li><a href="${url_root}table=schemes$cache_string">Scheme options</a></li>);
 	}
-	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} ) {
+	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} && $self->{'username'} ) {
+		my $user_db_name = $self->{'datastore'}->run_query(
+			'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+			  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+			$self->{'username'}
+		);
+		$user_db_name //= $self->{'system'}->{'db'};
 		my $clients_authorized = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM access_tokens WHERE dbase=?)',
-			$self->{'system'}->{'db'},
+			'SELECT EXISTS(SELECT * FROM access_tokens WHERE (dbase,username)=(?,?))',
+			[ $user_db_name, $self->{'username'} ],
 			{ db => $self->{'auth_db'} }
 		);
 		if ($clients_authorized) {
