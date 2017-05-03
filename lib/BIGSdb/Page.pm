@@ -1512,7 +1512,8 @@ sub get_record_name {
 		retired_isolates                  => 'retired isolate id',
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field',
-		user_dbases                       => 'user database'
+		user_dbases                       => 'user database',
+		locus_links                       => 'locus link'
 	);
 	return $names{$table};
 }
@@ -1833,7 +1834,7 @@ sub can_modify_table {
 
 		#Sequence definition database only tables
 		#Alleles and locus descriptions
-		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions retired_allele_ids);
+		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids);
 		if ( $seq_tables{$table} ) {
 			return 1 if !$locus;
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );

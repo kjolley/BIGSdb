@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -82,7 +82,8 @@ sub print_content {
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
 		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
-		if ( $seq_table{$table} && $q->param('locus') || $table eq 'locus_descriptions' ) {
+		my %locus_table = map {$_ => 1} qw(locus_descriptions locus_links);
+		if ( ($seq_table{$table} && $q->param('locus')) || $locus_table{$table}) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
 			say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add $locus $record_type)

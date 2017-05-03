@@ -121,7 +121,7 @@ sub _get_form_fields {
 	my $q = $self->{'cgi'};
 	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
-	my $buffer  = q();
+	my $buffer = q();
 	foreach my $required (qw(1 0)) {
 	  FIELD: foreach my $att (@$attributes) {
 			next FIELD if $att->{'hide_in_form'};
@@ -177,8 +177,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'}  && $showing_required )
-		|| (  !$att->{'required'}  && !$showing_required ) )
+	if (   ( $att->{'required'} && $showing_required )
+		|| ( !$att->{'required'} && !$showing_required ) )
 	{
 		return 1;
 	}
@@ -203,7 +203,7 @@ sub _get_label {
 	  : q();
 	my $buffer = qq(<label$for class="form" style="width:${width}em"$title_attribute>);
 	$buffer .= qq($label:);
-	$buffer .= q(!) if $att->{'required'} ;
+	$buffer .= q(!) if $att->{'required'};
 	$buffer .= q(</label>);
 	return $buffer;
 }
@@ -259,7 +259,7 @@ sub _get_no_update_field {
 	my ( $self,    $args ) = @_;
 	my ( $newdata, $att )  = @$args{qw(newdata att)};
 	my $q = $self->{'cgi'};
-	return q() if !( $q->param('page') eq 'update' && $att->{'no_user_update'}  );
+	return q() if !( $q->param('page') eq 'update' && $att->{'no_user_update'} );
 	my $buffer = qq(<span id="$att->{'name'}">\n);
 	if ( $att->{'name'} eq 'sequence' ) {
 		my $data_length = length( $newdata->{ $att->{'name'} } );
@@ -331,7 +331,8 @@ sub _get_allele_id_field {
 sub _get_non_admin_locus_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
-	my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions);
+	my %seq_table =
+	  map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions locus_links);
 	return q() if !( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin );
 	my $set_id = $self->get_set_id;
 	my ( $values, $desc ) =
@@ -352,7 +353,7 @@ sub _get_non_admin_locus_field {
 sub _get_foreign_key_dropdown_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
-	return q() if !(  $att->{'dropdown_query'} && $att->{'foreign_key'} );
+	return q() if !( $att->{'dropdown_query'} && $att->{'foreign_key'} );
 	my @fields_to_query;
 	my $desc;
 	if ( $att->{'labels'} ) {
@@ -1039,7 +1040,7 @@ sub check_record {
 
 sub _check_is_missing {
 	my ( $self, $att, $newdata ) = @_;
-	if ( $att->{'required'} 
+	if ( $att->{'required'}
 		&& ( !defined $newdata->{ $att->{'name'} } || $newdata->{ $att->{'name'} } eq '' ) )
 	{
 		return 1;
