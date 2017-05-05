@@ -142,7 +142,7 @@ sub _print_interface {
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
-	say $q->hidden($_) foreach qw (db page table);
+	say $q->hidden($_) foreach qw (db page table set_id);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_designations_fieldset;

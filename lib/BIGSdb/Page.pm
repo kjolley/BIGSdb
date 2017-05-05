@@ -1339,8 +1339,9 @@ sub clean_locus {
 
 sub get_set_id {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
+		my $set_id = $self->{'system'}->{'set_id'} // $q->param('set_id') // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' && !$self->{'curate'} ) {
