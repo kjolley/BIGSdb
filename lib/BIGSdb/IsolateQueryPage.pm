@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -861,8 +861,11 @@ sub _print_loci_fields {
 		-labels => $locus_labels,
 		-class  => 'fieldlist'
 	);
-	say $q->popup_menu( -name => "designation_operator$row", -id => "designation_operator$row",
-		-values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "designation_operator$row",
+		-id     => "designation_operator$row",
+		-values => [OPERATORS]
+	);
 	say $q->textfield(
 		-name        => "designation_value$row",
 		-id          => "designation_value$row",
@@ -973,8 +976,12 @@ sub _run_query {
 		} else {
 			$qry .= $q->param('order') || 'id';
 		}
-		my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
+		my $dir =
+		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
+		       #Adding additional ordering by datestamp
+		       #See http://stackoverflow.com/questions/21385555/postgresql-query-very-slow-with-limit-1
+		       #This changed a query against an isolate extended field from 10s -> 43ms!
+		$qry .= " $dir,$self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.datestamp;";
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {
@@ -1478,8 +1485,7 @@ sub _modify_query_by_profile_status {
 	my $view    = $self->{'system'}->{'view'};
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
-		if ( ( $q->param("scheme_${scheme_id}_profile_status_list") // q() ) ne '' )
-		{
+		if ( ( $q->param("scheme_${scheme_id}_profile_status_list") // q() ) ne '' ) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			if (@$scheme_loci) {
 				my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
