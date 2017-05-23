@@ -152,9 +152,8 @@ sub break_line {
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
 	$orig_string //= q();
-	my $seq = q();
-	my $s;
-	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, q();
+	my @lines = $orig_string =~ /(.{1,$length})/gx;
+	my $seq = join( "\n", @lines );
 	$seq =~ s/\n$//x;
 	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }

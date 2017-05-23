@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.16.4');
+use version; our $VERSION = version->declare('v1.16.5');
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
@@ -387,7 +387,10 @@ sub read_config_file {
 			undef $self->{'config'}->{$param};
 		}
 	}
-	$self->{'config'}->{'intranet'} ||= 'no';
+	foreach my $param (qw(intranet disable_updates)){
+		$self->{'config'}->{$param} //= 0;
+		$self->{'config'}->{$param} = 0 if $self->{'config'}->{$param} eq 'no';
+	}
 	$self->{'config'}->{'cache_days'} //= 7;
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)

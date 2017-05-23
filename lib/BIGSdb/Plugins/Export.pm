@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.8',
+		version     => '1.3.9',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -250,7 +250,7 @@ sub run_job {
 		#Convert list attribute field to ids.
 		my $view            = $self->{'system'}->{'view'};
 		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
-		$params->{'qry'} =~ s/FROM\ $view.*?ORDER\ BY/FROM $view WHERE $BY_ID/x;
+		$params->{'qry'} =~ s/(FROM\ $view.*?)WHERE.*ORDER\ BY/$1 WHERE $BY_ID/x;
 	}
 	my $limit =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )

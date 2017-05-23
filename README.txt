@@ -1,3 +1,7 @@
+v1.16.5: *Option to prevent using Google CDN for loading JQuery. This 
+          can be blocked by Chinese firewall preventing Chinese users
+          from changing their password (which is needed for site-wide
+          registering).
 v1.16.4: *Seqbin breakdown option to only calculate contig stats (faster
           for large databases).
          *Fix for Artemis link in seqbin breakdown page.

@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.4',
+		version     => '2.0.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -534,6 +534,9 @@ sub _analyse_by_reference {
 	};
 	if ($@) {
 		throw BIGSdb::PluginException('Invalid data in reference genome.');
+	}
+	if ( !@cds ) {
+		throw BIGSdb::PluginException('No loci defined in reference genome.');
 	}
 	my %abb = ( cds => 'coding regions' );
 	my $html_buffer = q(<h3>Analysis by reference genome</h3>);
@@ -2053,7 +2056,7 @@ sub _extract_cds_details {
 	}
 	local $" = '|';
 	my $locus_name = $locus // 'locus' . sprintf( '%05d', $locus_num );
-	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;                     #Invalid entry in reference file.
+	return if $locus_name =~ /^Bio::PrimarySeq=HASH/x;    #Invalid entry in reference file.
 	my $full_name = $locus_name;
 	$full_name .= "|@aliases" if @aliases;
 	my $seq;

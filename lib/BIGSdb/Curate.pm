@@ -196,7 +196,7 @@ sub print_page {
 		return;
 	}
 	if (   ( $self->{'system'}->{'disable_updates'} // q() ) eq 'yes'
-		|| ( $self->{'config'}->{'disable_updates'} // q() ) eq 'yes' )
+		||  $self->{'config'}->{'disable_updates'}  )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'}

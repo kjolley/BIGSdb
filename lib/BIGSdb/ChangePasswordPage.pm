@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Login);
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Page');
+my $logger = get_logger('BIGSdb.User');
 use constant MIN_PASSWORD_LENGTH => 8;
 use BIGSdb::Login qw(BCRYPT_COST UNIQUE_STRING);
 
@@ -174,6 +174,7 @@ sub _set_validated_status {
 	eval {
 		$self->{'db'}->do( 'UPDATE users SET (status,validate_start)=(?,?) WHERE user_name=?',
 			undef, 'validated', undef, $self->{'username'} );
+		$logger->info("User $self->{'username'} has changed their password.");
 	};
 	if ($@) {
 		$logger->error($@);
