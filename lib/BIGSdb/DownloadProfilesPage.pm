@@ -79,6 +79,11 @@ sub print_content {
 		print qq(\t$field);
 		push @fields, $field;
 	}
+	my $cg_schemes = $self->_get_classification_schemes($scheme_id);
+	my $c_groups   = $self->_get_classification_groups($scheme_id);
+	foreach my $cg_scheme (@$cg_schemes) {
+		print qq(\t$cg_scheme->{'name'});
+	}
 	print qq(\n);
 	local $" = q(,);
 	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
@@ -92,9 +97,37 @@ sub print_content {
 		foreach my $definition (@$data) {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
-			say qq($pk\t@$profile[@order]\t@$definition);
+			print qq($pk\t@$profile[@order]);
+			print qq(\t@$definition) if @$definition;
+			foreach my $cg_schemes (@$cg_schemes) {
+				my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk};
+				print qq(\t$group_id);
+			}
+			print qq(\n);
 		}
 	}
 	return;
+}
+
+#TODO Add defined ordering
+sub _get_classification_schemes {
+	my ( $self, $scheme_id ) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY id',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} }
+	);
+}
+
+sub _get_classification_groups {
+	my ( $self, $scheme_id ) = @_;
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT cg_scheme_id,group_id,profile_id FROM classification_group_profiles WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $groups = {};
+	foreach my $values (@$data) {
+		$groups->{ $values->{'cg_scheme_id'} }->{ $values->{'profile_id'} } = $values->{'group_id'};
+	}
+	return $groups;
 }
 1;
