@@ -103,3 +103,6 @@ $$ LANGUAGE plpgsql;
 SELECT initiate_scheme_warehouse(scheme_id) FROM scheme_fields WHERE PRIMARY_KEY AND 
 scheme_id IN (SELECT scheme_id FROM scheme_members) AND 
 scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE type='text' AND index);
+
+ALTER TABLE classification_schemes ADD display_order int;
+
