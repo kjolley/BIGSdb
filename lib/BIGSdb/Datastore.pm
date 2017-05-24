@@ -1349,9 +1349,9 @@ sub get_locus_list {
 	if ( $options->{'set_id'} ) {
 		$qry =
 		    'SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id='
-		  . 'set_loci.locus WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id '
-		  . "FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE "
-		  . "set_id=$options->{'set_id'})";
+		  . "set_loci.locus AND set_loci.set_id=$options->{'set_id'} WHERE id IN (SELECT locus FROM scheme_members "
+		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN "
+		  . "(SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'})";
 	} else {
 		$qry = 'SELECT id,common_name FROM loci';
 	}
@@ -2362,7 +2362,7 @@ sub create_temp_allele_table {
 	my $table = 'temp_seqs_' . int( rand(99999999) );
 	eval {
 		$self->{'db'}->do(
-			    "CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
+			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
 			  . 'AS sequence FROM sequences WHERE locus=?;'
 			  . "CREATE INDEX i_${table}_seq ON $table(md5(sequence))",
 			undef, $locus

@@ -563,8 +563,11 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
+	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+	
 	say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
-	  . qq(db=$self->{'instance'}&amp;id=$id">$id</a></td>);
+	  . qq(db=$self->{'instance'}$set_clause&amp;id=$id">$id</a></td>);
 	return;
 }
 

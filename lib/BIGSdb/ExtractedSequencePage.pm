@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -126,7 +126,7 @@ sub get_option_fieldset {
 		-class => BUTTON_CLASS,
 		-style => 'float:right;margin-top:0.5em'
 	);
-	$buffer.= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus);
+	$buffer.= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
 	$buffer.= $q->end_form;
 	$buffer.= q(</fieldset>);
 	return $buffer;
