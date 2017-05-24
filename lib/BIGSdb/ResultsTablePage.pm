@@ -205,7 +205,7 @@ sub _get_pagebar {
 	my $buffer = $q->start_form;
 	$q->param( table => $table );
 	$buffer .= $q->hidden($_)
-	  foreach qw (query_file currentpage page db displayrecs order table direction sent records);
+	  foreach qw (query_file currentpage page db displayrecs order table direction sent records set_id);
 	$buffer .= $q->hidden( message => $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
