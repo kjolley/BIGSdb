@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.7',
+		version          => '1.0.8',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
