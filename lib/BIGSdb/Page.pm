@@ -1383,21 +1383,16 @@ sub get_link_button_to_ref {
 	my ( $self, $ref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
-	if ( !$self->{'sql'}->{'link_ref'} ) {
-		my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
-		  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
-		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'link_ref'}->execute($ref) };
-	$logger->error($@) if $@;
-	my ($count) = $self->{'sql'}->{'link_ref'}->fetchrow_array;
+	my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
+	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
+	my $count = $self->{'datastore'}->run_query( $qry, $ref, { cache => 'Page::link_ref' } );
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => 'display:inline' );
 	$q->param( curate => 1 ) if $self->{'curate'};
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );
-	$buffer .= $q->hidden($_) foreach qw(db page curate pmid);
+	$buffer .= $q->hidden($_) foreach qw(db page curate pmid set_id);
 	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
 	$buffer .= $q->end_form;
 	$q->param( page => 'info' );
@@ -1661,10 +1656,12 @@ sub get_seq_detail_tooltips {
 	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $allele_sequences,
 		\@flags_foreach_alleleseq );
 	if (@$allele_sequences) {
+		my $set_id         = $self->get_set_id;
+		my $set_clause     = $set_id ? qq(&amp;set_id=$set_id) : q();
 		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 		$buffer .=
 		    qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
-		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;)
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence$set_clause&amp;)
 		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S&nbsp;</a>);
 	}
 	if (@all_flags) {
