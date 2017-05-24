@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.9',
+		version     => '1.3.10',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -205,9 +205,14 @@ sub run {
 			);
 			say q( done</p>);
 			say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
-			my $excel =
-			  BIGSdb::Utils::text2excel( $full_path,
-				{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+			my $excel = BIGSdb::Utils::text2excel(
+				$full_path,
+				{
+					worksheet   => 'Export',
+					tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
+					text_fields => $self->{'system'}->{'labelfield'}
+				}
+			);
 			say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
 			say q( (right-click to save)</p>);
 			say q(</div>);
@@ -248,8 +253,8 @@ sub run_job {
 		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
 
 		#Convert list attribute field to ids.
-		my $view            = $self->{'system'}->{'view'};
-		my $BY_ID           = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
+		my $view  = $self->{'system'}->{'view'};
+		my $BY_ID = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
 		$params->{'qry'} =~ s/(FROM\ $view.*?)WHERE.*ORDER\ BY/$1 WHERE $BY_ID/x;
 	}
 	my $limit =
@@ -288,9 +293,14 @@ sub run_job {
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
 		$self->{'db'}->commit;                               #prevent idle in transaction table locks
-		my $excel_file =
-		  BIGSdb::Utils::text2excel( $filename,
-			{ worksheet => 'Export', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		my $excel_file = BIGSdb::Utils::text2excel(
+			$filename,
+			{
+				worksheet   => 'Export',
+				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields => $self->{'system'}->{'labelfield'}
+			}
+		);
 		if ( -e $excel_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "$job_id.xlsx", description => '02_Export table (Excel)', compress => 1 } );
@@ -377,8 +387,8 @@ sub _write_tab_text {
 
 	while ( $sql->fetchrow_arrayref ) {
 		next
-		  if $id_used{ $data{ 'id'
-		  } };    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		  if $id_used{ $data{ 'id' } }
+		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
 		if ( !$offline ) {
 			print q(.) if !$i;
