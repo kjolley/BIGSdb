@@ -106,3 +106,12 @@ scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE type='text' AND index);
 
 ALTER TABLE classification_schemes ADD display_order int;
 
+ALTER TABLE locus_links DROP CONSTRAINT ll_locus;
+ALTER TABLE locus_links ADD CONSTRAINT ll_locus FOREIGN KEY(locus) REFERENCES loci 
+ON UPDATE CASCADE ON DELETE CASCADE;
+
+ALTER TABLE locus_refs DROP CONSTRAINT lr_locus;
+ALTER TABLE locus_refs ADD CONSTRAINT lr_locus FOREIGN KEY(locus) REFERENCES loci 
+ON UPDATE CASCADE ON DELETE CASCADE;
+
+
