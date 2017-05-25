@@ -30,6 +30,7 @@ my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
 use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
+use BIGSdb::REST::Routes::ClassificationSchemes;
 use BIGSdb::REST::Routes::Contigs;
 use BIGSdb::REST::Routes::Fields;
 use BIGSdb::REST::Routes::Isolates;

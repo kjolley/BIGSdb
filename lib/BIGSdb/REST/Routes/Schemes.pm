@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -84,6 +84,22 @@ sub _get_scheme {
 			push @curator_links, request->uri_for("/db/$db/users/$user_id");
 		}
 		$values->{'curators'} = \@curator_links if @curator_links;
+	}
+
+	#TODO Change ordering to display_order once field is present in table (v1.17).
+	my $c_scheme_list =
+	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY id',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	if (@$c_scheme_list) {
+		my $c_schemes = [];
+		foreach my $c_scheme (@$c_scheme_list) {
+			push @$c_schemes,
+			  {
+				href => request->uri_for("/db/$db/classification_schemes/$c_scheme->{'id'}"),
+				name => $c_scheme->{'name'}
+			  };
+		}
+		$values->{'classification_schemes'} = $c_schemes;
 	}
 	return $values;
 }
