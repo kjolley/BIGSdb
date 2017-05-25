@@ -331,7 +331,8 @@ sub _get_allele_id_field {
 sub _get_non_admin_locus_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $name, $newdata, $att, $html5_args ) = @$args{qw(table name newdata att html5_args)};
-	my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions);
+	my %seq_table =
+	  map { $_ => 1 } qw(sequences retired_allele_ids sequence_refs accession locus_descriptions locus_links);
 	return q() if !( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin );
 	my $set_id = $self->get_set_id;
 	my ( $values, $desc ) =

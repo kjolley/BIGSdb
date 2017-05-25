@@ -178,7 +178,7 @@ sub _get_seqdef_links {
 	my $set_string = $self->_get_set_string;
 	my $buffer     = q();
 	foreach (
-		qw (locus_descriptions scheme_curators locus_curators sequences retired_allele_ids accession
+		qw (locus_descriptions locus_links scheme_curators locus_curators sequences retired_allele_ids accession
 		sequence_refs profiles profile_refs retired_profiles)
 	  )
 	{
@@ -899,6 +899,19 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		{
 			requires   => 'loci',
 			comments   => 'Add alternative names for loci.  These can also be set when you batch add loci.',
+			set_string => $set_string
+		}
+	);
+}
+
+sub _print_locus_links {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return $self->_print_table(
+		'locus_links',
+		$td,
+		{
+			requires   => 'loci',
+			comments   => 'Links to external sites to add to the locus description.',
 			set_string => $set_string
 		}
 	);

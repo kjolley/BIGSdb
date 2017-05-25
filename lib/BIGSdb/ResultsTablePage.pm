@@ -219,7 +219,7 @@ sub _get_pagebar {
 	my $buffer = $q->start_form;
 	$q->param( table => $table );
 	$buffer .= $q->hidden($_)
-	  foreach qw (query_file currentpage page db displayrecs order table direction sent records);
+	  foreach qw (query_file currentpage page db displayrecs order table direction sent records set_id);
 	$buffer .= $q->hidden( message => $message ) if $message;
 
 	#Make sure hidden_attributes don't duplicate the above
@@ -610,8 +610,11 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
+	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+	
 	say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
-	  . qq(db=$self->{'instance'}&amp;id=$id">$id</a></td>);
+	  . qq(db=$self->{'instance'}$set_clause&amp;id=$id">$id</a></td>);
 	return;
 }
 

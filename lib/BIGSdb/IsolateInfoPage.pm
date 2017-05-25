@@ -404,9 +404,12 @@ sub print_content {
 	if ( $self->{'cgi'}->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
-		  . qq(id=$isolate_id">Back to isolate information</a></p>);
+	
 		say $self->_get_update_history($isolate_id);
+		my $back = BACK;
+			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+		say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
+		  . qq($set_clause&amp;id=$isolate_id" title="Back">$back</a></p>);
 		say q(</div>);
 	} else {
 		$self->_print_action_panel($isolate_id) if $self->{'curate'};
@@ -877,8 +880,10 @@ sub _get_history_field {
 		$buffer .= qq(<dt class="dontend">update history</dt>\n);
 		$buffer .= qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>);
 		my $refer_page = $q->param('page');
+		my $set_id = $self->get_set_id;
+		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 		$buffer .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
-		  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page">show details</a></dd>\n);
+		  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a></dd>\n);
 	}
 	return $buffer;
 }
@@ -1480,7 +1485,7 @@ sub _get_seqbin_link {
 		$q->param( curate => 1 ) if $self->{'curate'};
 		$q->param( page => 'seqbin' );
 		$q->param( isolate_id => $isolate_id );
-		$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id);
+		$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id set_id);
 		$buffer .= $q->submit( -value => 'Display', -class => 'smallbutton' );
 		$buffer .= $q->end_form;
 		$buffer .= qq(</dd></dl>\n);

@@ -653,6 +653,12 @@ sub _check_data {
 				sequences => sub {
 					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
+				locus_descriptions => sub {
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+				},
+				locus_links => sub {
+					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+				},
 				retired_allele_ids => sub {
 					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
@@ -662,7 +668,7 @@ sub _check_data {
 			);
 			$record_checks{$table}->() if $record_checks{$table};
 		}
-		$td = $td == 1 ? 2 : 1;    #row stripes
+		$td = $td == 1 ? 2 : 1;         #row stripes
 		$checked_record =~ s/\t$//x if defined $checked_record;
 		push @checked_buffer, $checked_record;
 	}
@@ -798,8 +804,7 @@ sub _check_permissions {
 	if ( defined $locus
 		&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 	{
-		$problems->{$pk_combination} .=
-		  "Your user account is not allowed to add or modify sequences for locus $locus. ";
+		$problems->{$pk_combination} .= "Your user account is not allowed to add or modify records for locus $locus. ";
 	}
 	return;
 }

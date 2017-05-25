@@ -677,7 +677,7 @@ sub get_locus_links_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'url',         type => 'text', required => 1, primary_key    => 1 },
-		{ name => 'description', type => 'text', length   => 256 },
+		{ name => 'description', type => 'text', required => 1, length   => 256 },
 		{ name => 'link_order',  type => 'int',  length   => 4 },
 		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',   type => 'date', required => 1 }

@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.16.4');
+use version; our $VERSION = version->declare('v1.16.5');
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;

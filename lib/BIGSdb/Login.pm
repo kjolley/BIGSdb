@@ -201,8 +201,8 @@ sub _MD5_login {
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
 	my ( $self, $options ) = @_;
-	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'The name field was missing.',     $options ) }
-	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit( 'The password field was missing.', $options ) }
+	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'Please enter username.',     $options ) }
+	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit( 'Please enter password.', $options ) }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );

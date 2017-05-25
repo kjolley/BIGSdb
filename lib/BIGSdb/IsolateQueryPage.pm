@@ -150,7 +150,7 @@ sub _print_interface {
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
-	say $q->hidden($_) foreach qw (db page table);
+	say $q->hidden($_) foreach qw (db page table set_id);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_designations_fieldset;
@@ -1024,8 +1024,12 @@ sub _run_query {
 		} else {
 			$qry .= $q->param('order') || 'id';
 		}
-		my $dir = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-		$qry .= " $dir,$self->{'system'}->{'view'}.id;";
+		my $dir =
+		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
+		       #Adding additional ordering by datestamp
+		       #See http://stackoverflow.com/questions/21385555/postgresql-query-very-slow-with-limit-1
+		       #This changed a query against an isolate extended field from 10s -> 43ms!
+		$qry .= " $dir,$self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.datestamp;";
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {

@@ -152,9 +152,8 @@ sub break_line {
 	my ( $string, $length ) = @_;
 	my $orig_string = ref $string eq 'SCALAR' ? $$string : $string;
 	$orig_string //= q();
-	my $seq = q();
-	my $s;
-	$seq .= "$s\n" while $s = substr $orig_string, 0, $length, q();
+	my @lines = $orig_string =~ /(.{1,$length})/gx;
+	my $seq = join( "\n", @lines );
 	$seq =~ s/\n$//x;
 	return ref $string eq 'SCALAR' ? \$seq : $seq;
 }
@@ -358,6 +357,13 @@ sub xmfa2fasta {
 sub text2excel {
 	my ( $text_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	my ( %text_fields, %text_cols );
+	if ( $options->{'text_fields'} ) {
+		%text_fields = map { $_ => 1 } split /,/x, $options->{'text_fields'};
+	}
+
+	#Always use text format for likely record names
+	$text_fields{$_} = 1 foreach qw(isolate strain sample);
 	my $excel_file;
 	if ( $options->{'stdout'} ) {
 		binmode(STDOUT);
@@ -366,6 +372,8 @@ sub text2excel {
 		( $excel_file = $text_file ) =~ s/txt$/xlsx/x;
 	}
 	my $workbook = Excel::Writer::XLSX->new($excel_file);
+	my $text_format = $workbook->add_format( num_format => '@' );
+	$text_format->set_align('center');
 	$workbook->set_tempdir( $options->{'tmp_dir'} ) if $options->{'tmp_dir'};
 	$workbook->set_optimization;
 	if ( !defined $workbook ) {
@@ -383,6 +391,7 @@ sub text2excel {
 	  || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
+	my $first_line = 1;
 
 	while ( my $line = <$text_fh> ) {
 		$line =~ s/\r?\n$//x;      #Remove terminal newline
@@ -390,12 +399,20 @@ sub text2excel {
 		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
 		my @values = split /\t/x, $line;
 		foreach my $value (@values) {
-			$worksheet->write( $row, $col, $value, $format );
+			if ( !$options->{'no_header'} && $first_line && $text_fields{$value} ) {
+				$text_cols{$col} = 1;
+			}
+			if ( !$first_line && $text_cols{$col} ) {
+				$worksheet->write_string( $row, $col, $value, $text_format );
+			} else {
+				$worksheet->write( $row, $col, $value, $format );
+			}
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
 			$col++;
 		}
 		$col = 0;
 		$row++;
+		$first_line = 0;
 	}
 	foreach my $col ( keys %widths ) {
 		my $width = my $value_width = int( 0.9 * ( $widths{$col} ) + 2 );

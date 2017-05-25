@@ -106,7 +106,7 @@ sub _get_javascript_paths {
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
-		if ( $self->{'config'}->{'no_cdn'} ) {
+		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
 			push @javascript, ( { src => '/javascript/jquery.js',    @language } );
 			push @javascript, ( { src => '/javascript/jquery-ui.js', @language } );
 		} else {
@@ -1360,8 +1360,9 @@ sub clean_locus {
 
 sub get_set_id {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
-		my $set_id = $self->{'system'}->{'set_id'} // $self->{'prefs'}->{'set_id'};
+		my $set_id = $self->{'system'}->{'set_id'} // $q->param('set_id') // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' && !$self->{'curate'} ) {
@@ -1403,21 +1404,16 @@ sub get_link_button_to_ref {
 	my ( $self, $ref, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
-	if ( !$self->{'sql'}->{'link_ref'} ) {
-		my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
-		  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
-		$self->{'sql'}->{'link_ref'} = $self->{'db'}->prepare($qry);
-	}
-	eval { $self->{'sql'}->{'link_ref'}->execute($ref) };
-	$logger->error($@) if $@;
-	my ($count) = $self->{'sql'}->{'link_ref'}->fetchrow_array;
+	my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
+	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
+	my $count = $self->{'datastore'}->run_query( $qry, $ref, { cache => 'Page::link_ref' } );
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form( -style => 'display:inline' );
 	$q->param( curate => 1 ) if $self->{'curate'};
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );
-	$buffer .= $q->hidden($_) foreach qw(db page curate pmid);
+	$buffer .= $q->hidden($_) foreach qw(db page curate pmid set_id);
 	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
 	$buffer .= $q->end_form;
 	$q->param( page => 'info' );
@@ -1533,7 +1529,8 @@ sub get_record_name {
 		retired_isolates                  => 'retired isolate id',
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field',
-		user_dbases                       => 'user database'
+		user_dbases                       => 'user database',
+		locus_links                       => 'locus link'
 	);
 	return $names{$table};
 }
@@ -1680,10 +1677,12 @@ sub get_seq_detail_tooltips {
 	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $allele_sequences,
 		\@flags_foreach_alleleseq );
 	if (@$allele_sequences) {
+		my $set_id         = $self->get_set_id;
+		my $set_clause     = $set_id ? qq(&amp;set_id=$set_id) : q();
 		my $sequence_class = $complete ? 'sequence_tooltip' : 'sequence_tooltip_incomplete';
 		$buffer .=
 		    qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
-		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence&amp;)
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence$set_clause&amp;)
 		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S&nbsp;</a>);
 	}
 	if (@all_flags) {
@@ -1854,7 +1853,7 @@ sub can_modify_table {
 
 		#Sequence definition database only tables
 		#Alleles and locus descriptions
-		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions retired_allele_ids);
+		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids);
 		if ( $seq_tables{$table} ) {
 			return 1 if !$locus;
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );

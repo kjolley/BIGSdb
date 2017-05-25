@@ -1353,9 +1353,9 @@ sub get_locus_list {
 	if ( $options->{'set_id'} ) {
 		$qry =
 		    'SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id='
-		  . 'set_loci.locus WHERE id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id '
-		  . "FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE "
-		  . "set_id=$options->{'set_id'})";
+		  . "set_loci.locus AND set_loci.set_id=$options->{'set_id'} WHERE id IN (SELECT locus FROM scheme_members "
+		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN "
+		  . "(SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'})";
 	} else {
 		$qry = 'SELECT id,common_name FROM loci';
 	}
@@ -2490,7 +2490,7 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields user_dbases);
+		  classification_group_fields user_dbases locus_links);
 	}
 	return @tables;
 }
