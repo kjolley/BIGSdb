@@ -59,6 +59,7 @@ sub _get_isolate {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $id ) = @{$params}{qw(db id)};
+	$self->check_isolate_database;
 	$self->check_isolate_is_valid($id);
 	my $values = {};
 	my $field_values =
@@ -148,6 +149,10 @@ sub _get_isolate {
 				}
 			}
 			$scheme_object->{'fields'} = $field_values if keys %$field_values;
+			my $similar_isolates = _get_similar( $scheme->{'id'}, $id );
+			if ( keys %$similar_isolates ) {
+				$scheme_object->{'classification_schemes'} = $similar_isolates;
+			}
 		}
 		push @$scheme_links, $scheme_object;
 	}
@@ -160,6 +165,69 @@ sub _get_isolate {
 	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?", $id );
 	if ($old_version) {
 		$values->{'old_version'} = request->uri_for("/db/$db/isolates/$old_version");
+	}
+	return $values;
+}
+
+sub _get_similar {
+	my ( $scheme_id, $isolate_id ) = @_;
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id ) = @{$params}{qw(db id)};
+	my $view   = $self->{'system'}->{'view'};
+	my $values = {};
+	my $classification_schemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $cscheme (@$classification_schemes) {
+		my $cache_table_exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
+			[ "temp_isolates_scheme_fields_$scheme_id", "temp_${view}_scheme_fields_$scheme_id" ]
+		);
+		if ( !$cache_table_exists ) {
+
+			#Scheme is not cached for this database - abort.
+			return {};
+		}
+		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		my $pk           = $scheme_info->{'primary_key'};
+		my $pk_values =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT $pk FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		my $c_scheme_values = [];
+		if (@$pk_values) {
+			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
+
+			#You may get multiple groups if you have a mixed sample
+			my %group_displayed;
+			foreach my $pk_value (@$pk_values) {
+				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+					$pk_value, { fetch => 'col_arrayref' } );
+				foreach my $group_id (@$groups) {
+					next if $group_displayed{$group_id};
+					my $isolate_count = $self->{'datastore'}->run_query(
+						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
+						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
+						$group_id
+					);
+					if ( $isolate_count > 1 ) {
+						push @$c_scheme_values, {
+							group   => int($group_id),
+							records => $isolate_count,
+							isolates =>
+							  request->uri_for("/db/$db/classification_schemes/$cscheme->{'id'}/groups/$group_id")
+						};
+					}
+				}
+			}
+		}
+		if (@$c_scheme_values) {
+			$values->{ $cscheme->{'name'} }->{'href'} =
+			  request->uri_for("/db/$db/classification_schemes/$cscheme->{'id'}");
+			$values->{ $cscheme->{'name'} }->{'groups'} = $c_scheme_values;
+		}
 	}
 	return $values;
 }
