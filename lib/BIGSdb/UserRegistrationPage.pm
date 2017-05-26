@@ -306,7 +306,7 @@ sub _bad_username {
 		undef, { fetch => 'col_arrayref' } );
 	my %invalid = map { $_ => 1 } @$invalid;
 	if ( $invalid{$user_name} ) {
-		push @problems, q(Username is aready registered. Site-wide accounts cannot use a user name )
+		push @problems, q(Username is already registered. Site-wide accounts cannot use a user name )
 		  . q(that is currently in use in any databases on the site.);
 	}
 	if (@problems) {
