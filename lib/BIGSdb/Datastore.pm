@@ -2503,7 +2503,8 @@ sub get_tables_with_curator {
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
 		  isolates);
-		push @tables, $self->{'system'}->{'view'} if ( $self->{'system'}->{'view'} // q() ) ne 'isolates';
+		push @tables, $self->{'system'}->{'view'}
+		  if $self->{'system'}->{'view'} && $self->{'system'}->{'view'} ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {
 		@tables = qw(users user_groups sequences profile_refs sequence_refs accession loci schemes
 		  scheme_members scheme_fields scheme_groups scheme_group_scheme_members scheme_group_group_members
