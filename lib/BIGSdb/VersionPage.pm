@@ -52,7 +52,7 @@ sub print_about_bigsdb {
 <span class="main_icon fa fa-copyright fa-3x pull-left"></span>
 <ul style="margin-left:1em">
 <li>Written by Keith Jolley</li>
-<li>Copyright &copy; University of Oxford, 2010-2016.</li>
+<li>Copyright &copy; University of Oxford, 2010-2017.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
 Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></li>
 </ul>
