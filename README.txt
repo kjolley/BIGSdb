@@ -1,3 +1,5 @@
+v1.16.6: *Include classification groups in profile downloads and make
+          accessible in RESTful API.
 v1.16.5: *Option to prevent using Google CDN for loading JQuery. This 
           can be blocked by Chinese firewall preventing Chinese users
           from changing their password (which is needed for site-wide
