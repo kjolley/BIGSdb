@@ -337,13 +337,10 @@ sub _generate_query {
 			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
 			  . "$view.id=allele_designations.isolate_id WHERE @lqry";
 		} else {
-			$lqry =
-			    '(SELECT DISTINCT(profiles.profile_id) FROM profiles LEFT JOIN profile_members ON '
-			  . 'profiles.profile_id=profile_members.profile_id AND profiles.scheme_id=profile_members.scheme_id '
-			  . "AND profile_members.scheme_id=$scheme_id WHERE "
-			  . "$scheme_warehouse.$scheme_info->{'primary_key'}=profiles.profile_id AND (@lqry)";
+			$lqry = '(SELECT profile_members.profile_id FROM profile_members WHERE '
+			  . "profile_members.scheme_id=$scheme_id AND (@lqry)";
 		}
-		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
+		if ( $required_matches == 0 ) {                                #Find out the greatest number of matches
 			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
 			if ($match) {
 				$required_matches = $match;
@@ -353,11 +350,11 @@ sub _generate_query {
 		$lqry .=
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
-		  : " GROUP BY profiles.profile_id HAVING count(profiles.profile_id)>=$required_matches)";
+		  : " GROUP BY profile_members.profile_id HAVING count(profile_members.profile_id)>=$required_matches)";
 		$qry =
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
-		  : "SELECT * FROM $scheme_warehouse WHERE EXISTS $lqry";
+		  : "SELECT * FROM $scheme_warehouse WHERE $scheme_warehouse.$scheme_info->{'primary_key'} IN $lqry";
 	}
 	$self->_modify_qry_by_filters( \$qry );
 	$self->_add_query_ordering( \$qry, $scheme_id );
