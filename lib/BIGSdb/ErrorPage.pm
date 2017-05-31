@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,8 +38,9 @@ sub print_content {
 	say qq(<h1>$desc</h1>);
 	say q(<div class="box" id="statusbad">);
 	no warnings 'once';
-	my $upload_limit = BIGSdb::Utils::get_nice_size($CGI::POST_MAX);
-	my %error        = (
+	my $upload_limit   = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} );
+	my $content_length = BIGSdb::Utils::get_nice_size( $ENV{'CONTENT_LENGTH'} // 0 );
+	my %error          = (
 		missingXML    => q(Database description file does not exist!),
 		invalidXML    => q(Invalid database description file specified!),
 		invalidDbType => q(Invalid database type specified! Please set dbtype to either 'isolates' )
@@ -58,8 +59,9 @@ sub print_content {
 		configAccessDenied => q(Your user account cannot access this database configuration.  If you believe )
 		  . q(this to be an error, please contact the system administrator.),
 		tooBig => q(You are attempting to upload too much data in one go.  )
-		  . qq(Uploads are limited to a size of $upload_limit.)
+		  . qq(Uploads are limited to a size of $upload_limit - you attempted to upload $content_length.)
 	);
+
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
 		say q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>)

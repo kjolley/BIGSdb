@@ -104,9 +104,13 @@ sub new {
 	bless( $self, $class );
 	$self->read_config_file($config_dir);
 	$self->{'config'}->{'version'} = $VERSION;
-	$CGI::POST_MAX                 = $self->{'config'}->{'max_upload_size'};
-	$CGI::DISABLE_UPLOADS          = 0;
-	$self->{'cgi'}                 = CGI->new;
+	$self->{'max_upload_size_mb'} = $self->{'config'}->{'max_upload_size'};
+
+	#Under SSL if upload size > CGI::POST_MAX then call will fail but not return useful message.
+	#The following will stop a ridiculously large upload.
+	$CGI::POST_MAX        = $self->{'config'}->{'max_upload_size'} * 4;
+	$CGI::DISABLE_UPLOADS = 0;
+	$self->{'cgi'}        = CGI->new;
 	$self->_initiate( $config_dir, $dbase_config_dir );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
@@ -162,8 +166,8 @@ sub _initiate {
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
 	$self->read_host_mapping_file($config_dir);
-	my $content_length = defined $ENV{'CONTENT_LENGTH'} ? $ENV{'CONTENT_LENGTH'} : 0;
-	if ( $content_length > $CGI::POST_MAX ) {
+	my $content_length = $ENV{'CONTENT_LENGTH'} // 0;
+	if ( $content_length > $self->{'max_upload_size_mb'} ) {
 		$self->{'error'} = 'tooBig';
 		my $size = BIGSdb::Utils::get_nice_size($content_length);
 		$logger->fatal("Attempted upload too big - $size.");
@@ -387,7 +391,7 @@ sub read_config_file {
 			undef $self->{'config'}->{$param};
 		}
 	}
-	foreach my $param (qw(intranet disable_updates)){
+	foreach my $param (qw(intranet disable_updates)) {
 		$self->{'config'}->{$param} //= 0;
 		$self->{'config'}->{$param} = 0 if $self->{'config'}->{$param} eq 'no';
 	}
@@ -605,9 +609,11 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
-		$page_attributes{'error'} = $self->{'error'};
-		$page = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'error'}              = $self->{'error'};
+		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
+		$page                                  = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		if ( $page_attributes{'error'} ) {
 			$self->{'handled_error'} = 1;
