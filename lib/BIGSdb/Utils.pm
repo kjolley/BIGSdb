@@ -22,7 +22,7 @@
 package BIGSdb::Utils;
 use strict;
 use warnings;
-use POSIX qw(ceil);
+use POSIX qw(ceil strftime);
 use BIGSdb::BIGSException;
 use List::MoreUtils qw(any none);
 use Bio::SeqIO;
@@ -865,5 +865,10 @@ sub dictionary_sort {
 		[ $_, $d ]
 	  } uniq @$values;
 	return \@ret_values;
+}
+
+sub get_nice_duration {
+	my ($seconds) = @_;
+	return strftime( '%H:%M:%S', gmtime($seconds) );
 }
 1;

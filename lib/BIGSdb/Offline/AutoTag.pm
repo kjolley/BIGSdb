@@ -63,7 +63,8 @@ sub run_script {
 	}
 	my $stop     = time;
 	my $duration = $stop - $self->{'start_time'};
-	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($duration s)");
+	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($nice_duration)");
 	return;
 }
 
