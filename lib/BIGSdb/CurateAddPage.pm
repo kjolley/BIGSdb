@@ -775,12 +775,8 @@ sub _check_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 		push @$problems, q(Locus set as non variable length but no length is set. )
 		  . q(Either set 'length_varies' to false, or enter a length.);
 	}
-	if ( $newdata->{'id'} =~ /^\d/x ) {
-		push @$problems, q(Locus names can not start with a digit.  Try prepending an underscore (_) )
-		  . q(which will get hidden in the query interface.);
-	}
-	if ( $newdata->{'id'} =~ /[^\w_']/x ) {
-		push @$problems, q(Locus names can only contain alphanumeric, underscore (_) and prime (') )
+	if ( $newdata->{'id'} =~ /[^\w_\-']/x ) {
+		push @$problems, q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) and prime (') )
 		  . q(characters (no spaces or other symbols).);
 	}
 	return;
