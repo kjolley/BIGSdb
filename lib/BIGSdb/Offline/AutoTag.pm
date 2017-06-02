@@ -61,8 +61,8 @@ sub run_script {
 	} else {
 		$self->_scan_locus_by_locus( $isolate_list, $loci, $params );
 	}
-	my $stop     = time;
-	my $duration = $stop - $self->{'start_time'};
+	my $stop          = time;
+	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($nice_duration)");
 	return;
@@ -81,8 +81,11 @@ sub _scan_loci_together {
 		$self->{'logger'}->info(
 			"$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
-		my @loci_to_tag;
+		my ( @loci_to_scan, @loci_to_tag );
 		my $allele_seq = {};
+		if ( $self->{'options'}->{'reuse_blast'} ) {
+			@loci_to_scan = @$loci;
+		}
 		foreach my $locus (@$loci) {
 			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$existing_allele_ids;
@@ -91,9 +94,12 @@ sub _scan_loci_together {
 			next
 			  if !@{ $allele_seq->{$locus} } && !@$existing_allele_ids && $self->{'options'}->{'only_already_tagged'};
 			push @loci_to_tag, $locus;
+			if ( !$self->{'options'}->{'reuse_blast'} ) {
+				push @loci_to_scan, $locus;
+			}
 		}
 		my ( $exact_matches, $partial_matches ) =
-		  $self->blast_multiple_loci( $params, \@loci_to_tag, $isolate_id, $isolate_prefix, $locus_prefix );
+		  $self->blast_multiple_loci( $params, \@loci_to_scan, $isolate_id, $isolate_prefix, $locus_prefix );
 		my $blast_status_bad = $?;
 	  LOCUS: foreach my $locus (@loci_to_tag) {
 			if ( ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} } ) {
@@ -126,10 +132,14 @@ sub _scan_loci_together {
 		#Delete isolate seqbin FASTA
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
 
-		#Delete locus working files
-		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+  		if (!$self->{'options'}->{'reuse_blast'}){
+	  		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+  		}
 		last ISOLATE if $EXIT || $self->_is_time_up;
 	}
+
+	#Delete locus working files
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 	return;
 }
 

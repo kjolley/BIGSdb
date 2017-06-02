@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -65,6 +65,7 @@ GetOptions(
 	'only_already_tagged'  => \$opts{'only_already_tagged'},
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
+	'reuse_blast'          => \$opts{'reuse_blast'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
@@ -236,6 +237,14 @@ ${bold}-q, --quiet$norm
 
 ${bold}-r, --random$norm
     Shuffle order of isolate ids to scan.
+    
+${bold}--reuse_blast$norm
+    Reuse the BLAST database for every isolate. All loci will be scanned rather
+    than just those missing from an isolate. Consequently, this may be slower
+    if isolates have already been scanned, and for the first isolate scanned
+    by a thread. On larger schemes, such as wgMLST, or when isolates have not 
+    been previously scanned, setting up the BLAST database can take a 
+    significant amount of time, so this may be quicker.
 
 ${bold}-R, --locus_regex$norm ${under}REGEX$norm
     Regex for locus names.
