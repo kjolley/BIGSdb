@@ -1600,7 +1600,7 @@ sub _print_profile_table {
 		my $clean_locus = $self->clean_locus($locus);
 		print qq(<th>$clean_locus</th>);
 	}
-	say qq(<th>Status</th><th>Assigned $scheme_info->{'primary_key'}</th></tr>);
+	say qq(<th>Status</th><th>Query</th><th>Assigned $scheme_info->{'primary_key'}</th></tr>);
 	my $td    = 1;
 	my $index = 1;
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
@@ -1646,6 +1646,10 @@ sub _print_profile_table {
 		} else {
 			say qq(<td>$profile->{'status'}</td>);
 		}
+		my $query = QUERY;
+		say qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=profiles&amp;)
+		  . qq(scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;populate_profiles=1&amp;)
+		  . qq(index=$profile->{'index'}&amp;submit=1" target="_blank">$query</a></td>);
 		if ( $options->{'curate'} && $profile->{'status'} ne 'rejected' && $assigned eq '' ) {
 			say qq(<td><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
 			  . qq(scheme_id=$scheme_id&amp;submission_id=$submission_id&amp;index=$index">)

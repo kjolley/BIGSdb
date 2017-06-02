@@ -50,6 +50,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
 	my $desc = $self->get_db_description;
+	$self->populate_submission_params;
 	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
@@ -330,7 +331,7 @@ sub _generate_query {
 	my $view = $self->{'system'}->{'view'};
 	if (@lqry) {
 		local $" = ' OR ';
-		my $required_matches = $q->param('matches_list');
+		my $required_matches = $q->param('matches_list') // 0;
 		$required_matches = @lqry if $required_matches == @loci;
 		my $lqry;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -365,7 +366,7 @@ sub _add_query_ordering {
 	my ( $self, $qry_ref, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	$$qry_ref .= ' ORDER BY ';
-	my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
+	my $dir = ($q->param('direction') // q()) eq 'descending' ? 'desc' : 'asc';
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $order_field = $q->param('order');
 		my $pattern     = LOCUS_PATTERN;

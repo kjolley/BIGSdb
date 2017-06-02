@@ -2542,12 +2542,21 @@ sub populate_submission_params {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_id');
+	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	return if !BIGSdb::Utils::is_int($q->param('index'));
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
 		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
 		$q->param( sequence => $submission_seq );
 		if ( $q->param('locus') ) {
 			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
 			$q->param( locus => $locus );
+		}
+	}
+	if ( $q->param('populate_profiles') && $q->param('index') ) {
+		my $submission_profile =
+		  $self->_get_profile_submission_alleles( $q->param('submission_id'), $q->param('index') );
+		foreach my $designation (@$submission_profile){
+			$q->param("l_$designation->{'locus'}" => $designation->{'allele_id'})
 		}
 	}
 	return;
@@ -2559,6 +2568,15 @@ sub _get_allele_submission_sequence {
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
 		[ $submission_id, $index ] );
+}
+
+sub _get_profile_submission_alleles {
+	my ( $self, $submission_id, $index ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT locus,allele_id FROM profile_submission_designations d JOIN profile_submission_profiles p '
+		  . 'ON (d.submission_id,d.profile_id)=(p.submission_id,p.profile_id) WHERE (p.submission_id,p.index)=(?,?)',
+		  [$submission_id, $index], {fetch=>'all_arrayref', slice=>{}});
 }
 
 #Scheme list filtered to remove disabled schemes.
