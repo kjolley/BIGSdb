@@ -182,7 +182,7 @@ ${bold}-f --fast$norm
     Perform single BLAST query against all selected loci together. This will
     take longer to return any results but the overall scan should finish 
     quicker. This method will also use more memory - this can be used with
-    --exemplar to mititgate against this.
+    --exemplar to mitigate against this.
 
 ${bold}-h, --help$norm
     This help page.
@@ -239,12 +239,13 @@ ${bold}-r, --random$norm
     Shuffle order of isolate ids to scan.
     
 ${bold}--reuse_blast$norm
-    Reuse the BLAST database for every isolate. All loci will be scanned rather
-    than just those missing from an isolate. Consequently, this may be slower
-    if isolates have already been scanned, and for the first isolate scanned
-    by a thread. On larger schemes, such as wgMLST, or when isolates have not 
-    been previously scanned, setting up the BLAST database can take a 
-    significant amount of time, so this may be quicker.
+    Reuse the BLAST database for every isolate (when running --fast option). 
+    All loci will be scanned rather than just those missing from an isolate. 
+    Consequently, this may be slower if isolates have already been scanned, 
+    and for the first isolate scanned by a thread. On larger schemes, such as 
+    wgMLST, or when isolates have not been previously scanned, setting up the
+    BLAST database can take a significant amount of time, so this may be 
+    quicker. This option is always selected if --new_only is used.
 
 ${bold}-R, --locus_regex$norm ${under}REGEX$norm
     Regex for locus names.

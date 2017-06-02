@@ -75,6 +75,7 @@ sub _scan_loci_together {
 	my $i              = 0;
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
+	$self->{'options'}->{'reuse_blast'} = 1 if $self->{'options'}->{'n'};
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
