@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,7 +25,7 @@ get '/robots.txt' => sub { _get_robots() };
 
 #Resource description routes
 get '/'           => sub { _get_root() };
-get qr{^/db/?+$}x => sub { redirect '/' };
+get qr{^/db/?+$}x => sub { _get_db() };
 get '/db/:db'     => sub { _get_db() };
 
 sub _get_robots {

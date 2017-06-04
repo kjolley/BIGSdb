@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Script to test authenticated resources via REST interface.
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -15,8 +15,6 @@
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
-#
-#Usage: rest_auth.pl <route>
 use strict;
 use warnings;
 use 5.010;
@@ -34,10 +32,13 @@ use POSIX;
 use MIME::Base64;
 
 #Modify the following values to your local system.
+#Please note that the consumer key below will only work for access to the
+#test database. Please contact keith.jolley@zoo.ox.ac.uk to obtain your
+#own consumer key for use in your own projects.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
 use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
-use constant TEST_REST_URL   => 'http://dev.pubmlst.org:3000/db/pubmlst_neisseria_seqdef';
-use constant TEST_WEB_URL    => 'http://dev.pubmlst.org/cgi-bin/bigsdb/bigsdb.pl?db=pubmlst_neisseria_seqdef';
+use constant TEST_REST_URL   => 'http://rest.pubmlst.org/db/pubmlst_test_seqdef';
+use constant TEST_WEB_URL    => 'https://pubmlst.org/bigsdb?db=pubmlst_test_seqdef';
 ###
 my %opts;
 GetOptions(
@@ -269,6 +270,7 @@ sub _get_route {
 		extra_params     => $extra_params
 	);
 	$request->sign;
+
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	my $request_params = $request->all_message_params;
