@@ -82,6 +82,7 @@ my $is_user_db =
 die "This script can only be run against a user database.\n"
   if !$is_user_db;
 main();
+undef $script;
 
 sub main {
 	add_new_available_resources();
@@ -577,7 +578,7 @@ sub remove_inactive_accounts {
 		my @sender_tables =
 		  $system->{'dbtype'} eq 'isolates'
 		  ? qw(isolates sequence_bin allele_designations)
-		  : q(sequences profiles );
+		  : qw(sequences profiles);
 	  USER: foreach my $user (@$users) {
 			next if !$old_user{ $user->{'user_name'} };
 			next if $special_users{ $user->{'user_name'} };
