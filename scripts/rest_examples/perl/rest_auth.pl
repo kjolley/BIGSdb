@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#Script to test authenticated resources via REST interface.
+#Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
 #Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
@@ -15,6 +15,12 @@
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
+#
+#The test databases can be reached at https://pubmlst.org/test/.
+#To use these, sign up for a PubMLST account (https://pubmlst.org/site_accounts.shtml)
+#and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates 
+#databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
+#
 use strict;
 use warnings;
 use 5.010;
@@ -31,9 +37,9 @@ use Term::Cap;
 use POSIX;
 use MIME::Base64;
 
-#Modify the following values to your local system.
-#Please note that the consumer key below will only work for access to the
-#test database. Please contact keith.jolley@zoo.ox.ac.uk to obtain your
+
+#Please note that the consumer key below will only work for access to the 
+#PubMLST test databases. Please contact keith.jolley@zoo.ox.ac.uk to obtain your 
 #own consumer key for use in your own projects.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
 use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
