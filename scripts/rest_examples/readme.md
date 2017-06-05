@@ -31,6 +31,9 @@ Available scripts
    A test sequence definition database (pubmlst_test_seqdef) is hard-coded
    in to the script. Calling the script without any route is the same as sending
    a GET request to http://rest.pubmlst.org/db/pubmlst_test_seqdef.
+   
+   A detailed list of all available API methods can be found at 
+   http://bigsdb.readthedocs.io/en/latest/rest.html.
     
    The first call you make with the script will request an access token which 
    will involve you logging in to the site using the provided URL, authorising 
