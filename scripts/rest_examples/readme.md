@@ -26,8 +26,7 @@ Available scripts
  
    Test client demonstrating the OAuth authentication process. To use this you
    will need to register for a [PubMLST account](https://pubmlst.org/site_accounts.shtml)
-   and [link this to the pubmlst_test_seqdef and pubmlst_test_isolates databases]
-   (https://pubmlst.org/site_accounts.shtml#registering_with_databases). 
+   and [link this to the pubmlst_test_seqdef and pubmlst_test_isolates databases](https://pubmlst.org/site_accounts.shtml#registering_with_databases). 
    
    A test sequence definition database (pubmlst_test_seqdef) is hard-coded
    in to the script. Calling the script without any route is the same as sending
@@ -50,6 +49,7 @@ Available scripts
    This will return a JSON response describing available resources.
    
    **Submitting a new allele to the curation queue**
+   
    Suppose we have a new sequence for the glp locus. First create
    a FASTA file (sequence.fas) containing the sequence. We also have two 
    Sanger trace files to upload for assessment (forward.ab1 and reverse.ab1). 
