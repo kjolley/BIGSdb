@@ -81,3 +81,5 @@ Available scripts
    ./rest_auth.py --method PUT --route 'submissions/BIGSdb_20170605142839_76379_14007/files' --arguments 'filename=reverse.ab1' --file reverse.ab1
    ```
    
+   Submissions to the test database will be periodically deleted. You do not 
+   need to do anything.
