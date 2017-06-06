@@ -269,6 +269,7 @@ sub _print_options_section {
 
 sub _print_submissions_section {
 	my ($self) = @_;
+	return if $self->{'config'}->{'disable_updates'};
 	return if ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
 	if ( !$self->{'config'}->{'submission_dir'} ) {
 		$logger->error('Submission directory is not configured in bigsdb.conf.');
