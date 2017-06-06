@@ -22,6 +22,20 @@ Available scripts
    description, scheme name, and link to the scheme definition which can be
    used as the start point for the download_scheme script.
    
+ * download_alleles.pl, download_alleles.py
+ 
+   Downloads FASTA files of alleles defined for a set of loci. If the
+   --scheme_id option is set it will download only loci from the selected
+   scheme. All loci defined in the database will be downloaded if this option
+   is not selected. Use the --dir option to set the download directory, 
+   otherwise the current directory will be used. For example, to download MLST
+   alleles for Neisseria MLST (scheme 1) to the /var/tmp/downloads directory
+   do the following:
+   
+   ```
+   ./download_alleles.py --database pubmlst_neisseria_seqdef --scheme_id 1 --dir /var/tmp/downloads
+   ```
+   
  * rest_auth.pl, rest_auth.py
  
    Test client demonstrating the OAuth authentication process. To use this you
