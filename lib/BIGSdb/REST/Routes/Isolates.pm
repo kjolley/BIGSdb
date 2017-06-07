@@ -84,10 +84,8 @@ sub _get_isolate {
 	}
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
-	my $pubmed_ids =
-	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id',
-		$id, { fetch => 'col_arrayref' } );
-	$values->{'publications'} = $pubmed_ids if @$pubmed_ids;
+	my $publications = _get_publications($id);
+	$values->{'publications'} = $publications if @$publications;
 	my $seqbin_stats =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $id, { fetch => 'row_hashref' } );
@@ -169,6 +167,23 @@ sub _get_isolate {
 	return $values;
 }
 
+sub _get_publications {
+	my ($isolate_id) = @_;
+	my $self = setting('self');
+	my $pubmed_ids =
+	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM refs WHERE isolate_id=? ORDER BY pubmed_id',
+		$isolate_id, { fetch => 'col_arrayref' } );
+	my $publications = [];
+	foreach my $pubmed_id (@$pubmed_ids) {
+		push @$publications,
+		  {
+			pubmed_id     => int($pubmed_id),
+			citation_link => "https://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id"
+		  };
+	}
+	return $publications;
+}
+
 sub _get_similar {
 	my ( $scheme_id, $isolate_id ) = @_;
 	my $self   = setting('self');
@@ -213,12 +228,13 @@ sub _get_similar {
 						$group_id
 					);
 					if ( $isolate_count > 1 ) {
-						push @$c_scheme_values, {
+						push @$c_scheme_values,
+						  {
 							group   => int($group_id),
 							records => $isolate_count,
 							isolates =>
 							  request->uri_for("/db/$db/classification_schemes/$cscheme->{'id'}/groups/$group_id")
-						};
+						  };
 					}
 				}
 			}
