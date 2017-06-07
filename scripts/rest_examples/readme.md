@@ -20,7 +20,18 @@ Available scripts
    
    The script outputs three tab-delimited columns containing the database
    description, scheme name, and link to the scheme definition which can be
-   used as the start point for the download_scheme script.
+   used as the start point for the download_alleles script.
+   
+   Once schemes have been identified, allelic profiles can be retrieved with 
+   a single call to the API, e.g.:
+   
+   ```
+   curl http://rest.pubmlst.org/db/pubmlst_neisseria_seqdef/schemes/1/profiles_csv
+   ```
+   
+   Note that schemes can be either simple collections of loci, in which case 
+   they do not have defined profiles, or schemes associated with a primary key 
+   field such as MLST where the ST field defines the combination of alleles. 
    
  * download_alleles.pl, download_alleles.py
  
