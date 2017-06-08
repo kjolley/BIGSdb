@@ -147,7 +147,6 @@ sub _before {
 	$self->_set_page_options;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	_check_authorization();
-	$self->_initiate_view;
 	return;
 }
 
