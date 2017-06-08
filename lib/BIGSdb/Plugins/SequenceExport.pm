@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.11',
+		version          => '1.5.12',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -100,6 +100,7 @@ sub run {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		$pk = $scheme_info->{'primary_key'};
 	}
+	my $limit = $self->_get_limit;
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -144,6 +145,12 @@ sub run {
 				  . qq((records x loci).  You have selected $commified_total.</p></div>);
 				return;
 			}
+			my $record_count = @list;
+			if ( $record_count > $limit && $q->param('align') ) {
+				say qq(<div class="box" id="statusbad"><p>Aligned output is limited to a total of $limit )
+				  . qq(records. You have selected $record_count.</p></div>);
+				return;
+			}
 			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';
 			$q->delete('list');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -163,7 +170,6 @@ sub run {
 			return;
 		}
 	}
-	my $limit = $self->_get_limit;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<div class="box" id="queryform">);
 		say q(<p>This script will export allele sequences in Extended Multi-FASTA (XMFA) format suitable for )
@@ -250,15 +256,9 @@ sub _run_job_profiles {
 	my $loci             = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci    = $self->order_loci( $loci, { scheme_id => $scheme_id } );
 	my $ids              = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
-	my $limit            = $self->_get_limit;
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $progress         = 0;
 
-	if ( $params->{'align'} && @$ids > $limit ) {
-		my $message_html =
-		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
-	}
-	my $progress = 0;
 	foreach my $locus_name (@$selected_loci) {
 		last if $self->{'exit'};
 		my $output_locus_name = $self->clean_locus( $locus_name, { text_output => 1, no_common_name => 1 } );
@@ -276,10 +276,7 @@ sub _run_job_profiles {
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 		open( my $fh_unaligned, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
-		my $count = 0;
 		foreach my $id (@$ids) {
-			last if $count == $limit && $params->{'align'};
-			$count++;
 			my $profile_data = $self->{'datastore'}->run_query( "SELECT * FROM $scheme_warehouse WHERE $pk=?",
 				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_profiles::profile_data' } );
 			my $profile_id = $profile_data->{ lc($pk) };
@@ -347,17 +344,10 @@ sub _run_job_isolates {
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
 	my $ids           = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $limit         = $self->_get_limit;
-	if ( $params->{'align'} && @$ids > $limit ) {
-		my $message_html =
-		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
-	}
-	my $ret_val = $self->make_isolate_seq_file(
+	my $ret_val       = $self->make_isolate_seq_file(
 		{
 			job_id       => $job_id,
 			params       => $params,
-			limit        => $limit,
 			ids          => $ids,
 			loci         => $selected_loci,
 			filename     => $filename,
@@ -369,15 +359,14 @@ sub _run_job_isolates {
 		unlink $filename;
 		return;
 	}
-	
 	$self->_output( $job_id, $params, $ret_val->{'problem_ids'}, $ret_val->{'no_output'}, $filename );
 	return;
 }
 
 sub make_isolate_seq_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $params, $limit, $ids, $loci, $filename, $max_progress ) =
-	  @$args{qw(job_id params limit ids loci filename max_progress)};
+	my ( $job_id, $params, $ids, $loci, $filename, $max_progress ) =
+	  @$args{qw(job_id params ids loci filename max_progress)};
 	my @problem_ids;
 	my %problem_id_checked;
 	my $includes       = $self->_get_includes($params);
@@ -407,10 +396,7 @@ sub make_isolate_seq_file {
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
 		open( my $fh_unaligned, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
-		my $count = 0;
 		foreach my $id (@$ids) {
-			last if $count == $limit && $params->{'align'};
-			$count++;
 			my @include_values;
 			my $isolate_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
