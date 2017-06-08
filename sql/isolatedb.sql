@@ -146,7 +146,7 @@ url text,
 field_order integer,
 datestamp date NOT NULL,
 curator integer NOT NULL,
-PRIMARY KEY (isolate_field,attribute),
+PRIMARY KEY (attribute),
 CONSTRAINT ifea_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE
@@ -161,7 +161,7 @@ field_value text NOT NULL,
 value text NOT NULL,
 datestamp date NOT NULL,
 curator integer NOT NULL,
-PRIMARY KEY (isolate_field,attribute,field_value),
+PRIMARY KEY (attribute,field_value),
 CONSTRAINT ivea_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE

@@ -483,14 +483,14 @@ sub _modify_query_for_filters {
 		}
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	foreach (@$scheme_fields) {
-		if ( defined $q->param("$_\_list") && $q->param("$_\_list") ne '' ) {
-			my $value = $q->param("$_\_list");
+	foreach my $field (@$scheme_fields) {
+		if ( defined $q->param("${field}_list") && $q->param("${field}_list") ne '' ) {
+			my $value = $q->param("${field}_list");
 			$value =~ s/'/\\'/gx;
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-				$qry .= " AND ($_ = '$value')";
+				$qry .= " AND (UPPER($field) = UPPER(E'$value'))";
 			} else {
-				$qry = "SELECT * FROM $scheme_warehouse WHERE ($_ = '$value')";
+				$qry = "SELECT * FROM $scheme_warehouse WHERE (UPPER($field)=UPPER(E'$value'))";
 			}
 		}
 	}

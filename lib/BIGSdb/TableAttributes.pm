@@ -1796,7 +1796,6 @@ sub get_isolate_field_extended_attributes_table_attributes {
 			name        => 'isolate_field',
 			type        => 'text',
 			required    => 1,
-			primary_key => 1,
 			optlist     => "@select_fields"
 		},
 		{ name => 'attribute', type => 'text', required => 1, primary_key => 1 },
@@ -1846,7 +1845,6 @@ sub get_isolate_value_extended_attributes_table_attributes {
 			name        => 'isolate_field',
 			type        => 'text',
 			required    => 1,
-			primary_key => 1,
 			optlist     => "@select_fields"
 		},
 		{ name => 'attribute',   type => 'text', required => 1, primary_key => 1, optlist => "@$attributes" },

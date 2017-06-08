@@ -179,7 +179,7 @@ CONSTRAINT ld_locus FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT ld_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE CASCADE
+ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
@@ -193,11 +193,11 @@ link_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(locus,url),
-CONSTRAINT ll_locus FOREIGN KEY (locus) REFERENCES locus_descriptions
+CONSTRAINT ll_locus FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT ll_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE CASCADE
+ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
@@ -209,11 +209,11 @@ pubmed_id int NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(locus,pubmed_id),
-CONSTRAINT lr_locus FOREIGN KEY (locus) REFERENCES locus_descriptions
+CONSTRAINT lr_locus FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT lr_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE CASCADE
+ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
@@ -229,7 +229,7 @@ CONSTRAINT la_locus FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT la_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE CASCADE
+ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
@@ -1133,7 +1133,7 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 		create_command, pk);
 		FOR x IN SELECT * FROM scheme_fields WHERE scheme_id=i_id ORDER BY primary_key DESC LOOP
 			IF x.index THEN
-				EXECUTE FORMAT('CREATE INDEX ON %I(%s)',scheme_table,x.field);
+				EXECUTE FORMAT('CREATE INDEX ON %I(UPPER(%s))',scheme_table,x.field);
 			END IF;
 		END LOOP;
 		EXECUTE FORMAT('CREATE UNIQUE INDEX ON %I(md5(profile))',scheme_table);
@@ -1143,7 +1143,8 @@ CREATE OR REPLACE FUNCTION create_scheme_warehouse(i_id int) RETURNS VOID AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int)
+  RETURNS void AS $$
 	DECLARE
 		scheme_table text;
 		pk text;
@@ -1152,6 +1153,8 @@ CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int) RETURNS VOID AS $
 		array_length int;
 		update_command text;
 		x RECORD;
+		counter int;
+		prev_profile_id text;
 	BEGIN
 		PERFORM create_scheme_warehouse(i_id);
 		scheme_table := 'mv_scheme_' || i_id;
@@ -1165,19 +1168,36 @@ CREATE OR REPLACE FUNCTION initiate_scheme_warehouse(i_id int) RETURNS VOID AS $
 			EXECUTE FORMAT('UPDATE %I SET %s=$1 WHERE %s=$2',
 			scheme_table,x.scheme_field,pk) USING x.value,x.profile_id;
 		END LOOP;
+
+		counter := 0;
+		prev_profile_id := '';
 		
-		update_command := format(
-		'UPDATE %I SET profile=array_append(profile,$1) WHERE '
-		|| '%s=$2 RETURNING array_length(profile,1)',scheme_table,pk);
-		FOR x IN SELECT * FROM profile_members WHERE scheme_id=i_id ORDER BY profile_id,locus LOOP
-			EXECUTE update_command USING x.allele_id,x.profile_id INTO array_length;
+		--Verifying that profiles are complete
+		FOR x IN SELECT profile_id, locus FROM profile_members WHERE scheme_id=i_id ORDER BY profile_id,locus LOOP
+			counter := counter + 1;
+			IF (prev_profile_id != x.profile_id) THEN
+				prev_profile_id = x.profile_id;
+				counter := 1;
+			END IF;
 			SELECT index INTO locus_index FROM scheme_warehouse_indices WHERE scheme_id=i_id AND locus=x.locus;
-			IF (locus_index != array_length) THEN
+			IF (locus_index != counter) THEN
 				RAISE EXCEPTION 'Profile % is incomplete.', x.profile_id;
-			END IF;			
-		END LOOP;		
+			END IF;		
+		END LOOP;
+		
+		--Starting array update
+		update_command := format('UPDATE %I SET profile=$1 WHERE %s=$2',scheme_table,pk);
+		counter := 0;
+		
+		FOR x IN SELECT profile_id, array_agg(allele_id ORDER BY locus) AS profile_array FROM profile_members 
+		WHERE scheme_id=i_id GROUP BY profile_id ORDER BY profile_id LOOP
+			counter := counter + 1;
+			EXECUTE update_command USING x.profile_array,x.profile_id;
+		END LOOP;
+		
+		RAISE NOTICE '% profiles cached', counter;		
 	END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql; 
 
 CREATE OR REPLACE FUNCTION modify_scheme() RETURNS TRIGGER AS $modify_scheme$
 	DECLARE
@@ -1343,6 +1363,7 @@ name text NOT NULL,
 description text,
 inclusion_threshold int NOT NULL,
 use_relative_threshold boolean NOT NULL,
+display_order int,
 status text NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
