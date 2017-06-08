@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::AlleleDesignations;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele designation routes
@@ -44,13 +43,12 @@ sub _get_allele_designations {
 	  $self->{'datastore'}
 	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
 	my $values = { records => int($designation_count) };
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $designation_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
+	my $page_values = $self->get_page_values($designation_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $designation_links = [];
 
@@ -118,13 +116,12 @@ sub _get_allele_ids {
 	  $self->{'datastore'}
 	  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_designations WHERE isolate_id=?$set_clause", $isolate_id );
 	my $values = { records => int($allele_count) };
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $allele_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $qry    = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
+	my $page_values = $self->get_page_values($allele_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $designations = [];
 

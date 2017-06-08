@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::Profiles;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Profile routes
@@ -33,7 +32,6 @@ sub _get_profiles {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $page            = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $allowed_filters = [qw(added_after updated_after)];
 	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
@@ -41,8 +39,9 @@ sub _get_profiles {
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = $self->add_filters( "SELECT COUNT(*) FROM $scheme_warehouse", $allowed_filters );
 	my $profile_count    = $self->{'datastore'}->run_query($qry);
-	my $pages            = ceil( $profile_count / $self->{'page_size'} );
-	my $offset           = ( $page - 1 ) * $self->{'page_size'};
+	my $page_values = $self->get_page_values($profile_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	
 	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $scheme_warehouse", $allowed_filters );
 	$qry .= ' ORDER BY '
@@ -54,8 +53,9 @@ sub _get_profiles {
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($profile_count) };
+	
 	my $path = $self->get_full_path( "/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
-	my $paging = $self->get_paging( $path, $pages, $page );
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
 

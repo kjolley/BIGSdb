@@ -25,6 +25,7 @@ use Dancer2 0.156;
 use Error qw(:try);
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
+use POSIX qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
@@ -141,8 +142,7 @@ sub _before {
 	$self->setup_datastore;
 	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
 	$self->_initiate_view;
-	$self->{'page_size'} =
-	  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
+	$self->_set_page_options;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
@@ -155,6 +155,40 @@ sub _before {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
 	return;
+}
+
+sub _set_page_options {
+	my ($self) = @_;
+	my $headers = request->headers;
+	if ( BIGSdb::Utils::is_int( $headers->{'x-per-page'} ) ) {
+		$self->{'page_size'} = $headers->{'x-per-page'} > 0 ? $headers->{'x-per-page'} : PAGE_SIZE;
+	} else {
+		$self->{'page_size'} =
+		  ( BIGSdb::Utils::is_int( param('page_size') ) && param('page_size') > 0 ) ? param('page_size') : PAGE_SIZE;
+	}
+	$self->{'using_page_headers'} = ( $headers->{'x-offset'} || $headers->{'x-per-page'} ) ? 1 : 0;
+	return;
+}
+
+sub get_page_values {
+	my ( $self, $total ) = @_;
+	my $headers = request->headers;
+	my ( $page, $offset );
+	my $total_pages = ceil( $total / $self->{'page_size'} );
+	if ( $self->{'using_page_headers'} ) {    #Specifically passing paging info in headers
+		$offset =
+		  ( BIGSdb::Utils::is_int( $headers->{'x-offset'} ) && $headers->{'x-offset'} > 0 )
+		  ? $headers->{'x-offset'}
+		  : 0;
+	} else {
+		$page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+		$offset = ( $page - 1 ) * $self->{'page_size'};
+	}
+	return {
+		page        => $page,
+		total_pages => $total_pages,
+		offset      => $offset
+	};
 }
 
 #Drop the connection because we may have hundreds of databases on the system.
@@ -350,9 +384,12 @@ sub get_resources {
 }
 
 sub get_paging {
-	my ( $self, $route, $pages, $page ) = @_;
+	my ( $self, $route, $pages, $page, $offset ) = @_;
+	response->push_header( X_PER_PAGE       => $self->{'page_size'} );
+	response->push_header( X_OFFSET         => ( $offset // 0 ) );
+	response->push_header( X_TOTAL_PAGES => $pages );
 	my $paging = {};
-	return $paging if param('return_all') || !$pages;
+	return $paging if param('return_all') || !$pages || $self->{'using_page_headers'};
 	my $first_separator = $route =~ /\?/x ? '&' : '?';
 	if ( $page > 1 ) {
 		$paging->{'first'} = request->uri_base . "$route${first_separator}page=1&page_size=$self->{'page_size'}";

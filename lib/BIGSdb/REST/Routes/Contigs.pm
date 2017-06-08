@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::Contigs;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
@@ -33,14 +32,13 @@ sub _get_contigs {
 	$self->check_isolate_is_valid($isolate_id);
 	my $contig_count =
 	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?', $isolate_id );
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $contig_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $qry    = 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id';
+	my $page_values = $self->get_page_values($contig_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $contigs = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
 	my $values = { records => int($contig_count) };
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $contig_links = [];
 

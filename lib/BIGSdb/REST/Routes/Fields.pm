@@ -20,14 +20,13 @@ package BIGSdb::REST::Routes::Fields;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-get '/db/:db/fields'       => sub { _get_fields() };
-get '/db/:db/field/:field' => sub { _get_field() };
+get '/db/:db/fields'        => sub { _get_fields() };
+get '/db/:db/fields/:field' => sub { _get_field() };
 
 sub _get_fields {
 	my $self = setting('self');
@@ -53,7 +52,7 @@ sub _get_fields {
 		if ( ( $thisfield->{'optlist'} // '' ) eq 'yes' ) {
 			$value->{'allowed_values'} = $self->{'xmlHandler'}->get_field_option_list($field);
 		}
-		$value->{'values'} = request->uri_for("/db/$db/field/$field");
+		$value->{'values'} = request->uri_for("/db/$db/fields/$field");
 		push @$values, $value;
 		my $ext_att =
 		  $self->{'datastore'}
@@ -63,7 +62,7 @@ sub _get_fields {
 			$att->{'value_format'} = 'int' if $att->{'value_format'} eq 'integer';
 			$value = {
 				name   => $att->{'attribute'},
-				values => request->uri_for("/db/$db/field/$att->{'attribute'}"),
+				values => request->uri_for("/db/$db/fields/$att->{'attribute'}"),
 				type   => $att->{'value_format'}
 			};
 			$value->{'required'} = JSON::false;
@@ -93,17 +92,16 @@ sub _get_field {
 	}
 	my $value_count =
 	  $self->{'datastore'}->run_query("SELECT COUNT(DISTINCT ($field)) FROM $self->{'system'}->{'view'}");
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $value_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $qry    = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field";
+	my $page_values = $self->get_page_values($value_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $set_values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = {
 		records => int($value_count),
 		values  => $set_values
 	};
-	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
@@ -126,10 +124,9 @@ sub _get_extended_field {
 	    'SELECT COUNT(DISTINCT(value)) FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?) '
 	  . "AND field_value IN (SELECT DISTINCT($ext_att->{'isolate_field'}) FROM $self->{'system'}->{'view'})";
 	my $value_count = $self->{'datastore'}->run_query( $count_qry, [ $ext_att->{'isolate_field'}, $field ] );
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $value_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
-	my $qry    = 'SELECT DISTINCT(value) FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?) '
+	my $page_values = $self->get_page_values($value_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = 'SELECT DISTINCT(value) FROM isolate_value_extended_attributes WHERE (isolate_field,attribute)=(?,?) '
 	  . "AND field_value IN (SELECT DISTINCT($ext_att->{'isolate_field'}) FROM $self->{'system'}->{'view'}) ORDER BY $order";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $set_values =
@@ -138,7 +135,7 @@ sub _get_extended_field {
 		records => int($value_count),
 		values  => $set_values
 	};
-	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page );
+	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }

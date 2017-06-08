@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::Projects;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/db/:db/projects'                   => sub { _get_projects() };
@@ -86,14 +85,14 @@ sub _get_project_isolates {
 	if ( !$exists ) {
 		send_error( "Project $project_id does not exist.", 404 );
 	}
-	my $page = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $isolate_count = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM project_members WHERE project_id=? AND isolate_id '
 		  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
 		$project_id
 	);
-	my $pages  = ceil( $isolate_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
+	my $page_values = $self->get_page_values($isolate_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	
 	my $qry    = 'SELECT isolate_id FROM project_members WHERE project_id=? AND isolate_id '
 	  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL) ORDER BY isolate_id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
@@ -101,7 +100,7 @@ sub _get_project_isolates {
 	my $values = { records => int($isolate_count) };
 
 	if (@$ids) {
-		my $paging = $self->get_paging( "/db/$db/projects/$project_id/isolates", $pages, $page );
+		my $paging = $self->get_paging( "/db/$db/projects/$project_id/isolates", $pages, $page, $offset );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;

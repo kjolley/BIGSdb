@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::Alleles;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele routes
@@ -34,7 +33,6 @@ sub _get_alleles {
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
 	my $allowed_filters = [qw(added_after updated_after)];
-	my $page            = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	if ($set_id) {
@@ -46,8 +44,8 @@ sub _get_alleles {
 	}
 	my $qry = $self->add_filters( 'SELECT COUNT(*) FROM sequences WHERE locus=?', $allowed_filters );
 	my $allele_count = $self->{'datastore'}->run_query( $qry, $locus_name );
-	my $pages        = ceil( $allele_count / $self->{'page_size'} );
-	my $offset       = ( $page - 1 ) * $self->{'page_size'};
+	my $page_values = $self->get_page_values($allele_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry = $self->add_filters( q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
@@ -55,7 +53,7 @@ sub _get_alleles {
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	my $values = { records => int($allele_count) };
 	my $path = $self->get_full_path( "/db/$db/loci/$locus_name/alleles", $allowed_filters );
-	my $paging = $self->get_paging( $path, $pages, $page );
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
 

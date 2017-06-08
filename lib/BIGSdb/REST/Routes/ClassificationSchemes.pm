@@ -21,7 +21,6 @@ use strict;
 use warnings;
 use 5.010;
 use JSON;
-use POSIX qw(ceil);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
@@ -81,11 +80,12 @@ sub _get_classification_scheme {
 			  request->uri_for("/db/$db/schemes/$c_scheme->{'scheme_id'}/profiles/$group_profile->{'profile_id'}");
 		}
 		$values->{'groups'} = [];
-		foreach my $group (sort {$a <=> $b} keys %$groups){
-			push @{$values->{'groups'}}, {
-				id => int($group),
-				profiles=>$groups->{$group}
-			};
+		foreach my $group ( sort { $a <=> $b } keys %$groups ) {
+			push @{ $values->{'groups'} },
+			  {
+				id       => int($group),
+				profiles => $groups->{$group}
+			  };
 		}
 	}
 	return $values;
@@ -116,28 +116,25 @@ sub _get_group {
 	my $scheme_table  = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cs);
 	my $pk            = $scheme_info->{'primary_key'};
-	my $page            = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-		my $qry             = "SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT s.id FROM $scheme_table s "
+	my $qry           = "SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT s.id FROM $scheme_table s "
 	  . "JOIN $cscheme_table c ON s.$pk=c.profile_id WHERE c.group_id=?) AND $view.new_version IS NULL";
-	my $isolate_count   = $self->{'datastore'}->run_query($qry,$group);
-	my $pages           = ceil( $isolate_count / $self->{'page_size'} );
-	my $offset          = ( $page - 1 ) * $self->{'page_size'};
-	
-	
+	my $isolate_count = $self->{'datastore'}->run_query( $qry, $group );
+	my $page_values = $self->get_page_values($isolate_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry =
 	    "SELECT $view.id FROM $view WHERE $view.id IN (SELECT s.id FROM $scheme_table s "
 	  . "JOIN $cscheme_table c ON s.$pk=c.profile_id WHERE c.group_id=?) AND $view.new_version IS NULL "
 	  . "ORDER BY $view.id";
-	  $qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $isolate_ids = $self->{'datastore'}->run_query( $qry, $group, { fetch => 'col_arrayref' } );
 	my $isolate_uris = [];
 
 	foreach my $isolate_id (@$isolate_ids) {
 		push @$isolate_uris, request->uri_for("/db/$db/isolates/$isolate_id");
 	}
-	my $path = $self->get_full_path( "/db/$db/classification_schemes/$cs/groups/$group" );
-	my $paging = $self->get_paging( $path, $pages, $page );
-		my $values = {
+	my $path   = $self->get_full_path("/db/$db/classification_schemes/$cs/groups/$group");
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	my $values = {
 		records  => $isolate_count,
 		isolates => $isolate_uris
 	};

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::REST::Routes::Submissions;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil strftime);
+use POSIX qw(strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
@@ -82,14 +82,14 @@ sub _get_submissions {
 		$paging_uri .= "status=$status";
 	}
 	my $submission_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) $part_qry", $args );
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $pages  = ceil( $submission_count / $self->{'page_size'} );
-	my $offset = ( $page - 1 ) * $self->{'page_size'};
+	my $page_values = $self->get_page_values($submission_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	
 	my $qry    = qq(SELECT id $part_qry ORDER BY id);
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $submission_ids = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'col_arrayref' } );
 	$values->{'records'} = int($submission_count);
-	my $paging = $self->get_paging( $paging_uri, $pages, $page );
+	my $paging = $self->get_paging( $paging_uri, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $submission_links = [];
 

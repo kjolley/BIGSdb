@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,6 @@ package BIGSdb::REST::Routes::Loci;
 use strict;
 use warnings;
 use 5.010;
-use POSIX qw(ceil);
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
@@ -33,7 +32,6 @@ post '/db/:db/sequence'             => sub { _query_sequence() };
 sub _get_loci {
 	my $self   = setting('self');
 	my ($db)   = params->{'db'};
-	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -41,15 +39,15 @@ sub _get_loci {
 	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $locus_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM loci$set_clause");
-	my $pages       = ceil( $locus_count / $self->{'page_size'} );
-	my $offset      = ( $page - 1 ) * $self->{'page_size'};
-	my $qry         = "SELECT id FROM loci$set_clause ORDER BY id";
+	my $page_values = $self->get_page_values($locus_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = "SELECT id FROM loci$set_clause ORDER BY id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($locus_count) };
 
 	if (@$loci) {
-		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page );
+		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page, $offset );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		foreach my $locus (@$loci) {
@@ -196,7 +194,7 @@ sub _get_seqdef_definition {
 		if (
 			   $locus_info->{$url}
 			&& $locus_info->{$url} =~ /page=(?:locusInfo|alleleInfo)/x
-			&& $locus_info->{$url} =~ /^\//x                             #Relative URL so on same server
+			&& $locus_info->{$url} =~ /^\//x    #Relative URL so on same server
 			&& $locus_info->{$url} =~ /locus=(\w+)/x
 		  )
 		{
