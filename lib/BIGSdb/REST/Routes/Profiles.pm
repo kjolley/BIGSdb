@@ -29,6 +29,9 @@ get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
 
 sub _get_profiles {
 	my $self = setting('self');
+	if (request->accept =~ /(tsv|csv)/x){
+		_get_profiles_csv();
+	} 
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
