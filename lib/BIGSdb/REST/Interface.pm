@@ -29,6 +29,7 @@ use POSIX qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::ClassificationSchemes;
@@ -45,8 +46,9 @@ use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
 use constant PAGE_SIZE       => 100;
-hook before => sub { _before() };
-hook after  => sub { _after() };
+hook before      => sub { _before() };
+hook after       => sub { _after() };
+hook after_error => sub { _after_error() };
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -144,15 +146,26 @@ sub _before {
 	$self->_initiate_view;
 	$self->_set_page_options;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
+	_check_authorization();
+	$self->_initiate_view;
+	return;
+}
+
+sub _check_authorization {
+	my $self             = setting('self');
+	my $request_uri      = request->uri();
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
 	my $submission_route = "/db/$self->{'instance'}/submissions";
-
 	if ( $request_uri =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
 	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
+	}
+	my $login_requirement = $self->{'datastore'}->get_login_requirement;
+	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_uri !~ /^$oauth_route/x ) {
+		$self->_is_authorized;
 	}
 	return;
 }
@@ -196,6 +209,14 @@ sub get_page_values {
 #for systems with only a few databases.
 sub _after {
 	my $self = setting('self');
+	undef $self->{'username'};
+	$self->{'dataConnector'}->drop_all_connections;
+	return;
+}
+
+sub _after_error {
+	my $self = setting('self');
+	undef $self->{'username'};
 	$self->{'dataConnector'}->drop_all_connections;
 	return;
 }
@@ -219,9 +240,11 @@ sub _is_authorized {
 	$client_name .= " version $client->{'version'}" if $client->{'version'};
 	$self->{'client_name'} = $client_name;
 	$self->delete_old_sessions;
-	my $session_token = $self->{'datastore'}->run_query( 'SELECT * FROM api_sessions WHERE session=?',
-		param('oauth_token'),
-		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' } );
+	my $session_token = $self->{'datastore'}->run_query(
+		'SELECT * FROM api_sessions WHERE session=?',
+		param('oauth_token') // q(),
+		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
+	);
 	if ( !$session_token->{'secret'} ) {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
@@ -349,13 +372,11 @@ sub get_set_id {
 sub _initiate_view {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	my $args = {};
+	$args->{'username'} = $self->{'username'} if $self->{'username'};
 	my $set_id = $self->get_set_id;
-	if ( defined $self->{'system'}->{'view'} && $set_id ) {
-		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
-			my $view = $self->{'datastore'}->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
-			$self->{'system'}->{'view'} = $view if defined $view;
-		}
-	}
+	$args->{'set_id'} = $set_id if $set_id;
+	$self->{'datastore'}->initiate_view($args);
 	return;
 }
 

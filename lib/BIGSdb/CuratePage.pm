@@ -899,11 +899,19 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $width, $options ) = @_;
-	my $q        = $self->{'cgi'};
+	my $q = $self->{'cgi'};
+	my $buffer = $self->_get_user_site_db_field( $newdata, $width, $options );
+	$buffer .= $self->_get_user_quota_field( $newdata, $width, $options );
+	return $buffer;
+}
+
+sub _get_user_site_db_field {
+	my ( $self, $newdata, $width, $options ) = @_;
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return q() if !@$user_dbs;
 	return q() if !$options->{'update'} && !$self->{'permissions'}->{'modify_site_users'};
+	my $q      = $self->{'cgi'};
 	my $ids    = [];
 	my $labels = {};
 	my $default_db;
@@ -931,6 +939,36 @@ sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubro
 		%disabled
 	);
 	$buffer .= qq(</li>\n);
+	return $buffer;
+}
+
+sub _get_user_quota_field {
+	my ( $self, $newdata, $width, $options ) = @_;
+	return q() if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q = $self->{'cgi'};
+	if ( $options->{'update'} ) {
+		if ( $newdata->{'status'} eq 'user' ) {
+			$newdata->{'quota'} = 0;
+		} else {
+			my $current_quota =
+			  $self->{'datastore'}->run_query( 'SELECT value FROM user_limits WHERE (user_id,attribute)=(?,?)',
+				[ $newdata->{'id'}, 'private_isolates' ] );
+			$newdata->{'quota'} = $current_quota // $self->{'system'}->{'default_private_records'} // 0;
+		}
+	} else {
+		$newdata->{'quota'} = $q->param('quota') // $self->{'system'}->{'default_private_records'} // 0;
+	}
+	my $buffer = qq(<li><label for="quota" class="form" style="width:${width}em">private quota:</label>\n);
+	$buffer .= $self->textfield(
+		-name  => 'quota',
+		-id    => 'quota',
+		-style => 'width:6em',
+		-value => $newdata->{'quota'},
+		-type  => 'number',
+		-min   => 0
+	);
+	$buffer .= q( <span class="comment">User must be either a submitter, curator, )
+	  . q(or admin to upload private records</span>);
 	return $buffer;
 }
 

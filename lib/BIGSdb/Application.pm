@@ -52,6 +52,7 @@ use BIGSdb::OptionsPage;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
+use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
 use BIGSdb::ProjectsPage;
@@ -67,6 +68,7 @@ use BIGSdb::SubmissionHandler;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::UserPage;
+use BIGSdb::UserProjectsPage;
 use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
 use BIGSdb::CGI::as_utf8;
@@ -76,7 +78,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
 use Config::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword submit login logout);
+use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword userProjects submit login logout);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
@@ -568,6 +570,7 @@ sub print_page {
 		pubquery           => 'PubQueryPage',
 		query              => $query_page,
 		plugin             => 'Plugin',
+		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
 		projects           => 'ProjectsPage',
@@ -581,6 +584,7 @@ sub print_page {
 		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
 		user               => 'UserPage',
+		userProjects       => 'UserProjectsPage',
 		usernameRemind     => 'UserRegistrationPage',
 		version            => 'VersionPage'
 	);
@@ -764,23 +768,23 @@ sub authenticate {
 
 sub is_user_allowed_access {
 	my ( $self, $username ) = @_;
+	my %valid_user_type = map { $_ => 1 } qw(user submitter curator admin);
 	if ( ( $self->{'system'}->{'curators_only'} // q() ) eq 'yes' ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
-		return 0 if !$status || $status eq 'user';
-		return 0 if $status eq 'submitter' && !$self->{'curate'};
+		return if !$status || $status eq 'user' || !$valid_user_type{$status};
+		return if $status eq 'submitter' && !$self->{'curate'};
 	}
 	return 1 if !$self->{'system'}->{'default_access'};
 	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
 		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
 		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
-		return 0;
+		return;
 	} elsif ( $self->{'system'}->{'default_access'} eq 'allow' ) {
 		my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
-		return 0 if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
+		return if -e $deny_file && $self->_is_name_in_file( $username, $deny_file );
 		return 1;
-	} else {
-		return 0;
 	}
+	return;
 }
 
 sub _is_name_in_file {

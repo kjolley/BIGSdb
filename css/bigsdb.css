@@ -33,7 +33,7 @@ h3 {
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
-ul.toplevel {margin-left:16px}
+ul.toplevel {margin-left:8px}
 table {font-size: 1em;border-spacing:1px}
 
 a {color:#00b;text-decoration:none;z-index:9}
@@ -152,11 +152,8 @@ a.cds {
 	font-size:0.8em	
 }
 
-a.action {
-	text-decoration:none;
-}
-
-a.action:hover {background:#d0f5d0; border:1px solid #c0c0c0}
+a.action,span.action{padding:0.2em;border:1px solid transparent;text-shadow: 1px 1px 1px #999}
+a.action:hover,span.action:hover{border:1px solid red;background:#ccc}
 
 a.delete {
 	color:black;
@@ -567,6 +564,7 @@ span.flag {
 	border-bottom-style:solid;
 	padding:0 0.1em
 }
+.flash_message {color:purple}
 
 .hiddenbydefault {display:none}
 pre.sixpack {font-size:1.3em}
@@ -722,6 +720,7 @@ span.plugin_icon {color:#a6a;text-shadow: 3px 3px 3px #999}
 span.dataset_icon {color:#6a6;text-shadow: 3px 3px 3px #999}
 span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
+span.browse {color:#080}
 span.file_icon {color:#44d}
 button.main {color:#66a}
 button.main:hover {color:#88c}

@@ -138,6 +138,7 @@ sub get_user_dbases_table_attributes {
 }
 
 sub get_user_groups_table_attributes {
+	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 1, length => 6, unique => 1, primary_key => 1 },
 		{
@@ -147,13 +148,28 @@ sub get_user_groups_table_attributes {
 			length         => 60,
 			unique         => 1,
 			dropdown_query => 1
-		},
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		push @$attributes,
+		  (
+			{
+				name     => 'co_curate',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'co_curate - Setting to true allows members with a status of submitter '
+				  . 'to curate data of other members of the usergroup.'
+			}
+		  );
+	}
+	push @$attributes,
+	  (
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
-	];
+	  );
 	return $attributes;
 }
-
 sub get_user_group_members_table_attributes {
 	my $attributes = [
 		{
@@ -164,8 +180,6 @@ sub get_user_group_members_table_attributes {
 			primary_key    => 1,
 			dropdown_query => 1,
 			user_field     => 1
-
-			  #			labels         => '|$surname|, |$first_name|'
 		},
 		{
 			name           => 'user_group',
@@ -173,7 +187,7 @@ sub get_user_group_members_table_attributes {
 			required       => 1,
 			foreign_key    => 'user_groups',
 			dropdown_query => 1,
-			labels         => '|$id|) |$description|'
+			labels         => '|$description|'
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
@@ -1868,12 +1882,33 @@ sub get_projects_table_attributes {
 			name    => 'isolate_display',
 			type    => 'bool',
 			tooltip => 'isolate display - Select to list this project on an isolate information page '
-			  . '(also requires a full description to be entered).'
+			  . '(also requires a full description to be entered).',
+			required => 1,
+			default  => 'false'
 		},
 		{
-			name    => 'list',
+			name     => 'list',
+			type     => 'bool',
+			tooltip  => 'list - Select to include in list of projects linked from the contents page.',
+			required => 1,
+			default  => 'false'
+		},
+		{
+			name    => 'private',
 			type    => 'bool',
-			tooltip => 'list - Select to include in list of projects linked from the contents page.'
+			tooltip => 'private - Select to make the project private. You will be set as the project user '
+			  . 'and will be the only user able to access it. You can add additional users or user groups who '
+			  . 'will be able to access and update the project data later.',
+			required => 1,
+			default  => 'false'
+		},
+		{
+			name    => 'no_quota',
+			type    => 'bool',
+			tooltip => q(no_quota - Isolates added to this project will not count against a user's quota of )
+			  . q(private records (only relevant to private projects)),
+			required => 1,
+			default  => 'true'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

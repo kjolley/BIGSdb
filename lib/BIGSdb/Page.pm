@@ -152,6 +152,21 @@ sub get_guid {
 	}
 }
 
+sub show_user_projects {
+	my ($self) = @_;
+	if (
+		(
+			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
+			|| $self->{'system'}->{'read_access'} ne 'public'
+		)
+		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
+	  )
+	{
+		return 1;
+	}
+	return;
+}
+
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	return if !defined $value;
@@ -370,7 +385,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20161206';
+	my $version   = '20170317';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -510,14 +525,15 @@ sub print_action_fieldset {
 	my $legend       = $options->{'legend'}       // 'Action';
 	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
-	my @fields = qw (isolate_id id scheme_id table name ruleset locus profile_id simple set_id modify);
+	my @fields = qw (isolate_id id scheme_id table name ruleset locus
+	  profile_id simple set_id modify project_id edit);
 
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );
 		push @fields, @$pk_fields;
 	}
-	foreach ( uniq @fields ) {
-		$url .= "&amp;$_=$options->{$_}" if defined $options->{$_};
+	foreach my $field ( uniq @fields ) {
+		$url .= "&amp;$field=$options->{$field}" if defined $options->{$field};
 	}
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
@@ -564,8 +580,9 @@ sub _print_header {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	return if !$self->{'instance'};
+	my $q = $self->{'cgi'};
 	my @potential_headers;
-	if ( $self->{'curate'} ) {
+	if ( $self->{'curate'} && !$q->param('user_header') ) {
 		push @potential_headers,
 		  (
 			"$self->{'dbase_config_dir'}/$self->{'instance'}/curate_header.html",
@@ -1139,7 +1156,7 @@ sub get_isolate_publication_filter {
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
-			my @values = sort { $labels->{$a} cmp $labels->{$b} } keys %$labels;
+			my @values = sort { uc( $labels->{$a} ) cmp uc( $labels->{$b} ) } keys %$labels;
 			if ( @$pmid && $options->{'any'} ) {
 				unshift @values, 'none';
 				$labels->{'none'} = 'not linked to any publication';
@@ -1166,16 +1183,20 @@ sub get_isolate_publication_filter {
 sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $sql =
-	  $self->{'db'}
-	  ->prepare( q[SELECT id, short_description FROM projects WHERE id IN (SELECT project_id FROM project_members ]
-		  . qq[WHERE isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) ORDER BY UPPER(short_description)] );
-	eval { $sql->execute };
-	$logger->error($@) if $@;
+	my $args = [];
+	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
+	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
+		push @$args, $user_info->{'id'};
+	}
+	$qry .= ') ORDER BY UPPER(short_description)';
+	my $projects = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'all_arrayref', slice => {} } );
 	my ( @project_ids, %labels );
-	while ( my ( $id, $desc ) = $sql->fetchrow_array ) {
-		push @project_ids, $id;
-		$labels{$id} = $desc;
+	foreach my $project (@$projects) {
+		push @project_ids, $project->{'id'};
+		$labels{ $project->{'id'} } = $project->{'short_description'};
 	}
 	if ( @project_ids && $options->{'any'} ) {
 		unshift @project_ids, 'none';
@@ -2252,30 +2273,11 @@ sub _initiate_isolatedb_scheme_prefs {
 
 sub initiate_view {
 	my ( $self, $username ) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	my $args = { username => $username };
+	$args->{'curate'} = $self->{'curate'} if $self->{'curate'};
 	my $set_id = $self->get_set_id;
-	if ( defined $self->{'system'}->{'view'} && $set_id ) {
-		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
-			my $set_view = $self->{'datastore'}->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
-			$self->{'system'}->{'view'} = $set_view if $set_view;
-		}
-	}
-	if ( $self->{'curate'} && $username ) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
-		return if !$user_info;
-		if ( $user_info->{'status'} eq 'submitter' ) {
-			eval {
-				$self->{'db'}->do(
-					"CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} WHERE "
-					  . 'sender=? OR sender IN (SELECT user_id FROM user_group_members WHERE user_group IN '
-					  . '(SELECT user_group FROM user_group_members WHERE user_id=?))',
-					undef, $user_info->{'id'}, $user_info->{'id'}
-				);
-			};
-			$logger->error($@) if $@;
-			$self->{'system'}->{'view'} = 'temp_view';
-		}
-	}
+	$args->{'set_id'} = $set_id if $set_id;
+	$self->{'datastore'}->initiate_view($args);
 	return;
 }
 
@@ -2545,7 +2547,8 @@ sub populate_submission_params {
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return if !BIGSdb::Utils::is_int($q->param('index'));
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
-		my $submission_seq = $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
+		my $submission_seq =
+		  $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
 		$q->param( sequence => $submission_seq );
 		if ( $q->param('locus') ) {
 			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
@@ -2637,5 +2640,19 @@ sub use_correct_user_database {
 		$self->{'permissions'} = $self->{'datastore'}->get_permissions( $self->{'username'} );
 	}
 	return;
+}
+
+sub get_user_db_name {
+	my ( $self, $user_name ) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+		return $self->{'system'}->{'db'};
+	}
+	my $db_name = $self->{'datastore'}->run_query(
+		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+		$user_name
+	);
+	$db_name //= $self->{'system'}->{'db'};
+	return $db_name;
 }
 1;

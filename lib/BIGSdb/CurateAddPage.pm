@@ -751,6 +751,12 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
 	undef $newdata->{'user_db'} if ( $newdata->{'user_db'} // 0 ) == 0;
+	if ($newdata->{'status'} ne 'user' && $self->{'system'}->{'dbtype'} eq 'isolates' && BIGSdb::Utils::is_int($newdata->{'quota'})){
+		push @$extra_inserts, {
+			statement => 'INSERT INTO user_limits (user_id,attribute,value,curator,datestamp) VALUES (?,?,?,?,?)',
+			arguments => [$newdata->{'id'},'private_isolates',$newdata->{'quota'},$newdata->{'curator'},'now']
+		};
+	}
 	return;
 }
 

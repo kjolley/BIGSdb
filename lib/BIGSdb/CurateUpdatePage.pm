@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -694,9 +694,7 @@ sub _check_locus_descriptions {
 		push @existing_links, "$link_data->{'link_order'}|$link_data->{'url'}|$link_data->{'description'}";
 	}
 	foreach my $existing (@existing_links) {
-		
 		if ( !@new_links || none { $existing eq $_ } @new_links ) {
-			
 			if ( $existing =~ /^\d+\|(.+?)\|.+$/x ) {
 				my $url = $1;
 				push @$extra_inserts,
@@ -731,9 +729,10 @@ sub _check_locus_descriptions {
 	return;
 }
 
-#Remove additional permissions for submitter if downgraded from curator.
 sub _prepare_extra_inserts_for_users {
 	my ( $self, $newdata, $extra_inserts, $extra_transactions ) = @_;
+
+	#Remove additional permissions for submitter if downgraded from curator.
 	if ( $newdata->{'status'} eq 'submitter' ) {
 		local $" = q(',');
 		my @permissions = SUBMITTER_ALLOWED_PERMISSIONS;
@@ -746,7 +745,8 @@ sub _prepare_extra_inserts_for_users {
 	if ( $newdata->{'user_db'} ) {
 		if ( $self->{'permissions'}->{'modify_site_users'} ) {
 			my $user_db = $self->{'datastore'}->get_user_db( $newdata->{'user_db'} );
-			push @$extra_transactions, {
+			push @$extra_transactions,
+			  {
 				statement =>
 				  'UPDATE users SET (surname,first_name,email,affiliation,datestamp)=(?,?,?,?,?) WHERE user_name=?',
 				arguments => [
@@ -754,9 +754,45 @@ sub _prepare_extra_inserts_for_users {
 					$newdata->{'affiliation'}, 'now',                    $newdata->{'user_name'}
 				],
 				db => $user_db
-			};
+			  };
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
+	}
+
+	#Set private data quota
+	if ( $newdata->{'status'} ne 'user' && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $existing_quota =
+		  $self->{'datastore'}->run_query( 'SELECT value FROM user_limits WHERE (user_id,attribute)=(?,?)',
+			[ $newdata->{'id'}, 'private_isolates' ] );
+		my $q = $self->{'cgi'};
+		$newdata->{'quota'} = $q->param('quota');
+		if ( defined $existing_quota ) {
+			if ( BIGSdb::Utils::is_int( $newdata->{'quota'} ) ) {
+				push @$extra_inserts,
+				  {
+					statement =>
+					  'UPDATE user_limits SET (value,curator,datestamp)=(?,?,?) WHERE (user_id,attribute)=(?,?)',
+					arguments =>
+					  [ $newdata->{'quota'}, $newdata->{'curator'}, 'now', $newdata->{'id'}, 'private_isolates' ]
+				  };
+			} else {
+				push @$extra_inserts,
+				  {
+					statement => 'DELETE FROM user_limits WHERE (user_id,attribute)=(?,?)',
+					arguments => [ $newdata->{'id'}, 'private_isolates' ]
+				  };
+			}
+		} else {
+			if ( BIGSdb::Utils::is_int( $newdata->{'quota'} ) ) {
+				push @$extra_inserts,
+				  {
+					statement =>
+					  'INSERT INTO user_limits (user_id,attribute,value,curator,datestamp) VALUES (?,?,?,?,?)',
+					arguments =>
+					  [ $newdata->{'id'}, 'private_isolates', $newdata->{'quota'}, $newdata->{'curator'}, 'now' ]
+				  };
+			}
+		}
 	}
 	return;
 }

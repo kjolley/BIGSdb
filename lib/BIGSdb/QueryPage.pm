@@ -71,6 +71,7 @@ sub get_javascript_panel {
 		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
 		$button_toggle_js .= qq[       }\n];
 		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
+		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset .multiselect").multiselect("refresh");\n];
 		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == '$show' ? '$hide' : '$show');\n];
 		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
 		$button_toggle_js .= qq[       return false;\n];

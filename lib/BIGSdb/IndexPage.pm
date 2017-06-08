@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -124,9 +124,11 @@ sub _print_main_section {
 	say q(<div class="box" id="index"><div class="scrollable"><div class="grid">);
 	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 	$self->_print_query_section($scheme_data);
-	$self->_print_download_section($scheme_data) if $self->{'system'}->{'dbtype'} eq 'sequences';
+	$self->_print_projects_section;
+	$self->_print_download_section($scheme_data);
 	$self->_print_options_section;
 	$self->_print_submissions_section;
+	$self->_print_private_data_section;
 	$self->_print_general_info_section($scheme_data);
 	say q(</div></div></div>);
 	return;
@@ -174,8 +176,6 @@ sub _print_query_section {
 		$self->print_file($query_html_file) if -e $query_html_file;
 	}
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
-		say qq(<li><a href="${url_root}page=projects">Projects</a> - main projects defined in database.) if $projects;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		if (@$sample_fields) {
 			say qq(<li><a href="${url_root}page=tableQuery&amp;table=samples">Sample management</a> - )
@@ -186,9 +186,57 @@ sub _print_query_section {
 	return;
 }
 
+sub _print_projects_section {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my @list;
+	my $listed_projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
+	if ($listed_projects) {
+		push @list, qq(<a href="${url_root}page=projects">Main public projects</a>);
+	}
+	if ( $self->show_user_projects ) {
+		push @list, qq(<a href="${url_root}page=userProjects">Your projects</a>);
+	}
+	return if !@list;
+	say q(<div style="float:left;margin-right:1em" class="grid-item">);
+	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<h2>Projects</h2><ul class="toplevel">);
+	local $" = qq(</li>\n<li>);
+	say qq(<li>@list</li>);
+	say q(</ul></div>);
+	return;
+}
+
+sub _print_private_data_section {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
+	my $limit                         = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $is_member_of_no_quota_project = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users m JOIN projects p '
+		  . 'ON m.project_id=p.id WHERE user_id=? AND modify)',
+		$user_info->{'id'}
+	);
+	return if !$limit && !$is_member_of_no_quota_project;
+	my $cache_string = $self->get_cache_string;
+	say q(<div style="float:left;margin-right:1em" class="grid-item">);
+	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	say q(<h2>Private data</h2><ul class="toplevel">);
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
+	  . q(page=privateRecords">Upload/manage records</a></li>);
+	say q(</ul></div>);
+	return;
+}
+
 sub _print_download_section {
-	my ( $self,           $scheme_data ) = @_;
-	my ( $scheme_ids_ref, $desc_ref )    = $self->extract_scheme_desc($scheme_data);
+	my ( $self, $scheme_data ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	my $q                   = $self->{'cgi'};
 	my $seq_download_buffer = '';
 	my $scheme_buffer       = '';
@@ -252,10 +300,16 @@ sub _print_options_section {
 	} else {
 		say qq(<li><a href="${url_root}table=schemes$cache_string">Scheme options</a></li>);
 	}
-	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} ) {
+	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} && $self->{'username'} ) {
+		my $user_db_name = $self->{'datastore'}->run_query(
+			'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+			  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+			$self->{'username'}
+		);
+		$user_db_name //= $self->{'system'}->{'db'};
 		my $clients_authorized = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM access_tokens WHERE dbase=?)',
-			$self->{'system'}->{'db'},
+			'SELECT EXISTS(SELECT * FROM access_tokens WHERE (dbase,username)=(?,?))',
+			[ $user_db_name, $self->{'username'} ],
 			{ db => $self->{'auth_db'} }
 		);
 		if ($clients_authorized) {

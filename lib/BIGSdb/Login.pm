@@ -598,20 +598,6 @@ sub _make_cookie {
 	return $query->cookie( -name => $cookie, -value => $value, -expires => $expires, -path => '/', );
 }
 
-sub get_user_db_name {
-	my ( $self, $name ) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
-		return $self->{'system'}->{'db'};
-	}
-	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$name
-	);
-	$db_name //= $self->{'system'}->{'db'};
-	return $db_name;
-}
-
 sub _get_unvalidated_username {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};

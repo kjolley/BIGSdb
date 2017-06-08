@@ -117,12 +117,20 @@ sub print_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $scheme_info;
-	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
-	elsif ( $q->param('save_options') ) { $self->_save_options; return }
+	if ( $q->param('no_header') ) {
+		$self->_ajax_content;
+		return;
+	}
+	if ( $q->param('save_options') ) {
+		$self->_save_options;
+		return;
+	}
+	if ( $q->param('add_to_project') ) {
+		$self->add_to_project;
+	}
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;
-
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
 		  . q(in your browser.</p></div></noscript>);
@@ -208,7 +216,6 @@ sub _print_designations_fieldset {
 	say q(<legend>Allele designations/scheme fields</legend><div>);
 
 	#Get contents now if fieldset is visible, otherwise load via AJAX call
-	#	if ( $self->_should_display_fieldset('allele_designations') ) {
 	if ( $self->_highest_entered_fields('loci') ) {
 		$self->_print_designations_fieldset_contents;
 	}
@@ -528,94 +535,10 @@ sub _get_list_attribute_data {
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
-	my $prefs  = $self->{'prefs'};
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my @filters;
-	my $extended      = $self->get_extended_attributes;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	foreach my $field (@$field_list) {
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $dropdownlist;
-		my %dropdownlabels;
-		if ( $prefs->{'dropdownfields'}->{$field} ) {
-			if (   $field eq 'sender'
-				|| $field eq 'curator'
-				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
-			{
-				push @filters, $self->get_user_filter($field);
-			} else {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				if ( $thisfield->{'optlist'} ) {
-					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
-					if (   $thisfield->{'required'}
-						&& $thisfield->{'required'} eq 'no' )
-					{
-						push @$dropdownlist, '<blank>';
-						$dropdownlabels{'<blank>'} = '<blank>';
-					}
-				} elsif ( defined $metaset ) {
-					my $list = $self->{'datastore'}->run_query(
-						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
-						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
-						undef,
-						{ fetch => 'col_arrayref' }
-					);
-					push @$dropdownlist, @$list;
-				} else {
-					my $list = $self->{'datastore'}->run_query(
-						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
-						  . "WHERE $field IS NOT NULL ORDER BY $field",
-						undef,
-						{ fetch => 'col_arrayref' }
-					);
-					push @$dropdownlist, @$list;
-				}
-				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-				my $display_field = $metafield // $field;
-				push @filters,
-				  $self->get_filter(
-					$field,
-					$dropdownlist,
-					{
-						text => $metafield // undef,
-						labels => \%dropdownlabels,
-						tooltip =>
-						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
-						  . "isolates that match the selected $display_field.",
-						capitalize_first => 1
-					}
-				  ) if @$dropdownlist;
-			}
-		}
-		my $extatt = $extended->{$field};
-		if ( ref $extatt eq 'ARRAY' ) {
-			foreach my $extended_attribute (@$extatt) {
-				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
-					my $values = $self->{'datastore'}->run_query(
-						'SELECT DISTINCT value FROM isolate_value_extended_attributes '
-						  . 'WHERE isolate_field=? AND attribute=? ORDER BY value',
-						[ $field, $extended_attribute ],
-						{ fetch => 'col_arrayref' }
-					);
-					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-					push @filters,
-					  $self->get_filter(
-						"$field\..$extended_attribute",
-						$values,
-						{
-							text => $extended_attribute,
-							tooltip =>
-							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
-							  . "search to only those isolates that match the selected $field."
-						}
-					  );
-				}
-			}
-		}
-	}
+	my $field_filters = $self->_get_field_filters;
+	push @filters, @$field_filters if @$field_filters;
 	if ( $self->{'prefs'}->{'dropdownfields'}->{'Publications'} ) {
 		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
 		push @filters, $buffer if $buffer;
@@ -624,28 +547,14 @@ sub _print_filters_fieldset {
 	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
-	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	if ($linked_seqs) {
-		my @values = ( 'Any sequence data', 'No sequence data' );
-		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
-			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
-				push @values, "Sequence bin size >= $value Mbp";
-			}
-		}
-		push @filters,
-		  $self->get_filter(
-			'linked_sequences',
-			\@values,
-			{
-				text    => 'Sequence bin',
-				tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
-			}
-		  );
-	}
+	my $seqbin_filter = $self->_get_seqbin_filter;
+	push @filters, $seqbin_filter if $seqbin_filter;
+	my $private_data_filter = $self->_get_private_data_filter;
+	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
 	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
-	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach (@filters);
+	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 	say q(</ul></div></fieldset>);
 	$self->{'filters_fieldset_exists'} = 1;
 	return;
@@ -745,6 +654,145 @@ sub _get_profile_filters {
 		}
 	}
 	return \@filters;
+}
+
+sub _get_seqbin_filter {
+	my ($self) = @_;
+	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	if ($linked_seqs) {
+		my @values = ( 'Any sequence data', 'No sequence data' );
+		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
+			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
+				push @values, "Sequence bin size >= $value Mbp";
+			}
+		}
+		return $self->get_filter(
+			'linked_sequences',
+			\@values,
+			{
+				text    => 'Sequence bin',
+				tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
+			}
+		);
+	}
+	return;
+}
+
+sub _get_private_data_filter {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $private = $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+	return if !$private;
+	return $self->get_filter(
+		'private_records',
+		[ 1 .. 4 ],
+		{
+			labels => {
+				1 => 'my private records only',
+				2 => 'private records (in quota)',
+				3 => 'private records (excluded from quota)',
+				4 => 'public records only'
+			},
+			text    => 'Private records',
+			tooltip => 'private records filter - Filter by whether the isolate record is private. '
+			  . 'The default is to include both your private and public records.'
+		}
+	);
+}
+
+sub _get_field_filters {
+	my ($self)        = @_;
+	my $prefs         = $self->{'prefs'};
+	my $filters       = [];
+	my $extended      = $self->get_extended_attributes;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $dropdownlist;
+		my %dropdownlabels;
+		if ( $prefs->{'dropdownfields'}->{$field} ) {
+			if (   $field eq 'sender'
+				|| $field eq 'curator'
+				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
+			{
+				push @$filters, $self->get_user_filter($field);
+			} else {
+				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+				if ( $thisfield->{'optlist'} ) {
+					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
+					if (   $thisfield->{'required'}
+						&& $thisfield->{'required'} eq 'no' )
+					{
+						push @$dropdownlist, 'null';
+						$dropdownlabels{'null'} = '[null]';
+					}
+				} elsif ( defined $metaset ) {
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
+						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
+					push @$dropdownlist, @$list;
+				} else {
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
+						  . "WHERE $field IS NOT NULL ORDER BY $field",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
+					push @$dropdownlist, @$list;
+				}
+				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
+				my $display_field = $metafield // $field;
+				push @$filters,
+				  $self->get_filter(
+					$field,
+					$dropdownlist,
+					{
+						text => $metafield // undef,
+						labels => \%dropdownlabels,
+						tooltip =>
+						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
+						  . "isolates that match the selected $display_field.",
+						capitalize_first => 1
+					}
+				  ) if @$dropdownlist;
+			}
+		}
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"} ) {
+					my $values = $self->{'datastore'}->run_query(
+						'SELECT DISTINCT value FROM isolate_value_extended_attributes '
+						  . 'WHERE isolate_field=? AND attribute=? ORDER BY value',
+						[ $field, $extended_attribute ],
+						{ fetch => 'col_arrayref' }
+					);
+					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
+					push @$filters,
+					  $self->get_filter(
+						"$field\..$extended_attribute",
+						$values,
+						{
+							text => $extended_attribute,
+							tooltip =>
+							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
+							  . "search to only those isolates that match the selected $field."
+						}
+					  );
+				}
+			}
+		}
+	}
+	return $filters;
 }
 
 sub _print_provenance_fields {
@@ -1469,6 +1517,7 @@ sub _modify_query_for_filters {
 		}
 	}
 	$self->_modify_query_by_profile_status( \$qry );
+	$self->_modify_query_by_private_status( \$qry );
 	if ( !$q->param('include_old') ) {
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND ($view.new_version IS NULL)";
@@ -1532,6 +1581,38 @@ sub _modify_query_by_profile_status {
 				}
 			}
 		}
+	}
+	return;
+}
+
+sub _modify_query_by_private_status {
+	my ( $self, $qry_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	return if !$q->param('private_records_list');
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $clause;
+	my $my_private   = "$view.id IN (SELECT isolate_id FROM private_isolates WHERE user_id=$user_info->{'id'})";
+	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
+	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
+	my $term = {
+		1 => sub { $clause = "($my_private)" },
+		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		3 => sub { $clause = "($my_private AND $not_in_quota)" },
+		4 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+	};
+
+	if ( $term->{ $q->param('private_records_list') } ) {
+		$term->{ $q->param('private_records_list') }->();
+	} else {
+		return;
+	}
+	if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+		$$qry_ref .= "AND $clause";
+	} else {
+		$$qry_ref = "SELECT * FROM $view WHERE $clause";
 	}
 	return;
 }
@@ -2413,7 +2494,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->SUPER::initiate;
-	$self->{'noCache'} = 1;
+	$self->{$_} = 1 foreach qw(noCache addProjects);
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;

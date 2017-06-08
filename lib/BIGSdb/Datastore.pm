@@ -645,9 +645,13 @@ sub get_users {
 	foreach my $user (@$data) {
 		next if $user->{'user_name'} =~ /^REMOVED_USER/x;
 		push @$ids, $user->{ $options->{'identifier'} };
-		if ( $options->{'format'} eq 'sfu' ) {
-			$labels->{ $user->{ $options->{'identifier'} } } =
-			  "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
+		my %format = (
+			fs  => "$user->{'first_name'} $user->{'surname'}",
+			sf  => "$user->{'surname'}, $user->{'first_name'}",
+			sfu => "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})"
+		);
+		if ( $format{ $options->{'format'} } ) {
+			$labels->{ $user->{ $options->{'identifier'} } } = $format{ $options->{'format'} };
 		}
 	}
 	$labels->{''} = $options->{'blank_message'} ? $options->{'blank_message'} : q( );
@@ -2560,5 +2564,96 @@ sub get_login_requirement {
 		return OPTIONAL;
 	}
 	return NOT_ALLOWED;
+}
+
+sub get_user_private_isolate_limit {
+	my ( $self, $user_id ) = @_;
+	return 0 if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $default_limit = $self->{'system'}->{'default_private_records'} // 0;
+	return if !BIGSdb::Utils::is_int($default_limit);
+	my $user_limit = $self->run_query( 'SELECT value FROM user_limits WHERE (user_id,attribute)=(?,?)',
+		[ $user_id, 'private_isolates' ] );
+	my $limit = $user_limit // $default_limit;
+	return $limit;
+}
+
+sub get_private_isolate_count {
+	my ( $self, $user_id ) = @_;
+	return $self->run_query(
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND NOT EXISTS'
+		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
+		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
+		$user_id
+	);
+}
+
+sub get_available_quota {
+	my ( $self, $user_id ) = @_;
+	my $private   = $self->get_private_isolate_count($user_id);
+	my $limit     = $self->get_user_private_isolate_limit($user_id);
+	my $available = $limit - $private;
+	$available = 0 if $available < 0;
+	return $available;
+}
+
+sub initiate_view {
+	my ( $self, $args ) = @_;
+	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	if ( defined $self->{'system'}->{'view'} && $set_id ) {
+		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
+			my $set_view = $self->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
+			$self->{'system'}->{'view'} = $set_view if $set_view;
+		}
+	}
+	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} v WHERE ";
+	my @args;
+	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
+	use constant OWN_PRIVATE_ISOLATES   => 'EXISTS(SELECT 1 FROM private_isolates WHERE (isolate_id,user_id)=(v.id,?))';
+	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
+	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
+	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
+	  . 'WHERE isolate_id=v.id))';
+	use constant PUBLIC_ISOLATES => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
+	use constant ISOLATES_FROM_USER_PROJECT =>
+	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
+	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
+	my $user_info = $self->get_user_info_from_username($username);
+
+	if ( !$user_info ) {                                              #Not logged in
+		$qry .= PUBLIC_ISOLATES;
+	} else {
+		my @user_terms;
+		if ($curate) {
+			return if $user_info->{'status'} eq 'admin';              #Admin can see everything.
+			my $method = {
+				submitter => sub {
+					@user_terms =
+					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
+				},
+				curator => sub {
+					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES );
+				  }
+			};
+			if ( $method->{ $user_info->{'status'} } ) {
+				$method->{ $user_info->{'status'} }->();
+			} else {
+				return;
+			}
+		} else {
+			@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, ISOLATES_FROM_USER_PROJECT );
+		}
+		local $" = q( OR );
+		$qry .= qq(@user_terms);
+		my $user_term_count = () = $qry =~ /\?/gx;    #apply list context to capture
+		@args = ( $user_info->{'id'} ) x $user_term_count;
+	}
+	if ($qry) {
+		eval { $self->{'db'}->do( $qry, undef, @args ) };
+		$logger->error($@) if $@;
+		$self->{'system'}->{'view'} = 'temp_view';
+	}
+	return;
 }
 1;
