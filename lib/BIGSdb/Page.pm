@@ -2273,6 +2273,7 @@ sub _initiate_isolatedb_scheme_prefs {
 
 sub initiate_view {
 	my ( $self, $username ) = @_;
+	return if !$self->{'datastore'};
 	my $args = { username => $username };
 	$args->{'curate'} = $self->{'curate'} if $self->{'curate'};
 	my $set_id = $self->get_set_id;
