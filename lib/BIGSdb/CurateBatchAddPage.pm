@@ -1963,14 +1963,14 @@ sub _display_update_footer_links {
 	my $q = $self->{'cgi'};
 	say q(<p>);
 	my $submission_id = $q->param('submission_id');
+	my ($back, $home) = (BACK, HOME);
 	if ($submission_id) {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a> | );
+		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
 		$self->_update_submission_database($submission_id);
 	}
-	my $back = BACK;
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	say qq(<a href="$script?db=$self->{'instance'}" title="Back">$back</a>);
+	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-left:1em">$home</a>);
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';

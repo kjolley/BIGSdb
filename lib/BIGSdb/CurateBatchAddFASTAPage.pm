@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2016, University of Oxford
+#Copyright (c) 2013-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ use Bio::SeqIO;
 use Digest::MD5;
 use constant SUCCESS => 1;
 use constant FAILURE => 2;
-use BIGSdb::Constants qw(SEQ_STATUS HAPLOID DIPLOID IDENTITY_THRESHOLD);
+use BIGSdb::Constants qw(:interface SEQ_STATUS HAPLOID DIPLOID IDENTITY_THRESHOLD);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -398,8 +398,7 @@ sub _upload {
 	  $self->{'db'}
 	  ->prepare('UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)');
 	eval {
-		while ( my $seq_object = $seqin->next_seq )
-		{
+		while ( my $seq_object = $seqin->next_seq ) {
 			$sql->execute( $q->param('locus'), $seq_object->id, $seq_object->seq, $q->param('status'), 'now', 'now',
 				$q->param('sender'), $self->get_curator_id );
 			if ( $allele_submission && $allele_submission->{'locus'} eq $q->param('locus') ) {
@@ -418,12 +417,15 @@ sub _upload {
 		return;
 	}
 	say q(<div class="box" id="resultsheader"><p>Upload succeeded.</p><p>);
+	my ( $back, $home, $more ) = ( BACK, HOME, UPLOAD_MORE );
 	if ($allele_submission) {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a> | );
+		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta">Upload more</a>)
-	  . qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta" )
+	  . qq(title="Upload more" style="margin-left:1em">$more</a>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" )
+	  . qq(title="Contents page" style="margin-left:1em">$home</a></p>);
 	say q(</div>);
 	$self->{'db'}->commit;
 	$self->{'datastore'}->mark_cache_stale;

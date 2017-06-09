@@ -43,35 +43,37 @@ use constant FACE_STYLE         => (
 	mixed => q(class="fa fa-lg fa-meh-o" style="color:blue"),
 	bad   => q(class="fa fa-lg fa-frown-o" style="color:red")
 );
-use constant SHOW     => q(<span class="fa fa-lg fa-plus-circle" style="color:green"></span>);
-use constant HIDE     => q(<span class="fa fa-lg fa-minus-circle" style="color:red"></span>);
-use constant SAVE     => q(<span class="fa fa-lg fa-save" style="color:green"></span>);
-use constant SAVING   => q(<span class="fa fa-lg fa-save" style="color:blue"></span>);
-use constant UP       => q(<span class="fa fa-lg fa-arrow-up" style="color:blue"></span>);
-use constant DOWN     => q(<span class="fa fa-lg fa-arrow-down" style="color:blue"></span>);
-use constant LEFT     => q(<span class="fa fa-lg fa-arrow-left" style="color:blue"></span>);
-use constant RIGHT    => q(<span class="fa fa-lg fa-arrow-right" style="color:blue"></span>);
-use constant EDIT     => q(<span class="fa fa-lg fa-pencil" style="color:#44a"></span>);
-use constant DELETE   => q(<span class="fa fa-lg fa-times" style="color:#a44"></span>);
-use constant ADD      => q(<span class="fa fa-lg fa-plus" style="color:#080"></span>);
-use constant COMPARE  => q(<span class="fa fa-lg fa-balance-scale" style="color:#44a"></span>);
-use constant UPLOAD   => q(<span class="fa fa-lg fa-upload" style="color:#080"></span>);
-use constant QUERY    => q(<span class="fa fa-lg fa-search" style="color:#44a"></span>);
-use constant USERS    => q(<span class="fa fa-lg fa-users" style="color:#a4a"></span>);
-use constant GOOD     => q(<span class="statusgood fa fa-lg fa-check"></span>);
-use constant BAD      => q(<span class="statusbad fa fa-lg fa-times"></span>);
-use constant TRUE     => q(<span class="fa fa-lg fa-check-square-o"></span>);
-use constant FALSE    => q(<span class="fa fa-lg fa-square-o"></span>);
-use constant BAN      => q(<span class="fa fa-lg fa-ban" style="color:#a44"></span>);
-use constant DOWNLOAD => q(<span class="fa fa-lg fa-download" style="color:#44a"></span>);
-use constant BACK     => q(<span class="main_icon fa fa-2x fa-arrow-circle-o-left"></span>);
-use constant EYE_SHOW => q(<span class="main_icon fa fa-2x fa-eye"></span>);
-use constant EYE_HIDE => q(<span class="main_icon fa fa-2x fa-eye-slash"></span>);
-use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant MAX_ROWS => 20;
+use constant SHOW        => q(<span class="fa fa-lg fa-plus-circle" style="color:green"></span>);
+use constant HIDE        => q(<span class="fa fa-lg fa-minus-circle" style="color:red"></span>);
+use constant SAVE        => q(<span class="fa fa-lg fa-save" style="color:green"></span>);
+use constant SAVING      => q(<span class="fa fa-lg fa-save" style="color:blue"></span>);
+use constant UP          => q(<span class="fa fa-lg fa-arrow-up" style="color:blue"></span>);
+use constant DOWN        => q(<span class="fa fa-lg fa-arrow-down" style="color:blue"></span>);
+use constant LEFT        => q(<span class="fa fa-lg fa-arrow-left" style="color:blue"></span>);
+use constant RIGHT       => q(<span class="fa fa-lg fa-arrow-right" style="color:blue"></span>);
+use constant EDIT        => q(<span class="fa fa-lg fa-pencil" style="color:#44a"></span>);
+use constant DELETE      => q(<span class="fa fa-lg fa-times" style="color:#a44"></span>);
+use constant ADD         => q(<span class="fa fa-lg fa-plus" style="color:#080"></span>);
+use constant COMPARE     => q(<span class="fa fa-lg fa-balance-scale" style="color:#44a"></span>);
+use constant UPLOAD      => q(<span class="fa fa-lg fa-upload" style="color:#080"></span>);
+use constant QUERY       => q(<span class="fa fa-lg fa-search" style="color:#44a"></span>);
+use constant USERS       => q(<span class="fa fa-lg fa-users" style="color:#a4a"></span>);
+use constant GOOD        => q(<span class="statusgood fa fa-lg fa-check"></span>);
+use constant BAD         => q(<span class="statusbad fa fa-lg fa-times"></span>);
+use constant TRUE        => q(<span class="fa fa-lg fa-check-square-o"></span>);
+use constant FALSE       => q(<span class="fa fa-lg fa-square-o"></span>);
+use constant BAN         => q(<span class="fa fa-lg fa-ban" style="color:#a44"></span>);
+use constant DOWNLOAD    => q(<span class="fa fa-lg fa-download" style="color:#44a"></span>);
+use constant BACK        => q(<span class="main_icon fa fa-2x fa-arrow-circle-o-left"></span>);
+use constant UPLOAD_MORE => q(<span class="main_icon fa fa-2x fa-upload"></span>);
+use constant HOME        => q(<span class="main_icon fa fa-2x fa-home"></span>);
+use constant EYE_SHOW    => q(<span class="main_icon fa fa-2x fa-eye"></span>);
+use constant EYE_HIDE    => q(<span class="main_icon fa fa-2x fa-eye-slash"></span>);
+use constant FLANKING    => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant MAX_ROWS    => 20;
 my @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK EYE_SHOW EYE_HIDE
-  FLANKING MAX_ROWS);
+  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK UPLOAD_MORE HOME 
+  EYE_SHOW EYE_HIDE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

@@ -340,7 +340,7 @@ sub _display_navlinks {
 		say qq( | <a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a>);
 	}
-	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">) . q(Back to main page</a></p>);
+	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
 	return;
 }
 
