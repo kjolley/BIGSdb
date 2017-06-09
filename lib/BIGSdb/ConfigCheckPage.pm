@@ -263,6 +263,7 @@ sub _check_classification_scheme_databases {
 	} else {
 		say q(<p>No schemes with databases defined.</p>);
 	}
+	say q(</div>);
 	return;
 }
 
