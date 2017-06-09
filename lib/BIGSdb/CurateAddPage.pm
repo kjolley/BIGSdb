@@ -81,9 +81,9 @@ sub print_content {
 	return if !$self->_table_exists($table);
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
-		my %seq_table = map { $_ => 1 } qw(sequences retired_allele_ids);
-		my %locus_table = map {$_ => 1} qw(locus_descriptions locus_links);
-		if ( ($seq_table{$table} && $q->param('locus')) || $locus_table{$table}) {
+		my %seq_table   = map { $_ => 1 } qw(sequences retired_allele_ids);
+		my %locus_table = map { $_ => 1 } qw(locus_descriptions locus_links);
+		if ( ( $seq_table{$table} && $q->param('locus') ) || $locus_table{$table} ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
 			say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add $locus $record_type)
@@ -309,38 +309,42 @@ sub _insert {
 sub _display_navlinks {
 	my ( $self, $table, $newdata ) = @_;
 	say q(<p>);
-	if ( $table eq 'samples' ) {
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-		  . qq(table=samples&isolate_id=$newdata->{'isolate_id'}">Add another</a> | );
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
-		  . qq(id=$newdata->{'isolate_id'}">Back to isolate update</a>);
-	} else {
-		my $locus_clause = '';
-		if ( $table eq 'sequences' ) {
-			$newdata->{'locus'} =~ s/\\//gx;
-			$locus_clause =
-			  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;) . qq(sender=$newdata->{'sender'});
-		}
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-		  . qq(table=$table$locus_clause">Add another</a>);
-	}
+	my ( $home, $back, $more, $key ) = ( HOME, BACK, MORE, KEY );
 	if ( $table eq 'users' ) {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
 			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 		{
 			my $user_db_string =
 			  BIGSdb::Utils::is_int( $newdata->{'user_db'} ) ? qq(&amp;user_db=$newdata->{'user_db'}) : q();
-			say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}$user_db_string">Set password</a>);
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}$user_db_string" title="Set password" )
+			  . qq(style="margin-right:1em">$key</a>);
 		}
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('submission_id') ) {
 		my $submission_id = $q->param('submission_id');
-		say qq( | <a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1">Return to submission</a>);
+		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
+		  . qq(style="margin-right:1em">$back</a>);
 	}
-	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
+	if ( $table eq 'samples' ) {
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
+		  . qq(id=$newdata->{'isolate_id'}" title="Back to isolate update" style="margin-right:1em">$back</a>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;)
+		  . qq(isolate_id=$newdata->{'isolate_id'}" title="Add another sample" style="margin-right:1em">$more</a>);
+	} else {
+		my $locus_clause = '';
+		if ( $table eq 'sequences' ) {
+			$newdata->{'locus'} =~ s/\\//gx;
+			$locus_clause =
+			  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'});
+		}
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+		  . qq(table=$table$locus_clause" title="Add another" style="margin-right:1em">$more</a>);
+	}
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
+	  . qq(style="margin-right:1em">$home</a></p>);
 	return;
 }
 
@@ -410,7 +414,7 @@ sub _check_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSu
 #Check for sequence length in sequences table, that sequence doesn't already
 #exist and is similar to existing etc. Prepare extra inserts for PubMed/Genbank
 #records and sequence flags.
-sub _check_sequences {                     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my $q          = $self->{'cgi'};
 	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
@@ -736,7 +740,8 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			}
 			push @$problems, $msg;
 		} else {
-			push @$extra_transactions, {
+			push @$extra_transactions,
+			  {
 				statement => 'INSERT INTO users (user_name,surname,first_name,email,affiliation,'
 				  . 'date_entered,datestamp,status) VALUES (?,?,?,?,?,?,?,?)',
 				arguments => [
@@ -746,16 +751,20 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 					'now',                     'validated'
 				],
 				db => $user_db
-			};
+			  };
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}
 	undef $newdata->{'user_db'} if ( $newdata->{'user_db'} // 0 ) == 0;
-	if ($newdata->{'status'} ne 'user' && $self->{'system'}->{'dbtype'} eq 'isolates' && BIGSdb::Utils::is_int($newdata->{'quota'})){
-		push @$extra_inserts, {
+	if (   $newdata->{'status'} ne 'user'
+		&& $self->{'system'}->{'dbtype'} eq 'isolates'
+		&& BIGSdb::Utils::is_int( $newdata->{'quota'} ) )
+	{
+		push @$extra_inserts,
+		  {
 			statement => 'INSERT INTO user_limits (user_id,attribute,value,curator,datestamp) VALUES (?,?,?,?,?)',
-			arguments => [$newdata->{'id'},'private_isolates',$newdata->{'quota'},$newdata->{'curator'},'now']
-		};
+			arguments => [ $newdata->{'id'}, 'private_isolates', $newdata->{'quota'}, $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	return;
 }

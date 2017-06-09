@@ -417,7 +417,7 @@ sub _upload {
 		return;
 	}
 	say q(<div class="box" id="resultsheader"><p>Upload succeeded.</p><p>);
-	my ( $back, $home, $more ) = ( BACK, HOME, UPLOAD_MORE );
+	my ( $back, $home, $more ) = ( BACK, HOME, MORE );
 	if ($allele_submission) {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
