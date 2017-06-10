@@ -805,6 +805,7 @@ sub random_string {
 #From http://www.jb.man.ac.uk/~slowe/perl/filesize.html
 sub get_nice_size {
 	my ( $size, $decimal_places ) = @_;    # First variable is the size in bytes
+	$logger->logcarp('Size not passed') if !defined $size;
 	$decimal_places //= 1;
 	my @units = ( 'bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' );
 	my $u = 0;
