@@ -38,8 +38,8 @@ sub print_content {
 	say qq(<h1>$desc</h1>);
 	say q(<div class="box" id="statusbad">);
 	no warnings 'once';
-	my $upload_limit   = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} );
-	my $content_length = BIGSdb::Utils::get_nice_size( $ENV{'CONTENT_LENGTH'} // 0 );
+	my $upload_limit   = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
+	my $content_length = BIGSdb::Utils::get_nice_size( $ENV{'CONTENT_LENGTH'}        // 0 );
 	my %error          = (
 		missingXML    => q(Database description file does not exist!),
 		invalidXML    => q(Invalid database description file specified!),
