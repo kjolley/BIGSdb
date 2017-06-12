@@ -322,6 +322,8 @@ sub _display_navlinks {
 		}
 	}
 	my $q = $self->{'cgi'};
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
+	  . qq(style="margin-right:1em">$home</a>);
 	if ( $q->param('submission_id') ) {
 		my $submission_id = $q->param('submission_id');
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
@@ -343,8 +345,7 @@ sub _display_navlinks {
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
 		  . qq(table=$table$locus_clause" title="Add another" style="margin-right:1em">$more</a>);
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
-	  . qq(style="margin-right:1em">$home</a></p>);
+	say q(</p>);
 	return;
 }
 
