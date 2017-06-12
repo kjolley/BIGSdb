@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,14 +27,14 @@ use Error qw(:try);
 use constant DEFAULT_ALIGNMENT => 100;
 use constant DEFAULT_IDENTITY  => 99;
 use constant DEFAULT_WORD_SIZE => 30;
-use constant DEFINER_USER      => -1;    #User id for tagger (there needs to be a record in the users table)
-use constant DEFINER_USERNAME => 'autodefiner';
+use constant DEFINER_USER      => -1;              #User id for tagger (there needs to be a record in the users table)
+use constant DEFINER_USERNAME  => 'autodefiner';
 
 sub run_script {
 	my ($self) = @_;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	$self->{'exit'} = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
@@ -44,17 +44,26 @@ sub run_script {
 	if ( $self->{'options'}->{'a'} && !$self->_can_define_alleles($loci) ) {
 		exit(1);
 	}
-	my $isolates       = $self->get_isolates_with_linked_seqs;
-	my $isolate_list   = $self->filter_and_sort_isolates($isolates);
-	my $isolate_prefix = $self->{'options'}->{'prefix'} || BIGSdb::Utils::get_random();
-	my $locus_prefix   = BIGSdb::Utils::get_random();
-	$self->{'start_time'} = time;
-	my $first         = 1;
+	my $isolates      = $self->get_isolates_with_linked_seqs;
+	my $isolate_list  = $self->filter_and_sort_isolates($isolates);
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
+	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner start ($isolate_count genome$plural)");
-	my $i = 0;
+	$self->_scan_locus_by_locus( $isolate_list, $loci, $params );
+	my $stop          = time;
+	my $duration      = $stop - $self->{'start_time'};
+	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
+	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop ($nice_duration)");
+	return;
+}
 
+sub _scan_locus_by_locus {
+	my ( $self, $isolate_list, $loci, $params ) = @_;
+	my $isolate_prefix = $self->{'options'}->{'prefix'} || BIGSdb::Utils::get_random();
+	my $locus_prefix   = BIGSdb::Utils::get_random();
+	my $first          = 1;
+	my $i              = 0;
 	foreach my $locus (@$loci) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$loci ), 1 );
@@ -69,7 +78,7 @@ sub run_script {
 				next if @$allele_seq;
 			}
 			my ( $exact_matches, $partial_matches ) =
-			  $self->blast( $params, $locus, $isolate_id, "$isolate_prefix\_$isolate_id", $locus_prefix );
+			  $self->blast( $params, $locus, $isolate_id, "${isolate_prefix}_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
@@ -106,20 +115,19 @@ sub run_script {
 					say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag";
 				}
 			}
-			last if $EXIT || $self->_is_time_up;
+			last if $self->{'exit'} || $self->_is_time_up;
 		}
 		$self->{'datastore'}->finish_with_locus($locus);
 
 		#Delete locus working files
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
-		last if $EXIT || $self->_is_time_up;
+		last if $self->{'exit'} || $self->_is_time_up;
 	}
 
 	#Delete isolate working files
 	#Only delete if single threaded (we'll delete when all threads finished in multithreaded).
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*")
 	  if !$self->{'options'}->{'prefix'};
-	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop");
 	return;
 }
 
@@ -267,7 +275,7 @@ sub _can_define_alleles {
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			$self->{'logger'}->error("Can not connect to database for locus $locus");
-			say "Can not connect to database for locus $locus";
+			say "Cannot connect to database for locus $locus";
 			$can_define = 0;
 		};
 		last if !$can_define;
