@@ -22,6 +22,7 @@ Version 1.14: Change of seqdef and isolate database structures.
 Version 1.15: Change of seqdef and isolate database structures.
 Version 1.16: Change of authentication, seqdef and isolate database 
               structures.
+Version 1.17: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -355,3 +356,14 @@ The following Perl modules are now also dependencies and need to be installed:
 
 Email::Valid
 Email::Sender
+
+Version 1.17
+------------
+There are changes to the sequence definition and isolate databases to support
+private projects and private data.
+
+Please run the seqdefdb_v1.17.sql script against sequence definition databases
+and isolatedb_v1.17.sql against isolate databases.
+
+Additionally, you need to update the bigsdb.css stylesheet and the contents
+of the javascript directory.
