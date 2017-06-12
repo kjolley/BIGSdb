@@ -757,8 +757,8 @@ sub _print_user_projects {
 		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+	my $home = HOME;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page">$home</a></p>);
 	say q(</div>);
 	return;
 }

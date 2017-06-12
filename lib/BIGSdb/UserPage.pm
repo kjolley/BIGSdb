@@ -150,7 +150,7 @@ sub _edit_user {
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
 	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}">$back</a></p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
 	say q(</div></div>);
 	return;
 }
@@ -725,7 +725,7 @@ sub _select_merge_users {
 	say $q->end_form;
 	say q(</div>);
 	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}">$back</a></p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }

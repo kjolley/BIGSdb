@@ -158,9 +158,9 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
-	my ( $back, $show, $hide ) = ( BACK, EYE_SHOW, EYE_HIDE );
+	my ( $home, $show, $hide ) = ( HOME, EYE_SHOW, EYE_HIDE );
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}" title="Back">$back</a>);
+	  . qq(db=$self->{'instance'}" title="Contents page">$home</a>);
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 
