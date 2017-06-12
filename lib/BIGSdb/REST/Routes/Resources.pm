@@ -24,12 +24,12 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 get '/robots.txt' => sub { _get_robots() };
 
 #Resource description routes
-get '/'           => sub { _get_root() };
-get qr{^/db/?+$}x => sub { _get_db() };
-get '/db/:db'     => sub { _get_db() };
+get '/'       => sub { _get_root() };
+get '/db'     => sub { _get_root() };
+get '/db/:db' => sub { _get_db() };
 
 sub _get_robots {
-	send_file(\"User-agent: *\nDisallow: /\n", content_type => 'text/plain; charset=UTF-8');
+	send_file( \"User-agent: *\nDisallow: /\n", content_type => 'text/plain; charset=UTF-8' );
 	return;
 }
 
