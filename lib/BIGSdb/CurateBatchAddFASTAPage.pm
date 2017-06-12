@@ -422,10 +422,10 @@ sub _upload {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
 	}
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" )
+	  . qq(title="Contents page" style="margin-left:1em">$home</a>);
 	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta" )
-	  . qq(title="Upload more" style="margin-left:1em">$more</a>)
-	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" )
-	  . qq(title="Contents page" style="margin-left:1em">$home</a></p>);
+	  . qq(title="Upload more" style="margin-left:1em">$more</a></p>);
 	say q(</div>);
 	$self->{'db'}->commit;
 	$self->{'datastore'}->mark_cache_stale;

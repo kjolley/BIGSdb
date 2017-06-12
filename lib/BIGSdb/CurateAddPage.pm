@@ -310,6 +310,19 @@ sub _display_navlinks {
 	my ( $self, $table, $newdata ) = @_;
 	say q(<p>);
 	my ( $home, $back, $more, $key ) = ( HOME, BACK, MORE, KEY );
+	my $q = $self->{'cgi'};
+	if ( $q->param('submission_id') ) {
+		my $submission_id = $q->param('submission_id');
+		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
+		  . qq(style="margin-right:1em">$back</a>);
+	}
+	if ( $table eq 'samples' ) {
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
+		  . qq(id=$newdata->{'isolate_id'}" title="Back to isolate update" style="margin-right:1em">$back</a>);
+	}
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
+	  . qq(style="margin-right:1em">$home</a>);
 	if ( $table eq 'users' ) {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
 			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
@@ -321,18 +334,7 @@ sub _display_navlinks {
 			  . qq(style="margin-right:1em">$key</a>);
 		}
 	}
-	my $q = $self->{'cgi'};
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
-	  . qq(style="margin-right:1em">$home</a>);
-	if ( $q->param('submission_id') ) {
-		my $submission_id = $q->param('submission_id');
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
-	}
 	if ( $table eq 'samples' ) {
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
-		  . qq(id=$newdata->{'isolate_id'}" title="Back to isolate update" style="margin-right:1em">$back</a>);
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;)
 		  . qq(isolate_id=$newdata->{'isolate_id'}" title="Add another sample" style="margin-right:1em">$more</a>);
 	} else {
