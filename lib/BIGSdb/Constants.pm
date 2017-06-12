@@ -64,12 +64,12 @@ use constant TRUE     => q(<span class="fa fa-lg fa-check-square-o"></span>);
 use constant FALSE    => q(<span class="fa fa-lg fa-square-o"></span>);
 use constant BAN      => q(<span class="fa fa-lg fa-ban" style="color:#a44"></span>);
 use constant DOWNLOAD => q(<span class="fa fa-lg fa-download" style="color:#44a"></span>);
-use constant BACK     => q(<span class="main_icon fa fa-2x fa-arrow-circle-o-left"></span>);
-use constant MORE     => q(<span class="main_icon fa fa-2x fa-plus"></span>);
-use constant HOME     => q(<span class="main_icon fa fa-2x fa-home"></span>);
-use constant KEY      => q(<span class="main_icon fa fa-2x fa-key"></span>);
-use constant EYE_SHOW => q(<span class="main_icon fa fa-2x fa-eye"></span>);
-use constant EYE_HIDE => q(<span class="main_icon fa fa-2x fa-eye-slash"></span>);
+use constant BACK     => q(<span class="nav_icon fa fa-2x fa-arrow-circle-o-left"></span>);
+use constant MORE     => q(<span class="nav_icon fa fa-2x fa-plus"></span>);
+use constant HOME     => q(<span class="nav_icon fa fa-2x fa-home"></span>);
+use constant KEY      => q(<span class="nav_icon fa fa-2x fa-key"></span>);
+use constant EYE_SHOW => q(<span class="nav_icon fa fa-2x fa-eye"></span>);
+use constant EYE_HIDE => q(<span class="nav_icon fa fa-2x fa-eye-slash"></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 my @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT

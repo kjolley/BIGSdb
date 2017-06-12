@@ -2,15 +2,12 @@
 
 $(function () {
 	$('div.content a:not(.lightbox)').tooltip({ 
-	    track: true, 
-	    delay: 0, 
+	    track: false, 
+	    show: {delay: 250}, 
 	    showURL: false, 
 	    showBody: " - ", 
 	    fade: 250 
 	});
-	$('div.content a.truncated').tooltip({ 
-	    track: false, 
-	});	
 	$('.showhide').show();
 	$("#hidefromnonJS").removeClass("hiddenbydefault");
 	$(".hideonload").slideUp("normal");
