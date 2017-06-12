@@ -82,23 +82,9 @@ sub _scan_locus_by_locus {
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
 				next if $self->_off_end_of_contig($match);
-				my $seq          = $self->extract_seq_from_match($match);
-				my $complete_cds = BIGSdb::Utils::is_complete_cds($seq);
-				my $flag         = q();
-				if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
-					if ( $self->{'options'}->{'allow_frameshift'} ) {
-						$complete_cds->{'err'} //= q();
-						if ( $complete_cds->{'err'} =~ /internal\ stop\ codon/x ) {
-							$flag = 'internal stop codon';
-						} elsif ( $complete_cds->{'err'} =~ /multiple\ of\ 3/x ) {
-							$flag = 'frameshift';
-						} else {    #Sequence does not have start or stop codon.
-							next;
-						}
-					} else {
-						next;
-					}
-				}
+				my $seq = $self->extract_seq_from_match($match);
+				my ( $reject, $flag ) = $self->_check_cds($seq);
+				next if $reject;
 				my $seq_hash = Digest::MD5::md5_hex($seq);
 				next if $seqs{$seq_hash};
 				$seqs{$seq_hash} = 1;
@@ -129,6 +115,28 @@ sub _scan_locus_by_locus {
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*")
 	  if !$self->{'options'}->{'prefix'};
 	return;
+}
+
+sub _check_cds {
+	my ( $self, $seq ) = @_;
+	my $reject       = 0;
+	my $flag         = q();
+	my $complete_cds = BIGSdb::Utils::is_complete_cds($seq);
+	if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
+		if ( $self->{'options'}->{'allow_frameshift'} ) {
+			$complete_cds->{'err'} //= q();
+			if ( $complete_cds->{'err'} =~ /internal\ stop\ codon/x ) {
+				$flag = 'internal stop codon';
+			} elsif ( $complete_cds->{'err'} =~ /multiple\ of\ 3/x ) {
+				$flag = 'frameshift';
+			} else {    #Sequence does not have start or stop codon.
+				$reject = 1;
+			}
+		} else {
+			$reject = 1;
+		}
+	}
+	return ( $reject, $flag );
 }
 
 sub _get_params {
