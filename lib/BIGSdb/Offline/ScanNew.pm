@@ -50,11 +50,67 @@ sub run_script {
 	my $plural        = $isolate_count == 1 ? '' : 's';
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner start ($isolate_count genome$plural)");
-	$self->_scan_locus_by_locus( $isolate_list, $loci, $params );
+	if ( $params->{'fast'} ) {
+		$self->_scan_loci_together( $isolate_list, $loci, $params );
+	} else {
+		$self->_scan_locus_by_locus( $isolate_list, $loci, $params );
+	}
 	my $stop          = time;
 	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop ($nice_duration)");
+	return;
+}
+
+sub _scan_loci_together {
+	my ( $self, $isolate_list, $loci, $params ) = @_;
+	my $i              = 0;
+	my $total          = @$isolate_list;
+	my $isolate_prefix = BIGSdb::Utils::get_random();
+	my $locus_prefix   = BIGSdb::Utils::get_random();
+	my $seqs           = {};
+  ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		$i++;
+		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
+		$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/$total($complete%)");
+		my ( @loci_to_scan, @loci_to_check );
+		my $allele_seq = {};
+		if ( $self->{'options'}->{'reuse_blast'} ) {
+			@loci_to_scan = @$loci;
+		}
+	  LOCUS: foreach my $locus (@$loci) {
+			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
+			next if @$existing_allele_ids;
+			$allele_seq->{$locus} = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
+			next if @{ $allele_seq->{$locus} } && !$self->{'options'}->{'T'};
+			push @loci_to_check, $locus;
+			if ( !$self->{'options'}->{'reuse_blast'} ) {
+				push @loci_to_scan, $locus;
+			}
+		}
+		my ( $exact_matches, $partial_matches ) =
+		  $self->blast_multiple_loci( $params, \@loci_to_scan, $isolate_id, $isolate_prefix, $locus_prefix );
+	  LOCUS: foreach my $locus (@loci_to_check) {
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			next if ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} };
+			my $matches = $partial_matches->{$locus} // [];
+			foreach my $match (@$matches) {
+				$self->_handle_match( $locus_info, $match, $seqs );
+			}
+		}
+
+		#Delete isolate seqbin FASTA
+		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+
+		#Delete locus working files
+		if ( !$self->{'options'}->{'reuse_blast'} ) {
+			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+		}
+		last ISOLATE if $self->{'exit'} || $self->_is_time_up;
+	}
+
+	#Delete locus working files
+	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
 	return;
 }
 
@@ -64,13 +120,13 @@ sub _scan_locus_by_locus {
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	my $first          = 1;
 	my $i              = 0;
-	foreach my $locus (@$loci) {
+  LOCUS: foreach my $locus (@$loci) {
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$loci ), 1 );
 		$self->{'logger'}->info( "$self->{'options'}->{'d'}#pid$$:Checking $locus - $i/" . (@$loci) . "($complete%)" );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my %seqs;
-		foreach my $isolate_id (@$isolate_list) {
+		my $seqs       = {};
+	  ISOLATE: foreach my $isolate_id (@$isolate_list) {
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$allele_ids;
 			if ( !$self->{'options'}->{'T'} ) {
@@ -81,25 +137,7 @@ sub _scan_locus_by_locus {
 			  $self->blast( $params, $locus, $isolate_id, "${isolate_prefix}_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
-				next if $self->_off_end_of_contig($match);
-				my $seq = $self->extract_seq_from_match($match);
-				my ( $reject, $flag ) = $self->_check_cds($seq);
-				next if $reject;
-				my $seq_hash = Digest::MD5::md5_hex($seq);
-				next if $seqs{$seq_hash};
-				$seqs{$seq_hash} = 1;
-				if ( $self->{'options'}->{'a'} ) {
-					next if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
-					my $allele_id = $self->_define_allele( $locus, $seq, $flag );
-					say ">$locus-$allele_id";
-					say $seq;
-				} else {
-					if ($first) {
-						say "locus\tallele_id\tstatus\tsequence\tflags";
-						$first = 0;
-					}
-					say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag";
-				}
+				$self->_handle_match( $locus_info, $match, $seqs );
 			}
 			last if $self->{'exit'} || $self->_is_time_up;
 		}
@@ -114,6 +152,28 @@ sub _scan_locus_by_locus {
 	#Only delete if single threaded (we'll delete when all threads finished in multithreaded).
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*")
 	  if !$self->{'options'}->{'prefix'};
+	return;
+}
+
+sub _handle_match {
+	my ( $self, $locus_info, $match, $seqs ) = @_;
+	return if $self->_off_end_of_contig($match);
+	my $seq = $self->extract_seq_from_match($match);
+	my ( $reject, $flag ) = $self->_check_cds($seq);
+	return if $reject;
+	my $seq_hash = Digest::MD5::md5_hex($seq);
+	my $locus    = $locus_info->{'id'};
+	return if $seqs->{$locus}->{$seq_hash};
+	$seqs->{$locus}->{$seq_hash} = 1;
+
+	if ( $self->{'options'}->{'a'} ) {
+		return if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
+		my $allele_id = $self->_define_allele( $locus, $seq, $flag );
+		say ">$locus-$allele_id";
+		say $seq;
+	} else {
+		say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag";
+	}
 	return;
 }
 
@@ -147,9 +207,18 @@ sub _get_params {
 	  BIGSdb::Utils::is_int( $self->{'options'}->{'A'} ) ? $self->{'options'}->{'A'} : DEFAULT_ALIGNMENT;
 	$params->{'identity'} =
 	  BIGSdb::Utils::is_int( $self->{'options'}->{'B'} ) ? $self->{'options'}->{'B'} : DEFAULT_IDENTITY;
-	$params->{'word_size'} =
-	  BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ? $self->{'options'}->{'w'} : DEFAULT_WORD_SIZE;
-	$params->{'type_alleles'} = $self->{'options'}->{'type_alleles'};
+	if ( BIGSdb::Utils::is_int( $self->{'options'}->{'w'} ) ) {
+		$params->{'word_size'} = $self->{'options'}->{'w'};
+	} else {
+		if ( $self->{'options'}->{'exemplar'} ) {
+
+			#More stringent if checking using exemplar alleles.
+			$params->{'word_size'} = 15;
+		} else {
+			$params->{'word_size'} = DEFAULT_WORD_SIZE;
+		}
+	}
+	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast type_alleles reuse_blast);
 	return $params;
 }
 

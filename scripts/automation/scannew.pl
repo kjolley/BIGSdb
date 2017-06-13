@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2016, University of Oxford
+#Copyright (c) 2013-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,6 +42,8 @@ GetOptions(
 	'A|alignment=i'        => \$opts{'A'},
 	'B|identity=i'         => \$opts{'B'},
 	'd|database=s'         => \$opts{'d'},
+	'e|exemplar'           => \$opts{'exemplar'},
+	'f|fast'               => \$opts{'fast'},
 	'i|isolates=s'         => \$opts{'i'},
 	'isolate_list_file=s'  => \$opts{'isolate_list_file'},
 	'I|exclude_isolates=s' => \$opts{'I'},
@@ -65,6 +67,7 @@ GetOptions(
 	'n|new_only'           => \$opts{'n'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
+	'reuse_blast'          => \$opts{'reuse_blast'},
 	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
@@ -112,6 +115,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
+	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	foreach my $list (@$lists) {
 		$pm->start and next;                          #Forks
@@ -138,6 +142,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 }
 
 #Run non-threaded job
+print_header();
 my $script = BIGSdb::Offline::ScanNew->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -151,6 +156,13 @@ my $script = BIGSdb::Offline::ScanNew->new(
 		instance         => $opts{'d'},
 	}
 );
+
+sub print_header {
+	if ( !$opts{'a'} ) {
+		say "locus\tallele_id\tstatus\tsequence\tflags";
+	}
+	return;
+}
 
 sub show_help {
 	my $termios = POSIX::Termios->new;
@@ -189,6 +201,19 @@ ${bold}-c, --coding_sequences$norm
 
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
+    
+${bold}-e, --exemplar$norm
+    Only use alleles with the 'exemplar' flag set in BLAST searches to identify
+    locus within genome. Specific allele is then identified using a database 
+    lookup. This may be quicker than using all alleles for the BLAST search, 
+    but will be at the expense of sensitivity. If no exemplar alleles are set 
+    for a locus then all alleles will be used. Sets default word size to 15.
+
+${bold}-f --fast$norm
+    Perform single BLAST query against all selected loci together. This will
+    take longer to return any results but the overall scan should finish 
+    quicker. This method will also use more memory - this can be used with
+    --exemplar to mitigate against this.
 
 ${bold}-h, --help$norm
     This help page.
@@ -227,6 +252,15 @@ ${bold}-P, --exclude_projects$norm ${under}LIST$norm
            
 ${bold}-r, --random$norm
     Shuffle order of isolate ids to scan.
+    
+${bold}--reuse_blast$norm
+    Reuse the BLAST database for every isolate (when running --fast option). 
+    All loci will be scanned rather than just those missing from an isolate. 
+    Consequently, this may be slower if isolates have already been scanned, 
+    and for the first isolate scanned by a thread. On larger schemes, such as 
+    wgMLST, or when isolates have not been previously scanned, setting up the
+    BLAST database can take a significant amount of time, so this may be 
+    quicker.
 
 ${bold}-R, --locus_regex$norm ${under}REGEX$norm
     Regex for locus names.
