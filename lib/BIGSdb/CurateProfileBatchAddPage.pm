@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
@@ -477,8 +478,7 @@ sub _upload {
 			push @mv_values, $data[ $fieldorder{$field} ];
 		}
 		eval {
-			foreach my $insert (@inserts)
-			{
+			foreach my $insert (@inserts) {
 				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 			}
 		};
@@ -499,15 +499,17 @@ sub _upload {
 	}
 	$self->{'db'}->commit
 	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
+	my ( $back, $home ) = ( BACK, HOME );
 	if ( $q->param('submission_id') ) {
 		my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
 		if ($submission) {
 			say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">Return to )
-			  . q(submission</a> | );
+			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
+			  . q(submission" style="margin-right:1em">$back</a>);
 		}
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page">)
+	  . qq($home</a></p></div>);
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}
