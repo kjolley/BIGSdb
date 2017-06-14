@@ -2404,11 +2404,11 @@ sub run_query {
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
 		eval { $data = $db->selectcol_arrayref( $sql, undef, @$values ) };
-		$logger->logcarp($@) if $@;
+		$logger->logcarp("$@ Query:$qry") if $@;
 		return $data;
 	}
 	eval { $sql->execute(@$values) };
-	$logger->logcarp($@) if $@;
+	$logger->logcarp("$@ Query:$qry") if $@;
 	if ( $options->{'fetch'} eq 'row_arrayref' ) {    #returns undef when no rows
 		return $sql->fetchrow_arrayref;
 	}
