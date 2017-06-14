@@ -170,6 +170,7 @@ sub get_user_groups_table_attributes {
 	  );
 	return $attributes;
 }
+
 sub get_user_group_members_table_attributes {
 	my $attributes = [
 		{
@@ -677,7 +678,7 @@ sub get_locus_links_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'url',         type => 'text', required => 1, primary_key    => 1 },
-		{ name => 'description', type => 'text', required => 1, length   => 256 },
+		{ name => 'description', type => 'text', required => 1, length         => 256 },
 		{ name => 'link_order',  type => 'int',  length   => 4 },
 		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',   type => 'date', required => 1 }
@@ -1793,10 +1794,10 @@ sub get_isolate_field_extended_attributes_table_attributes {
 	local $" = ';';
 	my $attributes = [
 		{
-			name        => 'isolate_field',
-			type        => 'text',
-			required    => 1,
-			optlist     => "@select_fields"
+			name     => 'isolate_field',
+			type     => 'text',
+			required => 1,
+			optlist  => "@select_fields"
 		},
 		{ name => 'attribute', type => 'text', required => 1, primary_key => 1 },
 		{
@@ -1842,10 +1843,10 @@ sub get_isolate_value_extended_attributes_table_attributes {
 	local $" = ';';
 	$attributes = [
 		{
-			name        => 'isolate_field',
-			type        => 'text',
-			required    => 1,
-			optlist     => "@select_fields"
+			name     => 'isolate_field',
+			type     => 'text',
+			required => 1,
+			optlist  => "@select_fields"
 		},
 		{ name => 'attribute',   type => 'text', required => 1, primary_key => 1, optlist => "@$attributes" },
 		{ name => 'field_value', type => 'text', required => 1, primary_key => 1 },
@@ -2085,12 +2086,11 @@ sub get_classification_schemes_table_attributes {
 				comments => 'cscheme_id number defined in seqdef database',
 				tooltip =>
 				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
-			},
-			{ name => 'display_order', type => 'int' }
+			}
 		  );
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
+		{ name => 'display_order', type => 'int' },
 		{
 			name     => 'status',
 			type     => 'text',
@@ -2100,7 +2100,7 @@ sub get_classification_schemes_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	  );
+	);
 	return $attributes;
 }
 

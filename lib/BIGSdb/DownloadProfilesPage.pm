@@ -109,13 +109,11 @@ sub print_content {
 	return;
 }
 
-#TODO Add defined ordering
 sub _get_classification_schemes {
 	my ( $self, $scheme_id ) = @_;
-	return $self->{'datastore'}->run_query(
-		'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY id',
-		$scheme_id, { fetch => 'all_arrayref', slice => {} }
-	);
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,id',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
 }
 
 sub _get_classification_groups {
