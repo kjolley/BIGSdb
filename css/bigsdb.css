@@ -371,6 +371,7 @@ a#close_trigger {
 .statusbad {color:red}
 td.partialmatch {color:#ff8c00}
 td.header {background:#404090;color:white}
+td.private_record {background:#ebb}
 tr.total {background:green;color:white}
 tr.warning {background:#e0a0a0;color:black}
 

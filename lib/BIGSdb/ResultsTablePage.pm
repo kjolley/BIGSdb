@@ -338,10 +338,10 @@ sub _print_project_add_function {
 	say $q->start_form;
 	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
-	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>) if $self->{'project_add_message'};
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
+	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
 	say $q->end_form;
-	
 	say q(</fieldset>);
 	return;
 }
@@ -610,11 +610,20 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
+	my $private_owner = $self->{'datastore'}->run_query(
+		'SELECT user_id FROM private_isolates WHERE isolate_id=?',
+		$id, { cache => 'ResultsTablePage::print_isolate_id_links' }
+	);
+	my ($private_title, $private_class) = (q(), q());
+	if ($private_owner){
+		$private_class= q( class="private_record");
+		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
+		$private_title = qq( title="Private record - owned by $user_string");
+	}
 	my $set_id = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-	
-	say qq(<td><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
-	  . qq(db=$self->{'instance'}$set_clause&amp;id=$id">$id</a></td>);
+	say qq(<td$private_class><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
+	  . qq(db=$self->{'instance'}$set_clause&amp;id=$id"$private_title>$id</a></td>);
 	return;
 }
 
@@ -1715,7 +1724,8 @@ sub add_to_project {
 			  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table WHERE value NOT IN "
 			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)" );
 	};
-	if ($@){
+
+	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {

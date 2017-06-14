@@ -385,7 +385,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20170612';
+	my $version   = '20170614';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
