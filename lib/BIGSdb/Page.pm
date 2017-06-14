@@ -703,7 +703,7 @@ sub _print_help_panel {
 
 sub _print_menu {
 	my ($self) = @_;
-
+	return if $self->{'system'}->{'kiosk'};
 	#Don't show on log in or log out pages
 	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
 	return if !$self->{'system'}->{'db'};

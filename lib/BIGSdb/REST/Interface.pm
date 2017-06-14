@@ -146,6 +146,7 @@ sub _before {
 	$self->_initiate_view;
 	$self->_set_page_options;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
+	_check_kiosk();
 	_check_authorization();
 	return;
 }
@@ -166,6 +167,13 @@ sub _check_authorization {
 	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_uri !~ /^$oauth_route/x ) {
 		$self->_is_authorized;
 	}
+	return;
+}
+
+sub _check_kiosk {
+	my $self             = setting('self');
+	return if !$self->{'system'}->{'kiosk'};
+	send_error('No routes available for this database configuration', 404);
 	return;
 }
 

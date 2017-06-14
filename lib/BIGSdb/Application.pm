@@ -199,6 +199,7 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	$self->_check_kiosk_page;
 	$self->set_system_overrides;
 	if ( !defined $self->{'system'}->{'dbtype'}
 		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
@@ -228,7 +229,6 @@ sub _initiate {
 	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$q->param( page => 'index' ) if !defined $q->param('page');
 	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';    #everyone can view by default
 	$self->set_dbconnection_params;
@@ -260,13 +260,26 @@ sub _initiate {
 	return;
 }
 
+sub _check_kiosk_page {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'kiosk'};
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'kiosk_allowed_pages'} ) {
+		my %allowed_pages = map { $_ => 1 } split /,/x, $self->{'system'}->{'kiosk_allowed_pages'};
+		return if $allowed_pages{ $q->param('page') };
+	}
+	$q->param( page => $self->{'system'}->{'kiosk'} ) if $self->{'system'}->{'kiosk'};
+	return;
+}
+
 sub _is_user_page {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$q->param('db') || $q->param('page') eq 'user' ) {
 		$self->{'system'}->{'read_access'} = 'public';
 		$self->{'system'}->{'dbtype'}      = 'user';
-		$self->{'system'}->{'script_name'} = $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
+		$self->{'system'}->{'script_name'} =
+		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
 		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind);
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
