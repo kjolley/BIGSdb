@@ -85,10 +85,9 @@ sub _get_scheme {
 		}
 		$values->{'curators'} = \@curator_links if @curator_links;
 	}
-
-	#TODO Change ordering to display_order once field is present in table (v1.17).
 	my $c_scheme_list =
-	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY id',
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,id',
 		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
 	if (@$c_scheme_list) {
 		my $c_schemes = [];
