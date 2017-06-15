@@ -511,7 +511,7 @@ sub _get_extra_sequences_fields {
 		);
 		foreach my $accession (@$accessions) {
 			if ( $databank eq 'Genbank' ) {
-				$accession = qq(<a href="http://www.ncbi.nlm.nih.gov/nuccore/$accession">$accession</a>);
+				$accession = qq(<a href="https://www.ncbi.nlm.nih.gov/nuccore/$accession">$accession</a>);
 			} elsif ( $databank eq 'ENA' ) {
 				$accession = qq(<a href="http://www.ebi.ac.uk/ena/data/view/$accession">$accession</a>);
 			}

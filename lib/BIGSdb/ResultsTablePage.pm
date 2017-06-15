@@ -1585,7 +1585,7 @@ sub _print_publication_table {
 		$refdata->{'year'} ||= '';
 		$buffer .=
 		    qq(<tr class="td$td">)
-		  . qq(<td><a href="http://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}">$refdata->{'pmid'}</a></td>)
+		  . qq(<td><a href="https://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}">$refdata->{'pmid'}</a></td>)
 		  . qq(<td>$refdata->{'year'}</td><td style=\"text-align:left">);
 		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
 			$buffer .= qq(No details available.</td>\n);
