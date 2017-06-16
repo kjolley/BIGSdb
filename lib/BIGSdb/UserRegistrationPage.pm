@@ -189,6 +189,8 @@ sub _register {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	foreach my $param (qw(domain first_name surname email affiliation)) {
+		my $cleaned = $self->clean_value( $q->param($param), { no_escape => 1 } );
+		$q->param( $param => $cleaned );
 		if ( !$q->param($param) ) {
 			say q(<div class="box" id="statusbad"><p>Please complete form.</p></div>);
 			$self->_print_registration_form;
