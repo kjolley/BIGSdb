@@ -22,7 +22,7 @@
 package BIGSdb::Utils;
 use strict;
 use warnings;
-use POSIX qw(ceil strftime);
+use POSIX qw(ceil);
 use BIGSdb::BIGSException;
 use List::MoreUtils qw(any none);
 use Bio::SeqIO;
@@ -869,7 +869,10 @@ sub dictionary_sort {
 }
 
 sub get_nice_duration {
-	my ($seconds) = @_;
-	return strftime( '%H:%M:%S', gmtime($seconds) );
+	my ($total_seconds) = @_;
+	my $hours = int( $total_seconds / 3600 );
+	my $minutes = int( ( $total_seconds - $hours * 3600 ) / 60 );
+	my $seconds = $total_seconds % 60;
+	return sprintf( '%d:%02d:%02d', $hours, $minutes, $seconds );
 }
 1;
