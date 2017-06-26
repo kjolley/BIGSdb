@@ -610,13 +610,11 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
-	my $private_owner = $self->{'datastore'}->run_query(
-		'SELECT user_id FROM private_isolates WHERE isolate_id=?',
-		$id, { cache => 'ResultsTablePage::print_isolate_id_links' }
-	);
-	my ($private_title, $private_class) = (q(), q());
-	if ($private_owner){
-		$private_class= q( class="private_record");
+	my $private_owner = $self->{'datastore'}->run_query( 'SELECT user_id FROM private_isolates WHERE isolate_id=?',
+		$id, { cache => 'ResultsTablePage::print_isolate_id_links' } );
+	my ( $private_title, $private_class ) = ( q(), q() );
+	if ($private_owner) {
+		$private_class = q( class="private_record");
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		$private_title = qq( title="Private record - owned by $user_string");
 	}
@@ -1412,7 +1410,8 @@ sub _print_record_field {
 	}
 	if ( ( $field =~ /sequence$/x || $field =~ /^primer/x ) && $field ne 'coding_sequence' ) {
 		if ( length( $data->{ lc($field) } ) > 60 ) {
-			my $seq = BIGSdb::Utils::truncate_seq( \$data->{ lc($field) }, 30 );
+			my $full_seq = $data->{ lc($field) };
+			my $seq = BIGSdb::Utils::truncate_seq( \$full_seq, 30 );
 			print qq(<td class="seq">$seq</td>);
 		} else {
 			print qq(<td class="seq">$data->{lc($field)}</td>);
