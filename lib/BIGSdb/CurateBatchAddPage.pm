@@ -1963,7 +1963,7 @@ sub _display_update_footer_links {
 	my $q = $self->{'cgi'};
 	say q(<p>);
 	my $submission_id = $q->param('submission_id');
-	my ($back, $home) = (BACK, HOME);
+	my ($back, $home, $more) = (BACK, HOME, MORE);
 	if ($submission_id) {
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
@@ -1977,10 +1977,10 @@ sub _display_update_footer_links {
 		my $ignore_non_DNA    = $q->param('ignore_non_DNA') ? 'on' : 'off';
 		my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
 		my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
-		say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
-		  . qq(ignore_similarity=$ignore_similarity">Add more</a>);
+		  . qq(ignore_similarity=$ignore_similarity" title="Add more" style="margin-left:1em">$more</a>);
 	}
 	say q(</p>);
 	return;
