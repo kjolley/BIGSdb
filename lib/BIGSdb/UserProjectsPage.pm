@@ -932,6 +932,11 @@ sub _is_admin_of_any {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/user_projects.html";
+}
+
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";

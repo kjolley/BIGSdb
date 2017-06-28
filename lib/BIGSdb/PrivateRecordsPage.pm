@@ -166,4 +166,9 @@ sub initiate {
 	$self->{$_} = 1 foreach qw(jQuery noCache);
 	return;
 }
+
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/private_records.html";
+}
 1;
