@@ -442,8 +442,9 @@ sub _get_file_header_data {
 	my @file_header_fields = split /\t/x, $header;
 	my %file_header_pos;
 	my $pos = 0;
-	foreach (@file_header_fields) {
-		$file_header_pos{$_} = $pos;
+	foreach my $field (@file_header_fields) {
+		$field =~ s/^\s+|\s+$//gx;           #Remove trailing spaces from header fields
+		$file_header_pos{$field} = $pos;
 		$pos++;
 	}
 	return ( \@file_header_fields, \%file_header_pos );
