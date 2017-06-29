@@ -668,7 +668,7 @@ sub _check_data {
 			);
 			$record_checks{$table}->() if $record_checks{$table};
 		}
-		$td = $td == 1 ? 2 : 1;         #row stripes
+		$td = $td == 1 ? 2 : 1;    #row stripes
 		$checked_record =~ s/\t$//x if defined $checked_record;
 		push @checked_buffer, $checked_record;
 	}
@@ -1963,14 +1963,13 @@ sub _display_update_footer_links {
 	my $q = $self->{'cgi'};
 	say q(<p>);
 	my $submission_id = $q->param('submission_id');
-	my ($back, $home, $more) = (BACK, HOME, MORE);
+	my $more          = MORE;
 	if ($submission_id) {
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
+		$self->print_return_to_submission;
 		$self->_update_submission_database($submission_id);
 	}
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-left:1em">$home</a>);
+	$self->print_home_link;
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
@@ -1980,7 +1979,7 @@ sub _display_update_footer_links {
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
-		  . qq(ignore_similarity=$ignore_similarity" title="Add more" style="margin-left:1em">$more</a>);
+		  . qq(ignore_similarity=$ignore_similarity" title="Add more" style="margin-right:1em">$more</a>);
 	}
 	say q(</p>);
 	return;

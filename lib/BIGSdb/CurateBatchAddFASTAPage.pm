@@ -417,15 +417,11 @@ sub _upload {
 		return;
 	}
 	say q(<div class="box" id="resultsheader"><p>Upload succeeded.</p><p>);
-	my ( $back, $home, $more ) = ( BACK, HOME, MORE );
-	if ($allele_submission) {
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission">$back</a>);
-	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" )
-	  . qq(title="Contents page" style="margin-left:1em">$home</a>);
+	my $more = MORE;
+	$self->print_return_to_submission;
+	$self->print_home_link;
 	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta" )
-	  . qq(title="Upload more" style="margin-left:1em">$more</a></p>);
+	  . qq(title="Upload more" style="margin-right:1em">$more</a></p>);
 	say q(</div>);
 	$self->{'db'}->commit;
 	$self->{'datastore'}->mark_cache_stale;

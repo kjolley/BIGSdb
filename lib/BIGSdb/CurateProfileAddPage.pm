@@ -288,7 +288,7 @@ sub _upload {
 				$self->{'db'}->commit
 				  && say qq(<div class="box" id="resultsheader"><p>$primary_key-$newdata->{"field:$primary_key"} )
 				  . q(added!</p><p>);
-				my ( $back, $home, $more ) = ( BACK, HOME, MORE );
+				my ( $back, $more ) = ( BACK, MORE );
 				if ( $q->param('submission_id') ) {
 					my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
 					if ($submission) {
@@ -297,8 +297,7 @@ sub _upload {
 						  . qq(submission" style="margin-right:1em">$back</a>);
 					}
 				}
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
-				  . qq(style="margin-right:1em">$home</a>);
+				$self->print_home_link;
 				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
 				  . qq(scheme_id=$scheme_id" title="Add another">$more</a></p></div>);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
