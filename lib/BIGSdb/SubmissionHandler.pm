@@ -330,7 +330,6 @@ sub mkpath {
 #Validate new allele submissions
 sub check_new_alleles_fasta {
 	my ( $self, $locus, $fasta_ref, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$locus_info ) {
 		$logger->error("Locus $locus is not defined");
@@ -399,7 +398,7 @@ sub check_new_alleles_fasta {
 		} elsif ( $check->{'subsequence_of'} ) {
 			push @info, qq(Sequence is a sub-sequence of allele-$check->{'subsequence_of'}.);
 		} elsif ( $check->{'supersequence_of'} ) {
-			push @info, qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}.];
+			push @info, qq(Sequence is a super-sequence of allele $check->{'supersequence_of'}.);
 		}
 	}
 	close $stringfh_in;
