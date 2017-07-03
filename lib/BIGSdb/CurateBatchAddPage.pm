@@ -1735,6 +1735,7 @@ sub _check_retired_isolate_id {
 	my ( $self, $arg_ref ) = @_;
 	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
 	return if $field ne 'isolate_id';
+	return if !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ] );
 	if ( $self->{'datastore'}->isolate_exists( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ], ) ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
 		  'Isolate has already been defined - delete it before you retire the identifier.';
