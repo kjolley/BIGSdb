@@ -433,7 +433,14 @@ sub _get_pcr_products {
 	}
 	my $pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
 	if ( ref $pcr_products ne 'ARRAY' ) {
-		$logger->error("PCR filter is set for locus $locus but no reactions are defined.");
+		$logger->error("PCR filter is set for locus $locus but no reactions are defined - resetting value.");
+		eval { $self->{'db'}->do( 'UPDATE loci SET pcr_filter=null WHERE id=?', undef, $locus ); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+		}
 		throw BIGSdb::DataException;
 	}
 	return $pcr_products;
@@ -445,7 +452,14 @@ sub _get_probe_matches {
 	return if !$locus_info->{'probe_filter'} || !$params->{'probe_filter'};
 	my $probe_matches = $self->_simulate_hybridization( $temp_infile, $locus );
 	if ( ref $probe_matches ne 'ARRAY' ) {
-		$logger->error("Probe filter is set for locus $locus but no probes are defined.");
+		$logger->error("Probe filter is set for locus $locus but no probes are defined - resetting value.");
+		eval { $self->{'db'}->do( 'UPDATE loci SET probe_filter=null WHERE id=?', undef, $locus ); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+		}
 		throw BIGSdb::DataException;
 	}
 	return $probe_matches;
