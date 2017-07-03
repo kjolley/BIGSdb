@@ -309,6 +309,7 @@ sub _lookup_partial_matches {
 				}
 			} else {
 				push @{ $exact_matches->{$locus} }, $match;
+				$already_matched_alleles{$allele_id} = 1;
 			}
 		}
 	}
@@ -545,7 +546,7 @@ sub run_script {
 		seq_filename    => $seq_filename,
 		table_file      => $table_file
 	};
-	my $match = $self->_scan_locus_by_locus($args);
+	my $match = $params->{'loci_together'} ? $self->_scan_loci_together($args) : $self->_scan_locus_by_locus($args);
 
 	#delete locus working files
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
@@ -598,7 +599,6 @@ sub _scan_locus_by_locus {
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus_id (@$loci) {
-			my $row_buffer;
 			my $locus = $locus_id =~ /$pattern/x ? $1 : undef;
 			if ( !defined $locus ) {
 				$logger->error("Locus name not extracted: Input was '$locus_id'");
@@ -608,89 +608,178 @@ sub _scan_locus_by_locus {
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
-			$exact_matches   //= [];
-			$partial_matches //= [];
-			my $off_end;
-			my $i = 1;
-			my $new_designation;
+			my $analysis_args = {
+				%$args,
+				isolate_id      => $isolate_id,
+				locus           => $locus,
+				td_ref          => \$td,
+				exact_matches   => $exact_matches,
+				partial_matches => $partial_matches,
+				params          => $params,
+				options         => $options,
+				labels          => $labels,
+				new_alleles     => $new_alleles,
+			};
+			$match++ if $self->_analyse_blast_results($analysis_args);
+		}
 
-			if (@$exact_matches) {
-				my %new_matches;
-				foreach my $match (@$exact_matches) {
-					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
-						{
-							isolate_id => $isolate_id,
-							labels     => $labels,
-							locus      => $locus,
-							id         => $i,
-							match      => $match,
-							td         => $td,
-							exact      => 1,
-							js         => $js,
-							js2        => $js2,
-							js3        => $js3,
-							js4        => $js4,
-							warning    => $new_matches{$match_key}
-						}
-					);
-					$row_buffer .= $buffer;
-					$new_matches{$match_key} = 1;
-					$$show_key = 1 if $off_end;
-					$td = $td == 1 ? 2 : 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-					$i++;
+		#delete isolate working files
+		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
+	}
+	return $match;
+}
+
+sub _analyse_blast_results {
+	my ( $self, $args ) = @_;
+	my (
+		$isolate_id, $locus,           $td_ref,     $exact_matches, $partial_matches, $params,
+		$options,    $labels,          $js,         $js2,           $js3,             $js4,
+		$show_key,   $isolates_to_tag, $table_file, $new_alleles,   $new_seqs_found,  $seq_filename
+	  )
+	  = @{$args}{
+		qw(isolate_id locus td_ref exact_matches partial_matches params options labels js js2 js3 js4
+		  show_key isolates_to_tag table_file new_alleles new_seqs_found seq_filename)
+	  };
+	$exact_matches   //= [];
+	$partial_matches //= [];
+	my $row_buffer;
+	my $off_end;
+	my $i = 1;
+	my $new_designation;
+	if (@$exact_matches) {
+		my %new_matches;
+		foreach my $match (@$exact_matches) {
+			my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
+			( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+				{
+					isolate_id => $isolate_id,
+					labels     => $labels,
+					locus      => $locus,
+					id         => $i,
+					match      => $match,
+					td         => $$td_ref,
+					exact      => 1,
+					js         => $js,
+					js2        => $js2,
+					js3        => $js3,
+					js4        => $js4,
+					warning    => $new_matches{$match_key}
 				}
-				$isolates_to_tag->{$isolate_id} = 1;
-			}
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			if ( @$partial_matches && ( !@$exact_matches || $params->{'partial_when_exact'} ) ) {
-				my %new_matches;
-				foreach my $match (@$partial_matches) {
-					my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
-					( my $buffer, $off_end, $new_designation ) = $self->_get_row(
-						{
-							isolate_id => $isolate_id,
-							labels     => $labels,
-							locus      => $locus,
-							id         => $i,
-							match      => $match,
-							td         => $td,
-							exact      => 0,
-							js         => $js,
-							js2        => $js2,
-							js3        => $js3,
-							js4        => $js4,
-							warning    => $new_matches{$match_key}
-						}
-					);
-					$row_buffer .= $buffer;
-					$new_matches{$match_key} = 1;
-					if ($off_end) {
-						$$show_key = 1;
-					} else {
-						$self->_check_if_new( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename );
-					}
-					$td = $td == 1 ? 2 : 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-					$i++;
+			);
+			$row_buffer .= $buffer;
+			$new_matches{$match_key} = 1;
+			$$show_key = 1 if $off_end;
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
+			$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+			$i++;
+		}
+		$isolates_to_tag->{$isolate_id} = 1;
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( @$partial_matches && ( !@$exact_matches || $params->{'partial_when_exact'} ) ) {
+		my $max_partial_match = $params->{'partial_matches'} // 1;
+		my %new_matches;
+		foreach my $match (@$partial_matches) {
+			last if $i > $max_partial_match;
+			my $match_key = "$match->{'seqbin_id'}\|$match->{'predicted_start'}|$match->{'predicted_end'}";
+			( my $buffer, $off_end, $new_designation ) = $self->_get_row(
+				{
+					isolate_id => $isolate_id,
+					labels     => $labels,
+					locus      => $locus,
+					id         => $i,
+					match      => $match,
+					td         => $$td_ref,
+					exact      => 0,
+					js         => $js,
+					js2        => $js2,
+					js3        => $js3,
+					js4        => $js4,
+					warning    => $new_matches{$match_key}
 				}
-				$isolates_to_tag->{$isolate_id} = 1;
-			} elsif ( $params->{'mark_missing'} && !@$exact_matches && !@$partial_matches ) {
-				$row_buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, $js, $js2, );
-				if ($row_buffer) {
-					$new_designation                = 1;
-					$td                             = $td == 1 ? 2 : 1;
-					$isolates_to_tag->{$isolate_id} = 1;
-					$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
-				}
+			);
+			$row_buffer .= $buffer;
+			$new_matches{$match_key} = 1;
+			if ($off_end) {
+				$$show_key = 1;
+			} else {
+				$self->_check_if_new( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename );
 			}
-			if ($row_buffer) {
-				open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
-				say $fh $row_buffer;
-				close $fh;
+			$$td_ref = $$td_ref == 1 ? 2 : 1;
+			$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+			$i++;
+		}
+		$isolates_to_tag->{$isolate_id} = 1;
+	} elsif ( $params->{'mark_missing'} && !@$exact_matches && !@$partial_matches ) {
+		$row_buffer = $self->_get_missing_row( $isolate_id, $labels, $locus, $js, $js2, );
+		if ($row_buffer) {
+			$new_designation                = 1;
+			$$td_ref                        = $$td_ref == 1 ? 2 : 1;
+			$isolates_to_tag->{$isolate_id} = 1;
+			$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
+		}
+	}
+	if ($row_buffer) {
+		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
+		say $fh $row_buffer;
+		close $fh;
+	}
+	return 1 if $new_designation;
+	return;
+}
+
+sub _scan_loci_together {
+	my ( $self, $args ) = @_;
+	my (
+		$isolates,       $loci,         $file_prefix, $locus_prefix, $isolates_to_tag,
+		$js,             $js2,          $js3,         $js4,          $show_key,
+		$new_seqs_found, $seq_filename, $table_file
+	  )
+	  = @{$args}{
+		qw(isolates loci file_prefix locus_prefix isolates_to_tag js js2 js3 js4
+		  show_key new_seqs_found seq_filename table_file)
+	  };
+	my $match       = 0;
+	my $start_time  = time;
+	my $options     = $self->{'options'};
+	my $labels      = $self->{'options'}->{'labels'};
+	my $params      = $self->{'params'};
+	my $td          = 1;
+	my $new_alleles = {};
+	foreach my $isolate_id (@$isolates) {
+		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
+		next if !$self->is_allowed_to_view_isolate($isolate_id);
+		my $pattern      = LOCUS_PATTERN;
+		my $loci_to_scan = [];
+		foreach my $locus_id (@$loci) {
+			my $row_buffer;
+			my $locus = $locus_id =~ /$pattern/x ? $1 : undef;
+			if ( !defined $locus ) {
+				$logger->error("Locus name not extracted: Input was '$locus_id'");
+				next;
 			}
-			$match++ if $new_designation;
+			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
+			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
+			push @$loci_to_scan, $locus;
+		}
+		next if !@$loci_to_scan;
+		my ( $exact_matches, $partial_matches ) =
+		  $self->blast_multiple_loci( $params, $loci_to_scan, $isolate_id, $file_prefix, $locus_prefix );
+		foreach my $locus (@$loci_to_scan) {
+			my $analysis_args = {
+				%$args,
+				isolate_id      => $isolate_id,
+				locus           => $locus,
+				td_ref          => \$td,
+				exact_matches   => $exact_matches->{$locus},
+				partial_matches => $partial_matches->{$locus},
+				params          => $params,
+				options         => $options,
+				labels          => $labels,
+				new_alleles     => $new_alleles,
+			};
+			$match++ if $self->_analyse_blast_results($analysis_args);
 		}
 
 		#delete isolate working files
@@ -913,16 +1002,7 @@ sub _hunt_for_start_and_stop_codons {
 				next if $match->{'reverse'}  && $last_codon_is_stop;
 				$match->{'predicted_start'} = $original_start + $offset;
 			}
-			if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
-				$match->{'predicted_start'} = '1*';
-				$off_end = 1;
-			}
-			if ( BIGSdb::Utils::is_int( $match->{'predicted_end'} )
-				&& $match->{'predicted_end'} > $seqbin_length )
-			{
-				$match->{'predicted_end'} = "${seqbin_length}*";
-				$off_end = 1;
-			}
+			$off_end = 1 if $self->_is_off_end( $match, $seqbin_length );
 			$predicted_start = $match->{'predicted_start'};
 			$predicted_start =~ s/\*//x;
 			$predicted_end = $match->{'predicted_end'};
@@ -967,6 +1047,30 @@ sub _hunt_for_start_and_stop_codons {
 		predicted_end    => $predicted_end,
 		complete_tooltip => $complete_tooltip
 	};
+}
+
+sub _is_off_end {
+	my ( $self, $match, $seqbin_length ) = @_;
+	my $off_end;
+	if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
+		if ( $match->{'from_partial'} ) {
+			$match->{'predicted_start'} = 1;
+		} else {
+			$match->{'predicted_start'} = '1*';
+			$off_end = 1;
+		}
+	}
+	if ( BIGSdb::Utils::is_int( $match->{'predicted_end'} )
+		&& $match->{'predicted_end'} > $seqbin_length )
+	{
+		if ( $match->{'from_partial'} ) {
+			$match->{'predicted_end'} = ${seqbin_length};
+		} else {
+			$match->{'predicted_end'} = "${seqbin_length}*";
+			$off_end = 1;
+		}
+	}
+	return $off_end;
 }
 
 sub _get_missing_row {
@@ -1247,9 +1351,15 @@ sub _parse_blast_partial {
 	}
 
 	#Only return the number of matches selected by 'partial_matches' parameter
-	if ( !$options->{'multiple_loci'} ) {
+	my @loci;
+	if ( $options->{'multiple_loci'} ) {
+		@loci = keys %$matches;
+	} else {
+		@loci = ($locus);
+	}
+	foreach my $locus (@loci) {
 		@{ $matches->{$locus} } = sort { $b->{'quality'} <=> $a->{'quality'} } @{ $matches->{$locus} };
-		my $partial_matches = $params->{'partial_matches'};
+		my $partial_matches = $params->{'scan_partial_matches'} // $params->{'partial_matches'};
 		$partial_matches = 1 if !BIGSdb::Utils::is_int($partial_matches) || $partial_matches < 1;
 		while ( @{ $matches->{$locus} } > $partial_matches ) {
 			pop @{ $matches->{$locus} };
