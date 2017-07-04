@@ -1780,8 +1780,9 @@ sub _print_sequence_table_fieldset {
 		say $q->submit( -name => 'Batch query', -class => BUTTON_CLASS, -style => 'float:left' );
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
+		say $q->hidden( submit => 1 );
 		say $q->end_form;
-		$q->param( page => $page );    #Restore value
+		$q->param( page => $page );       #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
