@@ -333,10 +333,11 @@ sub _print_submissions_section {
 	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
 	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
-	my $set_string = ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ? "&amp;choose_set=1&amp;sets_list=$set_id" : q();
+	my $set_string =
+	  ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ? qq(&amp;choose_set=1&amp;sets_list=$set_id) : q();
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string">)
 	  . q(Manage submissions</a></li>);
-	say '</ul></div>';
+	say q(</ul></div>);
 	return;
 }
 

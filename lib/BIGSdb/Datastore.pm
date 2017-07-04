@@ -1444,6 +1444,12 @@ sub get_locus_info {
 	return $locus_info;
 }
 
+sub clear_locus_info_cache {
+	my ($self) = @_;
+	undef $self->{'all_locus_info'};
+	return;
+}
+
 sub get_locus {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'locus'}->{$id} ) {

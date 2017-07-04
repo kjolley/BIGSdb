@@ -440,6 +440,7 @@ sub _get_pcr_products {
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
+			$self->{'datastore'}->clear_locus_info_cache;
 		}
 		throw BIGSdb::DataException;
 	}
@@ -459,6 +460,7 @@ sub _get_probe_matches {
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
+			$self->{'datastore'}->clear_locus_info_cache;
 		}
 		throw BIGSdb::DataException;
 	}
