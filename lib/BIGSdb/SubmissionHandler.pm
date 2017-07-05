@@ -801,6 +801,12 @@ sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return 'must be a valid date in yyyy-mm-dd format';
 	}
+	if ( $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+		return "must be $thisfield->{'min'} or later";
+	}
+	if ( $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+		return "must be $thisfield->{'max'} or earlier";
+	}
 	return;
 }
 
