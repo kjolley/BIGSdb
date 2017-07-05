@@ -341,7 +341,7 @@ sub _create_fasta_index {
 					}
 				);
 				if ( $options->{'exemplar'} && !keys %$seqs_ref ) {
-					$logger->info("Locus $locus has no exemplars set - using all alleles.");
+					$logger->debug("Locus $locus has no exemplars set - using all alleles.");
 					$seqs_ref = $self->{'datastore'}->get_locus($locus)->get_all_sequences( { no_temp_table => 1 } );
 				} else {
 					undef $self->{'no_exemplars'};
