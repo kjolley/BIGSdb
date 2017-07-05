@@ -1199,10 +1199,10 @@ sub _get_record_table_info {
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			$extended_attributes =
 			  $self->{'datastore'}->run_query(
-				'SELECT field FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
-				$locus, { fetch => 'col_arrayref' } );
-			foreach (@$extended_attributes) {
-				( my $cleaned = $_ ) =~ tr/_/ /;
+				'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
+				$locus, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $ext_att (@$extended_attributes) {
+				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
 				push @headers, $cleaned;
 			}
 			$linked_data = $self->_data_linked_to_locus($locus);
@@ -1281,7 +1281,7 @@ sub _print_record_table {
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
-	local $" = '</th><th>';
+	local $" = q(</th><th>);
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
 
@@ -1346,13 +1346,22 @@ sub _print_record_table {
 			);
 		}
 		if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
-			foreach (@$extended_attributes) {
+			foreach my $attribute (@$extended_attributes) {
 				my $value = $self->{'datastore'}->run_query(
 					'SELECT value FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?)',
-					[ $data->{'locus'}, $_, $data->{'allele_id'} ],
+					[ $data->{'locus'}, $attribute->{'field'}, $data->{'allele_id'} ],
 					{ cache => 'ResultsTablePage::print_record_table::alleleQuery_extatt' }
 				);
-				print defined $value ? qq(<td>$value</td>) : q(<td></td>);
+				if ( defined $value ) {
+					
+					if ( $attribute->{'url'} ){
+						(my $url = $attribute->{'url'}) =~ s/\[\?\]/$value/gx;
+						$value = qq(<a href="$url">$value</a>);
+					}
+					print qq(<td>$value</td>);
+				} else {
+					print q(<td></td>);
+				}
 			}
 		} elsif ( $table eq 'sequence_bin' ) {
 			$self->_print_seqbin_extended_fields( $extended_attributes, $data->{'id'} );

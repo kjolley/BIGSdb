@@ -104,6 +104,9 @@ sub print_content {
 	say qq(<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>) if $seq_ref->{'comments'};
 	$self->_process_flags( $locus, $allele_id );
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
+	my $extended_att_urls =
+	  $self->{'datastore'}->run_query( 'SELECT field,url FROM locus_extended_attributes WHERE locus=?',
+		$locus, { fetch => 'all_hashref', key => 'field' } );
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;
@@ -111,6 +114,11 @@ sub print_content {
 			my $ext_seq = BIGSdb::Utils::split_line( $ext->{'value'} );
 			say qq(<dt>$cleaned_field</dt><dd class="seq">$ext_seq</dd>);
 		} else {
+			my $url = $extended_att_urls->{ $ext->{'field'} }->{'url'};
+			if ($url) {
+				$url =~ s/\[\?\]/$ext->{'value'}/gx;
+				$ext->{'value'} = qq(<a href="$url">$ext->{'value'}</a>);
+			}
 			say qq(<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>);
 		}
 	}

@@ -779,6 +779,12 @@ sub get_locus_extended_attributes_table_attributes {
 			length  => 128,
 			tooltip => q(option list - '|' separated list of allowed values.)
 		},
+		{
+			name    => 'url',
+			type    => 'text',
+			length  => 100,
+			tooltip => 'url - URL to for hyperlinking value. The term [?] will be substituted by the value'
+		},
 		{ name => 'length', type => 'integer' },
 		{
 			name     => 'required',
@@ -2089,7 +2095,8 @@ sub get_classification_schemes_table_attributes {
 			}
 		  );
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{ name => 'display_order', type => 'int' },
 		{
 			name     => 'status',
@@ -2100,7 +2107,7 @@ sub get_classification_schemes_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	);
+	  );
 	return $attributes;
 }
 
