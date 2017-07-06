@@ -2275,15 +2275,15 @@ sub get_citation_hash {
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
 				$citation = "$author ($year). ";
-				$citation .= "$title "                                               if !$options->{'no_title'};
+				$citation .= "$title "                                                if !$options->{'no_title'};
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
-				$citation .= '</a>'                                                  if $options->{'link_pubmed'};
+				$citation .= '</a>'                                                   if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year ";
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "$journal $volume$pages";
-				$citation .= '</a>'                                                  if $options->{'link_pubmed'};
+				$citation .= '</a>'                                                   if $options->{'link_pubmed'};
 			}
 		}
 		if ($citation) {
@@ -2627,12 +2627,12 @@ sub initiate_view {
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
 	my $user_info = $self->get_user_info_from_username($username);
 
-	if ( !$user_info ) {                                              #Not logged in
+	if ( !$user_info ) {                                    #Not logged in
 		$qry .= PUBLIC_ISOLATES;
 	} else {
 		my @user_terms;
 		if ($curate) {
-			return if $user_info->{'status'} eq 'admin';              #Admin can see everything.
+			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
 			my $method = {
 				submitter => sub {
 					@user_terms =
@@ -2648,7 +2648,16 @@ sub initiate_view {
 				return;
 			}
 		} else {
-			@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, ISOLATES_FROM_USER_PROJECT );
+			@user_terms = (PUBLIC_ISOLATES);
+
+			#Simplify view definition by only looking for private/project isolates if the user has any.
+			my $has_private_isolates =
+			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+			push @user_terms, OWN_PRIVATE_ISOLATES if $has_private_isolates;
+			my $has_user_project =
+			  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)',
+				$user_info->{'id'} );
+			push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 		}
 		local $" = q( OR );
 		$qry .= qq(@user_terms);
