@@ -2679,4 +2679,16 @@ sub print_home_link {
 	  . qq(style="margin-right:1em">$home</a>);
 	return;
 }
+
+sub is_page_allowed {
+	my ($self, $page) = @_;
+	return 1 if !$self->{'system'}->{'kiosk'};
+	return 1 if $page eq $self->{'system'}->{'kiosk'};
+	my %allowed_pages;
+	if ( $self->{'system'}->{'kiosk_allowed_pages'} ) {
+		%allowed_pages = map { $_ => 1 } split /,/x, $self->{'system'}->{'kiosk_allowed_pages'};
+	}
+	return 1 if $allowed_pages{$page};
+	return;
+}
 1;

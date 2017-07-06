@@ -34,10 +34,31 @@ use constant INF => 9**99;
 
 sub get_title {
 	my ($self) = @_;
+	return $self->{'system'}->{'kiosk_title'} if $self->{'system'}->{'kiosk_title'};
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return $self->{'cgi'}->param('page') eq 'sequenceQuery'
 	  ? qq(Sequence query - $desc)
 	  : qq(Batch sequence query - $desc);
+}
+
+sub _get_text {
+	my ($self) = @_;
+	return $self->{'system'}->{'kiosk_text'} if $self->{'system'}->{'kiosk_text'};
+	my $q    = $self->{'cgi'};
+	my $page = $q->param('page');
+	my $buffer =
+	    q(Please paste in your sequence)
+	  . ( $page eq 'batchSequenceQuery' ? 's' : '' )
+	  . q( to query against the database. );
+	if ( !$q->param('simple') ) {
+		$buffer .=
+		    q(Query sequences will be checked first for an exact match against the chosen (or all) loci - )
+		  . q(they do not need to be trimmed. The nearest partial matches will be identified if an exact )
+		  . q(match is not found. You can query using either DNA or peptide sequences. )
+		  . q( <a class="tooltip" title="Query sequence - Your query sequence is assumed to be DNA if it contains )
+		  . q(90% or more G,A,T,C or N characters."><span class="fa fa-info-circle"></span></a>);
+	}
+	return $buffer;
 }
 
 sub get_help_url {
@@ -72,6 +93,7 @@ END
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	$self->_populate_kiosk_params;
 	my $locus = $q->param('locus') // 0;
 	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
 	$q->param( locus => $locus );
@@ -87,21 +109,14 @@ sub _print_interface {
 			$desc = $q->param('locus');
 		}
 	}
-	say $page eq 'sequenceQuery' ? qq(<h1>Sequence query - $desc</h1>) : qq(<h1>Batch sequence query - $desc</h1>);
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	say q(<div class="box" id="queryform">);
-	say q(<p>Please paste in your sequence)
-	  . ( $page eq 'batchSequenceQuery' ? 's' : '' )
-	  . q( to query against the database. );
-	if ( !$q->param('simple') ) {
-		say q(Query sequences will be checked first for an exact match against the chosen (or all) loci - )
-		  . q(they do not need to be trimmed. The nearest partial matches will be identified if an exact )
-		  . q(match is not found. You can query using either DNA or peptide sequences. )
-		  . q( <a class="tooltip" title="Query sequence - Your query sequence is assumed to be DNA if it contains )
-		  . q(90% or more G,A,T,C or N characters."><span class="fa fa-info-circle"></span></a>);
-	}
-	say q(</p>);
+	my $text = $self->_get_text;
+	say qq(<p>$text</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
+
 	if ( !$q->param('simple') ) {
 		say q(<fieldset><legend>Please select locus/scheme</legend>);
 		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
@@ -148,12 +163,13 @@ sub _print_interface {
 	  ) . q(</legend>);
 	say $q->textarea( -name => 'sequence', -rows => 6, -cols => 70 );
 	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
-	say q(Select FASTA file:<br />);
-	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
-	say q(</fieldset>);
-
-	if ( $page eq 'sequenceQuery' && !$self->{'config'}->{'intranet'} ) {
+	if ( !$q->param('no_upload') ) {
+		say q(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
+		say q(Select FASTA file:<br />);
+		say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
+		say q(</fieldset>);
+	}
+	if ( $page eq 'sequenceQuery' && !$self->{'config'}->{'intranet'} && !$q->param('no_genbank') ) {
 		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
 		say $q->textfield( -name => 'accession' );
 		say q(</fieldset>);
@@ -166,6 +182,15 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page word_size);
 	say $q->end_form;
 	say q(</div>);
+	return;
+}
+
+sub _populate_kiosk_params {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $param (qw(locus simple no_upload no_genbank)) {
+		$q->param( $param => $self->{'system'}->{"kiosk_$param"} ) if $self->{'system'}->{"kiosk_$param"};
+	}
 	return;
 }
 
@@ -436,7 +461,7 @@ sub _run_batch_query {
 			} else {
 				my $id = $seq_object->id // q();
 				$batch_buffer =
-				  qq(<tr class="td$td"><td>$id</td><td style="text-align:left">) . qq(No matches found.</td></tr>\n);
+				  qq(<tr class="td$td"><td>$id</td><td style="text-align:left">No matches found.</td></tr>\n);
 				open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$text_filename" )
 				  || $logger->error("Can't open $text_filename for appending");
 				say $fh qq($id: No matches found);
@@ -550,6 +575,7 @@ sub _translate_button {
 	my ( $self, $seq_ref ) = @_;
 	return if ref $seq_ref ne 'SCALAR' || length $$seq_ref < 3 || length $$seq_ref > 10000;
 	return if !$self->{'config'}->{'emboss_path'};
+	return if !$self->is_page_allowed('sequenceTranslate');
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	$q->param( page     => 'sequenceTranslate' );
@@ -625,10 +651,8 @@ sub _get_distinct_locus_exact_results {
 		my ( $field_values, $attributes, $allele_info, $flags );
 		$match_count++;
 		next if $locus_info->{'match_longest'} && $match_count > 1;
-		my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
-		$buffer .= qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$match->{'allele'}">);
-		$allele = "$cleaned: $match->{'allele'}";
+		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
+		$buffer .= qq(<tr class="td$td"><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
@@ -638,7 +662,7 @@ sub _get_distinct_locus_exact_results {
 			{ fetch => 'row_hashref' }
 		);
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
-		$buffer .= qq($allele</a></td><td>$match->{'length'}</td><td>$match->{'start'}</td><td>$match->{'end'}</td>);
+		$buffer .= qq(<td>$match->{'length'}</td><td>$match->{'start'}</td><td>$match->{'end'}</td>);
 		$buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>)
 		  if $data->{'linked_data'};
 		$buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
@@ -657,6 +681,16 @@ sub _get_distinct_locus_exact_results {
 	}
 	$buffer .= qq(</table></div>\n);
 	return ( $buffer, $match_count );
+}
+
+sub _get_allele_link {
+	my ( $self, $locus, $allele_id ) = @_;
+	my $cleaned = $self->clean_locus( $locus, { strip_links => 1 } );
+	if ( $self->is_page_allowed('alleleInfo') ) {
+		return qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$allele_id">$cleaned: $allele_id</a>);
+	}
+	return qq($cleaned: $allele_id);
 }
 
 sub _get_scheme_exact_results {
@@ -686,7 +720,6 @@ sub _get_scheme_exact_results {
 		}
 		my %locus_in_scheme = map { $_ => 1 } @$scheme_members;
 		foreach my $match (@$exact_matches) {
-			my $allele;
 			my ( $field_values, $attributes, $allele_info, $flags );
 			next if $match->{'allele'} !~ /(.*):(.*)/x;
 			my ( $extracted_locus, $allele_id ) = ( $1, $2 );    ## no critic (ProhibitCaptureWithoutTest)
@@ -695,8 +728,6 @@ sub _get_scheme_exact_results {
 			my $locus_info = $self->{'datastore'}->get_locus_info($extracted_locus);
 			$locus_matches{$extracted_locus}++;
 			next if $locus_info->{'match_longest'} && $locus_matches{$extracted_locus} > 1;
-			my $cleaned = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
-			$allele = "$cleaned: $allele_id";
 			$field_values =
 			  $self->{'datastore'}
 			  ->get_client_data_linked_to_allele( $extracted_locus, $allele_id, { table_format => 1 } );
@@ -716,13 +747,9 @@ sub _get_scheme_exact_results {
 				$scheme_buffer .= qq(<div class="scrollable">\n);
 				$scheme_buffer .= $self->_get_table_header($data);
 			}
-			$scheme_buffer .=
-			    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?)
-			  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$extracted_locus&amp;)
-			  . qq(allele_id=$allele_id">)
-			  if $extracted_locus && $allele_id;
-			$scheme_buffer .=
-			  qq($allele</a></td><td>$match->{'length'}</td><td>$match->{'start'}</td><td>$match->{'end'}</td>);
+			my $allele_link = $self->_get_allele_link( $extracted_locus, $allele_id );
+			$scheme_buffer .= qq(<tr class="td$td"><td>$allele_link</td><td>$match->{'length'}</td>)
+			  . qq(<td>$match->{'start'}</td><td>$match->{'end'}</td>);
 			$scheme_buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>)
 			  if $data->{'linked_data'};
 			$scheme_buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
@@ -740,7 +767,6 @@ sub _get_scheme_exact_results {
 			$td = $td == 1 ? 2 : 1;
 		}
 		if ($scheme_buffer) {
-			$buffer .= qq(<div class="scrollable">\n);
 			$buffer .= $scheme_buffer;
 			$buffer .= qq(</table></div>\n);
 		}
@@ -856,11 +882,10 @@ sub _output_batch_query_exact {
 			$buffer      .= '; ';
 			$text_buffer .= '; ';
 		}
-		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
+		my $allele_link = $self->_get_allele_link( $locus, $allele_id );
+		$buffer .= $allele_link;
 		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;)
-		  . qq(locus=$locus&amp;allele_id=$allele_id">$cleaned_locus: $allele_id</a>);
-		$text_buffer .= "$text_locus-$allele_id";
+		$text_buffer .= qq($text_locus-$allele_id);
 		$displayed++;
 		undef $locus if !$distinct_locus_selected;
 		$first = 0;
@@ -868,7 +893,7 @@ sub _output_batch_query_exact {
 	}
 	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" )
 	  or $logger->error("Can't open $filename for appending");
-	say $fh "$id: $text_buffer";
+	say $fh qq($id: $text_buffer);
 	close $fh;
 	return
 	    qq(<tr class="td$td"><td>$id</td><td style="text-align:left">)
@@ -915,29 +940,22 @@ sub _output_single_query_nonexact {
 	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
 	say q(<p style="margin-top:0.5em">Closest match: );
 	my $cleaned_match = $partial_match->{'allele'};
-	my $cleaned_locus;
 	my ( $flags, $field_values );
-
 	if ($distinct_locus_selected) {
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;)
-		  . qq(locus=$locus&amp;allele_id=$cleaned_match">);
-		$cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
-		say qq($cleaned_locus: );
+		my $allele_link = $self->_get_allele_link( $locus, $cleaned_match );
+		say $allele_link;
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
 		$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $cleaned_match );
 	} else {
 		my ( $extracted_locus, $allele_id );
 		if ( $cleaned_match =~ /(.*):(.*)/x ) {
 			( $extracted_locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
-			$cleaned_match = qq($cleaned_locus: $allele_id);
-			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;)
-			  . qq(locus=$extracted_locus&amp;allele_id=$allele_id">);
+			my $allele_link = $self->_get_allele_link( $extracted_locus, $allele_id );
+			say $allele_link;
 			$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
 			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id );
 		}
 	}
-	say qq($cleaned_match</a>);
 	if ( ref $flags eq 'ARRAY' ) {
 		local $" = q(</a> <a class="seqflag_tooltip">);
 		my $plural = @$flags == 1 ? '' : 's';
@@ -1017,10 +1035,10 @@ sub _display_differences {
 	say $seq2_fh ">Query\n$$seq_ref";
 	close $seq2_fh;
 	my $start      = $partial_match->{'qstart'} =~ /(\d+)/x ? $1 : undef;    #untaint
-	my $end        = $partial_match->{'qend'}   =~ /(\d+)/x ? $1 : undef;
-	my $seq_length = ( length $$seq_ref )       =~ /(\d+)/x ? $1 : undef;
-	my $reverse = $partial_match->{'reverse'} ? 1 : 0;
-	my @args = (
+	my $end        = $partial_match->{'qend'} =~ /(\d+)/x   ? $1 : undef;
+	my $seq_length = ( length $$seq_ref ) =~ /(\d+)/x       ? $1 : undef;
+	my $reverse    = $partial_match->{'reverse'}            ? 1  : 0;
+	my @args       = (
 		-aformat   => 'markx2',
 		-awidth    => $self->{'prefs'}->{'alignwidth'},
 		-asequence => $seq1_infile,
@@ -1160,28 +1178,23 @@ sub _output_batch_query_nonexact {
 		  q(There are insertions/deletions between these sequences.  Try single sequence query to get more details.);
 		$text_buffer .= q(Insertions/deletions present.);
 	}
-	my ( $allele, $text_allele, $cleaned_locus, $text_locus );
+	my ( $allele, $text_allele, $text_locus );
 	if ($distinct_locus_selected) {
-		$cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		$allele = qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;)
-		  . qq(locus=$locus&amp;allele_id=$partial_match->{'allele'}\">$cleaned_locus: $partial_match->{'allele'}</a>);
+		$allele = $self->_get_allele_link( $locus, $partial_match->{'allele'} );
 		$text_allele = "$text_locus-$partial_match->{'allele'}";
 	} else {
 		if ( $partial_match->{'allele'} =~ /(.*):(.*)/x ) {
 			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
-			$cleaned_locus = $self->clean_locus( $extracted_locus, { strip_links => 1 } );
 			$text_locus = $self->clean_locus( $extracted_locus, { text_output => 1, no_common_name => 1 } );
-			$partial_match->{'allele'} =~ s/:/: /x;
-			$allele = qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleInfo&amp;)
-			  . qq(locus=$extracted_locus&amp;allele_id=$allele_id">$cleaned_locus: $allele_id</a>);
+			$allele = $self->_get_allele_link( $extracted_locus, $allele_id );
 			$text_allele = qq($text_locus-$allele_id);
 		}
 	}
 	$batch_buffer = qq(<tr class="td$data->{'td'}"><td>$data->{'id'}</td><td style="text-align:left">)
 	  . qq(Partial match found: $allele: $buffer</td></tr>\n);
 	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" )
-	  or $logger->error("Can't open $filename for appending");
+	  or $logger->error("Cannot open $filename for appending");
 	say $fh qq($data->{'id'}: Partial match: $text_allele: $text_buffer);
 	close $fh;
 	return $batch_buffer;
