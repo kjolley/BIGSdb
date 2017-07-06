@@ -309,20 +309,14 @@ sub _insert {
 sub _display_navlinks {
 	my ( $self, $table, $newdata ) = @_;
 	say q(<p>);
-	my ( $home, $back, $more, $key ) = ( HOME, BACK, MORE, KEY );
+	my ( $back, $more, $key ) = ( BACK, MORE, KEY );
 	my $q = $self->{'cgi'};
-	if ( $q->param('submission_id') ) {
-		my $submission_id = $q->param('submission_id');
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
-	}
+	$self->print_return_to_submission;
 	if ( $table eq 'samples' ) {
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
 		  . qq(id=$newdata->{'isolate_id'}" title="Back to isolate update" style="margin-right:1em">$back</a>);
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
-	  . qq(style="margin-right:1em">$home</a>);
+	$self->print_home_link;
 	if ( $table eq 'users' ) {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
 			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )

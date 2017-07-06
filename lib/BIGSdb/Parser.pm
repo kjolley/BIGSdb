@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,6 +30,7 @@ package BIGSdb::Parser;
 use strict;
 use warnings;
 use 5.010;
+use BIGSdb::Utils;
 use XML::Parser::PerlSAX;
 use List::MoreUtils qw(any);
 
@@ -158,6 +159,9 @@ sub _process_special_values {
 	foreach my $value ( values %$attributes ) {
 		if ( $value eq 'CURRENT_YEAR' ) {
 			$value = (localtime)[5] + 1900;
+		}
+		if ($value eq 'CURRENT_DATE'){
+			$value = BIGSdb::Utils::get_datestamp();
 		}
 	}
 	return;

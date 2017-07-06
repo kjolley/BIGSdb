@@ -499,17 +499,17 @@ sub _upload {
 	}
 	$self->{'db'}->commit
 	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
-	my ( $back, $home ) = ( BACK, HOME );
+	my $back = BACK;
 	if ( $q->param('submission_id') ) {
 		my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
 		if ($submission) {
 			say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
 			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
-			  . q(submission" style="margin-right:1em">$back</a>);
+			  . qq(submission" style="margin-right:1em">$back</a>);
 		}
 	}
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page">)
-	  . qq($home</a></p></div>);
+	$self->print_home_link;
+	say q(</p></div>);
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}

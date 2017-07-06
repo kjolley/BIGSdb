@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -553,9 +553,18 @@ sub _print_scheme_form_elements {
 		my $cleaned_name = $self->clean_locus($locus);
 		$buffer .= q(<dl class="profile">);
 		$buffer .= qq(<dt>$cleaned_name</dt><dd>);
-		$buffer .=
-		  $q->textfield( -name => "locus:$locus", -id => "locus:$locus", -size => 10, -default => $newdata->{$locus} );
+		if ( $self->{'locus_displayed'}->{$locus} ) {
+			$buffer .= $q->textfield( -name => 'disabled_locus', -size => 10, -default => '-', -disabled );
+		} else {
+			$buffer .= $q->textfield(
+				-name    => "locus:$locus",
+				-id      => "locus:$locus",
+				-size    => 10,
+				-default => $newdata->{$locus}
+			);
+		}
 		$buffer .= q(</dd></dl>);
+		$self->{'locus_displayed'}->{$locus} = 1;
 	}
 	return $buffer;
 }

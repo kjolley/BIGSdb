@@ -330,7 +330,6 @@ sub mkpath {
 #Validate new allele submissions
 sub check_new_alleles_fasta {
 	my ( $self, $locus, $fasta_ref, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !$locus_info ) {
 		$logger->error("Locus $locus is not defined");
@@ -399,7 +398,7 @@ sub check_new_alleles_fasta {
 		} elsif ( $check->{'subsequence_of'} ) {
 			push @info, qq(Sequence is a sub-sequence of allele-$check->{'subsequence_of'}.);
 		} elsif ( $check->{'supersequence_of'} ) {
-			push @info, qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}.];
+			push @info, qq(Sequence is a super-sequence of allele $check->{'supersequence_of'}.);
 		}
 	}
 	close $stringfh_in;
@@ -597,6 +596,40 @@ sub _get_isolate_header_positions {
 	return $ret;
 }
 
+sub _strip_trailing_spaces {
+	my ( $self, $values ) = @_;
+	s/^\s+|\s+$//gx foreach @$values;
+	return;
+}
+
+sub _check_pubmed_ids {
+	my ( $self, $positions, $values, $error ) = @_;
+	if ( defined $positions->{'references'} && $values->[ $positions->{'references'} ] ) {
+		my @pmids = split /;/x, $values->[ $positions->{'references'} ];
+		foreach my $pmid (@pmids) {
+			if ( !BIGSdb::Utils::is_int($pmid) ) {
+				push @$error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
+				last;
+			}
+		}
+	}
+	return;
+}
+
+sub _check_aliases {
+	my ( $self, $positions, $values, $error ) = @_;
+	if ( defined $positions->{'aliases'} && $values->[ $positions->{'aliases'} ] ) {
+		my @aliases = split /;/x, $values->[ $positions->{'aliases'} ];
+		foreach my $alias (@aliases) {
+			if ( $alias eq $values->[ $positions->{ $self->{'system'}->{'labelfield'} } ] ) {
+				push @$error, 'aliases: should be ALTERNATIVE names for the isolate.';
+				last;
+			}
+		}
+	}
+	return;
+}
+
 sub _check_isolate_record {
 	my ( $self, $set_id, $positions, $values, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -606,6 +639,7 @@ sub _check_isolate_record {
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
 	my $isolate = {};
+	$self->_strip_trailing_spaces($values);
 
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
@@ -634,15 +668,8 @@ sub _check_isolate_record {
 			push @error, "locus $heading: doesn't match the required format";
 		}
 	}
-	if ( defined $positions->{'references'} && $values->[ $positions->{'references'} ] ) {
-		my @pmids = split /;/x, $values->[ $positions->{'references'} ];
-		foreach my $pmid (@pmids) {
-			if ( !BIGSdb::Utils::is_int($pmid) ) {
-				push @error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
-				last;
-			}
-		}
-	}
+	$self->_check_pubmed_ids( $positions, $values, \@error );
+	$self->_check_aliases( $positions, $values, \@error );
 	my $ret = { isolate => $isolate };
 	$ret->{'missing'} = \@missing if @missing;
 	$ret->{'error'}   = \@error   if @error;
@@ -773,6 +800,12 @@ sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
 		return 'must be a valid date in yyyy-mm-dd format';
+	}
+	if ( $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+		return "must be $thisfield->{'min'} or later";
+	}
+	if ( $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+		return "must be $thisfield->{'max'} or earlier";
 	}
 	return;
 }

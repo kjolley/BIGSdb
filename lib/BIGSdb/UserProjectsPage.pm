@@ -758,9 +758,9 @@ sub _print_user_projects {
 		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
-	my $home = HOME;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page">$home</a></p>);
-	say q(</div>);
+	say q(<p>);
+	$self->print_home_link;
+	say q(</p></div>);
 	return;
 }
 
@@ -930,6 +930,11 @@ sub _is_admin_of_any {
 		return 1 if $project->{'admin'};
 	}
 	return;
+}
+
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/user_projects.html";
 }
 
 sub get_javascript {

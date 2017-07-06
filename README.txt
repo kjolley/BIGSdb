@@ -1,3 +1,8 @@
+v1.17.0: *Support for user uploads of private records.
+         *Private user projects.
+         *Support for paging in request headers in RESTful API.
+         *Added Perl and Python scripts for demonstrating the RESTful API.
+         *SQL optimisation for profile combination queries.
 v1.16.6: *Include classification groups in profile downloads and make
           accessible in RESTful API.
 v1.16.5: *Option to prevent using Google CDN for loading JQuery. This 

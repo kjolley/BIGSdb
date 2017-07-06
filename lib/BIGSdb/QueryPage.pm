@@ -66,12 +66,12 @@ sub get_javascript_panel {
 	foreach my $fieldset (@fieldsets) {
 		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == '$show' ? 0 : 1;\n);
 		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
-		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function() {\n];
+		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function(event) {\n];
+		$button_toggle_js .= qq[       event.preventDefault();\n];
 		$button_toggle_js .= qq[       if(\$(this).html() == '$hide'){\n];
 		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
 		$button_toggle_js .= qq[       }\n];
 		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
-		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset .multiselect").multiselect("refresh");\n];
 		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == '$show' ? '$hide' : '$show');\n];
 		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
 		$button_toggle_js .= qq[       return false;\n];
@@ -85,7 +85,7 @@ sub get_javascript_panel {
 		return false;
 	});
 	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
-		\$("a#save_options").click(function(event){		
+	\$("a#save_options").click(function(event){		
 		event.preventDefault();
 		$button_text_js
 	  	\$(this).attr('href', function(){  	

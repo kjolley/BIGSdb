@@ -2546,7 +2546,7 @@ sub populate_submission_params {
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_id');
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
-	return if !BIGSdb::Utils::is_int($q->param('index'));
+	return if !BIGSdb::Utils::is_int( $q->param('index') );
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
 		my $submission_seq =
 		  $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
@@ -2559,8 +2559,8 @@ sub populate_submission_params {
 	if ( $q->param('populate_profiles') && $q->param('index') ) {
 		my $submission_profile =
 		  $self->_get_profile_submission_alleles( $q->param('submission_id'), $q->param('index') );
-		foreach my $designation (@$submission_profile){
-			$q->param("l_$designation->{'locus'}" => $designation->{'allele_id'})
+		foreach my $designation (@$submission_profile) {
+			$q->param( "l_$designation->{'locus'}" => $designation->{'allele_id'} );
 		}
 	}
 	return;
@@ -2577,10 +2577,12 @@ sub _get_allele_submission_sequence {
 sub _get_profile_submission_alleles {
 	my ( $self, $submission_id, $index ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	return $self->{'datastore'}
-	  ->run_query( 'SELECT locus,allele_id FROM profile_submission_designations d JOIN profile_submission_profiles p '
+	return $self->{'datastore'}->run_query(
+		'SELECT locus,allele_id FROM profile_submission_designations d JOIN profile_submission_profiles p '
 		  . 'ON (d.submission_id,d.profile_id)=(p.submission_id,p.profile_id) WHERE (p.submission_id,p.index)=(?,?)',
-		  [$submission_id, $index], {fetch=>'all_arrayref', slice=>{}});
+		[ $submission_id, $index ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 }
 
 #Scheme list filtered to remove disabled schemes.
@@ -2655,5 +2657,26 @@ sub get_user_db_name {
 	);
 	$db_name //= $self->{'system'}->{'db'};
 	return $db_name;
+}
+
+sub print_return_to_submission {
+	my ($self) = @_;
+	my $back = BACK;
+	my $q = $self->{'cgi'};
+	if ( $q->param('submission_id') ) {
+		my $submission_id = $q->param('submission_id');
+		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
+		  . qq(style="margin-right:1em">$back</a>);
+	}
+	return;
+}
+
+sub print_home_link {
+	my ($self) = @_;
+	my $home = HOME;
+	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
+	  . qq(style="margin-right:1em">$home</a>);
+	return;
 }
 1;

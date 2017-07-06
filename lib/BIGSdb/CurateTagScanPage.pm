@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,6 +36,7 @@ my $PARTIAL_MATCHES    = 1;
 my $LIMIT_MATCHES      = 200;
 my $LIMIT_TIME         = 5;
 my $PARTIAL_WHEN_EXACT = 'off';
+my $LOCI_TOGETHER      = 'off';
 my $TBLASTX            = 'off';
 my $HUNT               = 'off';
 my $RESCAN_ALLELES     = 'off';
@@ -63,6 +64,7 @@ function use_defaults() {
 	\$("#partial_matches").val($PARTIAL_MATCHES);
 	\$("#limit_matches").val($LIMIT_MATCHES);
 	\$("#limit_time").val($LIMIT_TIME);
+	\$("#loci_together").prop(\"checked\",$check_values{$LOCI_TOGETHER});
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
 	\$("#hunt").prop(\"checked\",$check_values{$HUNT});
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
@@ -329,7 +331,9 @@ sub _print_parameter_fieldset {
 	say q( new matches <a class="tooltip" title="Stop after matching - Limit the number of previously )
 	  . q(undesignated matches. You may wish to terminate the search after finding a set number of new )
 	  . q(matches.  You will be able to tag any sequences found and next time these won't be searched )
-	  . q((by default) so this enables you to tag in batches."><span class="fa fa-info-circle"></span></a></li>)
+	  . q((by default) so this enables you to tag in batches. If scanning all loci together you may get )
+	  . q(more results than this as it will complete the scan for an isolate and return all results found )
+	  . q(so far."><span class="fa fa-info-circle"></span></a></li>)
 	  . q(<li><label for="limit_time" class="parameter">Stop after:</label>);
 	say $q->popup_menu(
 		-name    => 'limit_time',
@@ -341,7 +345,21 @@ sub _print_parameter_fieldset {
 	  . q(multiple isolates may take a long time. You may wish to terminate the search after a set time.  )
 	  . q(You will be able to tag any sequences found and next time these won't be searched (by default) so )
 	  . q(this enables you to tag in batches."><span class="fa fa-info-circle"></span></a></li>);
-
+	say q(<li>);
+	if (($self->{'system'}->{'fast_scan'} // q()) eq 'yes'){
+	say $q->checkbox(
+		-name    => 'loci_together',
+		-id      => 'loci_together',
+		-label   => 'Scan selected loci together',
+		-checked => ( $general_prefs->{'scan_loci_together'} && $general_prefs->{'scan_loci_together'} eq 'on' )
+		? 'checked'
+		: ''
+	);
+	say q( <a class="tooltip" title="Scan loci together - This should be quicker if scanning multiple loci but it )
+	  . q(will take longer for the first results to be returned. This scan uses defined exemplar alleles to reduce )
+	  . q(the search space. This is less sensitive than scanning all alleles, so it may miss some matches.">)
+	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
+	}
 	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
 		say q(<li><span class="warning">);
 		say $q->checkbox(
@@ -464,9 +482,10 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt rescan_alleles rescan_seqs type_alleles mark_missing)
+			tblastx hunt rescan_alleles rescan_seqs type_alleles mark_missing loci_together)
 		  )
 		{
+			
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
 		}
@@ -503,6 +522,10 @@ sub _scan {
 			};
 			my $params = $q->Vars;
 			$params->{'scannew'} = 1;
+			if ($params->{'loci_together'}){
+				$params->{'exemplar'} = 1;
+				$params->{'scan_partial_matches'} = 100;
+			}
 			try {
 				my $scan = BIGSdb::Offline::Scan->new(
 					{
@@ -624,8 +647,7 @@ sub _tag {
 	}
 	if (@updates) {
 		eval {
-			foreach my $update (@updates)
-			{
+			foreach my $update (@updates) {
 				$self->{'db'}->do( $update->{'statement'}, undef, @{ $update->{'arguments'} } );
 			}
 		};

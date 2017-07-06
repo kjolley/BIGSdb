@@ -263,7 +263,7 @@ sub _print_accessions {
 		foreach my $accession (@$accession_list) {
 			say "<dt>$accession->{'databank'}</dt>";
 			if ( $accession->{'databank'} eq 'Genbank' ) {
-				say qq(<dd><a href="http://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}">)
+				say qq(<dd><a href="https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}">)
 				  . qq($accession->{'databank_id'}</a></dd>);
 			} elsif ( $accession->{'databank'} eq 'ENA' ) {
 				say qq(<dd><a href="http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}">)

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none any uniq);
 my $logger = get_logger('BIGSdb.Page');
@@ -268,8 +269,7 @@ sub _upload {
 			push @inserts, @extra_inserts;
 			local $" = ';';
 			eval {
-				foreach my $insert (@inserts)
-				{
+				foreach my $insert (@inserts) {
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
 			};
@@ -288,17 +288,18 @@ sub _upload {
 				$self->{'db'}->commit
 				  && say qq(<div class="box" id="resultsheader"><p>$primary_key-$newdata->{"field:$primary_key"} )
 				  . q(added!</p><p>);
+				my ( $back, $more ) = ( BACK, MORE );
 				if ( $q->param('submission_id') ) {
 					my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
 					if ($submission) {
 						say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-						  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">Return to )
-						  . q(submission</a> | );
+						  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
+						  . qq(submission" style="margin-right:1em">$back</a>);
 					}
 				}
+				$self->print_home_link;
 				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
-				  . qq(scheme_id=$scheme_id">Add another</a> | <a href="$self->{'system'}->{'script_name'}?)
-				  . qq(db=$self->{'instance'}">Back to main page</a></p></div>);
+				  . qq(scheme_id=$scheme_id" title="Add another">$more</a></p></div>);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
 			}

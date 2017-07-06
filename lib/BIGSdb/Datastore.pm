@@ -1444,6 +1444,12 @@ sub get_locus_info {
 	return $locus_info;
 }
 
+sub clear_locus_info_cache {
+	my ($self) = @_;
+	undef $self->{'all_locus_info'};
+	return;
+}
+
 sub get_locus {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'locus'}->{$id} ) {
@@ -2229,7 +2235,7 @@ sub get_citation_hash {
 		  $self->run_query( 'SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?',
 			$pmid, { db => $dbr, fetch => 'row_array', cache => 'get_citation_hash_paper' } );
 		if ( !defined $year && !defined $journal ) {
-			$citation_ref->{$pmid} .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
+			$citation_ref->{$pmid} .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
 			  if $options->{'link_pubmed'};
 			$citation_ref->{$pmid} .= "Pubmed id#$pmid";
 			$citation_ref->{$pmid} .= '</a>' if $options->{'link_pubmed'};
@@ -2270,12 +2276,12 @@ sub get_citation_hash {
 			if ( $options->{'formatted'} ) {
 				$citation = "$author ($year). ";
 				$citation .= "$title "                                               if !$options->{'no_title'};
-				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
+				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
 				$citation .= '</a>'                                                  if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year ";
-				$citation .= "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
+				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "$journal $volume$pages";
 				$citation .= '</a>'                                                  if $options->{'link_pubmed'};
 			}
@@ -2288,7 +2294,7 @@ sub get_citation_hash {
 			} else {
 				$citation_ref->{$pmid} .= 'Pubmed id#';
 				$citation_ref->{$pmid} .=
-				  $options->{'link_pubmed'} ? "<a href=\"http://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a>" : $pmid;
+				  $options->{'link_pubmed'} ? "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a>" : $pmid;
 			}
 		}
 	}

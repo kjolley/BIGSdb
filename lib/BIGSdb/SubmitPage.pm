@@ -158,14 +158,14 @@ sub print_content {
 	$self->_print_pending_submissions;
 	$self->print_submissions_for_curation;
 	$self->_print_closed_submissions;
-	my ( $home, $show, $hide ) = ( HOME, EYE_SHOW, EYE_HIDE );
-	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}" title="Contents page">$home</a>);
+	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+	say q(<p style="margin-top:1em">);
+	$self->print_home_link;
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 
 	if ($closed_buffer) {
-		say q(<a id="show_closed" style="cursor:pointer;margin-left:1em">)
+		say q(<a id="show_closed" style="cursor:pointer">)
 		  . q(<span id="show_closed_text" title="Show closed submissions" )
 		  . qq(style="display:inline">$show</span>)
 		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
@@ -1780,8 +1780,9 @@ sub _print_sequence_table_fieldset {
 		say $q->submit( -name => 'Batch query', -class => BUTTON_CLASS, -style => 'float:left' );
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
+		say $q->hidden( submit => 1 );
 		say $q->end_form;
-		$q->param( page => $page );    #Restore value
+		$q->param( page => $page );       #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};

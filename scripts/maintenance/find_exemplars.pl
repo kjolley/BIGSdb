@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -88,6 +88,7 @@ my $script = BIGSdb::Offline::Script->new(
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 main();
+undef $script;
 
 sub main {
 	my $loci = $script->get_selected_loci;

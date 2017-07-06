@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -95,7 +95,6 @@ sub main {
 	check_invalid_users();
 	remove_inactive_accounts();
 
-	#TODO Remove users from auth_db if they don't exist in any database
 	#TODO Automatic registration of paired databases
 	return;
 }
