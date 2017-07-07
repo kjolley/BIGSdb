@@ -53,11 +53,6 @@ sub run {
 				params           => $params->{'user_params'}
 			}
 		);
-		my $loci = $script->get_selected_loci;
-		if ( !@$loci ) {
-			$self->{'logger'}->error('No valid loci selected.');
-			return;
-		}
 		my $isolates        = $script->get_isolates;
 		my $data            = {};
 		my $new_seqs        = {};
