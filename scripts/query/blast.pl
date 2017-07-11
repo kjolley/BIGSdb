@@ -49,27 +49,34 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
-	'alignment'      => \$opts{'alignment'},
-	'database=s'     => \$opts{'d'},
-	'duration'       => \$opts{'duration'},
-	'exclude_loci=s' => \$opts{'L'},
-	'help'           => \$opts{'h'},
-	'loci=s'         => \$opts{'l'},
-	'locus_regex=s'  => \$opts{'R'},
-	'num_results=i' => \$opts{'num_results'},
-	'scheme_group=i' => \$opts{'scheme_group'},
-	'schemes=s'      => \$opts{'s'},
-	'sequence=s'     => \$opts{'sequence'},
-	'threads=i'      => \$opts{'threads'},
-	'word_size=i'    => \$opts{'word_size'}
+	'alignment=f'     => \$opts{'alignment'},
+	'database=s'      => \$opts{'d'},
+	'duration'        => \$opts{'duration'},
+	'exclude_loci=s'  => \$opts{'L'},
+	'exemplar'        => \$opts{'exemplar'},
+	'help'            => \$opts{'h'},
+	'identity=f'      => \$opts{'identity'},
+	'loci=s'          => \$opts{'l'},
+	'locus_regex=s'   => \$opts{'R'},
+	'num_results=i'   => \$opts{'num_results'},
+	'scheme_group=i'  => \$opts{'scheme_group'},
+	'schemes=s'       => \$opts{'s'},
+	'sequence=s'      => \$opts{'sequence'},
+	'sequence_file=s' => \$opts{'sequence_file'},
+	'threads=i'       => \$opts{'threads'},
+	'word_size=i'     => \$opts{'word_size'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
-if ( !$opts{'d'} || !$opts{'sequence'} ) {
-	say "\nUsage: blast.pl --database <NAME> --sequence <SEQ>\n";
+if ( !$opts{'d'} || ( !$opts{'sequence'} && !$opts{'sequence_file'} ) ) {
+	say "\nUsage: blast.pl --database <NAME> (--sequence <SEQ> OR --sequence_file <FILE>)\n";
 	say 'Help: blast.pl --help';
+	exit;
+}
+if ( $opts{'sequence_file'} && !-e $opts{'sequence_file'} ) {
+	say "File $opts{'sequence_file'} does not exist.\n";
 	exit;
 }
 my $start  = time;
@@ -115,8 +122,10 @@ ${bold}SYNOPSIS$norm
 
 ${bold}OPTIONS$norm
 
-${bold}--alignment
-    Produce alignment output.
+${bold}--alignment$norm ${under}ALIGNMENT$norm
+    Percentage alignment (default: 70). Please note that if you are scanning
+    using exemplars, then this is the initial match threshold to an exemplar
+    allele.
 
 ${bold}--database$norm ${under}NAME$norm
     Database configuration name.
@@ -127,8 +136,20 @@ ${bold}--duration$norm
 ${bold}--exclude_loci$norm ${under}LIST$norm
     Comma-separated list of loci to exclude
     
+${bold}--exemplar$norm
+    Only use alleles with the 'exemplar' flag set in BLAST searches to identify
+    locus within genome. Specific allele is then identified using a database 
+    lookup. This may be quicker than using all alleles for the BLAST search, 
+    but will be at the expense of sensitivity. If no exemplar alleles are set 
+    for a locus then all alleles will be used.
+    
 ${bold}--help$norm
     This help page.
+
+${bold}--identity$norm ${under}IDENTITY$norm
+    Percentage identity (default: 50). Please note that if you are scanning
+    using exemplars, then this is the initial match threshold to an exemplar
+    allele.
     
 ${bold}--loci$norm ${under}LIST$norm
     Comma-separated list of loci to scan (ignored if -s used).
@@ -147,6 +168,9 @@ ${bold}--schemes$norm ${under}LIST$norm
     
 ${bold}--sequence$norm ${under}SEQUENCE$norm
     DNA or peptide sequence.
+    
+${bold}--sequence_file$norm ${under}FILE$norm
+    DNA or peptide sequence file.
     
 ${bold}--threads$norm ${under}THREADS$norm
     Maximum number of BLAST threads to use.

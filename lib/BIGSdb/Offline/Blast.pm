@@ -23,33 +23,77 @@ use 5.010;
 use parent qw(BIGSdb::Offline::Script);
 use Digest::MD5;
 use File::Path qw(make_path remove_tree);
+use Error qw(:try);
 use Fcntl qw(:flock);
 use constant INF => 9**99;
 
 sub run_script {
-	my ($self) = @_;
-
-	#	my $params  = $self->{'params'};
-	#	my $options = $self->{'options'};
-	my $loci = $self->get_selected_loci;
+	my ($self)  = @_;
+	my $params  = $self->{'params'};
+	my $options = $self->{'options'};
+	my $loci    = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
-	$self->_blast($loci);
+	my $seq;
+	if ( $options->{'sequence_file'} ) {
+		try {
+			my $seq_ref = BIGSdb::Utils::slurp( $options->{'sequence_file'} );
+			$self->_remove_all_identifier_lines($seq_ref);
+			$seq = $$seq_ref;
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$self->{'logger'}->error("Cannot open file $options->{'sequence_file'} for reading");
+		};
+	} else {
+		$seq = $options->{'sequence'};
+	}
+	$seq =~ s/\s//gx;
+	my $blast_results = $self->_blast( \$seq, $loci );
+	my $exact_matches = $self->_parse_blast_exact(
+		{
+			loci       => $loci,
+			params     => $params,
+			blast_file => $blast_results,
+			options    => { keep_data => 1 }
+		}
+	);
+	my $partial_matches = $self->_parse_blast_partial(
+		{
+			loci          => $loci,
+			params        => $params,
+			blast_file    => $blast_results,
+			exact_matches => $exact_matches,
+			seq_ref       => \$seq
+		}
+	);
+	use Data::Dumper;
+	say Dumper $exact_matches;
+	say Dumper $partial_matches;
+	return;
+}
+
+sub _create_query_file {
+	my ( $self, $in_file, $seq_ref ) = @_;
+	open( my $infile_fh, '>', $in_file ) || $self->{'logger'}->error("Cannot open $in_file for writing");
+	say $infile_fh '>Query';
+	say $infile_fh $$seq_ref;
+	close $infile_fh;
 	return;
 }
 
 sub _blast {
-	my ( $self, $loci ) = @_;
+	my ( $self, $seq_ref, $loci ) = @_;
 	my $job      = BIGSdb::Utils::get_random();
 	my $in_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job.txt";
 	my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/${job}_outfile.txt";
 	my $options  = $self->{'options'};
-	my $runs     = [qw(DNA peptide)];
+	$self->_create_query_file( $in_file, $seq_ref );
+	my $runs = [qw(DNA peptide)];
 	foreach my $run (@$runs) {
 		my $loci_by_type = $self->_get_selected_loci_by_type( $loci, $run );
 		next if !@$loci_by_type;
 		my $cache_name = $self->_get_cache_name($loci_by_type);
 		if ( !$self->_cache_exists($cache_name) ) {
-			$self->_create_blast_database( $cache_name, $run, $loci_by_type );
+			$self->_create_blast_database( $cache_name, $run, $loci_by_type, $options->{'exemplar'} );
 		}
 		my $path      = $self->_get_cache_dir($cache_name);
 		my $lock_file = "$path/LOCK";
@@ -65,16 +109,10 @@ sub _blast {
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
 		my $filter        = $program eq 'blastn' ? 'dust' : 'seg';
 		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
-		my $format        = $options->{'alignment'} ? 0 : 6;
+		my $format        = $options->{'make_alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
-		my $fasta_file   = "$path/sequences.fas";
-		my $shortest_seq = $self->_get_shortest_seq_length($fasta_file);
-		say "format: $format";
-		say "shortest seq: $shortest_seq";
-		say "threads: $blast_threads";
-		say "word size: $word_size";
-		say "$run: $cache_name $program";
-		my %params = (
+		my $fasta_file = "$path/sequences.fas";
+		my %params     = (
 			-num_threads => $blast_threads,
 			-word_size   => $word_size,
 			-db          => $fasta_file,
@@ -96,11 +134,246 @@ sub _blast {
 		}
 
 		#Very short sequences won't be matched unless we increase the expect value significantly
+		my $shortest_seq = $self->_get_shortest_seq_length($fasta_file);
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
 		}
-		use Data::Dumper;
-		say Dumper \%params;
+		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		next if !-e $out_file;
+		if ( $run eq 'DNA' ) {
+			rename( $out_file, "${out_file}.1" );
+		}
+	}
+	my $out_file1 = "${out_file}.1";
+	if ( -e $out_file1 ) {
+		BIGSdb::Utils::append( $out_file1, $out_file );
+		unlink $out_file1;
+	}
+	unlink $in_file;
+	return $out_file;
+}
+
+sub _parse_blast_exact {
+	my ( $self, $args ) = @_;
+	my ( $params, $loci, $blast_file, $options ) =
+	  @{$args}{qw (params loci blast_file options)};
+	my $matches = {};
+	$self->_read_blast_file_into_structure($blast_file);
+	my $matched_already        = {};
+	my $region_matched_already = {};
+  RECORD: foreach my $record ( @{ $self->{'records'} } ) {
+		my $match;
+		if ( $record->[2] == 100 ) {    #identity
+			my $allele_id;
+			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+			$locus =~ s/__prime__/'/gx;
+			my $locus_match = $matches->{'locus'} // [];
+			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			$allele_id = $match_allele_id;
+			my $matched_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+			my $ref_length = length($$matched_seq);
+			next if !defined $ref_length;
+
+			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
+				$match->{'allele'}    = $allele_id;
+				$match->{'identity'}  = $record->[2];
+				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
+				$match->{'length'}    = $ref_length;
+				$self->_identify_match_ends( $match, $record );
+				$match->{'reverse'} = 1 if $self->_is_match_reversed($record);
+				$match->{'e-value'} = $record->[10];
+				next RECORD if $matched_already->{ $match->{'allele'} }->{ $match->{'start'} };
+				$matched_already->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
+				$region_matched_already->{ $match->{'start'} } = 1;
+
+				if ( $locus_info->{'match_longest'} && @$locus_match ) {
+					if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
+						@$locus_match = ($match);
+					}
+				} else {
+					push @$locus_match, $match;
+				}
+			}
+			$matches->{$locus} = $locus_match if @$locus_match;
+		}
+	}
+	undef $self->{'records'} if !$options->{'keep_data'};
+	return $matches;
+}
+
+sub _parse_blast_partial {
+	my ( $self, $args ) = @_;
+	my ( $params, $loci, $blast_file, $exact_matches, $seq_ref, $options ) =
+	  @{$args}{qw (params loci blast_file exact_matches seq_ref options)};
+	my $partial_matches = {};
+	my $identity        = $self->{'options'}->{'identity'};
+	my $alignment       = $self->{'options'}->{'alignment'};
+	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
+	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
+	$self->_read_blast_file_into_structure($blast_file);
+  RECORD: foreach my $record ( @{ $self->{'records'} } ) {
+		my $allele_id;
+		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'};
+		my $locus_match = $partial_matches->{$locus} // [];
+		$allele_id = $match_allele_id;
+		my $matched_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+		my $length = length $$matched_seq;
+		if ( $params->{'tblastx'} ) {
+			$record->[3] *= 3;
+		}
+		my $quality = $record->[3] * $record->[2];    #simple metric of alignment length x percentage identity
+		if ( $record->[3] >= $alignment * 0.01 * $length && $record->[2] >= $identity ) {
+			my $match;
+			$match->{'quality'}   = $quality;
+			$match->{'allele'}    = $allele_id;
+			$match->{'identity'}  = $record->[2];
+			$match->{'length'}    = $length;
+			$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
+			$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
+			$self->_identify_match_ends( $match, $record );
+			$self->_predict_allele_ends( $length, $match, $record );
+			push @$locus_match, $match;
+		}
+		$partial_matches->{$locus} = $locus_match if @$locus_match;
+	}
+	if ( $self->{'options'}->{'exemplar'} ) {
+		foreach my $locus (@$loci) {
+			$self->_lookup_partial_matches( $seq_ref, $locus, $exact_matches, $partial_matches );
+			if ( @{ $exact_matches->{$locus} } ) {
+				delete $partial_matches->{$locus};
+			} else {
+				delete $exact_matches->{$locus};
+			}
+		}
+	}
+	undef $self->{'records'} if !$options->{'keep_data'};
+	return $partial_matches;
+}
+
+sub _lookup_partial_matches {
+	my ( $self, $seq_ref, $locus, $exact_matches, $partial_matches ) = @_;
+	my $locus_matches = $partial_matches->{$locus} // [];
+	return if !@$locus_matches;
+	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	foreach my $match (@$locus_matches) {
+		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+			$seq = $seq_obj->translate->seq;
+		}
+		my $allele_id = $self->{'datastore'}
+		  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $seq ] );
+		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
+			$match->{'from_partial'}         = 1;
+			$match->{'partial_match_allele'} = $match->{'allele'};
+			$match->{'identity'}             = 100;
+			$match->{'allele'}               = $allele_id;
+			$match->{'start'}                = $match->{'predicted_start'};
+			$match->{'end'}                  = $match->{'predicted_end'};
+			$match->{'length'}               = abs( $match->{'predicted_end'} - $match->{'predicted_start'} ) + 1;
+			if ( $locus_info->{'match_longest'} && @{ $exact_matches->{$locus} } ) {
+
+				if ( $match->{'length'} > $exact_matches->{$locus}->[0]->{'length'} ) {
+					@{ $exact_matches->{$locus} } = ($match);
+				}
+			} else {
+				push @{ $exact_matches->{$locus} }, $match;
+				$already_matched_alleles{$allele_id} = 1;
+			}
+		}
+	}
+	return;
+}
+
+sub _extract_match_seq_from_query {
+	my ( $self, $seq_ref, $match ) = @_;
+	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
+	my $seq = substr( $$seq_ref, $match->{'predicted_start'} - 1, $length );
+	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+	$seq = uc($seq);
+	return $seq;
+}
+
+sub _does_blast_record_match {
+	my ( $self, $record, $ref_length ) = @_;
+	return 1
+	  if (
+		(
+			$record->[8] == 1                 #sequence start position
+			&& $record->[9] == $ref_length    #end position
+		)
+		|| (
+			$record->[8] == $ref_length       #sequence start position (reverse complement)
+			&& $record->[9] == 1              #end position
+		)
+	  ) && !$record->[4];                     #no gaps
+	return;
+}
+
+sub _identify_match_ends {
+	my ( $self, $match, $record ) = @_;
+	if ( $record->[6] < $record->[7] ) {
+		$match->{'start'} = $record->[6];
+		$match->{'end'}   = $record->[7];
+	} else {
+		$match->{'start'} = $record->[7];
+		$match->{'end'}   = $record->[6];
+	}
+	return;
+}
+
+sub _predict_allele_ends {
+	my ( $self, $length, $match, $record ) = @_;
+	if ( $length != $match->{'alignment'} ) {
+		if ( $match->{'reverse'} ) {
+			if ( $record->[8] < $record->[9] ) {
+				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
+				$match->{'predicted_end'}   = $match->{'end'} + $record->[8] - 1;
+			} else {
+				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[8];
+				$match->{'predicted_end'}   = $match->{'end'} + $record->[9] - 1;
+			}
+		} else {
+			if ( $record->[8] < $record->[9] ) {
+				$match->{'predicted_start'} = $match->{'start'} - $record->[8] + 1;
+				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[9];
+			} else {
+				$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
+				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[8];
+			}
+		}
+	} else {
+		$match->{'predicted_start'} = $match->{'start'};
+		$match->{'predicted_end'}   = $match->{'end'};
+	}
+	return;
+}
+
+#Record represents field values from BLAST output
+sub _is_match_reversed {
+	my ( $self, $record ) = @_;
+	if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
+		|| ( $record->[8] < $record->[9] && $record->[7] < $record->[6] ) )
+	{
+		return 1;
+	}
+	return;
+}
+
+sub _read_blast_file_into_structure {
+	my ( $self, $blast_file ) = @_;
+	if ( !$self->{'records'} ) {
+		open( my $blast_fh, '<', $blast_file )
+		  || ( $self->{'logger'}->error("Cannot open BLAST output file $blast_file. $!"), return \$; );
+		$self->{'records'} = [];
+		my @lines = <$blast_fh>;
+		foreach my $line (@lines) {
+			my @record = split /\s+/x, $line;
+			push @{ $self->{'records'} }, \@record;
+		}
+		close $blast_fh;
 	}
 	return;
 }
@@ -117,6 +390,12 @@ sub _get_shortest_seq_length {
 	}
 	close $fh;
 	return $shortest;
+}
+
+sub _remove_all_identifier_lines {
+	my ( $self, $seq_ref ) = @_;
+	$$seq_ref =~ s/>.+\n//gx;
+	return;
 }
 
 sub _create_blast_database {
@@ -147,7 +426,7 @@ sub _create_blast_database {
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
 
 	foreach my $allele (@$data) {
-		say $fasta_fh ">$allele->[0]:$allele->[1]\n$allele->[2]";
+		say $fasta_fh ">$allele->[0]|$allele->[1]\n$allele->[2]";
 	}
 	close $fasta_fh;
 	my $db_type = $data_type eq 'DNA' ? 'nucl' : 'prot';
@@ -188,7 +467,7 @@ sub _get_cache_age {
 
 sub _delete_cache {
 	my ( $self, $cache_name ) = @_;
-	say 'deleting cache';
+	$self->{'logger'}->info("Deleting cache $cache_name");
 	my $path       = $self->_get_cache_dir($cache_name);
 	my $fasta_file = "$path/sequences.fas";
 	open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
@@ -205,8 +484,10 @@ sub _delete_cache {
 
 sub _get_cache_name {
 	my ( $self, $loci ) = @_;
+	my $exemplar_value = $self->{'options'}->{'exemplar'} ? q(EX) : q();
 	local $" = q(,);
-	return Digest::MD5::md5_hex(qq(@$loci));
+	my $hash = Digest::MD5::md5_hex(qq(@$loci));
+	return "$exemplar_value$hash";
 }
 
 sub _get_selected_loci_by_type {
