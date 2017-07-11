@@ -747,9 +747,9 @@ sub _format_display_value {
 		$display_value = q(<span class="seq">) . ( BIGSdb::Utils::truncate_seq( \$value, 40 ) ) . q(</span>);
 	} else {
 		$display_value = $value;
+		$display_value =~ s/&/&amp;/gx;
+		$display_value = BIGSdb::Utils::escape_html($display_value);
 	}
-	$display_value =~ s/&/&amp;/gx;
-	$display_value = BIGSdb::Utils::escape_html($display_value);
 	my $buffer;
 	my $problem = $self->_check_field_bad( $table, $field, $value, $problems, $pk_combination );
 	if ( !( $problem || $special_problem ) ) {
