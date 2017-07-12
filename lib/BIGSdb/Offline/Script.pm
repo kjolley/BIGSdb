@@ -341,8 +341,9 @@ sub get_selected_loci {
 	}
 	my $and_or = $loci_qry =~ /WHERE/x ? 'AND' : 'WHERE';
 	my @group_schemes;
-	if ($self->{'options'}->{'scheme_group'}){
-		my $schemes = $self->{'datastore'}->get_schemes_in_group($self->{'options'}->{'scheme_group'});
+	if ( $self->{'options'}->{'scheme_group'} ) {
+		my $schemes = $self->{'datastore'}->get_schemes_in_group( $self->{'options'}->{'scheme_group'} );
+		die "No schemes defined for scheme group.\n" if !@$schemes;
 		@group_schemes = @$schemes;
 	}
 	if ( $self->{'options'}->{'s'} || @group_schemes ) {
