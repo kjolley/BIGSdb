@@ -65,10 +65,33 @@ sub run_script {
 			seq_ref       => \$seq
 		}
 	);
-	use Data::Dumper;
-	say Dumper $exact_matches;
-	say Dumper $partial_matches;
+	$self->{'exact_matches'} = $exact_matches;
+	$self->{'partial_matches'} = $partial_matches;
 	return;
+}
+
+sub _get_matches {
+	my ($self, $type, $options) = @_;
+	return $self->{$type} if $options->{'details'};
+	my $alleles = {};
+	foreach my $locus (keys %{$self->{'exact_matches'}}){
+		my $allele_ids = [];
+		foreach my $match (@{$self->{'exact_matches'}->{$locus}}){
+			push @$allele_ids, $match->{'allele'}; 
+		}
+		$alleles->{$locus} = $allele_ids;
+	}
+	return $alleles;
+}
+
+sub get_exact_matches {
+	my ($self, $options) = @_;
+	return $self->_get_matches('exact_matches',$options);
+}
+
+sub get_partial_matches {
+	my ($self, $options) = @_;
+	return $self->_get_matches('partial_matches',$options);
 }
 
 sub _create_query_file {
@@ -161,6 +184,7 @@ sub _parse_blast_exact {
 	$self->_read_blast_file_into_structure($blast_file);
 	my $matched_already        = {};
 	my $region_matched_already = {};
+	my $length_cache           = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
 		if ( $record->[2] == 100 ) {    #identity
@@ -170,10 +194,15 @@ sub _parse_blast_exact {
 			my $locus_match = $matches->{'locus'} // [];
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$allele_id = $match_allele_id;
-			my $matched_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
-			my $ref_length = length($$matched_seq);
+			if ( !$length_cache->{$locus}->{$allele_id} ) {
+				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
+					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
+					[ $locus, $allele_id ],
+					{ cache => 'Blast::get_seq_length' }
+				);
+			}
+			my $ref_length = $length_cache->{$locus}->{$allele_id};
 			next if !defined $ref_length;
-
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
@@ -208,39 +237,48 @@ sub _parse_blast_partial {
 	my $partial_matches = {};
 	my $identity        = $self->{'options'}->{'identity'};
 	my $alignment       = $self->{'options'}->{'alignment'};
-	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
+	$identity  = 90 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
 	$self->_read_blast_file_into_structure($blast_file);
+	my $length_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $allele_id;
 		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'};
 		my $locus_match = $partial_matches->{$locus} // [];
 		$allele_id = $match_allele_id;
-		my $matched_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
-		my $length = length $$matched_seq;
 		if ( $params->{'tblastx'} ) {
 			$record->[3] *= 3;
 		}
 		my $quality = $record->[3] * $record->[2];    #simple metric of alignment length x percentage identity
-		if ( $record->[3] >= $alignment * 0.01 * $length && $record->[2] >= $identity ) {
-			my $match;
-			$match->{'quality'}   = $quality;
-			$match->{'allele'}    = $allele_id;
-			$match->{'identity'}  = $record->[2];
-			$match->{'length'}    = $length;
-			$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
-			$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
-			$self->_identify_match_ends( $match, $record );
-			$self->_predict_allele_ends( $length, $match, $record );
-			push @$locus_match, $match;
+		if ( $record->[2] >= $identity ) {
+			if ( !$length_cache->{$locus}->{$allele_id} ) {
+				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
+					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
+					[ $locus, $allele_id ],
+					{ cache => 'Blast::get_seq_length' }
+				);
+			}
+			my $length = $length_cache->{$locus}->{$allele_id};
+			if ( $record->[3] >= $alignment * 0.01 * $length ) {
+				my $match;
+				$match->{'quality'}   = $quality;
+				$match->{'allele'}    = $allele_id;
+				$match->{'identity'}  = $record->[2];
+				$match->{'length'}    = $length;
+				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
+				$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
+				$self->_identify_match_ends( $match, $record );
+				$self->_predict_allele_ends( $length, $match, $record );
+				push @$locus_match, $match;
+			}
 		}
 		$partial_matches->{$locus} = $locus_match if @$locus_match;
 	}
 	if ( $self->{'options'}->{'exemplar'} ) {
 		foreach my $locus (@$loci) {
 			$self->_lookup_partial_matches( $seq_ref, $locus, $exact_matches, $partial_matches );
-			if ( @{ $exact_matches->{$locus} } ) {
+			if ( ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} } ) {
 				delete $partial_matches->{$locus};
 			} else {
 				delete $exact_matches->{$locus};
@@ -405,10 +443,10 @@ sub _create_blast_database {
 	#Prevent two makeblastdb processes running in the same directory
 	make_path($path);
 
-	#This method may be called by apache during a web query or by the bigsdb user
-	#if called from external script. We need to make sure that files can be overwritten
-	#by both. bigsdb should be a member of the apache group and vice versa.
-	chmod 0775, $path;
+	#This method may be called by apache during a web query, by the bigsdb or any other user
+	#if called from external script. We need to make sure that cache files can be overwritten
+	#by all.
+	chmod 0777, $path;
 	my $lock_file = "$path/LOCK";
 	open( my $lock_fh, '>', $lock_file ) || $self->{'logger'}->error('Cannot open lock file');
 	if ( !flock( $lock_fh, LOCK_EX ) ) {

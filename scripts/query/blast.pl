@@ -105,6 +105,14 @@ if ( $opts{'duration'} ) {
 undef $script;
 
 sub main {
+	my $exact_matches = $script->get_exact_matches;
+	if (keys %$exact_matches){
+	foreach my $locus (sort keys %$exact_matches){
+		local $" = q(, );
+		my $alleles = qq(@{$exact_matches->{$locus}});
+		say qq($locus: $alleles);
+	}}
+	return;
 }
 
 sub show_help {
@@ -123,7 +131,7 @@ ${bold}SYNOPSIS$norm
 ${bold}OPTIONS$norm
 
 ${bold}--alignment$norm ${under}ALIGNMENT$norm
-    Percentage alignment (default: 70). Please note that if you are scanning
+    Percentage alignment (default: 50). Please note that if you are scanning
     using exemplars, then this is the initial match threshold to an exemplar
     allele.
 
@@ -147,7 +155,7 @@ ${bold}--help$norm
     This help page.
 
 ${bold}--identity$norm ${under}IDENTITY$norm
-    Percentage identity (default: 50). Please note that if you are scanning
+    Percentage identity (default: 90). Please note that if you are scanning
     using exemplars, then this is the initial match threshold to an exemplar
     allele.
     
