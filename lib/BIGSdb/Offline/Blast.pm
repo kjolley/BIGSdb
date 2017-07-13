@@ -28,26 +28,15 @@ use Fcntl qw(:flock);
 use constant INF => 9**99;
 
 sub blast {
-	my ($self)  = @_;
+	my ($self, $seq_ref)  = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
 	my $loci    = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
-	my $seq;
-	if ( $options->{'sequence_file'} ) {
-		try {
-			my $seq_ref = BIGSdb::Utils::slurp( $options->{'sequence_file'} );
-			$self->_remove_all_identifier_lines($seq_ref);
-			$seq = $$seq_ref;
-		}
-		catch BIGSdb::CannotOpenFileException with {
-			$self->{'logger'}->error("Cannot open file $options->{'sequence_file'} for reading");
-		};
-	} else {
-		$seq = $options->{'sequence'};
-	}
-	$seq =~ s/\s//gx;
-	my $blast_results = $self->_run_blast( \$seq, $loci );
+	$self->_remove_all_identifier_lines($seq_ref);
+
+	$$seq_ref =~ s/\s//gx;
+	my $blast_results = $self->_run_blast( $seq_ref, $loci );
 	my $exact_matches = $self->_parse_blast_exact(
 		{
 			loci       => $loci,
@@ -62,7 +51,7 @@ sub blast {
 			params        => $params,
 			blast_file    => $blast_results,
 			exact_matches => $exact_matches,
-			seq_ref       => \$seq
+			seq_ref       => $seq_ref
 		}
 	);
 	$self->{'exact_matches'}   = $exact_matches;
@@ -70,13 +59,34 @@ sub blast {
 	return;
 }
 
+sub delete_caches {
+	my ($self, $options) = @_;
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
+	my @caches;
+	opendir( my $dh, $dir ) || $self->{'logger'}->error("Cannot open directory $dir");
+	while ( my $name = readdir $dh ) {
+		next if $name =~ /^\./x;
+		next if !-d "$dir/$name";
+		push @caches, $name;
+	}
+	closedir $dh;
+	foreach my $cache (@caches){
+		if ($options->{'if_stale'}){
+			$self->_delete_cache_if_stale($cache);
+		} else {
+			$self->_delete_cache($cache);
+		}
+	}
+	return;
+}
+
 sub _get_matches {
 	my ( $self, $type, $options ) = @_;
 	return $self->{$type} if $options->{'details'};
 	my $alleles = {};
-	foreach my $locus ( keys %{ $self->{'exact_matches'} } ) {
+	foreach my $locus ( keys %{ $self->{$type} } ) {
 		my $allele_ids = [];
-		foreach my $match ( @{ $self->{'exact_matches'}->{$locus} } ) {
+		foreach my $match ( @{ $self->{$type}->{$locus} } ) {
 			push @$allele_ids, $match->{'allele'};
 		}
 		$alleles->{$locus} = $allele_ids;
@@ -490,13 +500,20 @@ sub _cache_exists {
 	my ( $self, $cache_name ) = @_;
 	my $path = $self->_get_cache_dir($cache_name);
 	return if !-e $path;
+	return if $self->_delete_cache_if_stale($cache_name);
+	return 1;
+}
+
+sub _delete_cache_if_stale {
+	my ( $self, $cache_name ) = @_;
+	my $path = $self->_get_cache_dir($cache_name);
 	my $cache_is_stale = -e "$path/stale";
 	my $cache_age      = $self->_get_cache_age($cache_name);
 	if ( $cache_age > $self->{'config'}->{'cache_days'} || $cache_is_stale ) {
 		$self->_delete_cache($cache_name);
-		return;
+		return 1;
 	}
-	return 1;
+	return;
 }
 
 sub _get_cache_age {

@@ -34,6 +34,7 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;
+use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 
@@ -80,7 +81,7 @@ if ( $opts{'sequence_file'} && !-e $opts{'sequence_file'} ) {
 	exit;
 }
 my $start  = time;
-my $script = BIGSdb::Offline::Blast->new(
+my $blast_obj = BIGSdb::Offline::Blast->new(
 	{
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
@@ -93,26 +94,39 @@ my $script = BIGSdb::Offline::Blast->new(
 		instance         => $opts{'d'},
 	}
 );
-die "Script initialization failed.\n" if !defined $script->{'db'};
+die "Script initialization failed.\n" if !defined $blast_obj->{'db'};
 die "This script can only be run against a seqdef database.\n"
-  if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
+  if ( $blast_obj->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 main();
 my $stop = time;
 if ( $opts{'duration'} ) {
 	my $duration = BIGSdb::Utils::get_nice_duration( $stop - $start );
 	say "Duration: $duration";
 }
-undef $script;
+undef $blast_obj;
 
 sub main {
-	$script->blast;
-	my $exact_matches = $script->get_exact_matches;
-	if (keys %$exact_matches){
-	foreach my $locus (sort keys %$exact_matches){
-		local $" = q(, );
-		my $alleles = qq(@{$exact_matches->{$locus}});
-		say qq($locus: $alleles);
-	}}
+	my $seq;
+	if ( $opts{'sequence_file'} ) {
+		try {
+			my $seq_ref = BIGSdb::Utils::slurp( $opts{'sequence_file'} );
+			$seq = $$seq_ref;
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$logger->error("Cannot open file $opts{'sequence_file'} for reading");
+		};
+	} else {
+		$seq = $opts{'sequence'};
+	}
+	$blast_obj->blast( \$seq );
+	my $exact_matches = $blast_obj->get_exact_matches;
+	if ( keys %$exact_matches ) {
+		foreach my $locus ( sort keys %$exact_matches ) {
+			local $" = q(, );
+			my $alleles = qq(@{$exact_matches->{$locus}});
+			say qq($locus: $alleles);
+		}
+	}
 	return;
 }
 
