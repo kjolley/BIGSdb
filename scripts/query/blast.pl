@@ -105,6 +105,7 @@ if ( $opts{'duration'} ) {
 undef $script;
 
 sub main {
+	$script->blast;
 	my $exact_matches = $script->get_exact_matches;
 	if (keys %$exact_matches){
 	foreach my $locus (sort keys %$exact_matches){

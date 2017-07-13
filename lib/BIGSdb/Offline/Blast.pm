@@ -27,7 +27,7 @@ use Error qw(:try);
 use Fcntl qw(:flock);
 use constant INF => 9**99;
 
-sub run_script {
+sub blast {
 	my ($self)  = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
@@ -47,7 +47,7 @@ sub run_script {
 		$seq = $options->{'sequence'};
 	}
 	$seq =~ s/\s//gx;
-	my $blast_results = $self->_blast( \$seq, $loci );
+	my $blast_results = $self->_run_blast( \$seq, $loci );
 	my $exact_matches = $self->_parse_blast_exact(
 		{
 			loci       => $loci,
@@ -65,19 +65,19 @@ sub run_script {
 			seq_ref       => \$seq
 		}
 	);
-	$self->{'exact_matches'} = $exact_matches;
+	$self->{'exact_matches'}   = $exact_matches;
 	$self->{'partial_matches'} = $partial_matches;
 	return;
 }
 
 sub _get_matches {
-	my ($self, $type, $options) = @_;
+	my ( $self, $type, $options ) = @_;
 	return $self->{$type} if $options->{'details'};
 	my $alleles = {};
-	foreach my $locus (keys %{$self->{'exact_matches'}}){
+	foreach my $locus ( keys %{ $self->{'exact_matches'} } ) {
 		my $allele_ids = [];
-		foreach my $match (@{$self->{'exact_matches'}->{$locus}}){
-			push @$allele_ids, $match->{'allele'}; 
+		foreach my $match ( @{ $self->{'exact_matches'}->{$locus} } ) {
+			push @$allele_ids, $match->{'allele'};
 		}
 		$alleles->{$locus} = $allele_ids;
 	}
@@ -85,13 +85,13 @@ sub _get_matches {
 }
 
 sub get_exact_matches {
-	my ($self, $options) = @_;
-	return $self->_get_matches('exact_matches',$options);
+	my ( $self, $options ) = @_;
+	return $self->_get_matches( 'exact_matches', $options );
 }
 
 sub get_partial_matches {
-	my ($self, $options) = @_;
-	return $self->_get_matches('partial_matches',$options);
+	my ( $self, $options ) = @_;
+	return $self->_get_matches( 'partial_matches', $options );
 }
 
 sub _create_query_file {
@@ -103,7 +103,7 @@ sub _create_query_file {
 	return;
 }
 
-sub _blast {
+sub _run_blast {
 	my ( $self, $seq_ref, $loci ) = @_;
 	my $job      = BIGSdb::Utils::get_random();
 	my $in_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job.txt";
@@ -123,7 +123,7 @@ sub _blast {
 		if ( -e $lock_file ) {
 
 			#Wait for lock to clear - database is being created by other process.
-			open( my $lock_fh, '<', $lock_file ) || $self->{'logger'}->error('Cannot read lock file.');
+			open( my $lock_fh, '<', $lock_file ) || $self->{'logger'}->error('Cannot open lock file.');
 			flock( $lock_fh, LOCK_SH ) or $self->{'logger'}->error("Cannot flock $lock_file: $!");
 			close $lock_fh;
 		}
@@ -135,7 +135,11 @@ sub _blast {
 		my $format        = $options->{'make_alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
-		my %params     = (
+		open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
+
+		#Open shared lock on FASTA file to prevent cache being deleted while being used.
+		flock( $fasta_fh, LOCK_SH ) || $self->{'logger'}->error("Cannot flock $fasta_file");
+		my %params = (
 			-num_threads => $blast_threads,
 			-word_size   => $word_size,
 			-db          => $fasta_file,
@@ -144,7 +148,6 @@ sub _blast {
 			-outfmt      => $format,
 			-$filter     => 'no'
 		);
-
 		if ( $options->{'alignment'} ) {
 			$params{'-num_alignments'} = $options->{'num_results'};
 		} else {
@@ -162,6 +165,7 @@ sub _blast {
 			$params{'-evalue'} = 1000;
 		}
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		close $fasta_fh;
 		next if !-e $out_file;
 		if ( $run eq 'DNA' ) {
 			rename( $out_file, "${out_file}.1" );
@@ -508,7 +512,7 @@ sub _delete_cache {
 	$self->{'logger'}->info("Deleting cache $cache_name");
 	my $path       = $self->_get_cache_dir($cache_name);
 	my $fasta_file = "$path/sequences.fas";
-	open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
+	open( my $fasta_fh, '>', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
 	if ( flock( $fasta_fh, LOCK_EX ) ) {
 		remove_tree( $path, { error => \my $err } );
 		if (@$err) {
