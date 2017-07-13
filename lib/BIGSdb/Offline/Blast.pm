@@ -28,13 +28,12 @@ use Fcntl qw(:flock);
 use constant INF => 9**99;
 
 sub blast {
-	my ($self, $seq_ref)  = @_;
+	my ( $self, $seq_ref ) = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
 	my $loci    = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
 	$self->_remove_all_identifier_lines($seq_ref);
-
 	$$seq_ref =~ s/\s//gx;
 	my $blast_results = $self->_run_blast( $seq_ref, $loci );
 	my $exact_matches = $self->_parse_blast_exact(
@@ -59,8 +58,8 @@ sub blast {
 	return;
 }
 
-sub delete_caches {
-	my ($self, $options) = @_;
+sub _get_cache_names {
+	my ($self) = @_;
 	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 	my @caches;
 	opendir( my $dh, $dir ) || $self->{'logger'}->error("Cannot open directory $dir");
@@ -70,14 +69,53 @@ sub delete_caches {
 		push @caches, $name;
 	}
 	closedir $dh;
-	foreach my $cache (@caches){
-		if ($options->{'if_stale'}){
+	return \@caches;
+}
+
+sub delete_caches {
+	my ( $self, $options ) = @_;
+	my $caches = $self->_get_cache_names;
+	foreach my $cache (@$caches) {
+		if ( $options->{'if_stale'} ) {
 			$self->_delete_cache_if_stale($cache);
 		} else {
 			$self->_delete_cache($cache);
 		}
 	}
 	return;
+}
+
+sub mark_locus_caches_stale {
+	my ( $self, $locus ) = @_;
+	my $caches = $self->_get_caches_containing_locus($locus);
+	foreach my $cache (@$caches) {
+		my $dir             = $self->_get_cache_dir($cache);
+		my $stale_flag_file = "$dir/stale";
+		open( my $fh, '>', $stale_flag_file ) || $self->{'logger'}->error("Cannot mark $cache cache stale.");
+		close $fh;
+	}
+	return;
+}
+
+sub _get_caches_containing_locus {
+	my ( $self, $locus ) = @_;
+	my $dir          = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
+	my $caches       = $self->_get_cache_names;
+	my $locus_caches = [];
+  CACHE: foreach my $cache (@$caches) {
+		my $locus_file = "$dir/$cache/loci";
+		next if !-e $locus_file;
+		open( my $fh, '<', $locus_file ) || $self->{'logger'}->error("Cannot open $locus_file for reading");
+		while ( my $line = <$fh> ) {
+			chomp $line;
+			if ( $line eq $locus ) {
+				push @$locus_caches, $cache;
+				next CACHE;
+			}
+		}
+		close $fh;
+	}
+	return $locus_caches;
 }
 
 sub _get_matches {
@@ -484,6 +522,11 @@ sub _create_blast_database {
 	my $db_type = $data_type eq 'DNA' ? 'nucl' : 'prot';
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
+	my $locus_list_file = "$path/loci";
+	open( my $locus_fh, '>', $locus_list_file ) || $self->{'logger'}->('Cannot open $locus_list_file for writing');
+	say $locus_fh $_ foreach @$loci;
+	close $locus_fh;
+
 	if ($lock_fh) {
 		close $lock_fh;
 		unlink $lock_file;
@@ -506,7 +549,7 @@ sub _cache_exists {
 
 sub _delete_cache_if_stale {
 	my ( $self, $cache_name ) = @_;
-	my $path = $self->_get_cache_dir($cache_name);
+	my $path           = $self->_get_cache_dir($cache_name);
 	my $cache_is_stale = -e "$path/stale";
 	my $cache_age      = $self->_get_cache_age($cache_name);
 	if ( $cache_age > $self->{'config'}->{'cache_days'} || $cache_is_stale ) {
