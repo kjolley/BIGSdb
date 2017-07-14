@@ -687,8 +687,9 @@ sub is_field_bad {
 
 sub _is_field_bad_isolates {
 	my ( $self, $fieldname, $value, $flag, $set_id ) = @_;
-	$value = '' if !defined $value;
-	if ($flag eq 'update'){
+	$value //= q();
+	$flag  //= q();
+	if ( $flag eq 'update' ) {
 		$value =~ s/<blank>//x;
 		$value =~ s/null//;
 	}
