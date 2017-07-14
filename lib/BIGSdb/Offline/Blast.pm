@@ -33,8 +33,9 @@ sub blast {
 	my $options = $self->{'options'};
 	my $loci    = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
-	$self->_remove_all_identifier_lines($seq_ref);
-	$$seq_ref =~ s/\s//gx;
+	$self->_ensure_seq_has_identifer($seq_ref);
+	$seq_ref = $self->_strip_invalid_chars($seq_ref);
+	$self->{'seq_ref'} = $seq_ref;
 	my $blast_results = $self->_run_blast( $seq_ref, $loci );
 	my $exact_matches = $self->_parse_blast_exact(
 		{
@@ -142,10 +143,31 @@ sub get_partial_matches {
 	return $self->_get_matches( 'partial_matches', $options );
 }
 
+sub get_best_partial_match {
+	my ($self)          = @_;
+	my $partial_matches = $self->{'partial_matches'};
+	my $best_match      = {};
+	my $quality         = 0;
+	foreach my $locus ( keys %$partial_matches ) {
+		foreach my $match ( @{ $partial_matches->{$locus} } ) {
+			if ( $match->{'quality'} > $quality ) {
+				$best_match = $match;
+				$best_match->{'locus'} = $locus;
+			}
+		}
+	}
+	if ( $self->{'seq_ref'} && keys %$best_match ) {
+		my $seq = $self->_extract_match_seq_from_query( $self->{'seq_ref'}, $best_match );
+		$best_match->{'sequence'} = $seq;
+	}
+	return $best_match;
+}
+
 sub _create_query_file {
 	my ( $self, $in_file, $seq_ref ) = @_;
 	open( my $infile_fh, '>', $in_file ) || $self->{'logger'}->error("Cannot open $in_file for writing");
-	say $infile_fh '>Query';
+
+	#	say $infile_fh '>Query';
 	say $infile_fh $$seq_ref;
 	close $infile_fh;
 	return;
@@ -175,12 +197,13 @@ sub _run_blast {
 			flock( $lock_fh, LOCK_SH ) or $self->{'logger'}->error("Cannot flock $lock_file: $!");
 			close $lock_fh;
 		}
-		my $qry_type      = BIGSdb::Utils::sequence_type( $options->{'sequence'} );
-		my $program       = $self->_determine_blast_program( $run, $qry_type );
+		my $qry_type = BIGSdb::Utils::sequence_type( $options->{'sequence'} );
+		my $program = $self->_determine_blast_program( $run, $qry_type );
+		$self->{'program'} = $program;
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
-		my $filter        = $program eq 'blastn' ? 'dust' : 'seg';
-		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
-		my $format        = $options->{'make_alignment'} ? 0 : 6;
+		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+		my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
+		my $format = $options->{'make_alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
 		open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
@@ -256,6 +279,7 @@ sub _parse_blast_exact {
 			my $ref_length = $length_cache->{$locus}->{$allele_id};
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
+				$match->{'query'}     = $record->[0];
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
 				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
@@ -299,7 +323,7 @@ sub _parse_blast_partial {
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'};
 		my $locus_match = $partial_matches->{$locus} // [];
 		$allele_id = $match_allele_id;
-		if ( $params->{'tblastx'} ) {
+		if ( $self->{'program'} =~ /tblast/x ) {
 			$record->[3] *= 3;
 		}
 		my $quality = $record->[3] * $record->[2];    #simple metric of alignment length x percentage identity
@@ -314,6 +338,7 @@ sub _parse_blast_partial {
 			my $length = $length_cache->{$locus}->{$allele_id};
 			if ( $record->[3] >= $alignment * 0.01 * $length ) {
 				my $match;
+				$match->{'query'}     = $record->[0];
 				$match->{'quality'}   = $quality;
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
@@ -379,8 +404,12 @@ sub _lookup_partial_matches {
 
 sub _extract_match_seq_from_query {
 	my ( $self, $seq_ref, $match ) = @_;
+	if ( !$self->{'contigs'}->{$seq_ref} ) {
+		$self->{'contigs'} = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
+	}
 	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
-	my $seq = substr( $$seq_ref, $match->{'predicted_start'} - 1, $length );
+	my $seq =
+	  substr( $self->{'contigs'}->{ $match->{'query'} }, $match->{'predicted_start'} - 1, $length );
 	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 	$seq = uc($seq);
 	return $seq;
@@ -480,6 +509,28 @@ sub _get_shortest_seq_length {
 	}
 	close $fh;
 	return $shortest;
+}
+
+sub _ensure_seq_has_identifer {
+	my ( $self, $seq_ref ) = @_;
+	if ( $$seq_ref !~ /^\s*>/x ) {
+		$$seq_ref = qq(>Query\n$$seq_ref);
+	}
+	return;
+}
+
+sub _strip_invalid_chars {
+	my ( $self, $seq_ref ) = @_;
+	my @lines = split /\n/x, $$seq_ref;
+	my $new_seq = q();
+	foreach my $line (@lines) {
+		if ( $line !~ /^>/x ) {
+			$line =~ s/\s//gx;
+			$line =~ s/\-//gx;
+		}
+		$new_seq .= qq($line\n);
+	}
+	return \$new_seq;
 }
 
 sub _remove_all_identifier_lines {

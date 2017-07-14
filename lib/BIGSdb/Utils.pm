@@ -230,7 +230,7 @@ sub round_up {
 }
 
 sub read_fasta {
-	my ($data_ref) = @_;
+	my ($data_ref, $options) = @_;
 	my @lines = split /\r?\n/x, $$data_ref;
 	my %seqs;
 	my $header;
@@ -245,7 +245,9 @@ sub read_fasta {
 	}
 	foreach my $id ( keys %seqs ) {
 		$seqs{$id} =~ s/\s//gx;
-		throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
+		if (!$options->{'allow_peptide'}){
+			throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
+		}
 	}
 	return \%seqs;
 }

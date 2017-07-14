@@ -34,6 +34,7 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;
+use Data::Dumper;
 use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -121,11 +122,17 @@ sub main {
 	$blast_obj->blast( \$seq );
 	my $exact_matches = $blast_obj->get_exact_matches;
 	if ( keys %$exact_matches ) {
+		say q(Exact matches:);
 		foreach my $locus ( sort keys %$exact_matches ) {
 			local $" = q(, );
 			my $alleles = qq(@{$exact_matches->{$locus}});
 			say qq($locus: $alleles);
 		}
+	}
+	if (!keys %$exact_matches){
+		say q(Best match:);
+		my $best_match = $blast_obj->get_best_partial_match;
+		say Dumper $best_match;
 	}
 	return;
 }
