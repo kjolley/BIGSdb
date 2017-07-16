@@ -1002,6 +1002,7 @@ sub _print_site_footer {
 sub print_file {
 	my ( $self, $file, $options ) = @_;
 	my $cache_string = $self->get_cache_string;
+	my $buffer;
 	if ( -e $file ) {
 		my $system = $self->{'system'};
 		open( my $fh, '<', $file ) or return;
@@ -1025,12 +1026,14 @@ sub print_file {
 					}
 				}
 			}
-			print;
+			$buffer.= $_;
 		}
 		close $fh;
 	} else {
 		$logger->warn("File $file does not exist.");
 	}
+	return $buffer if $options->{'get_only'};
+	say $buffer;
 	return;
 }
 

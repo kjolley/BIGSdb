@@ -95,7 +95,8 @@ sub is_complete_cds {
 }
 
 sub sequence_type {
-	my ($seq) = @_;
+	my ($sequence) = @_;
+	my $seq = ref $sequence ? $$sequence : $sequence;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
 	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';

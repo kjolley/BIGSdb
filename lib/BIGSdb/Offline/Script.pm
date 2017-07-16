@@ -20,7 +20,7 @@ package BIGSdb::Offline::Script;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Application);
+use parent qw(BIGSdb::BaseApplication);
 use CGI;
 use DBI;
 use Error qw(:try);

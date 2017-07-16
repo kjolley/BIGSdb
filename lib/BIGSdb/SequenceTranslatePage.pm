@@ -45,6 +45,7 @@ sub print_content {
 		return;
 	}
 	my $seq = $q->param('sequence') // '';
+	$seq = $self->_strip_headers(\$seq);
 	$seq =~ s/[^acgtunACGTUN]//x;
 	if ( !$seq ) {
 		say q(<div class="box" id="statusbad"><p>No valid nucleotide sequence passed.</p></div>);
@@ -99,5 +100,16 @@ sub print_content {
 	say q(</pre>);
 	say q(</div></div>);
 	return;
+}
+
+sub _strip_headers {
+	my ($self, $seq_ref) = @_;
+	my @lines = split/\n/x, $$seq_ref;
+	my $seq;
+	foreach my $line (@lines){
+		next if $line =~ /^>/x;
+		$seq.=$line;
+	}
+	return $seq;
 }
 1;

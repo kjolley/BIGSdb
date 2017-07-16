@@ -31,7 +31,8 @@ sub blast {
 	my ( $self, $seq_ref ) = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
-	my $loci    = $self->get_selected_loci;
+	undef $self->{'contigs'};
+	my $loci = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
 	$self->_ensure_seq_has_identifer($seq_ref);
 	$seq_ref = $self->_strip_invalid_chars($seq_ref);
@@ -151,8 +152,9 @@ sub get_best_partial_match {
 	foreach my $locus ( keys %$partial_matches ) {
 		foreach my $match ( @{ $partial_matches->{$locus} } ) {
 			if ( $match->{'quality'} > $quality ) {
-				$best_match = $match;
+				$best_match            = $match;
 				$best_match->{'locus'} = $locus;
+				$quality               = $match->{'quality'};
 			}
 		}
 	}
@@ -161,6 +163,12 @@ sub get_best_partial_match {
 		$best_match->{'sequence'} = $seq;
 	}
 	return $best_match;
+}
+
+sub get_contig {
+	my ( $self, $name ) = @_;
+	my $contig = $self->{'contigs'}->{$name} // q();
+	return \$contig;
 }
 
 sub _create_query_file {
@@ -343,6 +351,11 @@ sub _parse_blast_partial {
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
 				$match->{'length'}    = $length;
+				$match->{'gaps'}      = $record->[5];
+				$match->{'qstart'}    = $record->[6];
+				$match->{'qend'}      = $record->[7];
+				$match->{'sstart'}    = $record->[8];
+				$match->{'send'}      = $record->[9];
 				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
 				$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
 				$self->_identify_match_ends( $match, $record );
@@ -404,7 +417,7 @@ sub _lookup_partial_matches {
 
 sub _extract_match_seq_from_query {
 	my ( $self, $seq_ref, $match ) = @_;
-	if ( !$self->{'contigs'}->{$seq_ref} ) {
+	if ( !$self->{'contigs'} ) {
 		$self->{'contigs'} = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
 	}
 	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
@@ -533,12 +546,6 @@ sub _strip_invalid_chars {
 	return \$new_seq;
 }
 
-sub _remove_all_identifier_lines {
-	my ( $self, $seq_ref ) = @_;
-	$$seq_ref =~ s/>.+\n//gx;
-	return;
-}
-
 sub _create_blast_database {
 	my ( $self, $cache_name, $data_type, $loci, $exemplar ) = @_;
 	my $path = $self->_get_cache_dir($cache_name);
@@ -549,7 +556,7 @@ sub _create_blast_database {
 	#This method may be called by apache during a web query, by the bigsdb or any other user
 	#if called from external script. We need to make sure that cache files can be overwritten
 	#by all.
-	chmod 0777, $path;
+	chmod 0777, "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}", $path;
 	my $lock_file = "$path/LOCK";
 	open( my $lock_fh, '>', $lock_file ) || $self->{'logger'}->error('Cannot open lock file');
 	if ( !flock( $lock_fh, LOCK_EX ) ) {

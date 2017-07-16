@@ -1782,7 +1782,7 @@ sub get_client_data_linked_to_allele {
 		}
 		catch BIGSdb::DatabaseConfigurationException with {
 			$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the "
-				  . "client_dbase_loci_fields table is correctly configured.  $@" );
+				  . "client_dbase_loci_fields table is correctly configured. $@" );
 			$proceed = 0;
 		};
 		next if !$proceed;
