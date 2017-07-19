@@ -330,8 +330,10 @@ sub _run_query {
 	return;
 }
 
-sub _output_single_query {
+#TODO Check works with diploid schemes
+sub _single_query {
 	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
+	my $q = $self->{'cgi'};
 	my $exact_matches = $blast_obj->get_exact_matches( { details => 1 } );
 	my ( $buffer, $displayed );
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
@@ -353,7 +355,7 @@ sub _output_single_query {
 			$return_buffer .= q(<div>);
 		}
 	} else {
-		my $best_match = $blast_obj->get_best_partial_match;
+		my $best_match = $self->_get_best_partial_match( $blast_obj, $seq_ref );
 		if ( keys %$best_match ) {
 			$return_buffer = q(<div class="box" id="resultsheader" style="padding-top:1em">);
 			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
@@ -372,6 +374,94 @@ sub _output_single_query {
 	return $return_buffer;
 }
 
+sub _get_best_partial_match {
+	my ( $self, $blast_obj, $seq_ref ) = @_;
+	my $best_match = $blast_obj->get_best_partial_match;
+	return {} if !keys %$best_match;
+	if ( ( $self->{'system'}->{'exemplars'} // q() ) ne 'yes' ) {    #Not using exemplars so this is best match
+		return $best_match;
+	}
+
+	#The best match is only the best matching exemplar so we need to repeat the query using all
+	#alleles for the identified locus.
+	my $single_locus_blast_obj = $self->_get_blast_object( [ $best_match->{'locus'} ] );
+	$single_locus_blast_obj->blast($seq_ref);
+	return $single_locus_blast_obj->get_best_partial_match;
+}
+
+sub _batch_query {
+	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
+	my $buffer          = q();
+	my $exact_matches   = $blast_obj->get_exact_matches_by_contig;
+	my $partial_matches = $blast_obj->get_best_partial_matches_by_contig;
+	$buffer .= q(<div class="box" id="resultstable"><div class="scrollable">);
+	$buffer .= q(<table class="resultstable"><tr><th>Contig</th><th>Match</th><th>Locus</th>)
+	  . q(<th>Allele(s)</th><th>Differences</th></tr>);
+	my $contig_names = $blast_obj->get_contig_names;
+	my $td           = 1;
+	my $loci         = $self->_get_selected_loci;
+  CONTIG: foreach my $name (@$contig_names) {
+		my $contig_buffer;
+	  LOCUS: foreach my $locus (@$loci) {
+			my @exact_alleles;
+			foreach my $match ( @{ $exact_matches->{$name}->{$locus} } ) {
+				push @exact_alleles, $match->{'allele'};
+			}
+			local $" = q(, );
+			my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
+			if (@exact_alleles) {
+				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
+				$contig_buffer .= qq(<td>exact</td><td>$cleaned_locus</td><td>@exact_alleles</td><td></td>);
+			}
+		}
+		if ($contig_buffer) {
+			$buffer .= $contig_buffer;
+		} else {
+			if ( $partial_matches->{$name} ) {
+				my $match = $partial_matches->{$name};
+				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
+				my $cleaned_locus = $self->clean_locus( $match->{'locus'}, { strip_links => 1 } );
+				my $allele_link = $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
+				$contig_buffer .= qq(<td>partial</td><td>$cleaned_locus</td><td>$allele_link</td>);
+				if ( $match->{'gaps'} ) {
+					$contig_buffer .=
+					    q(<td style="text-align:left">There are insertions/deletions between these sequences. )
+					  . q(Try single sequence query to get more details.</td>);
+				} elsif ( $match->{'reverse'} ) {
+					$contig_buffer .=
+					  q(<td style="text-align:left">Reverse-complemented - try reversing it and query again.</td);
+				} else {
+					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $match->{'locus'}, $match->{'allele'} );
+					my $contig_ref     = $blast_obj->get_contig($name);
+					my $locus_info     = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
+					my $qry_type       = $locus_info->{'data_type'} // 'DNA';
+					my $diffs =
+					  $self->_get_differences( $allele_seq_ref, $contig_ref, $match->{'sstart'}, $match->{'start'} );
+					my @formatted_diffs;
+					foreach my $diff (@$diffs) {
+						push @formatted_diffs, $self->_format_difference( $diff, $qry_type );
+					}
+					my $count = @formatted_diffs;
+					my $plural = $count == 1 ? q() : q(s);
+					local $" = q(; );
+					$contig_buffer .=
+					  qq(<td style="text-align:left">$count difference$plural found. @formatted_diffs</td>);
+				}
+				$contig_buffer .= q(</tr>);
+				$buffer .= $contig_buffer;
+			}
+		}
+		if ( !$contig_buffer ) {
+			$buffer .= qq(<tr class="td$td"><td>$name</td><td>-</td><td></td><td></td><td></td>);
+		}
+		$buffer .= q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	$buffer .= q(</table></div>);
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
 sub _blast_now {
 	my ( $self, $seq_ref, $loci ) = @_;
 	my $q         = $self->{'cgi'};
@@ -382,17 +472,22 @@ sub _blast_now {
 	};
 	$blast_obj->blast($seq_ref);
 	if ( $q->param('page') eq 'sequenceQuery' ) {
-		say $self->_output_single_query( $seq_ref, $blast_obj, $data );
+		say $self->_single_query( $seq_ref, $blast_obj, $data );
+	} else {
+		say $self->_batch_query( $seq_ref, $blast_obj, $data );
 	}
 	return;
 }
 
 sub _get_blast_object {
 	my ( $self, $loci ) = @_;
+	my $q = $self->{'cgi'};
 	local $" = q(,);
 	my $exemplar = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
 	$exemplar = 0 if @$loci == 1;    #We need to be able to find the nearest match if not exact.
-	my $blast_obj = BIGSdb::Offline::Blast->new(
+	my $keep_partials = $q->param('page') eq 'batchSequenceQuery' ? 1 : 0;
+	my $batch_query   = $q->param('page') eq 'batchSequenceQuery' ? 1 : 0;
+	my $blast_obj     = BIGSdb::Offline::Blast->new(
 		{
 			config_dir       => $self->{'config_dir'},
 			lib_dir          => $self->{'lib_dir'},
@@ -401,9 +496,15 @@ sub _get_blast_object {
 			port             => $self->{'system'}->{'port'},
 			user             => $self->{'system'}->{'user'},
 			password         => $self->{'system'}->{'password'},
-			options          => { l => qq(@$loci), exemplar => $exemplar, always_run => 1 },
-			instance         => $self->{'instance'},
-			logger           => $logger
+			options          => {
+				l             => qq(@$loci),
+				keep_partials => $keep_partials,
+				batch_query   => $batch_query,
+				exemplar      => $exemplar,
+				always_run    => 1
+			},
+			instance => $self->{'instance'},
+			logger   => $logger
 		}
 	);
 	return $blast_obj;
@@ -645,8 +746,8 @@ sub _get_locus_matches {
 	my ( $self, $args ) = @_;
 	my ( $locus, $exact_matches, $data, $match_count_ref, $td_ref, $designations ) =
 	  @{$args}{qw(locus exact_matches data match_count_ref td_ref designations)};
-	my $buffer     = q();
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $buffer      = q();
+	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_count = 0;
 	foreach my $match ( @{ $exact_matches->{$locus} } ) {
 		my ( $field_values, $attributes, $allele_info, $flags );
@@ -684,7 +785,7 @@ sub _get_locus_matches {
 		$$td_ref = $$td_ref == 1 ? 2 : 1;
 		$locus_count++;
 	}
- 	return $buffer;
+	return $buffer;
 }
 
 sub _get_distinct_locus_exact_results {
@@ -735,10 +836,6 @@ sub _get_scheme_exact_results {
 	my $match_count  = 0;
 	my $designations = {};
 	my $buffer       = q();
-	
-
-	
-	
 	foreach my $scheme_id (@schemes) {
 		my $scheme_buffer = q();
 		my $td            = 1;
@@ -960,18 +1057,6 @@ sub _get_partial_match_alignment {
 	if ( $locus_info->{'data_type'} eq $qry_type ) {
 		$buffer .= $self->_get_differences_output( $match, $contig_ref, $qry_type );
 	}
-
-	#		$self->_display_differences(
-	#			{
-	#				locus                   => $locus,
-	#				cleaned_match           => $cleaned_match,
-	#				distinct_locus_selected => $distinct_locus_selected,
-	#				partial_match           => $partial_match,
-	#				seq_ref                 => $seq_ref,
-	#				allele_seq_ref          => $allele_seq_ref,
-	#				qry_type                => $qry_type
-	#			}
-	#		);
 	return $buffer;
 }
 
@@ -1111,26 +1196,30 @@ sub _get_differences_output {
 		if ( $match->{'query'} ne 'Query' ) {
 			$buffer .= qq(<p>Contig: $match->{'query'}<p>);
 		}
+		my $non_missing_diffs = 0;
 		if (@$diffs) {
-			my $plural = @$diffs > 1 ? 's' : '';
-			$buffer .= q(<p>) . @$diffs . qq( difference$plural found. );
-			$buffer .=
-			    qq(<a class="tooltip" title="differences - The information to the left of the arrow$plural )
-			  . q(shows the identity and position on the reference sequence and the information to the )
-			  . q(right shows the corresponding identity and position on your query sequence.">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
-			$buffer .= q(</p><p>);
-			my $pos = 0;
+			my $pos         = 0;
+			my $diff_buffer = q();
 			foreach my $diff (@$diffs) {
 				$pos++;
 				next if $pos < $match->{'sstart'};
 				if ( $diff->{'qbase'} eq 'missing' ) {
-					$buffer .= qq(Truncated at position $diff->{'spos'} on reference sequence.);
+					$diff_buffer .= qq(Truncated at position $diff->{'spos'} on reference sequence.);
 					last;
 				}
-				$buffer .= $self->_format_difference( $diff, $qry_type ) . q(<br />);
+				$non_missing_diffs++;
+				$diff_buffer .= $self->_format_difference( $diff, $qry_type ) . q(<br />);
 			}
-			$buffer .= q(</p>);
+			my $plural = $non_missing_diffs > 1 ? 's' : '';
+			$buffer .= qq(<p>$non_missing_diffs difference$plural found. );
+			if ($non_missing_diffs) {
+				$buffer .=
+				    qq(<a class="tooltip" title="differences - The information to the left of the arrow$plural )
+				  . q(shows the identity and position on the reference sequence and the information to the )
+				  . q(right shows the corresponding identity and position on your query sequence.">)
+				  . q(<span class="fa fa-info-circle"></span></a>);
+			}
+			$buffer .= qq(</p><p>$diff_buffer</p>);
 			if ( $match->{'sstart'} > 1 ) {
 				$buffer .= qq(<p>Your query sequence only starts at position $match->{'sstart'} of sequence.</p>);
 			} else {
@@ -1530,7 +1619,7 @@ sub _cleanup_alignment {
 }
 
 sub _data_linked_to_locus {
-	my ( $self, $table ) = @_;    #Locus is value defined in drop-down box - may be a scheme or 0 for all loci.
+	my ( $self, $table ) = @_;
 	my $qry;
 	my $values = [];
 	if ( $self->{'select_type'} eq 'all' ) {
@@ -1550,5 +1639,11 @@ sub _data_linked_to_locus {
 		push @$values, $self->{'select_id'};
 	}
 	return $self->{'datastore'}->run_query( $qry, $values );
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	return;
 }
 1;

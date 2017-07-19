@@ -31,7 +31,11 @@ sub blast {
 	my ( $self, $seq_ref ) = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
+
+	#Clear stored results as we can make multiple calls against the same BLAST database object.
 	undef $self->{'contigs'};
+	undef $self->{'exact_matches'};
+	undef $self->{'partial_matches'};
 	my $loci = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
 	$self->_ensure_seq_has_identifer($seq_ref);
@@ -52,12 +56,28 @@ sub blast {
 			params        => $params,
 			blast_file    => $blast_results,
 			exact_matches => $exact_matches,
-			seq_ref       => $seq_ref
+			seq_ref       => $seq_ref,
+			options       => { keep_partials => $options->{'keep_partials'} }
 		}
 	);
 	$self->{'exact_matches'}   = $exact_matches;
 	$self->{'partial_matches'} = $partial_matches;
+	unlink $blast_results;
 	return;
+}
+
+sub get_contig_names {
+	my ($self) = @_;
+	$self->{'seq_ref'} //= \q();
+	my @lines = split /\n/x, ${ $self->{'seq_ref'} };
+	my $names = [];
+	foreach my $line (@lines) {
+		if ( $line =~ /^>/x ) {
+			( my $name = $line ) =~ s/^>//x;
+			push @$names, $name;
+		}
+	}
+	return $names;
 }
 
 sub _get_cache_names {
@@ -139,6 +159,18 @@ sub get_exact_matches {
 	return $self->_get_matches( 'exact_matches', $options );
 }
 
+sub get_exact_matches_by_contig {
+	my ($self) = @_;
+	my $exact = $self->get_exact_matches( { details => 1 } );
+	my $by_contig = {};
+	foreach my $locus ( keys %$exact ) {
+		foreach my $match ( @{ $exact->{$locus} } ) {
+			push @{ $by_contig->{ $match->{'query'} }->{$locus} }, $match;
+		}
+	}
+	return $by_contig;
+}
+
 sub get_partial_matches {
 	my ( $self, $options ) = @_;
 	return $self->_get_matches( 'partial_matches', $options );
@@ -165,6 +197,25 @@ sub get_best_partial_match {
 	return $best_match;
 }
 
+sub get_best_partial_matches_by_contig {
+	my ($self)    = @_;
+	my $partial   = $self->{'partial_matches'};
+	my $by_contig = {};
+	my $quality   = {};
+	foreach my $locus ( keys %$partial ) {
+		foreach my $match ( @{ $partial->{$locus} } ) {
+			if ( !defined $quality->{ $match->{'query'} }
+				|| $match->{'quality'} > $quality->{ $match->{'query'} } )
+			{
+				$by_contig->{ $match->{'query'} }            = $match;
+				$by_contig->{ $match->{'query'} }->{'locus'} = $locus;
+				$quality->{ $match->{'query'} }              = $match->{'quality'};
+			}
+		}
+	}
+	return $by_contig;
+}
+
 sub get_contig {
 	my ( $self, $name ) = @_;
 	my $contig = $self->{'contigs'}->{$name} // q();
@@ -174,8 +225,6 @@ sub get_contig {
 sub _create_query_file {
 	my ( $self, $in_file, $seq_ref ) = @_;
 	open( my $infile_fh, '>', $in_file ) || $self->{'logger'}->error("Cannot open $in_file for writing");
-
-	#	say $infile_fh '>Query';
 	say $infile_fh $$seq_ref;
 	close $infile_fh;
 	return;
@@ -265,9 +314,8 @@ sub _parse_blast_exact {
 	  @{$args}{qw (params loci blast_file options)};
 	my $matches = {};
 	$self->_read_blast_file_into_structure($blast_file);
-	my $matched_already        = {};
-	my $region_matched_already = {};
-	my $length_cache           = {};
+	my $matched_already = {};
+	my $length_cache    = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
 		if ( $record->[2] == 100 ) {    #identity
@@ -297,7 +345,6 @@ sub _parse_blast_exact {
 				$match->{'e-value'} = $record->[10];
 				next RECORD if $matched_already->{ $match->{'allele'} }->{ $match->{'start'} };
 				$matched_already->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
-				$region_matched_already->{ $match->{'start'} } = 1;
 
 				if ( $locus_info->{'match_longest'} && @$locus_match ) {
 					if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
@@ -369,7 +416,9 @@ sub _parse_blast_partial {
 		foreach my $locus (@$loci) {
 			$self->_lookup_partial_matches( $seq_ref, $locus, $exact_matches, $partial_matches );
 			if ( ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} } ) {
-				delete $partial_matches->{$locus};
+				if ( !$options->{'keep_partials'} ) {
+					delete $partial_matches->{$locus};
+				}
 			} else {
 				delete $exact_matches->{$locus};
 			}
@@ -540,6 +589,8 @@ sub _strip_invalid_chars {
 		if ( $line !~ /^>/x ) {
 			$line =~ s/\s//gx;
 			$line =~ s/\-//gx;
+		} else {
+			$line =~ s/\s*$//x;
 		}
 		$new_seq .= qq($line\n);
 	}
