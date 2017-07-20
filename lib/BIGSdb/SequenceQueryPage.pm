@@ -330,7 +330,6 @@ sub _run_query {
 	return;
 }
 
-#TODO Check works with diploid schemes
 sub _single_query {
 	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
 	my $q = $self->{'cgi'};
@@ -363,7 +362,7 @@ sub _single_query {
 			$return_buffer .= q(</div>);
 			$return_buffer .= q(<div class="box" id="resultspanel" style="padding-top:1em">);
 			my $contig_ref = $blast_obj->get_contig( $best_match->{'query'} );
-			$return_buffer .= $self->_get_partial_match_alignment( $best_match, $contig_ref, $qry_type );
+			$return_buffer .= $self->_get_partial_match_alignment( $seq_ref, $best_match, $contig_ref, $qry_type );
 			$return_buffer .= q(</div>);
 		} else {
 			$return_buffer = q(<div class="box" id="statusbad"><p>No matches found.</p>);
@@ -480,7 +479,7 @@ sub _blast_now {
 }
 
 sub _get_blast_object {
-	my ( $self, $loci ) = @_;
+	my ( $self, $loci, $options ) = @_;
 	my $q = $self->{'cgi'};
 	local $" = q(,);
 	my $exemplar = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
@@ -501,7 +500,9 @@ sub _get_blast_object {
 				keep_partials => $keep_partials,
 				batch_query   => $batch_query,
 				exemplar      => $exemplar,
-				always_run    => 1
+
+				#				make_alignment => $options->{'alignment'} ? 1 : 0,
+				always_run => 1
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -1051,102 +1052,26 @@ sub _get_partial_match_results {
 }
 
 sub _get_partial_match_alignment {
-	my ( $self, $match, $contig_ref, $qry_type ) = @_;
+	my ( $self, $seq_ref, $match, $contig_ref, $qry_type ) = @_;
 	my $buffer     = q();
 	my $locus_info = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
 	if ( $locus_info->{'data_type'} eq $qry_type ) {
 		$buffer .= $self->_get_differences_output( $match, $contig_ref, $qry_type );
+	} else {
+		my $align_blast_obj = $self->_get_blast_object( [ $match->{'locus'} ] );
+		my $align_file = $align_blast_obj->blast( $seq_ref, { num_results => 5, alignment => 1 } );
+		$buffer .=
+		    qq(<p>Your query is a $qry_type sequence whereas this locus is defined with )
+		  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
+		  . q( sequences.  There were no exact matches, but the BLAST results are shown below )
+		  . q((a maximum of five alignments are displayed).</p>)
+		  . q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
+		$buffer .= $self->print_file( $align_file, { ignore_hashlines => 1, get_only => 1 } );
+		$buffer .= q(</pre>);
 	}
 	return $buffer;
 }
 
-#sub _output_single_query_nonexact {
-#	my ( $self, $partial_match, $data ) = @_;
-#	my ( $locus, $qry_type, $distinct_locus_selected, $seq_ref ) =
-#	  @{$data}{qw(locus qry_type distinct_locus_selected seq_ref)};
-#	say q(<div class="box" id="resultsheader">);
-#	$self->_translate_button( $data->{'seq_ref'} ) if $qry_type eq 'DNA';
-#	say q(<p style="margin-top:0.5em">Closest match: );
-#	my $cleaned_match = $partial_match->{'allele'};
-#	my ( $flags, $field_values );
-#	if ($distinct_locus_selected) {
-#		my $allele_link = $self->_get_allele_link( $locus, $cleaned_match );
-#		say $allele_link;
-#		$flags = $self->{'datastore'}->get_allele_flags( $locus, $cleaned_match );
-#		$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $cleaned_match );
-#	} else {
-#		my ( $extracted_locus, $allele_id );
-#		if ( $cleaned_match =~ /(.*):(.*)/x ) {
-#			( $extracted_locus, $allele_id ) = ( $1, $2 );
-#			my $allele_link = $self->_get_allele_link( $extracted_locus, $allele_id );
-#			say $allele_link;
-#			$flags = $self->{'datastore'}->get_allele_flags( $extracted_locus, $allele_id );
-#			$field_values = $self->{'datastore'}->get_client_data_linked_to_allele( $extracted_locus, $allele_id );
-#		}
-#	}
-#	if ( ref $flags eq 'ARRAY' ) {
-#		local $" = q(</a> <a class="seqflag_tooltip">);
-#		my $plural = @$flags == 1 ? '' : 's';
-#		say qq( (Flag$plural: <a class="seqflag_tooltip">@$flags</a>)) if @$flags;
-#	}
-#	say q(</p>);
-#	if ($field_values) {
-#		say q(<p>This match is linked to the following data:</p>);
-#		say $field_values;
-#	}
-#	my ( $locus_data_type, $allele_seq_ref );
-#	if ($distinct_locus_selected) {
-#		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
-#		$locus_data_type = $data->{'locus_info'}->{'data_type'};
-#	} else {
-#		my ( $extracted_locus, $allele ) = split /:/x, $partial_match->{'allele'};
-#		$allele_seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
-#		$locus_data_type = $self->{'datastore'}->get_locus_info($extracted_locus)->{'data_type'};
-#	}
-#	say q(</div>);
-#	say q(<div class="box" id="resultspanel">);
-#	if ( $locus_data_type eq $data->{'qry_type'} ) {
-#		$self->_display_differences(
-#			{
-#				locus                   => $locus,
-#				cleaned_match           => $cleaned_match,
-#				distinct_locus_selected => $distinct_locus_selected,
-#				partial_match           => $partial_match,
-#				seq_ref                 => $seq_ref,
-#				allele_seq_ref          => $allele_seq_ref,
-#				qry_type                => $qry_type
-#			}
-#		);
-#	} else {
-#		my $set_id = $self->get_set_id;
-#		my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
-#			{
-#				locus       => $locus,
-#				seq_ref     => $seq_ref,
-#				qry_type    => $qry_type,
-#				num_results => 5,
-#				alignment   => 1,
-#				cache       => 1,
-#				job         => $data->{'job'},
-#				set_id      => $set_id
-#			}
-#		);
-#		if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
-#			say qq(<p>Your query is a $qry_type sequence whereas this locus is defined with )
-#			  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
-#			  . q( sequences.  There were no exact matches, but the BLAST results are shown below )
-#			  . q((a maximum of five alignments are displayed).</p>);
-#			say q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
-#			$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", { ignore_hashlines => 1 } );
-#			say q(</pre>);
-#		} else {
-#			say q(<p>No results from BLAST.</p>);
-#		}
-#		unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#	}
-#	say q(</div>);
-#	return;
-#}
 sub _get_differences_output {
 	my ( $self, $match, $contig_ref, $qry_type ) = @_;
 	my $allele_seq_ref = $self->{'datastore'}->get_sequence( $match->{'locus'}, $match->{'allele'} );
@@ -1247,101 +1172,6 @@ sub _get_differences_output {
 	return $buffer;
 }
 
-#sub _display_differences {
-#	my ( $self, $args ) = @_;
-#	my ( $locus, $cleaned_match, $distinct_locus_selected, $partial_match, $seq_ref, $allele_seq_ref, $qry_type ) =
-#	  @$args{qw(locus cleaned_match distinct_locus_selected partial_match seq_ref allele_seq_ref qry_type)};
-#	my $temp        = BIGSdb::Utils::get_random();
-#	my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file1.txt";
-#	my $seq2_infile = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_file2.txt";
-#	my $outfile     = "$self->{'config'}->{'tmp_dir'}/$temp\_outfile.txt";
-#	open( my $seq1_fh, '>', $seq2_infile ) || $logger->error("Can't open $seq2_infile for writing");
-#	say $seq1_fh ">Ref\n$$allele_seq_ref";
-#	close $seq1_fh;
-#	open( my $seq2_fh, '>', $seq1_infile ) || $logger->error("Can't open $seq1_infile for writing");
-#	say $seq2_fh ">Query\n$$seq_ref";
-#	close $seq2_fh;
-#	my $start      = $partial_match->{'qstart'} =~ /(\d+)/x ? $1 : undef;    #untaint
-#	my $end        = $partial_match->{'qend'} =~ /(\d+)/x   ? $1 : undef;
-#	my $seq_length = ( length $$seq_ref ) =~ /(\d+)/x       ? $1 : undef;
-#	my $reverse    = $partial_match->{'reverse'}            ? 1  : 0;
-#	my @args       = (
-#		-aformat   => 'markx2',
-#		-awidth    => $self->{'prefs'}->{'alignwidth'},
-#		-asequence => $seq1_infile,
-#		-bsequence => $seq2_infile,
-#		-sreverse1 => $reverse,
-#		-outfile   => $outfile
-#	);
-#	push @args, ( -sbegin1 => $start, -send1 => $end ) if $seq_length > 10000;
-#	system("$self->{'config'}->{'emboss_path'}/stretcher @args 2>/dev/null");
-#	unlink $seq1_infile, $seq2_infile;
-#
-#	if ( !$partial_match->{'gaps'} ) {
-#		my $qstart = $partial_match->{'qstart'};
-#		my $sstart = $partial_match->{'sstart'};
-#		my $ssend  = $partial_match->{'send'};
-#		while ( $sstart > 1 && $qstart > 1 ) {
-#			$sstart--;
-#			$qstart--;
-#		}
-#		if ($reverse) {
-#			say q(<p>The sequence is reverse-complemented with respect to the reference sequence. )
-#			  . q(The list of differences is disabled but you can use the alignment or try reversing )
-#			  . q(it and querying again.</p>);
-#			print $self->get_alignment( $outfile, $temp );
-#		} else {
-#			print $self->get_alignment( $outfile, $temp );
-#			my $diffs = $self->_get_differences( $allele_seq_ref, $seq_ref, $sstart, $qstart );
-#			say q(<h2>Differences</h2>);
-#			if (@$diffs) {
-#				my $plural = @$diffs > 1 ? 's' : '';
-#				say q(<p>) . @$diffs . qq( difference$plural found. );
-#				say qq(<a class="tooltip" title="differences - The information to the left of the arrow$plural )
-#				  . q(shows the identity and position on the reference sequence and the information to the )
-#				  . q(right shows the corresponding identity and position on your query sequence.">)
-#				  . q(<span class="fa fa-info-circle"></span></a>);
-#				say q(</p><p>);
-#				my $pos = 0;
-#				foreach my $diff (@$diffs) {
-#					$pos++;
-#					next if $pos < $sstart;
-#					if ( $diff->{'qbase'} eq 'missing' ) {
-#						say qq(Truncated at position $diff->{'spos'} on reference sequence.);
-#						last;
-#					}
-#					say $self->_format_difference( $diff, $qry_type ) . q(<br />);
-#				}
-#				say q(</p>);
-#				if ( $sstart > 1 ) {
-#					say qq(<p>Your query sequence only starts at position $sstart of sequence );
-#					say qq($locus: ) if $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x;
-#					say qq($cleaned_match.</p>);
-#				} else {
-#					say q(<p>The locus start point is at position )
-#					  . ( $qstart - $sstart + 1 )
-#					  . q( of your query sequence.);
-#					say q( <a class="tooltip" title="start position - This may be approximate if there are )
-#					  . q(gaps near the beginning of the alignment between your query and the reference )
-#					  . q(sequence."><span class="fa fa-info-circle"></span></a></p>);
-#				}
-#			} else {
-#				print qq(<p>Your query sequence only starts at position $sstart of sequence );
-#				print qq($locus: ) if $distinct_locus_selected;
-#				say qq($partial_match->{'allele'}.</p>);
-#			}
-#		}
-#	} else {
-#		say q(<p>An alignment between your query and the returned reference sequence is shown rather )
-#		  . q(than a simple list of differences because there are gaps in the alignment.</p>);
-#		say q(<pre style="font-size:1.2em">);
-#		$self->print_file( $outfile, { ignore_hashlines => 1 } );
-#		say q(</pre>);
-#		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$temp*");
-#		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
-#	}
-#	return;
-#}
 sub get_alignment {
 	my ( $self, $outfile, $outfile_prefix ) = @_;
 	my $buffer = '';
@@ -1450,41 +1280,40 @@ sub _format_difference {
 	return $buffer;
 }
 
-sub parse_blast_diploid_exact {
-
-	#BLAST+ treats ambiguous bases as mismatches - we'll use the the BLAST+ results file and check each match using
-	#regular expressions instead.
-	my ( $self, $qry_seq, $locus, $blast_file ) = @_;
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	return [] if !-e $full_path;
-	my @matches;
-	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
-	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^\#/x;
-		my @record = split /\s+/x, $line;
-		my $match;
-		my $allele_seq;
-		if ( $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x ) {
-			$allele_seq = $self->{'datastore'}->get_sequence( $locus, $record[1] );
-		} else {
-			my ( $extracted_locus, $allele ) = split /:/x, $record[1];
-			$allele_seq = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
-		}
-		if ( $$allele_seq =~ /$$qry_seq/x ) {
-			my $length = length $$allele_seq;
-			$match->{'allele'}  = $record[1];
-			$match->{'length'}  = $length;
-			$match->{'start'}   = $-[0] + 1;
-			$match->{'end'}     = $+[0];
-			$match->{'reverse'} = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
-			push @matches, $match;
-		}
-	}
-	close $blast_fh;
-	return \@matches;
-}
-
+#sub parse_blast_diploid_exact {
+#
+#	#BLAST+ treats ambiguous bases as mismatches - we'll use the the BLAST+ results file and check each match using
+#	#regular expressions instead.
+#	my ( $self, $qry_seq, $locus, $blast_file ) = @_;
+#	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+#	return [] if !-e $full_path;
+#	my @matches;
+#	open( my $blast_fh, '<', $full_path )
+#	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
+#	while ( my $line = <$blast_fh> ) {
+#		next if !$line || $line =~ /^\#/x;
+#		my @record = split /\s+/x, $line;
+#		my $match;
+#		my $allele_seq;
+#		if ( $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x ) {
+#			$allele_seq = $self->{'datastore'}->get_sequence( $locus, $record[1] );
+#		} else {
+#			my ( $extracted_locus, $allele ) = split /:/x, $record[1];
+#			$allele_seq = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
+#		}
+#		if ( $$allele_seq =~ /$$qry_seq/x ) {
+#			my $length = length $$allele_seq;
+#			$match->{'allele'}  = $record[1];
+#			$match->{'length'}  = $length;
+#			$match->{'start'}   = $-[0] + 1;
+#			$match->{'end'}     = $+[0];
+#			$match->{'reverse'} = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
+#			push @matches, $match;
+#		}
+#	}
+#	close $blast_fh;
+#	return \@matches;
+#}
 #sub parse_blast_exact {
 #	my ( $self, $locus, $blast_file ) = @_;
 #	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";

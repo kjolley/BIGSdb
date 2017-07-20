@@ -28,7 +28,7 @@ use Fcntl qw(:flock);
 use constant INF => 9**99;
 
 sub blast {
-	my ( $self, $seq_ref ) = @_;
+	my ( $self, $seq_ref, $args ) = @_;
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
 
@@ -41,7 +41,11 @@ sub blast {
 	$self->_ensure_seq_has_identifer($seq_ref);
 	$seq_ref = $self->_strip_invalid_chars($seq_ref);
 	$self->{'seq_ref'} = $seq_ref;
-	my $blast_results = $self->_run_blast( $seq_ref, $loci );
+	my $blast_results = $self->_run_blast( $seq_ref, $loci, $args );
+
+	if ( $args->{'alignment'} ) {
+		return $blast_results;
+	}
 	my $exact_matches = $self->_parse_blast_exact(
 		{
 			loci       => $loci,
@@ -231,7 +235,7 @@ sub _create_query_file {
 }
 
 sub _run_blast {
-	my ( $self, $seq_ref, $loci ) = @_;
+	my ( $self, $seq_ref, $loci, $args ) = @_;
 	my $job      = BIGSdb::Utils::get_random();
 	my $in_file  = "$self->{'config'}->{'secure_tmp_dir'}/$job.txt";
 	my $out_file = "$self->{'config'}->{'secure_tmp_dir'}/${job}_outfile.txt";
@@ -254,13 +258,13 @@ sub _run_blast {
 			flock( $lock_fh, LOCK_SH ) or $self->{'logger'}->error("Cannot flock $lock_file: $!");
 			close $lock_fh;
 		}
-		my $qry_type = BIGSdb::Utils::sequence_type( $options->{'sequence'} );
+		my $qry_type = BIGSdb::Utils::sequence_type($seq_ref);
 		my $program = $self->_determine_blast_program( $run, $qry_type );
 		$self->{'program'} = $program;
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
 		my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
-		my $format = $options->{'make_alignment'} ? 0 : 6;
+		my $format = $args->{'alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
 		open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
@@ -276,7 +280,8 @@ sub _run_blast {
 			-outfmt      => $format,
 			-$filter     => 'no'
 		);
-		if ( $options->{'alignment'} ) {
+		$options->{'num_results'} = $args->{'num_results'} if $args->{'num_results'};
+		if ( $args->{'alignment'} ) {
 			$params{'-num_alignments'} = $options->{'num_results'};
 		} else {
 			$params{'-max_target_seqs'} = $options->{'num_results'};
@@ -580,7 +585,6 @@ sub _ensure_seq_has_identifer {
 	}
 	return;
 }
-
 sub _strip_invalid_chars {
 	my ( $self, $seq_ref ) = @_;
 	my @lines = split /\n/x, $$seq_ref;

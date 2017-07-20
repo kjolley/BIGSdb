@@ -99,7 +99,7 @@ sub sequence_type {
 	my $seq = ref $sequence ? $$sequence : $sequence;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
-	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
+	return ( $AGTC_count / length $seq ) >= 0.8 ? 'DNA' : 'peptide';
 }
 
 sub truncate_seq {
