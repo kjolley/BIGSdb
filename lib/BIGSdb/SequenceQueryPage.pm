@@ -279,46 +279,6 @@ sub _upload_accession {
 	return $sequence;
 }
 
-#sub _get_word_size {
-#	my ( $self, $locus ) = @_;
-#	my $q = $self->{'cgi'};
-#	my $word_size;
-#	if ( $q->param('word_size') && $q->param('word_size') =~ /^(\d+)$/x ) {
-#		$word_size = $1;
-#	}
-#
-#	#Use big word size when querying 'all loci' as we're mainly interested in exact matches.
-#	$word_size //= $locus ? 15 : 30;
-#	return $word_size;
-#}
-#sub _is_distinct_locus_selected {
-#	my ( $self, $locus ) = @_;
-#	return 1 if $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x;
-#	return;
-#}
-#
-#sub _parse_exact_matches {
-#	my ( $self, $seq_ref, $locus, $blast_file ) = @_;
-#	if ( ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ) {
-#		return $self->parse_blast_diploid_exact( $seq_ref, $locus, $blast_file );
-#	} else {
-#		return $self->parse_blast_exact( $locus, $blast_file );
-#	}
-#}
-#sub _process_query_seq {
-#	my ( $self, $seq_ref ) = @_;
-#	my $page = $self->{'cgi'}->param('page');
-#
-#	#Allows BLAST of multiple contigs
-#	$self->remove_all_identifier_lines($seq_ref) if $page eq 'sequenceQuery';
-#	my $sequence = $$seq_ref;
-#
-#	#Add identifier line if one missing since newer versions of BioPerl check
-#	if ( $sequence !~ /^>/x ) {
-#		$sequence = ">\n$sequence";
-#	}
-#	return $sequence;
-#}
 sub _run_query {
 	my ( $self, $seq_ref ) = @_;
 	my $loci = $self->_get_selected_loci;
@@ -333,11 +293,13 @@ sub _run_query {
 sub _single_query {
 	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
 	my $q = $self->{'cgi'};
+	$blast_obj->blast($seq_ref);
 	my $exact_matches = $blast_obj->get_exact_matches( { details => 1 } );
 	my ( $buffer, $displayed );
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
 	my $return_buffer = q();
 	if ( keys %$exact_matches ) {
+
 		if ( $self->{'select_type'} eq 'locus' ) {
 			( $buffer, $displayed ) =
 			  $self->_get_distinct_locus_exact_results( $self->{'select_id'}, $exact_matches, $data );
@@ -388,23 +350,47 @@ sub _get_best_partial_match {
 	return $single_locus_blast_obj->get_best_partial_match;
 }
 
+sub _ensure_seq_has_identifer {
+	my ( $self, $seq_ref ) = @_;
+	if ( $$seq_ref !~ /^\s*>/x ) {
+		$$seq_ref = qq(>Query\n$$seq_ref);
+	}
+	return;
+}
+
+sub _get_contig_names {
+	my ( $self, $seq_ref ) = @_;
+	my @lines = split /\r?\n/x, $$seq_ref;
+	my $names = [];
+	foreach my $line (@lines) {
+		if ( $line =~ /^>/x ) {
+			( my $name = $line ) =~ s/^>//x;
+			push @$names, $name;
+		}
+	}
+	return $names;
+}
+
 sub _batch_query {
 	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
-	my $buffer          = q();
-	my $exact_matches   = $blast_obj->get_exact_matches_by_contig;
-	my $partial_matches = $blast_obj->get_best_partial_matches_by_contig;
+	my $buffer = q();
+	$self->_ensure_seq_has_identifer($seq_ref);
+	my $contig_names = $self->_get_contig_names($seq_ref);
+	my $contigs = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
 	$buffer .= q(<div class="box" id="resultstable"><div class="scrollable">);
 	$buffer .= q(<table class="resultstable"><tr><th>Contig</th><th>Match</th><th>Locus</th>)
 	  . q(<th>Allele(s)</th><th>Differences</th></tr>);
-	my $contig_names = $blast_obj->get_contig_names;
-	my $td           = 1;
-	my $loci         = $self->_get_selected_loci;
+	my $td   = 1;
+	my $loci = $self->_get_selected_loci;
   CONTIG: foreach my $name (@$contig_names) {
+		my $contig_seq = $contigs->{$name};
+		$blast_obj->blast( \$contig_seq );
+		my $exact_matches = $blast_obj->get_exact_matches( { details => 1 } );
 		my $contig_buffer;
 	  LOCUS: foreach my $locus (@$loci) {
 			my @exact_alleles;
-			foreach my $match ( @{ $exact_matches->{$name}->{$locus} } ) {
-				push @exact_alleles, $match->{'allele'};
+			foreach my $match ( @{ $exact_matches->{$locus} } ) {
+				push @exact_alleles, $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
 			}
 			local $" = q(, );
 			my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
@@ -416,13 +402,21 @@ sub _batch_query {
 		if ($contig_buffer) {
 			$buffer .= $contig_buffer;
 		} else {
-			if ( $partial_matches->{$name} ) {
-				my $match = $partial_matches->{$name};
+			$contig_seq = $contigs->{$name};
+			my $match = $self->_get_best_partial_match( $blast_obj, \$contig_seq );
+			if ( keys %$match ) {
+				my $locus_info = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
+				my $qry_type   = BIGSdb::Utils::sequence_type($contig_seq);
 				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
 				my $cleaned_locus = $self->clean_locus( $match->{'locus'}, { strip_links => 1 } );
 				my $allele_link = $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
 				$contig_buffer .= qq(<td>partial</td><td>$cleaned_locus</td><td>$allele_link</td>);
-				if ( $match->{'gaps'} ) {
+				if ( $locus_info->{'data_type'} ne $qry_type ) {
+					$contig_buffer .=
+					    qq(<td style="text-align:left">Your query is a $qry_type sequence whereas this locus )
+					  . qq(is defined with $locus_info->{'data_type'} sequences. Perform a single query to see )
+					  . q(alignment.</td>);
+				} elsif ( $match->{'gaps'} ) {
 					$contig_buffer .=
 					    q(<td style="text-align:left">There are insertions/deletions between these sequences. )
 					  . q(Try single sequence query to get more details.</td>);
@@ -431,11 +425,9 @@ sub _batch_query {
 					  q(<td style="text-align:left">Reverse-complemented - try reversing it and query again.</td);
 				} else {
 					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $match->{'locus'}, $match->{'allele'} );
-					my $contig_ref     = $blast_obj->get_contig($name);
-					my $locus_info     = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
-					my $qry_type       = $locus_info->{'data_type'} // 'DNA';
+					my $contig_ref = $blast_obj->get_contig($name);
 					my $diffs =
-					  $self->_get_differences( $allele_seq_ref, $contig_ref, $match->{'sstart'}, $match->{'start'} );
+					  $self->_get_differences( $allele_seq_ref, \$contig_seq, $match->{'sstart'}, $match->{'start'} );
 					my @formatted_diffs;
 					foreach my $diff (@$diffs) {
 						push @formatted_diffs, $self->_format_difference( $diff, $qry_type );
@@ -469,7 +461,6 @@ sub _blast_now {
 		linked_data         => $self->_data_linked_to_locus('client_dbase_loci_fields'),
 		extended_attributes => $self->_data_linked_to_locus('locus_extended_attributes'),
 	};
-	$blast_obj->blast($seq_ref);
 	if ( $q->param('page') eq 'sequenceQuery' ) {
 		say $self->_single_query( $seq_ref, $blast_obj, $data );
 	} else {
@@ -500,9 +491,7 @@ sub _get_blast_object {
 				keep_partials => $keep_partials,
 				batch_query   => $batch_query,
 				exemplar      => $exemplar,
-
-				#				make_alignment => $options->{'alignment'} ? 1 : 0,
-				always_run => 1
+				always_run    => 1
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -837,6 +826,7 @@ sub _get_scheme_exact_results {
 	my $match_count  = 0;
 	my $designations = {};
 	my $buffer       = q();
+	$logger->error("@schemes");
 	foreach my $scheme_id (@schemes) {
 		my $scheme_buffer = q();
 		my $td            = 1;
@@ -847,6 +837,8 @@ sub _get_scheme_exact_results {
 		} else {
 			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 		}
+		use Data::Dumper;
+		$logger->error( Dumper $exact_matches);
 		foreach my $locus (@$scheme_members) {
 			$scheme_buffer .= $self->_get_locus_matches(
 				{
@@ -1280,128 +1272,6 @@ sub _format_difference {
 	return $buffer;
 }
 
-#sub parse_blast_diploid_exact {
-#
-#	#BLAST+ treats ambiguous bases as mismatches - we'll use the the BLAST+ results file and check each match using
-#	#regular expressions instead.
-#	my ( $self, $qry_seq, $locus, $blast_file ) = @_;
-#	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#	return [] if !-e $full_path;
-#	my @matches;
-#	open( my $blast_fh, '<', $full_path )
-#	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
-#	while ( my $line = <$blast_fh> ) {
-#		next if !$line || $line =~ /^\#/x;
-#		my @record = split /\s+/x, $line;
-#		my $match;
-#		my $allele_seq;
-#		if ( $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x ) {
-#			$allele_seq = $self->{'datastore'}->get_sequence( $locus, $record[1] );
-#		} else {
-#			my ( $extracted_locus, $allele ) = split /:/x, $record[1];
-#			$allele_seq = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
-#		}
-#		if ( $$allele_seq =~ /$$qry_seq/x ) {
-#			my $length = length $$allele_seq;
-#			$match->{'allele'}  = $record[1];
-#			$match->{'length'}  = $length;
-#			$match->{'start'}   = $-[0] + 1;
-#			$match->{'end'}     = $+[0];
-#			$match->{'reverse'} = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
-#			push @matches, $match;
-#		}
-#	}
-#	close $blast_fh;
-#	return \@matches;
-#}
-#sub parse_blast_exact {
-#	my ( $self, $locus, $blast_file ) = @_;
-#	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#	return [] if !-e $full_path;
-#	my @matches;
-#	open( my $blast_fh, '<', $full_path )
-#	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \@matches );
-#	while ( my $line = <$blast_fh> ) {
-#		my $match;
-#		next if !$line || $line =~ /^\#/x;
-#		my @record = split /\s+/x, $line;
-#		if ( $record[2] == 100 ) {    #identity
-#			my $seq_ref;
-#			if ( $locus && $locus !~ /SCHEME_\d+/x && $locus !~ /GROUP_\d+/x ) {
-#				$seq_ref = $self->{'datastore'}->get_sequence( $locus, $record[1] );
-#			} else {
-#				my ( $extracted_locus, $allele ) = split /:/x, $record[1];
-#				$seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
-#			}
-#			my $length = length $$seq_ref;
-#			if (
-#				(
-#					(
-#						$record[8] == 1             #sequence start position
-#						&& $record[9] == $length    #end position
-#					)
-#					|| (
-#						$record[8] == $length       #sequence start position (reverse complement)
-#						&& $record[9] == 1          #end position
-#					)
-#				)
-#				&& !$record[4]                      #no gaps
-#			  )
-#			{
-#				$match->{'allele'}  = $record[1];
-#				$match->{'length'}  = $length;
-#				$match->{'start'}   = $record[6];
-#				$match->{'end'}     = $record[7];
-#				$match->{'reverse'} = 1 if ( $record[8] > $record[9] || $record[7] < $record[6] );
-#				push @matches, $match;
-#			}
-#		}
-#	}
-#	close $blast_fh;
-#
-#	#Explicitly order by ascending length since this isn't guaranteed by BLASTX (seems that it should be but it isn't).
-#	@matches = sort { $b->{'length'} <=> $a->{'length'} } @matches;
-#	return \@matches;
-#}
-#
-#sub parse_blast_partial {
-#
-#	#return best match
-#	my ( $self, $blast_file ) = @_;
-#	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#	return {} if !-e $full_path;
-#	open( my $blast_fh, '<', $full_path )
-#	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return {} );
-#	my %best_match;
-#	$best_match{'bit_score'} = 0;
-#	my %match;
-#
-#	while ( my $line = <$blast_fh> ) {
-#		next if !$line || $line =~ /^\#/x;
-#		my @record = split /\s+/x, $line;
-#		$match{'allele'}    = $record[1];
-#		$match{'identity'}  = $record[2];
-#		$match{'alignment'} = $record[3];
-#		$match{'gaps'}      = $record[5];
-#		$match{'qstart'}    = $record[6];
-#		$match{'qend'}      = $record[7];
-#		$match{'sstart'}    = $record[8];
-#		$match{'send'}      = $record[9];
-#		if (   ( $record[8] > $record[9] && $record[7] > $record[6] )
-#			|| ( $record[8] < $record[9] && $record[7] < $record[6] ) )
-#		{
-#			$match{'reverse'} = 1;
-#		} else {
-#			$match{'reverse'} = 0;
-#		}
-#		$match{'bit_score'} = $record[11];
-#		if ( $match{'bit_score'} > $best_match{'bit_score'} ) {
-#			%best_match = %match;
-#		}
-#	}
-#	close $blast_fh;
-#	return \%best_match;
-#}
 sub _get_differences {
 
 	#returns differences between two sequences where there are no gaps

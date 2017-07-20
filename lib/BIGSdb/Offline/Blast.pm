@@ -38,10 +38,11 @@ sub blast {
 	undef $self->{'partial_matches'};
 	my $loci = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
-	$self->_ensure_seq_has_identifer($seq_ref);
-	$seq_ref = $self->_strip_invalid_chars($seq_ref);
+	my $seq = $$seq_ref;    #Don't modify scalar ref as it may be needed by calling method
+	$self->_ensure_seq_has_identifer( \$seq );
+	$seq_ref = $self->_strip_invalid_chars( \$seq );
 	$self->{'seq_ref'} = $seq_ref;
-	my $blast_results = $self->_run_blast( $seq_ref, $loci, $args );
+	my $blast_results = $self->_run_blast( \$seq, $loci, $args );
 
 	if ( $args->{'alignment'} ) {
 		return $blast_results;
@@ -68,20 +69,6 @@ sub blast {
 	$self->{'partial_matches'} = $partial_matches;
 	unlink $blast_results;
 	return;
-}
-
-sub get_contig_names {
-	my ($self) = @_;
-	$self->{'seq_ref'} //= \q();
-	my @lines = split /\n/x, ${ $self->{'seq_ref'} };
-	my $names = [];
-	foreach my $line (@lines) {
-		if ( $line =~ /^>/x ) {
-			( my $name = $line ) =~ s/^>//x;
-			push @$names, $name;
-		}
-	}
-	return $names;
 }
 
 sub _get_cache_names {
@@ -163,18 +150,6 @@ sub get_exact_matches {
 	return $self->_get_matches( 'exact_matches', $options );
 }
 
-sub get_exact_matches_by_contig {
-	my ($self) = @_;
-	my $exact = $self->get_exact_matches( { details => 1 } );
-	my $by_contig = {};
-	foreach my $locus ( keys %$exact ) {
-		foreach my $match ( @{ $exact->{$locus} } ) {
-			push @{ $by_contig->{ $match->{'query'} }->{$locus} }, $match;
-		}
-	}
-	return $by_contig;
-}
-
 sub get_partial_matches {
 	my ( $self, $options ) = @_;
 	return $self->_get_matches( 'partial_matches', $options );
@@ -199,25 +174,6 @@ sub get_best_partial_match {
 		$best_match->{'sequence'} = $seq;
 	}
 	return $best_match;
-}
-
-sub get_best_partial_matches_by_contig {
-	my ($self)    = @_;
-	my $partial   = $self->{'partial_matches'};
-	my $by_contig = {};
-	my $quality   = {};
-	foreach my $locus ( keys %$partial ) {
-		foreach my $match ( @{ $partial->{$locus} } ) {
-			if ( !defined $quality->{ $match->{'query'} }
-				|| $match->{'quality'} > $quality->{ $match->{'query'} } )
-			{
-				$by_contig->{ $match->{'query'} }            = $match;
-				$by_contig->{ $match->{'query'} }->{'locus'} = $locus;
-				$quality->{ $match->{'query'} }              = $match->{'quality'};
-			}
-		}
-	}
-	return $by_contig;
 }
 
 sub get_contig {
@@ -439,9 +395,10 @@ sub _lookup_partial_matches {
 	return if !@$locus_matches;
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $qry_type = BIGSdb::Utils::sequence_type($seq_ref);
 	foreach my $match (@$locus_matches) {
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
-		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$seq = $seq_obj->translate->seq;
 		}
@@ -585,6 +542,7 @@ sub _ensure_seq_has_identifer {
 	}
 	return;
 }
+
 sub _strip_invalid_chars {
 	my ( $self, $seq_ref ) = @_;
 	my @lines = split /\n/x, $$seq_ref;
@@ -604,14 +562,14 @@ sub _strip_invalid_chars {
 sub _create_blast_database {
 	my ( $self, $cache_name, $data_type, $loci, $exemplar ) = @_;
 	my $path = $self->_get_cache_dir($cache_name);
-
-	#Prevent two makeblastdb processes running in the same directory
 	make_path($path);
 
 	#This method may be called by apache during a web query, by the bigsdb or any other user
 	#if called from external script. We need to make sure that cache files can be overwritten
 	#by all.
 	chmod 0777, "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}", $path;
+
+	#Prevent two makeblastdb processes running in the same directory.
 	my $lock_file = "$path/LOCK";
 	open( my $lock_fh, '>', $lock_file ) || $self->{'logger'}->error('Cannot open lock file');
 	if ( !flock( $lock_fh, LOCK_EX ) ) {
