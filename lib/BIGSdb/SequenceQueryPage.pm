@@ -27,9 +27,6 @@ use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::Blast;
 use Bio::DB::GenBank;
-
-#use IO::String;
-#use Bio::SeqIO;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use constant INF                => 9**99;
@@ -308,7 +305,8 @@ sub _single_query {
 		}
 		if ($displayed) {
 			$return_buffer = q(<div class="box" id="resultsheader"><p>);
-			$return_buffer .= qq($displayed exact match) . ( $displayed > 1 ? 'es' : '' ) . q( found.</p>);
+			my $plural = $displayed == 1 ? q() : q(es);
+			$return_buffer .= qq($displayed exact match$plural found.</p>);
 			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
 			$return_buffer .= q(</div>);
 			$return_buffer .= q(<div class="box" id="resultstable">);
@@ -373,15 +371,14 @@ sub _get_contig_names {
 
 sub _batch_query {
 	my ( $self, $seq_ref, $blast_obj, $data ) = @_;
-	my $buffer = q();
 	$self->_ensure_seq_has_identifer($seq_ref);
 	my $contig_names = $self->_get_contig_names($seq_ref);
-	my $contigs = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
-	$buffer .= q(<div class="box" id="resultstable"><div class="scrollable">);
-	$buffer .= q(<table class="resultstable"><tr><th>Contig</th><th>Match</th><th>Locus</th>)
-	  . q(<th>Allele(s)</th><th>Differences</th></tr>);
-	my $td   = 1;
-	my $loci = $self->_get_selected_loci;
+	my $contigs      = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
+	my @headings     = qw(Contig Match Locus Allele Differences);
+	local $" = q(</th><th>);
+	my $table = qq(<table class="resultstable"><tr><th>@headings</th></tr>);
+	my $td    = 1;
+	my $loci  = $self->_get_selected_loci;
   CONTIG: foreach my $name (@$contig_names) {
 		my $contig_seq = $contigs->{$name};
 		$blast_obj->blast( \$contig_seq );
@@ -396,11 +393,12 @@ sub _batch_query {
 			my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 			if (@exact_alleles) {
 				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
-				$contig_buffer .= qq(<td>exact</td><td>$cleaned_locus</td><td>@exact_alleles</td><td></td>);
+				$contig_buffer .= qq(<td>exact</td><td>$cleaned_locus</td><td>@exact_alleles</td><td></td></tr>);
+				$td = $td == 1 ? 2 : 1;
 			}
 		}
 		if ($contig_buffer) {
-			$buffer .= $contig_buffer;
+			$table .= $contig_buffer;
 		} else {
 			$contig_seq = $contigs->{$name};
 			my $match = $self->_get_best_partial_match( $blast_obj, \$contig_seq );
@@ -439,16 +437,24 @@ sub _batch_query {
 					  qq(<td style="text-align:left">$count difference$plural found. @formatted_diffs</td>);
 				}
 				$contig_buffer .= q(</tr>);
-				$buffer .= $contig_buffer;
+				$table .= $contig_buffer;
+				$td = $td == 1 ? 2 : 1;
 			}
 		}
 		if ( !$contig_buffer ) {
-			$buffer .= qq(<tr class="td$td"><td>$name</td><td>-</td><td></td><td></td><td></td>);
+			$table .= qq(<tr class="td$td"><td>$name</td><td>-</td><td></td><td></td><td></td></tr>);
+			$td = $td == 1 ? 2 : 1;
 		}
-		$buffer .= q(</tr>);
-		$td = $td == 1 ? 2 : 1;
 	}
-	$buffer .= q(</table></div>);
+	$table .= q(</table>);
+	my $buffer = q(<div class="box" id="resultstable">);
+	$buffer .= qq(<div class="scrollable">\n$table</div>);
+	my $output_file = BIGSdb::Utils::get_random() . q(.txt);
+	my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh BIGSdb::Utils::convert_html_table_to_text($table);
+	close $fh;
+	$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
 	$buffer .= q(</div>);
 	return $buffer;
 }
@@ -532,174 +538,6 @@ sub _get_selected_loci {
 	$self->{'select_type'} = 'locus';
 	$self->{'select_id'}   = $selection;
 	return [$selection];
-}
-
-#sub _run_batch_query {
-#	my ( $self, $locus, $seqin ) = @_;
-#	my $distinct_locus_selected = $self->_is_distinct_locus_selected($locus);
-#	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
-#	my $batch_buffer;
-#	my $td = 1;
-#	local $| = 1;
-#	my $first         = 1;
-#	my $job           = 0;
-#	my $text_filename = BIGSdb::Utils::get_random() . '.txt';
-#	my $word_size     = $self->_get_word_size($locus);
-#	while ( my $seq_object = $seqin->next_seq ) {
-#
-#		if ( $ENV{'MOD_PERL'} ) {
-#			$self->{'mod_perl_request'}->rflush;
-#			return if $self->{'mod_perl_request'}->connection->aborted;
-#		}
-#		my $seq = $seq_object->seq;
-#		if ($seq) {
-#			$seq =~ s/[\s|-]//gx;
-#			$seq = uc($seq);
-#		}
-#		my $qry_type = BIGSdb::Utils::sequence_type($seq);
-#		my $set_id   = $self->get_set_id;
-#		( my $blast_file, $job ) = $self->{'datastore'}->run_blast(
-#			{
-#				locus     => $locus,
-#				seq_ref   => \$seq,
-#				qry_type  => $qry_type,
-#				cache     => 1,
-#				job       => $job,
-#				word_size => $word_size,
-#				set_id    => $set_id
-#			}
-#		);
-#		my $exact_matches = $self->_parse_exact_matches( \$seq, $locus, $blast_file );
-#		my $data_ref = {
-#			locus                   => $locus,
-#			locus_info              => $locus_info,
-#			qry_type                => $qry_type,
-#			distinct_locus_selected => $distinct_locus_selected,
-#			td                      => $td,
-#			seq_ref                 => \$seq,
-#			id                      => $seq_object->id // '',
-#			job                     => $job,
-#			linked_data             => $self->_data_linked_to_locus( $locus, 'client_dbase_loci_fields' ),
-#			extended_attributes     => $self->_data_linked_to_locus( $locus, 'locus_extended_attributes' ),
-#		};
-#		if (@$exact_matches) {
-#			$batch_buffer = $self->_output_batch_query_exact( $exact_matches, $data_ref, $text_filename );
-#		} else {
-#			if ( $distinct_locus_selected && $qry_type ne $locus_info->{'data_type'} ) {
-#				unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#			}
-#			my $partial_match = $self->parse_blast_partial($blast_file);
-#			if ( defined $partial_match->{'allele'} ) {
-#				$batch_buffer = $self->_output_batch_query_nonexact( $partial_match, $data_ref, $text_filename );
-#			} else {
-#				my $id = $seq_object->id // q();
-#				$batch_buffer =
-#				  qq(<tr class="td$td"><td>$id</td><td style="text-align:left">No matches found.</td></tr>\n);
-#				open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$text_filename" )
-#				  || $logger->error("Can't open $text_filename for appending");
-#				say $fh qq($id: No matches found);
-#				close $fh;
-#			}
-#		}
-#		unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-#		$td = $td == 1 ? 2 : 1;
-#		if ($first) {
-#			say q(<div class="box" id="resultsheader">);
-#			say q(<table class="resultstable"><tr><th>Sequence</th><th>Results</th></tr>);
-#			$first = 0;
-#		}
-#		print $batch_buffer if $batch_buffer;
-#	}
-#	$self->_delete_temp_files($job);
-#	if ($batch_buffer) {
-#		say q(</table>);
-#		my $table_file = $self->_generate_batch_table;
-#		say qq(<p>Text format: <a href="/tmp/$text_filename">list</a>);
-#		if ( -e "$self->{'config'}->{'tmp_dir'}/$table_file" ) {
-#			say qq( | <a href="/tmp/$table_file">table</a>);
-#		}
-#		say q(</p></div>);
-#	}
-#	return;
-#}
-#sub _delete_temp_files {
-#	my ( $self, $file ) = @_;
-#
-#	#If BLAST output file is passed, also delete related files.
-#	$file =~ s/_outfile.txt//x;
-#	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$file*");
-#	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
-#	return;
-#}
-sub _generate_batch_table {
-	my ($self)     = @_;
-	my $table_file = BIGSdb::Utils::get_random() . '_table.txt';
-	my $full_path  = "$self->{'config'}->{'tmp_dir'}/$table_file";
-	my %loci;
-	return $table_file if !ref $self->{'batch_results'};
-	$self->{'batch_results'} //= {};
-	foreach my $id ( keys %{ $self->{'batch_results'} } ) {
-		foreach my $locus ( keys %{ $self->{'batch_results'}->{$id} } ) {
-			$loci{$locus} = 1;
-		}
-	}
-	my $set_id = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-	my @valid_schemes;
-  SCHEME: foreach my $scheme (@$schemes) {
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
-	  LOCUS: foreach my $scheme_loci (@$scheme_loci) {
-			next SCHEME if !$loci{$scheme_loci};    # We have no data for this locus
-		}
-		push @valid_schemes, $scheme->{'id'};
-	}
-	my @loci = sort keys %loci;
-	$self->{'batch_results_ids'} //= [];
-	local $" = qq(\t);
-	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
-	print $fh qq(id\t@loci);
-	foreach my $scheme_id (@valid_schemes) {
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		print $fh qq(\t@$scheme_fields);
-	}
-	print $fh qq(\n);
-	foreach my $id ( @{ $self->{'batch_results_ids'} } ) {
-		print $fh $id;
-		foreach my $locus (@loci) {
-			local $" = q(; );
-			$self->{'batch_results'}->{$id}->{$locus} //= [];
-			print $fh qq(\t@{$self->{'batch_results'}->{$id}->{$locus}});
-		}
-		foreach my $scheme_id (@valid_schemes) {
-			my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-			my @args;
-			my @cleaned_loci;
-			foreach my $scheme_locus (@$scheme_loci) {
-				local $" = q(; );
-				$self->{'batch_results'}->{$id}->{$scheme_locus} //= [];
-				push @args, "@{$self->{'batch_results'}->{$id}->{$scheme_locus}}";
-				push @cleaned_loci, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $scheme_locus );
-			}
-			my $scheme_warehouse = qq(mv_scheme_$scheme_id);
-			my $scheme_fields    = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			local $" = q(,);
-			my $qry = qq(SELECT @$scheme_fields FROM $scheme_warehouse WHERE );
-			local $" = q( IN (?,'N') AND );
-			$qry .= qq(@cleaned_loci IN (?,'N'));
-			my $field_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'row_arrayref' } );
-
-			if ( !$field_values ) {
-				@$field_values = (undef) x @$scheme_fields;
-			}
-			foreach my $value (@$field_values) {
-				$value //= q();
-				print $fh qq(\t$value);
-			}
-		}
-		print $fh qq(\n);
-	}
-	close $full_path;
-	return $table_file;
 }
 
 sub _translate_button {
@@ -826,7 +664,6 @@ sub _get_scheme_exact_results {
 	my $match_count  = 0;
 	my $designations = {};
 	my $buffer       = q();
-	$logger->error("@schemes");
 	foreach my $scheme_id (@schemes) {
 		my $scheme_buffer = q();
 		my $td            = 1;
@@ -837,8 +674,6 @@ sub _get_scheme_exact_results {
 		} else {
 			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 		}
-		use Data::Dumper;
-		$logger->error( Dumper $exact_matches);
 		foreach my $locus (@$scheme_members) {
 			$scheme_buffer .= $self->_get_locus_matches(
 				{
@@ -856,10 +691,17 @@ sub _get_scheme_exact_results {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
 			}
-			$buffer .= qq(<div class="scrollable">\n);
-			$buffer .= $self->_get_table_header($data);
-			$buffer .= $scheme_buffer;
-			$buffer .= qq(</table></div>\n);
+			my $table = $self->_get_table_header($data);
+			$table  .= $scheme_buffer;
+			$table  .= q(</table>);
+			$buffer .= qq(<div class="scrollable">\n$table</div>\n);
+			my $text        = BIGSdb::Utils::convert_html_table_to_text($table);
+			my $output_file = BIGSdb::Utils::get_random() . q(.txt);
+			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
+			open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
+			close $fh;
+			$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
 		}
 		$buffer .= $self->_get_scheme_fields( $scheme_id, $designations );
 	}
@@ -940,87 +782,6 @@ sub _get_scheme_table {
 	return q();
 }
 
-#sub _output_batch_query_exact {
-#	my ( $self,  $exact_matches,           $data, $filename ) = @_;
-#	my ( $locus, $distinct_locus_selected, $td,   $id )       = @{$data}{qw(locus distinct_locus_selected td id)};
-#	my $q      = $self->{'cgi'};
-#	my $buffer = '';
-#	if ( !$distinct_locus_selected && $q->param('order') eq 'locus' ) {
-#		my %locus_values;
-#		foreach (@$exact_matches) {
-#			if ( $_->{'allele'} =~ /(.*):.*/x ) {
-#				$locus_values{$_} = $1;
-#			}
-#		}
-#		@$exact_matches = sort { $locus_values{$a} cmp $locus_values{$b} } @$exact_matches;
-#	}
-#	my $first       = 1;
-#	my $text_buffer = '';
-#	my %locus_matches;
-#	my $displayed = 0;
-#	push @{ $self->{'batch_results_ids'} }, $id;
-#	foreach (@$exact_matches) {
-#		my $allele_id;
-#		if ( !$distinct_locus_selected && $_->{'allele'} =~ /(.*):(.*)/x ) {
-#			( $locus, $allele_id ) = ( $1, $2 );
-#		} else {
-#			$allele_id = $_->{'allele'};
-#		}
-#		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-#		$locus_matches{$locus}++;
-#		next if $locus_info->{'match_longest'} && $locus_matches{$locus} > 1;
-#		if ( !$first ) {
-#			$buffer      .= '; ';
-#			$text_buffer .= '; ';
-#		}
-#		my $allele_link = $self->_get_allele_link( $locus, $allele_id );
-#		$buffer .= $allele_link;
-#		my $text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-#		$text_buffer .= qq($text_locus-$allele_id);
-#		$displayed++;
-#		undef $locus if !$distinct_locus_selected;
-#		$first = 0;
-#		push @{ $self->{'batch_results'}->{$id}->{$text_locus} }, $allele_id;
-#	}
-#	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" )
-#	  or $logger->error("Can't open $filename for appending");
-#	say $fh qq($id: $text_buffer);
-#	close $fh;
-#	return
-#	    qq(<tr class="td$td"><td>$id</td><td style="text-align:left">)
-#	  . q(Exact match)
-#	  . ( $displayed == 1 ? '' : 'es' )
-#	  . qq( found: $buffer</td></tr>\n);
-#}
-#sub _output_single_query_nonexact_mismatched {
-#	my ( $self, $data ) = @_;
-#	my $set_id = $self->get_set_id;
-#	my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
-#		{
-#			locus       => $data->{'locus'},
-#			seq_ref     => $data->{'seq_ref'},
-#			qry_type    => $data->{'qry_type'},
-#			num_results => 5,
-#			alignment   => 1,
-#			set_id      => $set_id
-#		}
-#	);
-#	say q(<div class="box" id="resultsheader">);
-#	if ( -e "$self->{'config'}->{'secure_tmp_dir'}/$blast_file" ) {
-#		say qq(<p>Your query is a $data->{'qry_type'} sequence whereas this locus is defined with )
-#		  . qq($data->{'locus_info'}->{'data_type'} sequences.  There were no exact matches, but the )
-#		  . q(BLAST results are shown below (a maximum of five alignments are displayed).</p>);
-#		say q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
-#		$self->print_file( "$self->{'config'}->{'secure_tmp_dir'}/$blast_file", { ignore_hashlines => 1 } );
-#		say q(</pre>);
-#	} else {
-#		say q(<p>No results from BLAST.</p>);
-#	}
-#	$blast_file =~ s/outfile.txt//x;
-#	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$blast_file*");
-#	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
-#	return;
-#}
 sub _get_partial_match_results {
 	my ( $self, $partial_match, $data ) = @_;
 	return q() if !keys %$partial_match;
@@ -1060,6 +821,7 @@ sub _get_partial_match_alignment {
 		  . q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
 		$buffer .= $self->print_file( $align_file, { ignore_hashlines => 1, get_only => 1 } );
 		$buffer .= q(</pre>);
+		unlink $align_file;
 	}
 	return $buffer;
 }
@@ -1176,83 +938,6 @@ sub get_alignment {
 	}
 	return $buffer;
 }
-
-#sub _output_batch_query_nonexact {
-#	my ( $self, $partial_match, $data, $filename ) = @_;
-#	my ( $locus, $distinct_locus_selected ) = @{$data}{qw(locus distinct_locus_selected )};
-#	my ( $batch_buffer, $buffer, $text_buffer );
-#	my $allele_seq_ref;
-#	if ($distinct_locus_selected) {
-#		$allele_seq_ref = $self->{'datastore'}->get_sequence( $locus, $partial_match->{'allele'} );
-#	} else {
-#		my ( $extracted_locus, $allele ) = split /:/x, $partial_match->{'allele'};
-#		$allele_seq_ref = $self->{'datastore'}->get_sequence( $extracted_locus, $allele );
-#	}
-#	if ( !$partial_match->{'gaps'} ) {
-#		my $qstart = $partial_match->{'qstart'};
-#		my $sstart = $partial_match->{'sstart'};
-#		my $ssend  = $partial_match->{'send'};
-#		while ( $sstart > 1 && $qstart > 1 ) {
-#			$sstart--;
-#			$qstart--;
-#		}
-#		if ( $sstart > $ssend ) {
-#			$buffer      .= q(Reverse complemented - try reversing it and query again.);
-#			$text_buffer .= q(Reverse complemented - try reversing it and query again.);
-#		} else {
-#			my $diffs = $self->_get_differences( $allele_seq_ref, $data->{'seq_ref'}, $sstart, $qstart );
-#			if (@$diffs) {
-#				my $plural = @$diffs > 1 ? 's' : '';
-#				$buffer      .= (@$diffs) . " difference$plural found. ";
-#				$text_buffer .= (@$diffs) . " difference$plural found. ";
-#				my $first = 1;
-#				foreach my $diff (@$diffs) {
-#					if ( !$first ) {
-#						$buffer      .= '; ';
-#						$text_buffer .= '; ';
-#					}
-#					$buffer .= $self->_format_difference( $diff, $data->{'qry_type'} );
-#					$text_buffer .=
-#					  "\[$diff->{'spos'}\]$diff->{'sbase'}->\[" . ( $diff->{'qpos'} // '' ) . "\]$diff->{'qbase'}";
-#					$first = 0;
-#				}
-#			} else {
-#				$buffer      .= q(Gaps or missing sequence - try single sequence query to see alignment.);
-#				$text_buffer .= q(Gaps or missing sequence - try single sequence query to see alignment.);
-#			}
-#		}
-#	} else {
-#		$buffer .=
-#		  q(There are insertions/deletions between these sequences.  Try single sequence query to get more details.);
-#		$text_buffer .= q(Insertions/deletions present.);
-#	}
-#	my ( $allele, $text_allele, $text_locus );
-#	if ($distinct_locus_selected) {
-#		$text_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-#		$allele = $self->_get_allele_link( $locus, $partial_match->{'allele'} );
-#		$text_allele = "$text_locus-$partial_match->{'allele'}";
-#	} else {
-#		if ( $partial_match->{'allele'} =~ /(.*):(.*)/x ) {
-#			my ( $extracted_locus, $allele_id ) = ( $1, $2 );
-#			$text_locus = $self->clean_locus( $extracted_locus, { text_output => 1, no_common_name => 1 } );
-#			$allele = $self->_get_allele_link( $extracted_locus, $allele_id );
-#			$text_allele = qq($text_locus-$allele_id);
-#		}
-#	}
-#	$batch_buffer = qq(<tr class="td$data->{'td'}"><td>$data->{'id'}</td><td style="text-align:left">)
-#	  . qq(Partial match found: $allele: $buffer</td></tr>\n);
-#	open( my $fh, '>>', "$self->{'config'}->{'tmp_dir'}/$filename" )
-#	  or $logger->error("Cannot open $filename for appending");
-#	say $fh qq($data->{'id'}: Partial match: $text_allele: $text_buffer);
-#	close $fh;
-#	return $batch_buffer;
-#}
-#
-#sub remove_all_identifier_lines {
-#	my ( $self, $seq_ref ) = @_;
-#	$$seq_ref =~ s/>.+\n//gx;
-#	return;
-#}
 sub _format_difference {
 	my ( $self, $diff, $qry_type ) = @_;
 	my $buffer;

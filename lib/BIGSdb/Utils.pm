@@ -231,7 +231,7 @@ sub round_up {
 }
 
 sub read_fasta {
-	my ($data_ref, $options) = @_;
+	my ( $data_ref, $options ) = @_;
 	my @lines = split /\r?\n/x, $$data_ref;
 	my %seqs;
 	my $header;
@@ -246,7 +246,7 @@ sub read_fasta {
 	}
 	foreach my $id ( keys %seqs ) {
 		$seqs{$id} =~ s/\s//gx;
-		if (!$options->{'allow_peptide'}){
+		if ( !$options->{'allow_peptide'} ) {
 			throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
 		}
 	}
@@ -877,5 +877,21 @@ sub get_nice_duration {
 	my $minutes = int( ( $total_seconds - $hours * 3600 ) / 60 );
 	my $seconds = $total_seconds % 60;
 	return sprintf( '%d:%02d:%02d', $hours, $minutes, $seconds );
+}
+
+sub convert_html_table_to_text {
+	my ($html) = @_;
+	my $buffer = q();
+	my @lines = split /\n/x, $html;
+	foreach my $line (@lines) {
+		$line =~ s/&rarr;/->/gx;
+		$line =~ s/<\/th><th.*?>/\t/gx;                      #Convert cell breaks to tabs
+		$line =~ s/<\/td><td.*?>/\t/gx;
+		$line =~ s/<\/tr>/\n/gx;                             #Convert </tr> to newlines
+		$line =~ s/<span\ class="source">.*?<\/span>//gx;    #Remove linked data source
+		$line =~ s/<.+?>//gx;                                #Remove any remaining tags
+		$buffer .= $line;
+	}
+	return $buffer;
 }
 1;
