@@ -85,10 +85,35 @@ sub _get_cache_names {
 	return \@caches;
 }
 
+sub create_scheme_cache {
+	my ( $self, $scheme_id ) = @_;
+	my $loci;
+	if ($scheme_id) {
+		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	} else {
+		$loci = $self->{'datastore'}->get_loci;
+	}
+	my $runs = [qw(DNA peptide)];
+	my $exemplars = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
+	foreach my $run (@$runs) {
+		my $loci_by_type = $self->_get_selected_loci_by_type( $loci, $run );
+		next if !@$loci_by_type;
+		my $cache_name = $self->_get_cache_name( $loci_by_type, { exemplar => $exemplars } );
+		if ( !$self->_cache_exists($cache_name) ) {
+			$self->_create_blast_database( $cache_name, $run, $loci_by_type, $exemplars );
+		}
+	}
+	return;
+}
+
 sub delete_caches {
 	my ( $self, $options ) = @_;
 	my $caches = $self->_get_cache_names;
 	foreach my $cache (@$caches) {
+		if ( $options->{'single_locus'} ) {
+			my $loci = $self->_get_cache_loci($cache);
+			next if @$loci > 1;
+		}
 		if ( $options->{'if_stale'} ) {
 			$self->_delete_cache_if_stale($cache);
 		} else {
@@ -394,8 +419,8 @@ sub _lookup_partial_matches {
 	my $locus_matches = $partial_matches->{$locus} // [];
 	return if !@$locus_matches;
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $qry_type = BIGSdb::Utils::sequence_type($seq_ref);
+	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
+	my $qry_type                = BIGSdb::Utils::sequence_type($seq_ref);
 	foreach my $match (@$locus_matches) {
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
@@ -583,21 +608,29 @@ sub _create_blast_database {
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
-	open( my $fasta_fh, '>', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for writing");
-	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
+	my $fasta_fh;
 
+	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
+		$self->{'logger'}->error("Cannot open $fasta_file for writing");
+		return;
+	}
+	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
 	foreach my $allele (@$data) {
 		say $fasta_fh ">$allele->[0]|$allele->[1]\n$allele->[2]";
 	}
 	close $fasta_fh;
+	chmod 0666, $fasta_file;
 	my $db_type = $data_type eq 'DNA' ? 'nucl' : 'prot';
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
 	my $locus_list_file = "$path/loci";
-	open( my $locus_fh, '>', $locus_list_file ) || $self->{'logger'}->('Cannot open $locus_list_file for writing');
+	my $locus_fh;
+	if ( !open( $locus_fh, '>', $locus_list_file ) ) {
+		$self->{'logger'}->error("Cannot open $locus_list_file for writing");
+		return;
+	}
 	say $locus_fh $_ foreach @$loci;
 	close $locus_fh;
-
 	if ($lock_fh) {
 		close $lock_fh;
 		unlink $lock_file;
@@ -607,7 +640,11 @@ sub _create_blast_database {
 
 sub _get_cache_dir {
 	my ( $self, $cache_name ) = @_;
-	return "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$cache_name";
+	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$cache_name";
+	if ( $dir =~ /(.+)/x ) {
+		return $1;    #Untaint
+	}
+	return $dir;
 }
 
 sub _cache_exists {
@@ -643,7 +680,11 @@ sub _delete_cache {
 	$self->{'logger'}->info("Deleting cache $cache_name");
 	my $path       = $self->_get_cache_dir($cache_name);
 	my $fasta_file = "$path/sequences.fas";
-	open( my $fasta_fh, '>', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
+	my $fasta_fh;
+	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
+		$self->{'logger'}->error("Cannot open $fasta_file for writing");
+		return;
+	}
 	if ( flock( $fasta_fh, LOCK_EX ) ) {
 		remove_tree( $path, { error => \my $err } );
 		if (@$err) {
@@ -656,8 +697,8 @@ sub _delete_cache {
 }
 
 sub _get_cache_name {
-	my ( $self, $loci ) = @_;
-	my $exemplar_value = $self->{'options'}->{'exemplar'} ? q(EX) : q();
+	my ( $self, $loci, $options ) = @_;
+	my $exemplar_value = ( $options->{'exemplar'} // $self->{'options'}->{'exemplar'} ) ? q(EX) : q();
 	local $" = q(,);
 	my $hash = Digest::MD5::md5_hex(qq(@$loci));
 	return "$exemplar_value$hash";
@@ -682,5 +723,52 @@ sub _determine_blast_program {
 	} else {
 		return $qry_type eq 'DNA' ? 'blastx' : 'blastp';
 	}
+}
+
+#Recreate any cache that is either marked stale or is older than age specified
+#in bigsdb.conf.
+sub refresh_caches {
+	my ( $self, $options ) = @_;
+	my $dir    = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
+	my $caches = $self->_get_cache_names;
+  CACHE: foreach my $cache_name (@$caches) {
+		my $loci = $self->_get_cache_loci($cache_name);
+		if ( !$self->_cache_exists($cache_name) ) {    #Will delete cache if stale or old.
+			my %data_types;
+			foreach my $locus (@$loci) {
+				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+				if ( !$locus_info ) {
+					$self->{'logger'}->error("Locus $locus does not exist for cache.");
+					next CACHE;
+				}
+				$data_types{ $locus_info->{'data_type'} } = 1;
+			}
+			if ( keys %data_types > 1 ) {
+				$self->{'logger'}->error("Cache $cache_name contains DNA and peptide loci. Cannot create.");
+				next CACHE;
+			}
+			my $exemplar = $cache_name =~ /^EX/x ? 1 : 0;
+			my ($data_type) = keys %data_types;
+			$self->_create_blast_database( $cache_name, $data_type, $loci, $exemplar );
+		}
+	}
+	return;
+}
+
+sub _get_cache_loci {
+	my ( $self, $cache_name ) = @_;
+	my $locus_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$cache_name/loci";
+	if ( !-e $locus_file ) {
+		$self->{'logger'}->error("Locus file $locus_file does not exist");
+		return;
+	}
+	my $loci = [];
+	open( my $fh, '<', $locus_file ) || $self->{'logger'}->error("Cannot open locus file $locus_file");
+	while ( my $locus = <$fh> ) {
+		chomp $locus;
+		push @$loci, $locus;
+	}
+	close $fh;
+	return $loci;
 }
 1;
