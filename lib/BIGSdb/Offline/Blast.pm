@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Script);
+use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
 use Digest::MD5;
 use File::Path qw(make_path remove_tree);
 use Error qw(:try);
@@ -771,5 +772,53 @@ sub _get_cache_loci {
 	}
 	close $fh;
 	return $loci;
+}
+
+sub check_sequence_similarity {
+
+ #returns hashref with the following keys
+ #similar          - true if sequence is at least IDENTITY_THRESHOLD% identical over an alignment length of 90% or more.
+ #subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
+ #supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
+	my ($self) = @_;
+	my $loci = $self->get_selected_loci;
+	if ( @$loci > 1 ) {
+		$self->{'logger'}->error('Multiple loci selected - using first one.');
+	}
+	my $locus      = $loci->[0];
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $id_threshold =
+	  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
+	  ? $locus_info->{'id_check_threshold'}
+	  : IDENTITY_THRESHOLD;
+	my $length = length $self->_get_stripped_sequence;
+	my ( $similar, $subsequence_of, $supersequence_of ) = ( 0, undef, undef );
+	my $match = $self->get_best_partial_match;
+	my ( $allele_id, $identity, $reversed, $alignment ) = @{$match}{qw(allele identity reverse alignment)};
+
+	if ( !$reversed && defined $identity && $identity >= $id_threshold && $alignment >= 0.9 * $length ) {
+		$similar = 1;
+		if ( $identity == 100 ) {
+			my $matched_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+			my $length_of_matched_seq = length $$matched_seq_ref;
+			if ( $length == $alignment && $length < $length_of_matched_seq ) {
+				$subsequence_of = $allele_id;
+			} elsif ( $length_of_matched_seq == $alignment && $length > $length_of_matched_seq ) {
+				$supersequence_of = $allele_id;
+			}
+		}
+	}
+	return { similar => $similar, subsequence_of => $subsequence_of, supersequence_of => $supersequence_of };
+}
+
+sub _get_stripped_sequence {
+	my ($self) = @_;
+	my @lines = split /\n/x, ${ $self->{'seq_ref'} };
+	my $new_seq = q();
+	foreach my $line (@lines) {
+		next if $line =~ /^>/x;
+		$new_seq .= $line;
+	}
+	return $new_seq;
 }
 1;

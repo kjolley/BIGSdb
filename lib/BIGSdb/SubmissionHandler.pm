@@ -391,7 +391,7 @@ sub check_new_alleles_fasta {
 				push @info, qq(Sequence "$seq_id" is $check->{'err'});
 			}
 		}
-		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, \$sequence );
+		my $check = $self->_check_sequence_similarity( $locus, \$sequence );
 		if ( !$check->{'similar'} ) {
 			push @info,
 			  qq(Sequence "$seq_id" is dissimilar (or in reverse orientation compared) to other $locus sequences.);
@@ -407,6 +407,36 @@ sub check_new_alleles_fasta {
 	$ret->{'info'} = \@info if @info;
 	$ret->{'seqs'} = \@seqs if @seqs;
 	return $ret;
+}
+
+sub _check_sequence_similarity {
+
+ #returns hashref with the following keys
+ #similar          - true if sequence is at least IDENTITY_THRESHOLD% identical over an alignment length of 90% or more.
+ #subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
+ #supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
+	my ( $self, $locus, $seq_ref ) = @_;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+			options          => {
+				l             => ($locus),
+				keep_partials => 1,
+				find_similar  => 1,
+				always_run    => 1
+			},
+			instance => $self->{'instance'},
+			logger   => $logger
+		}
+	);
+	$blast_obj->blast($seq_ref);
+	return $blast_obj->check_sequence_similarity;
 }
 
 sub check_new_profiles {

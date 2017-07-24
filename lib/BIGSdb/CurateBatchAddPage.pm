@@ -1575,7 +1575,7 @@ sub _check_sequence_field {
 		&& $self->{'datastore'}->sequences_exist($locus)
 		&& !$q->param('ignore_similarity') )
 	{
-		my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $args->{'value'} );
+		my $check = $self->check_sequence_similarity( $locus, $args->{'value'} );
 		if ( !$check->{'similar'} ) {
 			my $id_threshold =
 			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )

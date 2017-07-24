@@ -31,7 +31,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(IDENTITY_THRESHOLD :login_requirements);
+use BIGSdb::Constants qw(:login_requirements);
 use IO::Handle;
 use Digest::MD5;
 use constant INF => 9**99;
@@ -43,6 +43,7 @@ sub new {
 	$self->{'scheme'} = {};
 	$self->{'locus'}  = {};
 	$self->{'prefs'}  = {};
+
 	bless( $self, $class );
 	$logger->info('Datastore set up.');
 	return $self;
@@ -2157,62 +2158,7 @@ sub _get_cache_age {
 	return -M $temp_fastafile;
 }
 
-sub check_sequence_similarity {
 
- #returns hashref with the following keys
- #similar          - true if sequence is at least IDENTITY_THRESHOLD% identical over an alignment length of 90% or more.
- #subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
- #supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
-	my ( $self, $locus, $seq_ref ) = @_;
-	my $locus_info = $self->get_locus_info($locus);
-	my $id_threshold =
-	  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
-	  ? $locus_info->{'id_check_threshold'}
-	  : IDENTITY_THRESHOLD;
-	my ( $blast_file, undef ) = $self->run_blast(
-		{
-			locus        => $locus,
-			seq_ref      => $seq_ref,
-			qry_type     => $locus_info->{'data_type'},
-			num_results  => 1,
-			type_alleles => ( $locus_info->{'id_check_type_alleles'} ? 1 : 0 )
-		}
-	);
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	my $length    = length $$seq_ref;
-	return if !-s $full_path;
-	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return 0 );
-	my ( $allele_id, $identity, $reversed, $alignment );
-	my ( $similar, $subsequence_of, $supersequence_of ) = ( 0, undef, undef );
-
-	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^\#/x;
-		my @record = split /\s+/x, $line;
-		( $allele_id, $identity, $alignment ) = @record[ 1 .. 3 ];
-		if (   ( $record[8] > $record[9] && $record[7] > $record[6] )
-			|| ( $record[8] < $record[9] && $record[7] < $record[6] ) )
-		{
-			$reversed = 1;
-		}
-		last;
-	}
-	close $blast_fh;
-	unlink $full_path;
-	if ( !$reversed && defined $identity && $identity >= $id_threshold && $alignment >= 0.9 * $length ) {
-		$similar = 1;
-		if ( $identity == 100 ) {
-			my $matched_seq_ref = $self->get_sequence( $locus, $allele_id );
-			my $length_of_matched_seq = length $$matched_seq_ref;
-			if ( $length == $alignment && $length < $length_of_matched_seq ) {
-				$subsequence_of = $allele_id;
-			} elsif ( $length_of_matched_seq == $alignment && $length > $length_of_matched_seq ) {
-				$supersequence_of = $allele_id;
-			}
-		}
-	}
-	return { similar => $similar, subsequence_of => $subsequence_of, supersequence_of => $supersequence_of };
-}
 ##############REFERENCES###############################################################
 sub get_citation_hash {
 	my ( $self, $pmids, $options ) = @_;

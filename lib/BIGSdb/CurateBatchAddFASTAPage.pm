@@ -350,7 +350,7 @@ sub _check_sequence_similarity {
 	  if !($self->{'locus_info'}->{'data_type'} eq 'DNA'
 		&& !$q->param('ignore_similarity')
 		&& $self->{'datastore'}->sequences_exist($locus) );
-	my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $seq_ref );
+	my $check = $self->check_sequence_similarity( $locus, $seq_ref );
 	if ( !$check->{'similar'} ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my $id_threshold =

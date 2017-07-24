@@ -430,8 +430,8 @@ sub read_host_mapping_file {
 	if ( -e $mapping_file ) {
 		open( my $fh, '<', $mapping_file )
 		  || $logger->error("Can't open $mapping_file for reading");
-		while (my $line = <$fh>) {
-			next if $line=~/^\s+$/x || $line=~/^\#/x;
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^\s+$/x || $line =~ /^\#/x;
 			my ( $host, $mapped ) = split /\s+/x, $line;
 			next if !$host || !$mapped;
 			$self->{'config'}->{'host_map'}->{$host} = $mapped;
@@ -477,12 +477,15 @@ sub setup_datastore {
 sub setup_submission_handler {
 	my ($self) = @_;
 	$self->{'submissionHandler'} = BIGSdb::SubmissionHandler->new(
-		db         => $self->{'db'},
-		system     => $self->{'system'},
-		config     => $self->{'config'},
-		datastore  => $self->{'datastore'},
-		xmlHandler => $self->{'xmlHandler'},
-		instance   => $self->{'instance'}
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
+		db               => $self->{'db'},
+		system           => $self->{'system'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		xmlHandler       => $self->{'xmlHandler'},
+		instance         => $self->{'instance'}
 	);
 	return;
 }

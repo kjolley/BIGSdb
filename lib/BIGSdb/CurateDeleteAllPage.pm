@@ -33,7 +33,7 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	if ( $q->param('list_file') ) {
 		my $data_type = $q->param('datatype') // 'text';
-		$self->{'datastore'}->create_temp_list_table($data_type, $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( $data_type, $q->param('list_file') );
 	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
@@ -81,7 +81,6 @@ sub print_content {
 		  . qq(from the $table table.</p></div>);
 		return;
 	}
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
@@ -124,7 +123,7 @@ sub _delete {
 
 	#Find what schemes are affected, then recreate scheme view
 	my $scheme_ids = $self->_get_affected_schemes( $table, $query );
-	my $loci = $self->_get_affected_loci ($table, $query);
+	my $loci = $self->_get_affected_loci( $table, $query );
 	if ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
@@ -141,11 +140,9 @@ sub _delete {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
-	} 
-	
+	}
 	eval {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
-		{
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 			foreach my $isolate_id (@$ids_affected) {
 				my $old_version =
 				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
@@ -168,10 +165,6 @@ sub _delete {
 			$self->{'db'}->do($delete_qry);
 		}
 		$self->_refresh_db_views( $table, $scheme_ids );
-		if ($table eq 'sequences'){
-			$self->mark_locus_caches_stale( $loci );
-			$self->update_blast_caches;
-		}
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
@@ -218,6 +211,10 @@ sub _delete {
 		}
 		say q(<div class="box" id="resultsheader"><p>Records deleted.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
+	}
+	if ( $table eq 'sequences' ) {
+		$self->mark_locus_caches_stale($loci);
+		$self->update_blast_caches;
 	}
 	return;
 }
@@ -277,7 +274,7 @@ sub _get_affected_schemes {
 sub _get_affected_loci {
 	my ( $self, $table, $query ) = @_;
 	return [] if $self->{'system'}->{'dbtype'} ne 'sequences';
-	if ($table eq 'sequences'){
+	if ( $table eq 'sequences' ) {
 		my $locus_qry = $query;
 		$locus_qry =~ s/SELECT\ \*/SELECT locus/x;
 		$locus_qry =~ s/ORDER\ BY.*//x;
