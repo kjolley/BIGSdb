@@ -28,7 +28,6 @@ use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::Login;
 use BIGSdb::Parser;
-use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
@@ -47,16 +46,15 @@ use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profile
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
 	my $self = {};
-	$self->{'system'}           = {};
-	$self->{'config'}           = {};
-	$self->{'instance'}         = undef;
-	$self->{'xmlHandler'}       = undef;
-	$self->{'page'}             = undef;
-	$self->{'invalidXML'}       = 0;
-	$self->{'invalidDbType'}    = 0;
-	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
-	$self->{'datastore'}        = undef;
-	$self->{'pluginManager'}    = undef;
+	$self->{'system'}        = {};
+	$self->{'config'}        = {};
+	$self->{'instance'}      = undef;
+	$self->{'xmlHandler'}    = undef;
+	$self->{'page'}          = undef;
+	$self->{'invalidXML'}    = 0;
+	$self->{'invalidDbType'} = 0;
+	$self->{'dataConnector'} = BIGSdb::Dataconnector->new;
+	$self->{'datastore'}     = undef;
 	$self->{'db'}               = undef;
 	$self->{'mod_perl_request'} = $r;
 	$self->{'fatal'}            = undef;
@@ -112,7 +110,7 @@ sub new {
 			$self->setup_datastore;
 		}
 	}
-	$self->initiate_plugins($lib_dir);
+	$self->app_specific_initiation;
 	$self->print_page;
 	$self->_db_disconnect;
 
@@ -301,28 +299,6 @@ sub initiate_authdb {
 		$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
 		$self->{'error'} = 'noAuth';
 	};
-	return;
-}
-
-sub initiate_plugins {
-	my ( $self, $plugin_dir ) = @_;
-	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
-		system           => $self->{'system'},
-		dbase_config_dir => $self->{'dbase_config_dir'},
-		config_dir       => $self->{'config_dir'},
-		lib_dir          => $self->{'lib_dir'},
-		cgi              => $self->{'cgi'},
-		instance         => $self->{'instance'},
-		prefstore        => $self->{'prefstore'},
-		config           => $self->{'config'},
-		datastore        => $self->{'datastore'},
-		db               => $self->{'db'},
-		xmlHandler       => $self->{'xmlHandler'},
-		dataConnector    => $self->{'dataConnector'},
-		mod_perl_request => $self->{'mod_perl_request'},
-		jobManager       => $self->{'jobManager'},
-		pluginDir        => $plugin_dir
-	);
 	return;
 }
 
@@ -518,140 +494,9 @@ sub _db_disconnect {
 }
 
 #Override in subclasses
-sub print_page { }
+sub print_page              { }
+sub app_specific_initiation { }
 
-#sub print_page {
-#	my ($self) = @_;
-#	my $set_options = 0;
-#	my $cookies;
-#	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
-#	my %classes = (
-#		ajaxMenu           => 'AjaxMenu',
-#		alleleInfo         => 'AlleleInfoPage',
-#		alleleQuery        => 'AlleleQueryPage',
-#		alleleSequence     => 'AlleleSequencePage',
-#		authorizeClient    => 'AuthorizeClientPage',
-#		batchProfiles      => 'BatchProfileQueryPage',
-#		batchSequenceQuery => 'SequenceQueryPage',
-#		browse             => $query_page,
-#		changePassword     => 'ChangePasswordPage',
-#		customize          => 'CustomizePage',
-#		downloadAlleles    => 'DownloadAllelesPage',
-#		downloadProfiles   => 'DownloadProfilesPage',
-#		downloadSeqbin     => 'DownloadSeqbinPage',
-#		embl               => 'SeqbinToEMBL',
-#		excelTemplate      => 'CurateSubmissionExcelPage',
-#		extractedSequence  => 'ExtractedSequencePage',
-#		fieldValues        => 'FieldHelpPage',
-#		index              => 'IndexPage',
-#		info               => 'IsolateInfoPage',
-#		job                => 'JobViewerPage',
-#		jobs               => 'JobsListPage',
-#		listQuery          => $query_page,
-#		locusInfo          => 'LocusInfoPage',
-#		options            => 'OptionsPage',
-#		pubquery           => 'PubQueryPage',
-#		query              => $query_page,
-#		plugin             => 'Plugin',
-#		privateRecords     => 'PrivateRecordsPage',
-#		profileInfo        => 'ProfileInfoPage',
-#		profiles           => 'CombinationQueryPage',
-#		projects           => 'ProjectsPage',
-#		recordInfo         => 'RecordInfoPage',
-#		registration       => 'UserRegistrationPage',
-#		schemeInfo         => 'SchemeInfoPage',
-#		seqbin             => 'SeqbinPage',
-#		sequenceQuery      => 'SequenceQueryPage',
-#		sequenceTranslate  => 'SequenceTranslatePage',
-#		submit             => 'SubmitPage',
-#		tableHeader        => 'CurateTableHeaderPage',
-#		tableQuery         => 'TableQueryPage',
-#		user               => 'UserPage',
-#		userProjects       => 'UserProjectsPage',
-#		usernameRemind     => 'UserRegistrationPage',
-#		version            => 'VersionPage'
-#	);
-#	my $page;
-#	my %page_attributes = (
-#		system               => $self->{'system'},
-#		dbase_config_dir     => $self->{'dbase_config_dir'},
-#		config_dir           => $self->{'config_dir'},
-#		lib_dir              => $self->{'lib_dir'},
-#		cgi                  => $self->{'cgi'},
-#		instance             => $self->{'instance'},
-#		prefs                => $self->{'prefs'},
-#		prefstore            => $self->{'prefstore'},
-#		config               => $self->{'config'},
-#		datastore            => $self->{'datastore'},
-#		db                   => $self->{'db'},
-#		auth_db              => $self->{'auth_db'},
-#		xmlHandler           => $self->{'xmlHandler'},
-#		submissionHandler    => $self->{'submissionHandler'},
-#		dataConnector        => $self->{'dataConnector'},
-#		pluginManager        => $self->{'pluginManager'},
-#		mod_perl_request     => $self->{'mod_perl_request'},
-#		jobManager           => $self->{'jobManager'},
-#		needs_authentication => $self->{'pages_needing_authentication'}->{ $self->{'page'} },
-#		curate               => 0
-#	);
-#	my $continue = 1;
-#	my $auth_cookies_ref;
-#
-#	if ( $self->{'error'} ) {
-#		$page_attributes{'error'}              = $self->{'error'};
-#		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
-#		$page                                  = BIGSdb::ErrorPage->new(%page_attributes);
-#		$page->print_page_content;
-#		if ( $page_attributes{'error'} ) {
-#			$self->{'handled_error'} = 1;
-#		}
-#		return;
-#	}
-#	if ( $self->{'db'} && $self->{'page'} ne 'registration' && $self->{'page'} ne 'usernameRemind' ) {
-#		my $login_requirement = $self->{'datastore'}->get_login_requirement;
-#		if (   $login_requirement != NOT_ALLOWED
-#			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
-#		{
-#			( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
-#			return if !$continue;
-#		}
-#	}
-#	if ( $self->{'page'} eq 'options'
-#		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
-#	{
-#		$page = BIGSdb::OptionsPage->new(%page_attributes);
-#		$page->initiate_prefs;
-#		$page->set_options;
-#		$self->{'page'} = 'index';
-#		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
-#		$set_options = 1;
-#	}
-#	if ( $self->{'instance'} && !$self->{'db'} ) {
-#		$page_attributes{'error'} = 'noConnect';
-#		$page = BIGSdb::ErrorPage->new(%page_attributes);
-#	} elsif ( $self->{'instance'} && !$self->{'prefstore'} ) {
-#		$page_attributes{'error'} = 'noPrefs';
-#		$page_attributes{'fatal'} = $self->{'fatal'};
-#		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
-#	} elsif ( $classes{ $self->{'page'} } ) {
-#		$page_attributes{'cookies'} = $cookies;
-#		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
-#			foreach (@$auth_cookies_ref) {
-#				push @{ $page_attributes{'cookies'} }, $_;
-#			}
-#		}
-#		$page_attributes{'setOptions'} = $set_options;
-#		$page = "BIGSdb::$classes{$self->{'page'}}"->new(%page_attributes);
-#	} else {
-#		$page_attributes{'error'} = 'unknown';
-#		$page = BIGSdb::ErrorPage->new(%page_attributes);
-#	}
-#	$page->print_page_content;
-#	if ( $page_attributes{'error'} ) {
-#		$self->{'handled_error'} = 1;
-#	}
-#	return;
-#}
 sub authenticate {
 	my ( $self, $page_attributes ) = @_;
 	my $auth_cookies_ref;

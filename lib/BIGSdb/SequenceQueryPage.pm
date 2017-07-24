@@ -25,7 +25,6 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq none);
 use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(:interface);
-use BIGSdb::Offline::Blast;
 use Bio::DB::GenBank;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');

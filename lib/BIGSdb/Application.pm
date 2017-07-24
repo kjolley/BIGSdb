@@ -45,6 +45,7 @@ use BIGSdb::JobViewerPage;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
 use BIGSdb::OptionsPage;
+use BIGSdb::PluginManager;
 use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
@@ -62,6 +63,8 @@ use BIGSdb::UserPage;
 use BIGSdb::UserProjectsPage;
 use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
+use BIGSdb::Offline::Blast;
+
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
@@ -202,6 +205,34 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
+	return;
+}
+
+sub app_specific_initiation {
+	my ($self) = @_;
+	$self->_initiate_plugins;
+	return;
+}
+
+sub _initiate_plugins {
+	my ($self) = @_;
+	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
+		system           => $self->{'system'},
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		jobManager       => $self->{'jobManager'},
+		pluginDir        => $self->{'lib_dir'}
+	);
 	return;
 }
 1;

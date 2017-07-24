@@ -1855,7 +1855,7 @@ sub get_allele_attributes {
 #Options are locus, seq_ref, qry_type, num_results, alignment, cache, job
 #if parameter cache=1, the previously generated FASTA database will be used.
 #The calling function should clean up the temporary files.
-sub run_blast {
+sub run_blast { #TODO Remove!
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $locus_info = $self->get_locus_info( $options->{'locus'} );

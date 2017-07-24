@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
-use BIGSdb::Offline::Blast;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
