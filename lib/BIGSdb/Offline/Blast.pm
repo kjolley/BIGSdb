@@ -184,13 +184,13 @@ sub get_best_partial_match {
 	my ($self)          = @_;
 	my $partial_matches = $self->{'partial_matches'};
 	my $best_match      = {};
-	my $quality         = 0;
+	my $bitscore        = 0;
 	foreach my $locus ( keys %$partial_matches ) {
 		foreach my $match ( @{ $partial_matches->{$locus} } ) {
-			if ( $match->{'quality'} > $quality ) {
+			if ( $match->{'bitscore'} > $bitscore ) {
 				$best_match            = $match;
 				$best_match->{'locus'} = $locus;
-				$quality               = $match->{'quality'};
+				$bitscore              = $match->{'bitscore'};
 			}
 		}
 	}
@@ -367,7 +367,6 @@ sub _parse_blast_partial {
 		if ( $self->{'program'} =~ /tblast/x ) {
 			$record->[3] *= 3;
 		}
-		my $quality = $record->[3] * $record->[2];    #simple metric of alignment length x percentage identity
 		if ( $record->[2] >= $identity ) {
 			if ( !$length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
@@ -380,7 +379,6 @@ sub _parse_blast_partial {
 			if ( $record->[3] >= $alignment * 0.01 * $length ) {
 				my $match;
 				$match->{'query'}     = $record->[0];
-				$match->{'quality'}   = $quality;
 				$match->{'allele'}    = $allele_id;
 				$match->{'identity'}  = $record->[2];
 				$match->{'length'}    = $length;
@@ -389,6 +387,7 @@ sub _parse_blast_partial {
 				$match->{'qend'}      = $record->[7];
 				$match->{'sstart'}    = $record->[8];
 				$match->{'send'}      = $record->[9];
+				$match->{'bitscore'}  = $record->[11];
 				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
 				$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
 				$self->_identify_match_ends( $match, $record );
