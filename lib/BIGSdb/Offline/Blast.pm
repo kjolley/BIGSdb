@@ -67,6 +67,8 @@ sub blast {
 	);
 	$self->{'exact_matches'}   = $exact_matches;
 	$self->{'partial_matches'} = $partial_matches;
+	use Data::Dumper;
+	$self->{'logger'}->error( Dumper $options);
 	unlink $blast_results;
 	return;
 }
@@ -362,7 +364,7 @@ sub _parse_blast_partial {
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $allele_id;
 		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
-		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'};
+		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'} && !$self->{'options'}->{'find_similar'};
 		my $locus_match = $partial_matches->{$locus} // [];
 		$allele_id = $match_allele_id;
 		if ( $self->{'program'} =~ /tblast/x ) {
@@ -379,18 +381,19 @@ sub _parse_blast_partial {
 			my $length = $length_cache->{$locus}->{$allele_id};
 			if ( $record->[3] >= $alignment * 0.01 * $length ) {
 				my $match;
-				$match->{'query'}     = $record->[0];
-				$match->{'allele'}    = $allele_id;
-				$match->{'identity'}  = $record->[2];
-				$match->{'length'}    = $length;
-				$match->{'gaps'}      = $record->[5];
-				$match->{'qstart'}    = $record->[6];
-				$match->{'qend'}      = $record->[7];
-				$match->{'sstart'}    = $record->[8];
-				$match->{'send'}      = $record->[9];
-				$match->{'bitscore'}  = $record->[11];
-				$match->{'alignment'} = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
-				$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
+				$match->{'query'}      = $record->[0];
+				$match->{'allele'}     = $allele_id;
+				$match->{'identity'}   = $record->[2];
+				$match->{'length'}     = $length;
+				$match->{'mismatches'} = $record->[4];
+				$match->{'gaps'}       = $record->[5];
+				$match->{'qstart'}     = $record->[6];
+				$match->{'qend'}       = $record->[7];
+				$match->{'sstart'}     = $record->[8];
+				$match->{'send'}       = $record->[9];
+				$match->{'bitscore'}   = $record->[11];
+				$match->{'alignment'}  = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
+				$match->{'reverse'}    = 1 if $self->_is_match_reversed($record);
 				$self->_identify_match_ends( $match, $record );
 				$self->_predict_allele_ends( $length, $match, $record );
 				push @$locus_match, $match;

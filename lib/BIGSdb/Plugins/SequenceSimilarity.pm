@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
-		version          => '1.0.4',
+		version          => '1.1.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -112,19 +112,13 @@ sub run {
 	}
 	my $cleanlocus = $self->clean_locus($locus);
 	my $seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
-	my ( $blast_file, undef ) = $self->{'datastore'}->run_blast(
-		{
-			locus       => $locus,
-			seq_ref     => $seq_ref,
-			qry_type    => $locus_info->{'data_type'},
-			num_results => $num_results + 1,
-			set_id      => $set_id
-		}
-	);
-	my $matches = $self->_parse_blast_partial($blast_file);
+	my $blast_obj = $self->_get_blast_obj($locus);
+	$blast_obj->blast( $seq_ref, { num_results => $num_results + 1 } );
+	my $partial_matches = $blast_obj->get_partial_matches( { details => 1 } );
+	my $matches = ref $partial_matches->{$locus} eq 'ARRAY' ? $partial_matches->{$locus} : [];
 	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>$cleanlocus-$allele</h2>);
-	if ( ref $matches eq 'ARRAY' && @$matches > 0 ) {
+	if ( @$matches > 1 ) {
 		say q(<table class="resultstable"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th>)
 		  . q(<th>Gaps</th><th>Alignment</th><th>Compare</th></tr>);
 		my $td = 1;
@@ -150,30 +144,31 @@ sub run {
 	} else {
 		say q(<p>No similar alleles found.</p>);
 	}
-	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
 	say q(</div>);
 	return;
 }
 
-sub _parse_blast_partial {
-
-	#return best match
-	my ( $self, $blast_file ) = @_;
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
-	my @matches;
-	my %allele_matched;
-	while ( my $line = <$blast_fh> ) {
-		next if !$line || $line =~ /^\#/x;
-		my $match;
-		my @record = split /\s+/x, $line;
-		next if $allele_matched{ $record[1] };    #sometimes BLAST will display two alignments for a sequence
-		@$match{qw(allele identity alignment mismatches gaps)} = @record[ 1 .. 5 ];
-		push @matches, $match;
-		$allele_matched{ $record[1] } = 1;
-	}
-	close $blast_fh;
-	return \@matches;
+sub _get_blast_obj {
+	my ( $self, $locus ) = @_;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+			options          => {
+				l             => ($locus),
+				keep_partials => 1,
+				find_similar  => 1,
+				always_run    => 1
+			},
+			instance => $self->{'instance'},
+			logger   => $logger
+		}
+	);
+	return $blast_obj;
 }
 1;

@@ -308,6 +308,9 @@ sub initiate_plugins {
 	my ( $self, $plugin_dir ) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
 		system           => $self->{'system'},
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
 		cgi              => $self->{'cgi'},
 		instance         => $self->{'instance'},
 		prefstore        => $self->{'prefstore'},
