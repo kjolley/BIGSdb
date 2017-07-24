@@ -430,9 +430,9 @@ sub read_host_mapping_file {
 	if ( -e $mapping_file ) {
 		open( my $fh, '<', $mapping_file )
 		  || $logger->error("Can't open $mapping_file for reading");
-		while (<$fh>) {
-			next if /^\s+$/x || /^\#/x;
-			my ( $host, $mapped ) = split /\s+/x, $_;
+		while (my $line = <$fh>) {
+			next if $line=~/^\s+$/x || $line=~/^\#/x;
+			my ( $host, $mapped ) = split /\s+/x, $line;
 			next if !$host || !$mapped;
 			$self->{'config'}->{'host_map'}->{$host} = $mapped;
 		}

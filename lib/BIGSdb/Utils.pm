@@ -296,11 +296,13 @@ sub round_to_nearest {
 sub append {
 	my ( $source_file, $destination_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	open( my $fh1, '<',  $source_file )      || $logger->error("Can't open $source_file for reading");
-	open( my $fh,  '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
+	open( my $fh1, '<', $source_file ) || $logger->error("Can't open $source_file for reading");
+	open( my $fh, '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
 	print $fh "\n"      if $options->{'blank_before'};
 	print $fh "<pre>\n" if $options->{'preformatted'};
-	print $fh $_ while <$fh1>;
+	while ( my $line = <$fh1> ) {
+		print $fh $line;
+	}
 	print $fh "</pre>\n" if $options->{'preformatted'};
 	print $fh "\n"       if $options->{'blank_after'};
 	close $fh;

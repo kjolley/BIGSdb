@@ -67,8 +67,6 @@ sub blast {
 	);
 	$self->{'exact_matches'}   = $exact_matches;
 	$self->{'partial_matches'} = $partial_matches;
-	use Data::Dumper;
-	$self->{'logger'}->error( Dumper $options);
 	unlink $blast_results;
 	return;
 }
