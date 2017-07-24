@@ -75,6 +75,7 @@ sub _get_cache_names {
 	my ($self) = @_;
 	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 	my @caches;
+	return [] if !-d $dir;
 	opendir( my $dh, $dir ) || $self->{'logger'}->error("Cannot open directory $dir");
 	while ( my $name = readdir $dh ) {
 		next if $name =~ /^\./x;

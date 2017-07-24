@@ -57,7 +57,7 @@ use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
 use BIGSdb::RefreshSchemeCachePage;
-use BIGSdb::Offline::UpdateBlastCaches;
+use BIGSdb::Offline::Blast;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);

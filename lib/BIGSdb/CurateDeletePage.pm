@@ -486,7 +486,7 @@ sub _confirm {
 		$self->update_history( $data->{'isolate_id'},
 			qq($data->{'locus'}: designation '$data->{'allele_id'}' deleted$deltags" ) );
 	} elsif ( $table eq 'sequences' ) {
-		$self->{'datastore'}->mark_cache_stale;
+		$self->mark_locus_caches_stale( [ $data->{'locus'} ] );
 		$self->update_blast_caches;
 	}
 	return;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -124,6 +124,7 @@ sub _delete {
 
 	#Find what schemes are affected, then recreate scheme view
 	my $scheme_ids = $self->_get_affected_schemes( $table, $query );
+	my $loci = $self->_get_affected_loci ($table, $query);
 	if ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
@@ -140,7 +141,8 @@ sub _delete {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
-	}
+	} 
+	
 	eval {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
 		{
@@ -166,6 +168,10 @@ sub _delete {
 			$self->{'db'}->do($delete_qry);
 		}
 		$self->_refresh_db_views( $table, $scheme_ids );
+		if ($table eq 'sequences'){
+			$self->mark_locus_caches_stale( $loci );
+			$self->update_blast_caches;
+		}
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
@@ -227,10 +233,6 @@ sub _refresh_db_views {
 		}
 		return;
 	}
-	if ( $table eq 'sequences' ) {
-		$self->{'datastore'}->mark_cache_stale;
-		return;
-	}
 	return;
 }
 
@@ -268,6 +270,18 @@ sub _get_affected_schemes {
 		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
 		$scheme_qry =~ s/ORDER\ BY.*//x;
 		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	}
+	return [];
+}
+
+sub _get_affected_loci {
+	my ( $self, $table, $query ) = @_;
+	return [] if $self->{'system'}->{'dbtype'} ne 'sequences';
+	if ($table eq 'sequences'){
+		my $locus_qry = $query;
+		$locus_qry =~ s/SELECT\ \*/SELECT locus/x;
+		$locus_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $locus_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	return [];
 }

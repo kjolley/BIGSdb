@@ -1777,6 +1777,8 @@ sub _upload_data {
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $project_id = $self->_get_private_project_id;
 	my $private    = $self->_is_private_record;
+	my %loci;
+	$loci{$locus} = 1 if $locus;
 
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
@@ -1801,6 +1803,8 @@ sub _upload_data {
 					}
 				  ) // undef;
 			}
+			$loci{$data[ $field_order->{'locus'} ]}=1 if defined $field_order->{'locus'};
+			
 			if ( $table eq 'loci' || $table eq 'isolates' ) {
 				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
 				  if defined $field_order->{'aliases'} && defined $data[ $field_order->{'aliases'} ];
@@ -1870,7 +1874,6 @@ sub _upload_data {
 					);
 				},
 				sequences => sub {
-					$self->{'datastore'}->mark_cache_stale;
 					return $self->_prepare_sequences_extra_inserts(
 						{
 							locus               => $locus,
@@ -1915,6 +1918,8 @@ sub _upload_data {
 	}
 	$self->_display_update_footer_links($table);
 	if ( $table eq 'sequences' ) {
+		my @loci = keys %loci;
+		$self->mark_locus_caches_stale( \@loci );
 		$self->update_blast_caches;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';

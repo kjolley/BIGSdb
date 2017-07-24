@@ -124,6 +124,7 @@ ${bold}--refresh$norm
     Refresh existing caches.
     
 ${bold}--scheme$norm ${under}SCHEME_ID$norm
+    Refresh or create cache for specified scheme.
     
 HELP
 	return;

@@ -257,7 +257,7 @@ sub _insert {
 				if ( $modifies_scheme{$table} ) {
 					$self->remove_profile_data( $newdata->{'scheme_id'} );
 				} elsif ( $table eq 'sequences' ) {
-					$self->{'datastore'}->mark_cache_stale;
+					$self->mark_locus_caches_stale( [ $newdata->{'locus'} ] );
 				}
 			}
 		};

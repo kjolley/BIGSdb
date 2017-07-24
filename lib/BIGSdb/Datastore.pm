@@ -1992,7 +1992,7 @@ sub check_blast_cache {
 	if ( -e $temp_fastafile && !-e $stale_flag_file ) {
 		$run_already_generated = 1;
 	} else {
-		chmod 0774, "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
+		chmod 0777, "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}";
 		my $new_path = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$dataset";
 		if ( -f $new_path ) {
 			$logger->error("Can't create directory $new_path for cache files - a filename exists with this name.");
@@ -2003,7 +2003,7 @@ sub check_blast_cache {
 			#This method may be called by apache during a web query or by the bigsdb user
 			#if called from external script. We need to make sure that files can be overwritten
 			#by both. bigsdb should be a member of the apache group and vice versa.
-			chmod 0774, $new_path;
+			chmod 0777, $new_path;
 			unlink $stale_flag_file
 			  if $run eq $runs->[-1];    #only remove stale flag when creating last BLAST databases
 		}
@@ -2125,6 +2125,8 @@ sub create_blast_db {
 	}
 	return;
 }
+
+
 
 sub mark_cache_stale {
 

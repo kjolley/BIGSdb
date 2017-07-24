@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
+use BIGSdb::Offline::Blast;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
@@ -1343,8 +1344,27 @@ sub remove_profile_data {
 	return;
 }
 
+sub mark_locus_caches_stale {
+	my ( $self, $loci ) = @_;
+	return if !@$loci;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			instance         => $self->{'instance'},
+			logger           => $logger
+		}
+	);
+	foreach my $locus (@$loci){
+		$blast_obj->mark_locus_caches_stale($locus);
+	}
+	return;
+}
+
 #This should only be called once all databases accesses have completed.
 sub update_blast_caches {
+	
 	my ($self) = @_;
 	$self->{'update_blast_caches'} = 1;
 
@@ -1360,15 +1380,15 @@ sub update_blast_caches {
 			open STDIN,  '<', '/dev/null' || $logger->error("Can't detach STDIN: $!");
 			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
 			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
-			BIGSdb::Offline::UpdateBlastCaches->new(
+			my $blast_obj = BIGSdb::Offline::Blast->new(
 				{
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
 					instance         => $self->{'instance'},
-					options          => { q => 1 },
 				}
 			);
+			$blast_obj->refresh_caches;
 			CORE::exit(0);
 		}
 	}
