@@ -784,9 +784,10 @@ sub _scan_loci_together {
 			$match++ if $self->_analyse_blast_results($analysis_args);
 		}
 
-		#delete isolate working files
-		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
-		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
+		#delete working files
+		my @isolate_files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
+		my @locus_files   = glob("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+		foreach ( @isolate_files, @locus_files ) { unlink $1 if /^(.*BIGSdb.*)$/x }
 	}
 	return $match;
 }
