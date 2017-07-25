@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -141,7 +142,6 @@ sub _get_existing_designations {
 	my $designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $locus );
 	if (@$designations) {
 		$buffer .= qq(<h3>Existing designations</h3>\n);
-		$buffer .= $q->start_form;
 		$buffer .= q(<table class="resultstable"><tr><th>Update</th><th>Delete</th><th>allele id</th><th>sender</th>)
 		  . qq(<th>status</th><th>method</th><th>comments</th></tr>\n);
 		my $td = 1;
@@ -149,21 +149,23 @@ sub _get_existing_designations {
 			my $sender = $self->{'datastore'}->get_user_info( $designation->{'sender'} );
 			$designation->{'comments'} //= '';
 			$buffer .= qq(<tr class="td$td"><td>);
+			my ( $edit, $delete ) = ( EDIT, DELETE );
+			my $des_id = $designation->{'id'};
 			$buffer .=
-			  $q->submit( -name => "$designation->{'id'}\_update", -label => 'Update', -class => 'smallbutton' );
-			$buffer .= '</td><td>';
+			    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleUpdate&amp;isolate_id=$isolate_id&amp;locus=$locus&amp;${des_id}_update=1" )
+			  . qq(class="action">$edit</a>);
+			$buffer .= q(</td><td>);
 			$buffer .=
-			  $q->submit( -name => "$designation->{'id'}\_delete", -label => 'Delete', -class => 'smallbutton' );
+			    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleUpdate&amp;isolate_id=$isolate_id&amp;locus=$locus&amp;${des_id}_delete=1&amp;)
+			  . qq(sent2=1" class="action">$delete</a>);
 			$buffer .=
 			    qq(</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>)
 			  . qq(<td>$designation->{'status'}</td><td>$designation->{'method'}</td><td>$designation->{'comments'}</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		$buffer .= "</table>\n";
-		$buffer .= $q->hidden( sent2 => 1 );
-		$q->param( isolate_id => $isolate_id );
-		$buffer .= $q->hidden($_) foreach qw(db page locus isolate_id);
-		$buffer .= $q->end_form;
+		$buffer .= qq(</table>\n);
 	}
 	return $buffer;
 }
@@ -211,9 +213,10 @@ sub _update {
 			$newdata->{ $_->{'name'} } = $q->param($param);
 		}
 	}
-	$newdata->{'datestamp'}    = BIGSdb::Utils::get_datestamp();
-	$newdata->{'curator'}      = $self->get_curator_id;
-	$newdata->{'date_entered'} = $q->param('action') eq 'update' ? $data->{'date_entered'} : BIGSdb::Utils::get_datestamp();
+	$newdata->{'datestamp'} = BIGSdb::Utils::get_datestamp();
+	$newdata->{'curator'}   = $self->get_curator_id;
+	$newdata->{'date_entered'} =
+	  $q->param('action') eq 'update' ? $data->{'date_entered'} : BIGSdb::Utils::get_datestamp();
 	@problems = $self->check_record( 'allele_designations', $newdata, 1, $data );
 
 	#TODO Use placeholders for all SQL values.
@@ -265,9 +268,9 @@ sub _update {
 			}
 			if (   defined $existing_designation->{ lc( $attribute->{'name'} ) }
 				&& $newdata->{ $attribute->{'name'} } ne $existing_designation->{ lc( $attribute->{'name'} ) }
-				&& $attribute->{'name'}               ne 'datestamp'
-				&& $attribute->{'name'}               ne 'date_entered'
-				&& $attribute->{'name'}               ne 'curator' )
+				&& $attribute->{'name'} ne 'datestamp'
+				&& $attribute->{'name'} ne 'date_entered'
+				&& $attribute->{'name'} ne 'curator' )
 			{
 				push @updated_field, "$locus $attribute->{'name'}: "
 				  . "$existing_designation->{lc($attribute->{'name'})} -> $newdata->{ $attribute->{'name'}}";

@@ -739,6 +739,7 @@ sub _get_provenance_fields {
 		next if ( $thisfield->{'curate_only'} // '' ) eq 'yes' && !$self->{'curate'};
 		my $web;
 		my $value = $data->{ lc($field) };
+		$value = BIGSdb::Utils::escape_html($value);
 
 		if ( !defined $value ) {
 			if ( $composites{$field} ) {
@@ -1242,10 +1243,10 @@ sub _get_locus_value {
 	  $self->get_seq_detail_tooltips( $isolate_id, $locus,
 		{ get_all => 1, allele_flags => $self->{'prefs'}->{'allele_flags'} } )
 	  if $self->{'prefs'}->{'sequence_details'};
-	my $action = @$designations ? 'update' : 'add';
+	my $action = @$designations ? EDIT : ADD;
 	$buffer .=
 	    qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
-	  . qq(isolate_id=$isolate_id&amp;locus=$locus" class="update">$action</a>)
+	  . qq(isolate_id=$isolate_id&amp;locus=$locus" class="action">$action</a>)
 	  if $self->{'curate'};
 	$buffer .= q(&nbsp;) if !@$designations;
 	$buffer .= q(</dd>);

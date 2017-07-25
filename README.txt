@@ -1,3 +1,5 @@
+v1.17.1: *Fast mode using exemplars for web-based scanning. 
+         *Kiosk mode for sequence query page.
 v1.17.0: *Support for user uploads of private records.
          *Private user projects.
          *Support for paging in request headers in RESTful API.
