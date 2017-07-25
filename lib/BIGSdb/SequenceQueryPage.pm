@@ -386,7 +386,7 @@ sub _batch_query {
 	  LOCUS: foreach my $locus (@$loci) {
 			my @exact_alleles;
 			foreach my $match ( @{ $exact_matches->{$locus} } ) {
-				push @exact_alleles, $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
+				push @exact_alleles, $self->_get_allele_link( $locus, $match->{'allele'} );
 			}
 			local $" = q(, );
 			my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
