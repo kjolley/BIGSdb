@@ -327,11 +327,11 @@ sub _blast_fork {
 				my $too_busy = q(<div class="box" id="statusbad"><p>The server is currently too busy to run )
 				  . q(your query. Please try again in a few minutes.</p></div>);
 				$self->_write_results_file( $results_file, $too_busy );
-				$self->_update_status_file($status_file,'complete');
+				$self->_update_status_file( $status_file, 'complete' );
 				$logger->error('Server too busy to run sequence query.');
 			}
 			otherwise {
-				$self->_update_status_file($status_file,'failed');
+				$self->_update_status_file( $status_file, 'failed' );
 				$logger->error($@);
 			};
 		}
@@ -359,10 +359,10 @@ sub _write_results_file {
 
 sub _get_polling_javascript {
 	my ( $self, $results_prefix ) = @_;
-	my $status_complete_file = "/tmp/${results_prefix}_status.json";
-	my $results_file         = "/tmp/${results_prefix}.txt";
-	my $max_poll_time = 5_000;
-	my $buffer               = << "END";
+	my $status_file   = "/tmp/${results_prefix}_status.json";
+	my $results_file  = "/tmp/${results_prefix}.txt";
+	my $max_poll_time = 10_000;
+	my $buffer        = << "END";
 <script type="text/Javascript">//<![CDATA[
 \$(function () {	
 	getResults(500);
@@ -370,10 +370,10 @@ sub _get_polling_javascript {
 
 function getResults(poll_time) {
 	\$.ajax({
-		url: "$status_complete_file",
+		url: "$status_file",
 		dataType: 'json',
+		cache: false,
 		error: function(data){
-			// Do nothing - Terminate this function
 			\$("div#results").html('<div class="box" id="statusbad"><p>Something went wrong!</p></div>');
 		},		
 		success: function(data){
@@ -385,11 +385,10 @@ function getResults(poll_time) {
 				if (poll_time > $max_poll_time){
 					poll_time = $max_poll_time;
 				}
-				console.log(poll_time);
 				setTimeout(function() { 
            	        getResults(poll_time); 
                 }, poll_time);
-			} else {
+ 			} else {
 				\$("div#results").html();
 			}
 		}
