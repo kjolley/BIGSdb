@@ -40,7 +40,7 @@ sub blast {
 	my $loci = $self->get_selected_loci;
 	throw BIGSdb::DataException('Invalid loci') if !@$loci;
 	my $seq = $$seq_ref;    #Don't modify scalar ref as it may be needed by calling method
-	$self->_ensure_seq_has_identifer( \$seq );
+	$self->ensure_seq_has_identifer( \$seq );
 	$seq_ref = $self->_strip_invalid_chars( \$seq );
 	$self->{'seq_ref'} = $seq_ref;
 	my $blast_results = $self->_run_blast( \$seq, $loci, $args );
@@ -562,7 +562,7 @@ sub _get_shortest_seq_length {
 	return $shortest;
 }
 
-sub _ensure_seq_has_identifer {
+sub ensure_seq_has_identifer {
 	my ( $self, $seq_ref ) = @_;
 	if ( $$seq_ref !~ /^\s*>/x ) {
 		$$seq_ref = qq(>Query\n$$seq_ref);

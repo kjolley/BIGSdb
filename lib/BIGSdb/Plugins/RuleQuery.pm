@@ -21,7 +21,7 @@ package BIGSdb::Plugins::RuleQuery;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin BIGSdb::SequenceQueryPage);
+use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use BIGSdb::Utils;

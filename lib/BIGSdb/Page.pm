@@ -704,6 +704,7 @@ sub _print_help_panel {
 sub _print_menu {
 	my ($self) = @_;
 	return if $self->{'system'}->{'kiosk'};
+
 	#Don't show on log in or log out pages
 	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
 	return if !$self->{'system'}->{'db'};
@@ -1026,7 +1027,7 @@ sub print_file {
 					}
 				}
 			}
-			$buffer.= $_;
+			$buffer .= $_;
 		}
 		close $fh;
 	} else {
@@ -1208,9 +1209,9 @@ sub get_project_filter {
 		$labels{'any'} = 'belonging to any project';
 	}
 	if (@project_ids) {
-		my $class   = $options->{'class'} || 'filter';
+		my $class = $options->{'class'} || 'filter';
 		my $tooltip = 'project filter - Select projects to filter your query to only those isolates belonging to them.';
-		my $args    = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class };
+		$args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class };
 		if ( $options->{'multiple'} ) {
 			$args->{'multiple'} = 1;
 			$args->{'noblank'}  = 1;
@@ -2664,8 +2665,8 @@ sub get_user_db_name {
 
 sub print_return_to_submission {
 	my ($self) = @_;
-	my $back = BACK;
-	my $q = $self->{'cgi'};
+	my $back   = BACK;
+	my $q      = $self->{'cgi'};
 	if ( $q->param('submission_id') ) {
 		my $submission_id = $q->param('submission_id');
 		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
@@ -2684,7 +2685,7 @@ sub print_home_link {
 }
 
 sub is_page_allowed {
-	my ($self, $page) = @_;
+	my ( $self, $page ) = @_;
 	return 1 if !$self->{'system'}->{'kiosk'};
 	return 1 if $page eq $self->{'system'}->{'kiosk'};
 	my %allowed_pages;

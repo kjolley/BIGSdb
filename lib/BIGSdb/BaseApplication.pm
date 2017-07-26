@@ -28,6 +28,7 @@ use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::Login;
 use BIGSdb::Parser;
+use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
@@ -46,15 +47,15 @@ use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profile
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
 	my $self = {};
-	$self->{'system'}        = {};
-	$self->{'config'}        = {};
-	$self->{'instance'}      = undef;
-	$self->{'xmlHandler'}    = undef;
-	$self->{'page'}          = undef;
-	$self->{'invalidXML'}    = 0;
-	$self->{'invalidDbType'} = 0;
-	$self->{'dataConnector'} = BIGSdb::Dataconnector->new;
-	$self->{'datastore'}     = undef;
+	$self->{'system'}           = {};
+	$self->{'config'}           = {};
+	$self->{'instance'}         = undef;
+	$self->{'xmlHandler'}       = undef;
+	$self->{'page'}             = undef;
+	$self->{'invalidXML'}       = 0;
+	$self->{'invalidDbType'}    = 0;
+	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
+	$self->{'datastore'}        = undef;
 	$self->{'db'}               = undef;
 	$self->{'mod_perl_request'} = $r;
 	$self->{'fatal'}            = undef;
@@ -629,5 +630,27 @@ sub _is_name_in_file {
 	}
 	close $fh;
 	return 0;
+}
+
+sub initiate_plugins {
+	my ($self) = @_;
+	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
+		system           => $self->{'system'},
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		jobManager       => $self->{'jobManager'},
+		pluginDir        => $self->{'lib_dir'}
+	);
+	return;
 }
 1;
