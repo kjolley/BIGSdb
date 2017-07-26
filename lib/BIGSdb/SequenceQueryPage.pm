@@ -289,41 +289,119 @@ sub _run_query {
 
 sub _blast_now {
 	my ( $self, $seq_ref, $loci ) = @_;
-	my $results = $self->_run_blast( $seq_ref, $loci );
+	my $results = $self->_run_blast( $seq_ref, $loci, 1 );
 	say $results;
 	return;
 }
 
 sub _blast_fork {
 	my ( $self, $seq_ref, $loci ) = @_;
+	my $results_prefix = BIGSdb::Utils::get_random();
+	my $results_file   = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
+	my $status_file    = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
+	say $self->_get_polling_javascript($results_prefix);
+	say q(<div id="results"><div class="box" id="resultspanel">)
+	  . q(<span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(Please wait...</div>)
+	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
-	#	defined( my $kid = fork ) or $logger->error('cannot fork');
-	#	if ($kid) {
-	#		waitpid( $kid, 0 );
-	#	} else {
-	#		defined( my $grandkid = fork ) || $logger->error('Kid cannot fork');
-	#		if ($grandkid) {
-	#			CORE::exit(0);
-	#		} else {
-	#			open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
-	#			open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
-	#			open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
-	my $results = $self->_run_blast( $seq_ref, $loci );
-	say $results;
-
-	#		}
-	#		catch BIGSdb::ServerBusyException with {
-	#			$logger->error('Server too busy');
-	#		};
-	#			CORE::exit(0);
-	#		}
-	#	}
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) || $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			try {
+				open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+				open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+				open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
+				$self->_update_status_file( $status_file, 'running' );
+				my $results = $self->_run_blast( $seq_ref, $loci, 0 );
+				$self->_write_results_file( $results_file, $results );
+				$self->_update_status_file( $status_file, 'complete' );
+			}
+			catch BIGSdb::ServerBusyException with {
+				my $too_busy = q(<div class="box" id="statusbad"><p>The server is currently too busy to run )
+				  . q(your query. Please try again in a few minutes.</p></div>);
+				$self->_write_results_file( $results_file, $too_busy );
+				$self->_update_status_file($status_file,'complete');
+				$logger->error('Server too busy to run sequence query.');
+			}
+			otherwise {
+				$self->_update_status_file($status_file,'failed');
+				$logger->error($@);
+			};
+		}
+		CORE::exit(0);
+	}
 	return;
 }
 
+sub _update_status_file {
+	my ( $self, $status_file, $status ) = @_;
+	open( my $fh, '>', $status_file )
+	  || $self->{'logger'}->error("Cannot touch $status_file");
+	say $fh qq({"status":"$status"});
+	close $fh;
+	return;
+}
+
+sub _write_results_file {
+	my ( $self, $filename, $buffer ) = @_;
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+	say $fh $buffer;
+	close $fh;
+	return;
+}
+
+sub _get_polling_javascript {
+	my ( $self, $results_prefix ) = @_;
+	my $status_complete_file = "/tmp/${results_prefix}_status.json";
+	my $results_file         = "/tmp/${results_prefix}.txt";
+	my $max_poll_time = 5_000;
+	my $buffer               = << "END";
+<script type="text/Javascript">//<![CDATA[
+\$(function () {	
+	getResults(500);
+});
+
+function getResults(poll_time) {
+	\$.ajax({
+		url: "$status_complete_file",
+		dataType: 'json',
+		error: function(data){
+			// Do nothing - Terminate this function
+			\$("div#results").html('<div class="box" id="statusbad"><p>Something went wrong!</p></div>');
+		},		
+		success: function(data){
+			if (data.status == 'complete'){	
+				\$("div#results").load("$results_file");
+			} else if (data.status == 'running'){
+				// Wait and poll again - increase poll time by 0.5s each time.
+				poll_time += 500;
+				if (poll_time > $max_poll_time){
+					poll_time = $max_poll_time;
+				}
+				console.log(poll_time);
+				setTimeout(function() { 
+           	        getResults(poll_time); 
+                }, poll_time);
+			} else {
+				\$("div#results").html();
+			}
+		}
+	});
+}
+//]]></script>
+END
+	return $buffer;
+}
+
 sub _run_blast {
-	my ( $self, $seq_ref, $loci ) = @_;
+	my ( $self, $seq_ref, $loci, $always_run ) = @_;
 	my $q = $self->{'cgi'};
 	my $exemplar = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
 	$exemplar = 0 if @$loci == 1;    #We need to be able to find the nearest match if not exact.
@@ -341,16 +419,17 @@ sub _run_blast {
 			user             => $self->{'system'}->{'user'},
 			password         => $self->{'system'}->{'password'},
 			options          => {
-				l             => qq(@$loci),
-				keep_partials => $keep_partials,
-				batch_query   => $batch_query,
-				exemplar      => $exemplar,
-				always_run    => 0,
-				select_type   => $self->{'select_type'},
-				select_id     => $self->{'select_id'},
-				set_id        => $set_id,
-				script_name   => $self->{'system'}->{'script_name'},
-				align_width   => $self->{'prefs'}->{'alignwidth'}
+				l                    => qq(@$loci),
+				keep_partials        => $keep_partials,
+				batch_query          => $batch_query,
+				exemplar             => $exemplar,
+				always_run           => $always_run,
+				throw_busy_exception => 1,
+				select_type          => $self->{'select_type'},
+				select_id            => $self->{'select_id'},
+				set_id               => $set_id,
+				script_name          => $self->{'system'}->{'script_name'},
+				align_width          => $self->{'prefs'}->{'alignwidth'}
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -359,8 +438,6 @@ sub _run_blast {
 	my $results = $seq_qry_obj->run($$seq_ref);
 	return $results;
 }
-
-
 
 sub _get_selected_loci {
 	my ($self)    = @_;
