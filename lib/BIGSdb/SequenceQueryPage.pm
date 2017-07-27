@@ -302,7 +302,7 @@ sub _blast_fork {
 	say $self->_get_polling_javascript($results_prefix);
 	say q(<div id="results"><div class="box" id="resultspanel">)
 	  . q(<span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
-	  . q(Please wait...</div>)
+	  . q(<span class="wait_message">Scanning - Please wait.</span></div>)
 	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
