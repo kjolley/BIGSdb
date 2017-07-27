@@ -27,8 +27,8 @@ use BIGSdb::Constants qw(:interface);
 
 sub run {
 	my ( $self, $seq ) = @_;
-	my $options     = $self->{'options'};
-	my $loci        = $self->get_selected_loci;
+	my $options = $self->{'options'};
+	my $loci    = $self->get_selected_loci;
 	$self->{'system'}->{'set_id'} //= $self->{'options'}->{'set_id'};
 	my $linked_data = {
 		linked_data         => $self->_data_linked_to_loci( 'client_dbase_loci_fields',  $loci ),
@@ -216,11 +216,15 @@ sub _get_best_partial_match {
 	if ( ( $self->{'system'}->{'exemplars'} // q() ) ne 'yes' ) {    #Not using exemplars so this is best match
 		return $best_match;
 	}
+	my $loci = $self->get_selected_loci;    #Get locus list so that we can restore object after BLASTing single locus
 
 	#The best match is only the best matching exemplar so we need to repeat the query using all
 	#alleles for the identified locus.
 	$self->_reset_blast_object( [ $best_match->{'locus'} ] );
 	$self->blast($seq_ref);
+
+	#Return BLAST object to previous state.
+	$self->_reset_blast_object($loci);
 	return $self->get_best_partial_match;
 }
 
@@ -229,6 +233,7 @@ sub _reset_blast_object {
 	local $" = q(,);
 	$self->{'options'}->{'l'} = qq(@$loci);
 	undef $self->{'options'}->{$_} foreach qw(seq_ref exact_matches partial_matches);
+	$self->{'options'}->{'exemplar'} = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
 	$self->{'options'}->{'exemplar'} = 0 if @$loci == 1;
 	return;
 }
@@ -385,7 +390,8 @@ sub _get_table_header {
 sub _get_scheme_fields {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer = q();
-#	my $set_id = $self->get_set_id;
+
+	#	my $set_id = $self->get_set_id;
 	if ( !$scheme_id ) {    #all loci
 		my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $scheme (@$schemes) {
