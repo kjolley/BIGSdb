@@ -71,6 +71,13 @@ sub get_help_url {
 sub get_javascript {
 	my $buffer = << "END";
 \$(function () {
+	\$(document).ajaxComplete(function() {
+		initiate();
+	});
+	initiate();
+});
+
+function initiate() {
 	\$('a[data-rel=ajax]').click(function(){
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
@@ -79,7 +86,7 @@ sub get_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-});
+}
 
 function loadContent(url) {
 	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
