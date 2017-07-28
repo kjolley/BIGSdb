@@ -479,32 +479,6 @@ sub _get_selected_loci {
 	return [$selection];
 }
 
-sub get_alignment {
-	my ( $self, $outfile, $outfile_prefix ) = @_;
-	my $buffer = '';
-	if ( -e $outfile ) {
-		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/${outfile_prefix}_cleaned.txt";
-		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
-		  . qq(Show alignment</a></p>\n);
-		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre>\n);
-	}
-	return $buffer;
-}
-
-sub _cleanup_alignment {
-	my ( $self, $infile, $outfile ) = @_;
-	open( my $in_fh,  '<', $infile )  || $logger->error("Can't open $infile for reading");
-	open( my $out_fh, '>', $outfile ) || $logger->error("Can't open $outfile for writing");
-	while (<$in_fh>) {
-		next if $_ =~ /^\#/x;
-		print $out_fh $_;
-	}
-	close $in_fh;
-	close $out_fh;
-	return;
-}
-
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
