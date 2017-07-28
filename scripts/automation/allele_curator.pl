@@ -123,7 +123,7 @@ sub main {
 				{ fetch => 'col_arrayref' }
 			);
 		  COMPARE_SEQS: foreach my $ref_seq (@$ref_seqs) {
-				if ( are_sequences_similar( $seq->{'sequence'}, $ref_seq, $opts{'identity'} ) ) {
+				if ( are_sequences_similar( uc($seq->{'sequence'}), $ref_seq, $opts{'identity'} ) ) {
 					my $assigned_id = assign_allele( $allele_submission->{'locus'}, $seq->{'sequence'} );
 					say "$seq->{'seq_id'}: Assigned: $allele_submission->{'locus'}-$assigned_id";
 					eval {
@@ -133,7 +133,7 @@ sub main {
 							undef,
 							$allele_submission->{'locus'},
 							$assigned_id,
-							$seq->{'sequence'},
+							uc($seq->{'sequence'}),
 							$submission->{'submitter'},
 							DEFINER_USER,
 							'now',
