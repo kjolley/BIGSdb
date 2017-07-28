@@ -159,8 +159,12 @@ sub _batch_query {
 					my $count = @formatted_diffs;
 					my $plural = $count == 1 ? q() : q(s);
 					local $" = q(; );
-					$contig_buffer .=
-					  qq(<td style="text-align:left">$count difference$plural found. @formatted_diffs</td>);
+					$contig_buffer .= qq(<td style="text-align:left">$count difference$plural found. @formatted_diffs);
+					if ( !$count ) {
+						$contig_buffer .=
+						  qq(Your query sequence only starts at position $match->{'sstart'} of sequence.);
+					}
+					$contig_buffer .= q(</td>);
 				}
 				$contig_buffer .= q(</tr>);
 				$table .= $contig_buffer;
