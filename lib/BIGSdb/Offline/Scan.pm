@@ -321,9 +321,9 @@ sub _lookup_partial_matches {
 #this should then be deleted by the calling function!
 sub _create_fasta_index {
 	my ( $self, $locus_list, $temp_fastafile, $options ) = @_;
-	$self->{'no_exemplars'} = 1;
 	$options = {} if ref $options ne 'HASH';
 	return if -e $temp_fastafile;
+	$self->{'no_exemplars'} = 1;
 	my $dbtype = $options->{'dbtype'};
 	open( my $fasta_fh, '>', $temp_fastafile )
 	  or $logger->error("Can't open temp file $temp_fastafile for writing");
