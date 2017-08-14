@@ -21,7 +21,7 @@ package BIGSdb::Plugins::RuleQuery;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin BIGSdb::SequenceQueryPage);
+use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use Error qw(:try);
 use BIGSdb::Utils;
@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.0.8',
+		version          => '1.1.0',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -87,7 +87,6 @@ sub run {
 	  if !$q->param('data');
 	my $sequence = $q->param('sequence');
 	$q->delete('sequence');
-	$self->remove_all_identifier_lines( \$sequence ) if $sequence;
 	my $valid_DNA = 1;
 	if ($sequence) {
 		if ( !defined $ruleset_id ) {
@@ -106,7 +105,7 @@ sub run {
 		close $fh;
 	} elsif ( $q->param('fasta_upload') ) {
 		my $upload_file = $self->_upload_fasta_file;
-		$q->param( 'upload_file', $upload_file );
+		$q->param( upload_file => $upload_file );
 	}
 	if ( ( $sequence || $q->param('upload_file') ) && $ruleset_id && $valid_DNA ) {
 		my $params = $q->Vars;
@@ -202,8 +201,6 @@ sub run_job {
 		my $seq_ref = BIGSdb::Utils::slurp($file);
 		$sequence = $$seq_ref;
 	}
-	$self->remove_all_identifier_lines( \$sequence );
-	$sequence =~ s/\s//gx;
 	$self->{'sequence'} = \$sequence;
 	my $length = BIGSdb::Utils::commify( length $sequence );
 	push @input, "Sequence length: $length bp";
@@ -220,6 +217,32 @@ sub run_job {
 	}
 	$logger->error($@) if $@;
 	return;
+}
+
+sub _get_blast_object {
+	my ( $self, $loci ) = @_;
+	local $" = q(,);
+	my $exemplar = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
+	$exemplar = 0 if @$loci == 1;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+			options          => {
+				l          => qq(@$loci),
+				always_run => 1,
+				exemplar   => $exemplar,
+			},
+			instance => $self->{'instance'},
+			logger   => $logger
+		}
+	);
+	return $blast_obj;
 }
 
 sub _read_code {
@@ -268,69 +291,33 @@ sub _scan_locus {        ## no critic (ProhibitUnusedPrivateSubroutines) #Can be
 		$logger->error("Invalid locus $locus");
 		return;
 	}
-	my $set_id = $self->get_set_id;
-	( my $blast_file, undef ) = $self->{'datastore'}->run_blast(
-		{
-			locus       => $locus,
-			seq_ref     => $self->{'sequence'},
-			qry_type    => 'DNA',
-			num_results => 5,
-			cache       => 0,
-			set_id      => $set_id
-		}
-	);
-	my $exact_matches = $self->parse_blast_exact( $locus, $blast_file );
-	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->[0]->{'allele'} if @$exact_matches;  #only use first match
-	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	my $blast_obj = $self->_get_blast_object( [$locus] );
+	$blast_obj->blast( $self->{'sequence'} );
+	my $exact_matches = $blast_obj->get_exact_matches;
+	$self->{'results'}->{'locus'}->{$locus} = $exact_matches->{$locus}->[0]
+	  if ref $exact_matches->{$locus};    #only use first match
 	return;
 }
 
 sub _scan_scheme {
 	my ( $self, $scheme_id ) = @_;
-	my $set_id = $self->get_set_id;
-	( my $blast_file, undef ) = $self->{'datastore'}->run_blast(
-		{
-			locus       => "SCHEME_$scheme_id",
-			seq_ref     => $self->{'sequence'},
-			qry_type    => 'DNA',
-			num_results => 50000,
-			cache       => 0,
-			set_id      => $set_id
-		}
-	);
-	my $exact_matches = $self->parse_blast_exact( "SCHEME_$scheme_id", $blast_file );
-	unlink "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	my $set_id      = $self->get_set_id;
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my ( %locus_assigned, %allele );
-	foreach my $match (@$exact_matches) {
-
-		foreach my $locus (@$scheme_loci) {
-			next if $locus_assigned{$locus};
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-			my $regex;
-			if ( $locus_info->{'allele_id_regex'} ) {
-				$regex = $locus_info->{'allele_id_regex'};
-			} else {
-				$regex = $locus_info->{'allele_id_format'} eq 'integer' ? '\d+' : '.+';
-			}
-			if ( $match->{'allele'} =~ /^$locus:(.+)/x ) {
-				my $allele_id = $1;
-				if ( $allele_id =~ /$regex/x ) {
-					$match->{'allele'}                      = $allele_id;
-					$allele{$locus}                         = $allele_id;
-					$self->{'results'}->{'locus'}->{$locus} = $allele_id;
-					$locus_assigned{$locus}                 = 1;
-					last;
-				}
-			}
+	my $blast_obj   = $self->_get_blast_object($scheme_loci);
+	$blast_obj->blast( $self->{'sequence'} );
+	my $exact_matches = $blast_obj->get_exact_matches;
+	foreach my $locus (@$scheme_loci) {
+		my $locus_matches = $exact_matches->{$locus};
+		next if !$locus_matches;
+		if ( @{$locus_matches} ) {
+			$self->{'results'}->{'locus'}->{$locus} = $locus_matches->[0];
 		}
 	}
 	my @profiles;
 	my $missing_data = 0;
 	foreach my $locus (@$scheme_loci) {
-		my $allele_id = $allele{$locus};
-		if ( defined $allele_id ) {
-			push @profiles, $allele_id;
+		if ( defined $self->{'results'}->{'locus'}->{$locus} ) {
+			push @profiles, $self->{'results'}->{'locus'}->{$locus};
 		} else {
 			$missing_data = 1;
 			last;

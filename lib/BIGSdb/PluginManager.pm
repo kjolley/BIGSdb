@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,6 +50,9 @@ sub initiate {
 		} else {
 			my $plugin = "BIGSdb::Plugins::$plugin_name"->new(
 				system           => $self->{'system'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
 				cgi              => $self->{'cgi'},
 				instance         => $self->{'instance'},
 				prefs            => $self->{'prefs'},

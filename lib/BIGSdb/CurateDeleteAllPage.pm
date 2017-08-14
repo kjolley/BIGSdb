@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	if ( $q->param('list_file') ) {
 		my $data_type = $q->param('datatype') // 'text';
-		$self->{'datastore'}->create_temp_list_table($data_type, $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( $data_type, $q->param('list_file') );
 	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
@@ -81,7 +81,6 @@ sub print_content {
 		  . qq(from the $table table.</p></div>);
 		return;
 	}
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		foreach my $scheme_id (@$schemes) {
@@ -124,6 +123,7 @@ sub _delete {
 
 	#Find what schemes are affected, then recreate scheme view
 	my $scheme_ids = $self->_get_affected_schemes( $table, $query );
+	my $loci = $self->_get_affected_loci( $table, $query );
 	if ( $table eq 'allele_designations' ) {
 
 		#Update isolate history if removing allele_designations, allele_sequences, aliases
@@ -142,8 +142,7 @@ sub _delete {
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	eval {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} )
-		{
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 			foreach my $isolate_id (@$ids_affected) {
 				my $old_version =
 				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
@@ -213,6 +212,10 @@ sub _delete {
 		say q(<div class="box" id="resultsheader"><p>Records deleted.</p>);
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
 	}
+	if ( $table eq 'sequences' ) {
+		$self->mark_locus_caches_stale($loci);
+		$self->update_blast_caches;
+	}
 	return;
 }
 
@@ -225,10 +228,6 @@ sub _refresh_db_views {
 		foreach (@$scheme_ids) {
 			$self->remove_profile_data($_);
 		}
-		return;
-	}
-	if ( $table eq 'sequences' ) {
-		$self->{'datastore'}->mark_cache_stale;
 		return;
 	}
 	return;
@@ -268,6 +267,18 @@ sub _get_affected_schemes {
 		$scheme_qry =~ s/SELECT\ \*/SELECT id/x;
 		$scheme_qry =~ s/ORDER\ BY.*//x;
 		return $self->{'datastore'}->run_query( $scheme_qry, undef, { fetch => 'col_arrayref' } );
+	}
+	return [];
+}
+
+sub _get_affected_loci {
+	my ( $self, $table, $query ) = @_;
+	return [] if $self->{'system'}->{'dbtype'} ne 'sequences';
+	if ( $table eq 'sequences' ) {
+		my $locus_qry = $query;
+		$locus_qry =~ s/SELECT\ \*/SELECT locus/x;
+		$locus_qry =~ s/ORDER\ BY.*//x;
+		return $self->{'datastore'}->run_query( $locus_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	return [];
 }

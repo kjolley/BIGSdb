@@ -350,7 +350,7 @@ sub _check_sequence_similarity {
 	  if !($self->{'locus_info'}->{'data_type'} eq 'DNA'
 		&& !$q->param('ignore_similarity')
 		&& $self->{'datastore'}->sequences_exist($locus) );
-	my $check = $self->{'datastore'}->check_sequence_similarity( $locus, $seq_ref );
+	my $check = $self->check_sequence_similarity( $locus, $seq_ref );
 	if ( !$check->{'similar'} ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my $id_threshold =
@@ -412,7 +412,7 @@ sub _upload {
 		}
 	};
 	if ($@) {
-		say qq(<div class="box" id="statusbad"><p>Upload failed.  $@</p></div>);
+		say qq(<div class="box" id="statusbad"><p>Upload failed. $@</p></div>);
 		$self->{'db'}->rollback;
 		return;
 	}
@@ -424,7 +424,7 @@ sub _upload {
 	  . qq(title="Upload more" style="margin-right:1em">$more</a></p>);
 	say q(</div>);
 	$self->{'db'}->commit;
-	$self->{'datastore'}->mark_cache_stale;
+	$self->mark_locus_caches_stale( [ $q->param('locus') ] );
 	$self->update_blast_caches;
 	return;
 }

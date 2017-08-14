@@ -20,7 +20,7 @@ package BIGSdb::Offline::Script;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Application);
+use parent qw(BIGSdb::BaseApplication);
 use CGI;
 use DBI;
 use Error qw(:try);
@@ -340,8 +340,16 @@ sub get_selected_loci {
 		$loci_qry .= "data_type='$self->{'options'}->{'datatype'}'";
 	}
 	my $and_or = $loci_qry =~ /WHERE/x ? 'AND' : 'WHERE';
-	if ( $self->{'options'}->{'s'} ) {
-		my @schemes = split( ',', $self->{'options'}->{'s'} );
+	my @group_schemes;
+	if ( $self->{'options'}->{'scheme_group'} ) {
+		my $schemes = $self->{'datastore'}->get_schemes_in_group( $self->{'options'}->{'scheme_group'} );
+		die "No schemes defined for scheme group.\n" if !@$schemes;
+		@group_schemes = @$schemes;
+	}
+	if ( $self->{'options'}->{'s'} || @group_schemes ) {
+		my @schemes;
+		@schemes = split( ',', $self->{'options'}->{'s'} ) if $self->{'options'}->{'s'};
+		push @schemes, @group_schemes;
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
 		$qry = "SELECT locus FROM scheme_members WHERE scheme_id IN (@schemes) AND "

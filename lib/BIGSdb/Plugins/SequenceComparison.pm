@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ package BIGSdb::Plugins::SequenceComparison;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin BIGSdb::SequenceQueryPage);
+use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -40,7 +40,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.5',
+		version          => '1.0.6',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -174,6 +174,32 @@ sub run {
 	}
 	say $buffer if $buffer;
 	say q(</div>);
+	return;
+}
+
+sub get_alignment {
+	my ( $self, $outfile, $outfile_prefix ) = @_;
+	my $buffer = '';
+	if ( -e $outfile ) {
+		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/${outfile_prefix}_cleaned.txt";
+		$self->_cleanup_alignment( $outfile, $cleaned_file );
+		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
+		  . qq(Show alignment</a></p>\n);
+		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre>\n);
+	}
+	return $buffer;
+}
+
+sub _cleanup_alignment {
+	my ( $self, $infile, $outfile ) = @_;
+	open( my $in_fh,  '<', $infile )  || $logger->error("Can't open $infile for reading");
+	open( my $out_fh, '>', $outfile ) || $logger->error("Can't open $outfile for writing");
+	while (<$in_fh>) {
+		next if $_ =~ /^\#/x;
+		print $out_fh $_;
+	}
+	close $in_fh;
+	close $out_fh;
 	return;
 }
 

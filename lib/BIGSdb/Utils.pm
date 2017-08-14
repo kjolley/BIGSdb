@@ -95,10 +95,11 @@ sub is_complete_cds {
 }
 
 sub sequence_type {
-	my ($seq) = @_;
+	my ($sequence) = @_;
+	my $seq = ref $sequence ? $$sequence : $sequence;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|g|a|t|c|N|n]//;
-	return ( $AGTC_count / length $seq ) >= 0.9 ? 'DNA' : 'peptide';
+	return ( $AGTC_count / length $seq ) >= 0.8 ? 'DNA' : 'peptide';
 }
 
 sub truncate_seq {
@@ -230,7 +231,7 @@ sub round_up {
 }
 
 sub read_fasta {
-	my ($data_ref) = @_;
+	my ( $data_ref, $options ) = @_;
 	my @lines = split /\r?\n/x, $$data_ref;
 	my %seqs;
 	my $header;
@@ -245,7 +246,9 @@ sub read_fasta {
 	}
 	foreach my $id ( keys %seqs ) {
 		$seqs{$id} =~ s/\s//gx;
-		throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
+		if ( !$options->{'allow_peptide'} ) {
+			throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
+		}
 	}
 	return \%seqs;
 }
@@ -293,11 +296,13 @@ sub round_to_nearest {
 sub append {
 	my ( $source_file, $destination_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	open( my $fh1, '<',  $source_file )      || $logger->error("Can't open $source_file for reading");
-	open( my $fh,  '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
+	open( my $fh1, '<', $source_file ) || $logger->error("Can't open $source_file for reading");
+	open( my $fh, '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
 	print $fh "\n"      if $options->{'blank_before'};
 	print $fh "<pre>\n" if $options->{'preformatted'};
-	print $fh $_ while <$fh1>;
+	while ( my $line = <$fh1> ) {
+		print $fh $line;
+	}
 	print $fh "</pre>\n" if $options->{'preformatted'};
 	print $fh "\n"       if $options->{'blank_after'};
 	close $fh;
@@ -874,5 +879,21 @@ sub get_nice_duration {
 	my $minutes = int( ( $total_seconds - $hours * 3600 ) / 60 );
 	my $seconds = $total_seconds % 60;
 	return sprintf( '%d:%02d:%02d', $hours, $minutes, $seconds );
+}
+
+sub convert_html_table_to_text {
+	my ($html) = @_;
+	my $buffer = q();
+	my @lines = split /\n/x, $html;
+	foreach my $line (@lines) {
+		$line =~ s/&rarr;/->/gx;
+		$line =~ s/<\/th><th.*?>/\t/gx;                      #Convert cell breaks to tabs
+		$line =~ s/<\/td><td.*?>/\t/gx;
+		$line =~ s/<\/tr>/\n/gx;                             #Convert </tr> to newlines
+		$line =~ s/<span\ class="source">.*?<\/span>//gx;    #Remove linked data source
+		$line =~ s/<.+?>//gx;                                #Remove any remaining tags
+		$buffer .= $line;
+	}
+	return $buffer;
 }
 1;

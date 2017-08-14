@@ -1343,6 +1343,24 @@ sub remove_profile_data {
 	return;
 }
 
+sub mark_locus_caches_stale {
+	my ( $self, $loci ) = @_;
+	return if !@$loci;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			instance         => $self->{'instance'},
+			logger           => $logger
+		}
+	);
+	foreach my $locus (@$loci) {
+		$blast_obj->mark_locus_caches_stale($locus);
+	}
+	return;
+}
+
 #This should only be called once all databases accesses have completed.
 sub update_blast_caches {
 	my ($self) = @_;
@@ -1360,15 +1378,15 @@ sub update_blast_caches {
 			open STDIN,  '<', '/dev/null' || $logger->error("Can't detach STDIN: $!");
 			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
 			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
-			BIGSdb::Offline::UpdateBlastCaches->new(
+			my $blast_obj = BIGSdb::Offline::Blast->new(
 				{
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
 					instance         => $self->{'instance'},
-					options          => { q => 1 },
 				}
 			);
+			$blast_obj->refresh_caches;
 			CORE::exit(0);
 		}
 	}
@@ -1390,5 +1408,35 @@ sub get_form_icon {
 	  . qq(<span class="fa $icon fa-stack-2x form_icon_main"></span>)
 	  . qq(<span class="fa $highlight_class->{$highlight} fa-stack-1x" style="left:0.5em;"></span></span></span>);
 	return $bordered;
+}
+
+sub check_sequence_similarity {
+
+ #returns hashref with the following keys
+ #similar          - true if sequence is at least IDENTITY_THRESHOLD% identical over an alignment length of 90% or more.
+ #subsequence_of   - allele id of sequence that this is larger than query sequence but otherwise identical.
+ #supersequence_of - allele id of sequence that is smaller than query sequence but otherwise identical.
+	my ( $self, $locus, $seq_ref ) = @_;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+			options          => {
+				l             => ($locus),
+				keep_partials => 1,
+				find_similar  => 1,
+				always_run    => 1
+			},
+			instance => $self->{'instance'},
+			logger   => $logger
+		}
+	);
+	$blast_obj->blast($seq_ref);
+	return $blast_obj->check_sequence_similarity;
 }
 1;

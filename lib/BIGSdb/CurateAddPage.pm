@@ -257,7 +257,7 @@ sub _insert {
 				if ( $modifies_scheme{$table} ) {
 					$self->remove_profile_data( $newdata->{'scheme_id'} );
 				} elsif ( $table eq 'sequences' ) {
-					$self->{'datastore'}->mark_cache_stale;
+					$self->mark_locus_caches_stale( [ $newdata->{'locus'} ] );
 				}
 			}
 		};
@@ -559,7 +559,7 @@ sub _check_sequence_field {
 	return if ( $locus_info->{'data_type'} // q() ) ne 'DNA';
 	return if !$self->{'datastore'}->sequences_exist( $newdata->{'locus'} );
 	if ( !$q->param('ignore_similarity') ) {
-		my $check = $self->{'datastore'}->check_sequence_similarity( $newdata->{'locus'}, \( $newdata->{'sequence'} ) );
+		my $check = $self->check_sequence_similarity( $newdata->{'locus'}, \( $newdata->{'sequence'} ) );
 		if ( !$check->{'similar'} ) {
 			my $id_threshold =
 			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
