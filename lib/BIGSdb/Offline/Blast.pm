@@ -356,7 +356,7 @@ sub _parse_blast_partial {
 	my $partial_matches = {};
 	my $identity        = $self->{'options'}->{'identity'};
 	my $alignment       = $self->{'options'}->{'alignment'};
-	$identity  = 90 if !BIGSdb::Utils::is_int($identity);
+	$identity  = 50 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
 	$self->_read_blast_file_into_structure($blast_file);
 	my $length_cache = {};
