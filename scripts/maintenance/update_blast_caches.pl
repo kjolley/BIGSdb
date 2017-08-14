@@ -37,6 +37,7 @@ GetOptions(
 	'delete_old'          => \$opts{'delete_old'},
 	'delete_single_locus' => \$opts{'delete_single_locus'},
 	'help'                => \$opts{'help'},
+	'quiet'               => \$opts{'quiet'},
 	'refresh'             => \$opts{'refresh'},
 	'scheme=i'            => \$opts{'scheme'}
 );
@@ -45,9 +46,11 @@ if ( $opts{'help'} ) {
 	exit;
 }
 
+my $script_logging = $opts{'quiet'} ? 'WARN' : 'INFO';
+
 #Direct all library logging calls to screen
 my $log_conf =
-    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+    qq(log4perl.category.BIGSdb.Script        = $script_logging, Screen\n)
   . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
   . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
   . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
@@ -118,7 +121,10 @@ ${bold}--delete_single_locus$norm
     when needed.
     
 ${bold}--help$norm
-    This help page.   
+    This help page.
+    
+${bold}--quiet$norm
+    Only show errors.  
     
 ${bold}--refresh$norm
     Refresh existing caches.
