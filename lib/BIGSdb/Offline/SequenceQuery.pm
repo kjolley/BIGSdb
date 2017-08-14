@@ -313,10 +313,13 @@ sub _translate_button {
 	return q() if !$self->is_page_allowed('sequenceTranslate');
 	my $contigs = () = $$seq_ref =~ />/gx;
 	return q() if $contigs > 1;
+	my $seq = $$seq_ref;
+	$seq =~ s/^>.*?\n//x;    #Remove identifier line if exists
+	$seq =~ s/\s//gx;
 	my $q      = $self->{'cgi'};
 	my $buffer = $q->start_form;
 	$q->param( page     => 'sequenceTranslate' );
-	$q->param( sequence => $$seq_ref );
+	$q->param( sequence => $seq );
 	$buffer .= $q->hidden($_) foreach (qw (db page sequence));
 	$buffer .= $q->submit( -label => 'Translate query', -class => BUTTON_CLASS );
 	$buffer .= $q->end_form;
