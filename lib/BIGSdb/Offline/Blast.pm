@@ -353,10 +353,12 @@ sub _parse_blast_partial {
 	my ( $self, $args ) = @_;
 	my ( $params, $loci, $blast_file, $exact_matches, $seq_ref, $options ) =
 	  @{$args}{qw (params loci blast_file exact_matches seq_ref options)};
-	my $partial_matches = {};
-	my $identity        = $self->{'options'}->{'identity'};
-	my $alignment       = $self->{'options'}->{'alignment'};
-	$identity  = 50 if !BIGSdb::Utils::is_int($identity);
+	my $partial_matches            = {};
+	my $identity                   = $self->{'options'}->{'identity'};
+	my $alignment                  = $self->{'options'}->{'alignment'};
+	my $return_best_poor_identity  = defined $self->{'options'}->{'identity'} ? 0 : 1;
+	my $return_best_poor_alignment = defined $self->{'options'}->{'alignment'} ? 0 : 1;
+	$identity  = 90 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
 	$self->_read_blast_file_into_structure($blast_file);
 	my $length_cache = {};
@@ -369,7 +371,7 @@ sub _parse_blast_partial {
 		if ( $self->{'program'} =~ /tblast/x ) {
 			$record->[3] *= 3;
 		}
-		if ( $record->[2] >= $identity ) {
+		if ( $record->[2] >= $identity || ( !@$locus_match && $return_best_poor_identity ) ) {
 			if ( !$length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
 					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
@@ -378,7 +380,7 @@ sub _parse_blast_partial {
 				);
 			}
 			my $length = $length_cache->{$locus}->{$allele_id};
-			if ( $record->[3] >= $alignment * 0.01 * $length ) {
+			if ( $record->[3] >= $alignment * 0.01 * $length || ( !@$locus_match && $return_best_poor_alignment ) ) {
 				my $match;
 				$match->{'query'}      = $record->[0];
 				$match->{'allele'}     = $allele_id;
