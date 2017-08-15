@@ -581,10 +581,10 @@ sub _get_differences_output {
 	my $seq1_infile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_file1.txt";
 	my $seq2_infile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_file2.txt";
 	my $outfile        = "$self->{'config'}->{'tmp_dir'}/${temp}_outfile.txt";
-	open( my $seq1_fh, '>', $seq2_infile ) || $self->{'logger'}->error("Can't open $seq2_infile for writing");
+	open( my $seq1_fh, '>', $seq2_infile ) || $self->{'logger'}->error("Cannot open $seq2_infile for writing");
 	say $seq1_fh ">Ref\n$$allele_seq_ref";
 	close $seq1_fh;
-	open( my $seq2_fh, '>', $seq1_infile ) || $self->{'logger'}->error("Can't open $seq1_infile for writing");
+	open( my $seq2_fh, '>', $seq1_infile ) || $self->{'logger'}->error("Cannot open $seq1_infile for writing");
 	say $seq2_fh ">Query\n$$contig_ref";
 	close $seq2_fh;
 	my $reverse = $match->{'reverse'} ? 1 : 0;

@@ -238,6 +238,7 @@ sub read_fasta {
 	foreach my $line (@lines) {
 		if ( substr( $line, 0, 1 ) eq '>' ) {
 			$header = substr( $line, 1 );
+			$header =~ s/\s.*$//x;    #Strip off anything after space
 			next;
 		}
 		throw BIGSdb::DataException('Not valid FASTA format.') if !$header;
@@ -296,8 +297,8 @@ sub round_to_nearest {
 sub append {
 	my ( $source_file, $destination_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	open( my $fh1, '<', $source_file ) || $logger->error("Can't open $source_file for reading");
-	open( my $fh, '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
+	open( my $fh1, '<',  $source_file )      || $logger->error("Can't open $source_file for reading");
+	open( my $fh,  '>>', $destination_file ) || $logger->error("Can't open $destination_file for writing");
 	print $fh "\n"      if $options->{'blank_before'};
 	print $fh "<pre>\n" if $options->{'preformatted'};
 	while ( my $line = <$fh1> ) {
