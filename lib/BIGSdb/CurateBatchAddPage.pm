@@ -2275,6 +2275,9 @@ sub _get_fields_to_include {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			next if ($att->{'no_curate'} // '') eq 'yes';
+			$logger->error($field);
 			if ( $field =~ /^meta_.*:/x ) {
 				push @metafields, $field;
 			} else {
@@ -2367,6 +2370,8 @@ sub _get_fields_in_order {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			next if ($att->{'no_curate'} // '') eq 'yes';
 			push @fields, $field;
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @fields, 'aliases';
@@ -2411,9 +2416,11 @@ sub _get_field_table_header {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		foreach (@$field_list) {
-			push @headers, $_;
-			if ( $_ eq $self->{'system'}->{'labelfield'} ) {
+		foreach my $field (@$field_list) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			next if ($att->{'no_curate'} // '') eq 'yes';
+			push @headers, $field;
+			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @headers, 'aliases';
 				push @headers, 'references';
 			}

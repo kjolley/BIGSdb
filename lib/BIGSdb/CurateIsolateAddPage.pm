@@ -345,6 +345,7 @@ sub print_provenance_form_elements {
 	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			next if ($thisfield->{'no_curate'} // '') eq 'yes';
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0

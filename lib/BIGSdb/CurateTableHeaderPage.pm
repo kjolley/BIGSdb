@@ -60,6 +60,8 @@ sub get_headers {
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			next if ($att->{'no_curate'} // '') eq 'yes';
 			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @headers, qw(aliases references);

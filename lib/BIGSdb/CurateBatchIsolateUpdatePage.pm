@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -208,6 +208,9 @@ sub _check_field_status {
 		$bad_field = 1 if !$field_is_metafield;
 	} elsif ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
+	} else {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field->[$i]);
+		$not_allowed_field = 1 if ($att->{'no_curate'} // '') eq 'yes';
 	}
 	return ( $bad_field, $not_allowed_field );
 }
