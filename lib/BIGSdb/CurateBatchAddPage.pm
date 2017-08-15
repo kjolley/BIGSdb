@@ -2277,7 +2277,6 @@ sub _get_fields_to_include {
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ($att->{'no_curate'} // '') eq 'yes';
-			$logger->error($field);
 			if ( $field =~ /^meta_.*:/x ) {
 				push @metafields, $field;
 			} else {
