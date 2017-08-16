@@ -542,6 +542,8 @@ sub _get_boolean_field {
 	my ( $name, $newdata, $att ) = @$args{qw(name newdata att)};
 	return q() if $att->{'type'} ne 'bool';
 	my $q = $self->{'cgi'};
+	$q->delete( $att->{'name'} )
+	  if !$q->param( $att->{'name'} );    #Prevents status changing from nothing selected on submit.
 	my $default;
 	if ( $q->param('page') eq 'update' && ( $newdata->{ $att->{'name'} } // '' ) ne '' ) {
 		$default = $newdata->{ $att->{'name'} } ? 'true' : 'false';
