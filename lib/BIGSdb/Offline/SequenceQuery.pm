@@ -619,6 +619,10 @@ sub _get_differences_output {
 		}
 		$buffer .= $self->get_alignment( $outfile, $temp );
 		my $match_seq = $match->{'sequence'};
+		while ( $match->{'sstart'} > 1 && $match->{'start'} > 1 ) {
+			$match->{'sstart'}--;
+			$match->{'start'}--;
+		}
 		my $diffs = $self->_get_differences( $allele_seq_ref, $contig_ref, $match->{'sstart'}, $match->{'start'} );
 		$buffer .= q(<h2>Differences</h2>);
 		if ( $match->{'query'} ne 'Query' ) {
