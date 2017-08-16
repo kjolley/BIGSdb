@@ -763,8 +763,8 @@ sub _get_cache_loci {
 	my ( $self, $cache_name ) = @_;
 	my $locus_file = "$self->{'config'}->{'secure_tmp_dir'}/$self->{'system'}->{'db'}/$cache_name/loci";
 	if ( !-e $locus_file ) {
-		$self->{'logger'}->error("Locus file $locus_file does not exist");
-		return;
+		$self->{'logger'}->info("Locus file $locus_file does not exist");
+		return [];
 	}
 	my $loci = [];
 	open( my $fh, '<', $locus_file ) || $self->{'logger'}->error("Cannot open locus file $locus_file");
