@@ -452,11 +452,13 @@ sub _get_scheme_table {
 			return q() if $primary_key && $value eq 'Not defined';
 			$field =~ tr/_/ /;
 			$buffer .= qq(<tr class="td$td"><th>$field</th><td>);
-			$buffer .=
-			  $primary_key
-			  ? qq(<a href="$self->{'options'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
-			  . qq(scheme_id=$scheme_id&amp;profile_id=$value">$value</a>)
-			  : $value;
+			if ( $primary_key && $self->is_page_allowed('profileInfo') ) {
+				$buffer .=
+				    qq(<a href="$self->{'options'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
+				  . qq(scheme_id=$scheme_id&amp;profile_id=$value">$value</a>);
+			} else {
+				$buffer .= $value;
+			}
 			$buffer .= q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
