@@ -29,23 +29,22 @@ get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
 
 sub _get_profiles {
 	my $self = setting('self');
-	if (request->accept =~ /(tsv|csv)/x){
+	if ( request->accept =~ /(tsv|csv)/x ) {
 		_get_profiles_csv();
-	} 
+	}
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
 	my $allowed_filters = [qw(added_after updated_after)];
 	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
-	my $qry              = $self->add_filters( "SELECT COUNT(*) FROM $scheme_warehouse", $allowed_filters );
-	my $profile_count    = $self->{'datastore'}->run_query($qry);
+	my $qry = $self->add_filters( "SELECT COUNT(*),max(datestamp) FROM $scheme_warehouse", $allowed_filters );
+	my ( $profile_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
 	my $page_values = $self->get_page_values($profile_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	
-	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $scheme_warehouse", $allowed_filters );
 	$qry .= ' ORDER BY '
 	  . (
@@ -56,7 +55,7 @@ sub _get_profiles {
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($profile_count) };
-	
+	$values->{'last_updated'} = $last_updated if defined $last_updated;
 	my $path = $self->get_full_path( "/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;

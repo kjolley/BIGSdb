@@ -42,8 +42,8 @@ sub _get_alleles {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $qry = $self->add_filters( 'SELECT COUNT(*) FROM sequences WHERE locus=?', $allowed_filters );
-	my $allele_count = $self->{'datastore'}->run_query( $qry, $locus_name );
+	my $qry = $self->add_filters( 'SELECT COUNT(*),max(datestamp) FROM sequences WHERE locus=?', $allowed_filters );
+	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
 	my $page_values = $self->get_page_values($allele_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry = $self->add_filters( q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
@@ -52,6 +52,7 @@ sub _get_alleles {
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	my $values = { records => int($allele_count) };
+	$values->{'last_updated'} = $last_updated if defined $last_updated;
 	my $path = $self->get_full_path( "/db/$db/loci/$locus_name/alleles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
@@ -136,8 +137,7 @@ sub _get_alleles_fasta {
 	my $qry =
 	  $self->add_filters( q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
 		$allowed_filters );
-	$qry .= q( ORDER BY )
-	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
+	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$alleles ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
