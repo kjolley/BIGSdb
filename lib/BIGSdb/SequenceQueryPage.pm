@@ -286,7 +286,8 @@ sub _upload_accession {
 sub _run_query {
 	my ( $self, $seq_ref ) = @_;
 	my $loci = $self->_get_selected_loci;
-	if ( length $$seq_ref > RUN_OFFLINE_LENGTH ) {
+	my $q = $self->{'cgi'};
+	if ( length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery' ) {
 		$self->_blast_fork( $seq_ref, $loci );
 	} else {
 		$self->_blast_now( $seq_ref, $loci );
