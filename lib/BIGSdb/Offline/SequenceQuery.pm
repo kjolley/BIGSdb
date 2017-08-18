@@ -343,6 +343,7 @@ sub _get_locus_matches {
 		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
+		$self->{'linked_data'}->{$locus}->{$match->{'allele'}} = $field_values->{'values'};
 		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
 		$allele_info = $self->{'datastore'}->run_query(
 			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
@@ -352,7 +353,7 @@ sub _get_locus_matches {
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
 		$buffer .= qq(<td>$match->{'length'}</td><td>$match->{'query'}</td><td>$match->{'start'}</td>)
 		  . qq(<td>$match->{'end'}</td>);
-		$buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>)
+		$buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values->{'formatted'}</td>) : q(<td></td>)
 		  if $data->{'linked_data'};
 		$buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
 		  if $data->{'extended_attributes'};
@@ -547,9 +548,9 @@ sub _get_partial_match_results {
 		$buffer .= qq( (Flag$plural: <a class="seqflag_tooltip">@$flags</a>)) if @$flags;
 	}
 	$buffer .= q(</p>);
-	if ($field_values) {
+	if ($field_values->{'formatted'}) {
 		$buffer .= q(<p>This match is linked to the following data:</p>);
-		$buffer .= $field_values;
+		$buffer .= $field_values->{'formatted'};
 	}
 	return $buffer;
 }
@@ -692,6 +693,11 @@ sub get_alignment {
 		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre>\n);
 	}
 	return $buffer;
+}
+
+sub get_allele_linked_data {
+	my ($self) = @_;
+	return $self->{'linked_data'};
 }
 
 sub _cleanup_alignment {

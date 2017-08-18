@@ -1769,7 +1769,7 @@ sub get_client_data_linked_to_allele {
 		$locus,
 		{ fetch => 'all_arrayref' }
 	);
-	my ( $dl_buffer, $td_buffer );
+	my ( $dl_buffer, $td_buffer, $field_values );
 	my $i = 0;
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
@@ -1791,6 +1791,7 @@ sub get_client_data_linked_to_allele {
 		my @values;
 		foreach my $data (@$field_data) {
 			my $value = $data->{$field};
+			push @{ $field_values->{$field} }, $value;
 			if ( any { $field eq $_ } qw (species genus) ) {
 				$value = "<i>$value</i>";
 			}
@@ -1805,9 +1806,9 @@ sub get_client_data_linked_to_allele {
 	}
 	$dl_buffer = qq(<dl class="data">\n$dl_buffer\n</dl>) if $dl_buffer;
 	if ( $options->{'table_format'} ) {
-		return $td_buffer;
+		return { formatted => $td_buffer, values => $field_values };
 	}
-	return $dl_buffer;
+	return { formatted => $dl_buffer, values => $field_values };
 }
 
 sub _format_list_values {

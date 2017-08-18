@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,7 +35,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
-	if (!defined $locus){
+	if ( !defined $locus ) {
 		say q(<h1>Allele information</h1>);
 		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
 		return;
@@ -154,7 +154,7 @@ sub print_content {
 	}
 	$self->_print_client_database_data( $locus, $allele_id );
 	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
-	say qq(<h2>Linked data</h2>\n$client_buffer) if $client_buffer;
+	say qq(<h2>Linked data</h2>\n$client_buffer->{'formatted'}) if $client_buffer->{'formatted'};
 	say q(</div></div>);
 	return;
 }
@@ -231,7 +231,7 @@ sub _process_flags {
 sub get_title {
 	my ($self) = @_;
 	my $locus = $self->{'cgi'}->param('locus') // q();
-	$locus =~ s/%27/'/gx;                                    #Web-escaped locus
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $allele_id = $self->{'cgi'}->param('allele_id');
 	return 'Invalid locus' if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
@@ -298,6 +298,7 @@ sub _print_ref_links {
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
+
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
 			say qq(<li style="padding-bottom:1em">$citations->{$pmid}</li>);
 		}
