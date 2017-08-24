@@ -27,6 +27,7 @@ use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::SequenceQuery;
 use Bio::DB::GenBank;
+use JSON;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use constant INF                => 9**99;
@@ -298,15 +299,28 @@ sub _run_query {
 sub _blast_now {
 	my ( $self, $seq_ref, $loci ) = @_;
 	my $results = $self->_run_blast( $seq_ref, $loci, 1 );
-	say $results;
+	my $q = $self->{'cgi'};
+	if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
+		my $results_prefix    = BIGSdb::Utils::get_random();
+		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
+		my $results_json      = encode_json($results);
+		$self->_write_results_file( $results_json_file, $results_json );
+		my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+		say $script_out;
+		unlink $results_json_file;
+	} else {
+		say $results->{'html'};
+	}
 	return;
 }
 
 sub _blast_fork {
 	my ( $self, $seq_ref, $loci ) = @_;
-	my $results_prefix = BIGSdb::Utils::get_random();
-	my $results_file   = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
-	my $status_file    = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
+	my $q                 = $self->{'cgi'};
+	my $results_prefix    = BIGSdb::Utils::get_random();
+	my $results_file      = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
+	my $status_file       = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
+	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 	say $self->_get_polling_javascript($results_prefix);
 	say q(<div id="results"><div class="box" id="resultspanel">)
 	  . q(<span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
@@ -328,7 +342,15 @@ sub _blast_fork {
 				open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
 				$self->_update_status_file( $status_file, 'running' );
 				my $results = $self->_run_blast( $seq_ref, $loci, 0 );
-				$self->_write_results_file( $results_file, $results );
+				if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
+					my $results_json = encode_json($results);
+					$self->_write_results_file( $results_json_file, $results_json );
+					my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+					$self->_write_results_file( $results_file, $script_out );
+					unlink $results_json_file;
+				} else {
+					$self->_write_results_file( $results_file, $results->{'html'} );
+				}
 				$self->_update_status_file( $status_file, 'complete' );
 			}
 			catch BIGSdb::ServerBusyException with {
@@ -442,8 +464,14 @@ sub _run_blast {
 			logger   => $logger
 		}
 	);
-	my $results = $seq_qry_obj->run($$seq_ref);
-	return $results;
+	my $html = $seq_qry_obj->run($$seq_ref);
+	my $return_obj = { html => $html };
+
+	if ( $q->param('page') eq 'sequenceQuery' ) {
+		$return_obj->{'exact_matches'} = $seq_qry_obj->get_exact_matches;
+		$return_obj->{'linked_data'}   = $seq_qry_obj->get_allele_linked_data;
+	}
+	return $return_obj;
 }
 
 sub _get_selected_loci {

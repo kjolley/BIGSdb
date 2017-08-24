@@ -1358,7 +1358,9 @@ sub _print_record_table {
 			my $field_values =
 			  $self->{'datastore'}
 			  ->get_client_data_linked_to_allele( $data->{'locus'}, $data->{'allele_id'}, { table_format => 1 } );
-			print defined $field_values ? qq(<td style="text-align:left">$field_values</td>) : q(<td></td>);
+			print defined $field_values
+			  ? qq(<td style="text-align:left">$field_values->{'formatted'}</td>)
+			  : q(<td></td>);
 		}
 		if ( $self->_show_allele_flags ) {
 			my $flags = $self->{'datastore'}->get_allele_flags( $data->{'locus'}, $data->{'allele_id'} );
