@@ -165,10 +165,11 @@ sub _print_interface {
 			say q(<li>Sequence flags can be added as a semi-colon (;) separated list.</li>);
 		}
 	}
-	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=tableHeader&amp;table=$table$locus_attribute">Download tab-delimited header for your spreadsheet</a>)
-	  . q( - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste the data.</li>);
 	my $order_clause = $table eq 'isolates' ? q(&amp;order=scheme) : q();
+	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=tableHeader&amp;table=$table$locus_attribute$order_clause">Download tab-delimited header for your spreadsheet</a>)
+	  . q( - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste the data.</li>);
+	
 	say
 	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($locus_attribute$order_clause">Download submission template (xlsx format)</a>);
