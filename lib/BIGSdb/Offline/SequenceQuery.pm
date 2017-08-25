@@ -476,6 +476,7 @@ sub _get_contig_names {
 	foreach my $line (@lines) {
 		if ( $line =~ /^>/x ) {
 			( my $name = $line ) =~ s/^>//x;
+			$name =~ s/\s.*$//x;
 			push @$names, $name;
 		}
 	}
