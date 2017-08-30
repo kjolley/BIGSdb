@@ -153,7 +153,8 @@ sub _print_query_section {
 			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a></li>);
 		}
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - query an allele sequence.</li>);
+		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - )
+		  . q(query an allele sequence or genome.</li>);
 		say qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - )
 		  . q(query multiple sequences in FASTA format.</li>);
 		say qq(<li><a href="${url_root}page=tableQuery&amp;table=sequences">Sequence attribute search</a> - )
