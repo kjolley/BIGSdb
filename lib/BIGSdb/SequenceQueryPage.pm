@@ -187,7 +187,7 @@ sub _print_interface {
 	$action_args->{'set_id'} = $set_id if $set_id;
 	$self->print_action_fieldset($action_args);
 	say q(</div></div>);
-	say $q->hidden($_) foreach qw (db page word_size);
+	say $q->hidden($_) foreach qw (db page word_size no_ajax);
 	say $q->end_form;
 	say q(</div>);
 	return;
@@ -287,8 +287,10 @@ sub _upload_accession {
 sub _run_query {
 	my ( $self, $seq_ref ) = @_;
 	my $loci = $self->_get_selected_loci;
-	my $q = $self->{'cgi'};
-	if ( length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery' ) {
+	my $q    = $self->{'cgi'};
+	my $always_run_immediately = $q->param('no_ajax') ? 1 : 0;
+	if ( (length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery') && !$always_run_immediately )
+	{
 		$self->_blast_fork( $seq_ref, $loci );
 	} else {
 		$self->_blast_now( $seq_ref, $loci );
