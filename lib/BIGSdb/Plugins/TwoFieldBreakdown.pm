@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -66,31 +66,37 @@ sub get_hidden_attributes {
 	return \@list;
 }
 
+
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Two field breakdown of dataset</h1>);
 	my $format = $q->param('format');
 	$self->{'extended'} = $self->get_extended_attributes;
-	if ( !$q->param('function') ) {
-		my $id_list = [];
-		if ( $q->param('query_file') ) {
-			my $qry_ref = $self->get_query( $q->param('query_file') );
-			if ($qry_ref) {
-				$id_list = $self->get_ids_from_query($qry_ref);
-			}
+	my $id_list = [];
+	if ( defined $q->param('list') ) {
+		@$id_list = split /[\r\n]+/x, $q->param('list');
+		$self->write_list_file($id_list);
+	} elsif ( $q->param('list_file') ) {
+		$id_list = $self->get_ids_from_list_file( $q->param('list_file') );
+	} elsif ( $q->param('query_file') ) {
+		my $qry_ref = $self->get_query( $q->param('query_file') );
+		if ($qry_ref) {
+			$id_list = $self->get_ids_from_query($qry_ref);
 		}
+	}
+	if ( !$q->param('function') ) {
 		$self->_print_interface($id_list);
 		return;
 	}
-	my @list = split /[\r\n]+/x, $q->param('list');
-	@list = uniq @list;
+	my @list = uniq @$id_list;
 	if ( !@list ) {
 		my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-		my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+		$id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 		@list = @$id_list;
 	}
-	my ( $id_list, $invalid ) = $self->check_id_list( \@list );
+	( $id_list, my $invalid ) = $self->check_id_list( \@list );
 	my ( @error, @info );
 	if ( !@$id_list ) {
 		push @error, q(You must select at least one valid isolate id.);
@@ -305,7 +311,7 @@ sub _print_interface {
 	  . q(e.g. breakdown of serogroup by year.</p>);
 	say $q->start_form;
 	$q->param( function => 'breakdown' );
-	say $q->hidden($_) foreach qw (db page name function datatype);
+	say $q->hidden($_) foreach qw (db page name function datatype query_file);
 	my $set_id = $self->get_set_id;
 	$self->print_id_fieldset( { list => $isolate_ids } );
 	my ( $headings, $labels ) = $self->get_field_selection_list(
@@ -402,8 +408,11 @@ sub _print_controls {
 		'values and percentages' => 'Percentages only',
 		'percentages only'       => 'Values only'
 	);
-	say $q->submit( -name => 'toggledisplay', -label => $display_toggle{ $q->param('display') },
-		-class => BUTTON_CLASS );
+	say $q->submit(
+		-name  => 'toggledisplay',
+		-label => $display_toggle{ $q->param('display') },
+		-class => BUTTON_CLASS
+	);
 	say q(</fieldset>);
 	say $q->end_form;
 
