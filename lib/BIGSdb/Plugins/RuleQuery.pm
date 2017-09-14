@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.1.0',
+		version          => '1.1.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -92,7 +92,8 @@ sub run {
 		if ( !defined $ruleset_id ) {
 			say q(<div class="box statusbad"><p>Please select a ruleset</p></div>);
 		} else {
-			if ( !BIGSdb::Utils::is_valid_DNA( \$sequence, { allow_ambiguous => 1 } ) ) {
+			my $merged_seq = $self->_strip_headers(\$sequence);
+			if ( !BIGSdb::Utils::is_valid_DNA( $merged_seq, { allow_ambiguous => 1 } ) ) {
 				say q(<div class="box statusbad"><p>The sequence is not valid DNA.</p></div>);
 				$valid_DNA = 0;
 			}
@@ -126,6 +127,17 @@ sub run {
 	}
 	$self->_print_interface( $rulesets, $ruleset_id );
 	return;
+}
+
+sub _strip_headers {
+	my ($self, $seq_ref) = @_;
+	my @lines = split/\r?\n/x, $$seq_ref;
+	my $seq;
+	foreach my $line (@lines){
+		next if $line =~ /^>/x;
+		$seq.=$line;
+	}
+	return \$seq;
 }
 
 sub _upload_fasta_file {
@@ -202,7 +214,8 @@ sub run_job {
 		$sequence = $$seq_ref;
 	}
 	$self->{'sequence'} = \$sequence;
-	my $length = BIGSdb::Utils::commify( length $sequence );
+	my $merged_seq = $self->_strip_headers(\$sequence);
+	my $length = BIGSdb::Utils::commify( length $$merged_seq );
 	push @input, "Sequence length: $length bp";
 	my $input_text = q(<h3 style="border-bottom:none">Sample</h3><ul>);
 	$input_text .= qq(<li>$_</li>) foreach @input;
