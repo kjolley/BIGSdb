@@ -425,6 +425,7 @@ sub _lookup_partial_matches {
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $qry_type                = BIGSdb::Utils::sequence_type($seq_ref);
+	my $length_cache            = {};
 	foreach my $match (@$locus_matches) {
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
@@ -440,9 +441,17 @@ sub _lookup_partial_matches {
 			$match->{'allele'}               = $allele_id;
 			$match->{'start'}                = $match->{'predicted_start'};
 			$match->{'end'}                  = $match->{'predicted_end'};
-			$match->{'length'}               = abs( $match->{'predicted_end'} - $match->{'predicted_start'} ) + 1;
+			if ( !$length_cache->{$locus}->{$allele_id} ) {
+				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
+					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
+					[ $locus, $allele_id ],
+					{ cache => 'Blast::get_seq_length' }
+				);
+			}
+			my $ref_length = $length_cache->{$locus}->{$allele_id};
+			next if !defined $ref_length;
+			$match->{'length'} = $ref_length;
 			if ( $locus_info->{'match_longest'} && @{ $exact_matches->{$locus} } ) {
-
 				if ( $match->{'length'} > $exact_matches->{$locus}->[0]->{'length'} ) {
 					@{ $exact_matches->{$locus} } = ($match);
 				}
