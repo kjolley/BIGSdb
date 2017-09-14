@@ -77,8 +77,7 @@ sub print_content {
 		|| ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) )
 	{
 		say q(<h1>Table query</h1>);
-		say q(<div class="box" id="statusbad"><p>You cannot use this function to query the isolate table.</p></div>)
-		  ;
+		say q(<div class="box" id="statusbad"><p>You cannot use this function to query the isolate table.</p></div>);
 		return;
 	}
 	if (   !$self->{'datastore'}->is_table($table)
@@ -394,7 +393,6 @@ sub _get_dropdown_filter {
 	if ( $att->{'foreign_key'} ) {
 		next if $att->{'name'} eq 'scheme_id';
 		my @order_fields;
-		
 		if ( $att->{'labels'} ) {
 			( my $fields_ref, $desc ) = $self->get_all_foreign_key_fields_and_labels($att);
 			@order_fields = @$fields_ref;
@@ -644,6 +642,8 @@ sub _generate_query {
 	my $set_id      = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
+
+		#TODO Sanitise field names.
 		my $field    = $q->param("s$i");
 		my $operator = $q->param("y$i") // '=';
 		my $text     = $q->param("t$i");
