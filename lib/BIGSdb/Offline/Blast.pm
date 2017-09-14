@@ -310,7 +310,7 @@ sub _parse_blast_exact {
 			my $allele_id;
 			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
 			$locus =~ s/__prime__/'/gx;
-			my $locus_match = $matches->{'locus'} // [];
+			my $locus_match = $matches->{$locus} // [];
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			$allele_id = $match_allele_id;
 			if ( !$length_cache->{$locus}->{$allele_id} ) {
