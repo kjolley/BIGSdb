@@ -242,7 +242,8 @@ sub read_fasta {
 			$header =~ s/\s.*$//x;    #Strip off anything after space
 			next;
 		}
-		throw BIGSdb::DataException('Not valid FASTA format.') if !$header;
+		throw BIGSdb::DataException('Not valid FASTA format.')
+		  if !defined $header || length $header == 0;
 		my $temp_seq = uc($line);
 		$seqs{$header} .= $temp_seq;
 	}
