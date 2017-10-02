@@ -411,6 +411,8 @@ function getResults(poll_time) {
 		success: function(data){
 			if (data.status == 'complete'){	
 				\$("div#results").load("$results_file");
+			} else if (data.status == 'failed'){
+				\$("div#results").html('<div class="box statusbad"><p>Sequence query failed.</p></div>');
 			} else if (data.status == 'running'){
 				// Wait and poll again - increase poll time by 0.5s each time.
 				poll_time += 500;
