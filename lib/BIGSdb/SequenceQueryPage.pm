@@ -286,10 +286,11 @@ sub _upload_accession {
 
 sub _run_query {
 	my ( $self, $seq_ref ) = @_;
-	my $loci = $self->_get_selected_loci;
-	my $q    = $self->{'cgi'};
+	my $loci                   = $self->_get_selected_loci;
+	my $q                      = $self->{'cgi'};
 	my $always_run_immediately = $q->param('no_ajax') ? 1 : 0;
-	if ( (length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery') && !$always_run_immediately )
+	if ( ( length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery' )
+		&& !$always_run_immediately )
 	{
 		$self->_blast_fork( $seq_ref, $loci );
 	} else {
@@ -307,8 +308,13 @@ sub _blast_now {
 		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 		my $results_json      = encode_json($results);
 		$self->_write_results_file( $results_json_file, $results_json );
-		my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
-		say $script_out;
+		if ( -e $self->{'system'}->{'seq_query_script'} ) {
+			my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+			say $script_out;
+		} else {
+			$logger->error("Script $self->{'system'}->{'seq_query_script'} cannot be executed.");
+			say $results->{'html'};
+		}
 		unlink $results_json_file;
 	} else {
 		say $results->{'html'};
@@ -347,8 +353,13 @@ sub _blast_fork {
 				if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
 					my $results_json = encode_json($results);
 					$self->_write_results_file( $results_json_file, $results_json );
-					my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
-					$self->_write_results_file( $results_file, $script_out );
+					if ( -e $self->{'system'}->{'seq_query_script'} ) {
+						my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+						$self->_write_results_file( $results_file, $script_out );
+					} else {
+						$logger->error("Script $self->{'system'}->{'seq_query_script'} cannot be executed.");
+						$self->_write_results_file( $results_file, $results->{'html'} );
+					}
 					unlink $results_json_file;
 				} else {
 					$self->_write_results_file( $results_file, $results->{'html'} );
