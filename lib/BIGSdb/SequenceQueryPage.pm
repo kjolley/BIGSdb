@@ -160,7 +160,7 @@ sub _print_interface {
 		say q(</fieldset>);
 	} else {
 		$q->param( order => 'locus' );
-		say $q->hidden($_) foreach qw(locus order simple);
+		say $q->hidden($_) foreach qw(locus order simple debug);
 	}
 	say q(<div style="clear:both">);
 	say q(<fieldset style="float:left"><legend>)
@@ -306,6 +306,7 @@ sub _blast_now {
 	if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
 		my $results_prefix    = BIGSdb::Utils::get_random();
 		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
+		$results->{'debug'} = 1 if $q->param('debug');
 		my $results_json      = encode_json($results);
 		$self->_write_results_file( $results_json_file, $results_json );
 		if ( -e $self->{'system'}->{'seq_query_script'} ) {
@@ -351,6 +352,7 @@ sub _blast_fork {
 				$self->_update_status_file( $status_file, 'running' );
 				my $results = $self->_run_blast( $seq_ref, $loci, 0 );
 				if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
+					$results->{'debug'} = 1 if $q->param('debug');
 					my $results_json = encode_json($results);
 					$self->_write_results_file( $results_json_file, $results_json );
 					if ( -e $self->{'system'}->{'seq_query_script'} ) {
