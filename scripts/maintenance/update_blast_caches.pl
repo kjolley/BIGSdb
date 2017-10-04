@@ -28,6 +28,7 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;
 use Term::Cap;
 use POSIX;
+use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
@@ -41,11 +42,11 @@ GetOptions(
 	'refresh'             => \$opts{'refresh'},
 	'scheme=i'            => \$opts{'scheme'}
 );
+
 if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
-
 my $script_logging = $opts{'quiet'} ? 'WARN' : 'INFO';
 
 #Direct all library logging calls to screen
@@ -62,16 +63,23 @@ if ( !$opts{'d'} ) {
 	say 'Usage: update_cached_blast_dbs.pl --database <database configuration>';
 	exit;
 }
-my $blast_obj = BIGSdb::Offline::Blast->new(
-	{
-		config_dir       => CONFIG_DIR,
-		lib_dir          => LIB_DIR,
-		dbase_config_dir => DBASE_CONFIG_DIR,
-		options          => \%opts,
-		instance         => $opts{'d'},
-		logger           => $logger
-	}
-);
+my $blast_obj;
+try {
+	$blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => CONFIG_DIR,
+			lib_dir          => LIB_DIR,
+			dbase_config_dir => DBASE_CONFIG_DIR,
+			options          => { throw_busy_exception => 1, %opts },
+			instance         => $opts{'d'},
+			logger           => $logger
+		}
+	);
+}
+catch BIGSdb::ServerBusyException with {
+	say q(Server too busy. Aborting.);
+	exit;
+};
 my $method = {
 	all_loci            => sub { $blast_obj->create_scheme_cache(0) },
 	delete_all          => sub { $blast_obj->delete_caches },
