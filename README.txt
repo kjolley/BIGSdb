@@ -1,3 +1,5 @@
+v1.17.2: *Improved sequence query using exemplars and AJAX polling. This
+          speeds up scanning of whole genome sized queries.
 v1.17.1: *Fast mode using exemplars for web-based scanning. 
          *Kiosk mode for sequence query page.
 v1.17.0: *Support for user uploads of private records.
