@@ -9,6 +9,11 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
+GRANT SELECT,UPDATE,INSERT,DELETE ON remote_contigs TO apache;
+
+--Allow apache user to disable triggers on sequence_bin.
+ALTER TABLE sequence_bin OWNER TO apache;
+
 ALTER TABLE sequence_bin ADD remote_contig boolean DEFAULT FALSE;
 UPDATE sequence_bin SET remote_contig = FALSE;
 ALTER TABLE sequence_bin ALTER COLUMN remote_contig SET NOT NULL;
@@ -43,6 +48,7 @@ CREATE OR REPLACE FUNCTION add_remote_contig(isolate_id int, sender int, curator
 		INSERT INTO remote_contigs (seqbin_id,uri) VALUES (v_id,uri);
 	END 
 $add_remote_contig$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remote_contigs$
 	DECLARE

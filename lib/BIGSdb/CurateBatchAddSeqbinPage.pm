@@ -43,7 +43,7 @@ sub print_content {
 		$self->_upload;
 		return;
 	}
-	$self->_print_seqbin_warnings( $q->param('isolate_id') );
+	$self->print_seqbin_warnings( $q->param('isolate_id') );
 	if ( $q->param('data') ) {
 		$self->_check_data;
 	} elsif ( $q->param('fasta_upload') ) {
@@ -78,7 +78,7 @@ sub print_content {
 	return;
 }
 
-sub _print_seqbin_warnings {
+sub print_seqbin_warnings {
 	my ( $self, $isolate_id ) = @_;
 	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
 		my $seqbin = $self->{'datastore'}->run_query(
@@ -87,10 +87,14 @@ sub _print_seqbin_warnings {
 			$isolate_id,
 			{ fetch => 'row_hashref' }
 		);
+		my $remote_clause = ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
+		  ? q( Reported total contig length may not be accurate if these refer to remotely hosted contigs which have )
+		  . q(not yet been validated.)
+		  : q();
 		if ($seqbin) {
 			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
 			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
-			  . q(<p>Please make sure that you intend to add new sequences for this isolate.</p></div>);
+			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause</p></div>);
 		}
 	}
 	return;
@@ -521,8 +525,7 @@ sub _upload {
 		}
 	}
 	eval {
-		foreach ( keys %$seq_ref )
-		{
+		foreach ( keys %$seq_ref ) {
 			my ( $designation, $comments );
 			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );

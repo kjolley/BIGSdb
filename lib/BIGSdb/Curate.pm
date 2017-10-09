@@ -30,6 +30,7 @@ use BIGSdb::CurateBatchAddPage;
 use BIGSdb::CurateBatchAddSeqbinPage;
 use BIGSdb::CurateBatchIsolateUpdatePage;
 use BIGSdb::CurateBatchProfileUpdatePage;
+use BIGSdb::CurateBatchAddRemoteContigsPage;
 use BIGSdb::CurateBatchSetAlleleFlagsPage;
 use BIGSdb::CurateCompositeQueryPage;
 use BIGSdb::CurateCompositeUpdatePage;
@@ -67,63 +68,64 @@ sub print_page {
 	my $query_page =
 	  ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' );
 	my %classes = (
-		ajaxMenu           => 'AjaxMenu',
-		add                => 'CurateAddPage',
-		alleleInfo         => 'AlleleInfoPage',
-		alleleQuery        => 'AlleleQueryPage',
-		alleleSequence     => 'AlleleSequencePage',
-		alleleUpdate       => 'CurateAlleleUpdatePage',
-		authorizeClient    => 'AuthorizeClientPage',
-		batchAdd           => 'CurateBatchAddPage',
-		batchAddFasta      => 'CurateBatchAddFASTAPage',
-		batchIsolateUpdate => 'CurateBatchIsolateUpdatePage',
-		batchProfileUpdate => 'CurateBatchProfileUpdatePage',
-		batchAddSeqbin     => 'CurateBatchAddSeqbinPage',
-		browse             => $query_page,
-		changePassword     => 'ChangePasswordPage',
-		compositeQuery     => 'CurateCompositeQueryPage',
-		compositeUpdate    => 'CurateCompositeUpdatePage',
-		configCheck        => 'ConfigCheckPage',
-		configRepair       => 'ConfigRepairPage',
-		curatorPermissions => 'CuratePermissionsPage',
-		databankScan       => 'CurateDatabankScanPage',
-		delete             => 'CurateDeletePage',
-		deleteAll          => 'CurateDeleteAllPage',
-		downloadSeqbin     => 'DownloadSeqbinPage',
-		embl               => 'SeqbinToEMBL',
-		excelTemplate      => 'CurateSubmissionExcelPage',
-		exportConfig       => 'CurateExportConfig',
-		extractedSequence  => 'ExtractedSequencePage',
-		fieldValues        => 'FieldHelpPage',
-		importUser         => 'CurateImportUserPage',
-		index              => 'CurateIndexPage',
-		info               => 'IsolateInfoPage',
-		isolateAdd         => 'CurateIsolateAddPage',
-		isolateDelete      => 'CurateIsolateDeletePage',
-		isolateUpdate      => 'CurateIsolateUpdatePage',
-		linkToExperiment   => 'CurateLinkToExperimentPage',
-		listQuery          => 'ListQueryPage',
-		memberUpdate       => 'CurateMembersPage',
-		newVersion         => 'CurateNewVersionPage',
-		options            => 'OptionsPage',
-		profileAdd         => 'CurateProfileAddPage',
-		profileBatchAdd    => 'CurateProfileBatchAddPage',
-		profileInfo        => 'ProfileInfoPage',
-		profileUpdate      => 'CurateProfileUpdatePage',
-		pubquery           => 'PubQueryPage',
-		query              => $query_page,
-		refreshCache       => 'RefreshSchemeCachePage',
-		renumber           => 'CurateRenumber',
-		seqbin             => 'SeqbinPage',
-		setAlleleFlags     => 'CurateBatchSetAlleleFlagsPage',
-		setPassword        => 'ChangePasswordPage',
-		submit             => 'SubmitPage',
-		tableHeader        => 'CurateTableHeaderPage',
-		tableQuery         => 'TableQueryPage',
-		tagScan            => 'CurateTagScanPage',
-		tagUpdate          => 'CurateTagUpdatePage',
-		update             => 'CurateUpdatePage',
-		user => 'UserPage'
+		ajaxMenu              => 'AjaxMenu',
+		add                   => 'CurateAddPage',
+		alleleInfo            => 'AlleleInfoPage',
+		alleleQuery           => 'AlleleQueryPage',
+		alleleSequence        => 'AlleleSequencePage',
+		alleleUpdate          => 'CurateAlleleUpdatePage',
+		authorizeClient       => 'AuthorizeClientPage',
+		batchAdd              => 'CurateBatchAddPage',
+		batchAddFasta         => 'CurateBatchAddFASTAPage',
+		batchAddRemoteContigs => 'CurateBatchAddRemoteContigsPage',
+		batchIsolateUpdate    => 'CurateBatchIsolateUpdatePage',
+		batchProfileUpdate    => 'CurateBatchProfileUpdatePage',
+		batchAddSeqbin        => 'CurateBatchAddSeqbinPage',
+		browse                => $query_page,
+		changePassword        => 'ChangePasswordPage',
+		compositeQuery        => 'CurateCompositeQueryPage',
+		compositeUpdate       => 'CurateCompositeUpdatePage',
+		configCheck           => 'ConfigCheckPage',
+		configRepair          => 'ConfigRepairPage',
+		curatorPermissions    => 'CuratePermissionsPage',
+		databankScan          => 'CurateDatabankScanPage',
+		delete                => 'CurateDeletePage',
+		deleteAll             => 'CurateDeleteAllPage',
+		downloadSeqbin        => 'DownloadSeqbinPage',
+		embl                  => 'SeqbinToEMBL',
+		excelTemplate         => 'CurateSubmissionExcelPage',
+		exportConfig          => 'CurateExportConfig',
+		extractedSequence     => 'ExtractedSequencePage',
+		fieldValues           => 'FieldHelpPage',
+		importUser            => 'CurateImportUserPage',
+		index                 => 'CurateIndexPage',
+		info                  => 'IsolateInfoPage',
+		isolateAdd            => 'CurateIsolateAddPage',
+		isolateDelete         => 'CurateIsolateDeletePage',
+		isolateUpdate         => 'CurateIsolateUpdatePage',
+		linkToExperiment      => 'CurateLinkToExperimentPage',
+		listQuery             => 'ListQueryPage',
+		memberUpdate          => 'CurateMembersPage',
+		newVersion            => 'CurateNewVersionPage',
+		options               => 'OptionsPage',
+		profileAdd            => 'CurateProfileAddPage',
+		profileBatchAdd       => 'CurateProfileBatchAddPage',
+		profileInfo           => 'ProfileInfoPage',
+		profileUpdate         => 'CurateProfileUpdatePage',
+		pubquery              => 'PubQueryPage',
+		query                 => $query_page,
+		refreshCache          => 'RefreshSchemeCachePage',
+		renumber              => 'CurateRenumber',
+		seqbin                => 'SeqbinPage',
+		setAlleleFlags        => 'CurateBatchSetAlleleFlagsPage',
+		setPassword           => 'ChangePasswordPage',
+		submit                => 'SubmitPage',
+		tableHeader           => 'CurateTableHeaderPage',
+		tableQuery            => 'TableQueryPage',
+		tagScan               => 'CurateTagScanPage',
+		tagUpdate             => 'CurateTagUpdatePage',
+		update                => 'CurateUpdatePage',
+		user                  => 'UserPage'
 	);
 	my %page_attributes = (
 		system            => $self->{'system'},
@@ -162,18 +164,18 @@ sub print_page {
 		( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 	}
 	return if !$continue;
-	if ($self->{'page'} ne 'user'){
-	my $user_status =
-	  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $page_attributes{'username'} );
-	if ( !defined $user_status || ( $user_status eq 'user' ) ) {
-		$page_attributes{'error'} = 'invalidCurator';
-		$page = BIGSdb::ErrorPage->new(%page_attributes);
-		$page->print_page_content;
-		if ( $page_attributes{'error'} ) {
-			$self->{'handled_error'} = 1;
+	if ( $self->{'page'} ne 'user' ) {
+		my $user_status =
+		  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $page_attributes{'username'} );
+		if ( !defined $user_status || ( $user_status eq 'user' ) ) {
+			$page_attributes{'error'} = 'invalidCurator';
+			$page = BIGSdb::ErrorPage->new(%page_attributes);
+			$page->print_page_content;
+			if ( $page_attributes{'error'} ) {
+				$self->{'handled_error'} = 1;
+			}
+			return;
 		}
-		return;
-	}
 	}
 	if ( !$self->{'db'} ) {
 		$page_attributes{'error'} = 'noConnect';
@@ -194,8 +196,8 @@ sub print_page {
 		}
 		return;
 	}
-	if (   ( $self->{'system'}->{'disable_updates'} // q() ) eq 'yes'
-		||  $self->{'config'}->{'disable_updates'}  )
+	if ( ( $self->{'system'}->{'disable_updates'} // q() ) eq 'yes'
+		|| $self->{'config'}->{'disable_updates'} )
 	{
 		$page_attributes{'error'}   = 'disableUpdates';
 		$page_attributes{'message'} = $self->{'config'}->{'disable_update_message'}

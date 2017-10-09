@@ -479,6 +479,11 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
 	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	my $linked =
+	  ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs">)
+	  . q(<span class="fa fa-chain"></span></a> )
+	  : q();
 	my $query_cell =
 	  $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
@@ -487,7 +492,7 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences</td>
 <td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
+<td>$linked<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
 <td>$query_cell</td>
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
 HTML
@@ -904,7 +909,7 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	);
 }
 
-sub _print_locus_links {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_locus_links {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'locus_links',
