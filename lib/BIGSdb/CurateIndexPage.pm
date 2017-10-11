@@ -151,9 +151,10 @@ sub _get_isolate_links {
 	my $buffer     = q();
 	my @tables     = qw (isolates);
 	push @tables, qw (retired_isolates isolate_value_extended_attributes projects project_members isolate_aliases refs
-	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
-	foreach (@tables) {
+	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples
+	  oauth_credentials);
 
+	foreach (@tables) {
 		if ( $self->can_modify_table($_) ) {
 			my $function  = "_print_$_";
 			my $exception = 0;
@@ -497,6 +498,19 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
 HTML
 	return $buffer;
+}
+
+sub _print_oauth_credentials {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
+	return $self->_print_table(
+		'oauth_credentials',
+		$td,
+		{
+			comments   => 'OAuth credentials for accessing contigs stored in remote BIGSdb databases.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_sequence_attributes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

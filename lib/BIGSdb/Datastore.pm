@@ -2126,7 +2126,7 @@ sub get_tables {
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  samples isolates history sequence_attributes classification_schemes classification_group_fields
-		  retired_isolates user_dbases);
+		  retired_isolates user_dbases oauth_credentials);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

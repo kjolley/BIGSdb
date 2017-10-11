@@ -1534,7 +1534,8 @@ sub get_record_name {
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field',
 		user_dbases                       => 'user database',
-		locus_links                       => 'locus link'
+		locus_links                       => 'locus link',
+		oauth_credentials                 => 'OAuth credentials'
 	);
 	return $names{$table};
 }

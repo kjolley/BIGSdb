@@ -90,4 +90,19 @@ CREATE CONSTRAINT TRIGGER check_remote_contigs AFTER INSERT OR DELETE OR UPDATE 
 	FOR EACH ROW
 	EXECUTE PROCEDURE check_remote_contigs();
 
+CREATE TABLE oauth_credentials (
+base_uri text NOT NULL UNIQUE,
+consumer_key text NOT NULL,
+consumer_secret text NOT NULL,
+access_token text,
+access_secret text,
+curator int NOT NULL,
+date_entered date NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (base_uri),
+CONSTRAINT oc_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
 
+GRANT SELECT,UPDATE,INSERT,DELETE ON oauth_credentials TO apache;

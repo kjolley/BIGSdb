@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateBatchAddSeqbinPage);
 use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(:interface);
+use BIGSdb::Offline::ProcessRemoteContigs;
 use Error qw(:try);
 use LWP::Simple;
 use JSON;
@@ -39,8 +40,69 @@ sub print_content {
 	} elsif ( $q->param('upload') ) {
 		$self->_upload;
 		return;
+	} elsif ( $q->param('process') ) {
+		$self->_process;
+		return;
 	}
 	$self->_print_interface;
+	return;
+}
+
+sub _process {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('isolate_id');
+	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
+		say q(<div class="box" id="statusbad"><p>Isolate does not exist.</p></div>);
+		$self->_print_interface;
+		return;
+	}
+	say q(<div class="box" id="resultspanel">);
+	say q(<h2>Processing contigs</h2>);
+	say q(<div class="results"></div>);
+	say q(</div>);
+	my $prefix = BIGSdb::Utils::get_random();
+	my $output_file = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
+	$self->_run_forked_contig_processor($output_file,$isolate_id);
+	return;
+}
+
+sub _run_forked_contig_processor {
+	my ( $self, $output_file, $isolate_id ) = @_;
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) || $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
+			my $processor = BIGSdb::Offline::ProcessRemoteContigs->new(
+				{
+					config_dir       => $self->{'config_dir'},
+					lib_dir          => $self->{'lib_dir'},
+					dbase_config_dir => $self->{'dbase_config_dir'},
+					host             => $self->{'system'}->{'host'},
+					port             => $self->{'system'}->{'port'},
+					user             => $self->{'system'}->{'user'},
+					password         => $self->{'system'}->{'password'},
+					options          => {
+						always_run => 1,
+						output_file => $output_file,
+						i => $isolate_id
+					},
+					instance => $self->{'instance'},
+					logger   => $logger
+				}
+			);
+		}
+		CORE::exit(0);
+	}
 	return;
 }
 
@@ -77,15 +139,14 @@ sub _upload {
 		return;
 	}
 	my $curator_id = $self->get_curator_id;
-	my $existing   = $self->{'datastore'}->run_query(
-		'SELECT r.uri FROM remote_contigs r INNER JOIN sequence_bin s '
-		  . 'ON r.seqbin_id=s.id AND s.isolate_id=?',
-		$isolate_id, { fetch => 'col_arrayref' }
-	);
+	my $existing =
+	  $self->{'datastore'}->run_query(
+		'SELECT r.uri FROM remote_contigs r INNER JOIN sequence_bin s ' . 'ON r.seqbin_id=s.id AND s.isolate_id=?',
+		$isolate_id, { fetch => 'col_arrayref' } );
 	my %existing = map { $_ => 1 } @$existing;
 	eval {
 		foreach my $contig (@$contigs) {
-			next if $existing{$contig};                  #Don't add duplicates
+			next if $existing{$contig};    #Don't add duplicates
 			$self->{'db'}
 			  ->do( 'SELECT add_remote_contig(?,?,?,?)', undef, $isolate_id, $curator_id, $curator_id, $contig );
 		}
