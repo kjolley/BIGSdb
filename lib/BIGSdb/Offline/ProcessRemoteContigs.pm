@@ -36,6 +36,8 @@ sub run_script {
 	my $isolates     = $self->get_isolates_with_linked_seqs;
 	my $isolate_list = $self->filter_and_sort_isolates($isolates);
 	my $status_file  = $self->{'options'}->{'status_file'};
+	my $output_file  = $self->{'options'}->{'output_html'};
+	$self->_update_status_file($status_file,'running');
 	foreach my $isolate_id (@$isolate_list) {
 		my $remote_contigs = $self->{'datastore'}->run_query(
 			'SELECT r.seqbin_id,r.uri FROM remote_contigs r INNER JOIN sequence_bin s ON r.seqbin_id=s.id AND '
@@ -43,21 +45,67 @@ sub run_script {
 			$isolate_id,
 			{ fetch => 'all_arrayref', slice => {} }
 		);
+		my $total_processed = 0;
+		my $total_length    = 0;
 		foreach my $contig (@$remote_contigs) {
-			say $contig->{'uri'};
-			my $contig_record = $self->{'remoteContigManager'}->get_remote_contig($contig->{'uri'});
-			use Data::Dumper;
-			$self->{'logger'}->error(Dumper $contig_record);
+			say $contig->{'uri'} if !$self->{'options'}->{'quiet'};
+			my $contig_record = $self->{'remoteContigManager'}->get_remote_contig( $contig->{'uri'} );
+			if ( $contig_record->{'sequence'} ) {
+				my $length   = length( $contig_record->{'sequence'} );
+				my $checksum = Digest::MD5::md5_hex( $contig_record->{'sequence'} );
+				eval {
+					$self->{'db'}->do( 'UPDATE remote_contigs SET (length,checksum)=(?,?) WHERE seqbin_id=?',
+						undef, $length, $checksum, $contig->{'seqbin_id'} );
+					$self->{'db'}->do(
+						'UPDATE sequence_bin SET (method,original_designation,comments)=(?,?,?) WHERE id=?',
+						undef,
+						$contig_record->{'method'},
+						$contig_record->{'orignal_designation'},
+						$contig_record->{'comments'},
+						$contig->{'seqbin_id'}
+					);
+				};
+				if ($@) {
+					$self->{'db'}->rollback;
+					$self->{'logger'}->error($@);
+				} else {
+					$self->{'db'}->commit;
+				}
+				$total_length += $length;
+				$total_processed++;
+				$self->_write_results($output_file,$total_processed,$total_length);
+			}
 		}
 	}
+	$self->_update_status_file($status_file,'complete');
 	return;
 }
 
-sub _append {
-	my ( $self, $text ) = @_;
-	my $output_file = $self->{'options'}->{'output_file'};
-	return if !$output_file;
-	open( my $fh, '>>', $output_file ) || die "Cannot write to $output_file.\n";
+sub _update_status_file {
+	my ( $self, $status_file, $status ) = @_;
+	return if !$status_file;
+	open( my $fh, '>', $status_file )
+	  || $self->{'logger'}->error("Cannot touch $status_file");
+	say $fh qq({"status":"$status"});
+	close $fh;
+	return;
+}
+
+sub _write_results {
+	my ( $self, $file, $contigs, $length ) = @_;
+	return if !$file;
+	my $buffer = qq(<dl class="data"><dt>Contigs processed</dt><dd>$contigs</dd>);
+	my $commify_length = BIGSdb::Utils::commify($length);
+	$buffer .= qq(<dt>Total length</dt><dd>$commify_length bp</dd></dl>);
+	$self->_write( $file, $buffer );
+	return;
+}
+
+sub _write {
+	my ( $self, $file, $text, $append ) = @_;
+	return if !$file;
+	my $open_type = $append ? '>>' : '>';
+	open( my $fh, $open_type, $file ) || die "Cannot write to $file.\n";
 	say $fh $text;
 	close $fh;
 	return;

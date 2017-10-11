@@ -57,14 +57,14 @@ if ( $opts{'h'} ) {
 
 #Direct all library logging calls to screen
 my $log_conf =
-    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
-  . qq(log4perl.category.BIGSdb.Application_Authentication = INFO, Screen\n)  
-  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
-  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
-  . qq(log4perl.category.BIGSdb.Scheme        = WARN, Screen\n)
-  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
-  . qq(log4perl.appender.Screen.stderr        = 1\n)
-  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+    qq(log4perl.category.BIGSdb.Script                     = INFO, Screen\n)
+  . qq(log4perl.category.BIGSdb.Application_Authentication = WARN, Screen\n)  
+  . qq(log4perl.category.BIGSdb.Dataconnector              = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Datastore                  = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Scheme                     = WARN, Screen\n)
+  . qq(log4perl.appender.Screen                            = Log::Log4perl::Appender::Screen\n)
+  . qq(log4perl.appender.Screen.stderr                     = 1\n)
+  . qq(log4perl.appender.Screen.layout                     = Log::Log4perl::Layout::SimpleLayout\n);
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 if ( !$opts{'d'} ) {
@@ -137,6 +137,9 @@ ${bold}--max$norm ${under}ID$norm
            
 ${bold}--projects$norm ${under}LIST$norm
     Comma-separated list of project isolates to scan.
+    
+${bold}--quiet$norm
+    Only display errors.
  
 HELP
 	return;

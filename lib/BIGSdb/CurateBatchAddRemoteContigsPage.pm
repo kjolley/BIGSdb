@@ -57,20 +57,31 @@ sub _process {
 		$self->_print_interface;
 		return;
 	}
+	my $results_prefix = BIGSdb::Utils::get_random();
+	my $results_file   = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
+	my $status_file    = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
+	say $self->_get_polling_javascript($results_prefix);
+	say q(<div id="error"></div>);
 	say q(<div class="box" id="resultspanel">);
-	say q(<h2>Processing contigs</h2>);
-	say q(<div class="results"></div>);
-	say q(</div>);
-	my $prefix = BIGSdb::Utils::get_random();
+	say q(<div id="wait"><span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="wait_message">Processing - Please wait.</span></div>)
+	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript>);
+	say q(<h2 id="title">Processing contigs</h2>);
+	say q(<div id="results"></div>);
+	say q(<div id="nav" style="display:none">);
+	$self->_print_nav_link;
+	say q(</div></div>);
+	my $prefix      = BIGSdb::Utils::get_random();
 	my $output_file = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
-	$self->_run_forked_contig_processor($output_file,$isolate_id);
+	$self->_run_forked_contig_processor( $results_prefix, $isolate_id );
 	return;
 }
 
 sub _run_forked_contig_processor {
-	my ( $self, $output_file, $isolate_id ) = @_;
-
-	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	my ( $self, $results_prefix, $isolate_id ) = @_;
+	my $results_file = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
+	my $status_file  = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
+	     #Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
 	if ($kid) {
 		waitpid( $kid, 0 );
@@ -92,9 +103,10 @@ sub _run_forked_contig_processor {
 					user             => $self->{'system'}->{'user'},
 					password         => $self->{'system'}->{'password'},
 					options          => {
-						always_run => 1,
-						output_file => $output_file,
-						i => $isolate_id
+						always_run  => 1,
+						output_html => $results_file,
+						status_file => $status_file,
+						i           => $isolate_id
 					},
 					instance => $self->{'instance'},
 					logger   => $logger
@@ -104,6 +116,60 @@ sub _run_forked_contig_processor {
 		CORE::exit(0);
 	}
 	return;
+}
+
+sub _get_polling_javascript {
+	my ( $self, $results_prefix ) = @_;
+	my $status_file   = "/tmp/${results_prefix}_status.json";
+	my $results_file  = "/tmp/${results_prefix}.txt";
+	my $max_poll_time = 5_000;
+	my $buffer        = << "END";
+<script type="text/Javascript">//<![CDATA[
+\$(function () {	
+	getResults(500);
+});
+
+function getResults(poll_time) {
+	\$.ajax({
+		url: "$status_file",
+		dataType: 'json',
+		cache: false,
+		error: function(data){
+			\$("div#error").html('<div class="box" id="statusbad"><p>Something went wrong!</p></div>');
+			finishProcessing();
+		},		
+		success: function(data){
+			if (data.status == 'complete'){	
+				\$("div#results").load("$results_file");
+				finishProcessing();
+			} else if (data.status == 'failed'){
+				\$("div#error").html('<div class="box statusbad"><p>Contig processing failed!</p></div>');
+				finishProcessing();
+			} else if (data.status == 'running'){
+				// Wait and poll again - increase poll time by 0.5s each time.
+				poll_time += 500;
+				if (poll_time > $max_poll_time){
+					poll_time = $max_poll_time;
+				}
+				setTimeout(function() { 
+           	        getResults(poll_time); 
+                }, poll_time);
+                \$("div#results").load("$results_file");
+ 			} else {
+				\$("div#results").html();
+			}
+		}
+	});
+}
+
+function finishProcessing(){
+	\$("h2#title").text('Processed contigs');
+	\$("div#wait").html('');
+	\$("div#nav").css('display','block');
+}
+//]]></script>
+END
+	return $buffer;
 }
 
 sub _upload {
