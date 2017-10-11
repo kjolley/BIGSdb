@@ -58,6 +58,7 @@ if ( $opts{'h'} ) {
 #Direct all library logging calls to screen
 my $log_conf =
     qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+  . qq(log4perl.category.BIGSdb.Application_Authentication = INFO, Screen\n)  
   . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
   . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
   . qq(log4perl.category.BIGSdb.Scheme        = WARN, Screen\n)
