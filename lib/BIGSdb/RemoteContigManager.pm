@@ -41,27 +41,51 @@ sub new {
 
 sub get_remote_contig {
 	my ( $self, $uri ) = @_;
-	my $response = $self->{'ua'}->get($uri);
-	if ( $response->is_success ) {
-		my $data;
-		eval { $data = decode_json( $response->decoded_content ); };
-		throw BIGSdb::DataException('Data is not JSON') if $@;
-		return $data;
-	} else {
-		if ( $response->code == 401 ) {
-			( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
-			my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
-				$base_uri, { fetch => 'row_hashref', cache => 'RemoteContigManager::get_credentials' } );
-			if ( !$oauth_credentials ) {
-				throw BIGSdb::AuthenticationException("$uri requires authorization - no credentials set");
-			}
-			return $self->_get_protected_contig( $oauth_credentials, $base_uri, $uri );
-		}
-		throw BIGSdb::FileException("Cannot retrieve $uri");
-	}
+	( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
+	return $self->_get_remote_record( $base_uri, $uri );
 }
 
-sub _get_protected_contig {
+sub get_remote_contig_list {
+	my ( $self, $uri ) = @_;
+	( my $base_uri = $uri ) =~ s/\/isolates\/\d+\/contigs[\?return_all=1]*$//x;
+	return $self->_get_remote_record( $base_uri, $uri );
+}
+
+sub get_remote_isolate {
+	my ( $self, $uri ) = @_;
+	( my $base_uri = $uri ) =~ s/\/isolates\/\d+$//x;
+	return $self->_get_remote_record( $base_uri, $uri );
+}
+
+sub _get_remote_record {
+	my ( $self, $base_uri, $uri ) = @_;
+	
+	my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
+		$base_uri, { fetch => 'row_hashref', cache => 'RemoteContigManager::get_credentials' } );
+	my $requires_authorization = $oauth_credentials ? 1 : 0;
+	if ( !$requires_authorization ) {
+		my $response = $self->{'ua'}->get($uri);
+		if ( $response->is_success ) {
+			my $data;
+			eval { $data = decode_json( $response->decoded_content ); };
+			throw BIGSdb::DataException('Data is not JSON') if $@;
+			return $data;
+		} else {
+			if ( $response->code == 401 ) {
+				$requires_authorization = 1;
+			}
+		}
+	}
+	if ($requires_authorization) {
+		if ( !$oauth_credentials ) {
+			throw BIGSdb::AuthenticationException("$uri requires authorization - no credentials set");
+		}
+		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri );
+	}
+	throw BIGSdb::FileException("Cannot retrieve $uri");
+}
+
+sub _get_protected_route {
 	my ( $self, $oauth_credentials, $base_uri, $uri ) = @_;
 	if ( !$oauth_credentials->{'session_token'} ) {
 		$self->_get_session_token( $oauth_credentials, $base_uri );
@@ -94,7 +118,7 @@ sub _get_protected_contig {
 		$logger->info('Invalid session token, requesting new one.');
 		$self->_remove_session_token($base_uri);
 		$self->_get_session_token( $oauth_credentials, $base_uri );
-		$self->_get_protected_contig( $oauth_credentials, $base_uri, $uri );
+		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri );
 	}
 	return $decoded_json;
 }

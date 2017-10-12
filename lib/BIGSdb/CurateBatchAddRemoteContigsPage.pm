@@ -81,7 +81,8 @@ sub _run_forked_contig_processor {
 	my ( $self, $results_prefix, $isolate_id ) = @_;
 	my $results_file = "$self->{'config'}->{'tmp_dir'}/${results_prefix}.txt";
 	my $status_file  = "$self->{'config'}->{'tmp_dir'}/${results_prefix}_status.json";
-	     #Use double fork to prevent zombie processes on apache2-mpm-worker
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
 	if ($kid) {
 		waitpid( $kid, 0 );
@@ -180,19 +181,31 @@ sub _upload {
 		say q(<div class="box" id="statusbad"><p>No contigs list passed.</p></div>);
 		return;
 	}
-	my $json = get $contigs_list;
-	if ( !defined $json ) {
-		say q(<div class="box" id="statusbad"><p>Contigs list is not valid JSON.</p></div>);
-		return;
-	}
 	my $data;
-	try {
-		$data = $self->_read_contig_list_json($json);
-	}
-	catch BIGSdb::DataException with {
-		say q(<div class="box" id="statusbad"><p>Returned data is not valid JSON.</p></div>);
-		return;
-	};
+	my $error;
+	my $all_records;
+	do {
+		try {
+			$data = $self->{'remoteContigManager'}->get_remote_contig_list($contigs_list);
+		}
+		catch BIGSdb::AuthenticationException with {
+			say q(<div class="box" id="statusbad"><p>OAuth authentication failed.</p></div>);
+			$error = 1;
+		}
+		catch BIGSdb::FileException with {
+			say q(<div class="box" id="statusbad"><p>URI is inaccessible.</p></div>);
+			$error = 1;
+		}
+		catch BIGSdb::DataException with {
+			say q(<div class="box" id="statusbad"><p>Contigs list is not valid JSON.</p></div>);
+			$error = 1;
+		};
+		if ( $data->{'paging'} ) {
+			$contigs_list = $data->{'paging'}->{'return_all'};
+		} else {
+			$all_records = 1;
+		}
+	} until ( $error || $all_records );
 	my $contigs = $data->{'contigs'};
 	if ( ref $contigs ne 'ARRAY' || !@$contigs ) {
 		say q(<div class="box" id="statusbad"><p>No contigs found.</p></div>);
@@ -252,11 +265,12 @@ sub _upload {
 
 	if ($unprocessed) {
 		say $q->start_form;
-		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Process contigs' } );
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Process contigs now' } );
 		$q->param( process => 1 );
 		say $q->hidden($_) foreach qw(db page contigs_list isolate_id process);
 		say $q->end_form;
 	}
+	$self->_print_nav_link;
 	say q(</div>);
 	return;
 }
@@ -287,14 +301,26 @@ sub _check {
 	say q(<div class="box resultspanel">);
 	say q(<h2>Checking contigs</h2>);
 	say q(<p>Downloading isolate record ...);
-	my $isolate_record = get $isolate_uri;
-	if ( !defined $isolate_record ) {
-		say q(failed!</p>);
+	my $isolate_data;
+	try {
+		$isolate_data = $self->{'remoteContigManager'}->get_remote_isolate($isolate_uri);
+	}
+	catch BIGSdb::AuthenticationException with {
+		say q(failed! - check OAuth authentication settings</p>);
+		$error = 1;
+	}
+	catch BIGSdb::FileException with {
+		say q(failed! - URI is inaccesible</p>);
+		$error = 1;
+	}
+	catch BIGSdb::DataException with {
+		say q(failed! - Returned data is not in valid format</p>);
+		$error = 1;
+	};
+	if ($error) {
 		$self->_print_nav_link;
 	} else {
 		say q(done.</p>);
-		my $isolate_data;
-		eval { $isolate_data = decode_json($isolate_record); };
 		if ($@) {
 			say q(<p class="statusbad">Isolate record is not valid.</p></div>);
 			return;
@@ -327,22 +353,6 @@ sub _print_nav_link {
 	  . qq( title="Return to batch add remote contigs" style="margin-right:1em">$back</a>);
 	$self->print_home_link;
 	return;
-}
-
-sub _read_contig_list_json {
-	my ( $self, $json ) = @_;
-	my $data = {};
-	eval {
-		$data = decode_json($json);
-		if ( $data->{'paging'}->{'return_all'} ) {
-			my $all_data = get $data->{'paging'}->{'return_all'};
-			$data = decode_json($all_data);
-		}
-	};
-	if ($@) {
-		throw BIGSdb::DataException('Invalid JSON');
-	}
-	return $data;
 }
 
 sub _print_interface {

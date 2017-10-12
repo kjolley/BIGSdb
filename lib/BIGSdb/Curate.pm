@@ -141,6 +141,7 @@ sub print_page {
 		db                => $self->{'db'},
 		xmlHandler        => $self->{'xmlHandler'},
 		submissionHandler => $self->{'submissionHandler'},
+		remoteContigManager => $self->{'remoteContigManager'},
 		dataConnector     => $self->{'dataConnector'},
 		mod_perl_request  => $self->{'mod_perl_request'},
 		curate            => 1
