@@ -404,11 +404,11 @@ sub print_content {
 	if ( $self->{'cgi'}->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
-	
 		say $self->_get_update_history($isolate_id);
 		my $back = BACK;
-			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-		say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
+		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+		say
+		  qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
 		  . qq($set_clause&amp;id=$isolate_id" title="Back">$back</a></p>);
 		say q(</div>);
 	} else {
@@ -881,7 +881,7 @@ sub _get_history_field {
 		$buffer .= qq(<dt class="dontend">update history</dt>\n);
 		$buffer .= qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>);
 		my $refer_page = $q->param('page');
-		my $set_id = $self->get_set_id;
+		my $set_id     = $self->get_set_id;
 		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 		$buffer .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
 		  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a></dd>\n);
@@ -1434,28 +1434,25 @@ sub get_refs {
 
 sub _get_seqbin_link {
 	my ( $self, $isolate_id ) = @_;
-	my ( $seqbin_count, $total_length ) =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?', $isolate_id );
-	my $buffer = q();
-	my $q      = $self->{'cgi'};
-	if ($seqbin_count) {
-		my ( $mean_length, $max_length ) =
-		  $self->{'datastore'}->run_query(
-			'SELECT CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?',
-			$isolate_id );
-		my $plural = $seqbin_count == 1 ? '' : 's';
+	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
+	my $buffer       = q();
+	my $q            = $self->{'cgi'};
+	if ( $seqbin_stats->{'contigs'} ) {
+		my %commify = map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) }
+		  qw(contigs total_length max_length mean_length);
+		my $plural = $seqbin_stats->{'contigs'} == 1 ? '' : 's';
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
-		$buffer .= qq(<div id="seqbin"><dl class="data"><dt class="dontend">contigs</dt><dd>$seqbin_count</dd>\n);
-		if ( $seqbin_count > 1 ) {
+		$buffer .=
+		  qq(<div id="seqbin"><dl class="data"><dt class="dontend">contigs</dt><dd>$commify{'contigs'}</dd>\n);
+		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}->run_query(
 				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
 				$isolate_id, { fetch => 'col_arrayref' } );
-			my $n_stats = BIGSdb::Utils::get_N_stats( $total_length, $lengths );
-			$buffer .= qq(<dt class="dontend">total length</dt><dd>$total_length bp</dd>\n);
-			$buffer .= qq(<dt class="dontend">max length</dt><dd>$max_length bp</dd>\n);
-			$buffer .= qq(<dt class="dontend">mean length</dt><dd>$mean_length bp</dd>\n);
+			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
+			$buffer .= qq(<dt class="dontend">total length</dt><dd>$commify{'total_length'} bp</dd>\n);
+			$buffer .= qq(<dt class="dontend">max length</dt><dd>$commify{'max_length'} bp</dd>\n);
+			$buffer .= qq(<dt class="dontend">mean length</dt><dd>$commify{'mean_length'} bp</dd>\n);
 			my %stats_labels = (
 				N50 => 'N50 contig number',
 				L50 => 'N50 length (L50)',
@@ -1464,10 +1461,12 @@ sub _get_seqbin_link {
 				N95 => 'N95 contig number',
 				L95 => 'N95 length (L95)',
 			);
-			$buffer .= qq(<dt class="dontend">$stats_labels{$_}</dt><dd>$n_stats->{$_}</dd>\n)
-			  foreach qw(N50 L50 N90 L90 N95 L95);
+			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)){
+				my $value = BIGSdb::Utils::commify($n_stats->{$stat});
+				$buffer .= qq(<dt class="dontend">$stats_labels{$stat}</dt><dd>$value</dd>\n)
+			}
 		} else {
-			$buffer .= qq(<dt class="dontend">length</dt><dd>$total_length bp</dd>);
+			$buffer .= qq(<dt class="dontend">length</dt><dd>$seqbin_stats->{'total_length'} bp</dd>);
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
