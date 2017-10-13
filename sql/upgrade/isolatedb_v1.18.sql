@@ -60,7 +60,11 @@ CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remo
 		IF (TG_OP = 'DELETE') THEN
 			IF (EXISTS(SELECT * FROM sequence_bin WHERE (id,remote_contig)=(OLD.seqbin_id,TRUE))) THEN
 				RAISE EXCEPTION 'Do not delete directly from remote_contigs table.';
-			END IF;		
+			END IF;	
+			IF (OLD.length IS NOT NULL) THEN
+				UPDATE seqbin_stats SET total_length = total_length - OLD.length;
+			END IF;
+			
 		ELSIF (TG_OP = 'UPDATE') THEN
 			IF (OLD.length IS NOT NULL) THEN 
 				old_length = OLD.length;
