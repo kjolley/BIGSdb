@@ -14,8 +14,9 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON remote_contigs TO apache;
 --Allow apache user to disable triggers on sequence_bin.
 ALTER TABLE sequence_bin OWNER TO apache;
 
-ALTER TABLE sequence_bin ADD remote_contig boolean DEFAULT FALSE;
+ALTER TABLE sequence_bin ADD remote_contig boolean;
 UPDATE sequence_bin SET remote_contig = FALSE;
+ALTER TABLE sequence_bin ALTER COLUMN remote_contig SET DEFAULT FALSE;
 ALTER TABLE sequence_bin ALTER COLUMN remote_contig SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION check_sequence_bin() RETURNS TRIGGER AS $check_sequence_bin$
