@@ -1479,6 +1479,7 @@ sub _get_seqbin_link {
 		  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause",
 			$isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
+		$tagged = BIGSdb::Utils::commify($tagged);
 		$buffer .= qq(<dt class="dontend">loci tagged</dt><dd>$tagged</dd>\n);
 		$buffer .= qq(<dt class="dontend">detailed breakdown</dt><dd>\n);
 		$buffer .= $q->start_form;

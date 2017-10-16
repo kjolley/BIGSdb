@@ -110,23 +110,25 @@ sub _get_contig {
 			push @$values, { $attribute->{'key'} => $attribute->{'value'} };
 		}
 	}
-	my $allele_seqs =
-	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
-		$contig_id, { fetch => 'all_arrayref', slice => {} } );
-	my $tags = [];
-	foreach my $tag (@$allele_seqs) {
-		my $locus_name = $self->clean_locus( $tag->{'locus'} );
-		push @$tags,
-		  {
-			locus      => request->uri_for("/db/$db/loci/$tag->{'locus'}"),
-			locus_name => $locus_name,
-			start      => int( $tag->{'start_pos'} ),
-			end        => int( $tag->{'end_pos'} ),
-			direction  => $tag->{'reverse'} ? 'reverse' : 'forward',
-			complete   => $tag->{'complete'} ? JSON::true : JSON::false
-		  };
+	if ( !params->{'no_loci'} ) {
+		my $allele_seqs =
+		  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE seqbin_id=? ORDER BY start_pos',
+			$contig_id, { fetch => 'all_arrayref', slice => {} } );
+		my $tags = [];
+		foreach my $tag (@$allele_seqs) {
+			my $locus_name = $self->clean_locus( $tag->{'locus'} );
+			push @$tags,
+			  {
+				locus      => request->uri_for("/db/$db/loci/$tag->{'locus'}"),
+				locus_name => $locus_name,
+				start      => int( $tag->{'start_pos'} ),
+				end        => int( $tag->{'end_pos'} ),
+				direction  => $tag->{'reverse'} ? 'reverse' : 'forward',
+				complete   => $tag->{'complete'} ? JSON::true : JSON::false
+			  };
+		}
+		$values->{'loci'} = $tags if @$tags;
 	}
-	$values->{'loci'} = $tags if @$tags;
 	return $values;
 }
 1;

@@ -27,6 +27,7 @@ use Net::OAuth 0.20;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use JSON;
 use Data::Random qw(rand_chars);
+use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 
@@ -40,9 +41,41 @@ sub new {
 }
 
 sub get_remote_contig {
-	my ( $self, $uri ) = @_;
+	my ( $self, $uri, $options ) = @_;
 	( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
-	return $self->_get_remote_record( $base_uri, $uri );
+	my $contig = $self->_get_remote_record( $base_uri, $uri );
+	my $length = length $contig->{'sequence'};
+	if ( $options->{'length'} ) {
+		if ( $length != $options->{'length'} ) {
+			$logger->error("Contig $uri length has changed!");
+		}
+	}
+	my $checksum = Digest::MD5::md5_hex( $contig->{'sequence'} );
+	if ( $options->{'checksum'} ) {
+		if ( $checksum ne $options->{'checksum'} ) {
+			$logger->error("Contig $uri checksum has changed!");
+		}
+	}
+	if ( $options->{'set_checksum'} && $options->{'seqbin_id'} ) {
+		eval {
+			$self->{'db'}
+			  ->do( 'UPDATE remote_contigs SET (length,checksum)=(?,?) WHERE uri=?', undef, $length, $checksum, $uri );
+			$self->{'db'}->do(
+				'UPDATE sequence_bin SET (method,original_designation,comments)=(?,?,?) WHERE id=?',
+				undef,
+				$contig->{'method'},
+				$contig->{'original_designation'},
+				$contig->{'comments'}, $options->{'seqbin_id'}
+			);
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+		}
+	}
+	return $contig;
 }
 
 sub get_remote_contig_list {
@@ -59,7 +92,6 @@ sub get_remote_isolate {
 
 sub _get_remote_record {
 	my ( $self, $base_uri, $uri ) = @_;
-	
 	my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
 		$base_uri, { fetch => 'row_hashref', cache => 'RemoteContigManager::get_credentials' } );
 	my $requires_authorization = $oauth_credentials ? 1 : 0;
