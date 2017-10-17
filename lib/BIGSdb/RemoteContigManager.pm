@@ -91,7 +91,7 @@ sub update_remote_contig_length {
 
 sub update_isolate_remote_contig_lengths {
 	my ( $self, $isolate_id ) = @_;
-	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s LEFT JOIN remote_contigs r ON '
+	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s JOIN remote_contigs r ON '
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'RemoteContigManager::update_isolate_remote_contig_lengths' }
@@ -99,9 +99,10 @@ sub update_isolate_remote_contig_lengths {
 	my $uri_list = [];
 	foreach my $contig (@$remote_contigs) {
 		next if $contig->{'length'};
-		push @$uri_list, $_->{'uri'};
+		push @$uri_list, $contig->{'uri'};
 	}
 	return if !@$uri_list;
+	
 	my $contigs = $self->get_remote_contigs_by_list($uri_list);
 	foreach my $contig (@$remote_contigs) {
 		$self->update_remote_contig_length( $contig->{'uri'}, length( $contigs->{ $contig->{'uri'} } ) );

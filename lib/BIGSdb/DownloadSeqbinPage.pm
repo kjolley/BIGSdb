@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,11 +47,19 @@ sub print_content {
 	}
 	local $| = 1;
 	my $data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id,original_designation,sequence FROM sequence_bin WHERE isolate_id=? ORDER BY id',
+	  $self->{'datastore'}->run_query(
+		'SELECT id,original_designation,sequence,remote_contig FROM sequence_bin WHERE isolate_id=? ORDER BY id',
 		$isolate_id, { fetch => 'all_arrayref' } );
+	my $remote_contig_records =
+	  $self->{'datastore'}->run_query(
+		'SELECT r.seqbin_id,r.uri FROM remote_contigs r JOIN sequence_bin S ON r.seqbin_id = s.id AND s.isolate_id=?',
+		$isolate_id, { fetch => 'all_hashref', key => 'seqbin_id' } );
+	my $remote_uri_list = [];
+	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
+	my $remote_contig_seqs = $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uri_list);
 	foreach my $contig (@$data) {
 		my ( $id, $orig, $seq ) = @$contig;
+		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
 		print ">$id";
 		print "|$orig" if $orig;
 		print "\n";

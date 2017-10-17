@@ -194,7 +194,7 @@ ${bold}-i, --isolate$norm ${under}ID$norm
     Isolate id of record to upload to.  
     
 ${bold}-m, --method$norm ${under}METHOD$norm  
-    Method, e.g. 'Illumina', default 'unknown'.
+    Method, e.g. 'Illumina'.
     
 ${bold}--min_length$norm ${under}LENGTH$norm
     Exclude contigs with length less than value.

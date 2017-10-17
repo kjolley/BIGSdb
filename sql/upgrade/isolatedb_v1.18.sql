@@ -43,8 +43,8 @@ CREATE OR REPLACE FUNCTION add_remote_contig(isolate_id int, sender int, curator
 		v_id integer;
 	BEGIN
 		ALTER TABLE sequence_bin DISABLE TRIGGER check_sequence_bin;
-		INSERT INTO sequence_bin(isolate_id,remote_contig,sequence,method,sender,curator,date_entered,datestamp) VALUES
-		 (isolate_id,true,'','unknown',sender,curator,'now','now') RETURNING id INTO v_id;
+		INSERT INTO sequence_bin(isolate_id,remote_contig,sequence,sender,curator,date_entered,datestamp) VALUES
+		 (isolate_id,true,'',sender,curator,'now','now') RETURNING id INTO v_id;
 		ALTER TABLE sequence_bin ENABLE TRIGGER check_sequence_bin;
 		INSERT INTO remote_contigs (seqbin_id,uri) VALUES (v_id,uri);
 	END 

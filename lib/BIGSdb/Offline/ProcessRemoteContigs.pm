@@ -60,7 +60,7 @@ sub run_script {
 						'UPDATE sequence_bin SET (method,original_designation,comments)=(?,?,?) WHERE id=?',
 						undef,
 						$contig_record->{'method'},
-						$contig_record->{'orignal_designation'},
+						$contig_record->{'original_designation'},
 						$contig_record->{'comments'},
 						$contig->{'seqbin_id'}
 					);
