@@ -57,6 +57,7 @@ sub print_content {
 	my $remote_uri_list = [];
 	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
 	my $remote_contig_seqs = $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uri_list);
+
 	foreach my $contig (@$data) {
 		my ( $id, $orig, $seq ) = @$contig;
 		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
