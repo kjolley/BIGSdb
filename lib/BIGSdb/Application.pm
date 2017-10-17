@@ -141,6 +141,7 @@ sub print_page {
 		auth_db              => $self->{'auth_db'},
 		xmlHandler           => $self->{'xmlHandler'},
 		submissionHandler    => $self->{'submissionHandler'},
+		remoteContigManager  => $self->{'remoteContigManager'},
 		dataConnector        => $self->{'dataConnector'},
 		pluginManager        => $self->{'pluginManager'},
 		mod_perl_request     => $self->{'mod_perl_request'},

@@ -40,9 +40,81 @@ sub new {
 	return $self;
 }
 
+#Faster method to retrieve multiple contigs without extended metadata.
+#This checks the isolate URI from the first retrieved contig and if it
+#contains a URI to contigs_fasta will download all contigs in one call.
+sub get_remote_contigs_by_list {
+	my ( $self, $uri_list ) = @_;
+	my $contigs = {};
+	return $contigs if !@$uri_list;
+	my %batch_seqs;
+	while (@$uri_list) {
+		my $uri = shift @$uri_list;
+		( my $contig_route = $uri ) =~ s/\/\d+$//x;
+		if ( $batch_seqs{$uri} ) {
+			$contigs->{$uri} = $batch_seqs{$uri};
+			next;
+		}
+		my $contig = $self->get_remote_contig($uri);
+		if ( $contig->{'sequence'} ) {
+			$contigs->{$uri} = $contig->{'sequence'};
+			if ( $contig->{'isolate_id'} ) {
+				my $isolate_record = $self->get_remote_isolate( $contig->{'isolate_id'} );
+				if ( $isolate_record->{'sequence_bin'}->{'contigs_fasta'} ) {
+					my $fasta = $self->get_remote_fasta( $isolate_record->{'sequence_bin'}->{'contigs_fasta'} );
+					eval {
+						my $seqs = BIGSdb::Utils::read_fasta( \$fasta );
+						foreach my $seqbin_id ( keys %$seqs ) {
+							my $contig_uri = "$contig_route/$seqbin_id";
+							$batch_seqs{$contig_uri} = $seqs->{$seqbin_id};
+						}
+					};
+					$logger->error($@) if $@;
+				}
+			}
+		}
+	}
+	return $contigs;
+}
+
+sub update_remote_contig_length {
+	my ( $self, $uri, $length ) = @_;
+	eval { $self->{'db'}->do( 'UPDATE remote_contigs SET length=? WHERE uri=?', undef, $length, $uri ); };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub update_isolate_remote_contig_lengths {
+	my ( $self, $isolate_id ) = @_;
+	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s LEFT JOIN remote_contigs r ON '
+	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
+	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'RemoteContigManager::update_isolate_remote_contig_lengths' }
+	);
+	my $uri_list = [];
+	foreach my $contig (@$remote_contigs) {
+		next if $contig->{'length'};
+		push @$uri_list, $_->{'uri'};
+	}
+	return if !@$uri_list;
+	my $contigs = $self->get_remote_contigs_by_list($uri_list);
+	foreach my $contig (@$remote_contigs) {
+		$self->update_remote_contig_length( $contig->{'uri'}, length( $contigs->{ $contig->{'uri'} } ) );
+	}
+	return;
+}
+
 sub get_remote_contig {
 	my ( $self, $uri, $options ) = @_;
 	( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
+	if ( $uri !~ /\?/x ) {
+		$uri .= q(?no_loci=1);
+	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
 	my $length = length $contig->{'sequence'};
 	if ( $options->{'length'} ) {
@@ -62,9 +134,7 @@ sub get_remote_contig {
 			  ->do( 'UPDATE remote_contigs SET (length,checksum)=(?,?) WHERE uri=?', undef, $length, $checksum, $uri );
 			$self->{'db'}->do(
 				'UPDATE sequence_bin SET (method,original_designation,comments)=(?,?,?) WHERE id=?',
-				undef,
-				$contig->{'method'},
-				$contig->{'original_designation'},
+				undef, $contig->{'method'}, $contig->{'original_designation'},
 				$contig->{'comments'}, $options->{'seqbin_id'}
 			);
 		};
@@ -90,14 +160,23 @@ sub get_remote_isolate {
 	return $self->_get_remote_record( $base_uri, $uri );
 }
 
+sub get_remote_fasta {
+	my ( $self, $uri ) = @_;
+	( my $base_uri = $uri ) =~ s/\/isolates\/\d+\/contigs_fasta$//x;
+	return $self->_get_remote_record( $base_uri, $uri, { non_json => 1 } );
+}
+
 sub _get_remote_record {
-	my ( $self, $base_uri, $uri ) = @_;
+	my ( $self, $base_uri, $uri, $options ) = @_;
 	my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
 		$base_uri, { fetch => 'row_hashref', cache => 'RemoteContigManager::get_credentials' } );
 	my $requires_authorization = $oauth_credentials ? 1 : 0;
 	if ( !$requires_authorization ) {
 		my $response = $self->{'ua'}->get($uri);
 		if ( $response->is_success ) {
+			if ( $options->{'non_json'} ) {
+				return $response->decoded_content;
+			}
 			my $data;
 			eval { $data = decode_json( $response->decoded_content ); };
 			throw BIGSdb::DataException('Data is not JSON') if $@;
@@ -112,13 +191,13 @@ sub _get_remote_record {
 		if ( !$oauth_credentials ) {
 			throw BIGSdb::AuthenticationException("$uri requires authorization - no credentials set");
 		}
-		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri );
+		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri, $options );
 	}
 	throw BIGSdb::FileException("Cannot retrieve $uri");
 }
 
 sub _get_protected_route {
-	my ( $self, $oauth_credentials, $base_uri, $uri ) = @_;
+	my ( $self, $oauth_credentials, $base_uri, $uri, $options ) = @_;
 	if ( !$oauth_credentials->{'session_token'} ) {
 		$self->_get_session_token( $oauth_credentials, $base_uri );
 	}
@@ -136,6 +215,9 @@ sub _get_protected_route {
 	$request->sign;
 	throw BIGSdb::AuthenticationException('Cannot verify signature') unless $request->verify;
 	my $res = $self->{'ua'}->get( $request->to_url );
+	if ( $options->{'non_json'} ) {
+		return $res->content;
+	}
 	my $decoded_json;
 	eval { $decoded_json = decode_json( $res->content ) };
 	if ($@) {

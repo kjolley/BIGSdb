@@ -429,19 +429,27 @@ sub _create_query_fasta_file {
 	foreach my $contig (@$contigs) {
 		say $infile_fh ">$contig->[0]\n$contig->[1]";
 	}
+	my $remote_uris = [];
 	foreach my $contig_link (@$remote_contigs) {
-		my $set_checksum = $contig_link->{'checksum'} ? 0 : 1;
-		my $contig = $self->{'remoteContigManager'}->get_remote_contig(
-			$contig_link->{'uri'},
-			{
-				set_checksum => $set_checksum,
-				seqbin_id    => $contig_link->{'id'},
-				length       => $contig_link->{'length'},
-				checksum     => $contig_link->{'checksum'}
-			}
-		);
-		say $infile_fh ">$contig_link->{'id'}\n$contig->{'sequence'}";
+		push @$remote_uris, $contig_link->{'uri'};
 	}
+	my $remote_data = $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uris);
+	foreach my $contig_link (@$remote_contigs) {
+
+		#		$logger->error("$contig_link->{'id'} $contig_link->{'uri'}");
+		say $infile_fh ">$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}";
+		if ( !$contig_link->{'length'} ) {
+			$self->{'remoteContigManager'}
+			  ->update_remote_contig_length( $contig_link->{'uri'}, length( $remote_data->{ $contig_link->{'uri'} } ) )
+			  ;
+		} elsif ($contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} })){
+			$logger->error("$contig_link->{'uri'} length has changed!");
+		
+		}
+
+		#We won't set checksum because we're not extracting all metadata here
+	}
+
 	close $infile_fh;
 	return;
 }

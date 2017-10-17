@@ -63,39 +63,25 @@ sub print_content {
 	} else {
 		say qq(<h1>Sequence bin for isolate id $isolate_id</h1>);
 	}
-	my $qry = 'SELECT id,length(sequence) AS length,original_designation,method,comments,sender,'
-	  . 'curator,date_entered,datestamp FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc';
-	my $length_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
-	my $count = @$length_data;
-	if ( !$count ) {
+	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
+	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
+	if ( !$seqbin_stats->{'contigs'} ) {
 		say q(<div class="box statusbad"><p>This isolate has no sequence data attached.</p></div>);
 		return;
 	}
-	$self->_print_stats( $isolate_id, $length_data );
-	$self->_print_contig_table( $isolate_id, $length_data );
+	$self->_print_stats( $isolate_id, $seqbin_stats );
+	$self->_print_contig_table( $isolate_id, $seqbin_stats );
 	return;
 }
 
 sub _print_stats {
-	my ( $self, $isolate_id, $length_data ) = @_;
-	my $count = @$length_data;
+	my ( $self, $isolate_id, $seqbin_stats ) = @_;
 	say q(<div class="box" id="resultsheader">);
 	say q(<div style="float:left">);
 	say q(<h2>Contig summary statistics</h2>);
-	say qq(<dl class="data"><dt>Contigs</dt><dd>$count</dd>);
-	my ( $data, $lengths, $n_stats );
-	if ( $count > 1 ) {
-		$data = $self->{'datastore'}->run_query(
-			'SELECT SUM(length(sequence)),MIN(length(sequence)),MAX(length(sequence)),CEIL(AVG(length(sequence))), '
-			  . 'CEIL(STDDEV_SAMP(length(sequence))) FROM sequence_bin WHERE isolate_id=?',
-			$isolate_id,
-			{ fetch => 'row_arrayref' }
-		);
-		$lengths =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) desc',
-			$isolate_id, { fetch => 'col_arrayref' } );
-		$n_stats = BIGSdb::Utils::get_N_stats( $data->[0], $lengths );
+	say qq(<dl class="data"><dt>Contigs</dt><dd>$seqbin_stats->{'contigs'}</dd>);
+	if ( $seqbin_stats->{'contigs'} > 1 ) {
+		my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 		my %stats_labels = (
 			N50 => 'N50 contig number',
 			L50 => 'N50 length (L50)',
@@ -104,43 +90,46 @@ sub _print_stats {
 			N95 => 'N95 contig number',
 			L95 => 'N95 length (L95)',
 		);
-		say qq(<dt>Total length</dt><dd>$data->[0]</dd>);
-		say qq(<dt>Minimum length</dt><dd>$data->[1]</dd>);
-		say qq(<dt>Maximum length</dt><dd>$data->[2]</dd>);
-		say qq(<dt>Mean length</dt><dd>$data->[3]</dd>);
-		say qq(<dt>&sigma; length</dt><dd>$data->[4]</dd>);
-		say qq(<dt>$stats_labels{$_}</dt><dd>$n_stats->{$_}</dd>) foreach qw(N50 L50 N90 L90 N95 L95);
+		my %commify = map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) }
+		  qw(total_length min_length max_length mean_length);
+		say qq(<dt>Total length</dt><dd>$commify{'total_length'}</dd>);
+		say qq(<dt>Minimum length</dt><dd>$commify{'min_length'}</dd>);
+		say qq(<dt>Maximum length</dt><dd>$commify{'max_length'}</dd>);
+		say qq(<dt>Mean length</dt><dd>$commify{'mean_length'}</dd>);
+		foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
+			my $commify = BIGSdb::Utils::commify( $n_stats->{$stat} );
+			say qq(<dt>$stats_labels{$stat}</dt><dd>$commify</dd>);
+		}
 		say q(</dl>);
 	} else {
-		my $length =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?', $isolate_id );
-		say qq(<dt>Length</dt><dd>$length</dd></dl>);
+		my $commify = BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} );
+		say qq(<dt>Length</dt><dd>$commify</dd></dl>);
 	}
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id">Download sequences (FASTA format)</a></li>);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
 	  . qq(isolate_id=$isolate_id">Download sequences with annotations (EMBL format)</a></li></ul>);
 	say q(</div>);
-	if ( $count > 1 ) {
+	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div style="float:left;padding-left:2em">);
 		say q(<h2>Contig size distribution</h2>);
 		my $temp = BIGSdb::Utils::get_random();
 		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
 		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
-		foreach my $length (@$lengths) {
+		foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
 			say $fh_output $length;
 		}
 		close $fh_output;
-		my $bins =
-		  ceil( ( 3.5 * $data->[4] ) / $count**0.33 )
-		  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+		my $std_dev = BIGSdb::Utils::std_dev( $seqbin_stats->{'mean_length'}, $seqbin_stats->{'lengths'} );
+
+		#Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+		my $bins = ceil( ( 3.5 * $std_dev ) / $seqbin_stats->{'contigs'}**0.33 );
 		$bins = 1 if !$bins;
-		my $width = ( $data->[2] - $data->[1] ) / $bins;
+		my $width = ( $seqbin_stats->{'max_length'} - $seqbin_stats->{'min_length'} ) / $bins;
 
 		#round width to nearest 500
 		$width = int( $width - ( $width % 500 ) ) || 500;
-		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $lengths );
+		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $seqbin_stats->{'lengths'} );
 		my ( @labels, @values );
 		foreach my $i ( $min .. $max ) {
 			push @labels, $i * $width;
@@ -159,10 +148,10 @@ sub _print_stats {
 			say q(<div style="float:left;padding-left:2em">);
 			say q(<h2>Cumulative contig length</h2>);
 			my ( @contig_labels, @cumulative );
-			push @contig_labels, $_ foreach ( 1 .. $count );
+			push @contig_labels, $_ foreach ( 1 .. $seqbin_stats->{'contigs'} );
 			my $total_length = 0;
-			foreach (@$length_data) {
-				$total_length += $_->{'length'};
+			foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
+				$total_length += $length;
 				push @cumulative, $total_length;
 			}
 			my %prefs = ( offset_label => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
@@ -178,19 +167,13 @@ sub _print_stats {
 	return;
 }
 
-sub _print_contig_table {
-	my ( $self, $isolate_id, $length_data ) = @_;
-	my $q = $self->{'cgi'};
-	say q(<div class="box" id="resultstable">);
-	say q(<div class="scrollable">);
-	my $seq_attributes =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
-	my @cleaned_attributes = @$seq_attributes;
+sub _print_contig_table_header {
+	my ( $self, $attributes ) = @_;
+	my @cleaned_attributes = @$attributes;
 	s/_/ / foreach @cleaned_attributes;
 	local $" = q(</th><th>);
 	my $att_headings = @cleaned_attributes ? qq(<th>@cleaned_attributes</th>) : q();
-	say q(<table class="resultstable"><tr><th>Sequence</th><th>Sequencing method</th>)
+	say q(<tr><th>Sequence</th><th>Sequencing method</th>)
 	  . qq(<th>Original designation</th><th>Length</th><th>Comments</th>$att_headings<th>Locus</th>)
 	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
 	  . q(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart. )
@@ -198,7 +181,6 @@ sub _print_contig_table {
 	  . q(and version of Java.  If the annotations do not open within Artemis, download the EMBL file )
 	  . q(locally and load manually in to Artemis."><span class="fa fa-info-circle" style="color:white"></span>)
 	  . q(</a></th>);
-
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say q(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the )
 		  . q(sequence tags to automatically set the genome order position for each locus. This will )
@@ -206,6 +188,19 @@ sub _print_contig_table {
 		  . q(<span class="fa fa-info-circle" style="color:white"></span></a></th>);
 	}
 	say q(</tr>);
+	return;
+}
+
+sub _print_contig_table {
+	my ( $self, $isolate_id, $seqbin_stats ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="resultstable">);
+	say q(<div class="scrollable">);
+	my $seq_attributes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
+	say q(<table class="resultstable">);
+	$self->_print_contig_table_header($seq_attributes);
 	my $td     = 1;
 	my $set_id = $self->get_set_id;
 	my $set_clause =
@@ -214,7 +209,13 @@ sub _print_contig_table {
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	local $| = 1;
-	foreach my $data (@$length_data) {
+	my $qry =
+	    'SELECT id,GREATEST(r.length,length(sequence)) AS length,original_designation,method,comments,sender,'
+	  . 'curator,date_entered,datestamp FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE '
+	  . 'isolate_id=? ORDER BY length desc';
+	my $contig_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
+
+	foreach my $data (@$contig_data) {
 		$logger->error($@) if $@;
 		my $allele_count =
 		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause",
@@ -227,13 +228,10 @@ sub _print_contig_table {
 			print qq(<tr class="td$td">);
 			my $open_td = qq(<td rowspan="$allele_count" style="vertical-align:top">);
 			print qq($open_td$data->{'id'}</td>);
-			print qq($open_td$data->{'method'}</td>);
-			$data->{'original_designation'} //= q();
-			print qq($open_td$data->{'original_designation'}</td>);
-			print qq($open_td$data->{'length'}</td>);
-			$data->{'comments'} //= q();
-			print qq($open_td$data->{'comments'}</td>);
-
+			foreach my $field (qw(method original_designation length comments)) {
+				$data->{$field} //= q();
+				print qq($open_td$data->{$field}</td>);
+			}
 			foreach my $att (@$seq_attributes) {
 				$att_values->{$att}->{'value'} //= '';
 				print qq($open_td$att_values->{$att}->{'value'}</td>);

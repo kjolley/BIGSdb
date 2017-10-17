@@ -899,4 +899,13 @@ sub convert_html_table_to_text {
 	}
 	return $buffer;
 }
+
+#http://andrewstechhints.blogspot.co.uk/2010/02/standard-deviation-in-perl.html
+sub std_dev {
+	my ( $average, $values ) = @_;
+	my $count       = @$values;
+	my $std_dev_sum = 0;
+	$std_dev_sum += ( $_ - $average )**2 for @$values;
+	return $count ? sqrt( $std_dev_sum / $count ) : 0;
+}
 1;

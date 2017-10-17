@@ -1434,21 +1434,17 @@ sub get_refs {
 
 sub _get_seqbin_link {
 	my ( $self, $isolate_id ) = @_;
+	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
 	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
 	my $buffer       = q();
 	my $q            = $self->{'cgi'};
 	if ( $seqbin_stats->{'contigs'} ) {
-		my %commify = map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) }
-		  qw(contigs total_length max_length mean_length);
+		my %commify =
+		  map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) } qw(contigs total_length max_length mean_length);
 		my $plural = $seqbin_stats->{'contigs'} == 1 ? '' : 's';
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
-		$buffer .=
-		  qq(<div id="seqbin"><dl class="data"><dt class="dontend">contigs</dt><dd>$commify{'contigs'}</dd>\n);
+		$buffer .= qq(<div id="seqbin"><dl class="data"><dt class="dontend">contigs</dt><dd>$commify{'contigs'}</dd>\n);
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
-			my $lengths =
-			  $self->{'datastore'}->run_query(
-				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
-				$isolate_id, { fetch => 'col_arrayref' } );
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			$buffer .= qq(<dt class="dontend">total length</dt><dd>$commify{'total_length'} bp</dd>\n);
 			$buffer .= qq(<dt class="dontend">max length</dt><dd>$commify{'max_length'} bp</dd>\n);
@@ -1461,9 +1457,9 @@ sub _get_seqbin_link {
 				N95 => 'N95 contig number',
 				L95 => 'N95 length (L95)',
 			);
-			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)){
-				my $value = BIGSdb::Utils::commify($n_stats->{$stat});
-				$buffer .= qq(<dt class="dontend">$stats_labels{$stat}</dt><dd>$value</dd>\n)
+			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
+				my $value = BIGSdb::Utils::commify( $n_stats->{$stat} );
+				$buffer .= qq(<dt class="dontend">$stats_labels{$stat}</dt><dd>$value</dd>\n);
 			}
 		} else {
 			$buffer .= qq(<dt class="dontend">length</dt><dd>$seqbin_stats->{'total_length'} bp</dd>);
