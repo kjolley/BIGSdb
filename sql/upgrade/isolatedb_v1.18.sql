@@ -92,9 +92,56 @@ CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remo
 	END
 $check_remote_contigs$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER check_remote_contigs AFTER INSERT OR DELETE OR UPDATE ON remote_contigs
+CREATE TRIGGER check_remote_contigs BEFORE INSERT OR DELETE OR UPDATE ON remote_contigs
 	FOR EACH ROW
 	EXECUTE PROCEDURE check_remote_contigs();
+	
+CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin_stats$
+	DECLARE
+		delta_isolate_id	 integer;
+		delta_contigs		 integer;
+		delta_total_length	 integer;
+		remote_contig_length integer;
+	BEGIN
+		IF (TG_OP = 'DELETE') THEN
+			PERFORM id FROM isolates WHERE id=OLD.isolate_id;
+			IF NOT FOUND THEN  --The isolate record itself has been deleted.
+				RETURN NULL;
+			END IF;
+			delta_isolate_id = OLD.isolate_id;
+			delta_contigs = - 1;
+			SELECT length FROM remote_contigs WHERE seqbin_id=OLD.id INTO remote_contig_length;	
+			IF (remote_contig_length IS NULL) THEN
+				remote_contig_length = 0;
+			END IF;
+			delta_total_length = - length(OLD.sequence) - remote_contig_length;	
+		ELSIF (TG_OP = 'UPDATE') THEN
+			delta_isolate_id = OLD.isolate_id;
+			delta_total_length = length(NEW.sequence) - length(OLD.sequence);
+			delta_contigs = 0;
+		ELSIF (TG_OP = 'INSERT') THEN
+			delta_isolate_id = NEW.isolate_id;
+			delta_contigs = + 1;
+			delta_total_length = + length(NEW.sequence);
+		END IF;
+		
+		<<insert_update>>
+		LOOP
+			IF (TG_OP = 'DELETE') THEN
+				DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
+				EXIT insert_update WHEN found;
+			END IF;
+			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
+				WHERE isolate_id = delta_isolate_id;
+			EXIT insert_update WHEN found;
+			INSERT INTO seqbin_stats (isolate_id,contigs,total_length)
+				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
+			EXIT insert_update;
+		END LOOP insert_update;
+	
+		RETURN NULL;
+	END;
+$maint_seqbin_stats$ LANGUAGE plpgsql;	
 
 CREATE TABLE oauth_credentials (
 base_uri text NOT NULL UNIQUE,
