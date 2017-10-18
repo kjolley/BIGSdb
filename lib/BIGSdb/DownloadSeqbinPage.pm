@@ -56,7 +56,12 @@ sub print_content {
 		$isolate_id, { fetch => 'all_hashref', key => 'seqbin_id' } );
 	my $remote_uri_list = [];
 	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
-	my $remote_contig_seqs = $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uri_list);
+	my $remote_contig_seqs;
+	eval {
+		$remote_contig_seqs =
+		  $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uri_list);
+	};
+	$logger->error($@) if $@;
 
 	foreach my $contig (@$data) {
 		my ( $id, $orig, $seq ) = @$contig;
