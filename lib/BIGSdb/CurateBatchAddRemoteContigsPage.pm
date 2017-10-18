@@ -237,6 +237,7 @@ sub _upload {
 		return;
 	}
 	$self->{'db'}->commit;
+	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
 	my $count = @$contigs;
 	my $plural = $count == 1 ? q() : q(s);
 	say qq(<div class="box" id="resultsheader"><p>$count remote contig$plural added.</p></div>);

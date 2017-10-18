@@ -63,7 +63,8 @@ CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remo
 				RAISE EXCEPTION 'Do not delete directly from remote_contigs table.';
 			END IF;	
 			IF (OLD.length IS NOT NULL) THEN
-				UPDATE seqbin_stats SET total_length = total_length - OLD.length;
+				SELECT isolate_id FROM sequence_bin WHERE id=OLD.seqbin_id INTO v_isolate_id;
+				UPDATE seqbin_stats SET total_length = total_length - OLD.length WHERE isolate_id = v_isolate_id;
 			END IF;
 			
 		ELSIF (TG_OP = 'UPDATE') THEN
@@ -80,7 +81,7 @@ CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remo
 			delta_length = new_length - old_length;
 			IF delta_length != 0 THEN
 				SELECT isolate_id FROM sequence_bin WHERE id=OLD.seqbin_id INTO v_isolate_id;
-				UPDATE seqbin_stats SET total_length = total_length + delta_length;
+				UPDATE seqbin_stats SET total_length = total_length + delta_length WHERE isolate_id = v_isolate_id;
 			END IF;
 		ELSIF (TG_OP = 'INSERT') THEN
 			IF (EXISTS(SELECT * FROM sequence_bin WHERE id=NEW.seqbin_id AND NOT remote_contig)) THEN
