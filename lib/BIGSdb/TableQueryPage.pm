@@ -160,7 +160,7 @@ sub _get_select_items {
 			push @select_items, $att->{'name'};
 		}
 		push @order_by, $att->{'name'};
-		if ( $att->{'name'} eq 'isolate_id' ) {
+		if ( $att->{'name'} eq 'isolate_id' && $table ne 'retired_isolates' ) {
 			push @select_items, $self->{'system'}->{'labelfield'};
 		}
 		if ( $table eq 'sequences' && $att->{'name'} eq 'sequence' ) {
@@ -632,6 +632,38 @@ sub _get_field_attributes {
 	return ( $thisfield, $clean_fieldname );
 }
 
+sub _check_invalid_fieldname {
+	my ( $self, $table, $field, $errors ) = @_;
+	my $attributes     = $self->{'datastore'}->get_table_field_attributes($table);
+	my @sender_fields  = ( 'sender (id)', 'sender (surname)', 'sender (first_name)', 'sender (affiliation)', );
+	my @curator_fields = ( 'curator (id)', 'curator (surname)', 'curator (first_name)', 'curator (affiliation)' );
+	my @user_fields    = ( 'user_id (id)', 'user_id (surname)', 'user_id (first_name)', 'user_id (affiliation)' );
+	my %allowed        = map { $_->{'name'} => 1 } @$attributes;
+	$allowed{$_} = 1 foreach @curator_fields;
+	my $extended = [];
+
+	if ( $table eq 'sequence_bin' ) {
+		$extended = $self->{'datastore'}
+		  ->run_query( q(SELECT 'ext_'||key FROM sequence_attributes), undef, { fetch => 'col_arrayref' } );
+	}
+	my $additional = {
+		sequences          => [ qw(sequence_length), @sender_fields ],
+		sequence_bin       => [ @$extended,          @sender_fields ],
+		allele_sequences   => [qw(isolate)],
+		user_group_members => [@user_fields]
+	};
+	if ( $additional->{$table} ) {
+		foreach my $field ( @{ $additional->{$table} } ) {
+			$allowed{$field} = 1;
+		}
+	}
+	if ( !$allowed{$field} ) {
+		push @$errors, qq($field is not a valid field name.);
+		$logger->error("Attempt to modify fieldname: $field (table: $table)");
+	}
+	return;
+}
+
 sub _generate_query {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
@@ -644,9 +676,10 @@ sub _generate_query {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 
 		#TODO Sanitise field names.
-		my $field    = $q->param("s$i");
+		my $field = $q->param("s$i");
+		$self->_check_invalid_fieldname( $table, $field, \@errors );
 		my $operator = $q->param("y$i") // '=';
-		my $text     = $q->param("t$i");
+		my $text = $q->param("t$i");
 		$text = $self->_modify_locus_in_sets( $field, $text );
 		$self->process_value( \$text );
 		my ( $thisfield, $clean_fieldname ) = $self->_get_field_attributes( $table, $field );
