@@ -115,6 +115,7 @@ sub paged_display {
 	my ($record_calcs) = $self->_calculate_totals($args);
 	return if !ref $record_calcs;
 	my ( $records, $qry_file ) = @{$record_calcs}{qw(records qry_file)};
+	$passed_qry_file //= $qry_file;
 	$message = $q->param('message') if !$message;
 	my $currentpage = $self->_get_current_page;
 	$q->param( query_file  => $qry_file );
