@@ -115,6 +115,7 @@ sub paged_display {
 	my ($record_calcs) = $self->_calculate_totals($args);
 	return if !ref $record_calcs;
 	my ( $records, $qry_file ) = @{$record_calcs}{qw(records qry_file)};
+	$passed_qry_file //= $qry_file;
 	$message = $q->param('message') if !$message;
 	my $currentpage = $self->_get_current_page;
 	$q->param( query_file  => $qry_file );
@@ -399,7 +400,7 @@ sub _print_export_configuration_function {
 		pcr probes isolate_field_extended_attributes isolate_value_extended_attributes scheme_fields
 		scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members locus_descriptions
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
-		client_dbases client_dbase_loci client_dbase_schemes)
+		client_dbases client_dbase_loci client_dbase_schemes classification_schemes)
 	  )
 	{
 		say q(<fieldset><legend>Database configuration</legend>);
