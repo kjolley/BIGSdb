@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(any none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -286,10 +287,19 @@ sub _insert {
 		} else {
 			$self->{'db'}->commit
 			  && say qq(<div class="box" id="resultsheader"><p>id-$newdata->{'id'} added!</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd">)
-			  . qq(Add another</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'}">Upload sequences</a> | )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+			my ( $more, $upload, $link ) = ( MORE, UPLOAD_CONTIGS, LINK_CONTIGS );
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd")
+			  . qq( title="Add another" style="margin-right:1em">$more</a>);
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'}"")
+			  . qq( title="Upload sequences" style="margin-right:1em">$upload</a>);
+			  if (( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'){
+			  	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'}"")
+			  . qq( title="Link remote contigs" style="margin-right:1em">$link</a>);
+			  }
+			$self->print_home_link;
+
 			$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 			return SUCCESS;
 		}
@@ -345,7 +355,7 @@ sub print_provenance_form_elements {
 	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($thisfield->{'no_curate'} // '') eq 'yes';
+			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0
