@@ -658,7 +658,10 @@ sub _check_invalid_fieldname {
 		}
 	}
 	if ( !$allowed{$field} ) {
-		push @$errors, qq($field is not a valid field name.);
+
+		#Prevent cross-site scripting vulnerability
+		( my $cleaned_field = $field ) =~ s/[^A-z].*$//x;
+		push @$errors, qq($cleaned_field is not a valid field name.);
 		$logger->error("Attempt to modify fieldname: $field (table: $table)");
 	}
 	return;

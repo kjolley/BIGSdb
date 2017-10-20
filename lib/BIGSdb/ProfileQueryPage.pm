@@ -394,7 +394,10 @@ sub _generate_query_from_locus_fields {
 		my $field = $q->param("s$i");
 		my $type = $self->_get_data_type( $scheme_id, $field );
 		if ( !defined $type && !$standard_fields{$field} ) {
-			push @$errors, "Field $field is not recognized.";
+
+			#Prevent cross-site scripting vulnerability
+			( my $cleaned_field = $field ) =~ s/[^A-z].*$//x;
+			push @$errors, "Field $cleaned_field is not recognized.";
 			$logger->error("Attempt to modify fieldname: $field");
 			next;
 		}
