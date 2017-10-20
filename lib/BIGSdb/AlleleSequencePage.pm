@@ -76,9 +76,10 @@ sub print_content {
 	say q(</h1>);
 	my $flanking = $self->{'prefs'}->{'flanking'};
 	my $qry =
-	    'SELECT allele_sequences.id,seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) '
-	  . 'AS seqlength FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id '
-	  . 'WHERE sequence_bin.isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp';
+	    'SELECT a.id,a.seqbin_id,a.start_pos,a.end_pos,a.reverse,a.complete,s.method,'
+	  . 'GREATEST(r.length,length(s.sequence)) AS seqlength FROM allele_sequences a LEFT JOIN sequence_bin s '
+	  . 'ON a.seqbin_id = s.id LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND a.locus=? '
+	  . 'ORDER BY complete desc,a.datestamp';
 	my $data = $self->{'datastore'}->run_query( $qry, [ $isolate_id, $locus ], { fetch => 'all_arrayref' } );
 	my $buffer;
 

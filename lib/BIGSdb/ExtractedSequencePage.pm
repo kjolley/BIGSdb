@@ -113,22 +113,22 @@ sub print_content {
 
 sub get_option_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $buffer = q(<fieldset style="float:right"><legend>Options</legend>);
-	$buffer.= $q->start_form;
-	$buffer.= q(<ul></li>);
-	$buffer.= q(<label for="flanking">Flanking sequence length: </label>);
-	$buffer.= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
-	$buffer.= q(</li></ul>);
-	$buffer.= $q->submit(
+	$buffer .= $q->start_form;
+	$buffer .= q(<ul></li>);
+	$buffer .= q(<label for="flanking">Flanking sequence length: </label>);
+	$buffer .= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
+	$buffer .= q(</li></ul>);
+	$buffer .= $q->submit(
 		-name  => 'reload',
 		-label => 'Reload',
 		-class => BUTTON_CLASS,
 		-style => 'float:right;margin-top:0.5em'
 	);
-	$buffer.= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
-	$buffer.= $q->end_form;
-	$buffer.= q(</fieldset>);
+	$buffer .= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
+	$buffer .= $q->end_form;
+	$buffer .= q(</fieldset>);
 	return $buffer;
 }
 
@@ -147,23 +147,70 @@ sub update_prefs {
 sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
-	my $contig_length =
-	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $args->{'seqbin_id'} );
-	$args->{'end'} = $contig_length if $args->{'end'} > $contig_length;
+	my $contig_info = $self->{'datastore'}->run_query(
+		'SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM sequence_bin s LEFT JOIN '
+		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
+		$args->{'seqbin_id'},
+		{ fetch => 'row_hashref' }
+	);
+	$args->{'contig_length'} = $contig_info->{'length'};
+	$args->{'end'} = $args->{'contig_length'} if $args->{'end'} > $args->{'contig_length'};
 	my $flanking = $self->{'cgi'}->param('flanking') // $self->{'prefs'}->{'flanking'};
 	$flanking = ( BIGSdb::Utils::is_int($flanking) && $flanking >= 0 ) ? $flanking : 100;
+	$args->{'flanking'} = $flanking;
+	my $seq_ref;
+
+	if ( $contig_info->{'remote_contig'} ) {
+		$seq_ref = $self->_get_remote_contig_fragment($args);
+	} else {
+		$seq_ref = $self->_get_local_contig_fragment($args);
+	}
+	if ( $args->{'reverse'} ) {
+		$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} );
+		$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} );
+		$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} );
+	}
 	my $length = abs( $args->{'end'} - $args->{'start'} + 1 );
+	return $self->format_sequence(
+		$seq_ref,
+		{
+			translate => $args->{'translate'},
+			reverse   => $args->{'reverse'},
+			length    => $length,
+			orf       => $args->{'orf'}
+		}
+	);
+}
+
+sub _get_remote_contig_fragment {
+	my ( $self, $args ) = @_;
+	my $uri =
+	  $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $args->{'seqbin_id'} );
+	my $contig;
+	my $seq_ref = {};
+	eval { $contig = $self->{'remoteContigManager'}->get_remote_contig($uri); };
+	if ($@) {
+		$logger->error($@);
+		return {};
+	}
+	my $flanking       = $args->{'flanking'};
+	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
+	return {
+		seq        => substr( $contig->{'sequence'}, $args->{'start'} - 1,             $extract_length ),
+		upstream   => substr( $contig->{'sequence'}, $args->{'start'} - 1 - $flanking, $flanking ),
+		downstream => substr( $contig->{'sequence'}, $args->{'end'},                   $flanking )
+	};
+}
+
+sub _get_local_contig_fragment {
+	my ( $self, $args ) = @_;
+	my $flanking = $args->{'flanking'};
+	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
 	my $qry =
 	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
 	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
 	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
-	my $seq_ref = $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
-	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $args->{'reverse'};
-	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $args->{'reverse'};
-	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $args->{'reverse'};
-	return $self->format_sequence( $seq_ref,
-		{ translate => $args->{'translate'}, reverse => $args->{'reverse'}, length => $length, orf => $args->{'orf'} }
-	);
+	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
 }
 
 sub _get_subseqs_and_offsets {
