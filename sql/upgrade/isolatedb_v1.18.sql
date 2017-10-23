@@ -18,6 +18,10 @@ ALTER TABLE sequence_bin ADD remote_contig boolean;
 UPDATE sequence_bin SET remote_contig = FALSE;
 ALTER TABLE sequence_bin ALTER COLUMN remote_contig SET DEFAULT FALSE;
 ALTER TABLE sequence_bin ALTER COLUMN remote_contig SET NOT NULL;
+UPDATE sequence_bin SET method=NULL WHERE method='' OR method='unknown';
+UPDATE sequence_bin SET original_designation=NULL WHERE original_designation='';
+UPDATE sequence_bin SET run_id=NULL WHERE run_id='';
+UPDATE sequence_bin SET assembly_id=NULL WHERE assembly_id='';
 
 CREATE OR REPLACE FUNCTION check_sequence_bin() RETURNS TRIGGER AS $check_sequence_bin$
 	BEGIN
