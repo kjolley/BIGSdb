@@ -2341,4 +2341,6 @@ sub get_seqbin_stats {
 	}
 	return $results;
 }
+
+
 1;
