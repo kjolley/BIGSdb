@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,7 +37,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Create new isolate record version</h1>);
 	my $existing_id = $q->param('id');
-	if ( $self->{'system'}->{'view'} ne 'isolates' ) {
+	if ( $self->{'system'}->{'view'} ne 'isolates' && $self->{'system'}->{'view'} ne 'temp_view' ) {
 		say q(<div class="box" id="statusbad"><p>New record versions cannot be created when a filtered )
 		  . q(isolate view is used.  Any new version could be potentially inaccessible.</p></div>);
 		return;

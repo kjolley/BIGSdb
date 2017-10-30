@@ -404,11 +404,11 @@ sub print_content {
 	if ( $self->{'cgi'}->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
-	
 		say $self->_get_update_history($isolate_id);
 		my $back = BACK;
-			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-		say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
+		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+		say
+		  qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
 		  . qq($set_clause&amp;id=$isolate_id" title="Back">$back</a></p>);
 		say q(</div>);
 	} else {
@@ -628,7 +628,11 @@ sub _print_action_panel {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
 
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
-		next if $action eq 'tagScan' && !$seqbin_exists;
+		next
+		  if $action eq 'tagScan'
+		  && ( !$seqbin_exists
+			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
+		next if $action eq 'batchAddSeqbin' && !$self->can_modify_table('sequences');
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
 		$q->param( page => $action );
@@ -639,7 +643,7 @@ sub _print_action_panel {
 		say $q->end_form;
 		say q(</fieldset>);
 	}
-	$q->param( page => $page );    #Reset
+	$q->param( page => $page );                                                 #Reset
 	say q(</div></div>);
 	return;
 }
@@ -881,7 +885,7 @@ sub _get_history_field {
 		$buffer .= qq(<dt class="dontend">update history</dt>\n);
 		$buffer .= qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>);
 		my $refer_page = $q->param('page');
-		my $set_id = $self->get_set_id;
+		my $set_id     = $self->get_set_id;
 		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 		$buffer .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
 		  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a></dd>\n);
