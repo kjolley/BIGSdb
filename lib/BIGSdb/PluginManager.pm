@@ -49,21 +49,22 @@ sub initiate {
 			$logger->warn("$plugin_name plugin not installed properly!  $@");
 		} else {
 			my $plugin = "BIGSdb::Plugins::$plugin_name"->new(
-				system           => $self->{'system'},
-				dbase_config_dir => $self->{'dbase_config_dir'},
-				config_dir       => $self->{'config_dir'},
-				lib_dir          => $self->{'lib_dir'},
-				cgi              => $self->{'cgi'},
-				instance         => $self->{'instance'},
-				prefs            => $self->{'prefs'},
-				prefstore        => $self->{'prefstore'},
-				config           => $self->{'config'},
-				datastore        => $self->{'datastore'},
-				db               => $self->{'db'},
-				xmlHandler       => $self->{'xmlHandler'},
-				dataConnector    => $self->{'dataConnector'},
-				jobManager       => $self->{'jobManager'},
-				mod_perl_request => $self->{'mod_perl_request'}
+				system              => $self->{'system'},
+				dbase_config_dir    => $self->{'dbase_config_dir'},
+				config_dir          => $self->{'config_dir'},
+				lib_dir             => $self->{'lib_dir'},
+				cgi                 => $self->{'cgi'},
+				instance            => $self->{'instance'},
+				prefs               => $self->{'prefs'},
+				prefstore           => $self->{'prefstore'},
+				config              => $self->{'config'},
+				datastore           => $self->{'datastore'},
+				db                  => $self->{'db'},
+				xmlHandler          => $self->{'xmlHandler'},
+				dataConnector       => $self->{'dataConnector'},
+				jobManager          => $self->{'jobManager'},
+				mod_perl_request    => $self->{'mod_perl_request'},
+				remoteContigManager => $self->{'remoteContigManager'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
 			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;

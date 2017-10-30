@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
@@ -234,44 +234,46 @@ sub _get_seqs {
 	open( my $fh, '>', $tempfile ) or $logger->error("could not open temp file $tempfile");
 	my $i = 0;
 	foreach my $id (@$isolate_ids) {
-		my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
-		my $qry =
-		    'SELECT substring(sequence from start_pos for end_pos-start_pos+1),reverse FROM '
-		  . 'allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id WHERE '
-		  . "sequence_bin.isolate_id=? AND locus=? $exclude_clause ORDER BY complete "
-		  . 'desc,allele_sequences.datestamp LIMIT 1';
-		my ( $seqbin_seq, $reverse ) =
-		  $self->{'datastore'}->run_query( $qry, [ $id, $locus_name ], { cache => 'Polymorphisms::get_seqs' } );
-		if ($reverse) {
-			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
-		}
+		my $seqbin_seq = $self->_get_seqbin_fragment( $id, $locus_name, $options );
 
 		#TODO Only a single seqbin sequence is compared against each allele designation.  Ideally we would use every
 		#sequence, but this may need to wait until we can link designations with sequence bin tags.
 		my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
-		my $allele_seq;
+		my %allele_seq;
 		push @$allele_ids, 0 if !@$allele_ids;    #We still need to get the seqbin seqs if no allele ids are set.
 		foreach my $allele_id (@$allele_ids) {
 			if ( $allele_id ne '0' && $locus_info->{'data_type'} eq 'DNA' ) {
 				try {
-					$allele_seq = $locus->get_allele_sequence($allele_id);
+					$allele_seq{$allele_id} = $locus->get_allele_sequence($allele_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
 
 					#do nothing
 				};
 			}
-			my $seq;
-			if ( ref $allele_seq && $$allele_seq && $seqbin_seq ) {
-				$seq = $options->{'from_bin'} ? $seqbin_seq : $$allele_seq;
-			} elsif ( ref $allele_seq && $$allele_seq && !$seqbin_seq ) {
-				$seq = $$allele_seq;
-			} elsif ($seqbin_seq) {
-				$seq = $seqbin_seq;
-			}
-			if ( $seq && !$used{$seq} ) {
+		}
+		my $use_bin;
+		if ( keys %allele_seq && $seqbin_seq ) {
+			$use_bin = $options->{'from_bin'};
+		} elsif ( keys %allele_seq && !$seqbin_seq ) {
+			$use_bin = 0;
+		} elsif ($seqbin_seq) {
+			$use_bin = 1;
+		} else {
+			next;
+		}
+		if ($use_bin) {
+			if ( !$used{$seqbin_seq} ) {
 				$i++;
-				say $fh ">seq$i\n$seq" if !$used{$seq};
+				say $fh ">seq$i\n$seqbin_seq";
+				$used{$seqbin_seq} = 1 if $options->{'unique'};
+			}
+		} else {
+			foreach my $allele_id ( keys %allele_seq ) {
+				my $seq = ${ $allele_seq{$allele_id} };
+				next if $used{$seq};
+				$i++;
+				say $fh ">seq$i\n$seq";
 				$used{$seq} = 1 if $options->{'unique'};
 			}
 		}
@@ -303,6 +305,28 @@ sub _get_seqs {
 	unlink $tempfile;
 	unlink $aligned_file;
 	return \@seqs;
+}
+
+sub _get_seqbin_fragment {
+	my ( $self, $isolate_id, $locus_name, $options ) = @_;
+	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
+	my $allele_tags = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus_name );
+	my $seqbin_seq;
+	if (@$allele_tags) {
+		my $fragment_ref = $self->get_contig_fragment(
+			{
+				seqbin_id => $allele_tags->[0]->{'seqbin_id'},
+				start     => $allele_tags->[0]->{'start_pos'},
+				end       => $allele_tags->[0]->{'end_pos'},
+				flanking  => 0
+			}
+		);
+		$seqbin_seq = $fragment_ref->{'seq'};
+		if ( $allele_tags->[0]->{'reverse'} ) {
+			$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
+		}
+	}
+	return $seqbin_seq;
 }
 
 sub _print_interface {

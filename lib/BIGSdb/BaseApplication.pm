@@ -653,21 +653,22 @@ sub _is_name_in_file {
 sub initiate_plugins {
 	my ($self) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
-		system           => $self->{'system'},
-		dbase_config_dir => $self->{'dbase_config_dir'},
-		config_dir       => $self->{'config_dir'},
-		lib_dir          => $self->{'lib_dir'},
-		cgi              => $self->{'cgi'},
-		instance         => $self->{'instance'},
-		prefstore        => $self->{'prefstore'},
-		config           => $self->{'config'},
-		datastore        => $self->{'datastore'},
-		db               => $self->{'db'},
-		xmlHandler       => $self->{'xmlHandler'},
-		dataConnector    => $self->{'dataConnector'},
-		mod_perl_request => $self->{'mod_perl_request'},
-		jobManager       => $self->{'jobManager'},
-		pluginDir        => $self->{'lib_dir'}
+		system              => $self->{'system'},
+		dbase_config_dir    => $self->{'dbase_config_dir'},
+		config_dir          => $self->{'config_dir'},
+		lib_dir             => $self->{'lib_dir'},
+		cgi                 => $self->{'cgi'},
+		instance            => $self->{'instance'},
+		prefstore           => $self->{'prefstore'},
+		config              => $self->{'config'},
+		datastore           => $self->{'datastore'},
+		db                  => $self->{'db'},
+		xmlHandler          => $self->{'xmlHandler'},
+		dataConnector       => $self->{'dataConnector'},
+		mod_perl_request    => $self->{'mod_perl_request'},
+		jobManager          => $self->{'jobManager'},
+		remoteContigManager => $self->{'remoteContigManager'},
+		pluginDir           => $self->{'lib_dir'}
 	);
 	return;
 }
