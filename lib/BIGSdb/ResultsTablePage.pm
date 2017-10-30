@@ -601,7 +601,8 @@ sub _print_isolate_id_links {
 			  . UPLOAD
 			  . q(</a></td>);
 		}
-		if ( $self->{'system'}->{'view'} eq 'isolates' ) {
+		if ( $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view' )
+		{
 			print $data->{'new_version'}
 			  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 			  . qq(&amp;page=info&amp;id=$data->{'new_version'}">$data->{'new_version'}</a></td>)
@@ -770,7 +771,8 @@ sub _print_isolate_table_header {
 		if ( $self->can_modify_table('sequence_bin') ) {
 			$fieldtype_header .= q(<th rowspan="2">Sequence bin</th>);
 		}
-		$fieldtype_header .= q(<th rowspan="2">New version</th>) if $self->{'system'}->{'view'} eq 'isolates';
+		$fieldtype_header .= q(<th rowspan="2">New version</th>)
+		  if $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view';
 	}
 	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
 	$fieldtype_header .=

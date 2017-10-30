@@ -628,7 +628,11 @@ sub _print_action_panel {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
 
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
-		next if $action eq 'tagScan' && !$seqbin_exists;
+		next
+		  if $action eq 'tagScan'
+		  && ( !$seqbin_exists
+			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
+		next if $action eq 'batchAddSeqbin' && !$self->can_modify_table('sequences');
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
 		$q->param( page => $action );
@@ -639,7 +643,7 @@ sub _print_action_panel {
 		say $q->end_form;
 		say q(</fieldset>);
 	}
-	$q->param( page => $page );    #Reset
+	$q->param( page => $page );                                                 #Reset
 	say q(</div></div>);
 	return;
 }
