@@ -1043,11 +1043,15 @@ sub _hunt_for_start_and_stop_codons {
 			$predicted_end =~ s/\*//x;
 			my $predicted_length = $predicted_end - $predicted_start + 1;
 			$predicted_length = 1 if $predicted_length < 1;
-			my $seq =
-			  $self->{'datastore'}->run_query(
-				"SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",
-				$match->{'seqbin_id'} );
-
+			my $seq_ref = $self->get_contig_fragment(
+				{
+					seqbin_id => $match->{'seqbin_id'},
+					start     => $match->{'predicted_start'},
+					end       => $match->{'predicted_end'},
+					flanking  => 0
+				}
+			);
+			my $seq = $seq_ref->{'seq'};
 			if ($seq) {
 				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
