@@ -343,7 +343,7 @@ sub _get_locus_matches {
 		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
-		$self->{'linked_data'}->{$locus}->{$match->{'allele'}} = $field_values->{'values'};
+		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
 		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
 		$allele_info = $self->{'datastore'}->run_query(
 			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
@@ -353,7 +353,8 @@ sub _get_locus_matches {
 		$flags = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
 		$buffer .= qq(<td>$match->{'length'}</td><td>$match->{'query'}</td><td>$match->{'start'}</td>)
 		  . qq(<td>$match->{'end'}</td>);
-		$buffer .= defined $field_values ? qq(<td style="text-align:left">$field_values->{'formatted'}</td>) : q(<td></td>)
+		$buffer .=
+		  defined $field_values ? qq(<td style="text-align:left">$field_values->{'formatted'}</td>) : q(<td></td>)
 		  if $data->{'linked_data'};
 		$buffer .= defined $attributes ? qq(<td style="text-align:left">$attributes</td>) : q(<td></td>)
 		  if $data->{'extended_attributes'};
@@ -549,7 +550,7 @@ sub _get_partial_match_results {
 		$buffer .= qq( (Flag$plural: <a class="seqflag_tooltip">@$flags</a>)) if @$flags;
 	}
 	$buffer .= q(</p>);
-	if ($field_values->{'formatted'}) {
+	if ( $field_values->{'formatted'} ) {
 		$buffer .= q(<p>This match is linked to the following data:</p>);
 		$buffer .= $field_values->{'formatted'};
 	}
@@ -674,9 +675,10 @@ sub _get_differences_output {
 	} else {
 		$buffer .= q(<p>An alignment between your query and the returned reference sequence is shown rather )
 		  . q(than a simple list of differences because there are gaps in the alignment.</p>);
+		$buffer .= q(<div class="scrollable">);
 		$buffer .= q(<pre style="font-size:1.2em">);
 		$buffer .= $self->print_file( $outfile, { get_only => 1, ignore_hashlines => 1 } );
-		$buffer .= q(</pre>);
+		$buffer .= q(</pre></div>);
 		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$temp*");
 		foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
 	}
@@ -691,7 +693,8 @@ sub get_alignment {
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
 		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
 		  . qq(Show alignment</a></p>\n);
-		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre>\n);
+		$buffer .= q(<div class="scrollable">);
+		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre></div>\n);
 	}
 	return $buffer;
 }
