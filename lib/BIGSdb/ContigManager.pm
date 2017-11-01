@@ -94,15 +94,13 @@ sub update_isolate_remote_contig_lengths {
 	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s JOIN remote_contigs r ON '
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::update_isolate_remote_contig_lengths' }
-	);
+		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::update_isolate_remote_contig_lengths' } );
 	my $uri_list = [];
 	foreach my $contig (@$remote_contigs) {
 		next if $contig->{'length'};
 		push @$uri_list, $contig->{'uri'};
 	}
 	return if !@$uri_list;
-	
 	my $contigs = $self->get_remote_contigs_by_list($uri_list);
 	foreach my $contig (@$remote_contigs) {
 		$self->update_remote_contig_length( $contig->{'uri'}, length( $contigs->{ $contig->{'uri'} } ) );
@@ -346,5 +344,30 @@ sub _get_local_contig_fragment {
 	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
 	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
 	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
+}
+
+sub get_contig {
+	my ( $self, $seqbin_id ) = @_;
+	my ( $remote, $sequence ) =
+	  $self->{'datastore'}->run_query( 'SELECT remote_contig,sequence FROM sequence_bin WHERE id=?',
+		$seqbin_id, { cache => 'ContigManager::get_contig' } );
+	if ( !defined $remote ) {
+		$logger->error("No seqbin record $seqbin_id");
+		return \undef;
+	}
+	if ($remote) {
+		my $uri = $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?',
+			$seqbin_id, { cache => 'ContigManager::get_remote_contig_uri' } );
+		my $contig;
+		eval { $contig = $self->get_remote_contig($uri) };
+		if ($@) {
+			$logger->error($@);
+			return \undef;
+		}
+		my $seq = $contig->{'sequence'};
+		return \$seq;
+	} else {
+		return \$sequence;
+	}
 }
 1;

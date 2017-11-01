@@ -247,13 +247,11 @@ sub _calculate {
 		}
 		if ( $options->{'get_contigs'} ) {
 			my $header = ( $q->param('header') // 1 ) == 1 ? ( $orig_designation || $seqbin_id ) : $seqbin_id;
-			my $seq = $self->{'datastore'}->run_query( 'SELECT sequence FROM sequence_bin WHERE id=?',
-				$seqbin_id, { cache => 'Contigs::get_sequence' } );
-			#TODO New helper method to get contig (not contig_fragment).
+			my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
 			if ($match) {
-				push @match_seq, { seqbin_id => $header, sequence => $seq };
+				push @match_seq, { seqbin_id => $header, sequence => $$seq_ref };
 			} else {
-				push @non_match_seq, { seqbin_id => $header, sequence => $seq };
+				push @non_match_seq, { seqbin_id => $header, sequence => $$seq_ref };
 			}
 		}
 	}
