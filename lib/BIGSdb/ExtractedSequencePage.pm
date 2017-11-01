@@ -80,7 +80,7 @@ sub print_content {
 	say q(<h2>Sequence position</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>sequence bin id</dt><dd>$seqbin_id</dd>);
-	say qq(<dt>sequence method</dt><dd>$method</dd>);
+	say qq(<dt>sequence method</dt><dd>$method</dd>) if $method;
 	say qq(<dt>start</dt><dd>$start</dd>);
 	say qq(<dt>end</dt><dd>$end</dd>);
 	say qq(<dt>length</dt><dd>$length</dd>);
@@ -148,7 +148,7 @@ sub update_prefs {
 
 sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
-	my $seq_ref = $self->get_contig_fragment($args);
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment($args);
 	my $length  = abs( $args->{'end'} - $args->{'start'} + 1 );
 	return $self->format_sequence(
 		$seq_ref,

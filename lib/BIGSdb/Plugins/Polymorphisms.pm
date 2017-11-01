@@ -313,7 +313,7 @@ sub _get_seqbin_fragment {
 	my $allele_tags = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus_name );
 	my $seqbin_seq;
 	if (@$allele_tags) {
-		my $fragment_ref = $self->get_contig_fragment(
+		my $fragment_ref = $self->{'contigManager'}->get_contig_fragment(
 			{
 				seqbin_id => $allele_tags->[0]->{'seqbin_id'},
 				start     => $allele_tags->[0]->{'start_pos'},

@@ -432,7 +432,7 @@ sub make_isolate_seq_file {
 			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
 			  $self->{'datastore'}
 			  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
-			my $seq_ref = $self->get_contig_fragment(
+			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 				{
 					seqbin_id => $seqbin_id,
 					start     => $start_pos,

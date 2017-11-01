@@ -289,4 +289,62 @@ sub _get_session_token {
 		throw BIGSdb::AuthenticationException("Invalid access token for $base_uri");
 	}
 }
+
+sub get_contig_fragment {
+	my ( $self, $args ) = @_;
+	$args->{'start'} = 1 if $args->{'start'} < 1;
+	my $contig_info = $self->{'datastore'}->run_query(
+		'SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM sequence_bin s LEFT JOIN '
+		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
+		$args->{'seqbin_id'},
+		{ fetch => 'row_hashref' }
+	);
+	$args->{'contig_length'} = $contig_info->{'length'};
+	$args->{'end'} = $args->{'contig_length'} if $args->{'end'} > $args->{'contig_length'};
+	$args->{'flanking'} =
+	  ( BIGSdb::Utils::is_int( $args->{'flanking'} ) && $args->{'flanking'} >= 0 ) ? $args->{'flanking'} : 100;
+	my $seq_ref;
+	if ( $contig_info->{'remote_contig'} ) {
+		$seq_ref = $self->_get_remote_contig_fragment($args);
+	} else {
+		$seq_ref = $self->_get_local_contig_fragment($args);
+	}
+	if ( $args->{'reverse'} ) {
+		$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} );
+		$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} );
+		$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} );
+	}
+	return $seq_ref;
+}
+
+sub _get_remote_contig_fragment {
+	my ( $self, $args ) = @_;
+	my $uri =
+	  $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $args->{'seqbin_id'} );
+	my $contig;
+	my $seq_ref = {};
+	eval { $contig = $self->get_remote_contig($uri); };
+	if ($@) {
+		$logger->error($@);
+		return {};
+	}
+	my $flanking       = $args->{'flanking'};
+	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
+	return {
+		seq        => substr( $contig->{'sequence'}, $args->{'start'} - 1,             $extract_length ),
+		upstream   => substr( $contig->{'sequence'}, $args->{'start'} - 1 - $flanking, $flanking ),
+		downstream => substr( $contig->{'sequence'}, $args->{'end'},                   $flanking )
+	};
+}
+
+sub _get_local_contig_fragment {
+	my ( $self, $args ) = @_;
+	my $flanking = $args->{'flanking'};
+	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
+	my $qry =
+	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
+	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
+	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
+	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
+}
 1;
