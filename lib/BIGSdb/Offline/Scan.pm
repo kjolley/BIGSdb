@@ -842,12 +842,13 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
-	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
-	my $seq =
-	  $self->{'datastore'}->run_query(
-		"SELECT substring(sequence from $match->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?",
-		$match->{'seqbin_id'} );
-	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment({
+		seqbin_id => $match->{'seqbin_id'},
+		start => $match->{'predicted_start'},
+		end => $match->{'predicted_end'},
+		reverse => $match->{'reverse'}
+	});
+	my $seq = $seq_ref->{'seq'};
 	$seq = uc($seq);
 	return $seq;
 }

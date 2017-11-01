@@ -370,4 +370,14 @@ sub get_contig {
 		return \$sequence;
 	}
 }
+
+sub get_contig_length {
+	my ( $self, $seqbin_id ) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT GREATEST(r.length,length(s.sequence)) FROM sequence_bin s LEFT JOIN '
+		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
+		$seqbin_id,
+		{ cache => 'ContigManager::get_contig_length' }
+	);
+}
 1;

@@ -138,11 +138,7 @@ sub _parse_blast {
 			if ( $sequence eq $locus_data->{$locus}->{'sequence'} ) {
 				$designations->{$locus} = '1';
 			} elsif ( defined $final_match->{'predicted_start'} && defined $final_match->{'predicted_end'} ) {
-				my $seqbin_length = $self->{'datastore'}->run_query(
-					'SELECT length(sequence) FROM sequence_bin where id=?',
-					$final_match->{'seqbin_id'},
-					{ cache => 'GenomeComparator::_seqbin_length' }
-				);
+				my $seqbin_length = $self->{'contigManager'}->get_contig_length( $final_match->{'seqbin_id'} );
 				foreach my $end (qw (predicted_start predicted_end)) {
 					if ( $final_match->{$end} < 1 || $final_match->{$end} > $seqbin_length ) {
 						$designations->{$locus} = 'incomplete';
@@ -222,17 +218,18 @@ sub _extract_sequence {
 	my $start = $match->{'predicted_start'};
 	my $end   = $match->{'predicted_end'};
 	return if !defined $start || !defined $end;
-	my $length = abs( $end - $start ) + 1;
 	if ( $end < $start ) {
 		$start = $end;
 	}
-	my $seq =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT substring(sequence from $start for $length) FROM sequence_bin WHERE id=?",
-		$match->{'seqbin_id'} );
-	if ( $match->{'reverse'} ) {
-		return BIGSdb::Utils::reverse_complement($seq);
-	}
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+		{
+			seqbin_id => $match->{'seqbin_id'},
+			start     => $start,
+			end       => $end,
+			reverse   => $match->{'reverse'}
+		}
+	);
+	my $seq = $seq_ref->{'sequence'};
 	$self->{'db'}->commit;
 	return $seq;
 }
@@ -248,7 +245,7 @@ sub _create_isolate_FASTA_db {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry = 'SELECT DISTINCT id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON '
+	my $qry = 'SELECT DISTINCT id,sequence,remote_contig FROM sequence_bin LEFT JOIN experiment_sequences ON '
 	  . 'sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
@@ -271,13 +268,19 @@ sub _create_isolate_FASTA {
 		push @criteria, $experiment;
 	}
 	my $contigs =
-	  $self->{'datastore'}
-	  ->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
+	  $self->{'datastore'}->run_query( $qry, \@criteria,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'GenomeComparator::create_isolate_FASTA' } );
+	foreach my $contig (@$contigs) {
+		if ( $contig->{'remote_contig'} ) {
+			my $remote_contig_seq = $self->{'contigManager'}->get_contig( $contig->{'id'} );
+			$contig->{'sequence'} = $$remote_contig_seq;
+		}
+	}
 	if ( $isolate_id =~ /(\d*)/x ) { $isolate_id = $1 }    #untaint
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $self->{'logger'}->error("Cannot open $temp_infile for writing");
-	foreach (@$contigs) {
-		say $infile_fh ">$_->[0]\n$_->[1]";
+	foreach my $contig (@$contigs) {
+		say $infile_fh ">$contig->{'id'}\n$contig->{'sequence'}";
 	}
 	close $infile_fh;
 	$self->{'db'}->commit;
@@ -475,8 +478,7 @@ sub _get_highest_quality_match {
 
 sub _check_off_end_of_contig {
 	my ( $self, $match ) = @_;
-	my $seqbin_length = $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?',
-		$match->{'seqbin_id'}, { cache => 'GCHelper::off_end_of_contig' } );
+	my $seqbin_length = $self->{'contigManager'}->get_contig_length( $match->{'seqbin_id'} );
 	if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 		$match->{'predicted_start'} = '1';
 		$match->{'incomplete'}      = 1;
