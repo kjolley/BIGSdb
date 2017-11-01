@@ -59,7 +59,7 @@ sub print_content {
 	my $remote_contig_seqs;
 	eval {
 		$remote_contig_seqs =
-		  $self->{'remoteContigManager'}->get_remote_contigs_by_list($remote_uri_list);
+		  $self->{'contigManager'}->get_remote_contigs_by_list($remote_uri_list);
 	};
 	$logger->error($@) if $@;
 

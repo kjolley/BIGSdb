@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2015, University of Oxford
+#Copyright (c) 2013-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
-		version      => '1.1.1',
+		version      => '1.1.2',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -200,10 +200,13 @@ sub _run_analysis {
 
 sub _calculate {
 	my ( $self, $isolate_id, $options ) = @_;
-	my $q        = $self->{'cgi'};
-	my $qry      = 'SELECT id,length(sequence) AS seq_length,original_designation FROM sequence_bin WHERE isolate_id=?';
+	my $q = $self->{'cgi'};
+	my $qry =
+	    'SELECT id,GREATEST(r.length,length(s.sequence)) AS seq_length,original_designation FROM '
+	  . 'sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE isolate_id=?'
+	  ;
 	my @criteria = ($isolate_id);
-	my $method   = $q->param('seq_method_list') // $q->param('seq_method');
+	my $method = $q->param('seq_method_list') // $q->param('seq_method');
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
@@ -246,6 +249,7 @@ sub _calculate {
 			my $header = ( $q->param('header') // 1 ) == 1 ? ( $orig_designation || $seqbin_id ) : $seqbin_id;
 			my $seq = $self->{'datastore'}->run_query( 'SELECT sequence FROM sequence_bin WHERE id=?',
 				$seqbin_id, { cache => 'Contigs::get_sequence' } );
+			#TODO New helper method to get contig (not contig_fragment).
 			if ($match) {
 				push @match_seq, { seqbin_id => $header, sequence => $seq };
 			} else {

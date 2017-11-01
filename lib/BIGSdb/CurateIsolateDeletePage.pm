@@ -64,18 +64,18 @@ sub print_content {
 	$buffer .= $q->end_form;
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
-			system              => $self->{'system'},
-			cgi                 => $self->{'cgi'},
-			instance            => $self->{'instance'},
-			prefs               => $self->{'prefs'},
-			prefstore           => $self->{'prefstore'},
-			config              => $self->{'config'},
-			datastore           => $self->{'datastore'},
-			db                  => $self->{'db'},
-			xmlHandler          => $self->{'xmlHandler'},
-			dataConnector       => $self->{'dataConnector'},
-			remoteContigManager => $self->{'remoteContigManager'},
-			curate              => 1
+			system        => $self->{'system'},
+			cgi           => $self->{'cgi'},
+			instance      => $self->{'instance'},
+			prefs         => $self->{'prefs'},
+			prefstore     => $self->{'prefstore'},
+			config        => $self->{'config'},
+			datastore     => $self->{'datastore'},
+			db            => $self->{'db'},
+			xmlHandler    => $self->{'xmlHandler'},
+			dataConnector => $self->{'dataConnector'},
+			contigManager => $self->{'contigManager'},
+			curate        => 1
 		)
 	);
 	my $record_table = $isolate_record->get_isolate_record($id);

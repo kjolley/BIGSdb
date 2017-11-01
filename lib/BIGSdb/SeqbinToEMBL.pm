@@ -62,10 +62,11 @@ sub write_embl {
 		my $seq = $self->{'datastore'}->run_query(
 			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
 			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
-			$seqbin_id, { fetch => 'row_hashref', cache => 'SeqbinToEMBL::write_embl::seq' }
+			$seqbin_id,
+			{ fetch => 'row_hashref', cache => 'SeqbinToEMBL::write_embl::seq' }
 		);
-		if (!$seq->{'sequence'} && $seq->{'uri'}){
-			my $contig_record = $self->{'remoteContigManager'}->get_remote_contig($seq->{'uri'});
+		if ( !$seq->{'sequence'} && $seq->{'uri'} ) {
+			my $contig_record = $self->{'contigManager'}->get_remote_contig( $seq->{'uri'} );
 			$seq->{'sequence'} = $contig_record->{'sequence'};
 		}
 		my $seq_length   = length $seq->{'sequence'};

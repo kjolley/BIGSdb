@@ -30,7 +30,7 @@ use BIGSdb::Login;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
-use BIGSdb::RemoteContigManager;
+use BIGSdb::ContigManager;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
 use BIGSdb::CGI::as_utf8;
@@ -471,7 +471,7 @@ sub setup_submission_handler {
 
 sub setup_remote_contig_manager {
 	my ($self) = @_;
-	$self->{'remoteContigManager'} = BIGSdb::RemoteContigManager->new(
+	$self->{'contigManager'} = BIGSdb::ContigManager->new(
 		dbase_config_dir => $self->{'dbase_config_dir'},
 		config_dir       => $self->{'config_dir'},
 		lib_dir          => $self->{'lib_dir'},
@@ -653,22 +653,22 @@ sub _is_name_in_file {
 sub initiate_plugins {
 	my ($self) = @_;
 	$self->{'pluginManager'} = BIGSdb::PluginManager->new(
-		system              => $self->{'system'},
-		dbase_config_dir    => $self->{'dbase_config_dir'},
-		config_dir          => $self->{'config_dir'},
-		lib_dir             => $self->{'lib_dir'},
-		cgi                 => $self->{'cgi'},
-		instance            => $self->{'instance'},
-		prefstore           => $self->{'prefstore'},
-		config              => $self->{'config'},
-		datastore           => $self->{'datastore'},
-		db                  => $self->{'db'},
-		xmlHandler          => $self->{'xmlHandler'},
-		dataConnector       => $self->{'dataConnector'},
-		mod_perl_request    => $self->{'mod_perl_request'},
-		jobManager          => $self->{'jobManager'},
-		remoteContigManager => $self->{'remoteContigManager'},
-		pluginDir           => $self->{'lib_dir'}
+		system           => $self->{'system'},
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
+		cgi              => $self->{'cgi'},
+		instance         => $self->{'instance'},
+		prefstore        => $self->{'prefstore'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		db               => $self->{'db'},
+		xmlHandler       => $self->{'xmlHandler'},
+		dataConnector    => $self->{'dataConnector'},
+		mod_perl_request => $self->{'mod_perl_request'},
+		jobManager       => $self->{'jobManager'},
+		contigManager    => $self->{'contigManager'},
+		pluginDir        => $self->{'lib_dir'}
 	);
 	return;
 }

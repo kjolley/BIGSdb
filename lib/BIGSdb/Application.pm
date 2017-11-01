@@ -63,7 +63,6 @@ use BIGSdb::UserProjectsPage;
 use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
 use BIGSdb::Offline::Blast;
-
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
@@ -141,7 +140,7 @@ sub print_page {
 		auth_db              => $self->{'auth_db'},
 		xmlHandler           => $self->{'xmlHandler'},
 		submissionHandler    => $self->{'submissionHandler'},
-		remoteContigManager  => $self->{'remoteContigManager'},
+		contigManager        => $self->{'contigManager'},
 		dataConnector        => $self->{'dataConnector'},
 		pluginManager        => $self->{'pluginManager'},
 		mod_perl_request     => $self->{'mod_perl_request'},
@@ -151,7 +150,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
@@ -213,5 +211,4 @@ sub app_specific_initiation {
 	$self->initiate_plugins;
 	return;
 }
-
 1;

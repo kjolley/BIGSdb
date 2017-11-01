@@ -1438,7 +1438,7 @@ sub get_refs {
 
 sub _get_seqbin_link {
 	my ( $self, $isolate_id ) = @_;
-	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
+	$self->{'contigManager'}->update_isolate_remote_contig_lengths($isolate_id);
 	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
 	my $buffer       = q();
 	my $q            = $self->{'cgi'};

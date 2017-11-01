@@ -63,7 +63,7 @@ sub print_content {
 	} else {
 		say qq(<h1>Sequence bin for isolate id $isolate_id</h1>);
 	}
-	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
+	$self->{'contigManager'}->update_isolate_remote_contig_lengths($isolate_id);
 	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
 	if ( !$seqbin_stats->{'contigs'} ) {
 		say q(<div class="box statusbad"><p>This isolate has no sequence data attached.</p></div>);

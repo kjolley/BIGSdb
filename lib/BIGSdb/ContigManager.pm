@@ -16,7 +16,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::RemoteContigManager;
+package BIGSdb::ContigManager;
 use strict;
 use warnings;
 use 5.010;
@@ -94,7 +94,7 @@ sub update_isolate_remote_contig_lengths {
 	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s JOIN remote_contigs r ON '
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'RemoteContigManager::update_isolate_remote_contig_lengths' }
+		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::update_isolate_remote_contig_lengths' }
 	);
 	my $uri_list = [];
 	foreach my $contig (@$remote_contigs) {
@@ -170,7 +170,7 @@ sub get_remote_fasta {
 sub _get_remote_record {
 	my ( $self, $base_uri, $uri, $options ) = @_;
 	my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
-		$base_uri, { fetch => 'row_hashref', cache => 'RemoteContigManager::get_credentials' } );
+		$base_uri, { fetch => 'row_hashref', cache => 'ContigManager::get_credentials' } );
 	my $requires_authorization = $oauth_credentials ? 1 : 0;
 	if ( !$requires_authorization ) {
 		my $response = $self->{'ua'}->get($uri);

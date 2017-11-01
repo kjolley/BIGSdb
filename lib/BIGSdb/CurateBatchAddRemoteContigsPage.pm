@@ -186,7 +186,7 @@ sub _upload {
 	my $all_records;
 	do {
 		try {
-			$data = $self->{'remoteContigManager'}->get_remote_contig_list($contigs_list);
+			$data = $self->{'contigManager'}->get_remote_contig_list($contigs_list);
 		}
 		catch BIGSdb::AuthenticationException with {
 			say q(<div class="box" id="statusbad"><p>OAuth authentication failed.</p></div>);
@@ -237,7 +237,7 @@ sub _upload {
 		return;
 	}
 	$self->{'db'}->commit;
-	$self->{'remoteContigManager'}->update_isolate_remote_contig_lengths($isolate_id);
+	$self->{'contigManager'}->update_isolate_remote_contig_lengths($isolate_id);
 	my $count = @$contigs;
 	my $plural = $count == 1 ? q() : q(s);
 	say qq(<div class="box" id="resultsheader"><p>$count remote contig$plural added.</p></div>);
@@ -304,7 +304,7 @@ sub _check {
 	say q(<p>Downloading isolate record ...);
 	my $isolate_data;
 	try {
-		$isolate_data = $self->{'remoteContigManager'}->get_remote_isolate($isolate_uri);
+		$isolate_data = $self->{'contigManager'}->get_remote_isolate($isolate_uri);
 	}
 	catch BIGSdb::AuthenticationException with {
 		say q(failed! - check OAuth authentication settings</p>);

@@ -2730,7 +2730,7 @@ sub _get_remote_contig_fragment {
 	  $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $args->{'seqbin_id'} );
 	my $contig;
 	my $seq_ref = {};
-	eval { $contig = $self->{'remoteContigManager'}->get_remote_contig($uri); };
+	eval { $contig = $self->{'contigManager'}->get_remote_contig($uri); };
 	if ($@) {
 		$logger->error($@);
 		return {};

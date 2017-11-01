@@ -49,7 +49,7 @@ sub run_script {
 		my $total_length    = 0;
 		foreach my $contig (@$remote_contigs) {
 			say $contig->{'uri'} if !$self->{'options'}->{'quiet'};
-			my $contig_record = $self->{'remoteContigManager'}->get_remote_contig( $contig->{'uri'} );
+			my $contig_record = $self->{'contigManager'}->get_remote_contig( $contig->{'uri'} );
 			if ( $contig_record->{'sequence'} ) {
 				my $length   = length( $contig_record->{'sequence'} );
 				my $checksum = Digest::MD5::md5_hex( $contig_record->{'sequence'} );
