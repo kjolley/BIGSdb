@@ -380,4 +380,32 @@ sub get_contig_length {
 		{ cache => 'ContigManager::get_contig_length' }
 	);
 }
+
+sub get_contigs_by_list {
+	my ( $self, $seqbin_ids ) = @_;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids );
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT s.id,s.remote_contig,r.uri,s.sequence FROM sequence_bin s LEFT JOIN '
+		  . "remote_contigs r ON s.id=r.seqbin_id JOIN $temp_table t ON s.id=t.value",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $return_contigs = {};
+	my $uris           = [];
+	foreach my $contig (@$data) {
+		if ( $contig->{'remote_contig'} ) {
+			push @$uris, $contig->{'uri'};
+		} else {
+			$return_contigs->{ $contig->{'id'} } = $contig->{'sequence'};
+		}
+	}
+	if (@$uris) {
+		my $remote_seqs = $self->get_remote_contigs_by_list($uris);
+		foreach my $contig (@$data) {
+			next if !$contig->{'remote_contig'};
+			$return_contigs->{ $contig->{'id'} } = $remote_seqs->{ $contig->{'uri'} };
+		}
+	}
+	return $return_contigs;
+}
 1;
