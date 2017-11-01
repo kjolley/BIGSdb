@@ -245,7 +245,7 @@ sub _create_isolate_FASTA_db {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry = 'SELECT DISTINCT id,sequence,remote_contig FROM sequence_bin LEFT JOIN experiment_sequences ON '
+	my $qry = 'SELECT DISTINCT id FROM sequence_bin LEFT JOIN experiment_sequences ON '
 	  . 'sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
@@ -267,20 +267,15 @@ sub _create_isolate_FASTA {
 		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
 	}
-	my $contigs =
-	  $self->{'datastore'}->run_query( $qry, \@criteria,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'GenomeComparator::create_isolate_FASTA' } );
-	foreach my $contig (@$contigs) {
-		if ( $contig->{'remote_contig'} ) {
-			my $remote_contig_seq = $self->{'contigManager'}->get_contig( $contig->{'id'} );
-			$contig->{'sequence'} = $$remote_contig_seq;
-		}
-	}
+	my $seqbin_ids =
+	  $self->{'datastore'}
+	  ->run_query( $qry, \@criteria, { fetch => 'col_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
 	if ( $isolate_id =~ /(\d*)/x ) { $isolate_id = $1 }    #untaint
 	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $self->{'logger'}->error("Cannot open $temp_infile for writing");
-	foreach my $contig (@$contigs) {
-		say $infile_fh ">$contig->{'id'}\n$contig->{'sequence'}";
+	foreach my $seqbin_id (@$seqbin_ids) {
+		say $infile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
 	}
 	close $infile_fh;
 	$self->{'db'}->commit;
