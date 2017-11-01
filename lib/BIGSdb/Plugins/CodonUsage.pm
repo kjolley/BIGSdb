@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
-		version     => '1.2.4',
+		version     => '1.2.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -433,20 +433,22 @@ sub _calculate {
 				$ignore_seqflag = 'AND flag IS NULL';
 			}
 			my $data = $self->{'datastore'}->run_query(
-				'SELECT substring(sequence from allele_sequences.start_pos for allele_sequences.end_pos-'
-				  . 'allele_sequences.start_pos+1),reverse FROM allele_sequences LEFT JOIN sequence_bin ON '
-				  . 'allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON allele_sequences.id='
-				  . 'sequence_flags.id WHERE allele_sequences.isolate_id=? AND allele_sequences.locus=? '
-				  . "AND complete $ignore_seqflag ORDER BY allele_sequences.datestamp LIMIT 1",
+				'SELECT a.seqbin_id,a.start_pos,a.end_pos,a.reverse FROM allele_sequences a LEFT JOIN '
+				  . 'sequence_flags f ON a.id=f.id WHERE (a.isolate_id,a.locus)=(?,?) AND complete '
+				  . "$ignore_seqflag ORDER BY a.datestamp LIMIT 1",
 				[ $id, $locus_name ],
-				{ fetch => 'all_arrayref', cache => 'CodonUsage::run_job_seqbin' }
+				{ fetch => 'all_arrayref', slice => {}, cache => 'CodonUsage::run_job_seqbin' }
 			);
-			foreach (@$data) {
-				my ( $seq, $reverse ) = @$_;
-				if ($reverse) {
-					$seq = BIGSdb::Utils::reverse_complement($seq);
-				}
-				$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} || 1 );
+			foreach my $allele_sequence (@$data) {
+				my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+					{
+						seqbin_id => $allele_sequence->{'seqbin_id'},
+						start     => $allele_sequence->{'start_pos'},
+						end       => $allele_sequence->{'end_pos'},
+						reverse   => $allele_sequence->{'reverse'}
+					}
+				);
+				$seqbin_seq .= BIGSdb::Utils::chop_seq( $seq_ref->{'seq'}, $locus_info->{'orf'} || 1 );
 			}
 			my $seq;
 			if ( $allele_seq && $seqbin_seq ) {
