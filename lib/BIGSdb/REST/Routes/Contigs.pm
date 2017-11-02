@@ -70,8 +70,7 @@ sub _get_contigs_fasta {
 		}
 	}
 	my $buffer = '';
-	my $header_field =
-	  ( param('header') // q() ) eq 'original_designation' ? 'original_designation' : 'id';
+	my $header_field = ( param('header') // q() ) eq 'original_designation' ? 'original_designation' : 'id';
 	foreach my $contig (@$contigs) {
 		my $header = $contig->{$header_field} // $contig->{'id'};
 		$buffer .= ">$header\n$contig->{'sequence'}\n";
@@ -88,14 +87,15 @@ sub _get_contig {
 		send_error( 'Contig id must be an integer.', 400 );
 	}
 	my $contig =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT s.*,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE id=?',
+	  $self->{'datastore'}->run_query(
+		'SELECT s.*,r.uri,r.checksum FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE id=?',
 		$contig_id, { fetch => 'row_hashref' } );
 	if ( !$contig ) {
 		send_error( "Contig id-$contig_id does not exist.", 404 );
 	}
 	if ( $contig->{'remote_contig'} ) {
-		my $remote = $self->{'contigManager'}->get_remote_contig( $contig->{'uri'} );
+		my $remote =
+		  $self->{'contigManager'}->get_remote_contig( $contig->{'uri'}, { checksum => $contig->{'checksum'} } );
 		$contig->{'sequence'} = $remote->{'sequence'};
 	}
 	my $values = {

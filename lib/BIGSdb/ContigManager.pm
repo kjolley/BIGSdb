@@ -317,11 +317,12 @@ sub get_contig_fragment {
 
 sub _get_remote_contig_fragment {
 	my ( $self, $args ) = @_;
-	my $uri =
-	  $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $args->{'seqbin_id'} );
+	my ( $uri, $checksum ) =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT uri,checksum FROM remote_contigs WHERE seqbin_id=?', $args->{'seqbin_id'} );
 	my $contig;
 	my $seq_ref = {};
-	eval { $contig = $self->get_remote_contig($uri); };
+	eval { $contig = $self->get_remote_contig( $uri, { checksum => $checksum } ) };
 	if ($@) {
 		$logger->error($@);
 		return {};
@@ -385,7 +386,7 @@ sub get_contigs_by_list {
 	my ( $self, $seqbin_ids ) = @_;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids );
 	my $data = $self->{'datastore'}->run_query(
-		'SELECT s.id,s.remote_contig,r.uri,s.sequence FROM sequence_bin s LEFT JOIN '
+		'SELECT s.id,s.remote_contig,r.uri,r.checksum,s.sequence FROM sequence_bin s LEFT JOIN '
 		  . "remote_contigs r ON s.id=r.seqbin_id JOIN $temp_table t ON s.id=t.value",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
@@ -403,6 +404,12 @@ sub get_contigs_by_list {
 		my $remote_seqs = $self->get_remote_contigs_by_list($uris);
 		foreach my $contig (@$data) {
 			next if !$contig->{'remote_contig'};
+			if ( $contig->{'checksum'} ) {
+				my $checksum = Digest::MD5::md5_hex( $remote_seqs->{ $contig->{'uri'} } );
+				if ( $contig->{'checksum'} ne $checksum ) {
+					$logger->error("Checksum for remote contig seqbin id: $contig->{'id'} has changed!");
+				}
+			}
 			$return_contigs->{ $contig->{'id'} } = $remote_seqs->{ $contig->{'uri'} };
 		}
 	}
