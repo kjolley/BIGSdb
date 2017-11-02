@@ -61,8 +61,17 @@ sub _get_contigs_fasta {
 	if ( !@$contigs ) {
 		send_error( "No contigs for isolate id-$isolate_id are defined.", 404 );
 	}
+	if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
+		my $seqbin_ids = [];
+		push @$seqbin_ids, $_->{'id'} foreach @$contigs;
+		my $seqs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+		foreach my $contig (@$contigs) {
+			$contig->{'sequence'} = $seqs->{ $contig->{'id'} } if $seqs->{ $contig->{'id'} };
+		}
+	}
 	my $buffer = '';
-	my $header_field = ( param('header') // '' ) eq 'original_designation' ? 'original_designation' : 'id';
+	my $header_field =
+	  ( param('header') // q() ) eq 'original_designation' ? 'original_designation' : 'id';
 	foreach my $contig (@$contigs) {
 		my $header = $contig->{$header_field} // $contig->{'id'};
 		$buffer .= ">$header\n$contig->{'sequence'}\n";
@@ -80,9 +89,14 @@ sub _get_contig {
 	}
 	my $contig =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT * FROM sequence_bin WHERE id=?', $contig_id, { fetch => 'row_hashref' } );
+	  ->run_query( 'SELECT s.*,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE id=?',
+		$contig_id, { fetch => 'row_hashref' } );
 	if ( !$contig ) {
 		send_error( "Contig id-$contig_id does not exist.", 404 );
+	}
+	if ( $contig->{'remote_contig'} ) {
+		my $remote = $self->{'contigManager'}->get_remote_contig( $contig->{'uri'} );
+		$contig->{'sequence'} = $remote->{'sequence'};
 	}
 	my $values = {
 		isolate_id => request->uri_for("/db/$db/isolates/$contig->{'isolate_id'}"),
