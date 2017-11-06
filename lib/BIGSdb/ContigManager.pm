@@ -183,6 +183,9 @@ sub _get_remote_record {
 		} else {
 			if ( $response->code == 401 ) {
 				$requires_authorization = 1;
+			} else {
+				my ($code, $msg) = ($response->code, $response->message);
+				$logger->error("Error retrieving $uri: Response $code: $msg");
 			}
 		}
 	}

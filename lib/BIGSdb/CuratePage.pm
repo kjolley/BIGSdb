@@ -786,7 +786,21 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 	my ( $self, $newdata_ref, $width ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
-	if ( $q->param('page') ne 'update' ) {
+	if ( $q->param('page') eq 'update' ) {
+		if ( $newdata_ref->{'remote_contig'} ) {
+			my $uri = $self->{'datastore'}
+			  ->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $newdata_ref->{'id'} );
+			$buffer .= qq(<li><label for="remote_contig" class="form" style="width:${width}em">remote contig:</label>\n)
+			  ;
+			$buffer .= $q->textfield(
+				-name     => 'remote_contig',
+				-id       => 'remote_contig',
+				-value    => $uri,
+				-size     => 75,
+				-disabled => 1
+			);
+		}
+	} else {
 		my $experiments =
 		  $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
 			undef, { fetch => 'all_arrayref', slice => {} } );

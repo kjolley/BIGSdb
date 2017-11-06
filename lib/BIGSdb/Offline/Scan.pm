@@ -435,17 +435,20 @@ sub _create_query_fasta_file {
 	}
 	my $remote_data;
 	eval { $remote_data = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uris); };
-	$logger->error($@) if $@;
-	foreach my $contig_link (@$remote_contigs) {
-		say $infile_fh ">$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}";
-		if ( !$contig_link->{'length'} ) {
-			$self->{'contigManager'}
-			  ->update_remote_contig_length( $contig_link->{'uri'}, length( $remote_data->{ $contig_link->{'uri'} } ) );
-		} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
-			$logger->error("$contig_link->{'uri'} length has changed!");
-		}
+	if ($@) {
+		$logger->error($@);
+	} else {
+		foreach my $contig_link (@$remote_contigs) {
+			say $infile_fh ">$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}";
+			if ( !$contig_link->{'length'} ) {
+				$self->{'contigManager'}->update_remote_contig_length( $contig_link->{'uri'},
+					length( $remote_data->{ $contig_link->{'uri'} } ) );
+			} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
+				$logger->error("$contig_link->{'uri'} length has changed!");
+			}
 
-		#We won't set checksum because we're not extracting all metadata here
+			#We won't set checksum because we're not extracting all metadata here
+		}
 	}
 	close $infile_fh;
 	return;
@@ -842,12 +845,14 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
-	my $seq_ref = $self->{'contigManager'}->get_contig_fragment({
-		seqbin_id => $match->{'seqbin_id'},
-		start => $match->{'predicted_start'},
-		end => $match->{'predicted_end'},
-		reverse => $match->{'reverse'}
-	});
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+		{
+			seqbin_id => $match->{'seqbin_id'},
+			start     => $match->{'predicted_start'},
+			end       => $match->{'predicted_end'},
+			reverse   => $match->{'reverse'}
+		}
+	);
 	my $seq = $seq_ref->{'seq'};
 	$seq = uc($seq);
 	return $seq;
@@ -1053,6 +1058,7 @@ sub _hunt_for_start_and_stop_codons {
 				}
 			);
 			my $seq = $seq_ref->{'seq'};
+
 			if ($seq) {
 				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
