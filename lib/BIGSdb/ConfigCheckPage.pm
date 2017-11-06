@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,6 +40,7 @@ sub print_content {
 		$self->_check_locus_databases;
 		$self->_check_scheme_databases;
 		$self->_check_classification_scheme_databases;
+		$self->_check_oauth_credentials;
 	} else {
 		$self->_check_client_databases;
 	}
@@ -213,11 +214,12 @@ sub _check_scheme_databases {
 
 sub _check_classification_scheme_databases {
 	my ($self) = @_;
-	say q(<div class="box resultstable">);
-	say q(<h2>Classification scheme databases</h2>);
 	my $cschemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM classification_schemes ORDER BY id', undef, { fetch => 'col_arrayref' } );
+	return if !@$cschemes;
+	say q(<div class="box resultstable">);
+	say q(<h2>Classification scheme databases</h2>);
 	my $td = 1;
 	if (@$cschemes) {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Classification scheme</th>)
@@ -226,7 +228,7 @@ sub _check_classification_scheme_databases {
 		foreach my $cscheme_id (@$cschemes) {
 			my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
 			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $cscheme_info->{'scheme_id'} );
-			$cscheme_info->{'name'}       =~ s/&/&amp;/gx;
+			$cscheme_info->{'name'} =~ s/&/&amp;/gx;
 			$scheme_info->{'name'} =~ s/&/&amp;/gx;
 			print qq(<tr class="td$td"><td>$cscheme_info->{'id'}: $cscheme_info->{'name'}</td><td>)
 			  . ("$scheme_info->{'id'}: $scheme_info->{'name'}")
@@ -262,6 +264,26 @@ sub _check_classification_scheme_databases {
 		say q(</table></div></div>);
 	} else {
 		say q(<p>No schemes with databases defined.</p>);
+	}
+	say q(</div>);
+	return;
+}
+
+sub _check_oauth_credentials {
+	my ($self) = @_;
+	my $credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials ORDER BY base_uri',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$credentials;
+	say q(<div class="box resultstable">);
+	say q(<h2>OAuth credentials</h2>);
+	say q(<table class="resultstable"><tr><th>Base URI</th><th>Accessible</th></tr>);
+	my $td = 1;
+	foreach my $details (@$credentials) {
+		say qq(<tr class="td$td"><td>$details->{'base_uri'}</td><td>);
+		my $ok = $self->{'contigManager'}->is_config_ok( $details->{'base_uri'} );
+		say $ok ? GOOD : BAD;
+		say q(</td></tr>);
+		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</div>);
 	return;

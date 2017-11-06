@@ -165,6 +165,12 @@ sub get_remote_fasta {
 	return $self->_get_remote_record( $base_uri, $uri, { non_json => 1 } );
 }
 
+sub is_config_ok {
+	my ( $self, $base_uri ) = @_;
+	eval { $self->_get_remote_record( $base_uri, $base_uri ); };
+	return $@ ? 0 : 1;
+}
+
 sub _get_remote_record {
 	my ( $self, $base_uri, $uri, $options ) = @_;
 	my $oauth_credentials = $self->{'datastore'}->run_query( 'SELECT * FROM oauth_credentials WHERE base_uri=?',
@@ -184,7 +190,7 @@ sub _get_remote_record {
 			if ( $response->code == 401 ) {
 				$requires_authorization = 1;
 			} else {
-				my ($code, $msg) = ($response->code, $response->message);
+				my ( $code, $msg ) = ( $response->code, $response->message );
 				$logger->error("Error retrieving $uri: Response $code: $msg");
 			}
 		}
