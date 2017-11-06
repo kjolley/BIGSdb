@@ -220,7 +220,7 @@ sub _upload {
 	my $curator_id = $self->get_curator_id;
 	my $existing =
 	  $self->{'datastore'}->run_query(
-		'SELECT r.uri FROM remote_contigs r INNER JOIN sequence_bin s ' . 'ON r.seqbin_id=s.id AND s.isolate_id=?',
+		'SELECT r.uri FROM remote_contigs r INNER JOIN sequence_bin s ON r.seqbin_id=s.id AND s.isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
 	my %existing = map { $_ => 1 } @$existing;
 	eval {

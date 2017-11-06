@@ -92,11 +92,11 @@ CREATE OR REPLACE FUNCTION check_remote_contigs() RETURNS TRIGGER AS $check_remo
 				RAISE EXCEPTION 'Do not insert directly in to remote_contigs table. Use add_remote_contig().';
 			END IF;
 		END IF;
-		RETURN NEW;
+		RETURN NULL;
 	END
 $check_remote_contigs$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_remote_contigs BEFORE INSERT OR DELETE OR UPDATE ON remote_contigs
+CREATE TRIGGER check_remote_contigs AFTER INSERT OR DELETE OR UPDATE ON remote_contigs
 	FOR EACH ROW
 	EXECUTE PROCEDURE check_remote_contigs();
 	
