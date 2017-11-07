@@ -643,7 +643,7 @@ sub _print_action_panel {
 		say $q->end_form;
 		say q(</fieldset>);
 	}
-	$q->param( page => $page );                                                 #Reset
+	$q->param( page => $page );    #Reset
 	say q(</div></div>);
 	return;
 }
@@ -714,7 +714,16 @@ sub get_isolate_record {
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view ) = @_;
 	my $buffer = qq(<h2>Provenance/meta data</h2>\n);
-	$buffer .= q(<div id="provenance"><dl class="data">);
+	my $private_owner =
+	  $self->{'datastore'}->run_query( 'SELECT user_id FROM private_isolates WHERE isolate_id=?', $isolate_id );
+	if ( defined $private_owner ) {
+		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
+		$buffer .= q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
+		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string</span></p>)
+		  ;
+	}
+	$buffer .= q(<div id="provenance">);
+	$buffer .= q(<dl class="data">);
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
