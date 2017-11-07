@@ -158,8 +158,10 @@ sub get_permissions {
 	my $user_info = $self->get_user_info_from_username($user_name);
 	if ( $user_info->{'user_db'} ) {
 		my $user_db          = $self->get_user_db( $user_info->{'user_db'} );
-		my $site_permissions = $self->run_query( 'SELECT permission FROM permissions WHERE user_name=?',
-			$user_name, { db => $user_db, fetch => 'col_arrayref' } );
+		my $site_permissions = $self->run_query(
+			'SELECT permission FROM permissions WHERE user_name=? AND permission !=?',
+			[ $user_name, 'modify_users' ], { db => $user_db, fetch => 'col_arrayref' }
+		);
 		$permission_hash{$_} = 1 foreach @$site_permissions;
 	}
 	return \%permission_hash;
