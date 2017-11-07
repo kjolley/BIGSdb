@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -129,6 +129,8 @@ sub _print_results {
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
+	my @locus_error;
+	my $table_buffer = q();
 
 	foreach my $cds (@cds) {
 		local $" = q(; );
@@ -154,18 +156,25 @@ sub _print_results {
 			( $tags{$_} ) = $cds->get_tag_values($_) if $cds->has_tag($_);
 		}
 		$tags{'product'} //= '';
-		print qq(<tr class="td$td"><td>$locus</td><td>@aliases</td><td>$tags{'product'} );
-		print qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>)
+		$table_buffer .= qq(<tr class="td$td"><td>$locus</td><td>@aliases</td><td>$tags{'product'} );
+		$table_buffer .=
+		  qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>)
 		  if $tags{'note'};
-		my $length  = $cds->length;
-		say qq(</td><td>$length</td></tr>);
+		my $length = $cds->length;
+		$table_buffer .= qq(</td><td>$length</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
-		my $sequence = $cds->seq->seq;
-		say $fh qq($locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
-		  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
-		say $fh_allele qq($locus\t1\t$sequence\tunchecked);
-
+		try {
+			my $sequence = $cds->seq->seq;
+			say $fh qq($locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
+			  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
+			say $fh_allele qq($locus\t1\t$sequence\tunchecked);
+		}
+		catch Bio::Root::Exception with {
+			my $err = shift;
+			$logger->debug($err);
+			push @locus_error, $locus;
+		};
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -174,7 +183,15 @@ sub _print_results {
 	print $fh_allele "\n";    #Seems to be needed for Excel conversion.
 	close $fh;
 	close $fh_allele;
-	say q(</table></div>);
+	$table_buffer .= q(</table></div>);
+	if (@locus_error) {
+		local $" = q (, );
+		my $plural       = @locus_error == 1 ? q()   : q(s);
+		my $locus_plural = @locus_error == 1 ? q(us) : q(i);
+		say qq(<p>Sequence$plural for the following loc$locus_plural could not be extracted: @locus_error.</p>)
+		  ;
+	}
+	say $table_buffer if $table_buffer;
 	BIGSdb::Utils::text2excel( $table_file,  { max_width => 30 } );
 	BIGSdb::Utils::text2excel( $allele_file, { max_width => 30 } );
 	return;
