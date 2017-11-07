@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2016, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -77,7 +77,8 @@ sub print_content {
 		my %selected = map { $_ => 1 } @curator_list;
 		say q(<div class="box" id="resultstable"><div class="scrollable">);
 		say q(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' )
-		  . q(have a restricted list of allowed permissions that can be selected.</p>);
+		  . q(have a restricted list of allowed permissions that can be selected. Attributes with a )
+		  . q(<span class="warning">red background</span> add restrictions.</p>);
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Update permissions</legend>);
 		say q(<table class="resultstable"><tr><th rowspan="2">Permission</th>)
@@ -95,10 +96,11 @@ sub print_content {
 		say q(</tr>);
 		my $td            = 1;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
+		my %prohibit = map {$_ => 1} qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
 			next if $permission eq 'sample_management' && !@$sample_fields;
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
-			say $permission eq 'disable_access' ? q(<tr class="warning">) : qq(<tr class="td$td">);
+			say $prohibit{$permission} ? q(<tr class="warning">) : qq(<tr class="td$td">);
 			say qq(<th>$cleaned_permission</th>);
 			foreach my $user_id (@$curators) {
 				next if !$selected{$user_id};
@@ -109,7 +111,7 @@ sub print_content {
 				{
 					print $q->checkbox(
 						-name    => "${permission}_$user_id",
-						-id      => $permission eq 'disable_access' ? undef : "${permission}_$user_id",
+						-id      => $prohibit{$permission} ? undef : "${permission}_$user_id",
 						-label   => '',
 						-checked => $permissions->{$user_id}->{$permission}
 					);
@@ -118,7 +120,7 @@ sub print_content {
 			}
 			print q(<td>);
 			print $q->checkbox( -name => "${permission}_allnone", -id => "${permission}_allnone", -label => q() )
-			  if $permission ne 'disable_access';
+			  if !$prohibit{$permission};
 			say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}

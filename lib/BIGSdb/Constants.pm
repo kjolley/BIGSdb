@@ -128,7 +128,8 @@ use constant DATABANKS => qw(ENA Genbank);
 push @EXPORT_OK, qw(DATABANKS);
 
 #Permissions
-use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles);
+use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles
+  only_private disable_access);
 push @EXPORT_OK, qw(SUBMITTER_ALLOWED_PERMISSIONS);
 
 #Submissions

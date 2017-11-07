@@ -398,10 +398,14 @@ sub _print_isolates {       ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
 	  : q();
+	my $add =
+	  $self->{'permissions'}->{'only_private'}
+	  ? q()
+	  : qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a>)
+	  ;
 	my $buffer =
 	    qq(<tr class="td$td"><td>isolates</td>)
-	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=isolateAdd$set_string">+</a></td>)
+	  . qq(<td>$add</td>)
 	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=batchAdd&amp;table=isolates$set_string">++</a></td><td>$query_cell</td>)
 	  . q(<td class="comment" style="text-align:left">Query or browse for isolates to update or delete.</td></tr>);
@@ -904,7 +908,7 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	);
 }
 
-sub _print_locus_links {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_locus_links {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'locus_links',

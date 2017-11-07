@@ -53,6 +53,12 @@ sub print_content {
 		  . q(to the isolates table.</p></div>);
 		return;
 	}
+	if ( $self->{'permissions'}->{'only_private'} ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
+		  . q(to the isolates table using this interface. You can only upload private data using )
+		  . q(the batch upload page.</p></div>);
+		return;
+	}
 	my $q = $self->{'cgi'};
 	my %newdata;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
@@ -345,7 +351,7 @@ sub print_provenance_form_elements {
 	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($thisfield->{'no_curate'} // '') eq 'yes';
+			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$required_field = 0

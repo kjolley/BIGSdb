@@ -131,6 +131,7 @@ sub _print_interface {
 	my $table       = $arg_ref->{'table'};
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
+	$q->param( private => 1 ) if $self->{'permissions'}->{'only_private'};
 	if ( $table eq 'isolates' ) {
 		return if $self->_cannot_upload_private_data( $q->param('private'), $q->param('project_id') );
 	}
@@ -169,7 +170,6 @@ sub _print_interface {
 	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=tableHeader&amp;table=$table$locus_attribute$order_clause">Download tab-delimited header for your spreadsheet</a>)
 	  . q( - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste the data.</li>);
-	
 	say
 	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($locus_attribute$order_clause">Download submission template (xlsx format)</a>);
@@ -1805,8 +1805,7 @@ sub _upload_data {
 					}
 				  ) // undef;
 			}
-			$loci{$data[ $field_order->{'locus'} ]}=1 if defined $field_order->{'locus'};
-			
+			$loci{ $data[ $field_order->{'locus'} ] } = 1 if defined $field_order->{'locus'};
 			if ( $table eq 'loci' || $table eq 'isolates' ) {
 				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
 				  if defined $field_order->{'aliases'} && defined $data[ $field_order->{'aliases'} ];
@@ -2277,7 +2276,7 @@ sub _get_fields_to_include {
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($att->{'no_curate'} // '') eq 'yes';
+			next if ( $att->{'no_curate'} // '' ) eq 'yes';
 			if ( $field =~ /^meta_.*:/x ) {
 				push @metafields, $field;
 			} else {
@@ -2371,7 +2370,7 @@ sub _get_fields_in_order {
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($att->{'no_curate'} // '') eq 'yes';
+			next if ( $att->{'no_curate'} // '' ) eq 'yes';
 			push @fields, $field;
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @fields, 'aliases';
@@ -2418,7 +2417,7 @@ sub _get_field_table_header {
 		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($att->{'no_curate'} // '') eq 'yes';
+			next if ( $att->{'no_curate'} // '' ) eq 'yes';
 			push @headers, $field;
 			if ( $field eq $self->{'system'}->{'labelfield'} ) {
 				push @headers, 'aliases';
