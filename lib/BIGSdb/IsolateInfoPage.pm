@@ -626,7 +626,6 @@ sub _print_action_panel {
 	my $page = $q->param('page');
 	my $seqbin_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
-
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
 		next
 		  if $action eq 'tagScan'

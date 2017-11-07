@@ -118,6 +118,11 @@ sub _print_interface {
 	  . q(bin and allele designations will not.  This facilitates storage of different versions of )
 	  . q(genome assemblies.  The old record will be hidden by default, but can still be accessed )
 	  . q(when needed, with links from the new record.  The update history will be reset for the new record.</p>);
+	if ( BIGSdb::Utils::is_int($existing_id) && $self->_is_private($existing_id) ) {
+		say q(<p>As this record is private, the new version will also be private with you set as the owner. If )
+		  . q(the original record forms part of a private quota, the new record will also take up quota space.</p>)
+		  ;
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter new record id</legend>);
 	my $next_id = $q->param('new_id') // $self->next_id('isolates');
@@ -159,6 +164,7 @@ sub _create_new_version {
 		say qq(<div class="box" id="statusbad"><p>An isolate record already exists with id-$new_id.</p></div>);
 		return ERROR;
 	}
+	my $is_private   = $self->_is_private($existing_id);
 	my $fields       = $self->{'xmlHandler'}->get_field_list;
 	my $field_values = $self->{'datastore'}->get_isolate_field_values($existing_id);
 	my (@values);
@@ -190,6 +196,10 @@ sub _create_new_version {
 			undef, $new_id, $_, $curator_id, 'now' )
 		  foreach @$refs;
 		$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_id, $existing_id );
+		if ($is_private) {
+			$self->{'db'}->do( 'INSERT INTO private_isolates (isolate_id,user_id,datestamp) VALUES (?,?,?)',
+				undef, $new_id, $curator_id, 'now' );
+		}
 	};
 	if ($@) {
 		say q(<div class="box" id="statusbad"><p>New record creation failed.  )
@@ -202,5 +212,11 @@ sub _create_new_version {
 		$self->{'db'}->commit;
 	}
 	return;
+}
+
+sub _is_private {
+	my ( $self, $isolate_id ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE isolate_id=?)', $isolate_id );
 }
 1;
