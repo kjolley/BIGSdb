@@ -51,6 +51,7 @@ use BIGSdb::CuratePermissionsPage;
 use BIGSdb::CurateProfileAddPage;
 use BIGSdb::CurateProfileBatchAddPage;
 use BIGSdb::CurateProfileUpdatePage;
+use BIGSdb::CuratePublishIsolate;
 use BIGSdb::CurateRenumber;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CurateTableHeaderPage;
@@ -112,6 +113,7 @@ sub print_page {
 		profileBatchAdd       => 'CurateProfileBatchAddPage',
 		profileInfo           => 'ProfileInfoPage',
 		profileUpdate         => 'CurateProfileUpdatePage',
+		publish               => 'CuratePublishIsolate',
 		pubquery              => 'PubQueryPage',
 		query                 => $query_page,
 		refreshCache          => 'RefreshSchemeCachePage',

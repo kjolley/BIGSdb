@@ -2269,6 +2269,8 @@ sub initiate_view {
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
+	use constant PUBLICATION_REQUESTED => 
+	  'EXISTS(SELECT 1 FROM private_isolates pi WHERE pi.isolate_id=v.id AND request_publish)';
 	my $user_info = $self->get_user_info_from_username($username);
 
 	if ( !$user_info ) {                                    #Not logged in
@@ -2283,7 +2285,7 @@ sub initiate_view {
 					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
 				},
 				curator => sub {
-					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES );
+					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
 				  }
 			};
 			if ( $method->{ $user_info->{'status'} } ) {

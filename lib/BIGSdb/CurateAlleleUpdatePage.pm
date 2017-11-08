@@ -330,6 +330,7 @@ sub _display_isolate_summary {
 			db            => $self->{'db'},
 			xmlHandler    => $self->{'xmlHandler'},
 			dataConnector => $self->{'dataConnector'},
+			contigManager => $self->{'contigManager'},
 			curate        => 1
 		)
 	);
