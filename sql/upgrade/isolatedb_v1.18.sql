@@ -165,3 +165,7 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON oauth_credentials TO apache;
+
+ALTER TABLE private_isolates ADD request_publish boolean DEFAULT false;
+UPDATE private_isolates SET request_publish=false;
+ALTER TABLE private_isolates ALTER COLUMN request_publish SET NOT NULL;
