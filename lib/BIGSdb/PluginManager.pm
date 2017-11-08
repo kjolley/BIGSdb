@@ -63,7 +63,8 @@ sub initiate {
 				xmlHandler       => $self->{'xmlHandler'},
 				dataConnector    => $self->{'dataConnector'},
 				jobManager       => $self->{'jobManager'},
-				mod_perl_request => $self->{'mod_perl_request'}
+				mod_perl_request => $self->{'mod_perl_request'},
+				contigManager    => $self->{'contigManager'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
 			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;

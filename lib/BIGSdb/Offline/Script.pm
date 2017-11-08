@@ -113,6 +113,7 @@ sub initiate {
 			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
 		}
 		$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
+		$self->setup_remote_contig_manager;
 	}
 	return;
 }

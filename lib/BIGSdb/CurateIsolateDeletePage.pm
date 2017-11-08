@@ -74,6 +74,7 @@ sub print_content {
 			db            => $self->{'db'},
 			xmlHandler    => $self->{'xmlHandler'},
 			dataConnector => $self->{'dataConnector'},
+			contigManager => $self->{'contigManager'},
 			curate        => 1
 		)
 	);
@@ -130,8 +131,7 @@ sub _delete {
 		  };
 	}
 	eval {
-		foreach my $action (@actions)
-		{
+		foreach my $action (@actions) {
 			$self->{'db'}->do( $action->{'statement'}, undef, @{ $action->{'arguments'} } );
 		}
 	};

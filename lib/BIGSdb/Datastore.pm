@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use List::MoreUtils qw(any uniq);
+use List::Util qw(min max sum);
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
@@ -34,6 +35,7 @@ use BIGSdb::TableAttributes;
 use BIGSdb::Constants qw(:login_requirements);
 use IO::Handle;
 use Digest::MD5;
+use POSIX qw(ceil);
 use constant INF => 9**99;
 
 sub new {
@@ -2128,7 +2130,7 @@ sub get_tables {
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  samples isolates history sequence_attributes classification_schemes classification_group_fields
-		  retired_isolates user_dbases);
+		  retired_isolates user_dbases oauth_credentials);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2313,4 +2315,34 @@ sub initiate_view {
 	}
 	return;
 }
+
+sub get_seqbin_stats {
+	my ( $self, $isolate_id, $options ) = @_;
+	$options = { general => 1 } if ref $options ne 'HASH';
+	my $results = {};
+	if ( $options->{'general'} ) {
+		my ( $seqbin_count, $total_length ) =
+		  $self->run_query( 'SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?',
+			$isolate_id, { cache => 'Datastore::get_seqbin_stats::general' } );
+		$results->{'contigs'}      = $seqbin_count // 0;
+		$results->{'total_length'} = $total_length // 0;
+	}
+	if ( $options->{'lengths'} ) {
+		my $lengths = $self->run_query(
+			'SELECT GREATEST(r.length,length(s.sequence)) FROM sequence_bin s LEFT JOIN '
+			  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=?',
+			$isolate_id,
+			{ fetch => 'col_arrayref', cache => 'Datastore::get_seqbin_stats::length' }
+		);
+		if (@$lengths) {
+			$results->{'lengths'} = [ sort { $b <=> $a } @$lengths ];
+			$results->{'min_length'}     = min @$lengths;
+			$results->{'max_length'}     = max @$lengths;
+			$results->{'mean_length'} = ceil((sum @$lengths) / scalar @$lengths);
+		}
+	}
+	return $results;
+}
+
+
 1;

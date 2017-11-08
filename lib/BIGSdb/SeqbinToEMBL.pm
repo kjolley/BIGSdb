@@ -59,10 +59,18 @@ sub write_embl {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq = $self->{'datastore'}->run_query( 'SELECT sequence,comments FROM sequence_bin WHERE id=?',
-			$seqbin_id, { fetch => 'row_arrayref', cache => 'SeqbinToEMBL::write_embl::seq' } );
-		my $seq_length   = length $seq->[0];
-		my $fasta_string = ">$seqbin_id\n" . $seq->[0] . "\n";
+		my $seq = $self->{'datastore'}->run_query(
+			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
+			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
+			$seqbin_id,
+			{ fetch => 'row_hashref', cache => 'SeqbinToEMBL::write_embl::seq' }
+		);
+		if ( !$seq->{'sequence'} && $seq->{'uri'} ) {
+			my $contig_record = $self->{'contigManager'}->get_remote_contig( $seq->{'uri'} );
+			$seq->{'sequence'} = $contig_record->{'sequence'};
+		}
+		my $seq_length   = length $seq->{'sequence'};
+		my $fasta_string = ">$seqbin_id\n$seq->{'sequence'}\n";
 		open( my $stringfh_in, '<:encoding(utf8)', \$fasta_string )
 		  || $logger->error("Could not open string for reading: $!");
 		$stringfh_in->untaint;
@@ -73,7 +81,7 @@ sub write_embl {
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
 		$seq_object->accession_number("@$accessions") if @$accessions;
-		$seq_object->desc( $seq->[1] );
+		$seq_object->desc( $seq->{'comments'} );
 		my $set_id = $self->get_set_id;
 		my $set_clause =
 		  $set_id

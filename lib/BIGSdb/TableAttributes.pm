@@ -1789,6 +1789,21 @@ sub get_sequence_bin_table_attributes {
 	return $attributes;
 }
 
+sub get_oauth_credentials_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'base_uri',        type => 'text', required => 1, primary_key      => 1 },
+		{ name => 'consumer_key',    type => 'text', required => 1 },
+		{ name => 'consumer_secret', type => 'text', required => 1 },
+		{ name => 'access_token',    type => 'text', required => 1 },
+		{ name => 'access_secret',   type => 'text', required => 1 },
+		{ name => 'curator',         type => 'int',  required => 1, dropdown_query   => 1 },
+		{ name => 'date_entered',    type => 'date', required => 1 },
+		{ name => 'datestamp',       type => 'date', required => 1 }
+	];
+	return $attributes;
+}
+
 sub get_isolate_field_extended_attributes_table_attributes {
 	my ($self) = @_;
 	my $fields = $self->{'xmlHandler'}->get_field_list;

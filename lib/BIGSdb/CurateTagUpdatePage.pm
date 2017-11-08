@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -95,8 +95,7 @@ sub print_content {
 		}
 		local $" = q(<br />);
 		eval {
-			foreach my $action (@actions)
-			{
+			foreach my $action (@actions) {
 				$self->{'db'}->do( $action->{'statement'}, undef, @{ $action->{'arguments'} } );
 			}
 		};
@@ -186,12 +185,12 @@ sub print_content {
 			start     => $start,
 			end       => $end,
 			translate => $translate,
-			orf       => $orf
+			orf       => $orf,
+			flanking  => $flanking
 		}
 	);
 	say $display->{'seq'};
 	say q(</p>);
-
 	if ($translate) {
 		my @stops = @{ $display->{'internal_stop'} };
 		if (@stops) {

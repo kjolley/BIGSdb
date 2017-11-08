@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.12',
+		version          => '1.5.13',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -372,7 +372,14 @@ sub make_isolate_seq_file {
 	my $includes       = $self->_get_includes($params);
 	my %field_included = map { $_ => 1 } @$includes;
 	my $seqbin_qry     = $self->_get_seqbin_query($params);
-	my $start          = 1;
+
+	#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
+	$params->{'flanking'} = 0 if !BIGSdb::Utils::is_int( $params->{'flanking'} );
+	my $flanking =
+	  $params->{'translate'}
+	  ? BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 )
+	  : $params->{'flanking'};
+	my $start = 1;
 	my $end;
 	my $no_output = 1;
 	my $progress  = 0;
@@ -422,17 +429,28 @@ sub make_isolate_seq_file {
 				catch BIGSdb::DatabaseConnectionException with {};    #do nothing
 			}
 			my $seqbin_seq;
-			my $seqbin_pos = q();
-			my ( $reverse, $seqbin_id, $start_pos );
-			( $seqbin_seq, $reverse, $seqbin_id, $start_pos ) =
+			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
 			  $self->{'datastore'}
 			  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
-			if ($reverse) {
-				$seqbin_seq = BIGSdb::Utils::reverse_complement($seqbin_seq);
-			}
+			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+				{
+					seqbin_id => $seqbin_id,
+					start     => $start_pos,
+					end       => $end_pos,
+					reverse   => $reverse,
+					flanking  => $flanking
+				}
+			);
+			my $seqbin_pos  = q();
+			my $five_prime  = $reverse ? 'downstream' : 'upstream';
+			my $three_prime = $reverse ? 'upstream' : 'downstream';
+			$seqbin_seq .= $seq_ref->{$five_prime}  if $seq_ref->{$five_prime};
+			$seqbin_seq .= $seq_ref->{'seq'};
+			$seqbin_seq .= $seq_ref->{$three_prime} if $seq_ref->{$three_prime};
 			$seqbin_pos = "${seqbin_id}_$start_pos" if $seqbin_seq;
 			my $seq;
 			my $pos_include_value;
+
 			if ( $allele_seq && $seqbin_seq ) {
 				if ( $params->{'chooseseq'} eq 'seqbin' ) {
 					$seq               = $seqbin_seq;
@@ -499,27 +517,13 @@ sub _translate_seq_if_required {
 
 sub _get_seqbin_query {
 	my ( $self, $params ) = @_;
-	my $substring_query;
-	if ( $params->{'flanking'} && BIGSdb::Utils::is_int( $params->{'flanking'} ) ) {
-
-		#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
-		if ( $params->{'translate'} ) {
-			$params->{'flanking'} = BIGSdb::Utils::round_to_nearest( $params->{'flanking'}, 3 );
-		}
-		$substring_query = "substring(sequence from allele_sequences.start_pos-$params->{'flanking'} for "
-		  . "allele_sequences.end_pos-allele_sequences.start_pos+1+2*$params->{'flanking'})";
-	} else {
-		$substring_query = 'substring(sequence from allele_sequences.start_pos for '
-		  . 'allele_sequences.end_pos-allele_sequences.start_pos+1)';
-	}
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
 	my $qry =
-	    "SELECT $substring_query,reverse, seqbin_id, start_pos FROM allele_sequences LEFT JOIN "
-	  . 'sequence_bin ON allele_sequences.seqbin_id=sequence_bin.id LEFT JOIN sequence_flags ON '
-	  . 'allele_sequences.id=sequence_flags.id WHERE allele_sequences.isolate_id=? '
-	  . "AND allele_sequences.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
-	  . 'complete,allele_sequences.datestamp LIMIT 1';
+	    'SELECT reverse,seqbin_id,start_pos,end_pos FROM allele_sequences a '
+	  . 'LEFT JOIN sequence_flags sf ON a.id=sf.id WHERE a.isolate_id=? '
+	  . "AND a.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
+	  . 'complete,a.datestamp LIMIT 1';
 	return $qry;
 }
 
