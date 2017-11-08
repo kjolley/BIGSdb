@@ -222,8 +222,7 @@ sub _print_interface {
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+	$self->print_home_link;
 	say q(</div></div>);
 	return;
 }

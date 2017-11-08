@@ -191,8 +191,7 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+	$self->print_home_link;
 	say q(</div></div>);
 	return;
 }
