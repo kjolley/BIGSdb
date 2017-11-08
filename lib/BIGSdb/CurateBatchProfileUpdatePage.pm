@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateProfileUpdatePage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(none any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -65,32 +66,7 @@ sub print_content {
 	} elsif ( $q->param('data') ) {
 		$self->_check;
 	} else {
-		say q(<div class="box" id="queryform"><p>This page allows you to batch update allelic combinations )
-		  . q(or associated fields for multiple profiles.</p>)
-		  . q(<ul><li>The first line, containing column headings, will be ignored.</li>)
-		  . qq(<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>)
-		  . q(<li>The next column should contain the field/locus name and then the final column should )
-		  . q(contain the value to be entered, e.g.<br />);
-		say qq(<pre style="font-size:1.2em">\n)
-		  . qq(ST  field   value\n)
-		  . qq(5   abcZ    7\n)
-		  . qq(5   adk     3\n)
-		  . q(</pre>);
-		say q(</li><li>The columns should be separated by tabs. Any other columns will be ignored.</li>)
-		  . q(<li>If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>);
-		say $q->start_form;
-		say $q->hidden($_) foreach qw (db page scheme_id);
-		say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
-		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		say q(</fieldset>);
-		say q(<fieldset style="float:left"><legend>Options</legend>);
-		say q(<ul><li>);
-		say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
-		say q(</li></ul></fieldset>);
-		$self->print_action_fieldset( { scheme_id => $scheme_id } );
-		say $q->end_form;
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		$self->_print_interface;
 	}
 	return;
 }
@@ -101,10 +77,10 @@ sub _check {
 	my $scheme_id = $q->param('scheme_id');
 	my $data      = $q->param('data');
 	my @rows = split /\n/x, $data;
+	my $back = BACK;
 	if ( @rows < 2 ) {
-		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
-		say q(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
-		  . qq(scheme_id=$scheme_id">Back</a></p></div>);
+		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p></div>);
+		$self->_print_interface;
 		return;
 	}
 	my $set_id      = $self->get_set_id;
@@ -136,6 +112,8 @@ sub _check {
 		my @columns = split /\t/x, $row;
 		BIGSdb::Utils::remove_trailing_spaces_from_list( \@columns );
 		my ( $pk, $display_field, $value ) = @columns;
+		$display_field //= q();
+		$value //= q();
 		my $field = $reverse_mapped{$display_field} // q();
 		my $display_value = $self->_get_display_value($value);
 		my $problem;
@@ -234,15 +212,51 @@ sub _check {
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . q(Back to main page</a></p></div></div>);
+	say
+	  qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a>)
+	  . q(</p></div></div>);
+	return;
+}
+
+sub _print_interface {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	my $set_id    = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	say q(<div class="box" id="queryform"><p>This page allows you to batch update allelic combinations )
+	  . q(or associated fields for multiple profiles.</p>)
+	  . q(<ul><li>The first line, containing column headings, will be ignored.</li>)
+	  . qq(<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>)
+	  . q(<li>The next column should contain the field/locus name and then the final column should )
+	  . q(contain the value to be entered, e.g.<br />);
+	say qq(<pre style="font-size:1.2em">\n)
+	  . qq(ST  field   value\n)
+	  . qq(5   abcZ    7\n)
+	  . qq(5   adk     3\n)
+	  . q(</pre>);
+	say q(</li><li>The columns should be separated by tabs. Any other columns will be ignored.</li>)
+	  . q(<li>If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db page scheme_id);
+	say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
+	say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'overwrite', -label => 'Overwrite existing data', -checked => 0 );
+	say q(</li></ul></fieldset>);
+	$self->print_action_fieldset( { scheme_id => $scheme_id } );
+	say $q->end_form;
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>);
 	return;
 }
 
 sub _get_display_value {
 	my ( $self, $value ) = @_;
 	$value =~ s/(<blank>|null)/&lt;blank&gt;/x;
-	return $value;
+	return $value // q();
 }
 
 sub _check_field {
@@ -393,7 +407,6 @@ sub _check_existing_profile_id {
 	return if $$problem;
 	return if ( $field_type // q() ) ne 'field';
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_info->{'id'}, $field );
-
 	return if !$field_info->{'primary_key'};
 	my $new_pk_exists = $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT $scheme_info->{'primary_key'} FROM mv_scheme_$scheme_info->{'id'} "
@@ -521,8 +534,8 @@ sub _update {
 			$tablebuffer .= qq(<td class="statusgood">OK</td></tr>\n);
 			$old_value //= q();
 			$old_value = q()    if $old_value eq '&lt;blank&gt;';
-			$value     = q()    if $value     eq '&lt;blank&gt;';
-			$id        = $value if $field     eq $scheme_info->{'primary_key'};
+			$value     = q()    if $value eq '&lt;blank&gt;';
+			$id        = $value if $field eq $scheme_info->{'primary_key'};
 			push @history_updates, { id => $id, action => qq($field: '$old_value' -> '$value') };
 		}
 		$td = $td == 1 ? 2 : 1;
@@ -542,7 +555,8 @@ sub _update {
 			say q(<p>Transaction complete - database updated.</p>);
 		}
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>);
 	return;
 }
 

@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -98,7 +99,8 @@ HTML
 		say q(</fieldset>);
 		$self->print_action_fieldset;
 		say $q->end_form;
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>);
+		my $back = BACK;
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
 		say q(</div>);
 	}
 	return;
@@ -209,8 +211,8 @@ sub _check_field_status {
 	} elsif ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
 	} else {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field->[$i]);
-		$not_allowed_field = 1 if ($att->{'no_curate'} // '') eq 'yes';
+		my $att = $self->{'xmlHandler'}->get_field_attributes( $field->[$i] );
+		$not_allowed_field = 1 if ( $att->{'no_curate'} // '' ) eq 'yes';
 	}
 	return ( $bad_field, $not_allowed_field );
 }
@@ -356,7 +358,9 @@ sub _check {
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p>\n</div>);
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>)
+	  ;
 	return;
 }
 
@@ -542,8 +546,7 @@ sub _update {
 		$tablebuffer .= qq(</td><td>$display_field</td><td>$value</td>);
 		my $update_sql = $self->{'db'}->prepare($qry);
 		eval {
-			if ($delete_qry)
-			{
+			if ($delete_qry) {
 				my $delete_sql = $self->{'db'}->prepare($delete_qry);
 				$delete_sql->execute(@delete_args);
 			}

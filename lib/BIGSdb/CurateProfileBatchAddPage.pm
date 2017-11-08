@@ -562,7 +562,8 @@ sub _print_interface {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back</a></p>);
+	my $back = BACK;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }

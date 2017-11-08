@@ -54,6 +54,12 @@ sub print_content {
 		  . q(to the isolates table.</p></div>);
 		return;
 	}
+	if ( $self->{'permissions'}->{'only_private'} ) {
+		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
+		  . q(to the isolates table using this interface. You can only upload private data using )
+		  . q(the batch upload page.</p></div>);
+		return;
+	}
 	my $q = $self->{'cgi'};
 	my %newdata;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {

@@ -331,8 +331,8 @@ sub _parse_blast_exact {
 				$self->_identify_match_ends( $match, $record );
 				$match->{'reverse'} = 1 if $self->_is_match_reversed($record);
 				$match->{'e-value'} = $record->[10];
-				next RECORD if $matched_already->{ $match->{'allele'} }->{ $match->{'start'} };
-				$matched_already->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
+				next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} };
+				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
 
 				if ( $locus_info->{'match_longest'} && @$locus_match ) {
 					if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
