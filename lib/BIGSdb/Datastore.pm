@@ -1771,7 +1771,9 @@ sub get_client_data_linked_to_allele {
 		$locus,
 		{ fetch => 'all_arrayref' }
 	);
-	my ( $dl_buffer, $td_buffer, $field_values );
+	my $field_values;
+	my $dl_buffer = q();
+	my $td_buffer = q();
 	my $i = 0;
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
