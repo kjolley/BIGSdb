@@ -339,12 +339,14 @@ sub _print_project_add_function {
 		$labels->{ $project->{'id'} } = $project->{'short_description'};
 	}
 	say q(<fieldset><legend>Your projects</legend>);
+	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -362,13 +364,15 @@ sub _print_publish_function {
 	return if !$has_private_data && !$q->param('publish');
 	my $matched = $self->_get_query_private_records( $user_info->{'id'} );
 	return if !@$matched && !$q->param('publish');
-	say q(<fieldset><legend>Private records</legend>);
+	say q(<fieldset><legend>Your private records</legend>);
 	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
+	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
