@@ -128,6 +128,9 @@ sub print_content {
 	if ( $q->param('add_to_project') ) {
 		$self->add_to_project;
 	}
+	if ( $q->param('publish') ) {
+		$self->publish;
+	}
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;

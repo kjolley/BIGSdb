@@ -198,7 +198,10 @@ sub _print_results_header {
 		}
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
-		$self->_print_project_add_function if $self->{'system'}->{'dbtype'} eq 'isolates';
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$self->_print_project_add_function;
+			$self->_print_publish_function;
+		}
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		say q(<p>No records found!</p>);
@@ -345,6 +348,41 @@ sub _print_project_add_function {
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
+}
+
+sub _print_publish_function {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $q = $self->{'cgi'};
+	return if $q->param('page') eq 'tableQuery';
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $has_private_data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+	return if !$has_private_data && !$q->param('publish');
+	my $matched = $self->_get_query_private_records( $user_info->{'id'} );
+	return if !@$matched && !$q->param('publish');
+	say q(<fieldset><legend>Private records</legend>);
+	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
+	say $q->start_form;
+	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
+	  if $self->{'publish_message'};
+	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->end_form;
+	say q(</fieldset>);
+	return;
+}
+
+sub _get_query_private_records {
+	my ( $self, $user_id ) = @_;
+	my $ids = $self->get_query_ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $matched =
+	  $self->{'datastore'}->run_query(
+		"SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value WHERE p.user_id=?",
+		$user_id, { fetch => 'col_arrayref' } );
+	return $matched;
 }
 
 sub print_additional_headerbar_functions {
@@ -601,8 +639,7 @@ sub _print_isolate_id_links {
 			  . UPLOAD
 			  . q(</a></td>);
 		}
-		if ( $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view' )
-		{
+		if ( $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view' ) {
 			print $data->{'new_version'}
 			  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 			  . qq(&amp;page=info&amp;id=$data->{'new_version'}">$data->{'new_version'}</a></td>)
@@ -1353,9 +1390,8 @@ sub _print_record_table {
 					{ cache => 'ResultsTablePage::print_record_table::alleleQuery_extatt' }
 				);
 				if ( defined $value ) {
-					
-					if ( $attribute->{'url'} ){
-						(my $url = $attribute->{'url'}) =~ s/\[\?\]/$value/gx;
+					if ( $attribute->{'url'} ) {
+						( my $url = $attribute->{'url'} ) =~ s/\[\?\]/$value/gx;
 						$value = qq(<a href="$url">$value</a>);
 					}
 					print qq(<td>$value</td>);
@@ -1744,6 +1780,42 @@ sub add_to_project {
 	} else {
 		$self->{'db'}->commit;
 		$self->{'project_add_message'} = $message;
+	}
+	return;
+}
+
+sub publish {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q            = $self->{'cgi'};
+	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $matched      = $self->_get_query_private_records( $user_info->{'id'} );
+	my $temp_table   = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
+	my $request_only = $self->{'permissions'}->{'only_private'} ? 1 : 0;
+	my $message;
+	my $count = @$matched;
+	my $plural = $count == 1 ? q() : q(s);
+	my $qry;
+
+	if (@$matched) {
+		if ($request_only) {
+			$qry =
+			  "UPDATE private_isolates SET request_publish=TRUE WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			$message = "Publication requested for $count record$plural.";
+		} else {
+			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			$message = "$count record$plural now public.";
+		}
+		eval { $self->{'db'}->do($qry); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+			$self->{'publish_message'} = $message;
+		}
+	} else {
+		$q->delete('publish');
 	}
 	return;
 }
