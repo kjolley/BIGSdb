@@ -146,7 +146,8 @@ sub _delete {
 	}
 	$self->{'db'}->commit
 	  && say qq(<div class="box" id="resultsheader"><p>Isolate id:$isolate_id deleted!</p>);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+	$self->print_home_link;
+	say q(</div>);
 	return;
 }
 

@@ -99,8 +99,7 @@ HTML
 		say q(</fieldset>);
 		$self->print_action_fieldset;
 		say $q->end_form;
-		my $back = BACK;
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+		$self->print_home_link;
 		say q(</div>);
 	}
 	return;
@@ -358,9 +357,8 @@ sub _check {
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>)
-	  ;
+	$self->print_home_link;
+	say q(</div>);
 	return;
 }
 

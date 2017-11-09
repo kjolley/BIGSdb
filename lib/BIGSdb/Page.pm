@@ -2678,9 +2678,10 @@ sub print_return_to_submission {
 }
 
 sub print_home_link {
-	my ($self) = @_;
+	my ($self, $options) = @_;
+	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
 	my $home = HOME;
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Contents page" )
+	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" )
 	  . qq(style="margin-right:1em">$home</a>);
 	return;
 }

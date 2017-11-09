@@ -77,7 +77,6 @@ sub _check {
 	my $scheme_id = $q->param('scheme_id');
 	my $data      = $q->param('data');
 	my @rows = split /\n/x, $data;
-	my $back = BACK;
 	if ( @rows < 2 ) {
 		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p></div>);
 		$self->_print_interface;
@@ -113,7 +112,7 @@ sub _check {
 		BIGSdb::Utils::remove_trailing_spaces_from_list( \@columns );
 		my ( $pk, $display_field, $value ) = @columns;
 		$display_field //= q();
-		$value //= q();
+		$value         //= q();
 		my $field = $reverse_mapped{$display_field} // q();
 		my $display_value = $self->_get_display_value($value);
 		my $problem;
@@ -212,9 +211,8 @@ sub _check {
 	} else {
 		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
 	}
-	say
-	  qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a>)
-	  . q(</p></div></div>);
+	$self->print_home_link;
+	say q(</div></div>);
 	return;
 }
 
@@ -248,8 +246,8 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>);
+	$self->print_home_link;
+	say q(</div>);
 	return;
 }
 
@@ -555,8 +553,8 @@ sub _update {
 			say q(<p>Transaction complete - database updated.</p>);
 		}
 	}
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p></div>);
+	$self->print_home_link;
+	say qq(</div>);
 	return;
 }
 

@@ -191,8 +191,8 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	$self->print_home_link( { script => $script } );
 	say q(</div></div>);
 	return;
 }
@@ -1978,7 +1978,7 @@ sub _display_update_footer_links {
 		$self->_update_submission_database($submission_id);
 	}
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	$self->print_home_link;
+	$self->print_home_link( { script => $script } );
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
