@@ -686,19 +686,24 @@ sub _get_private_data_filter {
 	return if !$self->{'username'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
-	my $private = $self->{'datastore'}
+	my $private =
+	    $self->{'curate'}
+	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
+	  : $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
 	return if !$private;
+	my $labels = {
+		1 => 'my private records only',
+		2 => 'private records (in quota)',
+		3 => 'private records (excluded from quota)',
+		4 => 'private records (requesting publication)',
+		5 => 'public records only'
+	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 4 ],
+		[ 1 .. 5 ],
 		{
-			labels => {
-				1 => 'my private records only',
-				2 => 'private records (in quota)',
-				3 => 'private records (excluded from quota)',
-				4 => 'public records only'
-			},
+			labels  => $labels,
 			text    => 'Private records',
 			tooltip => 'private records filter - Filter by whether the isolate record is private. '
 			  . 'The default is to include both your private and public records.'
@@ -1610,9 +1615,10 @@ sub _modify_query_by_private_status {
 		1 => sub { $clause = "($my_private)" },
 		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
 		3 => sub { $clause = "($my_private AND $not_in_quota)" },
-		4 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" }
+		,
+		5 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
-
 	if ( $term->{ $q->param('private_records_list') } ) {
 		$term->{ $q->param('private_records_list') }->();
 	} else {
