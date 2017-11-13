@@ -358,13 +358,14 @@ sub _print_publish_function {
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'tableQuery';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $has_private_data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-	return if !$has_private_data && !$q->param('publish');
-	my $matched = $self->_get_query_private_records( $user_info->{'id'} );
-	return if !@$matched && !$q->param('publish');
-	say q(<fieldset><legend>Your private records</legend>);
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		my $matched = $self->_get_query_private_records;
+		return if !@$matched && !$q->param('publish');
+	} else {
+		my $matched = $self->_get_query_private_records( $user_info->{'id'} );
+		return if !@$matched && !$q->param('publish');
+	}
+	say q(<fieldset><legend>Private records</legend>);
 	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
@@ -382,11 +383,17 @@ sub _get_query_private_records {
 	my ( $self, $user_id ) = @_;
 	my $ids = $self->get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
-	my $matched =
-	  $self->{'datastore'}->run_query(
-		"SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value WHERE p.user_id=?",
-		$user_id, { fetch => 'col_arrayref' } );
-	return $matched;
+	if ( !defined $user_id ) {
+		return $self->{'datastore'}
+		  ->run_query( "SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value",
+			undef, { fetch => 'col_arrayref' } );
+	} else {
+		return $self->{'datastore'}->run_query(
+			"SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value WHERE p.user_id=?",
+			$user_id,
+			{ fetch => 'col_arrayref' }
+		);
+	}
 }
 
 sub print_additional_headerbar_functions {
@@ -1791,17 +1798,22 @@ sub add_to_project {
 sub publish {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-	my $q            = $self->{'cgi'};
-	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $matched      = $self->_get_query_private_records( $user_info->{'id'} );
-	my $temp_table   = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $matched;
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		$matched = $self->_get_query_private_records;
+	} else {
+		$matched = $self->_get_query_private_records( $user_info->{'id'} );
+	}
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
 	my $request_only = $self->{'permissions'}->{'only_private'} ? 1 : 0;
 	my $message;
 	my $count = @$matched;
 	my $plural = $count == 1 ? q() : q(s);
 	my $qry;
-
 	if (@$matched) {
+
 		if ($request_only) {
 			$qry =
 			  "UPDATE private_isolates SET request_publish=TRUE WHERE isolate_id IN (SELECT value FROM $temp_table)";
