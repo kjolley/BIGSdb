@@ -721,8 +721,11 @@ sub _get_provenance_fields {
 		$buffer .= q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string</span></p>);
 	}
+
+	#We need to enclose description lists in <li> tags to prevent title and data from being split
+	#by the columnizer plugin.
 	$buffer .= q(<div id="provenance">);
-	$buffer .= q(<dl class="data">);
+	my $list          = [];
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
@@ -755,7 +758,9 @@ sub _get_provenance_fields {
 
 		if ( !defined $value ) {
 			if ( $composites{$field} ) {
-				$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
+				my $composites =
+				  $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
+				push @$list, @$composites if @$composites;
 			}
 			next;    #Do not print row
 		} elsif ( $thisfield->{'web'} ) {
@@ -773,37 +778,41 @@ sub _get_provenance_fields {
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
-			$buffer .= $self->_get_user_field( $summary_view, $field, $displayfield, $value, $data );
+			push @$list, $self->_get_user_field( $summary_view, $field, $displayfield, $value, $data );
 		} else {
-			$buffer .= qq(<dt class="dontend">$displayfield</dt>\n);
-			$buffer .= q(<dd>) . ( $web || $value ) . qq(</dd>\n);
+			push @$list, { title => $displayfield, data => ( $web || $value ) };
 		}
-		$buffer .= $self->_get_history_field($isolate_id) if ( $field eq 'curator' );
+		if ( $field eq 'curator' ) {
+			my $history = $self->_get_history_field($isolate_id);
+			push @$list, $history if $history;
+		}
 		my %ext_attribute_field = map { $_ => 1 } @$field_with_extended_attributes;
 		if ( $ext_attribute_field{$field} ) {
-			$buffer .= $self->_get_field_extended_attributes( $field, $value );
+			my $ext_list = $self->_get_field_extended_attributes( $field, $value );
+			push @$list, @$ext_list if @$ext_list;
 		}
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
 			my $aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 			if (@$aliases) {
 				local $" = q(; );
 				my $plural = @$aliases > 1 ? 'es' : '';
-				$buffer .= qq(<dt class="dontend">alias$plural</dt>\n);
-				$buffer .= qq(<dd>@$aliases</dd>\n);
+				push @$list, { title => "alias$plural", data => "@$aliases" };
 			}
 		}
 		if ( $composites{$field} ) {
-			$buffer .= $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
+			my $composites = $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
+			push @$list, @$composites if @$composites;
 		}
 	}
-	$buffer .= qq(</dl></div>\n);
+	$buffer .= $self->_get_list_block($list);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
 sub _get_field_extended_attributes {
 	my ( $self, $field, $value ) = @_;
-	my $buffer = q();
-	my $q      = $self->{'cgi'};
+	my $list = [];
+	my $q    = $self->{'cgi'};
 	my $attribute_order =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?',
@@ -835,19 +844,21 @@ sub _get_field_extended_attributes {
 					$att_web .= qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
 				}
 			}
-			$buffer .= qq(<dt class="dontend">$attribute</dt>\n);
-			$buffer .= q(<dd>) . ( $att_web || $attributes{$attribute} ) . qq(</dd>\n);
+			push @$list,
+			  {
+				title => $attribute,
+				data  => ( $att_web || $attributes{$attribute} )
+			  };
 		}
 	}
-	return $buffer;
+	return $list;
 }
 
 sub _get_user_field {
 	my ( $self, $summary_view, $field, $display_field, $value, $data ) = @_;
 	my $userdata = $self->{'datastore'}->get_user_info($value);
-	my $buffer;
-	my $colspan = $summary_view ? 5 : 2;
-	my $person = qq($userdata->{first_name} $userdata->{surname});
+	my $colspan  = $summary_view ? 5 : 2;
+	my $person   = qq($userdata->{first_name} $userdata->{surname});
 	if ( !$summary_view && !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} ) ) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$person .= qq(, $userdata->{affiliation}) if $value > 0;
@@ -862,57 +873,54 @@ sub _get_user_field {
 			}
 		}
 	}
-	$buffer .= qq(<dt class="dontend">$display_field</dt>\n);
-	$buffer .= qq(<dd>$person</dd>\n);
-	return $buffer;
+	return {
+		title => $display_field,
+		data  => $person
+	};
 }
 
 sub _get_history_field {
 	my ( $self, $isolate_id ) = @_;
-	my $q      = $self->{'cgi'};
-	my $buffer = q();
+	my $q = $self->{'cgi'};
 	my ( $history, $num_changes ) = $self->_get_history( $isolate_id, 10 );
-	if ($num_changes) {
-		my $plural = $num_changes == 1 ? '' : 's';
-		my $title;
-		$title = q(Update history - );
-		foreach (@$history) {
-			my $time = $_->{'timestamp'};
-			$time =~ s/ \d\d:\d\d:\d\d\.\d+//x;
-			my $action = $_->{'action'};
-			if ( $action =~ /<br\ \/>/x ) {
-				$action = q(multiple updates);
-			}
-			$action =~ s/[\r\n]//gx;
-			$action =~ s/:.*//x;
-			$title .= qq($time: $action<br />);
+	return if !$num_changes;
+	my $plural = $num_changes == 1 ? '' : 's';
+	my $title;
+	$title = q(Update history - );
+	foreach (@$history) {
+		my $time = $_->{'timestamp'};
+		$time =~ s/ \d\d:\d\d:\d\d\.\d+//x;
+		my $action = $_->{'action'};
+		if ( $action =~ /<br\ \/>/x ) {
+			$action = q(multiple updates);
 		}
-		if ( $num_changes > 10 ) {
-			$title .= q(more ...);
-		}
-		$buffer .= qq(<dt class="dontend">update history</dt>\n);
-		$buffer .= qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>);
-		my $refer_page = $q->param('page');
-		my $set_id     = $self->get_set_id;
-		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-		$buffer .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
-		  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a></dd>\n);
+		$action =~ s/[\r\n]//gx;
+		$action =~ s/:.*//x;
+		$title .= qq($time: $action<br />);
 	}
-	return $buffer;
+	if ( $num_changes > 10 ) {
+		$title .= q(more ...);
+	}
+	my $data       = qq(<a title="$title" class="update_tooltip">$num_changes update$plural</a>);
+	my $refer_page = $q->param('page');
+	my $set_id     = $self->get_set_id;
+	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+	$data .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
+	  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a>\n);
+	return { title => 'update history', data => $data };
 }
 
 sub _get_composite_field_rows {
 	my ( $self, $isolate_id, $data, $field_to_position_after, $composite_display_pos ) = @_;
-	my $buffer = '';
+	my $list = [];
 	foreach ( keys %$composite_display_pos ) {
 		next if $composite_display_pos->{$_} ne $field_to_position_after;
 		my $displayfield = $_;
 		$displayfield =~ tr/_/ /;
 		my $value = $self->{'datastore'}->get_composite_value( $isolate_id, $_, $data );
-		$buffer .= qq(<dt class="dontend">$displayfield</dt>\n);
-		$buffer .= qq(<dd>$value</dd>\n);
+		push @$list, { title => $displayfield, data => $value };
 	}
-	return $buffer;
+	return $list;
 }
 
 sub _get_tree {
@@ -1451,6 +1459,7 @@ sub _get_seqbin_link {
 	  ->run_query( 'SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?', $isolate_id );
 	my $buffer = q();
 	my $q      = $self->{'cgi'};
+	my $list   = [];
 	if ($seqbin_count) {
 		my ( $mean_length, $max_length ) =
 		  $self->{'datastore'}->run_query(
@@ -1458,16 +1467,17 @@ sub _get_seqbin_link {
 			$isolate_id );
 		my $plural = $seqbin_count == 1 ? '' : 's';
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
-		$buffer .= qq(<div id="seqbin"><dl class="data"><dt class="dontend">contigs</dt><dd>$seqbin_count</dd>\n);
+		$buffer .= q(<div id="seqbin">);
+		push @$list, { title => 'contigs', data => $seqbin_count };
 		if ( $seqbin_count > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}->run_query(
 				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
 				$isolate_id, { fetch => 'col_arrayref' } );
 			my $n_stats = BIGSdb::Utils::get_N_stats( $total_length, $lengths );
-			$buffer .= qq(<dt class="dontend">total length</dt><dd>$total_length bp</dd>\n);
-			$buffer .= qq(<dt class="dontend">max length</dt><dd>$max_length bp</dd>\n);
-			$buffer .= qq(<dt class="dontend">mean length</dt><dd>$mean_length bp</dd>\n);
+			push @$list, { title => 'total length', data => "$total_length bp" };
+			push @$list, { title => 'max length',   data => "$max_length bp" };
+			push @$list, { title => 'mean length',  data => "$mean_length bp" };
 			my %stats_labels = (
 				N50 => 'N50 contig number',
 				L50 => 'N50 length (L50)',
@@ -1476,10 +1486,9 @@ sub _get_seqbin_link {
 				N95 => 'N95 contig number',
 				L95 => 'N95 length (L95)',
 			);
-			$buffer .= qq(<dt class="dontend">$stats_labels{$_}</dt><dd>$n_stats->{$_}</dd>\n)
-			  foreach qw(N50 L50 N90 L90 N95 L95);
+			push @$list, { title => $stats_labels{$_}, data => $n_stats->{$_} } foreach qw(N50 L50 N90 L90 N95 L95);
 		} else {
-			$buffer .= qq(<dt class="dontend">length</dt><dd>$total_length bp</dd>);
+			push @$list, { title => 'length', data => "$total_length bp" };
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
@@ -1492,12 +1501,30 @@ sub _get_seqbin_link {
 		  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause",
 			$isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
-		$buffer .= qq(<dt class="dontend">loci tagged</dt><dd>$tagged</dd>\n);
-		$buffer .= qq(<dt class="dontend">detailed breakdown</dt>\n);
-		$buffer .= qq(<dd class="dontend"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display<dd>\n);
+		push @$list, { title => 'loci tagged', data => $tagged };
+		push @$list,
+		  {
+			title => 'detailed breakdown',
+			data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display</a>)
+		  };
+		$buffer .= $self->_get_list_block($list);
 		$buffer .= q(</div>);
 	}
+	return $buffer;
+}
+
+sub _get_list_block {
+	my ( $self, $list ) = @_;
+
+  #It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
+  #columnizer plugin can result in the title and data item appearing in different columns. All browsers
+  #seem to handle this way ok.
+	my $buffer = q(<dl class="data">);
+	foreach my $item (@$list) {
+		$buffer .= qq(<span class="dontsplit"><dt>$item->{'title'}</dt><dd>$item->{'data'}</dd></span>\n);
+	}
+	$buffer .= qq(</dl>\n);
 	return $buffer;
 }
 
