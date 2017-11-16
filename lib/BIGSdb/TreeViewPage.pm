@@ -27,8 +27,8 @@ my $logger = get_logger('BIGSdb.Page');
 sub get_tree_javascript {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my $plugin_js;
+	my $q         = $self->{'cgi'};
+	my $plugin_js = q();
 	if ( $options->{'checkboxes'} ) {
 		$plugin_js = q(,"plugins" : [ "checkbox" ]);
 	}
@@ -117,7 +117,8 @@ sub _get_schemes_not_in_groups {
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
 	my $page = $self->{'cgi'}->param('page');
-	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
+	my %info_pages = map { $_ => 1 } qw (isolateDelete isolateUpdate alleleUpdate);
+	$page = 'info' if $info_pages{$page};
 	my $isolate_clause = defined $isolate_id ? qq(&amp;id=$isolate_id) : q();
 	my $groups_with_no_parent = $self->{'datastore'}->run_query(
 		'SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id FROM '
@@ -133,21 +134,19 @@ sub get_tree {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($group);
 		my $group_scheme_buffer = $self->_get_group_schemes( $group, $isolate_id, $options );
 		my $child_group_buffer  = $self->_get_child_groups( $group, $isolate_id, 1, $options );
-		if ( $group_scheme_buffer || $child_group_buffer ) {
-			$buffer .=
-			  $options->{'no_link_out'}
-			  ? qq(<li><a>$group_info->{'name'}</a>\n)
-			  : qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=$page$isolate_clause&amp;group_id=$group" )
-			  . qq(rel="nofollow" data-rel="ajax">$group_info->{'name'}</a>\n);
-			$buffer .= $group_scheme_buffer if $group_scheme_buffer;
-			$buffer .= $child_group_buffer  if $child_group_buffer;
-			$buffer .= qq(</li>\n);
-		}
+		next if !$group_scheme_buffer && !$child_group_buffer;
+		$buffer .=
+		  $options->{'no_link_out'}
+		  ? qq(<li><a>$group_info->{'name'}</a>\n)
+		  : qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=$page$isolate_clause&amp;group_id=$group" )
+		  . qq(rel="nofollow" data-rel="ajax">$group_info->{'name'}</a>\n);
+		$buffer .= $group_scheme_buffer;
+		$buffer .= $child_group_buffer;
+		$buffer .= qq(</li>\n);
 	}
 	if (@$schemes_not_in_group) {
-		my $data_exists = 0;
-		my $temp_buffer;
+		my $temp_buffer = q();
 		if (@$groups_with_no_parent) {
 			$temp_buffer .=
 			  $options->{'no_link_out'}
@@ -156,14 +155,9 @@ sub get_tree {
 			  . qq($isolate_clause&amp;group_id=0" rel="nofollow" data-rel="ajax">Other schemes</a><ul>);
 		}
 		foreach my $scheme (@$schemes_not_in_group) {
-			next
-			  if $options->{'isolate_display'}
-			  && !$self->{'prefs'}->{'isolate_display_schemes'}->{ $scheme->{'id'} };
-			next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $scheme->{'id'} };
+			next if !$self->_should_display_scheme_in_tree( $scheme->{'id'}, $options );
 			$scheme->{'name'} =~ s/&/\&amp;/gx;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $scheme->{'id'}, $isolate_id ) ) {
-				my $scheme_loci_buffer;
-				$data_exists = 1;
 				if ( $options->{'no_link_out'} ) {
 					my $id = $options->{'select_schemes'} ? qq( id="s_$scheme->{'id'}") : q();
 					$temp_buffer .= qq(<li$id><a>$scheme->{'name'}</a>\n);
@@ -173,12 +167,11 @@ sub get_tree {
 					  . qq(page=$page$isolate_clause&amp;scheme_id=$scheme->{'id'}" rel="nofollow" )
 					  . qq(data-rel="ajax">$scheme->{'name'}</a>\n);
 				}
-				$temp_buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$temp_buffer .= qq(</li>\n);
 			}
 		}
 		$temp_buffer .= q(</ul></li>) if @$groups_with_no_parent;
-		$buffer .= $temp_buffer if $data_exists;
+		$buffer .= $temp_buffer;
 	}
 	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	if ( @$loci_not_in_schemes && ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) ) {
@@ -215,6 +208,13 @@ sub get_tree {
 	return $main_buffer;
 }
 
+sub _should_display_scheme_in_tree {
+	my ( $self, $scheme_id, $options ) = @_;
+	return if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+	return if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
+	return 1;
+}
+
 sub _get_group_schemes {
 	my ( $self, $group_id, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -235,12 +235,11 @@ sub _get_group_schemes {
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
 			next if $options->{'no_disabled'}     && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-			my $scheme_loci_buffer;
 			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
 			my $page = $self->{'cgi'}->param('page');
 			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-
 			if ( defined $isolate_id ) {
+
 				if ( $self->_scheme_data_present( $scheme_id, $isolate_id ) ) {
 					$buffer .=
 					  $options->{'no_link_out'}
@@ -248,7 +247,6 @@ sub _get_group_schemes {
 					  : qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 					  . qq(page=$page&amp;id=$isolate_id&amp;scheme_id=$scheme_info->{'id'}" rel="nofollow" )
 					  . qq(data-rel="ajax">$scheme_info->{'name'}</a>);
-					$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 					$buffer .= qq(</li>\n);
 				}
 			} else {
@@ -261,13 +259,11 @@ sub _get_group_schemes {
 					  . qq(page=$page&amp;scheme_id=$scheme_info->{'id'}" rel="nofollow" data-rel="ajax">)
 					  . qq($scheme_info->{'name'}</a>);
 				}
-				$buffer .= $scheme_loci_buffer if $scheme_loci_buffer;
 				$buffer .= qq(</li>\n);
 			}
 		}
 	}
-	return qq(<ul>$buffer</ul>\n) if $buffer;
-	return;
+	return $buffer ? qq(<ul>$buffer</ul>\n) : q();
 }
 
 sub _get_child_groups {
@@ -305,14 +301,13 @@ sub _get_child_groups {
 					  . qq(page=$page&amp;group_id=$group_id" rel="nofollow" data-rel="ajax">)
 					  . qq($group_info->{'name'}</a>\n);
 				}
-				$buffer .= $group_scheme_buffer if $group_scheme_buffer;
-				$buffer .= $child_group_buffer  if $child_group_buffer;
+				$buffer .= $group_scheme_buffer;
+				$buffer .= $child_group_buffer;
 				$buffer .= q(</li>);
 			}
 		}
 	}
-	return qq(<ul>\n$buffer</ul>\n) if $buffer;
-	return;
+	return $buffer ? qq(<ul>\n$buffer</ul>\n) : q();
 }
 
 sub _scheme_data_present {
