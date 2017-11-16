@@ -23,6 +23,7 @@ Version 1.15: Change of seqdef and isolate database structures.
 Version 1.16: Change of authentication, seqdef and isolate database 
               structures.
 Version 1.17: Change of seqdef and isolate database structures.
+Version 1.18: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -367,3 +368,16 @@ and isolatedb_v1.17.sql against isolate databases.
 
 Additionally, you need to update the bigsdb.css stylesheet and the contents
 of the javascript directory.
+
+Version 1.18
+------------
+There are changes to the sequence definition and isolate databases to support
+accessing remote contigs.
+
+Please run the seqdefdb_v1.18.sql script against sequence definition databases
+and isolatedb_v1.18.sql against isolate databases.
+
+Additionally, you need to update the contents of the javascript directory.
+jQuery; jQuery UI; and the jsTree and columnizer plugins have been updated to 
+the latest versions. Ensure that the javascript/themes directory is also 
+updated.
