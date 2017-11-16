@@ -118,7 +118,7 @@ sub get_javascript {
 	\$("#seqbin").columnize({
 		width:300, 
 		lastNeverTallest: true,
-	});
+	});  
 	\$(".smallbutton").css('display', 'inline');
 });
 
@@ -626,6 +626,7 @@ sub _print_action_panel {
 	my $page = $q->param('page');
 	my $seqbin_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
+
 	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
 		next
 		  if $action eq 'tagScan'
@@ -718,8 +719,7 @@ sub _get_provenance_fields {
 	if ( defined $private_owner ) {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		$buffer .= q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
-		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string</span></p>)
-		  ;
+		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string</span></p>);
 	}
 	$buffer .= q(<div id="provenance">);
 	$buffer .= q(<dl class="data">);
@@ -1493,16 +1493,9 @@ sub _get_seqbin_link {
 			$isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
 		$buffer .= qq(<dt class="dontend">loci tagged</dt><dd>$tagged</dd>\n);
-		$buffer .= qq(<dt class="dontend">detailed breakdown</dt><dd>\n);
-		$buffer .= $q->start_form;
-		$q->param( curate => 1 ) if $self->{'curate'};
-		$q->param( page => 'seqbin' );
-		$q->param( isolate_id => $isolate_id );
-		$buffer .= $q->hidden($_) foreach qw (db page curate isolate_id set_id);
-		$buffer .= $q->submit( -value => 'Display', -class => 'smallbutton' );
-		$buffer .= $q->end_form;
-		$buffer .= qq(</dd></dl>\n);
-		$q->param( page => 'info' );
+		$buffer .= qq(<dt class="dontend">detailed breakdown</dt>\n);
+		$buffer .= qq(<dd class="dontend"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display<dd>\n);
 		$buffer .= q(</div>);
 	}
 	return $buffer;

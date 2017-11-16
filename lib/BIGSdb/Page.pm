@@ -103,24 +103,25 @@ JS
 sub _get_javascript_paths {
 	my ($self) = @_;
 	my $page_js = $self->get_javascript;
+	my $date = '20171116';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
 		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
-			push @javascript, ( { src => '/javascript/jquery.js',    @language } );
-			push @javascript, ( { src => '/javascript/jquery-ui.js', @language } );
+			push @javascript, ( { src => "/javascript/jquery.js?v=$date",    @language } );
+			push @javascript, ( { src => "/javascript/jquery-ui.js?v=$date", @language } );
 		} else {
 
 			#Load jQuery library from Google CDN
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', @language } );
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js', @language } );
 			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js', @language } );
+			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js', @language } );
 		}
-		push @javascript, ( { src => '/javascript/bigsdb.js?v20160718', @language } );
+		push @javascript, ( { src => "/javascript/bigsdb.js?v=$date", @language } );
 		my %js = (
 			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
-			'jQuery.jstree'       => [qw(jquery.jstree.js jquery.cookie.js jquery.hotkeys.js)],
+			'jQuery.jstree'       => [qw(jquery.jstree.js)],
 			'jQuery.coolfieldset' => [qw(jquery.coolfieldset.js)],
 			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
@@ -131,7 +132,7 @@ sub _get_javascript_paths {
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
 			my $libs = $js{$feature};
-			push @javascript, ( { src => "/javascript/$_", @language } ) foreach @$libs;
+			push @javascript, ( { src => "/javascript/$_?v=$date", @language } ) foreach @$libs;
 		}
 		push @javascript, { code => $page_js, @language } if $page_js;
 	}
@@ -385,7 +386,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20170727';
+	my $version   = '20171116';
 	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -402,6 +403,10 @@ sub get_stylesheets {
 			}
 		}
 		push @paths, $stylesheet;
+
+	}
+	if ($self->{'jQuery.jstree'}){
+		push @paths, "/javascript/themes/default/style.min.css?v=$version";
 	}
 	return \@paths;
 }

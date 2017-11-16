@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,54 +30,50 @@ sub get_tree_javascript {
 	my $q = $self->{'cgi'};
 	my $plugin_js;
 	if ( $options->{'checkboxes'} ) {
-		$plugin_js = <<"JS";
-		"plugins" : [ "themes", "html_data", "checkbox"],
-		"checkbox" : {
-			"real_checkboxes" : true,
-			"real_checkboxes_names" : function (n) { return [(n[0].id || Math.ceil(Math.random() * 10000)), 1]; }
-		}
-JS
-	} else {
-		$plugin_js = <<"JS";
-		"plugins" : [ "themes", "html_data"]
-JS
+		$plugin_js = q(,"plugins" : [ "checkbox" ]);
 	}
-	my $check_schemes_js = '';
+	my $check_schemes_js = q();
 	if ( $options->{'check_schemes'} ) {
 		my $scheme_ids =
 		  $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 		push @$scheme_ids, 0;
-		foreach (@$scheme_ids) {
-			if ( $q->param("s_$_") ) {
-				$check_schemes_js .= <<"JS";
-\$("#tree").bind("loaded.jstree", function (event, data) {
-  		\$("#tree").jstree("check_node", \$("#s_$_"));
-	});			
-JS
+		my @checked_nodes;
+		foreach my $scheme_id (@$scheme_ids) {
+			if ( $q->param("s_$scheme_id") ) {
+				push @checked_nodes, "s_$scheme_id";
 			}
+		}
+		local $" = q(',');
+		if (@checked_nodes) {
+			$check_schemes_js = qq(\$("#tree").jstree(true).select_node(['@checked_nodes']););
 		}
 	}
 	my $buffer = << "END";
 \$(function () {
-	\$("a[data-rel~='ajax']").click(function(){
-  		\$(this).attr('href', function(){
-  			if (this.href.match(/javascript.loadContent/)){
-  				return;
-  			};
-    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1&no_header=1\'\)"));
-    	});
-  	});
-	$check_schemes_js
+
 	\$("#tree").jstree({ 
 		"core" : {
 			"animation" : 200,
-			"initially_open" : ["all_loci"]
-		},
-		"themes" : {
-			"theme" : "default"
-		},
-$plugin_js		
+		}
+        $plugin_js		
 	});	
+	$check_schemes_js
+	\$("#tree").on("changed.jstree", function (e, data) {
+  		if (typeof data.node != 'undefined' && data.node.a_attr["data-rel"] == 'ajax'){
+    		loadContent(data.node.a_attr.href+"&no_header=1");
+  		}
+	});
+	\$("input[name='submit']").click( function( e ) {
+		var scheme_ids = \$("#tree").jstree('get_selected');
+		\$.each( scheme_ids, function( index, value ){
+			var regex = /^s_\\d+\$/;
+			var match = regex.exec(value);
+			if (match){
+				\$("form").append('<input type="hidden" name="' + match[0] + '" value="1">');
+			}
+    		
+		});
+	});
 
 });
 
@@ -100,10 +96,10 @@ END
 }
 
 sub _get_schemes_not_in_groups {
-	my ($self, $options) = @_;
-	my $set_id               = $self->get_set_id;
-	my $set_clause           = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
-		my $schemes = $self->{'datastore'}->run_query(
+	my ( $self, $options ) = @_;
+	my $set_id     = $self->get_set_id;
+	my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+	my $schemes    = $self->{'datastore'}->run_query(
 		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
 		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,name",
 		undef,
@@ -111,8 +107,8 @@ sub _get_schemes_not_in_groups {
 	);
 	return $schemes if !$options->{'no_disabled'};
 	my @not_in_group;
-	foreach my $scheme(@$schemes){
-		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } ;
+	foreach my $scheme (@$schemes) {
+		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
 		push @not_in_group, $scheme;
 	}
 	return \@not_in_group;
@@ -120,7 +116,6 @@ sub _get_schemes_not_in_groups {
 
 sub get_tree {
 	my ( $self, $isolate_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $page = $self->{'cgi'}->param('page');
 	$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
 	my $isolate_clause = defined $isolate_id ? qq(&amp;id=$isolate_id) : q();
@@ -132,7 +127,6 @@ sub get_tree {
 	);
 	my $set_id               = $self->get_set_id;
 	my $schemes_not_in_group = $self->_get_schemes_not_in_groups($options);
-
 	my $buffer;
 
 	foreach my $group (@$groups_with_no_parent) {
@@ -204,9 +198,10 @@ sub get_tree {
 		$main_buffer = qq(<ul>\n);
 		$main_buffer .=
 		  $options->{'no_link_out'}
-		  ? qq(<li id="all_loci"><a>All loci</a><ul>\n)
-		  : qq(<li id="all_loci"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=$page$isolate_clause&amp;scheme_id=-1" rel="nofollow" data-rel="ajax">All loci</a><ul>\n);
+		  ? qq(<li id="all_loci" data-jstree='{"opened":true}'><a>All loci</a><ul>\n)
+		  : qq(<li id="all_loci" data-jstree='{"opened":true}'><a href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=$page$isolate_clause&amp;scheme_id=-1" rel="nofollow" data-rel="ajax">)
+		  . qq(All loci</a><ul>\n);
 		$main_buffer .= $buffer;
 		$main_buffer .= qq(</ul>\n</li></ul>\n);
 	} else {
@@ -238,14 +233,14 @@ sub _get_group_schemes {
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
-			next if $options->{'no_disabled'} && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
+			next if $options->{'no_disabled'}     && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 			my $scheme_loci_buffer;
 			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
 			my $page = $self->{'cgi'}->param('page');
 			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-			if ( defined $isolate_id ) {
 
+			if ( defined $isolate_id ) {
 				if ( $self->_scheme_data_present( $scheme_id, $isolate_id ) ) {
 					$buffer .=
 					  $options->{'no_link_out'}
@@ -323,7 +318,7 @@ sub _get_child_groups {
 sub _scheme_data_present {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
 	my $designations_present = $self->{'datastore'}->run_query(
-		    q[SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON ]
+		q[SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON ]
 		  . q[allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND ]
 		  . q[scheme_id=? AND allele_id !='0')],
 		[ $isolate_id, $scheme_id ],

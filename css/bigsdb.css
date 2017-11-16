@@ -631,6 +631,7 @@ div.scheme_tree {
 	border:1px solid #aaa; 
 	overflow:auto;
 	margin-right:1em;
+	background:white; 
 }
 
  .data dt { 
