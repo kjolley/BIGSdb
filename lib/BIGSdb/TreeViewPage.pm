@@ -146,6 +146,7 @@ sub get_tree {
 		$buffer .= qq(</li>\n);
 	}
 	if (@$schemes_not_in_group) {
+		my $data_exists = 0;
 		my $temp_buffer = q();
 		if (@$groups_with_no_parent) {
 			$temp_buffer .=
@@ -158,6 +159,7 @@ sub get_tree {
 			next if !$self->_should_display_scheme_in_tree( $scheme->{'id'}, $options );
 			$scheme->{'name'} =~ s/&/\&amp;/gx;
 			if ( !defined $isolate_id || $self->_scheme_data_present( $scheme->{'id'}, $isolate_id ) ) {
+				$data_exists = 1;
 				if ( $options->{'no_link_out'} ) {
 					my $id = $options->{'select_schemes'} ? qq( id="s_$scheme->{'id'}") : q();
 					$temp_buffer .= qq(<li$id><a>$scheme->{'name'}</a>\n);
@@ -171,7 +173,7 @@ sub get_tree {
 			}
 		}
 		$temp_buffer .= q(</ul></li>) if @$groups_with_no_parent;
-		$buffer .= $temp_buffer;
+		$buffer .= $temp_buffer if $data_exists;
 	}
 	my $loci_not_in_schemes = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	if ( @$loci_not_in_schemes && ( !defined $isolate_id || $self->_data_not_in_scheme_present($isolate_id) ) ) {
