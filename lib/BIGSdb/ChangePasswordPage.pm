@@ -127,19 +127,21 @@ sub print_content {
 			}
 		}
 		if ($further_checks) {
-			if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
-				say q(<div class="box" id="statusbad"><p>The password is too short and has not been updated. )
-				  . q(It must be at least )
-				  . MIN_PASSWORD_LENGTH
-				  . q( characters long.</p></div>);
-			} elsif ( $q->param('new_password1') ne $q->param('new_password2') ) {
-				say q(<div class="box" id="statusbad"><p>The password was not re-typed the same )
-				  . q(as the first time.</p></div>);
-			} elsif ( $q->param('existing_password') eq $q->param('new_password1') ) {
-				say q(<div class="box" id="statusbad"><p>You must use a new password!</p></div>);
-			} elsif ( $q->param('username_as_password') eq $q->param('new_password1') ) {
-				say q(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
-			} else {
+			my %checks = (
+				length   => '_fails_password_check',
+				retype   => '_fails_retype_check',
+				new      => '_fails_new_check',
+				username => '_fails_username_check'
+			);
+			my $failed;
+			foreach my $check (qw(length retype new username)) {
+				my $method = $checks{$check};
+				if ( $self->$method ) {
+					$failed = 1;
+					last;
+				}
+			}
+			if ( !$failed ) {
 				my $username =
 				  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
 				  ? $self->{'username'}
@@ -164,6 +166,49 @@ sub print_content {
 		}
 	}
 	$self->_print_interface;
+	return;
+}
+
+sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $min_length = MIN_PASSWORD_LENGTH;
+	if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
+		say q(<div class="box" id="statusbad"><p>The password is too short and has not been updated. )
+		  . qq(It must be at least $min_length characters long.</p></div>);
+		return 1;
+	}
+	return;
+}
+
+sub _fails_retype_check {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('new_password1') ne $q->param('new_password2') ) {
+		say q(<div class="box" id="statusbad"><p>The password was not re-typed the same )
+		  . q(as the first time.</p></div>);
+		return 1;
+	}
+	return;
+}
+
+sub _fails_new_check {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('existing_password') eq $q->param('new_password1') ) {
+		say q(<div class="box" id="statusbad"><p>You must use a new password!</p></div>);
+		return 1;
+	}
+	return;
+}
+
+sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('username_as_password') eq $q->param('new_password1') ) {
+		say q(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
+		return 1;
+	}
 	return;
 }
 
