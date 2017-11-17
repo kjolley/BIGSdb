@@ -131,7 +131,7 @@ sub _print_status {
 	say qq(<dt>Status</dt><dd>$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
 	say qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript>)
-	  . q(<div id="progressbar" style="width:18em"></div></dd>);
+	  . q(<div id="progressbar" style="width:18em;height:1.2em"></div></dd>);
 	say qq(<dt>Stage</dt><dd>$job->{'stage'}</dd>) if $job->{'stage'};
 	say qq(<dt>Stop time</dt><dd>$stop_time</dd>)  if $stop_time;
 	my ( $field, $value );
