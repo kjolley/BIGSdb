@@ -48,9 +48,10 @@ sub get_tree_javascript {
 			$check_schemes_js = qq(\$("#tree").jstree(true).select_node(['@checked_nodes']););
 		}
 	}
-	my $resizeable =
-	  $options->{'resizeable'}
-	  ? q($("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});)
+	my $resizable =
+	  $options->{'resizable'}
+	  ? qq(\$("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});\n)
+	  . q(    $("div#tree").scroll(function() {updateHandle()});)
 	  : q();
 	my $buffer = << "END";
 \$(function () {
@@ -78,8 +79,14 @@ sub get_tree_javascript {
     		
 		});
 	});
-	$resizeable
+	$resizable
 });
+
+function updateHandle() {
+    table = \$("#tree");
+    var bottom =  table.scrollTop() + table.outerHeight(true) - \$('.ui-resizable-handle').outerHeight() - 5;
+    \$('.ui-resizable-handle').css('top', bottom + 'px');
+}
 
 function loadContent(url) {
 	\$("#scheme_table").html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url,tooltip);
