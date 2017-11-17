@@ -50,8 +50,7 @@ sub get_tree_javascript {
 	}
 	my $resizable =
 	  $options->{'resizable'}
-	  ? qq(\$("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});\n)
-	  . q(    $("div#tree").scroll(function() {updateHandle()});)
+	  ? q($("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});)
 	  : q();
 	my $buffer = << "END";
 \$(function () {
@@ -81,12 +80,6 @@ sub get_tree_javascript {
 	});
 	$resizable
 });
-
-function updateHandle() {
-    table = \$("#tree");
-    var bottom =  table.scrollTop() + table.outerHeight(true) - \$('.ui-resizable-handle').outerHeight() - 5;
-    \$('.ui-resizable-handle').css('top', bottom + 'px');
-}
 
 function loadContent(url) {
 	\$("#scheme_table").html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url,tooltip);

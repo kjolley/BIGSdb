@@ -50,7 +50,9 @@ sub get_javascript {
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
 		if ($requires) {
 			$tree_js =
-			  $requires =~ /js_tree/x ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, resizable=>1 } ) : q();
+			    $requires =~ /js_tree/x
+			  ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, resizable => 1 } )
+			  : q();
 		} else {
 			$tree_js = q();
 		}
@@ -313,7 +315,7 @@ sub _print_fields {
 	my $i = 0;
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
-		$label =~ s/^.*___//x;         #only show extended field.
+		$label =~ s/^.*___//x;    #only show extended field.
 		$label =~ s/^meta_[^:]+://x;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
@@ -767,11 +769,17 @@ sub print_scheme_fieldset {
 	say q(</div>);
 	if ( $options->{'fields_or_loci'} ) {
 		say q(<div style="padding-top:1em"><ul><li>);
-		say $q->checkbox( -name => 'scheme_fields', -label => 'Include all fields from selected schemes',
-			-checked => 1 );
+		say $q->checkbox(
+			-name    => 'scheme_fields',
+			-label   => 'Include all fields from selected schemes',
+			-checked => 1
+		);
 		say q(</li><li>);
-		say $q->checkbox( -name => 'scheme_members', -label => 'Include all loci from selected schemes',
-			-checked => 1 );
+		say $q->checkbox(
+			-name    => 'scheme_members',
+			-label   => 'Include all loci from selected schemes',
+			-checked => 1
+		);
 		say q(</li></ul></div>);
 	}
 	say q(</fieldset>);
@@ -954,11 +962,11 @@ sub write_list_file {
 }
 
 sub get_ids_from_list_file {
-	my ($self, $list_file) = @_;
+	my ( $self, $list_file ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
-	open (my $fh, '<', $full_path) || $logger->error("Cannot open $full_path for reading");
+	open( my $fh, '<', $full_path ) || $logger->error("Cannot open $full_path for reading");
 	my $ids = [];
-	while (my $line = <$fh>){
+	while ( my $line = <$fh> ) {
 		chomp $line;
 		next if $line eq q();
 		push @$ids, $line;
