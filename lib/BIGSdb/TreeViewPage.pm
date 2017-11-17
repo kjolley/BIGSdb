@@ -48,6 +48,10 @@ sub get_tree_javascript {
 			$check_schemes_js = qq(\$("#tree").jstree(true).select_node(['@checked_nodes']););
 		}
 	}
+	my $resizeable =
+	  $options->{'resizeable'}
+	  ? q($("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});)
+	  : q();
 	my $buffer = << "END";
 \$(function () {
 
@@ -74,7 +78,7 @@ sub get_tree_javascript {
     		
 		});
 	});
-
+	$resizeable
 });
 
 function loadContent(url) {

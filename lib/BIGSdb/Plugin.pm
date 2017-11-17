@@ -50,7 +50,7 @@ sub get_javascript {
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
 		if ($requires) {
 			$tree_js =
-			  $requires =~ /js_tree/x ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } ) : q();
+			  $requires =~ /js_tree/x ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, resizeable=>1 } ) : q();
 		} else {
 			$tree_js = q();
 		}
@@ -762,7 +762,7 @@ sub print_scheme_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="scheme_fieldset" style="float:left"><legend>Schemes</legend>)
 	  . q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>)
-	  . q(<div id="tree" class="tree" style="height:14em; width:20em">);
+	  . q(<div id="tree" class="tree" style="height:14em;width:20em">);
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 	say q(</div>);
 	if ( $options->{'fields_or_loci'} ) {
