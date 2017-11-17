@@ -277,7 +277,7 @@ sub _bad_email {
 		return 1;
 	}
 	my $registration_exists =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE email=?)', $email );
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE UPPER(email)=UPPER(?))', $email );
 	if ($registration_exists) {
 		say q(<div class="box" id="statusbad"><p>An account has already been registered with this E-mail address. </p>)
 		  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
