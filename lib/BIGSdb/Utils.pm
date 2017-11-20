@@ -239,7 +239,7 @@ sub read_fasta {
 	foreach my $line (@lines) {
 		if ( substr( $line, 0, 1 ) eq '>' ) {
 			$header = substr( $line, 1 );
-			$header =~ s/\s.*$//x;    #Strip off anything after space
+			$header =~ s/\s.*$//x if !$options->{'keep_comments'};    #Strip off anything after space
 			next;
 		}
 		throw BIGSdb::DataException('Not valid FASTA format.')
@@ -898,5 +898,14 @@ sub convert_html_table_to_text {
 		$buffer .= $line;
 	}
 	return $buffer;
+}
+
+#http://andrewstechhints.blogspot.co.uk/2010/02/standard-deviation-in-perl.html
+sub std_dev {
+	my ( $average, $values ) = @_;
+	my $count       = @$values;
+	my $std_dev_sum = 0;
+	$std_dev_sum += ( $_ - $average )**2 for @$values;
+	return $count ? sqrt( $std_dev_sum / $count ) : 0;
 }
 1;

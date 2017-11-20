@@ -390,18 +390,22 @@ sub _create_query_fasta_file {
 	return if -e $temp_infile;
 	my $experiment      = $params->{'experiment_list'};
 	my $distinct_clause = $experiment ? ' DISTINCT' : '';
-	my $qry             = "SELECT$distinct_clause sequence_bin.id,sequence FROM sequence_bin ";
-	$qry .= 'LEFT JOIN experiment_sequences ON sequence_bin.id=seqbin_id ' if $experiment;
-	$qry .= 'WHERE sequence_bin.isolate_id=?';
+	my $qry             = "SELECT$distinct_clause s.id,sequence FROM sequence_bin s ";
+	$qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
+	$qry .= 'WHERE s.isolate_id=? AND NOT remote_contig';
+	my $remote_qry = "SELECT$distinct_clause s.id,r.uri,r.length,r.checksum FROM sequence_bin s ";
+	$remote_qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
+	$remote_qry .= 'LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my @criteria = ($isolate_id);
 	my $method   = $params->{'seq_method_list'};
+	my $modifier = q();
 
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
 			$logger->error("Invalid method $method");
 			return;
 		}
-		$qry .= ' AND method=?';
+		$modifier .= ' AND method=?';
 		push @criteria, $method;
 	}
 	if ($experiment) {
@@ -409,16 +413,42 @@ sub _create_query_fasta_file {
 			$logger->error("Invalid experiment $experiment");
 			return;
 		}
-		$qry .= ' AND experiment_id=?';
+		$modifier .= ' AND experiment_id=?';
 		push @criteria, $experiment;
 	}
+	$qry        .= $modifier;
+	$remote_qry .= $modifier;
 	my $contigs =
 	  $self->{'datastore'}
 	  ->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'Scan::blast_create_fasta' } );
 	open( my $infile_fh, '>', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for writing");
+	my $remote_contigs =
+	  $self->{'datastore'}->run_query( $remote_qry, \@criteria,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'Scan::blast_create_fasta::remote' } );
 	flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
 	foreach my $contig (@$contigs) {
 		say $infile_fh ">$contig->[0]\n$contig->[1]";
+	}
+	my $remote_uris = [];
+	foreach my $contig_link (@$remote_contigs) {
+		push @$remote_uris, $contig_link->{'uri'};
+	}
+	my $remote_data;
+	eval { $remote_data = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uris); };
+	if ($@) {
+		$logger->error($@);
+	} else {
+		foreach my $contig_link (@$remote_contigs) {
+			say $infile_fh ">$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}";
+			if ( !$contig_link->{'length'} ) {
+				$self->{'contigManager'}->update_remote_contig_length( $contig_link->{'uri'},
+					length( $remote_data->{ $contig_link->{'uri'} } ) );
+			} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
+				$logger->error("$contig_link->{'uri'} length has changed!");
+			}
+
+			#We won't set checksum because we're not extracting all metadata here
+		}
 	}
 	close $infile_fh;
 	return;
@@ -815,12 +845,15 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
-	my $length = $match->{'predicted_end'} - $match->{'predicted_start'} + 1;
-	my $seq =
-	  $self->{'datastore'}->run_query(
-		"SELECT substring(sequence from $match->{'predicted_start'} for $length) FROM sequence_bin WHERE id=?",
-		$match->{'seqbin_id'} );
-	$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+		{
+			seqbin_id => $match->{'seqbin_id'},
+			start     => $match->{'predicted_start'},
+			end       => $match->{'predicted_end'},
+			reverse   => $match->{'reverse'}
+		}
+	);
+	my $seq = $seq_ref->{'seq'};
 	$seq = uc($seq);
 	return $seq;
 }
@@ -983,8 +1016,12 @@ sub _hunt_for_start_and_stop_codons {
 	my ( $self, $hunt_for_start_end, $match, $original_start, $original_end ) = @_;
 	my ( $off_end, $predicted_start, $predicted_end, $complete_gene );
 	my $complete_tooltip = q();
-	my $seqbin_length =
-	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $match->{'seqbin_id'} );
+	my $seqbin_length    = $self->{'datastore'}->run_query(
+		'SELECT GREATEST(r.length,length(s.sequence)) FROM sequence_bin s LEFT JOIN '
+		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
+		$match->{'seqbin_id'},
+		{ cache => 'Scan::hunt_for_start_and_stop_codons::contig_length' }
+	);
 	my ( $first_codon_is_start, $last_codon_is_stop );
 	my %start_codons = map { $_ => 1 } qw(ATG GTG TTG);
 	my %stop_codons  = map { $_ => 1 } qw(TAG TAA TGA);
@@ -1012,10 +1049,15 @@ sub _hunt_for_start_and_stop_codons {
 			$predicted_end =~ s/\*//x;
 			my $predicted_length = $predicted_end - $predicted_start + 1;
 			$predicted_length = 1 if $predicted_length < 1;
-			my $seq =
-			  $self->{'datastore'}->run_query(
-				"SELECT substring(sequence from $predicted_start for $predicted_length) FROM sequence_bin WHERE id=?",
-				$match->{'seqbin_id'} );
+			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+				{
+					seqbin_id => $match->{'seqbin_id'},
+					start     => $match->{'predicted_start'},
+					end       => $match->{'predicted_end'},
+					flanking  => 0
+				}
+			);
+			my $seq = $seq_ref->{'seq'};
 
 			if ($seq) {
 				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-#Upload contigs to isolate records
+#Link remote contigs to isolate records
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,8 +34,8 @@ use constant {
 #######End Local configuration################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Offline::ProcessRemoteContigs;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(SEQ_METHODS);
 use Error qw(:try);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -59,20 +59,18 @@ GetOptions(
 	'a|append'     => \$opts{'a'},
 	'c|curator=i'  => \$opts{'c'},
 	'd|database=s' => \$opts{'d'},
-	'f|file=s'     => \$opts{'f'},
 	'i|isolate=i'  => \$opts{'i'},
 	'h|help'       => \$opts{'h'},
-	'm|method=s'   => \$opts{'m'},
-	'min_length=i' => \$opts{'min_length'},
-	's|sender=i'   => \$opts{'s'},
+	'p|process'    => \$opts{'p'},
+	'u|uri=s'      => \$opts{'u'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
-if ( notall { $opts{$_} } (qw(c d f i s)) ) {
-	say "\nUsage: upload_contigs.pl --database <NAME> --isolate <ID> --file <FILE> --sender <ID> --curator <ID>\n";
-	say 'Help: upload_contigs.pl --help';
+if ( notall { $opts{$_} } (qw(c d i u)) ) {
+	say "\nUsage: link_contigs.pl --database <NAME> --isolate <ID> --uri <FILE> --curator <ID>\n";
+	say 'Help: link_contigs.pl --help';
 	exit;
 }
 my $script = BIGSdb::Offline::Script->new(
@@ -90,74 +88,137 @@ my $script = BIGSdb::Offline::Script->new(
 );
 
 #Check arguments make sense
-exit_cleanly("Contig file '$opts{'f'}' does not exist.") if !-e $opts{'f'};
-exit_cleanly("Contig file '$opts{'f'}' is empty.")       if !-s $opts{'f'};
 my $isolate_exists =
   $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $opts{'i'} );
 exit_cleanly("Isolate id-$opts{'i'} does not exist.") if !$isolate_exists;
 my $seqbin_exists =
   $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $opts{'i'} );
 exit_cleanly("Isolate id-$opts{'i'} already has contigs uploaded.") if $seqbin_exists && !$opts{'a'};
-my $sender_exists = $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $opts{'s'} );
-exit_cleanly("Sender id-$opts{'s'} does not exist.") if !$sender_exists;
 my $curator_exists =
   $script->{'datastore'}
   ->run_query( q(SELECT EXISTS(SELECT * FROM users WHERE id=? AND status IN ('curator','admin'))), $opts{'c'} );
 exit_cleanly("Curator id-$opts{'c'} does not exist (or user is not a curator).") if !$curator_exists;
-exit_cleanly("Method '$opts{'m'}' is invalid.") if $opts{'m'} && none { $opts{'m'} eq $_ } SEQ_METHODS;
 main();
-$script->db_disconnect;
+undef $script;
 exit;
 
 sub main {
-
-	#Read FASTA
-	my $fasta_ref;
-	if ( -e $opts{'f'} ) {
-		$fasta_ref = BIGSdb::Utils::slurp( $opts{'f'} );
+	my $isolate_data = get_isolate_data( $opts{'u'} );
+	my $contigs_list = $isolate_data->{'sequence_bin'}->{'contigs'};
+	exit_cleanly('No contig link in record.') if !$contigs_list;
+	my $contig_count = $isolate_data->{'sequence_bin'}->{'contig_count'};
+	my $length       = BIGSdb::Utils::commify( $isolate_data->{'sequence_bin'}->{'total_length'} );
+	my $plural       = $contig_count == 1 ? q() : q(s);
+	print "$contig_count contig$plural; Total length: $length ...";
+	my $contigs = get_contigs($contigs_list);
+	my $existing =
+	  $script->{'datastore'}->run_query(
+		'SELECT r.uri FROM remote_contigs r INNER JOIN sequence_bin s ON r.seqbin_id=s.id AND s.isolate_id=?',
+		$opts{'i'}, { fetch => 'col_arrayref' } );
+	my %existing = map { $_ => 1 } @$existing;
+	eval {
+		foreach my $contig (@$contigs) {
+			next if $existing{$contig};    #Don't add duplicates
+			$script->{'db'}
+			  ->do( 'SELECT add_remote_contig(?,?,?,?)', undef, $opts{'i'}, $opts{'c'}, $opts{'c'}, $contig );
+		}
+	};
+	if ($@) {
+		say q(failed!);
+		$logger->error($@);
+		$script->{'db'}->rollback;
+		exit_cleanly('Contig upload failed.');
 	}
-	my $seqs;
+	say q(done.);
+	$script->{'db'}->commit;
+	process( $opts{'i'} );
+	return;
+}
+
+sub process {
+	my ($isolate_id) = @_;
+	say q(Processing contigs:);
+	my $processor = BIGSdb::Offline::ProcessRemoteContigs->new(
+		{
+			config_dir       => CONFIG_DIR,
+			lib_dir          => LIB_DIR,
+			dbase_config_dir => DBASE_CONFIG_DIR,
+			host             => HOST,
+			port             => PORT,
+			user             => USER,
+			password         => PASSWORD,
+			options          => {
+				always_run => 1,
+				i          => $isolate_id
+			},
+			instance => $opts{'d'},
+			logger   => $logger
+		}
+	);
+	say q(Done.);
+	return;
+}
+
+sub get_isolate_data {
+	my ($isolate_uri) = @_;
+	if ( $isolate_uri !~ /\/isolates\/\d+$/x ) {
+		exit_cleanly('URI is not in valid format (http://base_uri/{db}/isolates/{id})');
+	}
+	my $isolate_data;
+	my $err;
 	try {
-		$seqs = BIGSdb::Utils::read_fasta($fasta_ref);
+		$isolate_data = $script->{'contigManager'}->get_remote_isolate($isolate_uri);
+	}
+	catch BIGSdb::AuthenticationException with {
+		$err = q(Failed - check OAuth authentication settings.);
+	}
+	catch BIGSdb::FileException with {
+		$err = q(Failed - URI is inaccesible.);
 	}
 	catch BIGSdb::DataException with {
-		my $err = shift;
-		exit_cleanly($err);
+		$err = q(Failed - Returned data is not in valid format.);
 	};
-	upload( $opts{'i'}, $seqs );
-	return;
+	if ($err) {
+		exit_cleanly($err);
+	}
+	return $isolate_data;
+}
+
+sub get_contigs {
+	my ($contigs_list) = @_;
+	my $data;
+	my $err;
+	my $all_records;
+	do {
+		try {
+			$data = $script->{'contigManager'}->get_remote_contig_list($contigs_list);
+		}
+		catch BIGSdb::AuthenticationException with {
+			$err = q(OAuth authentication failed.);
+		}
+		catch BIGSdb::FileException with {
+			$err = q(URI is inaccessible.);
+		}
+		catch BIGSdb::DataException with {
+			$err = q(Contigs list is not valid JSON.);
+		};
+		if ( $data->{'paging'} ) {
+			$contigs_list = $data->{'paging'}->{'return_all'};
+		} else {
+			$all_records = 1;
+		}
+	} until ( $err || $all_records );
+	if ($err) {
+		exit_cleanly($err);
+	}
+	my $contigs = $data->{'contigs'};
+	return $contigs;
 }
 
 sub exit_cleanly {
 	my ($msg) = @_;
-	$script->db_disconnect;
+	undef $script;
 	die "$msg\n";
-}
-
-sub upload {
-	my ( $isolate_id, $seqs ) = @_;
-	my $total_length = 0;
-	my $contig_count = 0;
-	my $sql =
-	  $script->{'db'}
-	  ->prepare( 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,sender,curator,'
-		  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?)' );
-	eval {
-		foreach my $key ( keys %$seqs )
-		{
-			next if $opts{'min_length'} && length $seqs->{$key} < $opts{'min_length'};
-			$sql->execute( $isolate_id, $seqs->{$key}, $opts{'m'}, $key, $opts{'s'}, $opts{'c'}, 'now', 'now' );
-			$total_length += length( $seqs->{$key} );
-			$contig_count++;
-		}
-	};
-	if ($@) {
-		$script->{'db'}->rollback;
-		croak $@;
-	}
-	say "Isolate $isolate_id: $contig_count contigs uploaded ($total_length bp).";
-	$script->{'db'}->commit;
-	return;
 }
 
 sub show_help {
@@ -168,11 +229,11 @@ sub show_help {
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
-    ${bold}upload_contigs.pl$norm - Upload contigs to BIGSdb isolate database
+    ${bold}link_contigs.pl$norm - Link contigs to BIGSdb isolate database via API
 
 ${bold}SYNOPSIS$norm
-    ${bold}upload_contigs.pl --database ${under}NAME$norm ${bold}--isolate ${under}ID${norm} ${bold}--file ${under}FILE$norm 
-          ${bold}--curator ${under}ID$norm ${bold}--sender ${under}ID$norm [${under}options$norm]
+    ${bold}link_contigs.pl --database ${under}NAME$norm ${bold}--isolate ${under}ID${norm} ${bold}--uri ${under}URI$norm 
+          ${bold}--curator ${under}ID$norm [${under}OPTIONS$norm]
 
 ${bold}OPTIONS$norm
 ${bold}-a, --append$norm
@@ -184,23 +245,22 @@ ${bold}-c, --curator$norm ${under}ID$norm
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
     
-${bold}-f, --file$norm ${under}FILE$norm
-    Full path and filename of contig file.
-
 ${bold}-h, --help$norm
     This help page.
 
 ${bold}-i, --isolate$norm ${under}ID$norm  
     Isolate id of record to upload to.  
     
-${bold}-m, --method$norm ${under}METHOD$norm  
-    Method, e.g. 'Illumina'.
-    
-${bold}--min_length$norm ${under}LENGTH$norm
-    Exclude contigs with length less than value.
-    
-${bold}-s, --sender$norm ${under}ID$norm  
-    Sender id number.                
+${bold}-p, --process$norm
+    Download each contig to update metadata and generate checksums.
+    This will take much longer and is not strictly necessary to start using
+    the contigs. It will enable the system to determine if the remote sequences
+    ever change or you need information about the sequencing technology used to
+    generate the contigs. 
+     
+${bold}-u, --uri$norm ${under}URI$norm  
+    URI to the REST API record for the isolate whose contigs 
+    are to be imported.           
 HELP
 	return;
 }

@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -283,6 +283,7 @@ sub _print_interface {
 
 sub _print_options_fieldset {
 	my ($self) = @_;
+	return if ($self->{'system'}->{'remote_contigs'} // q()) eq 'yes';
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul><li>);
 	say $q->checkbox( -name => 'contig_analysis', -label => 'Contig analysis (min, max, N50 etc.)' );
@@ -501,7 +502,7 @@ sub _get_query_statements {
 		contig_lengths => q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
 		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC],
 		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
-		  . q[SUM(length(sequence)) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
+		  . q[GREATEST(SUM(length(sequence)),1) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
 		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
 	};
 	if ( $contig_analysis || $use_seqbin_table ) {

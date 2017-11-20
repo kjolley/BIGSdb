@@ -30,6 +30,7 @@ use BIGSdb::Login;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
+use BIGSdb::ContigManager;
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
 use BIGSdb::CGI::as_utf8;
@@ -98,6 +99,7 @@ sub new {
 			  && $self->{'config'}->{'jobs_db'};
 			my %submission_handler_pages = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
 			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };
+			$self->setup_remote_contig_manager;
 		}
 	} elsif ( !$self->{'instance'} && $self->{'config'}->{'site_user_dbs'} ) {
 
@@ -467,6 +469,22 @@ sub setup_submission_handler {
 	return;
 }
 
+sub setup_remote_contig_manager {
+	my ($self) = @_;
+	$self->{'contigManager'} = BIGSdb::ContigManager->new(
+		dbase_config_dir => $self->{'dbase_config_dir'},
+		config_dir       => $self->{'config_dir'},
+		lib_dir          => $self->{'lib_dir'},
+		db               => $self->{'db'},
+		system           => $self->{'system'},
+		config           => $self->{'config'},
+		datastore        => $self->{'datastore'},
+		xmlHandler       => $self->{'xmlHandler'},
+		instance         => $self->{'instance'}
+	);
+	return;
+}
+
 sub db_connect {
 	my ($self) = @_;
 	my $att = {
@@ -649,6 +667,7 @@ sub initiate_plugins {
 		dataConnector    => $self->{'dataConnector'},
 		mod_perl_request => $self->{'mod_perl_request'},
 		jobManager       => $self->{'jobManager'},
+		contigManager    => $self->{'contigManager'},
 		pluginDir        => $self->{'lib_dir'}
 	);
 	return;

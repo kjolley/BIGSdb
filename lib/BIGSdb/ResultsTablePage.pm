@@ -198,7 +198,10 @@ sub _print_results_header {
 		}
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
-		$self->_print_project_add_function if $self->{'system'}->{'dbtype'} eq 'isolates';
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$self->_print_project_add_function;
+			$self->_print_publish_function;
+		}
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		say q(<p>No records found!</p>);
@@ -336,15 +339,61 @@ sub _print_project_add_function {
 		$labels->{ $project->{'id'} } = $project->{'short_description'};
 	}
 	say q(<fieldset><legend>Your projects</legend>);
+	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
+}
+
+sub _print_publish_function {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $q = $self->{'cgi'};
+	return if $q->param('page') eq 'tableQuery';
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		my $matched = $self->_get_query_private_records;
+		return if !@$matched && !$q->param('publish');
+	} else {
+		my $matched = $self->_get_query_private_records( $user_info->{'id'} );
+		return if !@$matched && !$q->param('publish');
+	}
+	say q(<fieldset><legend>Private records</legend>);
+	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
+	my $hidden_attributes = $self->get_hidden_attributes;
+	say $q->start_form;
+	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
+	  if $self->{'publish_message'};
+	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
+	say $q->end_form;
+	say q(</fieldset>);
+	return;
+}
+
+sub _get_query_private_records {
+	my ( $self, $user_id ) = @_;
+	my $ids = $self->get_query_ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	if ( !defined $user_id ) {
+		return $self->{'datastore'}
+		  ->run_query( "SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value",
+			undef, { fetch => 'col_arrayref' } );
+	} else {
+		return $self->{'datastore'}->run_query(
+			"SELECT p.isolate_id FROM private_isolates p JOIN $temp_table t ON p.isolate_id=t.value WHERE p.user_id=?",
+			$user_id,
+			{ fetch => 'col_arrayref' }
+		);
+	}
 }
 
 sub print_additional_headerbar_functions {
@@ -601,8 +650,7 @@ sub _print_isolate_id_links {
 			  . UPLOAD
 			  . q(</a></td>);
 		}
-		if ( $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view' )
-		{
+		if ( $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view' ) {
 			print $data->{'new_version'}
 			  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 			  . qq(&amp;page=info&amp;id=$data->{'new_version'}">$data->{'new_version'}</a></td>)
@@ -1199,10 +1247,10 @@ sub _get_record_table_info {
 		if ( $self->{'datastore'}->is_locus($locus) ) {
 			$extended_attributes =
 			  $self->{'datastore'}->run_query(
-				'SELECT field FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
-				$locus, { fetch => 'col_arrayref' } );
-			foreach (@$extended_attributes) {
-				( my $cleaned = $_ ) =~ tr/_/ /;
+				'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
+				$locus, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $ext_att (@$extended_attributes) {
+				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
 				push @headers, $cleaned;
 			}
 			$linked_data = $self->_data_linked_to_locus($locus);
@@ -1281,7 +1329,7 @@ sub _print_record_table {
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
-	local $" = '</th><th>';
+	local $" = q(</th><th>);
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
 
@@ -1346,13 +1394,21 @@ sub _print_record_table {
 			);
 		}
 		if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
-			foreach (@$extended_attributes) {
+			foreach my $attribute (@$extended_attributes) {
 				my $value = $self->{'datastore'}->run_query(
 					'SELECT value FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?)',
-					[ $data->{'locus'}, $_, $data->{'allele_id'} ],
+					[ $data->{'locus'}, $attribute->{'field'}, $data->{'allele_id'} ],
 					{ cache => 'ResultsTablePage::print_record_table::alleleQuery_extatt' }
 				);
-				print defined $value ? qq(<td>$value</td>) : q(<td></td>);
+				if ( defined $value ) {
+					if ( $attribute->{'url'} ) {
+						( my $url = $attribute->{'url'} ) =~ s/\[\?\]/$value/gx;
+						$value = qq(<a href="$url">$value</a>);
+					}
+					print qq(<td>$value</td>);
+				} else {
+					print q(<td></td>);
+				}
 			}
 		} elsif ( $table eq 'sequence_bin' ) {
 			$self->_print_seqbin_extended_fields( $extended_attributes, $data->{'id'} );
@@ -1735,6 +1791,47 @@ sub add_to_project {
 	} else {
 		$self->{'db'}->commit;
 		$self->{'project_add_message'} = $message;
+	}
+	return;
+}
+
+sub publish {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $matched;
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		$matched = $self->_get_query_private_records;
+	} else {
+		$matched = $self->_get_query_private_records( $user_info->{'id'} );
+	}
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
+	my $request_only = $self->{'permissions'}->{'only_private'} ? 1 : 0;
+	my $message;
+	my $count = @$matched;
+	my $plural = $count == 1 ? q() : q(s);
+	my $qry;
+	if (@$matched) {
+
+		if ($request_only) {
+			$qry =
+			  "UPDATE private_isolates SET request_publish=TRUE WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			$message = "Publication requested for $count record$plural.";
+		} else {
+			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			$message = "$count record$plural now public.";
+		}
+		eval { $self->{'db'}->do($qry); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+			$self->{'publish_message'} = $message;
+		}
+	} else {
+		$q->delete('publish');
 	}
 	return;
 }

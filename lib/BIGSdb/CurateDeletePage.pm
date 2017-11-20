@@ -554,6 +554,10 @@ sub _get_extra_seqbin_fields {
 		( my $cleaned_field = $att->{'key'} ) =~ tr/_/ /;
 		$buffer .= qq(<dt>$cleaned_field</dt><dd>$att->{'value'}</dd>\n);
 	}
+	if ($data->{'remote_contig'}){
+		my $uri = $self->{'datastore'}->run_query('SELECT uri FROM remote_contigs WHERE seqbin_id=?', $data->{'id'});
+		$buffer .= qq(<dt>remote contig</dt><dd>$uri</dd>\n);
+	}
 	return $buffer;
 }
 

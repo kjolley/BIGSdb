@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use List::MoreUtils qw(any none);
-use BIGSdb::Constants qw(ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS SCHEME_FLAGS);
+use BIGSdb::Constants qw(:interface ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS SCHEME_FLAGS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant FAILURE => 2;
@@ -286,11 +286,12 @@ sub _upload {
 				foreach my $transaction (@$extra_transactions) {
 					$transaction->{'db'}->commit;
 				}
-				say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p>);
+				say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p><p>);
+				my $edit_more = EDIT_MORE;
 				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=tableQuery&amp;table=$table">Update another</a> | )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
-				  . q(</p></div>);
+				  . qq(page=tableQuery&amp;table=$table" title="Update more" style="margin-right:1em">$edit_more</a>);
+				$self->print_home_link;
+				say q(</p></div>);
 				if ( $table eq 'allele_designations' ) {
 					$self->update_history( $data->{'isolate_id'},
 						"$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );

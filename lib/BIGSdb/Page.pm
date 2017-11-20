@@ -1539,7 +1539,8 @@ sub get_record_name {
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field',
 		user_dbases                       => 'user database',
-		locus_links                       => 'locus link'
+		locus_links                       => 'locus link',
+		oauth_credentials                 => 'OAuth credentials'
 	);
 	return $names{$table};
 }
@@ -2701,4 +2702,6 @@ sub is_page_allowed {
 	return 1 if $allowed_pages{$page};
 	return;
 }
+
+
 1;

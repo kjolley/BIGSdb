@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,11 +74,12 @@ sub print_content {
 	print qq(<h1>$display_locus allele sequence: id-$isolate_id);
 	print qq( (@name)) if $name[1];
 	say q(</h1>);
-	my $flanking = $self->{'prefs'}->{'flanking'};
+	my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 	my $qry =
-	    'SELECT allele_sequences.id,seqbin_id,start_pos,end_pos,reverse,complete,method,length(sequence) '
-	  . 'AS seqlength FROM allele_sequences LEFT JOIN sequence_bin ON allele_sequences.seqbin_id = sequence_bin.id '
-	  . 'WHERE sequence_bin.isolate_id=? AND locus=? ORDER BY complete desc,allele_sequences.datestamp';
+	    'SELECT a.id,a.seqbin_id,a.start_pos,a.end_pos,a.reverse,a.complete,s.method,'
+	  . 'GREATEST(r.length,length(s.sequence)) AS seqlength FROM allele_sequences a LEFT JOIN sequence_bin s '
+	  . 'ON a.seqbin_id = s.id LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND a.locus=? '
+	  . 'ORDER BY complete desc,a.datestamp';
 	my $data = $self->{'datastore'}->run_query( $qry, [ $isolate_id, $locus ], { fetch => 'all_arrayref' } );
 	my $buffer;
 
@@ -104,7 +105,8 @@ sub print_content {
 		my $orientation = $reverse ? 'reverse' : 'forward';
 		$buffer .= qq(<dt class="dontend">orientation</dt><dd>$orientation</dd>\n);
 		$buffer .= q(<dt class="dontend">complete</dt><dd>) . ( $complete ? 'yes' : 'no' ) . qq(</dd>\n);
-		$buffer .= qq(<dt class="dontend">method</dt><dd>$method</dd>\n);
+		$buffer .= qq(<dt class="dontend">method</dt><dd>$method</dd>\n) if $method;
+		$buffer .= q(</dl></div>);
 		my $display = $self->format_seqbin_sequence(
 			{
 				seqbin_id => $seqbin_id,
@@ -112,10 +114,10 @@ sub print_content {
 				start     => $start_pos,
 				end       => $end_pos,
 				translate => $translate,
-				orf       => $orf
+				orf       => $orf,
+				flanking  => $flanking
 			}
 		);
-		$buffer .= q(</dl></div>);
 		$buffer .= $self->get_option_fieldset;
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);

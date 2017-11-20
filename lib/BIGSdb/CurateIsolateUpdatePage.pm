@@ -361,6 +361,7 @@ sub _print_allele_designations {
 			db            => $self->{'db'},
 			xmlHandler    => $self->{'xmlHandler'},
 			dataConnector => $self->{'dataConnector'},
+			contigManager => $self->{'contigManager'},
 			curate        => 1
 		)
 	);
@@ -398,6 +399,7 @@ sub _print_samples {
 				db            => $self->{'db'},
 				xmlHandler    => $self->{'xmlHandler'},
 				dataConnector => $self->{'dataConnector'},
+				contigManager => $self->{'contigManager'},
 				curate        => 1
 			)
 		);

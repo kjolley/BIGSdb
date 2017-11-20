@@ -61,16 +61,18 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>);
-	my $length  = abs( $end - $start + 1 );
-	my $method  = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
-	my $display = $self->format_seqbin_sequence(
+	my $length   = abs( $end - $start + 1 );
+	my $method   = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
+	my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
+	my $display  = $self->format_seqbin_sequence(
 		{
 			seqbin_id => $seqbin_id,
 			reverse   => $reverse,
 			start     => $start,
 			end       => $end,
 			translate => $translate,
-			orf       => $orf
+			orf       => $orf,
+			flanking  => $flanking
 		}
 	);
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
@@ -78,7 +80,7 @@ sub print_content {
 	say q(<h2>Sequence position</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>sequence bin id</dt><dd>$seqbin_id</dd>);
-	say qq(<dt>sequence method</dt><dd>$method</dd>);
+	say qq(<dt>sequence method</dt><dd>$method</dd>) if $method;
 	say qq(<dt>start</dt><dd>$start</dd>);
 	say qq(<dt>end</dt><dd>$end</dd>);
 	say qq(<dt>length</dt><dd>$length</dd>);
@@ -113,22 +115,22 @@ sub print_content {
 
 sub get_option_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $buffer = q(<fieldset style="float:right"><legend>Options</legend>);
-	$buffer.= $q->start_form;
-	$buffer.= q(<ul></li>);
-	$buffer.= q(<label for="flanking">Flanking sequence length: </label>);
-	$buffer.= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
-	$buffer.= q(</li></ul>);
-	$buffer.= $q->submit(
+	$buffer .= $q->start_form;
+	$buffer .= q(<ul></li>);
+	$buffer .= q(<label for="flanking">Flanking sequence length: </label>);
+	$buffer .= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
+	$buffer .= q(</li></ul>);
+	$buffer .= $q->submit(
 		-name  => 'reload',
 		-label => 'Reload',
 		-class => BUTTON_CLASS,
 		-style => 'float:right;margin-top:0.5em'
 	);
-	$buffer.= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
-	$buffer.= $q->end_form;
-	$buffer.= q(</fieldset>);
+	$buffer .= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
+	$buffer .= $q->end_form;
+	$buffer .= q(</fieldset>);
 	return $buffer;
 }
 
@@ -146,23 +148,16 @@ sub update_prefs {
 
 sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
-	$args->{'start'} = 1 if $args->{'start'} < 1;
-	my $contig_length =
-	  $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?', $args->{'seqbin_id'} );
-	$args->{'end'} = $contig_length if $args->{'end'} > $contig_length;
-	my $flanking = $self->{'cgi'}->param('flanking') // $self->{'prefs'}->{'flanking'};
-	$flanking = ( BIGSdb::Utils::is_int($flanking) && $flanking >= 0 ) ? $flanking : 100;
-	my $length = abs( $args->{'end'} - $args->{'start'} + 1 );
-	my $qry =
-	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
-	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
-	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
-	my $seq_ref = $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
-	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $args->{'reverse'};
-	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $args->{'reverse'};
-	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $args->{'reverse'};
-	return $self->format_sequence( $seq_ref,
-		{ translate => $args->{'translate'}, reverse => $args->{'reverse'}, length => $length, orf => $args->{'orf'} }
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment($args);
+	my $length  = abs( $args->{'end'} - $args->{'start'} + 1 );
+	return $self->format_sequence(
+		$seq_ref,
+		{
+			translate => $args->{'translate'},
+			reverse   => $args->{'reverse'},
+			length    => $length,
+			orf       => $args->{'orf'}
+		}
 	);
 }
 

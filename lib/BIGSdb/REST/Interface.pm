@@ -142,6 +142,7 @@ sub _before {
 	send_error( 'No access to databases - undergoing maintenance.', 503 ) if !$self->{'db'};
 	$self->initiate_authdb if ( $self->{'system'}->{'authentication'} // '' ) eq 'builtin';
 	$self->setup_datastore;
+	$self->setup_remote_contig_manager;
 	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
 	$self->_initiate_view;
 	$self->_set_page_options;

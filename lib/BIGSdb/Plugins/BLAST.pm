@@ -452,23 +452,22 @@ sub _append_fasta {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $include_values, $match, $flanking, $out_file, $out_file_flanking, $include_seqbin ) =
 	  @{$args}{qw(isolate_id include_values match flanking out_file out_file_flanking include_seqbin)};
-	my $start  = $match->{'start'};
-	my $end    = $match->{'end'};
-	my $length = abs( $end - $start + 1 );
-	my $qry =
-	    qq[SELECT substring(sequence FROM $start for $length) AS seq,substring(sequence ]
-	  . qq[FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM ($end+1) ]
-	  . qq[FOR $flanking) AS downstream FROM sequence_bin WHERE id=?];
-	my $seq_ref = $self->{'datastore'}->run_query( $qry, $match->{'seqbin_id'}, { fetch => 'row_hashref' } );
-	$seq_ref->{'seq'}        = BIGSdb::Utils::reverse_complement( $seq_ref->{'seq'} )        if $match->{'reverse'};
-	$seq_ref->{'upstream'}   = BIGSdb::Utils::reverse_complement( $seq_ref->{'upstream'} )   if $match->{'reverse'};
-	$seq_ref->{'downstream'} = BIGSdb::Utils::reverse_complement( $seq_ref->{'downstream'} ) if $match->{'reverse'};
+	my $start   = $match->{'start'};
+	my $end     = $match->{'end'};
+	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+		{
+			seqbin_id => $match->{'seqbin_id'},
+			start     => $start,
+			end       => $end,
+			reverse   => $match->{'reverse'},
+			flanking  => $flanking
+		}
+	);
 	my $label    = $self->_get_isolate_label($isolate_id);
 	my $fasta_id = ">$isolate_id|$label";
 	$fasta_id .= "|$match->{'seqbin_id'}|$start" if $include_seqbin;
 	$fasta_id .= "|$_" foreach @$include_values;
 	my $seq_with_flanking;
-
 	if ( $match->{'reverse'} ) {
 		$seq_with_flanking =
 		  BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'}, 60 );
@@ -751,9 +750,9 @@ sub _blast {
 
 	#create isolate FASTA database
 	my $qry =
-	    'SELECT DISTINCT sequence_bin.id,sequence FROM sequence_bin LEFT JOIN experiment_sequences ON '
-	  . 'sequence_bin.id=seqbin_id LEFT JOIN project_members ON sequence_bin.isolate_id = project_members.isolate_id '
-	  . 'WHERE sequence_bin.isolate_id=?';
+	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
+	  . 's.id=e.seqbin_id LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
+	  . 'WHERE s.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $form_params->{'seq_method_list'};
 	if ($method) {
@@ -782,14 +781,14 @@ sub _blast {
 		$qry .= ' AND experiment_id=?';
 		push @criteria, $experiment;
 	}
-	my $data =
-	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref', cache => 'BLAST::blast' } );
+	my $seqbin_ids =
+	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
 	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	open( my $fastafile_fh, '>', $temp_fastafile )
 	  or $logger->error("Can't open temp file $temp_fastafile for writing");
-	foreach (@$data) {
-		my ( $id, $seq ) = @$_;
-		say $fastafile_fh ">$id\n$seq";
+	foreach my $seqbin_id (@$seqbin_ids) {
+		say $fastafile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
 	}
 	close $fastafile_fh;
 	return [] if -z $temp_fastafile;

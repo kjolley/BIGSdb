@@ -76,6 +76,7 @@ sub _initiate_db {
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
 	$self->setup_datastore;
+	$self->setup_remote_contig_manager;
 	$self->initiate_plugins( $self->{'lib_dir'} );
 	return;
 }

@@ -613,26 +613,32 @@ sub _print_action_panel {
 		isolateUpdate  => 'Update record',
 		batchAddSeqbin => 'Sequence bin',
 		newVersion     => 'New version',
-		tagScan        => 'Sequence tags'
+		tagScan        => 'Sequence tags',
+		publish        => 'Make public',
 	);
 	my %labels = (
 		isolateDelete  => 'Delete',
 		isolateUpdate  => 'Update',
 		batchAddSeqbin => 'Upload contigs',
 		newVersion     => 'Create',
-		tagScan        => 'Scan'
+		tagScan        => 'Scan',
+		publish        => 'Publish'
 	);
 	$q->param( isolate_id => $isolate_id );
 	my $page = $q->param('page');
 	my $seqbin_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
+	my $private =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE isolate_id=?)', $isolate_id );
 
-	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan)) {
+	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan publish)) {
 		next
 		  if $action eq 'tagScan'
 		  && ( !$seqbin_exists
 			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
 		next if $action eq 'batchAddSeqbin' && !$self->can_modify_table('sequences');
+		next if $action eq 'publish' && !$private;
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
 		$q->param( page => $action );
@@ -714,12 +720,16 @@ sub get_isolate_record {
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view ) = @_;
 	my $buffer = qq(<h2>Provenance/meta data</h2>\n);
-	my $private_owner =
-	  $self->{'datastore'}->run_query( 'SELECT user_id FROM private_isolates WHERE isolate_id=?', $isolate_id );
+	my ( $private_owner, $request_publish ) =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
-		$buffer .= q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
-		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string</span></p>);
+		my $request_string = $request_publish ? q( - publication requested.) : q();
+		$buffer .=
+		    q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
+		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
+		  . qq($request_string</span></p>);
 	}
 
 	#We need to enclose description lists in <li> tags to prevent title and data from being split
@@ -1454,30 +1464,27 @@ sub get_refs {
 
 sub _get_seqbin_link {
 	my ( $self, $isolate_id ) = @_;
-	my ( $seqbin_count, $total_length ) =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?', $isolate_id );
-	my $buffer = q();
-	my $q      = $self->{'cgi'};
-	my $list   = [];
-	if ($seqbin_count) {
-		my ( $mean_length, $max_length ) =
-		  $self->{'datastore'}->run_query(
-			'SELECT CEIL(AVG(length(sequence))), MAX(length (sequence)) FROM sequence_bin WHERE isolate_id=?',
-			$isolate_id );
-		my $plural = $seqbin_count == 1 ? '' : 's';
+	$self->{'contigManager'}->update_isolate_remote_contig_lengths($isolate_id);
+	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
+	my $buffer       = q();
+	my $q            = $self->{'cgi'};
+	if ( $seqbin_stats->{'contigs'} ) {
+		my $list = [];
+		my %commify =
+		  map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) } qw(contigs total_length max_length mean_length);
+		my $plural = $seqbin_stats->{'contigs'} == 1 ? '' : 's';
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
 		$buffer .= q(<div id="seqbin">);
-		push @$list, { title => 'contigs', data => $seqbin_count };
-		if ( $seqbin_count > 1 ) {
+		push @$list, { title => 'contigs', data => $commify{'contigs'} };
+		if ( $commify{'contigs'} > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}->run_query(
 				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
 				$isolate_id, { fetch => 'col_arrayref' } );
-			my $n_stats = BIGSdb::Utils::get_N_stats( $total_length, $lengths );
-			push @$list, { title => 'total length', data => "$total_length bp" };
-			push @$list, { title => 'max length',   data => "$max_length bp" };
-			push @$list, { title => 'mean length',  data => "$mean_length bp" };
+			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
+			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
+			push @$list, { title => 'max length',   data => "$commify{'max_length'} bp" };
+			push @$list, { title => 'mean length',  data => "$commify{'mean_length'} bp" };
 			my %stats_labels = (
 				N50 => 'N50 contig number',
 				L50 => 'N50 length (L50)',
@@ -1486,9 +1493,14 @@ sub _get_seqbin_link {
 				N95 => 'N95 contig number',
 				L95 => 'N95 length (L95)',
 			);
-			push @$list, { title => $stats_labels{$_}, data => $n_stats->{$_} } foreach qw(N50 L50 N90 L90 N95 L95);
+			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
+				my $value = BIGSdb::Utils::commify( $n_stats->{$stat} );
+				push @$list,
+				  { title => $stats_labels{$stat},
+					data => BIGSdb::Utils::commify( $n_stats->{$stat} ) };
+			}
 		} else {
-			push @$list, { title => 'length', data => "$total_length bp" };
+			push @$list, { title => 'length', data => "$seqbin_stats->{'total_length'} bp" };
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
@@ -1517,9 +1529,9 @@ sub _get_seqbin_link {
 sub _get_list_block {
 	my ( $self, $list ) = @_;
 
-  #It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
-  #columnizer plugin can result in the title and data item appearing in different columns. All browsers
-  #seem to handle this way ok.
+	#It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
+	#columnizer plugin can result in the title and data item appearing in different columns. All browsers
+	#seem to handle this way ok.
 	my $buffer = q(<dl class="data">);
 	foreach my $item (@$list) {
 		$buffer .= qq(<span class="dontsplit"><dt>$item->{'title'}</dt><dd>$item->{'data'}</dd></span>\n);

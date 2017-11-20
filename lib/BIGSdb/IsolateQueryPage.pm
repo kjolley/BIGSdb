@@ -128,6 +128,9 @@ sub print_content {
 	if ( $q->param('add_to_project') ) {
 		$self->add_to_project;
 	}
+	if ( $q->param('publish') ) {
+		$self->publish;
+	}
 	my $desc = $self->get_db_description;
 	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
 	my $qry;
@@ -683,19 +686,24 @@ sub _get_private_data_filter {
 	return if !$self->{'username'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
-	my $private = $self->{'datastore'}
+	my $private =
+	    $self->{'curate'}
+	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
+	  : $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
 	return if !$private;
+	my $labels = {
+		1 => 'my private records only',
+		2 => 'private records (in quota)',
+		3 => 'private records (excluded from quota)',
+		4 => 'private records (requesting publication)',
+		5 => 'public records only'
+	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 4 ],
+		[ 1 .. 5 ],
 		{
-			labels => {
-				1 => 'my private records only',
-				2 => 'private records (in quota)',
-				3 => 'private records (excluded from quota)',
-				4 => 'public records only'
-			},
+			labels  => $labels,
 			text    => 'Private records',
 			tooltip => 'private records filter - Filter by whether the isolate record is private. '
 			  . 'The default is to include both your private and public records.'
@@ -1026,9 +1034,10 @@ sub _run_query {
 		}
 		my $dir =
 		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
-		       #Adding additional ordering by datestamp
-		       #See http://stackoverflow.com/questions/21385555/postgresql-query-very-slow-with-limit-1
-		       #This changed a query against an isolate extended field from 10s -> 43ms!
+
+		#Adding additional ordering by datestamp
+		#See http://stackoverflow.com/questions/21385555/postgresql-query-very-slow-with-limit-1
+		#This changed a query against an isolate extended field from 10s -> 43ms!
 		$qry .= " $dir,$self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.datestamp;";
 	} else {
 		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
@@ -1047,42 +1056,15 @@ sub _run_query {
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@errors</p></div>);
 	} else {
-		my @hidden_attributes;
-		push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
-		for my $row ( 1 .. MAX_ROWS ) {
-			push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "designation_field$row",
-			  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
-			  "allele_status_field$row",
-			  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
-			  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row";
-		}
-		foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
-			push @hidden_attributes, "${field}_list";
-			my $extatt = $extended->{$field};
-			if ( ref $extatt eq 'ARRAY' ) {
-				foreach my $extended_attribute (@$extatt) {
-					push @hidden_attributes, "${field}..$extended_attribute\_list";
-				}
-			}
-		}
-		push @hidden_attributes,
-		  qw(publication_list project_list linked_sequences_list include_old list list_file attribute datatype);
-		my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-		foreach my $scheme_id (@$schemes) {
-			push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			push @hidden_attributes, "scheme_$scheme_id\_$_\_list" foreach (@$scheme_fields);
-		}
-		my $view = $self->{'system'}->{'view'};
-
-		#datestamp exists in other tables and can be ambiguous on complex queries
+		my $view              = $self->{'system'}->{'view'};
+		my $hidden_attributes = $self->get_hidden_attributes;
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
 		my $args = {
 			table             => $self->{'system'}->{'view'},
 			query             => $qry,
 			browse            => $browse,
-			hidden_attributes => \@hidden_attributes
+			hidden_attributes => $hidden_attributes
 		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
@@ -1094,6 +1076,38 @@ sub _run_query {
 			  . 'this database to create these caches.' );
 	}
 	return;
+}
+
+sub get_hidden_attributes {
+	my ($self) = @_;
+	my $extended = $self->get_extended_attributes;
+	my @hidden_attributes;
+	push @hidden_attributes, qw (prov_andor designation_andor tag_andor status_andor);
+	for my $row ( 1 .. MAX_ROWS ) {
+		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "designation_field$row",
+		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
+		  "allele_status_field$row",
+		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
+		  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row";
+	}
+	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+		push @hidden_attributes, "${field}_list";
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				push @hidden_attributes, "${field}..$extended_attribute\_list";
+			}
+		}
+	}
+	push @hidden_attributes, qw(publication_list project_list linked_sequences_list private_records_list
+	  include_old list list_file attribute datatype);
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	foreach my $scheme_id (@$schemes) {
+		push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		push @hidden_attributes, "scheme_$scheme_id\_$_\_list" foreach (@$scheme_fields);
+	}
+	return \@hidden_attributes;
 }
 
 sub _generate_query_for_provenance_fields {
@@ -1601,9 +1615,10 @@ sub _modify_query_by_private_status {
 		1 => sub { $clause = "($my_private)" },
 		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
 		3 => sub { $clause = "($my_private AND $not_in_quota)" },
-		4 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" }
+		,
+		5 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
-
 	if ( $term->{ $q->param('private_records_list') } ) {
 		$term->{ $q->param('private_records_list') }->();
 	} else {

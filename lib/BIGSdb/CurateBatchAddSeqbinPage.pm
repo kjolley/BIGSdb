@@ -43,7 +43,7 @@ sub print_content {
 		$self->_upload;
 		return;
 	}
-	$self->_print_seqbin_warnings( $q->param('isolate_id') );
+	$self->print_seqbin_warnings( $q->param('isolate_id') );
 	if ( $q->param('data') ) {
 		$self->_check_data;
 	} elsif ( $q->param('fasta_upload') ) {
@@ -78,7 +78,7 @@ sub print_content {
 	return;
 }
 
-sub _print_seqbin_warnings {
+sub print_seqbin_warnings {
 	my ( $self, $isolate_id ) = @_;
 	if ( $isolate_id && BIGSdb::Utils::is_int($isolate_id) ) {
 		my $seqbin = $self->{'datastore'}->run_query(
@@ -87,10 +87,15 @@ sub _print_seqbin_warnings {
 			$isolate_id,
 			{ fetch => 'row_hashref' }
 		);
+		my $remote_clause =
+		  ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
+		  ? q( Reported total contig length may not be accurate if these refer to remotely hosted contigs which have )
+		  . q(not yet been validated.)
+		  : q();
 		if ($seqbin) {
 			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
 			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
-			  . q(<p>Please make sure that you intend to add new sequences for this isolate.</p></div>);
+			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause</p></div>);
 		}
 	}
 	return;
@@ -274,7 +279,7 @@ sub _check_data {
 	my $seq_ref;
 	if ($continue) {
 		try {
-			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$q->param('data') );
+			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$q->param('data'), { keep_comments => 1 } );
 		}
 		catch BIGSdb::DataException with {
 			my $ex = shift;
@@ -478,11 +483,15 @@ sub _upload {
 	my $fasta_ref;
 	if ( -e $tmp_file ) {
 		$fasta_ref = BIGSdb::Utils::slurp($tmp_file);
+	} else {
+		say q(<div class="box" id="statusbad"><p>Checked temporary file is no longer available. )
+		  . q(Please start again.</p></div>);
+		return;
 	}
 	my $seq_ref;
 	my $continue = 1;
 	try {
-		$seq_ref = BIGSdb::Utils::read_fasta($fasta_ref);
+		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
 	}
 	catch BIGSdb::DataException with {
 		$logger->error('Invalid FASTA file');
@@ -521,8 +530,7 @@ sub _upload {
 		}
 	}
 	eval {
-		foreach ( keys %$seq_ref )
-		{
+		foreach ( keys %$seq_ref ) {
 			my ( $designation, $comments );
 			if ( $_ =~ /(\S*)\s+(.*)/x ) {
 				( $designation, $comments ) = ( $1, $2 );
@@ -530,9 +538,15 @@ sub _upload {
 				$designation = $_;
 			}
 			my $isolate_id = $q->param('isolate_id') ? $q->param('isolate_id') : $designation;
-			$designation = q() if !$q->param('isolate_id');
+			undef $designation if !$q->param('isolate_id') || $designation eq q();
+			foreach my $field (qw(method run_id assembly_id)) {
+				$q->delete($field) if $q->param($field) eq q();
+			}
 			my @values = (
-				$isolate_id, $seq_ref->{$_}, $q->param('method'), $q->param('run_id'), $q->param('assembly_id'),
+				$isolate_id, $seq_ref->{$_},
+				$q->param('method')      // undef,
+				$q->param('run_id')      // undef,
+				$q->param('assembly_id') // undef,
 				$designation, $comments, $sender, $curator, 'now', 'now'
 			);
 			$sql->execute(@values);

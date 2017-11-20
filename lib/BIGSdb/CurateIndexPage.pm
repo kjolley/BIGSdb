@@ -151,9 +151,10 @@ sub _get_isolate_links {
 	my $buffer     = q();
 	my @tables     = qw (isolates);
 	push @tables, qw (retired_isolates isolate_value_extended_attributes projects project_members isolate_aliases refs
-	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples);
-	foreach (@tables) {
+	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples
+	  oauth_credentials);
 
+	foreach (@tables) {
 		if ( $self->can_modify_table($_) ) {
 			my $function  = "_print_$_";
 			my $exception = 0;
@@ -401,8 +402,7 @@ sub _print_isolates {       ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my $add =
 	  $self->{'permissions'}->{'only_private'}
 	  ? q()
-	  : qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a>)
-	  ;
+	  : qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a>);
 	my $buffer =
 	    qq(<tr class="td$td"><td>isolates</td>)
 	  . qq(<td>$add</td>)
@@ -483,6 +483,11 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
 	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
 	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	my $linked =
+	  ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
+	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs">)
+	  . q(<span class="fa fa-chain"></span></a> )
+	  : q();
 	my $query_cell =
 	  $exists
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
@@ -491,11 +496,24 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $buffer = <<"HTML";
 <tr class="td$td"><td>sequences</td>
 <td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
+<td>$linked<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
 <td>$query_cell</td>
 <td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
 HTML
 	return $buffer;
+}
+
+sub _print_oauth_credentials {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $td, $set_string ) = @_;
+	return if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
+	return $self->_print_table(
+		'oauth_credentials',
+		$td,
+		{
+			comments   => 'OAuth credentials for accessing contigs stored in remote BIGSdb databases.',
+			set_string => $set_string
+		}
+	);
 }
 
 sub _print_sequence_attributes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -1136,44 +1154,94 @@ sub _print_table {
 
 sub _print_submission_section {
 	my ($self) = @_;
-	my $buffer = $self->print_submissions_for_curation( { get_only => 1 } );
+	my $buffer         = $self->print_submissions_for_curation( { get_only => 1 } );
+	my $closed_buffer  = $self->_get_closed_submission_section;
+	my $publish_buffer = $self->_get_publication_requests;
+	return if !$buffer && !$closed_buffer && !$publish_buffer;
+	say q(<div class="box" id="submissions"><div class="scrollable">);
+	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $on_or_off =
+	  $user_info->{'submission_emails'}
+	  ? 'ON'
+	  : 'OFF';
+	say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
+	  . q(<span class="main_icon fa fa-envelope fa-lg pull-left">)
+	  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
+
+	if ($buffer) {
+		say $buffer;
+	} else {
+		say q(<h2>Submissions</h2>);
+		say q(<p>No pending submissions.</p>);
+	}
+	say $self->_get_publication_requests;
+	say $self->_get_closed_submission_section;
+	say q(</div></div>);
+	return;
+}
+
+sub _get_closed_submission_section {
+	my ($self) = @_;
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
-	if ( $buffer || $closed_buffer ) {
-		say q(<div class="box" id="submissions"><div class="scrollable">);
-		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		my $on_or_off =
-		  $user_info->{'submission_emails'}
-		  ? 'ON'
-		  : 'OFF';
-		say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
-		  . q(<span class="main_icon fa fa-envelope fa-lg pull-left">)
-		  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
-		say $buffer if $buffer;
-		if ($closed_buffer) {
-			if ( !$buffer ) {
-				say q(<h2>Submissions</h2>);
-				say q(<p>No pending submissions.</p>);
-			}
-			my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-			say q(<a id="show_closed" style="cursor:pointer">)
-			  . q(<span id="show_closed_text" title="Show closed submissions" )
-			  . qq(style="display:inline">$show</span>)
-			  . q(<span id="hide_closed_text" title="Hide closed submissions" )
-			  . qq(style="display:none">$hide</span></a>);
-			say q(<div id="closed" style="display:none">)
-			  . q(<h2>Closed submissions for which you had curator rights</h2>);
-			my $days = $self->get_submission_days;
-			say q(<p>The following submissions are now closed - they will remain here until )
-			  . qq(removed by the submitter or for $days days.);
-			say $closed_buffer;
-			say q(</div>);
-		}
-		say q(</div></div>);
+	my $buffer = q();
+	if ($closed_buffer) {
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		$buffer =
+		    q(<a id="show_closed" style="cursor:pointer">)
+		  . q(<span id="show_closed_text" title="Show closed submissions" )
+		  . qq(style="display:inline">$show</span>)
+		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+		  . qq(style="display:none">$hide</span></a>);
+		$buffer .=
+		  q(<div id="closed" style="display:none">) . q(<h2>Closed submissions for which you had curator rights</h2>);
+		my $days = $self->get_submission_days;
+		$buffer .= q(<p>The following submissions are now closed - they will remain here until )
+		  . qq(removed by the submitter or for $days days.);
+		$buffer .= $closed_buffer;
+		$buffer .= q(</div>);
 	}
-	return;
+	return $buffer;
+}
+
+sub _get_publication_requests {
+	my ($self) = @_;
+	return q() if !$self->can_modify_table('isolates');
+	my $requests =
+	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates WHERE request_publish)');
+	return q() if !$requests;
+	my $buffer    = q(<h2>Publication requests</h2>);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $user_info->{'status'} ne 'submitter' ) {
+		$buffer .=
+		    q(<p>There are user requests to publish some private data. Please click the 'Browse' links in the table )
+		  . q(below to see these records and to choose whether to publish them.</p>);
+	}
+	my $users = $self->{'datastore'}->run_query(
+		"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
+		  . 'WHERE p.request_publish ORDER BY i.sender',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	$buffer .= q(<table class="resultstable"><tr><th>Sender</th><th>Isolates</th><th>Display</th></tr>);
+	my $td = 1;
+	foreach my $user_id (@$users) {
+		my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1 } );
+		my $isolate_count = $self->{'datastore'}->run_query(
+			'SELECT COUNT(*) FROM private_isolates p JOIN isolates i ON p.isolate_id=i.id '
+			  . 'WHERE request_publish AND sender=?',
+			$user_id
+		);
+		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
+		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
+		$buffer .= qq(<tr class="td$td"><td>$user_string</td><td>$isolate_count</td><td>)
+		  . qq(<a href="$link"><span class="fa fa-binoculars action browse"></span></a></td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	$buffer .= q(</table>);
+	return $buffer;
 }
 
 sub _print_account_requests_section {
