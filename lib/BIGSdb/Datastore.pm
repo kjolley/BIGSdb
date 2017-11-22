@@ -162,7 +162,8 @@ sub get_permissions {
 		my $user_db          = $self->get_user_db( $user_info->{'user_db'} );
 		my $site_permissions = $self->run_query(
 			'SELECT permission FROM permissions WHERE user_name=? AND permission !=?',
-			[ $user_name, 'modify_users' ], { db => $user_db, fetch => 'col_arrayref' }
+			[ $user_name, 'modify_users' ],
+			{ db => $user_db, fetch => 'col_arrayref' }
 		);
 		$permission_hash{$_} = 1 foreach @$site_permissions;
 	}
@@ -1229,6 +1230,12 @@ sub create_temp_scheme_status_table {
 #The table name is hard-coded.
 sub create_temp_list_table {
 	my ( $self, $datatype, $list_file ) = @_;
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'temp_list' );
+	if ($table_exists) {
+		$logger->info('Table temp_list already exists');
+		return;
+	}
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for reading");
 	eval {
@@ -1241,7 +1248,7 @@ sub create_temp_list_table {
 		$self->{'db'}->pg_putcopyend;
 	};
 	if ($@) {
-		$logger->error("Can't put data into temp table: $@");
+		$logger->logcarp("Can't put data into temp table: $@");
 		$self->{'db'}->rollback;
 		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
@@ -1776,7 +1783,7 @@ sub get_client_data_linked_to_allele {
 	my $field_values;
 	my $dl_buffer = q();
 	my $td_buffer = q();
-	my $i = 0;
+	my $i         = 0;
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
 		my $client         = $self->get_client_db( $client_field->[0] );
@@ -2271,11 +2278,11 @@ sub initiate_view {
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
-	use constant PUBLICATION_REQUESTED => 
+	use constant PUBLICATION_REQUESTED =>
 	  'EXISTS(SELECT 1 FROM private_isolates pi WHERE pi.isolate_id=v.id AND request_publish)';
 	my $user_info = $self->get_user_info_from_username($username);
 
-	if ( !$user_info ) {                                    #Not logged in
+	if ( !$user_info ) {    #Not logged in
 		$qry .= PUBLIC_ISOLATES;
 	} else {
 		my @user_terms;
@@ -2339,14 +2346,12 @@ sub get_seqbin_stats {
 			{ fetch => 'col_arrayref', cache => 'Datastore::get_seqbin_stats::length' }
 		);
 		if (@$lengths) {
-			$results->{'lengths'} = [ sort { $b <=> $a } @$lengths ];
-			$results->{'min_length'}     = min @$lengths;
-			$results->{'max_length'}     = max @$lengths;
-			$results->{'mean_length'} = ceil((sum @$lengths) / scalar @$lengths);
+			$results->{'lengths'}     = [ sort { $b <=> $a } @$lengths ];
+			$results->{'min_length'}  = min @$lengths;
+			$results->{'max_length'}  = max @$lengths;
+			$results->{'mean_length'} = ceil( ( sum @$lengths ) / scalar @$lengths );
 		}
 	}
 	return $results;
 }
-
-
 1;
