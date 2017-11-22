@@ -432,25 +432,26 @@ sub make_isolate_seq_file {
 			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
 			  $self->{'datastore'}
 			  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
-			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
-				{
-					seqbin_id => $seqbin_id,
-					start     => $start_pos,
-					end       => $end_pos,
-					reverse   => $reverse,
-					flanking  => $flanking
-				}
-			);
-			my $seqbin_pos  = q();
-			my $five_prime  = $reverse ? 'downstream' : 'upstream';
-			my $three_prime = $reverse ? 'upstream' : 'downstream';
-			$seqbin_seq .= $seq_ref->{$five_prime}  if $seq_ref->{$five_prime};
-			$seqbin_seq .= $seq_ref->{'seq'};
-			$seqbin_seq .= $seq_ref->{$three_prime} if $seq_ref->{$three_prime};
-			$seqbin_pos = "${seqbin_id}_$start_pos" if $seqbin_seq;
+			my $seqbin_pos = q();
+			if ($seqbin_id) {
+				my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+					{
+						seqbin_id => $seqbin_id,
+						start     => $start_pos,
+						end       => $end_pos,
+						reverse   => $reverse,
+						flanking  => $flanking
+					}
+				);
+				my $five_prime  = $reverse ? 'downstream' : 'upstream';
+				my $three_prime = $reverse ? 'upstream'   : 'downstream';
+				$seqbin_seq .= $seq_ref->{$five_prime}  if $seq_ref->{$five_prime};
+				$seqbin_seq .= $seq_ref->{'seq'};
+				$seqbin_seq .= $seq_ref->{$three_prime} if $seq_ref->{$three_prime};
+				$seqbin_pos = "${seqbin_id}_$start_pos" if $seqbin_seq;
+			}
 			my $seq;
 			my $pos_include_value;
-
 			if ( $allele_seq && $seqbin_seq ) {
 				if ( $params->{'chooseseq'} eq 'seqbin' ) {
 					$seq               = $seqbin_seq;
