@@ -879,6 +879,7 @@ sub _get_ids {
 	return if !$self->_create_temp_tables( \$qry );
 	$qry =~ s/SELECT\ \*/SELECT id/x;
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	@$ids = sort {$a <=> $b} @$ids;
 	return $ids;
 }
 
