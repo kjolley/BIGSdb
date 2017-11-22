@@ -1047,13 +1047,11 @@ sub _hunt_for_start_and_stop_codons {
 			$predicted_start =~ s/\*//x;
 			$predicted_end = $match->{'predicted_end'};
 			$predicted_end =~ s/\*//x;
-			my $predicted_length = $predicted_end - $predicted_start + 1;
-			$predicted_length = 1 if $predicted_length < 1;
 			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 				{
 					seqbin_id => $match->{'seqbin_id'},
-					start     => $match->{'predicted_start'},
-					end       => $match->{'predicted_end'},
+					start     => $predicted_start,
+					end       => $predicted_end,
 					flanking  => 0
 				}
 			);
