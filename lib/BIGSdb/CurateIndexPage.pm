@@ -1208,6 +1208,7 @@ sub _get_closed_submission_section {
 
 sub _get_publication_requests {
 	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
 	my $requests =
 	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates WHERE request_publish)');
