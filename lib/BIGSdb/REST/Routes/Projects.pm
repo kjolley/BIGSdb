@@ -30,8 +30,10 @@ sub _get_projects {
 	my $self = setting('self');
 	my ($db) = params->{'db'};
 	$self->check_isolate_database;
-	my $projects = $self->{'datastore'}->run_query( 'SELECT id,short_description FROM projects ORDER BY id',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $projects = $self->{'datastore'}->run_query(
+		'SELECT id,short_description FROM projects WHERE NOT private ORDER BY id',
+		undef, { fetch => 'all_arrayref', slice => {} }
+	);
 	my @project_list;
 	foreach my $project (@$projects) {
 		my $isolate_count = $self->{'datastore'}->run_query(
@@ -92,8 +94,7 @@ sub _get_project_isolates {
 	);
 	my $page_values = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	
-	my $qry    = 'SELECT isolate_id FROM project_members WHERE project_id=? AND isolate_id '
+	my $qry = 'SELECT isolate_id FROM project_members WHERE project_id=? AND isolate_id '
 	  . "IN (SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL) ORDER BY isolate_id";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, $project_id, { fetch => 'col_arrayref' } );
