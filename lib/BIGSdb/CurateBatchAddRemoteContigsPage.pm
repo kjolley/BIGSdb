@@ -256,14 +256,13 @@ sub _upload {
 	  ->run_query( 'SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=? AND remote_contig', $isolate_id );
 	my $unprocessed = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM remote_contigs r INNER JOIN sequence_bin s ON '
-		  . 'r.seqbin_id=s.id AND r.length IS NULL AND s.isolate_id=?',
+		  . 'r.seqbin_id=s.id AND r.checksum IS NULL AND s.isolate_id=?',
 		$isolate_id
 	);
 	my $length = BIGSdb::Utils::commify( $seqbin->{'total_length'} );
 	say qq(<dl class="data"><dt>Total contigs</dt><dd>$seqbin->{'contigs'}</dd>);
 	say qq(<dt>Remote contigs</dt><dd>$remote_contigs ($unprocessed unprocessed)</dd>)
 	  . qq(<dt>Total length</dt><dd>$length</dd></dl>);
-
 	if ($unprocessed) {
 		say $q->start_form;
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Process contigs now' } );
@@ -375,11 +374,15 @@ sub _print_interface {
 	my %labels;
 	$labels{'0'} = 'Select isolate...';
 
-	foreach (@$id_arrayref) {
-		push @ids, $_->[0];
-		$labels{ $_->[0] } = "$_->[0]) $_->[1]";
+	if ( @$id_arrayref <= 1000 ) {
+		foreach (@$id_arrayref) {
+			push @ids, $_->[0];
+			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
+		}
+		say $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
+	} else {
+		say $q->textfield( -name => 'isolate_id', -id => 'isolate_id', -size => 6 );
 	}
-	say $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
 	say q(</li><li>);
 	say q(<label for="contig_uri" class="parameter">isolate record URI: !</label>);
 	say $q->textfield( -name => 'isolate_uri', -id => 'contig_url', -size => 80 );
