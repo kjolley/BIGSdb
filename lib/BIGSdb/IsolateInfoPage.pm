@@ -1476,7 +1476,7 @@ sub _get_seqbin_link {
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
 		$buffer .= q(<div id="seqbin">);
 		push @$list, { title => 'contigs', data => $commify{'contigs'} };
-		if ( $commify{'contigs'} > 1 ) {
+		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}->run_query(
 				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
@@ -1496,8 +1496,10 @@ sub _get_seqbin_link {
 			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
 				my $value = BIGSdb::Utils::commify( $n_stats->{$stat} );
 				push @$list,
-				  { title => $stats_labels{$stat},
-					data => BIGSdb::Utils::commify( $n_stats->{$stat} ) };
+				  {
+					title => $stats_labels{$stat},
+					data  => BIGSdb::Utils::commify( $n_stats->{$stat} )
+				  };
 			}
 		} else {
 			push @$list, { title => 'length', data => "$seqbin_stats->{'total_length'} bp" };
