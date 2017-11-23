@@ -396,10 +396,9 @@ sub _get_query_private_records {
 	}
 }
 
-sub print_additional_headerbar_functions {
-
-	#Override in subclass
-}
+#Override in subclasses
+sub get_hidden_attributes                { }
+sub print_additional_headerbar_functions { }
 
 sub _print_delete_all_function {
 	my ( $self, $table ) = @_;

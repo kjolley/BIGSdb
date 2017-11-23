@@ -51,8 +51,13 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id') // 0;
 	my $desc = $self->get_db_description;
 	$self->populate_submission_params;
-	if ($q->param('add_to_project')){
-		$self->add_to_project;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'isolates' ) {
+		if ( $q->param('add_to_project') ) {
+			$self->add_to_project;
+		}
+		if ( $q->param('publish') ) {
+			$self->publish;
+		}
 	}
 	say "<h1>Search $desc database by combinations of loci</h1>";
 	if ( !defined $q->param('currentpage')
@@ -344,7 +349,7 @@ sub _generate_query {
 			$lqry = '(SELECT profile_members.profile_id FROM profile_members WHERE '
 			  . "profile_members.scheme_id=$scheme_id AND (@lqry)";
 		}
-		if ( $required_matches == 0 ) {                                #Find out the greatest number of matches
+		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
 			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
 			if ($match) {
 				$required_matches = $match;
@@ -369,7 +374,7 @@ sub _add_query_ordering {
 	my ( $self, $qry_ref, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	$$qry_ref .= ' ORDER BY ';
-	my $dir = ($q->param('direction') // q()) eq 'descending' ? 'desc' : 'asc';
+	my $dir = ( $q->param('direction') // q() ) eq 'descending' ? 'desc' : 'asc';
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $order_field = $q->param('order');
 		my $pattern     = LOCUS_PATTERN;
