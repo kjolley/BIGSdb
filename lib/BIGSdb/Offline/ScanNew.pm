@@ -161,11 +161,14 @@ sub _handle_match {
 	my $seq = $self->extract_seq_from_match($match);
 	my ( $reject, $flag ) = $self->_check_cds($seq);
 	return if $reject;
+	if ( $locus_info->{'data_type'} eq 'peptide' ) {
+		my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+		$seq = $seq_obj->translate->seq;
+	}
 	my $seq_hash = Digest::MD5::md5_hex($seq);
 	my $locus    = $locus_info->{'id'};
 	return if $seqs->{$locus}->{$seq_hash};
 	$seqs->{$locus}->{$seq_hash} = 1;
-
 	if ( $self->{'options'}->{'a'} ) {
 		return if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
 		my $allele_id = $self->_define_allele( $locus, $seq, $flag );
