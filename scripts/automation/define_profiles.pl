@@ -2,7 +2,7 @@
 #Define scheme profiles found in isolate database.
 #Designed for uploading cgMLST profiles to the seqdef database.
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -101,7 +101,7 @@ perform_sanity_checks();
 get_existing_alleles();
 local $| = 1;
 main();
-$script->db_disconnect;
+undef $script;
 
 sub main {
 	my $isolates     = $script->get_isolates;
