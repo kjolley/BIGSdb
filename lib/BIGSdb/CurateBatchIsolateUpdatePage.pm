@@ -585,8 +585,9 @@ sub _update {
 		say q(<table class="resultstable"><tr><th>Condition</th><th>Field</th>)
 		  . qq(<th>New value</th><th>Status</th></tr>$tablebuffer</table>);
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . q(Back to main page</a></p></div>);
+	say q(<div>);
+	$self->print_home_link;
+	say q(</div>);
 	return;
 }
 
