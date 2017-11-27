@@ -1,3 +1,5 @@
+v1.18.0: *Support for storing contigs in remote BIGSdb databases.
+         *Users can request private records are made public.
 v1.17.2: *Improved sequence query using exemplars and AJAX polling. This
           speeds up scanning of whole genome sized queries.
 v1.17.1: *Fast mode using exemplars for web-based scanning. 
