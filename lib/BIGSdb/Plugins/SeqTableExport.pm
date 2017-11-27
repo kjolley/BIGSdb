@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -104,7 +104,7 @@ sub _create_table {
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		push @header, 'flags';
 	}
-	open( my $fh, '>', $full_path ) || $logger->error("Can't open $full_path for writing");
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	local $" = "\t";
 	say $fh "@header";
 	local $| = 1;
