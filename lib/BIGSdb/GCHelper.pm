@@ -229,7 +229,7 @@ sub _extract_sequence {
 			reverse   => $match->{'reverse'}
 		}
 	);
-	my $seq = $seq_ref->{'sequence'};
+	my $seq = $seq_ref->{'seq'};
 	$self->{'db'}->commit;
 	return $seq;
 }
