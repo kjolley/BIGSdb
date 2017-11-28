@@ -20,8 +20,9 @@
 package BIGSdb::Plugins::PhyloTree;
 use strict;
 use warnings;
-use parent qw(BIGSdb::Plugins::SequenceExport);
 use 5.010;
+use parent qw(BIGSdb::Plugins::GenomeComparator);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
@@ -29,7 +30,6 @@ use List::MoreUtils qw(uniq);
 use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
-use BIGSdb::Utils;
 use constant MAX_RECORDS     => 2000;
 use constant MAX_SEQS        => 100_000;
 use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'PhyloTree',
 		menutext         => 'PhyloTree',
 		module           => 'PhyloTree',
-		version          => '1.1.0',
+		version          => '1.2.0',
 		dbtype           => 'isolates',
 		section          => 'analysis,postquery',
 		input            => 'query',
@@ -90,7 +90,11 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		my @list = split /[\r\n]+/x, $q->param('list');
 		@list = uniq @list;
+		my @non_integers;
 
+		foreach my $id (@list) {
+			push @non_integers, $id if !BIGSdb::Utils::is_int($id);
+		}
 		if ( !@list ) {
 			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
@@ -99,6 +103,10 @@ sub run {
 		my @errors;
 		if ( !@list || @list < 2 ) {
 			push @errors, q(You must select at least two valid isolate ids.);
+		}
+		if (@non_integers) {
+			local $" = q(, );
+			push @errors, qq(The following ids are not valid integers: @non_integers.);
 		}
 		if (@$invalid_loci) {
 			local $" = q(, );
@@ -133,6 +141,7 @@ sub run {
 			$q->delete('itol_dataset');
 			local $" = '|_|';
 			$params->{'itol_dataset'} = "@itol_dataset";
+			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -159,9 +168,15 @@ sub run {
 	  . q(of the scheme.</p>);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
-	$self->print_sequence_export_form( 'id', $list, $scheme_id, { ignore_seqflags => 1, ignore_incomplete => 1 } );
+	$self->print_sequence_export_form( 'id', $list, $scheme_id, { no_includes => 1, no_options => 1 } );
 	say q(</div>);
 	return;
+}
+
+sub _get_limit {
+	my ($self) = @_;
+	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // MAX_RECORDS;
+	return $limit;
 }
 
 sub print_extra_form_elements {
@@ -199,6 +214,14 @@ sub print_extra_form_elements {
 		-linebreak => 'true'
 	);
 	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
+	say $q->checkbox(
+		-name   => 'include_name',
+		-id     => 'include_name',
+		-label  => "$self->{'system'}->{'labelfield'} name",
+		checked => 'checked'
+	);
+	say q(</fieldset>);
 	return;
 }
 
@@ -218,40 +241,39 @@ sub _get_identifier_list {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
+	$self->{'params'}            = $params;
+	$self->{'params'}->{'align'} = 1;
+	$params->{'aligner'}         = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
+	$self->{'threads'} =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
+	  ? $self->{'config'}->{'genome_comparator_threads'}
+	  : 2;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
 	my $ids      = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci     = $self->{'jobManager'}->get_job_loci($job_id);
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	$params->{'align'} = 1;
-	$params->{'aligner'} = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
-	my $ret_val = $self->make_isolate_seq_file(
-		{
-			job_id       => $job_id,
-			params       => $params,
-			limit        => MAX_RECORDS,
-			ids          => $ids,
-			loci         => $loci,
-			filename     => $filename,
-			max_progress => 80
-		}
-	);
+	( $ids, my $missing ) = $self->_filter_missing_isolates($ids);
+	my $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
+	my $isolates_with_no_sequence = $self->_find_isolates_with_no_seq($scan_data);
 
+	if ( !@$isolates_with_no_sequence ) {
+		$self->align( $job_id, 1, $ids, $scan_data, 1 );
+	}
 	if ( $self->{'exit'} ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
 		unlink $filename;
 		return;
 	}
 	my $message_html;
-	my $problem_ids = $ret_val->{'problem_ids'};
-	if (@$problem_ids) {
+	if (@$missing) {
 		local $" = ', ';
-		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n);
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$missing.</p>\n);
 	}
-	my $no_output = $ret_val->{'no_output'};
-	if ($no_output) {
-		$message_html .= q(<p>No output generated. Please ensure that your )
-		  . qq(sequences have been defined for these isolates.</p>\n);
+	if (@$isolates_with_no_sequence) {
+		local $" = ', ';
+		$message_html .= q(<p>The following ids had no sequences for all the selected loci. Please remove )
+		  . qq(these from the analysis: @$isolates_with_no_sequence.</p>\n);
 	} else {
 		try {
 			$self->{'jobManager'}
@@ -283,6 +305,23 @@ sub run_job {
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 	return;
+}
+
+sub _find_isolates_with_no_seq {
+	my ( $self, $scan_data ) = @_;
+	my @ids = keys %{ $scan_data->{'isolate_data'} };
+	my @no_seqs;
+	foreach my $id ( sort @ids ) {
+		my @loci        = keys %{ $scan_data->{'isolate_data'}->{$id}->{'sequences'} };
+		my $all_missing = 1;
+		foreach my $locus (@loci) {
+			if ( $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus} ) {
+				$all_missing = 0;
+			}
+		}
+		push @no_seqs, $id if $all_missing;
+	}
+	return \@no_seqs;
 }
 
 sub _itol_upload {
@@ -358,6 +397,21 @@ sub _itol_upload {
 	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";
 }
 
+sub _filter_missing_isolates {
+	my ( $self, $ids ) = @_;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $ids_found =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT i.id FROM $self->{'system'}->{'view'} i JOIN $temp_table t ON i.id=t.value ORDER BY i.id",
+		undef, { fetch => 'col_arrayref' } );
+	my $ids_missing = $self->{'datastore'}->run_query(
+		"SELECT value FROM $temp_table WHERE value NOT IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY value",
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	return ( $ids_found, $ids_missing );
+}
+
 sub _create_itol_dataset {
 	my ( $self, $job_id, $data_type, $identifiers, $field, $colour ) = @_;
 	my $field_info = $self->_get_field_type($field);
@@ -410,11 +464,10 @@ sub _create_itol_dataset {
 		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
 	};
 	my $distinct_values = $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
-	
 	my $distinct        = @$distinct_values;
 	my $i               = 1;
-	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
-	foreach my $value (sort {$all_ints? $a <=> $b : $a cmp $b} @$distinct_values) {
+	my $all_ints        = BIGSdb::Utils::all_ints($distinct_values);
+	foreach my $value ( sort { $all_ints ? $a <=> $b : $a cmp $b } @$distinct_values ) {
 		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
 		$i++;
 	}
@@ -455,9 +508,9 @@ sub colour_strips_init {
 	my ( $field, $value_colour ) = @_;
 	my $buffer = qq(LEGEND_TITLE\t$field\n);
 	my ( @colours, @labels );
-	my @values = keys %$value_colour;
-	my $all_ints = BIGSdb::Utils::all_ints(\@values);
-	foreach my $value ( sort {$all_ints? $a <=> $b : $a cmp $b}@values ) {
+	my @values   = keys %$value_colour;
+	my $all_ints = BIGSdb::Utils::all_ints( \@values );
+	foreach my $value ( sort { $all_ints ? $a <=> $b : $a cmp $b } @values ) {
 		push @colours, $value_colour->{$value};
 		push @labels,  $value;
 	}

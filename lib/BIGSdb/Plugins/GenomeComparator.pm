@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.6',
+		version     => '2.0.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -495,10 +495,10 @@ sub _analyse_by_loci {
 	  . qq(marked as 'New#1, 'New#2' etc.\n)
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
 	  . qq(are marked as 'I'.\n\n);
-	my $scan_data = $self->_assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
+	my $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
-		$self->_align( $job_id, 1, $ids, $scan_data );
+		$self->align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
@@ -566,7 +566,7 @@ sub _analyse_by_reference {
 	}
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
-		$self->_align( $job_id, 1, $ids, $scan_data );
+		$self->align( $job_id, 1, $ids, $scan_data );
 		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
@@ -1127,8 +1127,8 @@ sub _is_isolate_name_selected {
 	return;
 }
 
-sub _align {
-	my ( $self, $job_id, $by_ref, $ids, $scan_data ) = @_;
+sub align {
+	my ( $self, $job_id, $by_ref, $ids, $scan_data, $no_output ) = @_;
 	my $params = $self->{'params'};
 	return if !$params->{'align'};
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id.align";
@@ -1201,6 +1201,7 @@ sub _align {
 		);
 		unlink $fasta_file;
 	}
+	return if $no_output;
 	if ( -e $align_file && !-z $align_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "$job_id\.align", description => '30_Alignments', compress => 1 } );
@@ -1847,12 +1848,12 @@ sub _upload_ref_file {
 	return "$temp\_ref$format";
 }
 
-sub _assemble_data_for_defined_loci {
+sub assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $ids, $loci ) = @{$args}{qw(job_id ids loci )};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
-	my $locus_list   = $self->_create_list_file( $job_id, 'loci',     $loci );
-	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
+	my $locus_list   = $self->create_list_file( $job_id, 'loci',     $loci );
+	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
 	my $params       = {
 		database          => $self->{'params'}->{'db'},
 		isolate_list_file => $isolate_list,
@@ -1884,7 +1885,7 @@ sub _assemble_data_for_reference_genome {
 		push @$loci, $locus_name;
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
-	my $isolate_list = $self->_create_list_file( $job_id, 'isolates', $ids );
+	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
 	my $params = {
 		database          => $self->{'params'}->{'db'},
@@ -2276,15 +2277,6 @@ sub _get_largest_distance {
 		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;
 	}
 	return $largest;
-}
-
-sub _create_list_file {
-	my ( $self, $job_id, $suffix, $list ) = @_;
-	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$suffix.list";
-	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename to write");
-	say $fh $_ foreach (@$list);
-	close $fh;
-	return $filename;
 }
 
 sub _touch_output_files {

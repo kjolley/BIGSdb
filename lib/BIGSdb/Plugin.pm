@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -573,8 +573,10 @@ sub print_sequence_export_form {
 	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	$self->print_includes_fieldset( { scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
-
+	if ( !$options->{'no_includes'} ) {
+		$self->print_includes_fieldset(
+			{ scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 		$self->print_scheme_fieldset;
@@ -1026,5 +1028,14 @@ sub attempted_spam {
 	return if !$str || !ref $str;
 	return 1 if $$str =~ /<\s*a\s*href/ix;    #Test for HTML links in submitted data
 	return;
+}
+
+sub create_list_file {
+	my ( $self, $job_id, $suffix, $list ) = @_;
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$suffix.list";
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename to write");
+	say $fh $_ foreach (@$list);
+	close $fh;
+	return $filename;
 }
 1;
