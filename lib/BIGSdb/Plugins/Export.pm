@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.3.10',
+		version     => '1.4.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -219,17 +219,17 @@ sub run {
 			return;
 		}
 	}
-	print <<"HTML";
-<div class="box" id="queryform">
-<p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet.
-Select which fields you would like included.  Select loci either from the locus list or by selecting one or
-more schemes to include all loci (and/or fields) from a scheme.</p>
-HTML
-	foreach (qw (shtml html)) {
-		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$_";
+	say q(<div class="box" id="queryform">);
+	say q(<p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet. )
+	  . q(Select which fields you would like included.  Select loci either from the locus list or by selecting one or )
+	  . q(more schemes to include all loci (and/or fields) from a scheme.</p>);
+	say q(<p>Where alleles have not been designated but the sequence has been tagged in the sequence bin, )
+	  . q([S] will be shown. If the tagged sequence is incomplete then [I] will also be shown.</p>);
+	foreach my $suffix (qw (shtml html)) {
+		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$suffix";
 		if ( -e $policy ) {
 			say q(<p>Use of exported data is subject to the terms of the )
-			  . qq(<a href='$self->{'system'}->{'webroot'}/policy.$_'>policy document</a>!</p>);
+			  . qq(<a href='$self->{'system'}->{'webroot'}/policy.$suffix'>policy document</a>!</p>);
 			last;
 		}
 	}
@@ -461,8 +461,6 @@ sub _get_header {
 			return ( $buffer, 1 );
 		}
 	}
-
-	#	$buffer.= "\n";
 	return ( $buffer, 0 );
 }
 
@@ -542,7 +540,7 @@ sub _write_allele {
 	my ( $self, $args ) = @_;
 	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
 	  @{$args}{qw(fh locus data all_allele_ids first params)};
-	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ('');
+	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : q();
 	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
@@ -572,7 +570,20 @@ sub _write_allele {
 				} elsif ( !$first_col ) {
 					print $fh "\t";
 				}
-				print $fh "$allele_id";
+				if ( $allele_id eq q() ) {
+					my $tag = $self->{'datastore'}->run_query(
+						'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
+						  . 'ORDER BY complete desc LIMIT 1',
+						[ $data->{'id'}, $locus ],
+						{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
+					);
+					if ($tag) {
+						print $fh '[S]';
+						print $fh '[I]' if !$tag->{'complete'};
+					}
+				} else {
+					print $fh "$allele_id";
+				}
 			}
 			$first_allele = 0;
 		}
