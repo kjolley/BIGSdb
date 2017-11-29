@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -65,14 +65,14 @@ sub count_matching_profiles {
 	my $first       = 1;
 	my $temp;
 	my @args;
-	foreach ( keys %$alleles_hashref ) {
-		if ( !defined $alleles_hashref->{$_} ) {
+	foreach my $locus ( keys %$alleles_hashref ) {
+		if ( !defined $alleles_hashref->{$locus} ) {
 			$logger->error("Invalid loci passed to client database#$self->{'id'} for profile check.");
 			return 0;
 		}
 		$temp .= ' OR ' if !$first;
 		$temp .= '((locus,allele_id)=(?,?))';
-		push @args, $_, $alleles_hashref->{$_};
+		push @args, ($locus, $alleles_hashref->{$locus});
 		$first = 0;
 	}
 	my $view = $self->{'dbase_view'} // 'isolates';
