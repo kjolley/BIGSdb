@@ -97,6 +97,16 @@ sub print_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
+	say $q->checkbox(
+		-name    => 'indicate_tags',
+		-id      => 'indicate_tags',
+		-label   => 'Indicate sequence status if no allele defined',
+		-checked => 'checked'
+	);
+	say q(<a class="tooltip" title="Indicate sequence status - Where alleles have not been designated but the )
+	  . q(sequence has been tagged in the sequence bin, [S] will be shown. If the tagged sequence is incomplete )
+	  . q(then [I] will also be shown."><span class="fa fa-info-circle"></span></a>);
+	say q(</li><li>);
 	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
 	say q(</li><li>);
 	say $q->checkbox( -name => 'alleles', -id => 'alleles', -label => 'Export allele numbers', -checked => 'checked' );
@@ -223,8 +233,6 @@ sub run {
 	say q(<p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet. )
 	  . q(Select which fields you would like included.  Select loci either from the locus list or by selecting one or )
 	  . q(more schemes to include all loci (and/or fields) from a scheme.</p>);
-	say q(<p>Where alleles have not been designated but the sequence has been tagged in the sequence bin, )
-	  . q([S] will be shown. If the tagged sequence is incomplete then [I] will also be shown.</p>);
 	foreach my $suffix (qw (shtml html)) {
 		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$suffix";
 		if ( -e $policy ) {
@@ -545,7 +553,20 @@ sub _write_allele {
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@$allele_ids) {
+			if ( $allele_id eq q() ) {
+				my $tag = $self->{'datastore'}->run_query(
+					'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
+					  . 'ORDER BY complete desc LIMIT 1',
+					[ $data->{'id'}, $locus ],
+					{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
+				);
+				if ( $tag && $params->{'indicate_tags'} ) {
+					$allele_id .= '[S]';
+					$allele_id .= '[I]' if !$tag->{'complete'};
+				}
+			}
 			if ( $params->{'oneline'} ) {
+				next if $allele_id eq q();
 				print $fh $self->_get_id_one_line( $data, $params );
 				print $fh "$locus\t";
 				print $fh $allele_id;
@@ -570,20 +591,7 @@ sub _write_allele {
 				} elsif ( !$first_col ) {
 					print $fh "\t";
 				}
-				if ( $allele_id eq q() ) {
-					my $tag = $self->{'datastore'}->run_query(
-						'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
-						  . 'ORDER BY complete desc LIMIT 1',
-						[ $data->{'id'}, $locus ],
-						{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
-					);
-					if ($tag) {
-						print $fh '[S]';
-						print $fh '[I]' if !$tag->{'complete'};
-					}
-				} else {
-					print $fh "$allele_id";
-				}
+				print $fh "$allele_id";
 			}
 			$first_allele = 0;
 		}
