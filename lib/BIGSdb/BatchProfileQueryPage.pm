@@ -21,6 +21,8 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Constants qw(:interface);
+use JSON;
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -124,12 +126,17 @@ sub _run_query {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
 	$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
-	say q(</tr>);
+	say q(<th>Query</th></tr>);
 	$text_buffer .= qq(\n);
 	my $td = 1;
 	local $| = 1;
+	my $row_id   = 0;
+	my $query_id = BIGSdb::Utils::get_random();
+	my $query    = QUERY;
+	my $data     = {};
 
 	foreach my $row (@rows) {
+		$row_id++;
 		my @profile = split /\t/x, $row;
 		my $isolate = shift @profile;
 		foreach my $allele (@profile) {
@@ -140,6 +147,7 @@ sub _run_query {
 		$text_buffer .= $isolate;
 		for my $i ( 0 .. @$loci - 1 ) {
 			if ( $profile[$i] ) {
+				$data->{$row_id}->{ $loci->[$i] } = $profile[$i];
 				print qq(<td>$profile[$i]</td>);
 				$text_buffer .= qq(\t$profile[$i]);
 			} else {
@@ -174,7 +182,10 @@ sub _run_query {
 			}
 			$i++;
 		}
-		say q(</tr>);
+		say
+		  qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=profiles&amp;)
+		  . qq(scheme_id=$scheme_id&amp;query_id=$query_id&amp;populate_profiles=1&amp;)
+		  . qq(index=$row_id" target="_blank">$query</a></td></tr>);
 		$text_buffer .= qq(\n);
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
@@ -190,6 +201,7 @@ sub _run_query {
 	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
 	say $fh $text_buffer;
 	close $fh;
+	$self->_write_query_file( $query_id, $data );
 
 	if ( -e $full_path ) {
 		say qq(<p style="margin-top:1em">Download: <a href="/tmp/$out_file">tab-delimited text</a>);
@@ -200,6 +212,15 @@ sub _run_query {
 		say q(</p>);
 	}
 	say q(</div></div>);
+	return;
+}
+
+sub _write_query_file {
+	my ( $self, $query_id, $data ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$query_id.json";
+	open( my $fh, '>:raw', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh encode_json($data);
+	close $fh;
 	return;
 }
 

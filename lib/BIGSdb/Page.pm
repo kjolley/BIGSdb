@@ -24,6 +24,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
 use List::MoreUtils qw(uniq none);
+use JSON;
 use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
@@ -101,9 +102,9 @@ JS
 }
 
 sub _get_javascript_paths {
-	my ($self) = @_;
+	my ($self)  = @_;
 	my $page_js = $self->get_javascript;
-	my $date = '20171116';
+	my $date    = '20171116';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
@@ -403,9 +404,8 @@ sub get_stylesheets {
 			}
 		}
 		push @paths, $stylesheet;
-
 	}
-	if ($self->{'jQuery.jstree'}){
+	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";
 	}
 	return \@paths;
@@ -2554,7 +2554,7 @@ sub get_loci_from_pasted_list {
 sub populate_submission_params {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$q->param('submission_id');
+	return if !$q->param('submission_id') && !$q->param('query_id');
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return if !BIGSdb::Utils::is_int( $q->param('index') );
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
@@ -2567,10 +2567,27 @@ sub populate_submission_params {
 		}
 	}
 	if ( $q->param('populate_profiles') && $q->param('index') ) {
-		my $submission_profile =
-		  $self->_get_profile_submission_alleles( $q->param('submission_id'), $q->param('index') );
-		foreach my $designation (@$submission_profile) {
-			$q->param( "l_$designation->{'locus'}" => $designation->{'allele_id'} );
+		if ( $q->param('submission_id') ) {
+			my $submission_profile =
+			  $self->_get_profile_submission_alleles( $q->param('submission_id'), $q->param('index') );
+			foreach my $designation (@$submission_profile) {
+				$q->param( "l_$designation->{'locus'}" => $designation->{'allele_id'} );
+			}
+		} elsif ( $q->param('query_id') ) {
+			my $query_id = $q->param('query_id');
+			eval {
+				my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$query_id.json";
+				my $json_ref  = BIGSdb::Utils::slurp($full_path);
+				my $data      = decode_json($$json_ref);
+				my $index     = $q->param('index');
+				if ( defined $index && $data->{$index} ) {
+					my @loci = keys %{ $data->{$index} };
+					foreach my $locus (@loci) {
+						$q->param( "l_$locus" => $data->{$index}->{$locus} );
+					}
+				}
+			};
+			$logger->error($@) if $@;
 		}
 	}
 	return;
@@ -2683,11 +2700,10 @@ sub print_return_to_submission {
 }
 
 sub print_home_link {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
 	my $home = HOME;
-	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" )
-	  . qq(style="margin-right:1em">$home</a>);
+	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" ) . qq(style="margin-right:1em">$home</a>);
 	return;
 }
 
@@ -2702,6 +2718,4 @@ sub is_page_allowed {
 	return 1 if $allowed_pages{$page};
 	return;
 }
-
-
 1;
