@@ -317,61 +317,9 @@ sub _write_tab_text {
 	$self->create_temp_tables($qry_ref);
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  || $logger->error("Can't open temp file $filename for writing");
-	if ( $params->{'oneline'} ) {
-		print $fh "id\t";
-		print $fh $self->{'system'}->{'labelfield'} . "\t" if $params->{'labelfield'};
-		print $fh "Field\tValue";
-		print $fh "\tCurator\tDatestamp\tComments" if $params->{'info'};
-	} else {
-		my $first = 1;
-		my %schemes;
-		foreach (@$fields) {
-			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x ) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
-				$field .= " ($scheme_info->{'name'})"
-				  if $scheme_info->{'name'};
-				$schemes{$1} = 1;
-			}
-			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
-			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//x;    #strip off prefix for header row
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$field =~ s/^.*___//x;
-			if ($is_locus) {
-				$field =
-				  $self->clean_locus( $field,
-					{ text_output => 1, ( no_common_name => $params->{'common_names'} ? 0 : 1 ) } );
-				if ( $params->{'alleles'} ) {
-					print $fh "\t" if !$first;
-					print $fh $field;
-					$first = 0;
-				}
-				if ( $params->{'molwt'} ) {
-					print $fh "\t" if !$first;
-					print $fh "$field Mwt";
-					$first = 0;
-				}
-			} else {
-				print $fh "\t" if !$first;
-				print $fh $metafield // $field;
-				$first = 0;
-			}
-		}
-		my $scheme_field_pos;
-		foreach my $scheme_id ( keys %schemes ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			my $i             = 0;
-			foreach (@$scheme_fields) {
-				$scheme_field_pos->{$scheme_id}->{$_} = $i;
-				$i++;
-			}
-		}
-		if ($first) {
-			say $fh 'Make sure you select an option for locus export (see options in the top-right corner).';
-			return;
-		}
-	}
-	print $fh "\n";
+	my ( $header, $error ) = $self->_get_header( $fields, $set_id, $params );
+	say $fh $header;
+	return if $error;
 	my $sql = $self->{'db'}->prepare($$qry_ref);
 	eval { $sql->execute };
 	$logger->error($@) if $@;
@@ -387,7 +335,7 @@ sub _write_tab_text {
 
 	while ( $sql->fetchrow_arrayref ) {
 		next
-		  if $id_used{ $data{ 'id' } }
+		  if $id_used{ $data{'id'} }
 		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
 		if ( !$offline ) {
@@ -400,27 +348,45 @@ sub _write_tab_text {
 		}
 		my $first          = 1;
 		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
-		foreach (@$fields) {
-			if ( $_ =~ /^f_(.*)/x ) {
-				$self->_write_field( $fh, $1, \%data, $first, $params );
-			} elsif ( $_ =~ /^(s_\d+_l_|l_)(.*)/x ) {
-				$self->_write_allele(
-					{
-						fh             => $fh,
-						locus          => $2,
-						data           => \%data,
-						all_allele_ids => $all_allele_ids,
-						first          => $first,
-						params         => $params
-					}
-				);
-			} elsif ( $_ =~ /^s_(\d+)_f_(.*)/x ) {
-				$self->_write_scheme_field(
-					{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params } );
-			} elsif ( $_ =~ /^c_(.*)/x ) {
-				$self->_write_composite( $fh, $1, \%data, $first, $params );
-			} elsif ( $_ =~ /^m_references/x ) {
-				$self->_write_ref( $fh, \%data, $first, $params );
+		foreach my $field (@$fields) {
+			my $regex = {
+				field           => qr/^f_(.*)/x,
+				locus           => qr/^(s_\d+_l_|l_)(.*)/x,
+				scheme_field    => qr/^s_(\d+)_f_(.*)/x,
+				composite_field => qr/^c_(.*)/x,
+				reference       => qr/^m_references/x
+			};
+			my $methods = {
+				field => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
+				locus => sub {
+					$self->_write_allele(
+						{
+							fh             => $fh,
+							locus          => $2,
+							data           => \%data,
+							all_allele_ids => $all_allele_ids,
+							first          => $first,
+							params         => $params
+						}
+					);
+				},
+				scheme_field => sub {
+					$self->_write_scheme_field(
+						{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params }
+					);
+				},
+				composite_field => sub {
+					$self->_write_composite( $fh, $1, \%data, $first, $params );
+				},
+				reference => sub {
+					$self->_write_ref( $fh, \%data, $first, $params );
+				  }
+			};
+			foreach my $field_type (qw(field locus scheme_field composite_field reference)) {
+				if ( $field =~ $regex->{$field_type} ) {
+					$methods->{$field_type}->();
+					last;
+				}
 			}
 			$first = 0;
 		}
@@ -445,6 +411,59 @@ sub _write_tab_text {
 	}
 	close $fh;
 	return;
+}
+
+sub _get_header {
+	my ( $self, $fields, $set_id, $params ) = @_;
+	my $buffer;
+	if ( $params->{'oneline'} ) {
+		$buffer .= "id\t";
+		$buffer .= $self->{'system'}->{'labelfield'} . "\t" if $params->{'labelfield'};
+		$buffer .= "Field\tValue";
+		$buffer .= "\tCurator\tDatestamp\tComments" if $params->{'info'};
+	} else {
+		my $first = 1;
+		my %schemes;
+		foreach (@$fields) {
+			my $field = $_;    #don't modify @$fields
+			if ( $field =~ /^s_(\d+)_f/x ) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
+				$field .= " ($scheme_info->{'name'})"
+				  if $scheme_info->{'name'};
+				$schemes{$1} = 1;
+			}
+			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
+			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//x;    #strip off prefix for header row
+			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+			$field =~ s/^.*___//x;
+			if ($is_locus) {
+				$field =
+				  $self->clean_locus( $field,
+					{ text_output => 1, ( no_common_name => $params->{'common_names'} ? 0 : 1 ) } );
+				if ( $params->{'alleles'} ) {
+					$buffer .= "\t" if !$first;
+					$buffer .= $field;
+					$first = 0;
+				}
+				if ( $params->{'molwt'} ) {
+					$buffer .= "\t" if !$first;
+					$buffer .= "$field Mwt";
+					$first = 0;
+				}
+			} else {
+				$buffer .= "\t" if !$first;
+				$buffer .= $metafield // $field;
+				$first = 0;
+			}
+		}
+		if ($first) {
+			$buffer .= 'Make sure you select an option for locus export.';
+			return ( $buffer, 1 );
+		}
+	}
+
+	#	$buffer.= "\n";
+	return ( $buffer, 0 );
 }
 
 sub _get_id_one_line {
