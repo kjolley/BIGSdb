@@ -58,6 +58,7 @@ sub get_javascript {
 		}
 	}
 	catch BIGSdb::InvalidPluginException with {
+		
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
 		$tree_js = q();
 		$logger->warn($message);

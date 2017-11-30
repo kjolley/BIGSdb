@@ -403,16 +403,28 @@ sub _print_plugin_section {
 	my $q            = $self->{'cgi'};
 	my $set_id       = $self->get_set_id;
 	my $cache_string = $self->get_cache_string;
-	my $plugins      = $self->{'pluginManager'}->get_appropriate_plugin_names(
-		'breakdown|export|analysis|miscellaneous',
-		$self->{'system'}->{'dbtype'},
-		{ set_id => $set_id }
+	my @sections     = qw(breakdown export analysis third_party miscellaneous);
+	my %names        = (
+		breakdown     => 'Breakdown',
+		export        => 'Export',
+		analysis      => 'Analysis',
+		third_party   => 'Third party tools',
+		miscellaneous => 'Miscellaneous'
 	);
+	local $" = q(|);
+	my $plugins = $self->{'pluginManager'}
+	  ->get_appropriate_plugin_names( "@sections", $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
+
 	if (@$plugins) {
 		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
-		my %icon =
-		  ( breakdown => 'pie-chart', export => 'save', analysis => 'line-chart', miscellaneous => 'file-text-o' );
-		foreach my $section (qw (breakdown export analysis miscellaneous)) {
+		my %icon = (
+			breakdown     => 'pie-chart',
+			export        => 'save',
+			analysis      => 'line-chart',
+			third_party   => 'external-link',
+			miscellaneous => 'file-text-o'
+		);
+		foreach my $section (@sections) {
 			$q->param( 'page', 'index' );
 			$plugins =
 			  $self->{'pluginManager'}
@@ -420,7 +432,7 @@ sub _print_plugin_section {
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em" class="grid-item">);
 			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
-			say q(<h2 style="margin-right:1em">) . ucfirst($section) . q(</h2><ul class="toplevel">);
+			say qq(<h2 style="margin-right:1em">$names{$section}</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
 				my $menuitem = $att->{'menutext'};

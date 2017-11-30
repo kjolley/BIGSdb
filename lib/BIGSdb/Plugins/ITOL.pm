@@ -1,4 +1,4 @@
-#PhyloTree.pm - Phylogenetic tree plugin for BIGSdb
+#ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2016-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
@@ -17,7 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::PhyloTree;
+package BIGSdb::Plugins::ITOL;
 use strict;
 use warnings;
 use 5.010;
@@ -39,19 +39,19 @@ use constant ITOL_TREE_URL   => 'http://itol.embl.de/tree';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'PhyloTree',
+		name             => 'iTOL',
 		author           => 'Keith Jolley',
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
-		description      => 'Generate phylogenetic trees',
-		menu_description => 'Generate phylogenetic trees',
-		category         => 'Analysis',
-		buttontext       => 'PhyloTree',
-		menutext         => 'PhyloTree',
-		module           => 'PhyloTree',
-		version          => '1.2.0',
+		description      => 'Phylogenetic trees with data overlays',
+		menu_description => 'Phylogenetic trees with data overlays',
+		category         => 'Third party',
+		buttontext       => 'iTOL',
+		menutext         => 'iTOL',
+		module           => 'ITOL',
+		version          => '1.2.1',
 		dbtype           => 'isolates',
-		section          => 'analysis,postquery',
+		section          => 'third_party,postquery',
 		input            => 'query',
 		help             => 'tooltips',
 		requires         => 'aligner,offline_jobs,js_tree,clustalw',
@@ -72,7 +72,7 @@ sub run {
 	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
 	my $commify_max_records = BIGSdb::Utils::commify($max_records);
 	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
-	say "<h1>Generate phylogenetic trees - $desc</h1>";
+	say qq(<h1>iTOL - Interactive Tree of Life - generate phylogenetic trees - $desc</h1>);
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
 
@@ -147,7 +147,7 @@ sub run {
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'PhyloTree',
+					module       => 'iTOL',
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
@@ -492,7 +492,7 @@ sub _create_itol_dataset {
 		if ( $identifier =~ /^(\d+)/x ) {
 			my $id = $1;
 			my $data =
-			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "PhyloTree::itol_dataset::$field" } );
+			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
 			next if !defined $data;
 			$identifier =~ s/,/_/gx;
 			my @args = ( $identifier, $data, $value_colour->{$data} );

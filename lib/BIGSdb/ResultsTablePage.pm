@@ -1155,6 +1155,13 @@ sub _print_plugin_buttons {
 	  $self->{'pluginManager'}
 	  ->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
+		my %icon = (
+			Breakdown     => 'pie-chart',
+			Export        => 'save',
+			Analysis      => 'line-chart',
+			'Third party' => 'external-link',
+			Miscellaneous => 'file-text-o'
+		);
 		say q(<h2>Analysis tools:</h2><div class="scrollable"><table>);
 		my $set_id = $self->get_set_id;
 		foreach my $category (@$plugin_categories) {
@@ -1172,7 +1179,7 @@ sub _print_plugin_buttons {
 					my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 					next if $att->{'min'} && $att->{'min'} > $records;
 					next if $att->{'max'} && $att->{'max'} < $records;
-					$plugin_buffer .= '<td>';
+					$plugin_buffer .= q(<td>);
 					$plugin_buffer .= $q->start_form;
 					$q->param( page   => 'plugin' );
 					$q->param( name   => $att->{'module'} );
@@ -1183,11 +1190,13 @@ sub _print_plugin_buttons {
 					$plugin_buffer .=
 					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 					$plugin_buffer .= $q->end_form;
-					$plugin_buffer .= '</td>';
+					$plugin_buffer .= q(</td>);
 				}
 				if ($plugin_buffer) {
 					$category = 'Miscellaneous' if !$category;
-					$cat_buffer .= qq(<tr><td style="text-align:right">$category: </td><td><table><tr>);
+					$cat_buffer .= q(<tr><td style="text-align:right;white-space:nowrap">)
+					  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon"></span> $category:</td>)
+					  . q(<td><table><tr>);
 					$cat_buffer .= $plugin_buffer;
 					$cat_buffer .= qq(</tr>\n);
 				}

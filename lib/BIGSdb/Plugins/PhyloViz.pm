@@ -1,6 +1,6 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
-#Copyright (c) 2016, Institut Pasteur, Paris
+#Copyright (c) 2016-2017, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,33 +38,35 @@ use constant COMPARISON_LIMIT => 800_000_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'PhyloViz',
-		author      => 'Emmanuel Quevillon',
-		affiliation => 'Institut Pasteur, Paris',
-		email       => 'tuco@pasteur.fr',
-		description => 'Creates phylogenetic inference and data visualization for sequence based typing methods',
-		category    => 'Analysis',
-		buttontext  => 'PhyloViz',
-		menutext    => 'PhyloViz',
-		module      => 'PhyloViz',
-		version     => '1.0.0',
-		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
-		input       => 'query',
-		system_flag => 'PhyloViz',
-		requires    => 'js_tree',
-		help        => 'tooltips',
-		order       => 36,
-		min         => 2,
-		max         => 10000
+		name             => 'PhyloViz',
+		author           => 'Emmanuel Quevillon',
+		affiliation      => 'Institut Pasteur, Paris',
+		email            => 'tuco@pasteur.fr',
+		description      => 'Creates phylogenetic inference and data visualization for sequence based typing methods',
+		category         => 'Third party',
+		buttontext       => 'PhyloViz',
+		menutext         => 'PhyloViz',
+		menu_description => 'Visualization and phylogenetic inference',
+		module           => 'PhyloViz',
+		version          => '1.0.1',
+		dbtype           => 'isolates',
+		section          => 'third_party,postquery',
+		input            => 'query',
+		system_flag      => 'PhyloViz',
+		requires         => 'js_tree',
+		help             => 'tooltips',
+		order            => 36,
+		min              => 2,
+		max              => 10000
 	);
 	return \%att;
 }
 
 sub run {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<h1>PhyloViz: phylogenetic tree vizualisation</h1>);
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->get_db_description;
+	say qq(<h1>PhyloViz: phylogenetic tree vizualisation - $desc</h1>);
 	my $isolate_ids = [];
 	if ( $q->param('submit') ) {
 		my @list = split /[\r\n]+/x, $q->param('list');
@@ -354,8 +356,8 @@ sub _generate_auxiliary_file {
 	  ->run_query( 'SELECT * FROM isolate_value_extended_attributes', undef, { fetch => 'all_arrayref', slice => {} } );
 	my $extended_values = {};
 	foreach my $ext_data (@$extended_attributes) {
-		$extended_values->{ $ext_data->{'isolate_field'} }->{ $ext_data->{'attribute'} }
-		  ->{ $ext_data->{'field_value'} } = $ext_data->{'value'};
+		$extended_values->{ $ext_data->{'isolate_field'} }->{ $ext_data->{'attribute'} }->{ $ext_data->{'field_value'} }
+		  = $ext_data->{'value'};
 	}
 	my @header;
 	foreach my $field (@$fields) {

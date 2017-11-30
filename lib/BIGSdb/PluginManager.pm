@@ -128,7 +128,7 @@ sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	return if none { $section =~ /$_/x } qw (postquery breakdown analysis export miscellaneous);
+	return if none { $section =~ /$_/x } qw (postquery breakdown analysis third_party export miscellaneous);
 	my @plugins;
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
 	foreach my $plugin (
