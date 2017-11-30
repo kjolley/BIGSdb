@@ -1162,7 +1162,7 @@ sub _print_plugin_buttons {
 			'Third party' => 'external-link',
 			Miscellaneous => 'file-text-o'
 		);
-		say q(<h2>Analysis tools:</h2><div class="scrollable"><table>);
+		say q(<h2>Analysis tools:</h2>);
 		my $set_id = $self->get_set_id;
 		foreach my $category (@$plugin_categories) {
 			my $cat_buffer;
@@ -1179,8 +1179,7 @@ sub _print_plugin_buttons {
 					my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 					next if $att->{'min'} && $att->{'min'} > $records;
 					next if $att->{'max'} && $att->{'max'} < $records;
-					$plugin_buffer .= q(<td>);
-					$plugin_buffer .= $q->start_form;
+					$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
 					$q->param( page   => 'plugin' );
 					$q->param( name   => $att->{'module'} );
 					$q->param( set_id => $set_id );
@@ -1190,20 +1189,21 @@ sub _print_plugin_buttons {
 					$plugin_buffer .=
 					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 					$plugin_buffer .= $q->end_form;
-					$plugin_buffer .= q(</td>);
 				}
 				if ($plugin_buffer) {
 					$category = 'Miscellaneous' if !$category;
-					$cat_buffer .= q(<tr><td style="text-align:right;white-space:nowrap">)
-					  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon"></span> $category:</td>)
-					  . q(<td><table><tr>);
+					$cat_buffer .=
+					    q(<div><span style="float:left;text-align:right;width:8em;)
+					  . q(white-space:nowrap;margin-right:0.5em">)
+					  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon" style="margin-right:0.2em">)
+					  . qq(</span>$category:</span>)
+					  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 					$cat_buffer .= $plugin_buffer;
-					$cat_buffer .= qq(</tr>\n);
+					$cat_buffer .= q(</div></div>);
 				}
 			}
-			say qq($cat_buffer</table></td></tr>) if $cat_buffer;
+			say qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
 		}
-		say q(</table></div>);
 	}
 	return;
 }

@@ -50,7 +50,7 @@ sub get_attributes {
 		requires    => 'aligner,offline_jobs',
 		input       => 'query',
 		help        => 'tooltips',
-		order       => 15,
+		order       => 16,
 		max         => MAX_SEQUENCES
 	);
 	return \%att;
