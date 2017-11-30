@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.0.7',
+		version     => '2.1.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -724,7 +724,9 @@ sub _get_html_table {
 			  . qq(<td>$length</td><td>$locus_data->{'start'}</td>);
 		} else {
 			my $locus_name = $self->clean_locus($locus);
-			$buffer .= qq(<td>$locus_name</td>);
+			my $desc       = $self->{'datastore'}->get_locus($locus)->get_description;
+			$desc->{$_} //= q() foreach (qw(full_name product));
+			$buffer .= qq(<td>$locus_name</td><td>$desc->{'full_name'}</td><td>$desc->{'product'}</td>);
 		}
 		my $colour = 0;
 		if ($by_ref) {
@@ -760,7 +762,9 @@ sub _get_text_table {
 			  qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t) . qq($length\t$locus_data->{'start'});
 		} else {
 			my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
-			$buffer .= $locus_name;
+			my $desc = $self->{'datastore'}->get_locus($locus)->get_description;
+			$desc->{$_} //= q() foreach (qw(full_name product));
+			$buffer .= qq($locus_name\t$desc->{'full_name'}\t$desc->{'product'});
 		}
 		if ($by_ref) {
 			$buffer .= qq(\t1);
@@ -885,6 +889,8 @@ sub _get_isolate_table_header {
 	my @header = 'Locus';
 	if ($by_reference) {
 		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
+	} else {
+		push @header, ( 'Full name', 'Product' );
 	}
 	foreach my $id (@$ids) {
 		my $isolate = $self->_get_isolate_name($id);
@@ -1480,6 +1486,8 @@ sub _write_excel_table_worksheet {
 	my @header = 'Locus';
 	if ($by_ref) {
 		push @header, ( 'Product', 'Sequence length', ' Genome position', 'Reference genome' );
+	} else {
+		push @header, ( 'Full name', 'Product' );
 	}
 	foreach my $id (@$ids) {
 		my $isolate = $self->_get_isolate_name($id);
@@ -1529,6 +1537,15 @@ sub _write_excel_table_worksheet {
 				$col_max_width->{$col} = length($locus);
 			}
 			$worksheet->write( $row, $col, $locus, $formats->{'locus'} );
+			my $desc = $self->{'datastore'}->get_locus($locus)->get_description;
+			$desc->{$_} //= q() foreach (qw(full_name product));
+			foreach my $desc_field (qw(full_name product)) {
+				$col++;
+				$worksheet->write( $row, $col, $desc->{$desc_field}, $formats->{'locus'} );
+				if ( length( $desc->{$desc_field} ) > ( $col_max_width->{$col} // 0 ) ) {
+					$col_max_width->{$col} = length( $desc->{$desc_field} );
+				}
+			}
 		}
 		foreach my $isolate_id (@$ids) {
 			$col++;

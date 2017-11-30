@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -188,14 +188,12 @@ sub get_description {
 	my ($self) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
-		return \%;;
+		return {};
 	}
 	my $sql = $self->{'db'}->prepare('SELECT * FROM locus_descriptions WHERE locus=?');
 	eval { $sql->execute( $self->{'id'} ) };
 	if ($@) {
 		$logger->info("Can't access locus_description table for locus $self->{'id'}") if $@;
-
-		#Not all locus databases have to have a locus_descriptions table.
 		return {};
 	}
 	return $sql->fetchrow_hashref;
