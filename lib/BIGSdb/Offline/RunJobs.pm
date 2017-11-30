@@ -43,6 +43,9 @@ sub initiate {
 			password         => $self->{'password'} || 'remote'
 		}
 	);
+
+	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
+	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	return;
 }
 
@@ -152,7 +155,7 @@ sub _notify_user {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-		my $email = Email::MIME->create(
+	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
 			charset  => 'UTF-8',
@@ -164,11 +167,10 @@ sub _notify_user {
 		],
 		body_str => $message
 	);
-
 	$self->{'logger'}->info("Email job report to $address");
 	eval {
-	try_to_sendmail( $email, { transport => $transport } )
-	  || $self->{'logger'}->error("Cannot send E-mail to $address");
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $self->{'logger'}->error("Cannot send E-mail to $address");
 	};
 	$self->{'logger'}->error($@) if $@;
 	return;
