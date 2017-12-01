@@ -277,6 +277,24 @@ input.submitbutton:hover {border:1px solid #696; box-shadow: 1px 1px 1px #696;}
 input.updatebutton {border:1px solid #aad; color:#333; background:#eee}
 input.updatebutton:hover {border:1px solid #669}
 
+.launchbutton {
+  background: #3498db;
+  background-image: linear-gradient(to bottom, #3498db, #2980b9);
+  border-radius: 12px;
+  font-family: Arial;
+  color: #ffffff;
+  font-size: 20px;
+  padding: 10px 20px 10px 20px;
+  text-decoration: none;
+}
+
+.launchbutton:hover {
+  background: #3cb0fd;
+  background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
+  text-decoration: none;
+  color: #ffffff;
+}
+
 a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {background: #fff;color: #212121}
 input.pagebar:hover {border:1px solid #f00; background:#fff}
 
