@@ -48,7 +48,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version          => '1.0.1',
+		version          => '1.1.0',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -150,6 +150,7 @@ sub run {
 		# - Profile data
 		# - Auxiliary data
 		local $| = 1;
+		$self->_print_info_panel;
 		say q(<div class="box" id="resultstable">);
 		say q(<p>Please wait for processing to finish (do not refresh page).</p>);
 		say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
@@ -186,8 +187,7 @@ sub run {
 			return;
 		}
 		my $domain = PHYLOVIZ_DOMAIN;
-		say qq(<p><a href="$phylo_id" target="_blank">View tree</a> )
-		  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></p>);
+		say qq(<p style="margin-top:2em"><a href="$phylo_id" target="_blank" class="launchbutton">Launch PhyloViz</a></p>);
 		say q(</div>);
 		unlink $profile_file, $auxiliary_file;
 		return;
@@ -218,8 +218,8 @@ sub _get_selected_schemes {
 sub _print_interface {
 	my ( $self, $isolate_ids ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based )
-	  . q(typing methods that generate allelic profiles and their associated epidemiological data.</p>);
+	$self->_print_info_panel;
+	say q(<div class="box" id="queryform">);
 	my $max_isolates = BIGSdb::Utils::commify( $self->get_attributes->{'max'} );
 	say qq(<p>Analysis is limited to $max_isolates isolates.</p>);
 	say $q->start_form;
@@ -231,6 +231,39 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
 	say $q->end_form();
 	say q(</div>);
+	return;
+}
+
+sub _print_info_panel {
+	my ($self) = @_;
+	my $logo = '/images/plugins/PhyloViz/logo.png';
+	say q(<div class="box" id="resultspanel">);
+	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
+		say q(<div style="float:left">);
+		say qq(<img src="$logo" />);
+		say q(</div>);
+	}
+	say q(<div style="float:left">);
+	say q(<p>This plugin uploads data for analysis within the PhyloViz online service:</p>);
+	say q(<h2>PHYLOViZ Online: Web-based tool for visualization, phylogenetic inference, analysis and sharing.</h2>);
+	say q(<p>PHYLOViZ Online is developed by:</p>);
+	say q(<ul>);
+	say q(<li>Bruno Gon&ccedil;alves (1)</li>);
+	say q(<li>Jo&atilde;o Andr&eacute; Carri&ccedil;o (1)</li>);
+	say q(<li>Alexandre P. Francisco (2,3)</li>);
+	say q(<li>C&aacute;tia Vaz (2,4)</li>);
+	say q(<li>M&aacute;rio Ramirez (1)</li>);
+	say q(</ul>);
+	say q(<ol>);
+	say q(<li>Instituto de Microbiologia, Instituto de Medicina Molecular, Faculdade de Medicina, )
+	  . q(Universidade de Lisboa, Lisboa, Portugal</li>);
+	say q(<li>INESC-ID, R. Alves Redol 9, 1000-029 Lisboa, Portugal</li>);
+	say q(<li>Instituto Superior T&eacute;cnico, Universidade de Lisboa, Lisboa, Portugal</li>);
+	say q(<li>Instituto Superior de Engenharia de Lisboa, Instituto Polit&eacute;cnico de Lisboa, )
+	  . q(007 Lisboa, Portugal</li>);
+	say q(</ol>);
+	say q(<p>Web site: <a href="https://online.phyloviz.net/">https://online.phyloviz.net/</a></p>);
+	say q(</div><div style="clear:both"></div></div>);
 	return;
 }
 

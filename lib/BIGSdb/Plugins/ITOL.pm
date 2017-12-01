@@ -73,7 +73,7 @@ sub run {
 	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
 	my $commify_max_records = BIGSdb::Utils::commify($max_records);
 	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
-	say qq(<h1>iTOL - Interactive Tree of Life - generate phylogenetic trees - $desc</h1>);
+	say qq(<h1>iTOL - Interactive Tree of Life - $desc</h1>);
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
 
@@ -148,7 +148,7 @@ sub run {
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'iTOL',
+					module       => 'ITOL',
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
@@ -161,6 +161,7 @@ sub run {
 		}
 	}
 	my $limit = $self->_get_limit;
+	$self->_print_info_panel;
 	say q(<div class="box" id="queryform">);
 	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
 	  . q(loci that have a corresponding database containing allele sequence identifiers, )
@@ -383,8 +384,8 @@ sub _itol_upload {
 				if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
 					my $url    = ITOL_TREE_URL . "/$1";
 					my $domain = ITOL_DOMAIN;
-					$$message_html .= qq(<ul><li><a href="$url" target="_blank">Launch tree in iTOL</a> )
-					  . qq(<span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span></li></ul>);
+					$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
+					  . qq(<a href="$url" target="_blank" class="launchbutton">Launch iTOL</a></p>);
 					last;
 				}
 			}
@@ -576,6 +577,38 @@ sub _get_field_type {
 			return { type => 'scheme_field', scheme_id => $1, field => $2 };
 		}
 	}
+	return;
+}
+
+sub _print_info_panel {
+	my ($self) = @_;
+	my $logo = '/images/plugins/ITOL/logo.png';
+	say q(<div class="box" id="resultspanel">);
+	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
+		say q(<div style="float:left">);
+		say qq(<img src="$logo" />);
+		say q(</div>);
+	}
+	say q(<div style="float:left">);
+	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>);
+	say q(<h2>Interactive tree of life (iTOL): an online tool for the display and annotation of )
+	  . q(phylogenetic and other trees</h2>);
+	say q(<p>iTOL is developed by:</p>);
+	say q(<ul>);
+	say q(<li>Ivica Letunic (1)</li>);
+	say q(<li>Peer Bork (2,3,4)</li>);
+	say q(</ul>);
+	say q(<ol>);
+	say q(<li>Biobyte solutions GmbH, Bothestr 142, 69126 Heidelberg, Germany</li>);
+	say q(<li>European Molecular Biology Laboratory, Meyerhofstrasse 1, 69117 Heidelberg, Germany</li>);
+	say q(<li>Max Delbr&uuml;ck Centre for Molecular Medicine, 13125 Berlin, Germany</li>);
+	say q(<li>Department of Bioinformatics, Biocenter, University of W&uuml;rzburg, 97074 W&uuml;rzburg, Germany</li>);
+	say q(</ol>);
+	say q(<p>Web site: <a href="https://itol.embl.de/">https://itol.embl.de/</a><br />);
+	say q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display<br />)
+	  . q(and annotation of phylogenetic and other trees. <a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">)
+	  . q(<i>Nucleic Acids Res</i> <b>44(W1):</b>W242-5</a>.</p>);
+	say q(</div><div style="clear:both"></div></div>);
 	return;
 }
 1;
