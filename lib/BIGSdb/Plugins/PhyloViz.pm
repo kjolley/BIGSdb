@@ -57,7 +57,8 @@ sub get_attributes {
 		help             => 'tooltips',
 		order            => 36,
 		min              => 2,
-		max              => 10000
+		max              => 10000,
+		always_show_in_menu => 1
 	);
 	return \%att;
 }
@@ -219,6 +220,8 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><p>PhyloViz: This plugin allows the analysis of sequence-based )
 	  . q(typing methods that generate allelic profiles and their associated epidemiological data.</p>);
+	my $max_isolates = BIGSdb::Utils::commify( $self->get_attributes->{'max'} );
+	say qq(<p>Analysis is limited to $max_isolates isolates.</p>);
 	say $q->start_form;
 	$self->print_id_fieldset( { list => $isolate_ids } );
 	$self->print_isolates_fieldset( 1, { extended_attributes => 1 } );

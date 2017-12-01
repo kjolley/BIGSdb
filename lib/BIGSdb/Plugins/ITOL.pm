@@ -39,25 +39,26 @@ use constant ITOL_TREE_URL   => 'http://itol.embl.de/tree';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'iTOL',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
-		description      => 'Phylogenetic trees with data overlays',
-		menu_description => 'Phylogenetic trees with data overlays',
-		category         => 'Third party',
-		buttontext       => 'iTOL',
-		menutext         => 'iTOL',
-		module           => 'ITOL',
-		version          => '1.2.1',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		help             => 'tooltips',
-		requires         => 'aligner,offline_jobs,js_tree,clustalw',
-		order            => 35,
-		min              => 2,
-		max              => MAX_RECORDS
+		name                => 'iTOL',
+		author              => 'Keith Jolley',
+		affiliation         => 'University of Oxford, UK',
+		email               => 'keith.jolley@zoo.ox.ac.uk',
+		description         => 'Phylogenetic trees with data overlays',
+		menu_description    => 'Phylogenetic trees with data overlays',
+		category            => 'Third party',
+		buttontext          => 'iTOL',
+		menutext            => 'iTOL',
+		module              => 'ITOL',
+		version             => '1.2.1',
+		dbtype              => 'isolates',
+		section             => 'third_party,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'aligner,offline_jobs,js_tree,clustalw',
+		order               => 35,
+		min                 => 2,
+		max                 => MAX_RECORDS,
+		always_show_in_menu => 1
 	);
 	return \%att;
 }

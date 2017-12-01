@@ -153,7 +153,13 @@ sub get_appropriate_plugin_names {
 				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		  );
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			next if !$self->_is_isolate_count_ok($attr);
+			if ( !$self->_is_isolate_count_ok($attr) ) {
+				if ( $section eq 'postquery' ) {
+					next;
+				} else {
+					next if !$attr->{'always_show_in_menu'};
+				}
+			}
 		}
 		my $plugin_section = $attr->{'section'};
 		next if $plugin_section !~ /$section/x;
