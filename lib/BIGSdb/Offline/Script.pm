@@ -336,7 +336,7 @@ sub get_selected_loci {
 	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL' if $options->{'with_ref_db'};
 	if ( $self->{'options'}->{'datatype'} ) {
 		my %allowed = map { $_ => 1 } qw(DNA peptide);
-		die "Invalid data type selected.\n" if !$allowed{ $self->{'options'}->{'datatype'} };
+		die "Invalid data type selected: $self->{'options'}->{'datatype'}.\n" if !$allowed{ $self->{'options'}->{'datatype'} };
 		$loci_qry .= $loci_qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
 		$loci_qry .= "data_type='$self->{'options'}->{'datatype'}'";
 	}
