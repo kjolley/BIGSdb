@@ -100,8 +100,7 @@ sub print_options {
 	say $q->checkbox(
 		-name    => 'indicate_tags',
 		-id      => 'indicate_tags',
-		-label   => 'Indicate sequence status if no allele defined',
-		-checked => 'checked'
+		-label   => 'Indicate sequence status if no allele defined'
 	);
 	say q(<a class="tooltip" title="Indicate sequence status - Where alleles have not been designated but the )
 	  . q(sequence has been tagged in the sequence bin, [S] will be shown. If the tagged sequence is incomplete )
@@ -554,15 +553,17 @@ sub _write_allele {
 		my $first_allele = 1;
 		foreach my $allele_id (@$allele_ids) {
 			if ( $allele_id eq q() ) {
-				my $tag = $self->{'datastore'}->run_query(
-					'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
-					  . 'ORDER BY complete desc LIMIT 1',
-					[ $data->{'id'}, $locus ],
-					{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
-				);
-				if ( $tag && $params->{'indicate_tags'} ) {
-					$allele_id .= '[S]';
-					$allele_id .= '[I]' if !$tag->{'complete'};
+				if ( $params->{'indicate_tags'} ) {
+					my $tag = $self->{'datastore'}->run_query(
+						'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
+						  . 'ORDER BY complete desc LIMIT 1',
+						[ $data->{'id'}, $locus ],
+						{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
+					);
+					if ($tag) {
+						$allele_id .= '[S]';
+						$allele_id .= '[I]' if !$tag->{'complete'};
+					}
 				}
 			}
 			if ( $params->{'oneline'} ) {
