@@ -148,7 +148,7 @@ sub run {
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'iTOL',
+					module       => 'ITOL',
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
