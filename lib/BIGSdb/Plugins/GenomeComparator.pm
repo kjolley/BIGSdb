@@ -1882,6 +1882,7 @@ sub assemble_data_for_defined_loci {
 		loci              => $loci
 	};
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
+	delete $params->{'datatype'};    #This interferes with Script::get_selected_loci.
 	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	return $data;
