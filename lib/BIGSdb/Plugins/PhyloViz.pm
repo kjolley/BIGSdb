@@ -240,7 +240,7 @@ sub _print_info_panel {
 	say q(<div class="box" id="resultspanel">);
 	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
 		say q(<div style="float:left">);
-		say qq(<img src="$logo" />);
+		say qq(<img src="$logo" style="max-width:95%" />);
 		say q(</div>);
 	}
 	say q(<div style="float:left">);

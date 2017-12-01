@@ -63,25 +63,25 @@ sub get_attributes {
 	return \%att;
 }
 
+sub get_title {
+	my ($self) = @_;
+	my $desc = $self->get_db_description;
+	return "iTOL - Interactive Tree of Life - $desc";
+}
+
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
-	my $scheme_id  = $q->param('scheme_id');
-	my $desc       = $self->get_db_description;
-	my $max_records = $self->{'system'}->{'phylotree_record_limit'} // MAX_RECORDS;
-	my $max_seqs    = $self->{'system'}->{'phylotree_seq_limit'}    // MAX_SEQS;
-	my $commify_max_records = BIGSdb::Utils::commify($max_records);
-	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
-	say qq(<h1>iTOL - Interactive Tree of Life - $desc</h1>);
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $title  = $self->get_title;
+	say qq(<h1>$title</h1>);
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
-
 	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
 		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
 			  . 'Please install one of these or check the settings in bigsdb.conf.' );
 		$allow_alignment = 0;
 	}
+	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
@@ -119,8 +119,12 @@ sub run {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
-		my $total_seqs         = @$loci_selected * @list;
-		my $commify_total_seqs = BIGSdb::Utils::commify($total_seqs);
+		my $total_seqs          = @$loci_selected * @list;
+		my $max_records         = $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS;
+		my $max_seqs            = $self->{'system'}->{'itol_seq_limit'} // MAX_SEQS;
+		my $commify_max_records = BIGSdb::Utils::commify($max_records);
+		my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
+		my $commify_total_seqs  = BIGSdb::Utils::commify($total_seqs);
 		if ( $total_seqs > $max_seqs ) {
 			push @errors, qq(Output is limited to a total of $commify_max_seqs sequences )
 			  . qq((records x loci). You have selected $commify_total_seqs.);
@@ -148,7 +152,7 @@ sub run {
 				{
 					dbase_config => $self->{'instance'},
 					ip_address   => $q->remote_host,
-					module       => 'ITOL',
+					module       => $attr->{'module'},
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
@@ -160,8 +164,25 @@ sub run {
 			return;
 		}
 	}
-	my $limit = $self->_get_limit;
-	$self->_print_info_panel;
+	$self->print_info_panel;
+	$self->_print_interface(
+		{
+			max_records => $self->{'system'}->{"$attr->{'module'}_record_limit"},
+			max_seqs    => $self->{'system'}->{"$attr->{'module'}_seq_limit"}
+		}
+	);
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $options ) = @_;
+	my $q                   = $self->{'cgi'};
+	my $max_records         = $options->{'max_records'} // MAX_RECORDS;
+	my $max_seqs            = $options->{'max_seqs'} // MAX_SEQS;
+	my $commify_max_records = BIGSdb::Utils::commify($max_records);
+	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
+	my $scheme_id           = $q->param('scheme_id');
+	my $query_file          = $q->param('query_file');
 	say q(<div class="box" id="queryform">);
 	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
 	  . q(loci that have a corresponding database containing allele sequence identifiers, )
@@ -173,12 +194,6 @@ sub run {
 	$self->print_sequence_export_form( 'id', $list, $scheme_id, { no_includes => 1, no_options => 1 } );
 	say q(</div>);
 	return;
-}
-
-sub _get_limit {
-	my ($self) = @_;
-	my $limit = $self->{'system'}->{'XMFA_limit'} // $self->{'system'}->{'align_limit'} // MAX_RECORDS;
-	return $limit;
 }
 
 sub print_extra_form_elements {
@@ -580,13 +595,13 @@ sub _get_field_type {
 	return;
 }
 
-sub _print_info_panel {
+sub print_info_panel {
 	my ($self) = @_;
 	my $logo = '/images/plugins/ITOL/logo.png';
 	say q(<div class="box" id="resultspanel">);
 	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
 		say q(<div style="float:left">);
-		say qq(<img src="$logo" />);
+		say qq(<img src="$logo" style="max-width:95%" />);
 		say q(</div>);
 	}
 	say q(<div style="float:left">);
@@ -605,7 +620,8 @@ sub _print_info_panel {
 	say q(<li>Department of Bioinformatics, Biocenter, University of W&uuml;rzburg, 97074 W&uuml;rzburg, Germany</li>);
 	say q(</ol>);
 	say q(<p>Web site: <a href="https://itol.embl.de/">https://itol.embl.de/</a><br />);
-	say q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display<br />)
+	say
+	  q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display<br />)
 	  . q(and annotation of phylogenetic and other trees. <a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">)
 	  . q(<i>Nucleic Acids Res</i> <b>44(W1):</b>W242-5</a>.</p>);
 	say q(</div><div style="clear:both"></div></div>);
