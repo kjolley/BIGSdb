@@ -257,6 +257,22 @@ sub _get_identifier_list {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	my $ret_val = $self->generate_tree_files( $job_id, $params );
+	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed)};
+	if ( !$failed ) {
+		my $identifiers = $self->_get_identifier_list($fasta_file);
+		my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
+		if ( $params->{'itol_dataset'} && -e $itol_file ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
+		}
+	}
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
+	return;
+}
+
+sub generate_tree_files {
+	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
 	$self->{'params'}            = $params;
 	$self->{'params'}->{'align'} = 1;
@@ -271,18 +287,30 @@ sub run_job {
 	my $loci     = $self->{'jobManager'}->get_job_loci($job_id);
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	( $ids, my $missing ) = $self->_filter_missing_isolates($ids);
-	my $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
-	my $isolates_with_no_sequence = $self->_find_isolates_with_no_seq($scan_data);
+	my ( $message_html, $failed );
+	my $scan_data;
+	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
 
+	if ($@) {
+		$logger->error($@);
+		if ( $@ =~ /No\ valid\ isolate\ ids/x ) {
+			$message_html = q(<p>No valid isolate ids in list.</p>);
+		}
+		return { message_html => $message_html, failed => 1 };
+	}
+	my $isolates_with_no_sequence = $self->_find_isolates_with_no_seq($scan_data);
+	if ( @$ids - @$missing < 2 ) {
+		$message_html = q(<p>There are fewer than 2 valid ids in the list - tree cannot be generated.</p>);
+		return { message_html => $message_html, failed => 1 };
+	}
 	if ( !@$isolates_with_no_sequence ) {
 		$self->align( $job_id, 1, $ids, $scan_data, 1 );
 	}
 	if ( $self->{'exit'} ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
 		unlink $filename;
-		return;
+		return { failed => 1 };
 	}
-	my $message_html;
 	if (@$missing) {
 		local $" = ', ';
 		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$missing.</p>\n);
@@ -291,37 +319,38 @@ sub run_job {
 		local $" = ', ';
 		$message_html .= q(<p>The following ids had no sequences for all the selected loci. Please remove )
 		  . qq(these from the analysis: @$isolates_with_no_sequence.</p>\n);
-	} else {
-		try {
-			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
-			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
-			if ( -e $fasta_file ) {
-				$self->{'jobManager'}
-				  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
-			}
-			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
-			my $tree_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
-			my $cmd       = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
-			system $cmd;
-			if ( -e $tree_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
-			}
-			my $identifiers = $self->_get_identifier_list($fasta_file);
-			my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
-			if ( $params->{'itol_dataset'} && -e $itol_file ) {
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
-			}
-		}
-		catch BIGSdb::CannotOpenFileException with {
-			$logger->error('Cannot create FASTA file from XMFA.');
-		};
-		unlink $filename if -e "$filename.gz";
+		return { message_html => $message_html, failed => 1 };
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
-	return;
+	my ( $fasta_file, $newick_file );
+	try {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
+		$fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
+		if ( -e $fasta_file ) {
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
+		}
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
+		$newick_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
+		my $cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
+		system $cmd;
+		if ( -e $newick_file ) {
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
+		} else {
+			$failed = 1;
+		}
+	}
+	catch BIGSdb::CannotOpenFileException with {
+		$logger->error('Cannot create FASTA file from XMFA.');
+		$failed = 1;
+	};
+	unlink $filename if -e "$filename.gz";
+	return {
+		message_html => $message_html,
+		fasta_file   => $fasta_file,
+		newick_file  => $newick_file,
+		failed       => $failed
+	};
 }
 
 sub _find_isolates_with_no_seq {
