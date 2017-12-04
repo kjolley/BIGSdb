@@ -186,7 +186,7 @@ sub _print_interface {
 	say q(<div class="box" id="queryform">);
 	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
 	  . q(loci that have a corresponding database containing allele sequence identifiers, )
-	  . q(or DNA and peptide loci with genome sequences tagged, can be included. Please check the loci that you )
+	  . q(or DNA and peptide loci with genome sequences, can be included. Please check the loci that you )
 	  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);

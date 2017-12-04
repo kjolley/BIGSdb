@@ -1,6 +1,6 @@
-#ITol.pm - Phylogenetic tree plugin for BIGSdb
+#Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,11 +23,15 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Utils;
+use LWP::UserAgent;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_RECORDS => 2000;
-use constant MAX_SEQS    => 100_000;
+use constant MAX_RECORDS    => 2000;
+use constant MAX_SEQS       => 100_000;
+use constant MICROREACT_URL => 'https://microreact.org/api/1.0/project/';
 
+#TODO Add requirement for country field
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
@@ -53,6 +57,114 @@ sub get_attributes {
 		always_show_in_menu => 1
 	);
 	return \%att;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	my $ret_val = $self->generate_tree_files( $job_id, $params );
+	my ( $message_html, $newick_file, $failed ) = @{$ret_val}{qw(message_html newick_file failed)};
+	if ( !$failed ) {
+		$self->_microreact_upload( $job_id, $params, $newick_file, \$message_html );
+	}
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
+	return;
+}
+
+sub _microreact_upload {
+	my ( $self, $job_id, $params, $newick_file, $message_html ) = @_;
+	my $job = $self->{'jobManager'}->get_job($job_id);
+	if ( !$newick_file ) {
+		$logger->error('No Newick file.');
+		return;
+	}
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
+	my $data        = $self->{'datastore'}->run_query(
+		"SELECT i.id,i.$self->{'system'}->{'labelfield'} AS isolate,i.country,i.year FROM "
+		  . "$self->{'system'}->{'view'} i JOIN $temp_table l ON i.id=l.value ORDER BY i.id",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $tsv_file = "$self->{'config'}->{'tmp_dir'}/$job_id.tsv";
+	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
+	say $fh "id\tcountry\tyear";
+	my $allowed = $self->_get_allowed_countries;
+	my $mapped  = $self->_get_mapped_countries;
+
+	foreach my $record (@$data) {
+		my $isolate = $record->{'isolate'};
+		$isolate =~ s/[\(\)]//gx;
+		$isolate =~ tr/[:,. ]/_/;
+		if ( !$allowed->{ $record->{'country'} } ) {
+			if ( $mapped->{ $record->{'country'} } ) {
+				$record->{'country'} = $mapped->{ $record->{'country'} };
+			} else {
+				$logger->error("$record->{'country'} is not an allowed country");
+			}
+		}
+		say $fh "$record->{'id'}|$isolate\t$record->{'country'}\t$record->{'year'}";
+	}
+	close $fh;
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "$job_id.tsv", description => '30_Microreact TSV file' } );
+	my $uploader    = LWP::UserAgent->new( cookie_jar => {}, agent => 'BIGSdb' );
+	my $tsv         = BIGSdb::Utils::slurp($tsv_file);
+	my $tree        = BIGSdb::Utils::slurp($newick_file);
+	my $upload_data = {
+		name => $params->{'title'} || $job_id,
+		description      => $params->{'description'},
+		email            => $job->{'email'},
+		map_countryField => 'country',
+		data             => $$tsv,
+		tree             => $$tree
+	};
+	my $upload_response = $uploader->post(
+		MICROREACT_URL,
+		Content_Type => 'application/json; charset=UTF-8',
+		Content      => encode_json($upload_data)
+	);
+
+	if ( !$upload_response->is_success ) {
+		$logger->error( $upload_response->status_line );
+		return;
+	}
+	my $json    = $upload_response->decoded_content;
+	my $ret_val = decode_json($json);
+	if ( $ret_val->{'url'} ) {
+		$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
+		  . qq(<a href="$ret_val->{'url'} " target="_blank" class="launchbutton">Launch Microreact</a></p>);
+	} else {
+		$logger->error($json);
+	}
+	return;
+}
+
+sub print_extra_form_elements {
+	my ($self) = @_;
+	my $email;
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$email = $user_info->{'email'};
+	}
+	my $desc = $self->get_db_description;
+	my $q    = $self->{'cgi'};
+	say q(<fieldset style="float:left"><legend>Descriptions</legend>);
+	say q(<p>Modify the values below - these will be displayed within the created Microreact project.</p>);
+	say q(<ul><li><label for="title" class="form">Title:</label>);
+	say $q->textfield( -id => 'title', -name => 'title', -size => 30 );
+	say q(</li><li><label for="description" class="form">Description:</label>);
+	say $q->textarea( -id => 'description', -name => 'description', -default => $desc );
+	say q(</li></ul>);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
+	say $q->checkbox(
+		-name    => 'include_name',
+		-id      => 'include_name',
+		-label   => "$self->{'system'}->{'labelfield'} name",
+		-checked => 'checked'
+	);
+	say q(</fieldset>);
+	return;
 }
 
 sub get_title {
@@ -81,8 +193,7 @@ sub print_info_panel {
 	say q(<li>Jyothish NT</li>);
 	say q(<li>Stephano</li>);
 	say q(</ul>);
-	say
-	  q(<p>in the <a href="http://www.imperial.ac.uk/people/d.aanensen">Aanensen Research Group</a> )
+	say q(<p>in the <a href="http://www.imperial.ac.uk/people/d.aanensen">Aanensen Research Group</a> )
 	  . q(at Imperial College London and <a href="http://www.pathogensurveillance.net/">)
 	  . q(The Centre for Genomic Pathogen Surveillance</a>.</p>);
 	say q(<p>Web site: <a href="https://microreact.org">https://microreact.org</a><br />);
@@ -92,5 +203,147 @@ sub print_info_panel {
 	say q(</div><div style="clear:both"></div></div>);
 	return;
 }
-sub print_extra_form_elements { }
+
+#list from https://developers.google.com/public-data/docs/canonical/countries_csv
+sub _get_allowed_countries {
+	my ($self) = @_;
+	my $list = [
+		q(Afghanistan),                                  q(Albania),
+		q(Andorra),                                      q(Anguilla),
+		q(Antigua and Barbuda),                          q(Armenia),
+		q(Netherlands Antilles),                         q(Algeria),
+		q(American Samoa),                               q(Angola),
+		q(Antarctica),                                   q(Argentina),
+		q(Aruba),                                        q(Australia),
+		q(Austria),                                      q(Azerbaijan),
+		q(Bahamas),                                      q(Bahrain),
+		q(Bangladesh),                                   q(Barbados),
+		q(Belarus),                                      q(Belgium),
+		q(Belize),                                       q(Benin),
+		q(Bermuda),                                      q(Bhutan),
+		q(Bolivia),                                      q(Bosnia and Herzegovina),
+		q(Botswana),                                     q(Bouvet Island),
+		q(Brazil),                                       q(British Indian Ocean Territory),
+		q(British Virgin Islands),                       q(Brunei),
+		q(Bulgaria),                                     q(Burkina Faso),
+		q(Burundi),                                      q(Cambodia),
+		q(Cameroon),                                     q(Canada),
+		q(Cape Verde),                                   q(Cayman Islands),
+		q(Central African Republic),                     q(Chad),
+		q(Chile),                                        q(China),
+		q(Christmas Island),                             q(Cocos [Keeling] Islands),
+		q(Colombia),                                     q(Comoros),
+		q(Congo [DRC]),                                  q(Congo [Republic]),
+		q(Cook Islands),                                 q(Costa Rica),
+		q(Côte d'Ivoire),                               q(Croatia),
+		q(Cuba),                                         q(Cyprus),
+		q(Czech Republic),                               q(Denmark),
+		q(Djibouti),                                     q(Dominica),
+		q(Dominican Republic),                           q(Ecuador),
+		q(Egypt),                                        q(El Salvador),
+		q(Equatorial Guinea),                            q(Eritrea),
+		q(Estonia),                                      q(Ethiopia),
+		q(Falkland Islands [Islas Malvinas]),            q(Faroe Islands),
+		q(Fiji),                                         q(Finland),
+		q(France),                                       q(French Guiana),
+		q(French Polynesia),                             q(French Southern Territories),
+		q(Gabon),                                        q(Gambia),
+		q(Gaza Strip),                                   q(Georgia),
+		q(Germany),                                      q(Ghana),
+		q(Gibraltar),                                    q(Greece),
+		q(Greenland),                                    q(Grenada),
+		q(Guadeloupe),                                   q(Guam),
+		q(Guatemala),                                    q(Guernsey),
+		q(Guinea),                                       q(Guinea-Bissau),
+		q(Guyana),                                       q(Haiti),
+		q(Heard Island and McDonald Islands),            q(Honduras),
+		q(Hong Kong),                                    q(Hungary),
+		q(Iceland),                                      q(India),
+		q(Indonesia),                                    q(Iran),
+		q(Iraq),                                         q(Ireland),
+		q(Isle of Man),                                  q(Israel),
+		q(Italy),                                        q(Jamaica),
+		q(Japan),                                        q(Jersey),
+		q(Jordan),                                       q(Kazakhstan),
+		q(Kenya),                                        q(Kiribati),
+		q(Kosovo),                                       q(Kuwait),
+		q(Kyrgyzstan),                                   q(Laos),
+		q(Latvia),                                       q(Lebanon),
+		q(Lesotho),                                      q(Liberia),
+		q(Libya),                                        q(Liechtenstein),
+		q(Lithuania),                                    q(Luxembourg),
+		q(Macau),                                        q(Macedonia [FYROM]),
+		q(Madagascar),                                   q(Malawi),
+		q(Malaysia),                                     q(Maldives),
+		q(Mali),                                         q(Malta),
+		q(Marshall Islands),                             q(Martinique),
+		q(Mauritania),                                   q(Mauritius),
+		q(Mayotte),                                      q(Mexico),
+		q(Micronesia),                                   q(Moldova),
+		q(Monaco),                                       q(Mongolia),
+		q(Montenegro),                                   q(Montserrat),
+		q(Morocco),                                      q(Mozambique),
+		q(Myanmar [Burma]),                              q(Namibia),
+		q(Nauru),                                        q(Nepal),
+		q(Netherlands),                                  q(New Caledonia),
+		q(New Zealand),                                  q(Nicaragua),
+		q(Niger),                                        q(Nigeria),
+		q(Niue),                                         q(Norfolk Island),
+		q(North Korea),                                  q(Northern Mariana Islands),
+		q(Norway),                                       q(Oman),
+		q(Pakistan),                                     q(Palau),
+		q(Palestinian Territories),                      q(Panama),
+		q(Papua New Guinea),                             q(Paraguay),
+		q(Peru),                                         q(Philippines),
+		q(Pitcairn Islands),                             q(Poland),
+		q(Portugal),                                     q(Puerto Rico),
+		q(Qatar),                                        q(Réunion),
+		q(Romania),                                      q(Russia),
+		q(Rwanda),                                       q(Saint Helena),
+		q(Saint Kitts and Nevis),                        q(Saint Lucia),
+		q(Saint Pierre and Miquelon),                    q(Saint Vincent and the Grenadines),
+		q(Samoa),                                        q(San Marino),
+		q(São Tomé and Príncipe),                     q(Saudi Arabia),
+		q(Senegal),                                      q(Serbia),
+		q(Seychelles),                                   q(Sierra Leone),
+		q(Singapore),                                    q(Slovakia),
+		q(Slovenia),                                     q(Solomon Islands),
+		q(Somalia),                                      q(South Africa),
+		q(South Georgia and the South Sandwich Islands), q(South Korea),
+		q(Spain),                                        q(Sri Lanka),
+		q(Sudan),                                        q(Suriname),
+		q(Svalbard and Jan Mayen),                       q(Swaziland),
+		q(Sweden),                                       q(Switzerland),
+		q(Syria),                                        q(Taiwan),
+		q(Tajikistan),                                   q(Tanzania),
+		q(Thailand),                                     q(Timor-Leste),
+		q(Togo),                                         q(Tokelau),
+		q(Tonga),                                        q(Trinidad and Tobago),
+		q(Tunisia),                                      q(Turkey),
+		q(Turkmenistan),                                 q(Turks and Caicos Islands),
+		q(Tuvalu),                                       q(U.S. Minor Outlying Islands),
+		q(U.S. Virgin Islands),                          q(Uganda),
+		q(Ukraine),                                      q(United Kingdom),
+		q(United States),                                q(Uruguay),
+		q(Uzbekistan),                                   q(Vanuatu),
+		q(Vatican City),                                 q(Venezuela),
+		q(Vietnam),                                      q(Wallis and Futuna),
+		q(Western Sahara),                               q(Yemen),
+		q(Zambia),                                       q(Zimbabwe),
+		q(United Arab Emirates),
+	];
+	my %allowed = map { $_ => 1 } @$list;
+	return \%allowed;
+}
+
+sub _get_mapped_countries {
+	my ($self) = @_;
+	my $mapped = {
+		'The Gambia'      => 'Gambia',
+		'The Netherlands' => 'Netherlands',
+		'UK'              => 'United Kingdom',
+		'USA'             => 'United States'
+	};
+	return $mapped;
+}
 1;

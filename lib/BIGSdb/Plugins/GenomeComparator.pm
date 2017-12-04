@@ -1175,8 +1175,7 @@ sub align {
 			push @$ids_to_align, $id;
 			my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 			$name =~ s/[\(\)]//gx;
-			$name =~ s/ /|/;    #replace space separating id and name
-			$name =~ tr/[:, ]/_/;
+			$name =~ tr/[:,. ]/_/;
 			$names->{$id} = $name;
 			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
 			if ($seq) {
