@@ -142,10 +142,13 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
 			$q->delete('list');
-			my @itol_dataset = $q->param('itol_dataset');
-			$q->delete('itol_dataset');
-			local $" = '|_|';
-			$params->{'itol_dataset'} = "@itol_dataset";
+			foreach my $field_dataset (qw(itol_dataset include_fields)){
+				my @dataset = $q->param($field_dataset);
+				$q->delete($field_dataset);
+				local $" = '|_|';
+				$params->{$field_dataset} = "@dataset";
+				
+			}
 			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(

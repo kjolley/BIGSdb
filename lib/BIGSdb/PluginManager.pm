@@ -138,6 +138,7 @@ sub get_appropriate_plugin_names {
 	{
 		my $attr = $self->{'attributes'}->{$plugin};
 		next if !$self->_has_required_item( $attr->{'requires'} );
+		next if !$self->_matches_required_fields( $attr->{'requires'} );
 
 		#must be a scheme with primary key and loci defined
 		next if !@$pk_scheme_list && ( $attr->{'requires'} // q() ) =~ /pk_scheme/;
@@ -177,6 +178,34 @@ sub get_appropriate_plugin_names {
 		}
 	}
 	return \@plugins;
+}
+
+#Check if isolate database contains fields with appropriate characteristics
+sub _matches_required_fields {
+	my ( $self, $requires ) = @_;
+	my %require_items = map { $_ => 1 } split /,/x, $requires;
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my %fields        = map { $_ => 1 } @$field_list;
+	my $checks        = {
+
+		#Country field with defined option list (needed for geo-mapping plugins)
+		field_country_optlist => sub {
+			return if !$fields{'country'};
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
+			return $thisfield->{'optlist'} ? 1 : 0;
+		},
+
+		#Year field with integer data type
+		field_year_int => sub {
+			return if !$fields{'year'};
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes('year');
+			return $thisfield->{'type'} =~ /int/x ? 1 : 0;
+		  }
+	};
+	foreach my $check (qw (field_country_optlist field_year_int)) {
+		return if $require_items{$check} && !$checks->{$check}->();
+	}
+	return 1;
 }
 
 sub _is_isolate_count_ok {

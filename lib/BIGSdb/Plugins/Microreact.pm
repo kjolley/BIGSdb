@@ -31,7 +31,6 @@ use constant MAX_RECORDS    => 2000;
 use constant MAX_SEQS       => 100_000;
 use constant MICROREACT_URL => 'https://microreact.org/api/1.0/project/';
 
-#TODO Add requirement for country field
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
@@ -50,10 +49,11 @@ sub get_attributes {
 		section             => 'third_party,postquery',
 		input               => 'query',
 		help                => 'tooltips',
-		requires            => 'aligner,offline_jobs,js_tree,clustalw',
+		requires            => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
 		order               => 40,
 		min                 => 2,
 		max                 => MAX_RECORDS,
+		system_flag         => 'Microreact',
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -77,34 +77,7 @@ sub _microreact_upload {
 		$logger->error('No Newick file.');
 		return;
 	}
-	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
-	my $data        = $self->{'datastore'}->run_query(
-		"SELECT i.id,i.$self->{'system'}->{'labelfield'} AS isolate,i.country,i.year FROM "
-		  . "$self->{'system'}->{'view'} i JOIN $temp_table l ON i.id=l.value ORDER BY i.id",
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
-	my $tsv_file = "$self->{'config'}->{'tmp_dir'}/$job_id.tsv";
-	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
-	say $fh "id\tcountry\tyear";
-	my $allowed = $self->_get_allowed_countries;
-	my $mapped  = $self->_get_mapped_countries;
-
-	foreach my $record (@$data) {
-		my $isolate = $record->{'isolate'};
-		$isolate =~ s/[\(\)]//gx;
-		$isolate =~ tr/[:,. ]/_/;
-		if ( !$allowed->{ $record->{'country'} } ) {
-			if ( $mapped->{ $record->{'country'} } ) {
-				$record->{'country'} = $mapped->{ $record->{'country'} };
-			} else {
-				$logger->error("$record->{'country'} is not an allowed country");
-			}
-		}
-		say $fh "$record->{'id'}|$isolate\t$record->{'country'}\t$record->{'year'}";
-	}
-	close $fh;
+	my $tsv_file = $self->_create_tsv_file( $job_id, $params );
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.tsv", description => '30_Microreact TSV file' } );
 	my $uploader    = LWP::UserAgent->new( cookie_jar => {}, agent => 'BIGSdb' );
@@ -113,6 +86,7 @@ sub _microreact_upload {
 	my $upload_data = {
 		name => $params->{'title'} || $job_id,
 		description      => $params->{'description'},
+		website          => $params->{'website'},
 		email            => $job->{'email'},
 		map_countryField => 'country',
 		data             => $$tsv,
@@ -126,6 +100,7 @@ sub _microreact_upload {
 
 	if ( !$upload_response->is_success ) {
 		$logger->error( $upload_response->status_line );
+		$$message_html .= q(<p class="statusbad">Microreact upload failed.</p>);
 		return;
 	}
 	my $json    = $upload_response->decoded_content;
@@ -135,12 +110,100 @@ sub _microreact_upload {
 		  . qq(<a href="$ret_val->{'url'} " target="_blank" class="launchbutton">Launch Microreact</a></p>);
 	} else {
 		$logger->error($json);
+		$$message_html .= q(<p class="statusbad">Microreact did not return a valid project URL.</p>);
 	}
 	return;
 }
 
+sub _create_tsv_file {
+	my ( $self, $job_id, $params ) = @_;
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT i.* FROM $self->{'system'}->{'view'} i JOIN $temp_table l ON i.id=l.value ORDER BY i.id",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $tsv_file = "$self->{'config'}->{'tmp_dir'}/$job_id.tsv";
+	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
+	my @include_fields = split /\|_\|/x, $params->{'include_fields'};
+	my %include_fields = map { $_ => 1 } @include_fields;
+	$include_fields{"f_$_"} = 1 foreach qw(id country year);
+	my $extended    = $self->get_extended_attributes;
+	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
+	my @header_fields;
+
+	foreach my $field (@$prov_fields) {
+		( my $cleaned_field = $field ) =~ tr/_/ /;
+		push @header_fields, $cleaned_field if $include_fields{"f_$field"};
+		my $extatt = $extended->{$field};
+		if ( ref $extatt eq 'ARRAY' ) {
+			foreach my $extended_attribute (@$extatt) {
+				if ( $include_fields{"e_$field||$extended_attribute"} ) {
+					( my $cleaned_attribute = $extended_attribute ) =~ tr/_/ /;
+					push @header_fields, $cleaned_attribute;
+				}
+			}
+		}
+	}
+	foreach my $field (@include_fields) {
+		if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $params->{'set_id'} } );
+			( my $field = "$2 ($scheme_info->{'name'})" ) =~ tr/_/ /;
+			push @header_fields, $field;
+		}
+	}
+	local $" = qq(\t);
+	say $fh "@header_fields";
+	my $allowed = $self->_get_allowed_countries;
+	my $mapped  = $self->_get_mapped_countries;
+	foreach my $record (@$data) {
+		$record->{ $self->{'system'}->{'labelfield'} } =~ s/[\(\)]//gx;
+		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;
+		my $country = $record->{'country'};
+		if ( !$allowed->{ $record->{'country'} } ) {
+			if ( $mapped->{ $record->{'country'} } ) {
+				$record->{'country'} = $mapped->{ $record->{'country'} };
+			} else {
+				$logger->error("$record->{'country'} is not an allowed country");
+			}
+		}
+		my @record_values;
+		foreach my $field (@$prov_fields) {
+			push @record_values, $record->{$field} // q() if $include_fields{"f_$field"};
+			my $extatt = $extended->{$field};
+			if ( ref $extatt eq 'ARRAY' ) {
+				foreach my $extended_attribute (@$extatt) {
+					next if !$include_fields{"e_$field||$extended_attribute"};
+					my $field_value = $field eq 'country' ? $country : $record->{$field};    #use unmapped country value
+					my $value = $self->{'datastore'}->run_query(
+						'SELECT value FROM isolate_value_extended_attributes WHERE '
+						  . '(isolate_field,attribute,field_value)=(?,?,?)',
+						[ $field, $extended_attribute, $field_value ],
+						{ cache => 'Microreact::extended_attribute_value' }
+					);
+					push @record_values, $value // q();
+				}
+			}
+		}
+		foreach my $field (@include_fields) {
+			if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+				my ( $scheme_id, $field ) = ( $1, $2 );
+				my $field_values =
+				  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $record->{'id'}, $scheme_id );
+				my @display_values = sort keys %{ $field_values->{ lc($field) } };
+				local $" = q(; );
+				push @record_values, qq(@display_values) // q();
+			}
+		}
+		say $fh "@record_values";
+	}
+	close $fh;
+	return $tsv_file;
+}
+
 sub print_extra_form_elements {
 	my ($self) = @_;
+	my $set_id = $self->get_set_id;
 	my $email;
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -156,14 +219,41 @@ sub print_extra_form_elements {
 	say $q->textarea( -id => 'description', -name => 'description', -default => $desc );
 	say q(</li></ul>);
 	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
-	say $q->checkbox(
-		-name    => 'include_name',
-		-id      => 'include_name',
-		-label   => "$self->{'system'}->{'labelfield'} name",
-		-checked => 'checked'
+	say q(<fieldset style="float:left"><legend>Include fields</legend>);
+	say q(<p>Select additional fields to include in Microreact data table.</p>);
+	my ( $headings, $labels ) = $self->get_field_selection_list(
+		{
+			isolate_fields      => 1,
+			extended_attributes => 1,
+			loci                => 0,
+			query_pref          => 0,
+			analysis_pref       => 1,
+			scheme_fields       => 1,
+			set_id              => $set_id
+		}
+	);
+	my $fields = [];
+	my %invalid = map { $_ => 1 } qw(f_id f_country f_year);
+
+	foreach my $field (@$headings) {
+		next if $invalid{$field};
+		next if $field eq "f_$self->{'system'}->{'labelfield'}";
+		push @$fields, $field;
+	}
+	say $self->popup_menu(
+		-name     => 'include_fields',
+		-id       => 'include_fields',
+		-values   => $fields,
+		-labels   => $labels,
+		-multiple => 'true',
+		-size     => 6
 	);
 	say q(</fieldset>);
+	if ( $self->{'config'}->{'domain'} ) {
+		my $http = $q->https ? 'https' : 'http';
+		say $q->hidden( website => "$http://$self->{'config'}->{'domain'}$self->{'system'}->{'webroot'}" )
+		  ;
+	}
 	return;
 }
 
