@@ -101,7 +101,7 @@ sub _get_field {
 		records => int($value_count),
 		values  => $set_values
 	};
-	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page, $offset );
+	my $paging = $self->get_paging( "/db/$db/fields/$field", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
