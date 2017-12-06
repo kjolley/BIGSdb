@@ -650,7 +650,9 @@ sub _check_invalid_fieldname {
 		sequences          => [ qw(sequence_length), @sender_fields ],
 		sequence_bin       => [ @$extended,          @sender_fields ],
 		allele_sequences   => [qw(isolate)],
-		user_group_members => [@user_fields]
+		user_group_members => [@user_fields],
+		profile_history    => ['timestamp (date)'],
+		history            => ['timestamp (date)'],
 	};
 	if ( $additional->{$table} ) {
 		foreach my $field ( @{ $additional->{$table} } ) {

@@ -128,6 +128,7 @@ sub _create_tsv_file {
 	my @include_fields = split /\|_\|/x, $params->{'include_fields'};
 	my %include_fields = map { $_ => 1 } @include_fields;
 	$include_fields{"f_$_"} = 1 foreach qw(id country year);
+	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;
 	my $extended    = $self->get_extended_attributes;
 	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
 	my @header_fields;
@@ -220,7 +221,8 @@ sub print_extra_form_elements {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Include fields</legend>);
-	say q(<p>Select additional fields to include in Microreact data table.</p>);
+	say q(<p>Select additional fields to include in Microreact data table.-<br />)
+	  . qq(($self->{'system'}->{'labelfield'}, country and year are always included).</p>);
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
 			isolate_fields      => 1,
@@ -251,8 +253,7 @@ sub print_extra_form_elements {
 	say q(</fieldset>);
 	if ( $self->{'config'}->{'domain'} ) {
 		my $http = $q->https ? 'https' : 'http';
-		say $q->hidden( website => "$http://$self->{'config'}->{'domain'}$self->{'system'}->{'webroot'}" )
-		  ;
+		say $q->hidden( website => "$http://$self->{'config'}->{'domain'}$self->{'system'}->{'webroot'}" );
 	}
 	return;
 }

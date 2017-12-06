@@ -183,7 +183,7 @@ sub get_appropriate_plugin_names {
 #Check if isolate database contains fields with appropriate characteristics
 sub _matches_required_fields {
 	my ( $self, $requires ) = @_;
-	my %require_items = map { $_ => 1 } split /,/x, $requires;
+	my %require_items = map { $_ => 1 } split /,/x, ($requires // q());
 	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	my %fields        = map { $_ => 1 } @$field_list;
 	my $checks        = {
