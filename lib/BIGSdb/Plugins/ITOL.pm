@@ -289,7 +289,7 @@ sub generate_tree_files {
 	my $ids      = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci     = $self->{'jobManager'}->get_job_loci($job_id);
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
-	( $ids, my $missing ) = $self->_filter_missing_isolates($ids);
+	( $ids, my $missing ) = $self->filter_missing_isolates($ids);
 	my ( $message_html, $failed );
 	my $scan_data;
 	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
@@ -444,21 +444,6 @@ sub _itol_upload {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
 	}
 	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";
-}
-
-sub _filter_missing_isolates {
-	my ( $self, $ids ) = @_;
-	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
-	my $ids_found =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT i.id FROM $self->{'system'}->{'view'} i JOIN $temp_table t ON i.id=t.value ORDER BY i.id",
-		undef, { fetch => 'col_arrayref' } );
-	my $ids_missing = $self->{'datastore'}->run_query(
-		"SELECT value FROM $temp_table WHERE value NOT IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY value",
-		undef,
-		{ fetch => 'col_arrayref' }
-	);
-	return ( $ids_found, $ids_missing );
 }
 
 sub _create_itol_dataset {

@@ -54,7 +54,6 @@ sub _check_helpers {
 		'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
 		'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
 		'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
-		EnteroMSTree       => $self->{'config'}->{'EnteroMSTree_path'} . '/MSTrees.py',
 		blastn             => $self->{'config'}->{'blast+_path'} . '/blastn',
 		blastp             => $self->{'config'}->{'blast+_path'} . '/blastp',
 		blastx             => $self->{'config'}->{'blast+_path'} . '/blastx',

@@ -58,7 +58,6 @@ sub get_javascript {
 		}
 	}
 	catch BIGSdb::InvalidPluginException with {
-		
 		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
 		$tree_js = q();
 		$logger->warn($message);
@@ -1038,5 +1037,20 @@ sub create_list_file {
 	say $fh $_ foreach (@$list);
 	close $fh;
 	return $filename;
+}
+
+sub filter_missing_isolates {
+	my ( $self, $ids ) = @_;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $ids_found =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT i.id FROM $self->{'system'}->{'view'} i JOIN $temp_table t ON i.id=t.value ORDER BY i.id",
+		undef, { fetch => 'col_arrayref' } );
+	my $ids_missing = $self->{'datastore'}->run_query(
+		"SELECT value FROM $temp_table WHERE value NOT IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY value",
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	return ( $ids_found, $ids_missing );
 }
 1;

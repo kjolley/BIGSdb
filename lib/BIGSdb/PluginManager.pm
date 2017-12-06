@@ -183,7 +183,7 @@ sub get_appropriate_plugin_names {
 #Check if isolate database contains fields with appropriate characteristics
 sub _matches_required_fields {
 	my ( $self, $requires ) = @_;
-	my %require_items = map { $_ => 1 } split /,/x, ($requires // q());
+	my %require_items = map { $_ => 1 } split /,/x, ( $requires // q() );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	my %fields        = map { $_ => 1 } @$field_list;
 	my $checks        = {
@@ -225,14 +225,16 @@ sub _is_isolate_count_ok {
 sub _has_required_item {
 	my ( $self, $required_attr ) = @_;
 	my %requires = (
-		chartdirector => 'chartdirector',
-		ref_db        => 'ref_?db',
-		emboss_path   => 'emboss',
-		muscle_path   => 'muscle',
-		clustalw_path => 'clustalw',
-		aligner       => 'aligner',
-		mogrify_path  => 'mogrify',
-		jobs_db       => 'offline_jobs'
+		chartdirector     => 'chartdirector',
+		ref_db            => 'ref_?db',
+		emboss_path       => 'emboss',
+		muscle_path       => 'muscle',
+		clustalw_path     => 'clustalw',
+		aligner           => 'aligner',
+		mogrify_path      => 'mogrify',
+		EnteroMSTree_path => 'EnteroMSTree',
+		MSTree_holder_rel_path => 'EnteroMSTree',
+		jobs_db           => 'offline_jobs'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
