@@ -54,6 +54,7 @@ sub _check_helpers {
 		'EMBOSS infoalign' => $self->{'config'}->{'emboss_path'} . '/infoalign',
 		'EMBOSS sixpack'   => $self->{'config'}->{'emboss_path'} . '/sixpack',
 		'EMBOSS stretcher' => $self->{'config'}->{'emboss_path'} . '/stretcher',
+		EnteroMSTree       => $self->{'config'}->{'EnteroMSTree_path'} . '/MSTrees.py',
 		blastn             => $self->{'config'}->{'blast+_path'} . '/blastn',
 		blastp             => $self->{'config'}->{'blast+_path'} . '/blastp',
 		blastx             => $self->{'config'}->{'blast+_path'} . '/blastx',
@@ -63,7 +64,7 @@ sub _check_helpers {
 		muscle             => $self->{'config'}->{'muscle_path'},
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
-		mogrify            => $self->{'config'}->{'mogrify_path'},
+		mogrify            => $self->{'config'}->{'mogrify_path'}
 	);
 	my $td = 1;
 	say q(<div class="box resultstable">);
