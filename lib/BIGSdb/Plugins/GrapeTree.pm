@@ -95,8 +95,7 @@ sub print_info_panel {
 	  . q(Lisboa, Portugal</li>);
 	say q(</ol>);
 	say q(<p>Publication: Zhou <i>at al.</i> (2017) GrapeTree: Visualization of core genomic relationships among )
-	  . q(100,000 bacterial pathogens. <a href="https://www.biorxiv.org/content/early/2017/11/09/216788">)
-	  . q(bioRxiv preprint</a>.</p>);
+	  . q(100,000 bacterial pathogens. <a href="https://doi.org/10.1101/216788">bioRxiv 216788</a>.</p>);
 	say q(</div><div style="clear:both"></div></div>);
 	return;
 }
