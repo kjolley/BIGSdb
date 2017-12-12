@@ -422,6 +422,8 @@ sub get_contigs_by_list {
 			$return_contigs->{ $contig->{'id'} } = $remote_seqs->{ $contig->{'uri'} };
 		}
 	}
+	$self->{'db'}->do("DROP TABLE $temp_table");
+	$self->{'db'}->commit;
 	return $return_contigs;
 }
 1;
