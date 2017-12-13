@@ -433,7 +433,8 @@ sub _get_mapped_countries {
 		'The Gambia'      => 'Gambia',
 		'The Netherlands' => 'Netherlands',
 		'UK'              => 'United Kingdom',
-		'USA'             => 'United States'
+		'USA'             => 'United States',
+		'Unknown'         => ''
 	};
 	return $mapped;
 }
