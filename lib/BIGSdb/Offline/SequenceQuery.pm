@@ -600,6 +600,7 @@ sub _get_differences_output {
 		-bsequence => $seq2_infile,
 		-outfile   => $outfile
 	);
+	push @args, ( -sreverse1 => 1 ) if $reverse;
 
 	if ( length $$contig_ref > 10000 ) {
 		if ( $match->{'predicted_start'} =~ /^(\d+)$/x ) {
