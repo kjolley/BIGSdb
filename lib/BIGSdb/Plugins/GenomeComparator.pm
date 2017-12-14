@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.1.0',
+		version     => '2.2.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -499,14 +499,14 @@ sub _analyse_by_loci {
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
-		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
+		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
-		$self->_generate_excel_file( $job_id, 0, $ids, $scan_data, $dismat );
+		$self->_generate_excel_file( $job_id, 0, $ids, $scan_data, $dismat, $core_buffers );
 		$file_buffer .= $self->_get_text_output( 0, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
 	}
@@ -567,7 +567,7 @@ sub _analyse_by_reference {
 	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
-		$self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
+		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
@@ -576,7 +576,7 @@ sub _analyse_by_reference {
 		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
-		$self->_generate_excel_file( $job_id, 1, $ids, $scan_data, $dismat );
+		$self->_generate_excel_file( $job_id, 1, $ids, $scan_data, $dismat, $core_buffers );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -1395,7 +1395,7 @@ sub _run_infoalign {
 }
 
 sub _generate_excel_file {
-	my ( $self, $job_id, $by_ref, $ids, $scan_data, $dismat ) = @_;
+	my ( $self, $job_id, $by_ref, $ids, $scan_data, $dismat, $core ) = @_;
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating Excel file' } );
 	open( my $excel_fh, '>', \my $excel )
 	  || $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
@@ -1433,7 +1433,8 @@ sub _generate_excel_file {
 		border       => 1,
 		border_color => 'white'
 	);
-	$formats->{'normal'} = $workbook->add_format( align => 'center' );
+	$formats->{'normal'}     = $workbook->add_format( align => 'center' );
+	$formats->{'left-align'} = $workbook->add_format( align => 'left' );
 	my $args = {
 		workbook  => $workbook,
 		formats   => $formats,
@@ -1459,6 +1460,7 @@ sub _generate_excel_file {
 	$self->_write_excel_unique_strains($args);
 	$self->_write_excel_paralogous_loci($args);
 	$self->_write_excel_distance_matrix( $dismat, $args );
+	$self->_write_excel_core_analysis( $core, $args );
 	$self->_write_excel_parameters($args);
 	$self->_write_excel_citations($args);
 	$workbook->close;
@@ -1709,6 +1711,54 @@ sub _get_max_from_dismat {
 		}
 	}
 	return $max;
+}
+
+sub _write_excel_core_analysis {
+	my ( $self, $core, $args ) = @_;
+	my ( $workbook, $formats, $by_ref, $ids, $scan_data ) = @{$args}{qw(workbook formats by_ref ids scan_data)};
+	my $worksheet = $workbook->add_worksheet('core loci');
+	$self->_write_excel_worksheet_table( $worksheet, $formats, $core->{'core_loci'} );
+	$worksheet = $workbook->add_worksheet('locus presence');
+	$self->_write_excel_worksheet_table( $worksheet, $formats, $core->{'presence'} );
+	if ( $core->{'mean_distance'} ) {
+		$worksheet = $workbook->add_worksheet('locus mean variation');
+		$self->_write_excel_worksheet_table( $worksheet, $formats, $core->{'mean_distance'} );
+	}
+	return;
+}
+
+sub _write_excel_worksheet_table {
+	my ( $self, $worksheet, $formats, $buffer ) = @_;
+	my @lines = split /\n/x, $buffer;
+	my ( $row, $col ) = ( 0, 0 );
+	my $header        = shift @lines;
+	my @headings      = split /\t/x, $header;
+	my $col_max_width = {};
+	foreach my $heading (@headings) {
+		$worksheet->write( 0, $col, $heading, $formats->{'header'} );
+		if ( length $heading > ( $col_max_width->{$col} // 0 ) ) {
+			$col_max_width->{$col} = length $heading;
+		}
+		$col++;
+	}
+	foreach my $line (@lines) {
+		$col = 0;
+		$row++;
+		my @values = split /\t/x, $line;
+		foreach my $value (@values) {
+			my $format = length $value > 20 ? $formats->{'left-align'} : $formats->{'normal'};
+			$worksheet->write( $row, $col, $value, $format );
+			if ( length($value) > ( $col_max_width->{$col} // 0 ) && length($value) <= 20 ) {
+				$col_max_width->{$col} = length($value);
+			}
+			$col++;
+		}
+	}
+	$worksheet->freeze_panes( 1, 0 );
+	foreach my $col ( keys %$col_max_width ) {
+		$worksheet->set_column( $col, $col, $self->_excel_col_width( $col_max_width->{$col} ) );
+	}
+	return;
 }
 
 sub _write_excel_parameters {
@@ -2120,8 +2170,9 @@ sub _core_analysis {
 	my ( $self, $data, $args ) = @_;
 	my $loci = $data->{'loci'};
 	return if !@$loci;
-	my $params     = $self->{'params'};
-	my $core_count = 0;
+	my $excel_buffers = {};
+	my $params        = $self->{'params'};
+	my $core_count    = 0;
 	my @core_loci;
 	my $isolate_count = @{ $args->{'ids'} };
 	my $locus_count   = @$loci;
@@ -2138,9 +2189,9 @@ sub _core_analysis {
 	  ? $params->{'core_threshold'}
 	  : 90;
 	say $fh "Core threshold (percentage of isolates that contain locus): $threshold\%\n";
-	print $fh "Locus\tSequence length\tGenome position\tIsolate frequency\tIsolate percentage\tCore";
-	print $fh "\tMean distance" if $params->{'calc_distances'};
-	print $fh "\n";
+	my $core_loci_buffer = "Locus\tSequence length\tGenome position\tIsolate frequency\tIsolate percentage\tCore";
+	$core_loci_buffer .= "\tMean distance" if $params->{'calc_distances'};
+	$core_loci_buffer .= "\n";
 	my %range;
 
 	foreach my $locus (@$loci) {
@@ -2162,33 +2213,38 @@ sub _core_analysis {
 			$core = '-';
 		}
 		$core_count++ if $percentage >= $threshold;
-		print $fh "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
-		print $fh "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 )
+		$core_loci_buffer .= "$locus_name\t$length\t$pos\t$freq\t$percentage\t$core";
+		$core_loci_buffer .= "\t" . BIGSdb::Utils::decimal_place( ( $self->{'distances'}->{$locus} // 0 ), 3 )
 		  if $params->{'calc_distances'};
-		print $fh "\n";
+		$core_loci_buffer .= "\n";
 		for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
 			$range{$upper_range}++ if $percentage >= ( $upper_range - 5 ) && $percentage < $upper_range;
 		}
 		$range{'all_isolates'}++ if $percentage == 100;
 	}
-	say $fh "\nCore loci: $core_count\n";
-	say $fh "Present in % of isolates\tNumber of loci\tPercentage (%) of loci";
+	$core_loci_buffer .= "\nCore loci: $core_count\n";
+	say $fh $core_loci_buffer;
+	$excel_buffers->{'core_loci'} = $core_loci_buffer;
+	my $presence_buffer = "Present in % of isolates\tNumber of loci\tPercentage (%) of loci\n";
 	my ( @labels, @values );
 	for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
 		my $label      = ( $upper_range - 5 ) . " - <$upper_range";
 		my $value      = $range{$upper_range} // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $value * 100 / $locus_count, 1 );
-		say $fh "$label\t$value\t$percentage";
+		$presence_buffer .= "$label\t$value\t$percentage\n";
 		push @labels, $label;
 		push @values, $value;
 	}
 	$range{'all_isolates'} //= 0;
 	my $percentage = BIGSdb::Utils::decimal_place( $range{'all_isolates'} * 100 / $locus_count, 1 );
-	say $fh "100\t$range{'all_isolates'}\t$percentage";
+	$presence_buffer .= "100\t$range{'all_isolates'}\t$percentage\n";
+	say $fh $presence_buffer;
+	close $fh;
+	$excel_buffers->{'presence'} = $presence_buffer;
 	push @labels, 100;
 	push @values, $range{'all_isolates'};
-	close $fh;
-	$self->_core_mean_distance( $args, $out_file, \@core_loci, $loci ) if $params->{'calc_distances'};
+	$excel_buffers->{'mean_distance'} = $self->_core_mean_distance( $args, $out_file, \@core_loci, $loci )
+	  if $params->{'calc_distances'};
 
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
@@ -2211,13 +2267,13 @@ sub _core_analysis {
 			);
 		}
 	}
-	return;
+	return $excel_buffers;
 }
 
 sub _core_mean_distance {
 	my ( $self, $args, $out_file, $core_loci, $loci ) = @_;
 	return if !@$core_loci;
-	my $file_buffer = "\nMean distances of core loci\n---------------------------\n\n";
+	my $file_buffer;
 	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
 	my ( @labels, @values );
 	if ( !$largest_distance ) {
@@ -2264,6 +2320,7 @@ sub _core_mean_distance {
 		  "\n*Mean distance is the overall mean distance calculated from a computed consensus sequence.\n";
 	}
 	open( my $fh, '>>', $out_file ) || $logger->error("Cannot open $out_file for appending");
+	say $fh "\nMean distances of core loci\n---------------------------\n";
 	say $fh $file_buffer;
 	close $fh;
 	if ( @labels && $self->{'config'}->{'chartdirector'} ) {
@@ -2284,7 +2341,7 @@ sub _core_mean_distance {
 			);
 		}
 	}
-	return;
+	return $file_buffer;
 }
 
 sub _get_largest_distance {
