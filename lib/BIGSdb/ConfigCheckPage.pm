@@ -146,7 +146,7 @@ sub _check_locus_databases {
 			$buffer .= q(</td><td>);
 			my $seq_count;
 			eval { $seq_count = $self->{'datastore'}->get_locus($locus)->get_sequence_count; };
-			if ( $@ || ( $seq_count == 0 ) ) {
+			if ( $@ || ( !$seq_count ) ) {
 				$logger->debug("$locus; $@");
 				$buffer .= BAD;
 			} else {
