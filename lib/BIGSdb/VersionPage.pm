@@ -105,6 +105,10 @@ sub _print_plugins {
 	foreach my $plugin ( sort { $a cmp $b } keys %{$plugins} ) {
 		my $attr = $plugins->{$plugin};
 		$disabled_reason{$plugin} = $self->_reason_plugin_disabled($attr);
+		foreach my $att (qw(min max)) {
+			next if !defined $attr->{$att};
+			$attr->{$att} = BIGSdb::Utils::commify( $attr->{$att} );
+		}
 		my $comments = '';
 		if ( defined $attr->{'min'} && defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with between $attr->{'min'} and $attr->{'max'} results.";
@@ -173,7 +177,7 @@ sub _reason_plugin_disabled {
 	  if $attr->{'dbtype'} !~ /$dbtype/x;
 	return 'Not specifically enabled for this database.'
 	  if (
-		!( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
+		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
 		&& $attr->{'system_flag'}
 		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
 			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
