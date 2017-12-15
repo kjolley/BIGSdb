@@ -17,6 +17,12 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#NOTE: This plugin requires that the isolate table has a country field with
+#a defined list of allowed values, and an integer year field. Values used in 
+#the country field should match those found at 
+#https://developers.google.com/public-data/docs/canonical/countries_csv, or be
+#mapped with values in the Microreact::_get_mapped_countries() method.
 package BIGSdb::Plugins::Microreact;
 use strict;
 use warnings;

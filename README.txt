@@ -1,3 +1,6 @@
+v1.18.2: *New Microreact and GrapeTree plugins (ensure new images/plugins 
+          directory is copied, see new bigsdb.conf settings for configuring
+          GrapeTree).
 v1.18.1: *Bug fix for Genome Comparator alignments using reference genome
           (bug introduced in 1.18.0).
 v1.18.0: *Support for storing contigs in remote BIGSdb databases.
