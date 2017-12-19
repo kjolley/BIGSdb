@@ -858,12 +858,8 @@ sub extract_seq_from_match {
 	return $seq;
 }
 
-sub _get_row {
-	my ( $self, $args ) = @_;
-	my ( $isolate_id, $labels, $locus, $id, $match, $td, $exact, $js, $js2, $js3, $js4, $warning ) =
-	  @{$args}{qw (isolate_id labels locus id match td exact js js2 js3 js4 warning)};
-	my $q      = $self->{'cgi'};
-	my $params = $self->{'params'};
+sub _get_match_class {
+	my ( $self, $exact ) = @_;
 	my ( $class, $match_status );
 	if ($exact) {
 		$class        = q();
@@ -872,6 +868,15 @@ sub _get_row {
 		$class        = q( class="partialmatch");
 		$match_status = q(partial);
 	}
+	return ( $class, $match_status );
+}
+
+sub _get_row {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $labels, $locus, $id, $match, $td, $exact, $js, $js2, $js3, $js4, $warning ) =
+	  @{$args}{qw (isolate_id labels locus id match td exact js js2 js3 js4 warning)};
+	my $q      = $self->{'cgi'};
+	my $params = $self->{'params'};
 	my $tooltip;
 	my $new_designation  = 0;
 	my $existing_alleles = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
@@ -899,6 +904,7 @@ sub _get_row {
 	}
 	my $isolate_name = $labels->{$isolate_id} // $isolate_id;
 	$tooltip //= q();
+	my ( $class, $match_status ) = $self->_get_match_class($exact);
 	$buffer .= qq(<td>$isolate_name</td><td$class>$match_status</td><td$class>$cleaned_locus</td>)
 	  . qq(<td$class>$match->{'allele'}$tooltip</td>);
 	if ( $match->{'from_partial'} ) {
@@ -1309,6 +1315,14 @@ sub _read_blast_file_into_structure {
 	return;
 }
 
+sub _is_good_match {
+	my ( $self, $record, $alignment_threshold, $identity_threshold, $allele_length ) = @_;
+	return 1
+	  if $record->[3] >= $alignment_threshold * 0.01 * $allele_length
+	  && $record->[2] >= $identity_threshold;
+	return;
+}
+
 sub _parse_blast_partial {
 	my ( $self, $args ) = @_;
 	my (
@@ -1358,7 +1372,7 @@ sub _parse_blast_partial {
 			$record->[3] *= 3;
 		}
 		my $quality = $record->[3] * $record->[2];    #simple metric of alignment length x percentage identity
-		if ( $record->[3] >= $alignment * 0.01 * $length && $record->[2] >= $identity ) {
+		if ( $self->_is_good_match( $record, $alignment, $identity, $length ) ) {
 			my $match;
 			$match->{'quality'}   = $quality;
 			$match->{'seqbin_id'} = $record->[0];
