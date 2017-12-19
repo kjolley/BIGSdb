@@ -554,7 +554,7 @@ sub _update {
 		}
 	}
 	$self->print_home_link;
-	say qq(</div>);
+	say q(</div>);
 	return;
 }
 
