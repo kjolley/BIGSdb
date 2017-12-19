@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -107,6 +107,14 @@ sub _print_group_scheme_tables {
 	return;
 }
 
+sub _downloads_disabled {
+	my ($self) = @_;
+	return 1
+	  if ( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
+	  && !$self->is_admin;
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -117,9 +125,7 @@ sub print_content {
 			say 'This function is only available for sequence definition databases.';
 			return;
 		}
-		if ( ( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes'
-			&& !$self->is_admin )
-		{
+		if ( $self->_downloads_disabled ) {
 			say 'Allele sequence downloads are disabled for this database.';
 			return;
 		}
@@ -201,7 +207,7 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>This function is not available for isolate databases.</p></div>);
 		return;
 	}
-	if ( ( $self->{'system'}->{'disable_seq_downloads'} // '' ) eq 'yes' && !$self->is_admin ) {
+	if ( $self->_downloads_disabled ) {
 		say q(<div class="box" id="statusbad"><p>Allele sequence downloads are )
 		  . q(disabled for this database.</p></div>);
 		return;
