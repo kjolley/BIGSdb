@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(any none uniq);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
@@ -299,13 +299,12 @@ sub _insert {
 			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'}"")
 			  . qq( title="Upload sequences" style="margin-right:1em">$upload</a>);
-			  if (( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'){
-			  	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'}"")
-			  . qq( title="Link remote contigs" style="margin-right:1em">$link</a>);
-			  }
+			if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
+				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'}"")
+				  . qq( title="Link remote contigs" style="margin-right:1em">$link</a>);
+			}
 			$self->print_home_link;
-
 			$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 			return SUCCESS;
 		}
@@ -330,19 +329,39 @@ sub _print_interface {
 	return;
 }
 
+sub _get_field_width {
+	my ( $self, $field_list ) = @_;
+	my $longest_name = BIGSdb::Utils::get_largest_string_length($field_list);
+	my $width        = int( 0.5 * $longest_name ) + 2;
+	$width = 15 if $width > 15;
+	$width = 6  if $width < 6;
+	return $width;
+}
+
+sub _get_html5_args {
+	my ( $self, $args ) = @_;
+	my ( $required_field, $field, $thisfield ) = @{$args}{qw(required_field field thisfield)};
+	my $html5_args = {};
+	$html5_args->{'required'} = 'required' if $required_field;
+	$html5_args->{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
+	if ( $field ne 'sender' && $thisfield->{'type'} eq 'int' && !$thisfield->{'optlist'} ) {
+		$html5_args->{'type'} = 'number';
+		$html5_args->{'min'}  = '1';
+		$html5_args->{'step'} = '1';
+	}
+	$html5_args->{'min'} = $thisfield->{'min'}
+	  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+	$html5_args->{'max'} = $thisfield->{'max'}
+	  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+	$html5_args->{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
+	return $html5_args;
+}
+
 sub print_provenance_form_elements {
 	my ( $self, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q         = $self->{'cgi'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my ( $users, $user_labels );
-	if ( $user_info->{'status'} eq 'submitter' ) {
-		( $users, $user_labels ) =
-		  $self->{'datastore'}->get_users( { same_user_group => 1, user_id => $user_info->{'id'} } );
-	} else {
-		( $users, $user_labels ) = $self->{'datastore'}->get_users;
-	}
-	$user_labels->{''} = ' ';
+	my $q             = $self->{'cgi'};
+	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
@@ -351,10 +370,7 @@ sub print_provenance_form_elements {
 	say q(<p><span class="metaset">Metadata</span><span class="comment">: These fields are )
 	  . q(available in the specified dataset only.</span></p>)
 	  if !$set_id && @$metadata_list;
-	my $longest_name = BIGSdb::Utils::get_largest_string_length($field_list);
-	my $width        = int( 0.5 * $longest_name ) + 2;
-	$width = 15 if $width > 15;
-	$width = 6  if $width < 6;
+	my $width = $self->_get_field_width($field_list);
 	say q(<ul>);
 
 	#Display required fields first
@@ -367,99 +383,53 @@ sub print_provenance_form_elements {
 			$required_field = 0
 			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
-				my %html5_args;
-				$html5_args{'required'} = 'required' if $required_field;
-				$html5_args{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
-				if ( $field ne 'sender' && $thisfield->{'type'} eq 'int' && !$thisfield->{'optlist'} ) {
-					$html5_args{'type'} = 'number';
-					$html5_args{'min'}  = '1';
-					$html5_args{'step'} = '1';
-				}
-				$html5_args{'min'} = $thisfield->{'min'}
-				  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
-				$html5_args{'max'} = $thisfield->{'max'}
-				  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
-				$html5_args{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
+				my $html5_args = $self->_get_html5_args(
+					{
+						required_field => $required_field,
+						field          => $field,
+						thisfield      => $thisfield
+					}
+				);
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
 				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-				my $field_id = "field_$field";    #Prefix ids or they may conflict, e.g. with sample field.
 				my $title_attribute = $title ? qq( title="$title") : q();
-				my $for =
-				  ( none { $field eq $_ } qw (curator date_entered datestamp) )
-				  ? qq( for="field_$field")
-				  : q();
+				my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
+				my $for = $no_label_field{$field} ? q() : qq( for="field_$field");
 				print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
 				print $label;
 				print ':';
 				print '!' if $required;
 				say q(</label>);
+				my $methods = {
+					update_id        => '_print_id_no_update',
+					optlist          => '_print_optlist',
+					bool             => '_print_bool',
+					datestamp        => '_print_datestamp',
+					date_entered     => '_print_date_entered',
+					curator          => '_print_curator',
+					sender_submitter => '_print_sender_when_submitting',
+					user_field       => '_print_user',
+					long_text_field  => '_print_long_text_field',
+					default_field    => '_print_default_field'
+				};
 
-				if ( $field eq 'id' && $q->param('page') eq 'isolateUpdate' ) {
-					say qq(<b>$newdata->{'id'}</b>);
-					say $q->hidden('id');
-				} elsif ( $thisfield->{'optlist'} ) {
-					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					say $q->popup_menu(
-						-name    => $field,
-						-id      => $field_id,
-						-values  => [ '', @$optlist ],
-						-labels  => { '' => ' ' },
-						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
-						%html5_args
-					);
-				} elsif ( $thisfield->{'type'} eq 'bool' ) {
-					my %bool_convert = ( 1 => 'true', 0 => 'false' );
-					say $q->popup_menu(
-						-name   => $field,
-						-id     => $field_id,
-						-values => [ '', 'true', 'false' ],
-						-default => ( $bool_convert{ $newdata->{ lc($field) } } // $thisfield->{'default'} )
-					);
-				} elsif ( lc($field) eq 'datestamp' ) {
-					say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
-				} elsif ( lc($field) eq 'date_entered' ) {
-					if ( $options->{'update'} ) {
-						say "<b>$newdata->{'date_entered'}</b>";
-						say $q->hidden( 'date_entered', $newdata->{'date_entered'} );
-					} else {
-						say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
-					}
-				} elsif ( lc($field) eq 'curator' ) {
-					say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ')</b>';
-				} elsif ( lc($field) eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'} ) {
-					say '<b>' . $self->get_curator_name . ' (' . $self->{'username'} . ')</b>';
-				} elsif ( lc($field) eq 'sender'
-					|| lc($field) eq 'sequenced_by'
-					|| ( $thisfield->{'userfield'} // '' ) eq 'yes' )
+				foreach my $condition (
+					qw(update_id optlist bool datestamp date_entered curator sender_submitter
+					user_field long_text_field default_field)
+				  )
 				{
-					say $q->popup_menu(
-						-name    => $field,
-						-id      => $field_id,
-						-values  => [ '', @$users ],
-						-labels  => $user_labels,
-						-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
-						%html5_args
-					);
-				} else {
-					if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
-						say $q->textarea(
-							-name    => $field,
-							-id      => $field_id,
-							-rows    => 3,
-							-cols    => 40,
-							-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
-							%html5_args
-						);
-					} else {
-						say $self->textfield(
-							name      => $field,
-							id        => $field_id,
-							size      => $thisfield->{'length'},
-							maxlength => $thisfield->{'length'},
-							value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
-							%html5_args
-						);
+					my $method = $methods->{$condition};
+					my $args   = {
+						newdata    => $newdata,
+						field      => $field,
+						thisfield  => $thisfield,
+						html5_args => $html5_args,
+						update     => $options->{'update'},
+						user_info  => $user_info
+					};
+					if ( $self->$method($args) ) {
+						last;
 					}
 				}
 				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
@@ -467,8 +437,8 @@ sub print_provenance_form_elements {
 					say qq(<a class="tooltip" title="$thisfield->{'comments'}">)
 					  . q(<span class="fa fa-info-circle"></span></a>);
 				}
-				if ( ( none { lc($field) eq $_ } qw(datestamp date_entered) ) && lc( $thisfield->{'type'} ) eq 'date' )
-				{
+				my %special_date_field = map { $_ => 1 } qw(datestamp date_entered);
+				if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
 					say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
 				}
 				say q(</li>);
@@ -517,6 +487,170 @@ sub print_provenance_form_elements {
 		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
 	}
 	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_id_no_update {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self,  $args )    = @_;
+	my ( $field, $newdata ) = @{$args}{qw(field newdata)};
+	my $q = $self->{'cgi'};
+	if ( $field eq 'id' && $q->param('page') eq 'isolateUpdate' ) {
+		say qq(<b>$newdata->{'id'}</b>);
+		say $q->hidden('id');
+		return 1;
+	}
+	return;
+}
+
+sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
+	if ( $thisfield->{'optlist'} ) {
+		my $q       = $self->{'cgi'};
+		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		say $q->popup_menu(
+			-name    => $field,
+			-id      => "field_$field",
+			-values  => [ '', @$optlist ],
+			-labels  => { '' => ' ' },
+			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+			%$html5_args
+		);
+		return 1;
+	}
+	return;
+}
+
+sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
+	if ( $thisfield->{'type'} eq 'bool' ) {
+		my $q = $self->{'cgi'};
+		my %bool_convert = ( 1 => 'true', 0 => 'false' );
+		say $q->popup_menu(
+			-name    => $field,
+			-id      => "field_$field",
+			-values  => [ '', 'true', 'false' ],
+			-default => ( $bool_convert{ $newdata->{ lc($field) } // q() } // $thisfield->{'default'} )
+		);
+		return 1;
+	}
+	return;
+}
+
+sub _print_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
+	if ( lc($field) eq 'datestamp' ) {
+		say '<b>' . BIGSdb::Utils::get_datestamp() . '</b>';
+		return 1;
+	}
+	return;
+}
+
+sub _print_date_entered {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $update ) = @{$args}{qw(field newdata update)};
+	if ( lc($field) eq 'date_entered' ) {
+		if ($update) {
+			my $q = $self->{'cgi'};
+			say qq(<b>$newdata->{'date_entered'}</b>);
+			say $q->hidden( 'date_entered' => $newdata->{'date_entered'} );
+		} else {
+			my $datestamp = BIGSdb::Utils::get_datestamp();
+			say qq(<b>$datestamp</b>);
+		}
+		return 1;
+	}
+	return;
+}
+
+sub _print_curator {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ($field) = @{$args}{qw(field )};
+	if ( lc($field) eq 'curator' ) {
+		my $name = $self->get_curator_name;
+		say qq(<b>$name ($self->{'username'})</b>);
+		return 1;
+	}
+	return;
+}
+
+sub _print_sender_when_submitting {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $update, $user_info ) = @{$args}{qw(field update user_info)};
+	if (   lc($field) eq 'sender'
+		&& $user_info->{'status'} eq 'submitter'
+		&& !$update )
+	{
+		my $name = $self->get_curator_name;
+		say qq(<b>$name ($self->{'username'})</b>);
+		return 1;
+	}
+	return;
+}
+
+sub _print_user {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield, $html5_args, $user_info ) =
+	  @{$args}{qw(field newdata thisfield html5_args user_info)};
+	if (   lc($field) eq 'sender'
+		|| lc($field) eq 'sequenced_by'
+		|| ( $thisfield->{'userfield'} // '' ) eq 'yes' )
+	{
+		my ( $users, $user_labels );
+		if ( $user_info->{'status'} eq 'submitter' ) {
+			( $users, $user_labels ) =
+			  $self->{'datastore'}->get_users( { same_user_group => 1, user_id => $user_info->{'id'} } );
+		} else {
+			( $users, $user_labels ) = $self->{'datastore'}->get_users;
+		}
+		$user_labels->{''} = ' ';
+		my $q = $self->{'cgi'};
+		say $q->popup_menu(
+			-name    => $field,
+			-id      => "field_$field",
+			-values  => [ '', @$users ],
+			-labels  => $user_labels,
+			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+			%$html5_args
+		);
+		return 1;
+	}
+}
+
+sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield, $html5_args ) =
+	  @{$args}{qw(field newdata thisfield html5_args)};
+	if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
+		my $q = $self->{'cgi'};
+		say $q->textarea(
+			-name    => $field,
+			-id      => "field_$field",
+			-rows    => 3,
+			-cols    => 40,
+			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+			%$html5_args
+		);
+		return 1;
+	}
+	return;
+}
+
+sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield, $html5_args ) =
+	  @{$args}{qw(field newdata thisfield html5_args)};
+	my $q = $self->{'cgi'};
+	say $self->textfield(
+		name      => $field,
+		id        => "field_$field",
+		size      => $thisfield->{'length'},
+		maxlength => $thisfield->{'length'},
+		value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
+		%$html5_args
+	);
 	return;
 }
 
