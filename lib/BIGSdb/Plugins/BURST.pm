@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,9 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use constant PI => 3.141592654;
 
+#This code is a translation of C++ code written by a third party - it is not going to be
+#modified further to conform to Perl policies so switch off critic warnings.
+##no critic (ProhibitExcessComplexity,ProhibitDeepNests)
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
@@ -187,7 +190,8 @@ sub _run_burst {
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
 	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
 	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
-	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) = $self->_get_profile_array( $scheme_id, $pk, $list );
+	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) =
+	  $self->_get_profile_array( $scheme_id, $pk, $list );
 	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $locus_count, $num_profiles, $profiles_ref );
 	if ($error) {
 		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
@@ -200,7 +204,7 @@ sub _run_burst {
 	}
 	$self->_recursive_search(
 		{
-			locus_count             => $locus_count,
+			locus_count      => $locus_count,
 			num_profiles     => $num_profiles,
 			profiles_ref     => $profiles_ref,
 			matrix_ref       => $matrix_ref,
@@ -217,7 +221,7 @@ sub _get_profile_array {
 	my %st_frequency;
 	my $num_profiles = 0;
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $locus_count = @$loci;
+	my $locus_count  = @$loci;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $i = 0;
 		foreach my $st (@$list) {
@@ -878,12 +882,14 @@ sub _draw_spokes {
 	for my $at ( 0 .. $noAT ) {
 
 		for my $run ( 0 .. 4 ) {
-			my ( $anchor, $satellite );
-			if    ( $run == 0 ) { $anchor = 2; $satellite = 1 }
-			elsif ( $run == 1 ) { $anchor = 1; $satellite = 2 }
-			elsif ( $run == 2 ) { $anchor = 2; $satellite = 2 }
-			elsif ( $run == 3 ) { $anchor = 3; $satellite = 1 }
-			else                { $anchor = 3; $satellite = 2 }
+			my $run_vars = {
+				0 => [ 2, 1 ],
+				1 => [ 1, 2 ],
+				2 => [ 2, 2 ],
+				3 => [ 3, 1 ],
+				4 => [ 3, 2 ]
+			};
+			my ( $anchor, $satellite ) = @{ $run_vars->{$run} };
 			my ( @thisgo, $distance );
 			for my $k ( 0 .. $num_sts - 1 ) {
 				my ( $textOffset, $xOffset, $yOffset ) = ( 0, 0, 0 );
