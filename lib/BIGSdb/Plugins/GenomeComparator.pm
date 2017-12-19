@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.2.0',
+		version     => '2.2.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -506,7 +506,16 @@ sub _analyse_by_loci {
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
-		$self->_generate_excel_file( $job_id, 0, $ids, $scan_data, $dismat, $core_buffers );
+		$self->_generate_excel_file(
+			{
+				job_id    => $job_id,
+				by_ref    => 0,
+				ids       => $ids,
+				scan_data => $scan_data,
+				dismat    => $dismat,
+				core      => $core_buffers
+			}
+		);
 		$file_buffer .= $self->_get_text_output( 0, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
 	}
@@ -576,7 +585,16 @@ sub _analyse_by_reference {
 		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
-		$self->_generate_excel_file( $job_id, 1, $ids, $scan_data, $dismat, $core_buffers );
+		$self->_generate_excel_file(
+			{
+				job_id    => $job_id,
+				by_ref    => 1,
+				ids       => $ids,
+				scan_data => $scan_data,
+				dismat    => $dismat,
+				core      => $core_buffers
+			}
+		);
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
@@ -1395,7 +1413,8 @@ sub _run_infoalign {
 }
 
 sub _generate_excel_file {
-	my ( $self, $job_id, $by_ref, $ids, $scan_data, $dismat, $core ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $job_id, $by_ref, $ids, $scan_data, $dismat, $core ) = @{$args}{qw(job_id by_ref ids scan_data dismat core)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating Excel file' } );
 	open( my $excel_fh, '>', \my $excel )
 	  || $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
@@ -1435,14 +1454,8 @@ sub _generate_excel_file {
 	);
 	$formats->{'normal'}     = $workbook->add_format( align => 'center' );
 	$formats->{'left-align'} = $workbook->add_format( align => 'left' );
-	my $args = {
-		workbook  => $workbook,
-		formats   => $formats,
-		job_id    => $job_id,
-		by_ref    => $by_ref,
-		ids       => $ids,
-		scan_data => $scan_data
-	};
+	$args->{'workbook'}      = $workbook;
+	$args->{'formats'}       = $formats;
 	my $locus_set = {
 		'all'             => $scan_data->{'loci'},
 		'variable'        => $scan_data->{'variable'},
