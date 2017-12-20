@@ -19,8 +19,8 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
 #NOTE: This plugin requires that the isolate table has a country field with
-#a defined list of allowed values, and an integer year field. Values used in 
-#the country field should match those found at 
+#a defined list of allowed values, and an integer year field. Values used in
+#the country field should match those found at
 #https://developers.google.com/public-data/docs/canonical/countries_csv, or be
 #mapped with values in the Microreact::_get_mapped_countries() method.
 package BIGSdb::Plugins::Microreact;
@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext          => 'Microreact',
 		menutext            => 'Microreact',
 		module              => 'Microreact',
-		version             => '1.0.0',
+		version             => '1.0.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -171,7 +171,8 @@ sub _create_tsv_file {
 			if ( $mapped->{ $record->{'country'} } ) {
 				$record->{'country'} = $mapped->{ $record->{'country'} };
 			} else {
-				$logger->error("$record->{'country'} is not an allowed country");
+				$logger->error("$record->{'country'} is not an allowed country")
+				  if $record->{'country'} ne q();
 			}
 		}
 		my @record_values;
