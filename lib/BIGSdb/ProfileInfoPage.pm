@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2017, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,85 +85,97 @@ sub print_content {
 		say q(<div class="scrollable">);
 		$self->_print_profile( $scheme_id, $profile_id );
 		say $self->_get_ref_links( $scheme_id, $profile_id );
-		my $clients =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?',
-			$scheme_id, { fetch => 'all_arrayref' } );
-		my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
-		if (@$clients) {
-			my $buffer;
-			foreach my $client (@$clients) {
-				my ( $client_dbase_id, $client_scheme_id ) = @$client;
-				my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
-				my %alleles;
-				foreach my $locus (@$loci) {
-					my ( $c_locus, $c_alias ) = $self->{'datastore'}->run_query(
-						'SELECT locus,locus_alias FROM client_dbase_loci WHERE (client_dbase_id,locus)=(?,?)',
-						[ $client_dbase_id, $locus ],
-						{ cache => 'ProfileInfoPage::client_dbase_loci' }
-					);
-					if ($c_locus) {
-						$alleles{ $c_alias || $c_locus } = $data->{'profile'}->[ $indices->{$locus} ]
-						  if $data->{'profile'}->[ $indices->{$locus} ] ne 'N';
-					}
-				}
-				my $count;
-				if ( !( scalar keys %alleles ) ) {
-					$logger->error('No client database loci have been set.');
-					$count = 0;
-				} else {
-					$count =
-					  $self->{'datastore'}->get_client_db($client_dbase_id)->count_matching_profiles( \%alleles );
-				}
-				if ($count) {
-					my $plural = $count == 1 ? '' : 's';
-					$buffer .= "<dt>$client_info->{'name'}</dt>\n";
-					$buffer .= "<dd>$client_info->{'description'} ";
-					if ( $client_info->{'url'} ) {
-						my $c_scheme_id = $client_scheme_id // $scheme_id;
-						my %params = (
-							db                    => $client_info->{'dbase_config_name'},
-							page                  => 'query',
-							designation_field1    => "s_$c_scheme_id\_$primary_key",
-							designation_operator1 => '=',
-							designation_value1    => $profile_id,
-							order                 => 'id',
-							submit                => 1
-						);
-						my @action_params;
-						foreach ( keys %params ) {
-							$q->param( $_, $params{$_} );
-							push @action_params, "$_=$params{$_}";
-						}
-						local $" = '&';
-
-						#We have to pass the parameters in the action clause as
-						#mod_rewrite can strip out post params.
-						$buffer .= $q->start_form(
-							-action => "$client_info->{'url'}?@action_params",
-							-method => 'post',
-							-style  => 'display:inline'
-						);
-						$buffer .= $q->hidden($_)
-						  foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
-						$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
-						$buffer .= $q->end_form;
-					}
-					$buffer .= "</dd>\n";
-				}
-			}
-			if ($buffer) {
-				my $plural = @$clients > 1 ? 's' : '';
-				say qq(<h2>Client database$plural</h2>);
-				say q(<dl class="data">);
-				say $buffer;
-				say q(</dl>);
-			}
-		}
+		$self->_print_client_db_links( $scheme_id, $profile_id );
 		say q(</div>);
 	}
 	say q(</div>);
+	return;
+}
+
+sub _print_client_db_links {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $clients =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref' } );
+	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	return if !@$clients;
+	my $q           = $self->{'cgi'};
+	my $set_id      = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $data        = $self->{'datastore'}
+	  ->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
+	my $buffer;
+
+	foreach my $client (@$clients) {
+		my ( $client_dbase_id, $client_scheme_id ) = @$client;
+		my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
+		my %alleles;
+		foreach my $locus (@$loci) {
+			my ( $c_locus, $c_alias ) = $self->{'datastore'}->run_query(
+				'SELECT locus,locus_alias FROM client_dbase_loci WHERE (client_dbase_id,locus)=(?,?)',
+				[ $client_dbase_id, $locus ],
+				{ cache => 'ProfileInfoPage::client_dbase_loci' }
+			);
+			if ($c_locus) {
+				$alleles{ $c_alias || $c_locus } = $data->{'profile'}->[ $indices->{$locus} ]
+				  if $data->{'profile'}->[ $indices->{$locus} ] ne 'N';
+			}
+		}
+		my $count;
+		if ( !( scalar keys %alleles ) ) {
+			$logger->error('No client database loci have been set.');
+			$count = 0;
+		} else {
+			$count =
+			  $self->{'datastore'}->get_client_db($client_dbase_id)->count_matching_profiles( \%alleles );
+		}
+		if ($count) {
+			my $plural = $count == 1 ? q() : q(s);
+			$buffer .= qq(<dt>$client_info->{'name'}</dt>\n);
+			$buffer .= qq(<dd>$client_info->{'description'} );
+			if ( $client_info->{'url'} ) {
+				my $c_scheme_id = $client_scheme_id // $scheme_id;
+				my %params = (
+					db                    => $client_info->{'dbase_config_name'},
+					page                  => 'query',
+					designation_field1    => "s_$c_scheme_id\_$primary_key",
+					designation_operator1 => '=',
+					designation_value1    => $profile_id,
+					order                 => 'id',
+					submit                => 1
+				);
+				my @action_params;
+				foreach my $param ( keys %params ) {
+					$q->param( $param, $params{$param} );
+					push @action_params, "$param=$params{$param}";
+				}
+				local $" = '&';
+
+				#We have to pass the parameters in the action clause as
+				#mod_rewrite can strip out post params.
+				$buffer .= $q->start_form(
+					-action => "$client_info->{'url'}?@action_params",
+					-method => 'post',
+					-style  => 'display:inline'
+				);
+				$buffer .= $q->hidden($_)
+				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
+				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
+				$buffer .= $q->end_form;
+			}
+			$buffer .= qq(</dd>\n);
+		}
+	}
+	if ($buffer) {
+		my $plural = @$clients > 1 ? q(s) : q();
+		say qq(<h2>Client database$plural</h2>);
+		say q(<dl class="data">);
+		say $buffer;
+		say q(</dl>);
+	}
 	return;
 }
 
@@ -328,7 +340,7 @@ sub get_title {
 	}
 	my $title = q(Profile information);
 	$title .= qq(: $scheme_info->{'primary_key'}-$profile_id) if $scheme_info->{'primary_key'} && defined $profile_id;
-	$title .= qq( ($scheme_info->{'name'}))            if $scheme_info->{'name'};
+	$title .= qq( ($scheme_info->{'name'}))                   if $scheme_info->{'name'};
 	$title .= qq( - $self->{'system'}->{'description'});
 	return $title;
 }
