@@ -435,6 +435,16 @@ sub _get_user_table_values {
 	return $values;
 }
 
+#Prevent SQL injection attempts.
+sub _sanitize_order_field {
+	my ( $self, $table ) = @_;
+	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
+	my $q = $self->{'cgi'};
+	my %allowed = map { $_ => 1 } @$order_by;
+	$q->delete('order') if defined $q->param('order') && !$allowed{ $q->param('order') };
+	return;
+}
+
 sub _run_query {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -445,10 +455,7 @@ sub _run_query {
 	my $errors     = [];
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
-	my ( undef, undef, $order_by, undef ) = $self->_get_select_items($table);
-	$q->delete('order')
-	  if defined $q->param('order') && none { $q->param('order') eq $_ }
-	@$order_by;    #Sanitize to prevent SQL injection attempts.
+	$self->_sanitize_order_field($table);
 
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $errors ) = $self->_generate_query($table);
@@ -459,65 +466,19 @@ sub _run_query {
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
-		if (   ( $q->param('scheme_id_list') // '' ) ne ''
-			&& BIGSdb::Utils::is_int( $q->param('scheme_id_list') )
-			&& any { $table eq $_ }
-			qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations) )
-		{
-			#Don't do this for allele_sequences as this has its own method
-			my $scheme_id = $q->param('scheme_id_list');
-			my ( $identifier, $field );
-			my %set_id_and_field = (
-				loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
-				allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
-				schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
-			);
-			if ( $set_id_and_field{$table} ) {
-				$set_id_and_field{$table}->();
-			} else {
-				( $identifier, $field ) = ( 'scheme_id', 'scheme_id' );
-			}
-			if ( $q->param('scheme_id_list') eq '0' ) {
-				my $set_clause =
-				  $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-				$qry2 = "SELECT * FROM $table WHERE $identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
-			} else {
-				$qry2 = "SELECT * FROM $table WHERE $identifier IN (SELECT $field FROM scheme_members "
-				  . "WHERE scheme_id = $scheme_id)";
-			}
-			if ($qry) {
-				$qry2 .= " AND ($qry)";
-			}
-		} elsif ( $q->param('experiment_list')
-			&& $q->param('experiment_list') ne ''
-			&& ( $table eq 'sequence_bin' ) )
-		{
-			my $experiment = $q->param('experiment_list');
-			if ( BIGSdb::Utils::is_int($experiment) ) {
-				$qry2 = 'SELECT * FROM sequence_bin LEFT JOIN experiment_sequences ON sequence_bin.id = '
-				  . "experiment_sequences.seqbin_id WHERE experiment_id = $experiment";
-				$qry2 .= " AND ($qry)" if $qry;
-			} else {
-				$qry2 = "SELECT * FROM $table WHERE ($qry)";
-			}
-		} elsif ( $table eq 'locus_descriptions' && $q->param('common_name_list') ne '' ) {
-			my $common_name = $q->param('common_name_list');
-			$common_name =~ s/'/\\'/gx;
-			$qry2 = 'SELECT * FROM locus_descriptions LEFT JOIN loci ON loci.id = locus_descriptions.locus '
-			  . "WHERE common_name = E'$common_name'";
-			$qry2 .= " AND ($qry)" if $qry;
-		} elsif ( $table eq 'allele_sequences' ) {
-			$qry2 = $self->_process_allele_sequences_filters($qry);
-		} elsif ( $table eq 'sequences' ) {
-			$qry2 = $self->_process_sequences_filters($qry);
-		} else {
-			$qry ||= '';
-			$qry2 = "SELECT * FROM $table WHERE ($qry)";
-		}
+		$self->_filter_query_by_scheme( $table, \$qry );
+		$self->_filter_query_by_experiment( $table, \$qry );
+		$self->_filter_query_by_common_name( $table, \$qry );
+		$self->_filter_query_by_sequence_filters( $table, \$qry );
+		$self->_filter_query_by_allele_definition_filters( $table, \$qry );
+		$qry //= '1=1';    #So that we always have a WHERE clause even with no arguments selected.
+		$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		$qry2 = $self->_process_dropdown_filters( $qry2, $table, $attributes );
+
 		if ( $table eq 'sequences' ) {
-			$qry2 .=
-			  " AND $table.allele_id NOT IN ('0', 'N')"; #Alleles can be set to 0 or N for arbitrary profile definitions
+
+			#Alleles can be set to 0 or N for arbitrary profile definitions
+			$qry2 .= " AND $table.allele_id NOT IN ('0', 'N')";
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;
@@ -542,35 +503,172 @@ sub _run_query {
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
 	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@$errors) {
-		local $" = '<br />';
+		local $" = q(<br />);
 		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
 		say qq(<p>@$errors</p></div>);
-	} elsif ( $qry2 !~ /\(\)/x ) {
+	} else {
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} else {
-		$qry = "SELECT * FROM $table";
+	} 
+	return;
+}
 
-		#Alleles can be set to 0 or N for arbitrary profile definitions
-		if ( $table eq 'sequences' ) {
-			$qry .= " WHERE $table.allele_id NOT IN ('0', 'N')";
+sub _filter_query_by_scheme {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+	return if ( $q->param('scheme_id_list') // '' ) eq '';
+	return if !BIGSdb::Utils::is_int( $q->param('scheme_id_list') );
+	my %allowed_tables =
+	  map { $_ => 1 } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations);
+	return if !$allowed_tables{$table};
+	my $sub_qry;
+
+	#Don't do this for allele_sequences as this has its own method
+	my $scheme_id = $q->param('scheme_id_list');
+	my ( $identifier, $field );
+	my %set_id_and_field = (
+		loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
+		allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
+		schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
+	);
+	if ( $set_id_and_field{$table} ) {
+		$set_id_and_field{$table}->();
+	} else {
+		( $identifier, $field ) = ( 'scheme_id', 'scheme_id' );
+	}
+	my $set_id = $self->get_set_id;
+	if ( $q->param('scheme_id_list') eq '0' ) {
+		my $set_clause = $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
+		$sub_qry = "$identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
+	} else {
+		$sub_qry = "$identifier IN (SELECT $field FROM scheme_members WHERE scheme_id = $scheme_id)";
+	}
+	if ($$qry_ref) {
+		$$qry_ref .= " AND ($sub_qry)";
+	} else {
+		$$qry_ref = "($sub_qry)";
+	}
+	return;
+}
+
+sub _filter_query_by_experiment {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+	return if ( $q->param('experiment_list') // q() ) eq q();
+	return if $table ne 'sequence_bin';
+	my $experiment = $q->param('experiment_list');
+	if ( BIGSdb::Utils::is_int($experiment) ) {
+		my $sub_qry = 'sequence_bin.id IN (SELECT id FROM sequence_bin JOIN experiment_sequences ON sequence_bin.id = '
+		  . "experiment_sequences.seqbin_id WHERE experiment_id = $experiment)";
+		if ($$qry_ref) {
+			$$qry_ref .= " AND ($sub_qry)";
+		} else {
+			$$qry_ref = "($sub_qry)";
 		}
-		$qry .= " ORDER BY $table.";
-		my $default_order;
-		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
-		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
-		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
-		else                                  { $default_order = 'id' }
-		$qry .= $q->param('order') || $default_order;
-		my $dir = $q->param('direction') eq 'descending' ? 'desc' : 'asc';
-		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
-		local $" = ",$table.";
-		$qry .= " $dir,$table.@primary_keys;";
-		$qry =~ s/sequences.sequence_length/length(sequences.sequence)/gx;
-		my $args = { table => $table, query => $qry, hidden_attributes => \@hidden_attributes };
-		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
-		$self->paged_display($args);
+	}
+	return;
+}
+
+sub _filter_query_by_common_name {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+	return if $table ne 'locus_descriptions';
+	return if ( $q->param('common_name_list') // q() ) eq q();
+	my $common_name = $q->param('common_name_list');
+	$common_name =~ s/'/\\'/gx;
+	my $sub_qry =
+	    'locus_descriptions.locus IN (SELECT locus FROM locus_descriptions JOIN loci ON loci.id = '
+	  . "locus_descriptions.locus WHERE common_name = E'$common_name')";
+	if ($$qry_ref) {
+		$$qry_ref .= " AND ($sub_qry)";
+	} else {
+		$$qry_ref = "($sub_qry)";
+	}
+	return;
+}
+
+sub _filter_query_by_sequence_filters {
+	my ( $self, $table, $qry_ref ) = @_;
+	return if $table ne 'allele_sequences';
+	my $q = $self->{'cgi'};
+	my $qry2;
+	my @clauses;
+	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
+		if ( $q->param('sequence_flag_list') ne '' ) {
+			my $flag_qry;
+			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
+				$flag_qry = 'allele_sequences.id IN (SELECT allele_sequences.id FROM allele_sequences '
+				  . 'LEFT JOIN sequence_flags ON sequence_flags.id = allele_sequences.id WHERE flag IS NULL)';
+			} else {
+				$flag_qry =
+				    'allele_sequences.id IN (SELECT allele_sequences.id FROM allele_sequences JOIN sequence_flags ON '
+				  . 'sequence_flags.id = allele_sequences.id';
+				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
+					my $flag = $q->param('sequence_flag_list');
+					$flag_qry .= qq( WHERE flag = '$flag');
+				}
+				$flag_qry .= ')';
+			}
+			push @clauses, $flag_qry;
+		}
+		if ( $q->param('duplicates_list') ne '' ) {
+			my $match = BIGSdb::Utils::is_int( $q->param('duplicates_list') ) ? $q->param('duplicates_list') : 1;
+			my $not = $match == 1 ? 'NOT' : '';
+
+			#no dups == NOT 2 or more
+			$match = 2 if $match == 1;
+			my $dup_qry =
+			    'allele_sequences.id IN (SELECT allele_sequences.id WHERE '
+			  . "(allele_sequences.locus,allele_sequences.isolate_id) $not IN (SELECT "
+			  . "locus,isolate_id FROM allele_sequences GROUP BY locus,isolate_id HAVING count(*)>=$match))";
+			push @clauses, $dup_qry;
+		}
+		if ( $q->param('scheme_id_list') ne '' ) {
+			my $scheme_qry;
+			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( $q->param('scheme_id_list') ) ) {
+				$scheme_qry = 'allele_sequences.locus NOT IN (SELECT locus FROM scheme_members)';
+			} else {
+				my $scheme_id = $q->param('scheme_id_list');
+				$scheme_qry =
+				    'allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM '
+				  . 'allele_sequences JOIN scheme_members ON allele_sequences.locus = scheme_members.locus '
+				  . "WHERE scheme_id=$scheme_id)";
+			}
+			push @clauses, $scheme_qry;
+		}
+	}
+	return if !@clauses;
+	local $" = ') AND (';
+	if ($$qry_ref) {
+		$$qry_ref .= " AND (@clauses)";
+	} else {
+		$$qry_ref = "(@clauses)";
+	}
+	return;
+}
+
+sub _filter_query_by_allele_definition_filters {
+	my ( $self, $table, $qry_ref ) = @_;
+	return if $table ne 'sequences';
+	my $q = $self->{'cgi'};
+	return if ( $q->param('allele_flag_list') // '' ) eq '';
+	return if ( $self->{'system'}->{'allele_flags'} // '' ) ne 'yes';
+	my $sub_qry;
+	if ( $q->param('allele_flag_list') eq 'no flag' ) {
+		$sub_qry = '(sequences.locus,sequences.allele_id) NOT IN (SELECT locus,allele_id FROM allele_flags)';
+	} else {
+		$sub_qry = '(sequences.locus,sequences.allele_id) IN (SELECT locus,allele_id FROM allele_flags';
+		if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
+			my $flag = $q->param('allele_flag_list');
+			$sub_qry .= qq( WHERE flag = '$flag');
+		}
+		$sub_qry .= ')';
+	}
+	if ($$qry_ref) {
+		$$qry_ref .= " AND ($sub_qry)";
+	} else {
+		$$qry_ref = "($sub_qry)";
 	}
 	return;
 }
@@ -647,12 +745,18 @@ sub _check_invalid_fieldname {
 		  ->run_query( q(SELECT 'ext_'||key FROM sequence_attributes), undef, { fetch => 'col_arrayref' } );
 	}
 	my $additional = {
-		sequences          => [ qw(sequence_length), @sender_fields ],
-		sequence_bin       => [ @$extended,          @sender_fields ],
-		allele_sequences   => [qw(isolate)],
-		user_group_members => [@user_fields],
-		profile_history    => ['timestamp (date)'],
-		history            => ['timestamp (date)'],
+		sequences => [ qw(sequence_length), @sender_fields ],
+		sequence_bin => [ @$extended, @sender_fields, $self->{'system'}->{'labelfield'} ],
+		allele_designations  => [ $self->{'system'}->{'labelfield'} ],
+		allele_sequences     => [ $self->{'system'}->{'labelfield'} ],
+		project_members      => [ $self->{'system'}->{'labelfield'} ],
+		history              => [ $self->{'system'}->{'labelfield'} ],
+		isolate_aliases      => [ $self->{'system'}->{'labelfield'} ],
+		refs                 => [ $self->{'system'}->{'labelfield'} ],
+		experiment_sequences => [ 'isolate_id', $self->{'system'}->{'labelfield'} ],
+		user_group_members   => [@user_fields],
+		profile_history      => ['timestamp (date)'],
+		history              => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]
 	};
 	if ( $additional->{$table} ) {
 		foreach my $field ( @{ $additional->{$table} } ) {
@@ -673,137 +777,332 @@ sub _generate_query {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	my $qry;
-	my @errors;
+	my $errors      = [];
 	my $andor       = $q->param('c0');
 	my $first_value = 1;
 	my $set_id      = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
-
-		#TODO Sanitise field names.
 		my $field = $q->param("s$i");
-		$self->_check_invalid_fieldname( $table, $field, \@errors );
+		$self->_check_invalid_fieldname( $table, $field, $errors );
 		my $operator = $q->param("y$i") // '=';
 		my $text = $q->param("t$i");
 		$text = $self->_modify_locus_in_sets( $field, $text );
 		$self->process_value( \$text );
 		my ( $thisfield, $clean_fieldname ) = $self->_get_field_attributes( $table, $field );
-
-		#Field may not actually exist in table (e.g. isolate_id in allele_sequences)
-		if ( $thisfield->{'type'} ) {
-			next
-			  if $self->check_format(
-				{
-					field           => $field,
-					text            => $text,
-					type            => lc( $thisfield->{'type'} ),
-					operator        => $operator,
-					clean_fieldname => $clean_fieldname
-				},
-				\@errors
-			  );
-		} elsif ( $field =~ /(.*)\ \(id\)$/x || $field eq 'isolate_id' ) {
-			next
-			  if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator },
-				\@errors );
-		}
+		next
+		  if $self->_is_field_value_invalid(
+			{
+				field           => $field,
+				thisfield       => $thisfield,
+				clean_fieldname => $clean_fieldname,
+				text            => $text,
+				operator        => $operator,
+				errors          => $errors
+			}
+		  );
 		my $modifier = ( $i > 1 && !$first_value ) ? qq( $andor ) : q();
 		$first_value = 0;
-		my %table_without_isolate_id = map { $_ => 1 } qw (allele_sequences experiment_sequences);
-		if ( $table_without_isolate_id{$table} && $field eq 'isolate_id' ) {
-			$qry .= $modifier . $self->_search_by_isolate_id( $table, $operator, $text );
-			next;
-		}
-		if ( $table eq 'sequence_bin' && $field =~ /^ext_/x ) {
-			$qry .= $modifier
-			  . $self->_modify_search_by_sequence_attributes( $field, $thisfield->{'type'}, $operator, $text );
-			next;
-		}
-		my %table_linked_to_isolate = map { $_ => 1 }
-		  qw (allele_sequences allele_designations experiment_sequences sequence_bin
-		  project_members isolate_aliases samples history refs);
-		if ( $table_linked_to_isolate{$table} && $field eq $self->{'system'}->{'labelfield'} ) {
-			$qry .= $modifier . $self->_search_by_isolate( $table, $operator, $text );
-			next;
-		}
-		if (
-			any {
-				$field =~ /(.*)\ \($_\)$/x;
-			}
-			qw (id surname first_name affiliation)
-		  )
-		{
-			$qry .= $modifier . $self->search_users( $field, $operator, $text, $table );
-			next;
-		}
-		if ( $field =~ /(.*)\ \(date\)$/x ) {
-			$qry .= $modifier . $self->_search_timestamp_by_date( $1, $operator, $text, $table );
-			next;
-		}
-		$qry .= $modifier;
-		my %methods = (
-			'NOT' => sub {
-				if ( lc($text) eq 'null' ) {
-					$qry .= "$table.$field is not null";
-				} else {
-					$qry .=
-					  $thisfield->{'type'} ne 'text'
-					  ? "(NOT CAST($table.$field AS text) = '$text'"
-					  : "(NOT upper($table.$field) = upper(E'$text')";
-					$qry .= " OR $table.$field IS NULL)";
-				}
-			},
-			'contains' => sub {
-				$qry .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
-				  : "$table.$field ILIKE E'\%$text\%'";
-			},
-			'starts with' => sub {
-				$qry .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "CAST($table.$field AS text) LIKE '$text\%'"
-				  : "$table.$field ILIKE E'$text\%'";
-			},
-			'ends with' => sub {
-				$qry .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "CAST($table.$field AS text) LIKE '\%$text'"
-				  : "$table.$field ILIKE E'\%$text'";
-			},
-			'NOT contain' => sub {
-				$qry .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
-				  : "(NOT $table.$field ILIKE E'\%$text\%'";
-				$qry .= " OR $table.$field IS NULL)";
-			},
-			'=' => sub {
-				if ( $thisfield->{'type'} eq 'text' ) {
-					$qry .=
-					  ( lc($text) eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
-				} else {
-					$qry .= ( lc($text) eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
-				}
-			}
-		);
-		if ( $methods{$operator} ) {
-			$methods{$operator}->();
-		} else {
-			if ( ( $table eq 'sequences' || $table eq 'allele_designations' ) && $field eq 'allele_id' ) {
-				if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
-					$qry .= "CAST($table.$field AS integer)";
-				} else {
-					$qry .= "$table.$field";
-				}
-				$qry .= " $operator E'$text'";
-			} else {
-				$qry .= "$table.$field $operator E'$text'";
-			}
-		}
+		my $args = {
+			table     => $table,
+			field     => $field,
+			text      => $text,
+			modifier  => $modifier,
+			operator  => $operator,
+			thisfield => $thisfield,
+			qry_ref   => \$qry
+		};
+		next if $self->_modify_query_search_by_isolate_id($args);
+		next if $self->_modify_query_extended_attributes($args);
+		next if $self->_modify_query_search_by_isolate($args);
+		next if $self->_modify_query_search_by_users($args);
+		next if $self->_modify_query_search_timestamp_by_date($args);
+		$self->_modify_query_standard_field($args);
 		$qry = $self->_modify_user_fields_in_remote_user_dbs( $qry, $field, $operator, $text );
 	}
-	return ( $qry, \@errors );
+	return ( $qry, $errors );
+}
+
+sub _modify_query_standard_field {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
+	$$qry_ref .= $modifier;
+	my %methods = (
+		'NOT' => sub {
+			if ( lc($text) eq 'null' ) {
+				$$qry_ref .= "$table.$field is not null";
+			} else {
+				$$qry_ref .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "(NOT CAST($table.$field AS text) = '$text'"
+				  : "(NOT upper($table.$field) = upper(E'$text')";
+				$$qry_ref .= " OR $table.$field IS NULL)";
+			}
+		},
+		'contains' => sub {
+			$$qry_ref .=
+			  $thisfield->{'type'} ne 'text'
+			  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
+			  : "$table.$field ILIKE E'\%$text\%'";
+		},
+		'starts with' => sub {
+			$$qry_ref .=
+			  $thisfield->{'type'} ne 'text'
+			  ? "CAST($table.$field AS text) LIKE '$text\%'"
+			  : "$table.$field ILIKE E'$text\%'";
+		},
+		'ends with' => sub {
+			$$qry_ref .=
+			  $thisfield->{'type'} ne 'text'
+			  ? "CAST($table.$field AS text) LIKE '\%$text'"
+			  : "$table.$field ILIKE E'\%$text'";
+		},
+		'NOT contain' => sub {
+			$$qry_ref .=
+			  $thisfield->{'type'} ne 'text'
+			  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
+			  : "(NOT $table.$field ILIKE E'\%$text\%'";
+			$$qry_ref .= " OR $table.$field IS NULL)";
+		},
+		'=' => sub {
+			if ( $thisfield->{'type'} eq 'text' ) {
+				$$qry_ref .=
+				  ( lc($text) eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
+			} else {
+				$$qry_ref .= ( lc($text) eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
+			}
+		}
+	);
+	if ( $methods{$operator} ) {
+		$methods{$operator}->();
+	} else {
+		if ( ( $table eq 'sequences' || $table eq 'allele_designations' ) && $field eq 'allele_id' ) {
+			if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
+				$$qry_ref .= "CAST($table.$field AS integer)";
+			} else {
+				$$qry_ref .= "$table.$field";
+			}
+			$$qry_ref .= " $operator E'$text'";
+		} else {
+			$$qry_ref .= "$table.$field $operator E'$text'";
+		}
+	}
+	return;
+}
+
+sub _modify_query_search_by_isolate_id {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator qry_ref)};
+	my %table_without_isolate_id = map { $_ => 1 } qw (experiment_sequences);
+	if ( $table_without_isolate_id{$table} && $field eq 'isolate_id' ) {
+		$$qry_ref .= $modifier;
+		$$qry_ref .= "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN "
+		  . "$self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+		my %terms = (
+			'NOT'         => "NOT $self->{'system'}->{'view'}.id = $text",
+			'contains'    => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'",
+			'starts with' => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'",
+			'ends with'   => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'",
+			'NOT contain' => "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'"
+		);
+		if ( $terms{$operator} ) {
+			$$qry_ref .= $terms{$operator};
+		} else {
+			$$qry_ref .= "$self->{'system'}->{'view'}.id $operator $text";
+		}
+		$$qry_ref .= ')';
+		return 1;
+	}
+	return;
+}
+
+sub _modify_query_extended_attributes {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
+	if ( $table eq 'sequence_bin' && $field =~ /^ext_/x ) {
+		$$qry_ref .= $modifier;
+		$field =~ s/^ext_//x;
+		if ( lc($text) eq 'null' ) {
+			my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
+			return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
+		}
+		my $not = $operator =~ /NOT/x ? ' NOT' : '';
+		$$qry_ref .= "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
+		my %terms = (
+			'contains'    => "value ILIKE E'%$text%'",
+			'NOT contain' => "value ILIKE E'%$text%'",
+			'starts with' => "value ILIKE E'$text%'",
+			'ends with'   => "value ILIKE E'%$text'",
+			'NOT'         => "UPPER(value) = UPPER(E'$text')",
+			'='           => "UPPER(value) = UPPER(E'$text')"
+		);
+		if ( $terms{$operator} ) {
+			$$qry_ref .= $terms{$operator};
+		} else {
+			if ( $thisfield->{'type'} eq 'integer' ) {
+				$$qry_ref .= "CAST(value AS INT) $operator CAST(E'$text' AS INT)";
+			} elsif ( $thisfield->{'type'} eq 'float' ) {
+				$$qry_ref .= "CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)";
+			} else {
+				$$qry_ref .= "UPPER(value) $operator UPPER(E'$text')";
+			}
+		}
+		$$qry_ref .= ')';
+		return 1;
+	}
+	return;
+}
+
+sub _modify_query_search_by_isolate {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator qry_ref)};
+	my %table_linked_to_isolate = map { $_ => 1 }
+	  qw (allele_sequences allele_designations experiment_sequences sequence_bin
+	  project_members isolate_aliases samples history refs);
+	return if !$table_linked_to_isolate{$table};
+	return if $field ne $self->{'system'}->{'labelfield'};
+	$$qry_ref .= $modifier;
+	my $att = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
+
+	if ( $table eq 'experiment_sequences' ) {
+		$$qry_ref .=
+		    "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
+		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
+	} else {
+		$$qry_ref .= "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
+	}
+	my %methods = (
+		NOT => sub {
+			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
+				$$qry_ref .= "$field is not null";
+			} else {
+				if ( $att->{'type'} eq 'int' ) {
+					$$qry_ref .= "NOT CAST($field AS text) = E'$text'";
+				} else {
+					$$qry_ref .= "NOT upper($field) = upper(E'$text') AND $self->{'system'}->{'view'}.id NOT IN "
+					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))";
+				}
+			}
+		},
+		contains => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$$qry_ref .= "CAST($field AS text) LIKE E'\%$text\%'";
+			} else {
+				$$qry_ref .=
+				  "upper($field) LIKE upper(E'\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
+			}
+		},
+		'starts with' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$$qry_ref .= "CAST($field AS text) LIKE E'$text\%'";
+			} else {
+				$$qry_ref .=
+				    "upper($field) LIKE upper(E'$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'$text\%'))";
+			}
+		},
+		'ends with' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$$qry_ref .= "CAST($field AS text) LIKE E'\%$text'";
+			} else {
+				$$qry_ref .=
+				    "upper($field) LIKE upper(E'\%$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
+				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text'))";
+			}
+		},
+		'NOT contain' => sub {
+			if ( $att->{'type'} eq 'int' ) {
+				$$qry_ref .= "NOT CAST($field AS text) LIKE E'\%$text\%'";
+			} else {
+				$$qry_ref .= "NOT upper($field) LIKE upper(E'\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN "
+				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
+			}
+		},
+		'=' => sub {
+			if ( lc( $att->{'type'} ) eq 'text' ) {
+				$$qry_ref .= (
+					( $text eq '<blank>' || lc($text) eq 'null' )
+					? "$field is null"
+					: "upper($field) = upper(E'$text') OR $self->{'system'}->{'view'}.id IN "
+					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))"
+				);
+			} else {
+				$$qry_ref .=
+				  ( ( $text eq '<blank>' || lc($text) eq 'null' ) ? "$field is null" : "$field = E'$text'" );
+			}
+		}
+	);
+	if ( $methods{$operator} ) {
+		$methods{$operator}->();
+	} else {
+		$$qry_ref .= "$field $operator E'$text'";
+	}
+	$$qry_ref .= ')';
+	return 1;
+}
+
+sub _modify_query_search_by_users {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator qry_ref)};
+	if (
+		any {
+			$field =~ /(.*)\ \($_\)$/x;
+		}
+		qw (id surname first_name affiliation)
+	  )
+	{
+		$$qry_ref .= $modifier . $self->search_users( $field, $operator, $text, $table );
+		return 1;
+	}
+	return;
+}
+
+sub _modify_query_search_timestamp_by_date {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator qry_ref)};
+	if ( $field =~ /(.*)\ \(date\)$/x ) {
+		my $db_field = $1;
+		$$qry_ref .= $modifier;
+		if ( $operator eq 'NOT' ) {
+			$$qry_ref .= "(NOT date($table.$db_field) = '$text')";
+		} else {
+			$$qry_ref .= "(date($table.$db_field) $operator '$text')";
+		}
+		return 1;
+	}
+	return;
+}
+
+sub _is_field_value_invalid {
+	my ( $self, $args ) = @_;
+	my ( $field, $thisfield, $clean_fieldname, $text, $operator, $errors ) =
+	  @{$args}{qw(field thisfield clean_fieldname text operator errors)};
+
+	#Field may not actually exist in table (e.g. isolate_id in allele_sequences)
+	if ( $thisfield->{'type'} ) {
+		return 1
+		  if $self->check_format(
+			{
+				field           => $field,
+				text            => $text,
+				type            => lc( $thisfield->{'type'} ),
+				operator        => $operator,
+				clean_fieldname => $clean_fieldname
+			},
+			$errors
+		  );
+	} elsif ( $field =~ /(.*)\ \(id\)$/x || $field eq 'isolate_id' ) {
+		return 1
+		  if $self->check_format( { field => $field, text => $text, type => 'int', operator => $operator }, $errors );
+	}
+	return;
 }
 
 sub _modify_locus_in_sets {
@@ -937,237 +1236,6 @@ sub print_additional_headerbar_functions {
 	return;
 }
 
-sub _search_by_isolate_id {
-	my ( $self, $table, $operator, $text ) = @_;
-	my $qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN "
-	  . "$self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	my %terms = (
-		'NOT'         => "NOT $self->{'system'}->{'view'}.id = $text",
-		'contains'    => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'",
-		'starts with' => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'",
-		'ends with'   => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'",
-		'NOT contain' => "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'"
-	);
-	if ( $terms{$operator} ) {
-		$qry .= $terms{$operator};
-	} else {
-		$qry .= "$self->{'system'}->{'view'}.id $operator $text";
-	}
-	$qry .= ')';
-	return $qry;
-}
-
-sub _modify_search_by_sequence_attributes {
-	my ( $self, $field, $type, $operator, $text ) = @_;
-	$field =~ s/^ext_//x;
-	if ( lc($text) eq 'null' ) {
-		my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
-		return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
-	}
-	my $not   = $operator =~ /NOT/x ? ' NOT' : '';
-	my $qry   = "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
-	my %terms = (
-		'contains'    => "value ILIKE E'%$text%'",
-		'NOT contain' => "value ILIKE E'%$text%'",
-		'starts with' => "value ILIKE E'$text%'",
-		'ends with'   => "value ILIKE E'%$text'",
-		'NOT'         => "UPPER(value) = UPPER(E'$text')",
-		'='           => "UPPER(value) = UPPER(E'$text')"
-	);
-	if ( $terms{$operator} ) {
-		$qry .= $terms{$operator};
-	} else {
-		if ( $type eq 'integer' ) { $qry .= "CAST(value AS INT) $operator CAST(E'$text' AS INT)" }
-		elsif ( $type eq 'float' ) {
-			$qry .= "CAST(value AS FLOAT) $operator CAST(E'$text' AS FLOAT)";
-		} else {
-			$qry .= "UPPER(value) $operator UPPER(E'$text')";
-		}
-	}
-	$qry .= ')';
-	return $qry;
-}
-
-sub _search_by_isolate {
-	my ( $self, $table, $operator, $text ) = @_;
-	my $att   = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
-	my $field = $self->{'system'}->{'labelfield'};
-	my $qry;
-	if ( $table eq 'allele_sequences' || $table eq 'experiment_sequences' ) {
-		$qry = "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
-		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	} elsif ( $table eq 'sequence_bin' ) {
-		$qry = "sequence_bin.id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
-		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	} elsif (
-		any {
-			$table eq $_;
-		}
-		qw (allele_designations project_members isolate_aliases samples history refs)
-	  )
-	{
-		$qry = "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
-	} else {
-		$logger->error("Invalid table $table");
-		return;
-	}
-	my %methods = (
-		NOT => sub {
-			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
-				$qry .= "$field is not null";
-			} else {
-				if ( $att->{'type'} eq 'int' ) {
-					$qry .= "NOT CAST($field AS text) = E'$text'";
-				} else {
-					$qry .= "NOT upper($field) = upper(E'$text') AND $self->{'system'}->{'view'}.id NOT IN "
-					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))";
-				}
-			}
-		},
-		contains => sub {
-			if ( $att->{'type'} eq 'int' ) {
-				$qry .= "CAST($field AS text) LIKE E'\%$text\%'";
-			} else {
-				$qry .=
-				  "upper($field) LIKE upper(E'\%$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
-			}
-		},
-		'starts with' => sub {
-			if ( $att->{'type'} eq 'int' ) {
-				$qry .= "CAST($field AS text) LIKE E'$text\%'";
-			} else {
-				$qry .=
-				    "upper($field) LIKE upper(E'$text\%') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'$text\%'))";
-			}
-		},
-		'ends with' => sub {
-			if ( $att->{'type'} eq 'int' ) {
-				$qry .= "CAST($field AS text) LIKE E'\%$text'";
-			} else {
-				$qry .=
-				    "upper($field) LIKE upper(E'\%$text') OR $self->{'system'}->{'view'}.id IN (SELECT isolate_id FROM "
-				  . "isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text'))";
-			}
-		},
-		'NOT contain' => sub {
-			if ( $att->{'type'} eq 'int' ) {
-				$qry .= "NOT CAST($field AS text) LIKE E'\%$text\%'";
-			} else {
-				$qry .= "NOT upper($field) LIKE upper(E'\%$text\%') AND $self->{'system'}->{'view'}.id NOT IN "
-				  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) LIKE upper(E'\%$text\%'))";
-			}
-		},
-		'=' => sub {
-			if ( lc( $att->{'type'} ) eq 'text' ) {
-				$qry .= (
-					( $text eq '<blank>' || lc($text) eq 'null' )
-					? "$field is null"
-					: "upper($field) = upper(E'$text') OR $self->{'system'}->{'view'}.id IN "
-					  . "(SELECT isolate_id FROM isolate_aliases WHERE upper(alias) = upper(E'$text'))"
-				);
-			} else {
-				$qry .= ( ( $text eq '<blank>' || lc($text) eq 'null' ) ? "$field is null" : "$field = E'$text'" );
-			}
-		}
-	);
-	if ( $methods{$operator} ) {
-		$methods{$operator}->();
-	} else {
-		$qry .= "$field $operator E'$text'";
-	}
-	$qry .= ')';
-	return $qry;
-}
-
-sub _process_allele_sequences_filters {
-	my ( $self, $qry ) = @_;
-	my $q = $self->{'cgi'};
-	my $qry2;
-	my @conditions;
-	if ( any { $q->param($_) ne '' } qw (sequence_flag_list duplicates_list scheme_id_list) ) {
-		if ( $q->param('sequence_flag_list') ne '' ) {
-			if ( $q->param('sequence_flag_list') eq 'no flag' ) {
-				$qry2 = 'SELECT * FROM allele_sequences LEFT JOIN sequence_flags ON '
-				  . 'sequence_flags.id = allele_sequences.id';
-				push @conditions, 'flag IS NULL';
-			} else {
-				$qry2 = 'SELECT * FROM allele_sequences INNER JOIN sequence_flags ON '
-				  . 'sequence_flags.id = allele_sequences.id';
-				if ( any { $q->param('sequence_flag_list') eq $_ } SEQ_FLAGS ) {
-					push @conditions, q(flag = ') . $q->param('sequence_flag_list') . q(');
-				}
-			}
-		}
-		if ( $q->param('duplicates_list') ne '' ) {
-			my $match = BIGSdb::Utils::is_int( $q->param('duplicates_list') ) ? $q->param('duplicates_list') : 1;
-			my $not = $match == 1 ? 'NOT' : '';
-
-			#no dups == NOT 2 or more
-			$match = 2 if $match == 1;
-			my $dup_qry = " WHERE (allele_sequences.locus,allele_sequences.isolate_id) $not IN (SELECT "
-			  . "locus,isolate_id FROM allele_sequences GROUP BY locus,isolate_id HAVING count(*)>=$match)";
-			if ($qry2) {
-				$qry2 .= $dup_qry;
-			} else {
-				$qry2 = "SELECT * FROM allele_sequences$dup_qry";
-			}
-		}
-		if ( $q->param('scheme_id_list') ne '' ) {
-			my $scheme_qry =
-			    'allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM '
-			  . 'allele_sequences LEFT JOIN scheme_members ON allele_sequences.locus = scheme_members.locus '
-			  . 'WHERE scheme_id';
-			if ( $q->param('scheme_id_list') eq '0' ) {
-				$scheme_qry .= ' IS NULL)';
-			} else {
-				$scheme_qry .= '=' . $q->param('scheme_id_list') . ')';
-			}
-			if ($qry2) {
-				$qry2 .= ( $q->param('duplicates_list') || $q->param('scheme_id_list') ) ? ' AND ' : ' WHERE ';
-				$qry2 .= "($scheme_qry)";
-			} else {
-				$qry2 = "SELECT * FROM allele_sequences WHERE ($scheme_qry)";
-			}
-		}
-		if (@conditions) {
-			local $" = ') AND (';
-			$qry2 .= $q->param('duplicates_list') ne '' ? ' AND' : ' WHERE';
-			$qry2 .= " (@conditions)";
-		}
-		$qry2 .= " AND ($qry)" if $qry;
-	} else {
-		$qry ||= '';
-		$qry2 = "SELECT * FROM allele_sequences WHERE ($qry)";
-	}
-	return $qry2;
-}
-
-sub _process_sequences_filters {
-	my ( $self, $qry ) = @_;
-	my $q = $self->{'cgi'};
-	my $qry2;
-	if ( ( $q->param('allele_flag_list') // '' ) ne '' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		if ( $q->param('allele_flag_list') eq 'no flag' ) {
-			$qry2 = 'SELECT * FROM sequences LEFT JOIN allele_flags ON allele_flags.locus = sequences.locus AND '
-			  . 'allele_flags.allele_id = sequences.allele_id WHERE flag IS NULL';
-		} else {
-			$qry2 = 'SELECT * FROM sequences WHERE EXISTS (SELECT 1 FROM allele_flags WHERE '
-			  . 'sequences.locus=allele_flags.locus AND sequences.allele_id=allele_flags.allele_id';
-			if ( any { $q->param('allele_flag_list') eq $_ } ALLELE_FLAGS ) {
-				$qry2 .= q( AND flag = ') . $q->param('allele_flag_list') . q(');
-			}
-			$qry2 .= ')';
-		}
-		$qry2 .= " AND ($qry)" if $qry;
-	} else {
-		$qry ||= '';
-		$qry2 = "SELECT * FROM sequences WHERE ($qry)";
-	}
-	return $qry2;
-}
-
 #If all loci used have integer allele_ids then cast to int when performing a '<' or '>' query.
 #If not the query has to be treated as text
 sub _are_only_int_allele_ids_used {
@@ -1182,14 +1250,6 @@ sub _are_only_int_allele_ids_used {
 		return 1 if $locus_info->{'allele_id_format'} eq 'integer';
 	}
 	return;
-}
-
-sub _search_timestamp_by_date {
-	my ( $self, $field, $operator, $text, $table ) = @_;
-	if ( $operator eq 'NOT' ) {
-		return "(NOT date($table.$field) = '$text')";
-	}
-	return "(date($table.$field) $operator '$text')";
 }
 
 sub _highest_entered_fields {
