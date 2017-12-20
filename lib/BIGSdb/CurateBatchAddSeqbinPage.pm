@@ -540,7 +540,7 @@ sub _upload {
 			my $isolate_id = $q->param('isolate_id') ? $q->param('isolate_id') : $designation;
 			undef $designation if !$q->param('isolate_id') || $designation eq q();
 			foreach my $field (qw(method run_id assembly_id)) {
-				$q->delete($field) if $q->param($field) eq q();
+				$q->delete($field) if defined $q->param($field) && $q->param($field) eq q();
 			}
 			my @values = (
 				$isolate_id, $seq_ref->{$_},
