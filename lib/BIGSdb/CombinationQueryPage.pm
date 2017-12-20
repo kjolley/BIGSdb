@@ -148,55 +148,7 @@ sub _print_query_interface {
 	}
 	say q(<div class="scrollable">);
 	say $q->start_form;
-	say q(<fieldset id="profile_fieldset" style="float:left"><legend>Please enter your )
-	  . q(allelic profile below. Blank loci will be ignored.</legend>);
-	say q(<table class="queryform">);
-	my $i = 0;
-	my ( $header_row, $form_row );
-	my $all_integers = 1;
-
-	foreach my $locus (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		if ( $locus_info->{'allele_id_format'} ne 'integer' ) {
-			$all_integers = 0;
-			last;
-		}
-	}
-	my $max_per_row = $self->_get_col_width( $primary_key, $all_integers );
-	my @display_loci;
-	my (%label);
-	foreach my $locus (@$loci) {
-		push @display_loci, "l_$locus";
-		my $cleaned_locus = $self->clean_locus($locus);
-		$label{"l_$locus"} = $cleaned_locus;
-		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
-			foreach my $alias (@$locus_aliases) {
-				my $value = "la_$locus||$alias";
-				push @display_loci, $value;
-				$alias =~ tr/_/ /;
-				$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
-			}
-		}
-	}
-	foreach my $locus (@display_loci) {
-		if ( $i == $max_per_row ) {
-			say "<tr>$header_row</tr>";
-			say "<tr>$form_row</tr>";
-			undef $header_row;
-			undef $form_row;
-			$i = 0;
-		}
-		my $class = $all_integers ? 'int_entry' : 'allele_entry';
-		$header_row .= qq(<th class="$class">$label{$locus}</th>);
-		$form_row   .= q(<td>);
-		$form_row   .= $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );
-		$form_row   .= q(</td>);
-		$i++;
-	}
-	say qq(<tr>$header_row</tr>);
-	say qq(<tr>$form_row</tr>);
-	say q(</table></fieldset>);
+	$self->_print_profile_table_fieldset( $scheme_id, $loci );
 	if (
 		$primary_key
 		&& ( ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'dbase_id'} )
@@ -227,10 +179,10 @@ sub _print_query_interface {
 	push @values, 0;
 	foreach my $i ( reverse 1 .. @$loci ) {
 		push @values, $i;
-		$labels{$i} = "$i or more matches";
+		$labels{$i} = qq($i or more matches);
 	}
-	$labels{0} = 'Exact or nearest match';
-	$labels{ scalar @$loci } = 'Exact match only';
+	$labels{0} = q(Exact or nearest match);
+	$labels{ scalar @$loci } = q(Exact match only);
 	say $self->get_filter( 'matches', \@values,
 		{ labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
 	say q(</fieldset>);
@@ -265,9 +217,66 @@ sub _print_query_interface {
 	say q(</div></div>);
 
 	if (@$errors) {
-		local $" = '<br />';
+		local $" = q(<br />);
 		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@$errors</p></div>);
 	}
+	return;
+}
+
+sub _print_profile_table_fieldset {
+	my ( $self, $scheme_id, $loci ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $q           = $self->{'cgi'};
+	say q(<fieldset id="profile_fieldset" style="float:left"><legend>Please enter your )
+	  . q(allelic profile below. Blank loci will be ignored.</legend>);
+	say q(<table class="queryform">);
+	my $i = 0;
+	my ( $header_row, $form_row );
+	my $all_integers = 1;
+
+	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		if ( $locus_info->{'allele_id_format'} ne 'integer' ) {
+			$all_integers = 0;
+			last;
+		}
+	}
+	my $max_per_row = $self->_get_col_width( $primary_key, $all_integers );
+	my @display_loci;
+	my (%label);
+	foreach my $locus (@$loci) {
+		push @display_loci, "l_$locus";
+		my $cleaned_locus = $self->clean_locus($locus);
+		$label{"l_$locus"} = $cleaned_locus;
+		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
+			foreach my $alias (@$locus_aliases) {
+				my $value = "la_$locus||$alias";
+				push @display_loci, $value;
+				$alias =~ tr/_/ /;
+				$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
+			}
+		}
+	}
+	foreach my $locus (@display_loci) {
+		if ( $i == $max_per_row ) {
+			say qq(<tr>$header_row</tr>);
+			say qq(<tr>$form_row</tr>);
+			undef $header_row;
+			undef $form_row;
+			$i = 0;
+		}
+		my $class = $all_integers ? 'int_entry' : 'allele_entry';
+		$header_row .= qq(<th class="$class">$label{$locus}</th>);
+		$form_row   .= q(<td>);
+		$form_row   .= $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );
+		$form_row   .= q(</td>);
+		$i++;
+	}
+	say qq(<tr>$header_row</tr>);
+	say qq(<tr>$form_row</tr>);
+	say q(</table></fieldset>);
 	return;
 }
 
