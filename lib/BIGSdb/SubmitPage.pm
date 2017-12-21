@@ -1562,13 +1562,12 @@ sub _print_sequence_table {
 	if ( $options->{'curate'} ) {
 		my $outcome;
 		if ( !@$pending_seqs ) {
-			if ($all_assigned) {
-				$outcome = 'good';
-			} elsif ($all_rejected) {
-				$outcome = 'bad';
-			} else {
-				$outcome = 'mixed';
-			}
+			$outcome = $self->_get_outcome(
+				{
+					all_assigned => $all_assigned,
+					all_rejected => $all_rejected
+				}
+			);
 		} else {
 			undef $outcome;
 		}
@@ -1579,6 +1578,17 @@ sub _print_sequence_table {
 		all_assigned             => $all_assigned,
 		pending_seqs             => $pending_seqs
 	};
+}
+
+sub _get_outcome {
+	my ( $self,         $args )         = @_;
+	my ( $all_assigned, $all_rejected ) = @{$args}{qw(all_assigned all_rejected)};
+	if ($all_assigned) {
+		return 'good';
+	} elsif ($all_rejected) {
+		return 'bad';
+	}
+	return 'mixed';
 }
 
 sub _print_profile_table {
@@ -1665,13 +1675,12 @@ sub _print_profile_table {
 	if ( $options->{'curate'} ) {
 		my $outcome;
 		if ( !@$pending_profiles ) {
-			if ($all_assigned) {
-				$outcome = 'good';
-			} elsif ($all_rejected) {
-				$outcome = 'bad';
-			} else {
-				$outcome = 'mixed';
-			}
+			$outcome = $self->_get_outcome(
+				{
+					all_assigned => $all_assigned,
+					all_rejected => $all_rejected
+				}
+			);
 		} else {
 			undef $outcome;
 		}
@@ -1782,7 +1791,7 @@ sub _print_sequence_table_fieldset {
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
 		say $q->hidden( submit => 1 );
 		say $q->end_form;
-		$q->param( page => $page );       #Restore value
+		$q->param( page => $page );    #Restore value
 	}
 	say q(</fieldset>);
 	$self->{'all_assigned_or_rejected'} = $status->{'all_assigned_or_rejected'};
