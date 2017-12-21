@@ -871,7 +871,7 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	foreach my $option (@$options) {
 		return if $value eq $option;
 	}
-	if ( $thisfield->{'required'} eq 'no' ) {
+	if ( ($thisfield->{'required'} // q()) eq 'no' ) {
 		return if $value eq q();
 	}
 	return qq("$value" is not on the list of allowed values for this field.);
