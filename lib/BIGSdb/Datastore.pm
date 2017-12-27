@@ -1364,9 +1364,9 @@ sub get_locus_list {
 	if ( $options->{'set_id'} ) {
 		$qry =
 		    'SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id='
-		  . "set_loci.locus AND set_loci.set_id=$options->{'set_id'} WHERE id IN (SELECT locus FROM scheme_members "
+		  . "set_loci.locus AND set_loci.set_id=$options->{'set_id'} WHERE (id IN (SELECT locus FROM scheme_members "
 		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN "
-		  . "(SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'})";
+		  . "(SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
 	} else {
 		$qry = 'SELECT id,common_name FROM loci';
 	}
