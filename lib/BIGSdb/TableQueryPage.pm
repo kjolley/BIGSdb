@@ -747,7 +747,7 @@ sub _check_invalid_fieldname {
 	my $additional = {
 		sequences => [ qw(sequence_length), @sender_fields ],
 		sequence_bin => [ @$extended, @sender_fields, $self->{'system'}->{'labelfield'} ],
-		allele_designations  => [ $self->{'system'}->{'labelfield'} ],
+		allele_designations  => [ @sender_fields, $self->{'system'}->{'labelfield'} ],
 		allele_sequences     => [ $self->{'system'}->{'labelfield'} ],
 		project_members      => [ $self->{'system'}->{'labelfield'} ],
 		history              => [ $self->{'system'}->{'labelfield'} ],
