@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -181,7 +181,8 @@ sub _print_results_header {
 	if ($records) {
 		print qq(<p>$message</p>) if $message;
 		my $plural = $records == 1 ? '' : 's';
-		print qq(<p>$records record$plural returned);
+		my $commify = BIGSdb::Utils::commify($records);
+		print qq(<p>$commify record$plural returned);
 		if ( $currentpage && $self->{'prefs'}->{'displayrecs'} ) {
 			if ( $records > $self->{'prefs'}->{'displayrecs'} ) {
 				my $first = ( ( $currentpage - 1 ) * $self->{'prefs'}->{'displayrecs'} ) + 1;
