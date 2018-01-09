@@ -587,16 +587,18 @@ sub filter_match {
 	my ( $self, $match, $options ) = @_;
 	if ( $options->{'exact'} ) {
 		my %filtered = map { $_ => int( $match->{$_} ) } qw(start end length);
-		$filtered{'allele_id'} = $match->{'allele'};
+		$filtered{'allele_id'}   = $match->{'allele'};
 		$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
+		$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';
 		return \%filtered;
 	}
 	my %filtered = map { $_ => int( $match->{$_} ) } qw(alignment length gaps mismatches);
 	$filtered{'start'}       = int( $match->{'predicted_start'} );
 	$filtered{'end'}         = int( $match->{'predicted_end'} );
-	$filtered{'identity'}    = $match->{'identity'} + 0;                      #Numify
+	$filtered{'identity'}    = $match->{'identity'} + 0;                                 #Numify
 	$filtered{'allele_id'}   = $match->{'allele'};
 	$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
+	$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';
 	return \%filtered;
 }
 1;

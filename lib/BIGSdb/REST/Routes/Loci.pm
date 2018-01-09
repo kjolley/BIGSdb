@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use JSON;
+use MIME::Base64;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
@@ -129,7 +130,8 @@ sub _get_locus {
 sub _query_locus_sequence {
 	my $self   = setting('self');
 	my $params = params;
-	my ( $db, $locus, $sequence, $details ) = @{$params}{qw(db locus sequence details)};
+	my ( $db, $locus, $sequence, $details, $base64 ) = @{$params}{qw(db locus sequence details base64)};
+	$sequence = decode_base64($sequence) if $base64;
 	$self->check_seqdef_database;
 	my $set_id     = $self->get_set_id;
 	my $locus_name = $locus;
@@ -174,30 +176,45 @@ sub _query_locus_sequence {
 }
 
 sub _query_sequence {
-	my $self = setting('self');
-	my ( $db, $sequence ) = ( params->{'db'}, params->{'sequence'} );
+
+	#TODO Check if server is busy
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $sequence, $details, $base64 ) = @{$params}{qw(db sequence details base64)};
+	$sequence = decode_base64($sequence) if $base64;
 	$self->check_seqdef_database;
 	my $set_id = $self->get_set_id;
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
-	$sequence =~ s/\s//gx;
-	my $matches = $self->{'datastore'}->run_query( 'SELECT locus,allele_id FROM sequences WHERE md5(sequence)=md5(?)',
-		uc($sequence), { fetch => 'all_arrayref', slice => {} } );
-	my @exacts;
-	foreach my $exact (@$matches) {
-		my $locus_name = $exact->{'locus'};
+	my $blast_obj = $self->get_blast_object( [] );
+	$blast_obj->blast( \$sequence );
+	my $matches = $blast_obj->get_exact_matches( { details => $details } );
+	my $exacts = {};
+	foreach my $locus ( keys %$matches ) {
+		my $locus_name = $locus;
 		if ($set_id) {
-			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $exact->{'locus'}, $set_id );
+			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 		}
-		push @exacts,
-		  {
-			locus     => $locus_name,
-			allele_id => $exact->{'allele_id'},
-			href      => request->uri_for("/db/$db/loci/$locus_name/alleles/$exact->{'allele_id'}")
-		  };
+		my $alleles       = [];
+		my $locus_matches = $matches->{$locus};
+		if ($details) {
+			foreach my $match (@$locus_matches) {
+				my $filtered = $self->filter_match( $match, { exact => 1 } );
+				push @$alleles, $filtered;
+			}
+		} else {
+			foreach my $allele_id (@$locus_matches) {
+				push @$alleles,
+				  {
+					allele_id => $allele_id,
+					href      => request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")
+				  };
+			}
+		}
+		$exacts->{$locus_name} = $alleles;
 	}
-	my $values = { exact_matches => \@exacts };
+	my $values = { exact_matches => $exacts };
 	return $values;
 }
 
