@@ -2,7 +2,7 @@
 #List site-wide users not registered to any database and optionally remove
 #them from users and authentication databases.
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,6 +56,7 @@ GetOptions(
 	'days=i'          => \$opts{'days'},
 	'user_database=s' => \$opts{'user_database'},
 	'help'            => \$opts{'h'},
+	'never_logged_in' => \$opts{'never_logged_in'},
 	'remove'          => \$opts{'remove'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
@@ -97,15 +98,17 @@ sub main {
 	my %special_users    = map { $_ => 1 } @$special_users;
 	my $inactive_time    = get_inactive_time();
 	$script->initiate_authdb;
-	my $old_users = $script->{'datastore'}->run_query(
-		qq(SELECT name FROM users WHERE dbase=? AND last_login<NOW()-INTERVAL '$inactive_time days' ORDER BY name),
-		$script->{'system'}->{'db'},
-		{ fetch => 'col_arrayref', db => $script->{'auth_db'} }
-	);
+	my $qry = qq[SELECT name FROM users WHERE dbase=? AND (last_login<NOW()-INTERVAL '$inactive_time days'];
 
+	if ( $opts{'never_logged_in'} ) {
+		$qry .= q(OR last_login IS NULL);
+	}
+	$qry .= q[) ORDER BY name];
+	my $old_users = $script->{'datastore'}
+	  ->run_query( $qry, $script->{'system'}->{'db'}, { fetch => 'col_arrayref', db => $script->{'auth_db'} } );
 	foreach my $name (@$old_users) {
 		next
-		  if $registered_users{$name}; #Probably not necessary as checking all users anyway - but doesn't hurt.
+		  if $registered_users{$name};       #Probably not necessary as checking all users anyway - but doesn't hurt.
 		next if $special_users{$name};
 		next if $usernames{$name};
 		print $name;
@@ -142,8 +145,7 @@ sub get_inactive_time {
 
 sub get_registered_users {
 	return $script->{'datastore'}
-	  ->run_query( 'SELECT user_name FROM registered_users ORDER BY user_name',
-		undef, { fetch => 'col_arrayref' } );
+	  ->run_query( 'SELECT user_name FROM registered_users ORDER BY user_name', undef, { fetch => 'col_arrayref' } );
 }
 
 sub get_all_database_users {
@@ -265,6 +267,9 @@ ${bold}--days$norm ${under}DAYS$norm
 
 ${bold}--help$norm
     This help page.
+    
+${bold}--never_logged_in$norm
+    Also include users who have never logged in.
     
 ${bold}--remove$norm
     Remove inactive users from both the users database and the authentication 
