@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,8 +28,10 @@ $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use POSIX qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
+use BIGSdb::BIGSException;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:login_requirements);
+use BIGSdb::Offline::Blast;
 use BIGSdb::REST::Routes::AlleleDesignations;
 use BIGSdb::REST::Routes::Alleles;
 use BIGSdb::REST::Routes::ClassificationSchemes;
@@ -94,6 +96,12 @@ sub check_post_payload {
 	my $body_params = body_parameters;
 	if ( $body && !keys %$body_params ) {
 		send_error( 'Malformed request', 400 );
+	}
+	my $length = length $body;
+	if ( $length > $self->{'config'}->{'max_upload_size'} ) {
+		my $nice_body_size = BIGSdb::Utils::get_nice_size($length);
+		my $limit_size     = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
+		send_error( "POST body is too large ($nice_body_size) - limit is $limit_size", 413 );
 	}
 	return;
 }
@@ -172,9 +180,9 @@ sub _check_authorization {
 }
 
 sub _check_kiosk {
-	my $self             = setting('self');
+	my $self = setting('self');
 	return if !$self->{'system'}->{'kiosk'};
-	send_error('No routes available for this database configuration', 404);
+	send_error( 'No routes available for this database configuration', 404 );
 	return;
 }
 
@@ -414,8 +422,8 @@ sub get_resources {
 
 sub get_paging {
 	my ( $self, $route, $pages, $page, $offset ) = @_;
-	response->push_header( X_PER_PAGE       => $self->{'page_size'} );
-	response->push_header( X_OFFSET         => ( $offset // 0 ) );
+	response->push_header( X_PER_PAGE    => $self->{'page_size'} );
+	response->push_header( X_OFFSET      => ( $offset // 0 ) );
 	response->push_header( X_TOTAL_PAGES => $pages );
 	my $paging = {};
 	return $paging if param('return_all') || !$pages || $self->{'using_page_headers'};
@@ -508,6 +516,24 @@ sub check_scheme {
 	return;
 }
 
+sub check_load_average {
+	my ($self) = @_;
+	my $load_average;
+	my $max_load = $self->{'config'}->{'max_load'} // 8;
+	try {
+		$load_average = $self->get_load_average;
+	}
+	catch BIGSdb::DataException with {
+		$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
+		exit;
+	};
+	if ( $load_average > $max_load ) {
+		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+		send_error( 'Server is too busy. Please try again later.', 503 );
+	}
+	return;
+}
+
 sub get_user_id {
 	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -554,5 +580,50 @@ sub get_param_string {
 	}
 	local $" = q(&);
 	return "@params";
+}
+
+sub get_blast_object {
+	my ( $self, $loci ) = @_;
+	local $" = q(,);
+	my $exemplar = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
+	$exemplar = 0 if @$loci == 1;
+	my $blast_obj = BIGSdb::Offline::Blast->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'system'}->{'host'},
+			port             => $self->{'system'}->{'port'},
+			user             => $self->{'system'}->{'user'},
+			password         => $self->{'system'}->{'password'},
+			options          => {
+				l          => qq(@$loci),
+				always_run => 1,
+				exemplar   => $exemplar,
+			},
+			instance => $self->{'instance'},
+			logger   => $self->{'logger'}
+		}
+	);
+	return $blast_obj;
+}
+
+sub filter_match {
+	my ( $self, $match, $options ) = @_;
+	if ( $options->{'exact'} ) {
+		my %filtered = map { $_ => int( $match->{$_} ) } qw(start end length);
+		$filtered{'allele_id'}   = $match->{'allele'};
+		$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
+		$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';
+		return \%filtered;
+	}
+	my %filtered = map { $_ => int( $match->{$_} ) } qw(alignment length gaps mismatches);
+	$filtered{'start'}       = int( $match->{'predicted_start'} );
+	$filtered{'end'}         = int( $match->{'predicted_end'} );
+	$filtered{'identity'}    = $match->{'identity'} + 0;                            #Numify
+	$filtered{'allele_id'}   = $match->{'allele'};
+	$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
+	$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';
+	return \%filtered;
 }
 1;

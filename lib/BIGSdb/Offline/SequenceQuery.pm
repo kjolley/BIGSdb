@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -399,8 +399,6 @@ sub _get_table_header {
 sub _get_scheme_fields {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer = q();
-
-	#	my $set_id = $self->get_set_id;
 	if ( !$scheme_id ) {    #all loci
 		my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $scheme (@$schemes) {

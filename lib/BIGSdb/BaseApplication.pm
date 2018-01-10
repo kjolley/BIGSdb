@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2017, University of Oxford
+#(c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,6 +35,7 @@ use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
 use BIGSdb::CGI::as_utf8;
 use DBI;
+use Carp;
 use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
@@ -671,5 +672,22 @@ sub initiate_plugins {
 		pluginDir        => $self->{'lib_dir'}
 	);
 	return;
+}
+
+sub get_load_average {
+	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
+		my $loadavg;
+		open( my $fh, '<', '/proc/loadavg' ) or croak 'Cannot open /proc/loadavg';
+		while (<$fh>) {
+			($loadavg) = split /\s/x, $_;
+		}
+		close $fh;
+		return $loadavg;
+	}
+	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
+	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
+		return $1;
+	}
+	throw BIGSdb::DataException('Cannot determine load average');
 }
 1;
