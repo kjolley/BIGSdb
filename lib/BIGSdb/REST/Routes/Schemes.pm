@@ -181,6 +181,7 @@ sub _get_scheme_fields {
 	my $self        = setting('self');
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	return {} if !@$fields;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my %allele_count;
 	my @allele_ids;
