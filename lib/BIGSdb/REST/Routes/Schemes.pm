@@ -237,8 +237,8 @@ sub _get_scheme_fields {
 		}
 	}
 	foreach my $field (@$fields) {
+		next if !$results->{$field};
 		my @ordered = sort @{ $results->{$field} };
-		next if !@ordered;
 		local $" = q(,);
 		$results->{$field} = qq(@ordered);
 	}
