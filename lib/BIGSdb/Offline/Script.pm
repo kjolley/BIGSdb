@@ -118,23 +118,6 @@ sub initiate {
 	return;
 }
 
-sub get_load_average {
-	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
-		my $loadavg;
-		open( my $fh, '<', '/proc/loadavg' ) or croak 'Cannot open /proc/loadavg';
-		while (<$fh>) {
-			($loadavg) = split /\s/x, $_;
-		}
-		close $fh;
-		return $loadavg;
-	}
-	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
-	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
-		return $1;
-	}
-	throw BIGSdb::DataException('Cannot determine load average');
-}
-
 sub db_disconnect {
 	my ($self) = @_;
 	undef $self->{'datastore'};

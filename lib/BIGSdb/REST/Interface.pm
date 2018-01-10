@@ -28,6 +28,7 @@ $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use POSIX qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
+use BIGSdb::BIGSException;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::Offline::Blast;
@@ -509,6 +510,24 @@ sub check_scheme {
 	return;
 }
 
+sub check_load_average {
+	my ($self) = @_;
+	my $load_average;
+	my $max_load = $self->{'config'}->{'max_load'} // 8;
+	try {
+		$load_average = $self->get_load_average;
+	}
+	catch BIGSdb::DataException with {
+		$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
+		exit;
+	};
+	if ( $load_average > $max_load ) {
+		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
+		send_error( 'Server is too busy. Please try again later.', 503 );
+	}
+	return;
+}
+
 sub get_user_id {
 	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -595,7 +614,7 @@ sub filter_match {
 	my %filtered = map { $_ => int( $match->{$_} ) } qw(alignment length gaps mismatches);
 	$filtered{'start'}       = int( $match->{'predicted_start'} );
 	$filtered{'end'}         = int( $match->{'predicted_end'} );
-	$filtered{'identity'}    = $match->{'identity'} + 0;                                 #Numify
+	$filtered{'identity'}    = $match->{'identity'} + 0;                            #Numify
 	$filtered{'allele_id'}   = $match->{'allele'};
 	$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
 	$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';

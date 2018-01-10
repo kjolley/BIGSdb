@@ -131,8 +131,9 @@ sub _query_locus_sequence {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $locus, $sequence, $details, $base64 ) = @{$params}{qw(db locus sequence details base64)};
-	$sequence = decode_base64($sequence) if $base64;
+	$self->check_load_average;
 	$self->check_seqdef_database;
+	$sequence = decode_base64($sequence) if $base64;
 	my $set_id     = $self->get_set_id;
 	my $locus_name = $locus;
 	if ($set_id) {
@@ -176,13 +177,12 @@ sub _query_locus_sequence {
 }
 
 sub _query_sequence {
-
-	#TODO Check if server is busy
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $sequence, $details, $base64 ) = @{$params}{qw(db sequence details base64)};
-	$sequence = decode_base64($sequence) if $base64;
+	$self->check_load_average;
 	$self->check_seqdef_database;
+	$sequence = decode_base64($sequence) if $base64;
 	my $set_id = $self->get_set_id;
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );

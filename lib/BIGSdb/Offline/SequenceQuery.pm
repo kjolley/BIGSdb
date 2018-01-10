@@ -399,8 +399,6 @@ sub _get_table_header {
 sub _get_scheme_fields {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer = q();
-
-	#	my $set_id = $self->get_set_id;
 	if ( !$scheme_id ) {    #all loci
 		my $schemes = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $scheme (@$schemes) {
