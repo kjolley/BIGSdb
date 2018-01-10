@@ -127,6 +127,7 @@ sub _query_scheme_sequence {
 	my $params = params;
 	my ( $db, $scheme_id, $sequence, $details, $base64 ) =
 	  @{$params}{qw(db scheme sequence details base64)};
+	$self->check_post_payload;
 	$self->check_load_average;
 	$self->check_seqdef_database;
 	$self->check_scheme($scheme_id);

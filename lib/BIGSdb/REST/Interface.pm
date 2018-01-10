@@ -97,6 +97,12 @@ sub check_post_payload {
 	if ( $body && !keys %$body_params ) {
 		send_error( 'Malformed request', 400 );
 	}
+	my $length = length $body;
+	if ( $length > $self->{'config'}->{'max_upload_size'} ) {
+		my $nice_body_size = BIGSdb::Utils::get_nice_size($length);
+		my $limit_size     = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
+		send_error( "POST body is too large ($nice_body_size) - limit is $limit_size", 413 );
+	}
 	return;
 }
 

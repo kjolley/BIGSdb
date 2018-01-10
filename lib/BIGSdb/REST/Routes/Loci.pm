@@ -131,6 +131,7 @@ sub _query_locus_sequence {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $locus, $sequence, $details, $base64 ) = @{$params}{qw(db locus sequence details base64)};
+	$self->check_post_payload;
 	$self->check_load_average;
 	$self->check_seqdef_database;
 	$sequence = decode_base64($sequence) if $base64;
@@ -180,6 +181,7 @@ sub _query_sequence {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $sequence, $details, $base64 ) = @{$params}{qw(db sequence details base64)};
+	$self->check_post_payload;
 	$self->check_load_average;
 	$self->check_seqdef_database;
 	$sequence = decode_base64($sequence) if $base64;
