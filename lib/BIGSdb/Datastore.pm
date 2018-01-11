@@ -1781,9 +1781,11 @@ sub get_client_data_linked_to_allele {
 		{ fetch => 'all_arrayref' }
 	);
 	my $field_values;
-	my $dl_buffer = q();
-	my $td_buffer = q();
-	my $i         = 0;
+	my $detailed_values;
+	my $dl_buffer       = q();
+	my $td_buffer       = q();
+	my $i               = 0;
+
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
 		my $client         = $self->get_client_db( $client_field->[0] );
@@ -1803,6 +1805,11 @@ sub get_client_data_linked_to_allele {
 		$dl_buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {
+			push @{ $detailed_values->{$client_db_desc}->{$field} },
+			  {
+				value     => $data->{$field},
+				frequency => $data->{'frequency'}
+			  };
 			my $value = $data->{$field};
 			push @{ $field_values->{$field} }, $value;
 			if ( any { $field eq $_ } qw (species genus) ) {
@@ -1819,9 +1826,9 @@ sub get_client_data_linked_to_allele {
 	}
 	$dl_buffer = qq(<dl class="data">\n$dl_buffer\n</dl>) if $dl_buffer;
 	if ( $options->{'table_format'} ) {
-		return { formatted => $td_buffer, values => $field_values };
+		return { formatted => $td_buffer, values => $field_values, detailed_values => $detailed_values };
 	}
-	return { formatted => $dl_buffer, values => $field_values };
+	return { formatted => $dl_buffer, values => $field_values, detailed_values => $detailed_values };
 }
 
 sub _format_list_values {

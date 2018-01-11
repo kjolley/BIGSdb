@@ -137,6 +137,7 @@ sub _query_locus_sequence {
 	$sequence = decode_base64($sequence) if $base64;
 	my $set_id     = $self->get_set_id;
 	my $locus_name = $locus;
+
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -156,6 +157,10 @@ sub _query_locus_sequence {
 		foreach my $match (@$matches) {
 			my $filtered = $self->filter_match( $match, { exact => 1 } );
 			$filtered->{'href'} = request->uri_for("/db/$db/loci/$locus/alleles/$match->{'allele'}");
+			my $field_values =
+			  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
+			$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+			  if $field_values->{'detailed_values'};
 			push @exacts, $filtered;
 		}
 	} else {
@@ -186,6 +191,7 @@ sub _query_sequence {
 	$self->check_seqdef_database;
 	$sequence = decode_base64($sequence) if $base64;
 	my $set_id = $self->get_set_id;
+
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
@@ -203,6 +209,10 @@ sub _query_sequence {
 		if ($details) {
 			foreach my $match (@$locus_matches) {
 				my $filtered = $self->filter_match( $match, { exact => 1 } );
+				my $field_values =
+				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
+				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+				  if $field_values->{'detailed_values'};
 				push @$alleles, $filtered;
 			}
 		} else {

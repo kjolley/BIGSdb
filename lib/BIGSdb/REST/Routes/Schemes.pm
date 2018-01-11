@@ -132,6 +132,7 @@ sub _query_scheme_sequence {
 	$self->check_seqdef_database;
 	$self->check_scheme($scheme_id);
 	$sequence = decode_base64($sequence) if $base64;
+
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
@@ -154,6 +155,10 @@ sub _query_scheme_sequence {
 		if ($details) {
 			foreach my $match (@$locus_matches) {
 				my $filtered = $self->filter_match( $match, { exact => 1 } );
+				my $field_values =
+				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
+				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+				  if $field_values->{'detailed_values'};
 				push @$alleles, $filtered;
 			}
 		} else {
@@ -178,15 +183,15 @@ sub _query_scheme_sequence {
 
 sub _get_scheme_fields {
 	my ( $scheme_id, $matches ) = @_;
-	my $self        = setting('self');
-	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $self   = setting('self');
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	return {} if !@$fields;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my %allele_count;
 	my @allele_ids;
-	foreach my $locus (@$loci) {
 
+	foreach my $locus (@$loci) {
 		if ( !defined $matches->{$locus} ) {
 
 			#Define a null designation if one doesn't exist for the purposes of looking up profile.
@@ -221,12 +226,11 @@ sub _get_scheme_fields {
 	my $locus_term_string = "@locus_terms";
 	local $" = ',';
 	my $table      = "mv_scheme_$scheme_id";
-	my $value_sets = $self->{'datastore'}->run_query(
-		"SELECT @$fields FROM $table WHERE $locus_term_string",
-		[@allele_ids], { fetch => 'all_arrayref', slice => {} }
-	);
+	my $value_sets = $self->{'datastore'}->run_query( "SELECT @$fields FROM $table WHERE $locus_term_string",
+		[@allele_ids], { fetch => 'all_arrayref', slice => {} } );
 	my $results      = {};
 	my $seen_already = {};
+
 	foreach my $value_set (@$value_sets) {
 		foreach my $field (@$fields) {
 			if ( $value_set->{ lc $field } ) {
