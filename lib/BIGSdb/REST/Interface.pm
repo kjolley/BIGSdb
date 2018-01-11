@@ -182,6 +182,33 @@ sub _check_authorization {
 sub _check_kiosk {
 	my $self = setting('self');
 	return if !$self->{'system'}->{'kiosk'};
+	if ( !$self->{'system'}->{'rest_kiosk'} ) {
+		send_error( 'No routes available for this database configuration', 404 );
+	}
+	my $db = params->{'db'};
+	if ( $self->{'system'}->{'rest_kiosk'} eq 'sequenceQuery' ) {
+		my @allowed_routes = (
+			"POST /db/$db/loci/{locus}/sequence",
+			"POST /db/$db/sequence",
+			"POST /db/$db/schemes/{scheme_id}/sequence"
+		);
+		local $" = q(, );
+		if ( request->method ne 'POST' ) {
+			send_error(
+				"Only the following sequence query routes are allowed for this database configuration: @allowed_routes",
+				404
+			);
+		}
+		my $route         = request->request_uri;
+		my @allowed_regex = (
+			qr/^\/db\/$db\/loci\/\w+\/sequence$/x,
+			qr/^\/db\/$db\/sequence$/x, qr/^\/db\/$db\/schemes\/\d+\/sequence$/x
+		);
+		foreach my $allowed (@allowed_regex) {
+			return if $route =~ $allowed;
+		}
+		send_error( 'Route is not allowed for this database configuration', 404 );
+	}
 	send_error( 'No routes available for this database configuration', 404 );
 	return;
 }
