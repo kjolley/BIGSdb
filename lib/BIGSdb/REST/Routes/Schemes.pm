@@ -178,7 +178,42 @@ sub _query_scheme_sequence {
 	if ( keys %$field_values ) {
 		$values->{'fields'} = $field_values;
 	}
+	if ($details) {
+		my $analysis = _run_seq_query_script($values);
+		if ($analysis) {
+			my $heading = $self->{'system'}->{'rest_seq_query_script_heading'} // 'analysis';
+			$values->{$heading} = $analysis;
+		}
+	}
 	return $values;
+}
+
+sub _run_seq_query_script {
+	my ($values) = @_;
+	my $self = setting('self');
+	my $analysis;
+	return if !$self->{'system'}->{'rest_seq_query_script'};
+	my $results_prefix    = BIGSdb::Utils::get_random();
+	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
+	if ( -x $self->{'system'}->{'rest_seq_query_script'} ) {
+		my $results_json = encode_json($values);
+		_write_results_file( $results_json_file, $results_json );
+		my $script_out = `$self->{'system'}->{'rest_seq_query_script'} $results_json_file`;
+		if ($script_out) {
+			$analysis = decode_json($script_out);
+		}
+		unlink $results_json_file;
+	}
+	return $analysis;
+}
+
+sub _write_results_file {
+	my ( $filename, $buffer ) = @_;
+	my $self = setting('self');
+	open( my $fh, '>', $filename ) || $self->{'logger'}->error("Cannot open $filename for writing");
+	say $fh $buffer;
+	close $fh;
+	return;
 }
 
 sub _get_scheme_fields {
