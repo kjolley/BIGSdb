@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,14 +48,16 @@ sub blast {
 	if ( $args->{'alignment'} ) {
 		return $blast_results;
 	}
-	my $exact_matches = $self->_parse_blast_exact(
-		{
-			loci       => $loci,
-			params     => $params,
-			blast_file => $blast_results,
-			options    => { keep_data => 1 }
-		}
-	);
+	my $exact_args = {
+		loci       => $loci,
+		params     => $params,
+		blast_file => $blast_results,
+		options    => { keep_data => 1 }
+	};
+	my $exact_matches =
+	  ( $self->{'system'}->{'diploid'} // q() ) eq 'yes'
+	  ? $self->_parse_blast_exact_diploid($exact_args)
+	  : $self->_parse_blast_exact($exact_args);
 	my $partial_matches = $self->_parse_blast_partial(
 		{
 			loci          => $loci,
@@ -294,6 +296,56 @@ sub _run_blast {
 	}
 	unlink $in_file;
 	return $out_file;
+}
+
+#BLAST+ treats ambiguous bases as mismatches - we'll use the the BLAST+ results file and
+#check each match using regular expressions instead.
+sub _parse_blast_exact_diploid {
+	my ( $self, $args ) = @_;
+	my ( $params, $loci, $blast_file, $options ) =
+	  @{$args}{qw (params loci blast_file options)};
+	my $matches = {};
+	$self->_read_blast_file_into_structure($blast_file);
+	my $matched_already = {};
+	my $length_cache    = {};
+	my $fasta           = BIGSdb::Utils::read_fasta( $self->{'seq_ref'}, { allow_peptide => 1 } );
+  RECORD: foreach my $record ( @{ $self->{'records'} } ) {
+		my $match;
+		my $allele_id;
+		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		$locus =~ s/__prime__/'/gx;
+		my $locus_match = $matches->{$locus} // [];
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		$allele_id = $match_allele_id;
+		my $allele_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+		next if !$allele_seq;
+		my $length = length $$allele_seq;
+		$match->{'query'} = $record->[0];
+		my $qry_seq = $fasta->{ $match->{'query'} };
+		my $rev_allele_seq = BIGSdb::Utils::reverse_complement( $$allele_seq, { diploid => 1 } );
+		next RECORD if $qry_seq !~ /$$allele_seq|$rev_allele_seq/x;
+		$match->{'allele'}    = $allele_id;
+		$match->{'identity'}  = 100;
+		$match->{'alignment'} = $params->{'tblastx'} ? $length * 3 : $length;
+		$match->{'length'}    = $length;
+		$match->{'start'}     = $-[0] + 1;
+		$match->{'end'}       = $+[0];
+		$match->{'reverse'}   = 1 if $self->_is_match_reversed($record);
+		$match->{'e-value'}   = $record->[10];
+		next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} };
+		$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
+
+		if ( $locus_info->{'match_longest'} && @$locus_match ) {
+			if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
+				@$locus_match = ($match);
+			}
+		} else {
+			push @$locus_match, $match;
+		}
+		$matches->{$locus} = $locus_match if @$locus_match;
+	}
+	undef $self->{'records'} if !$options->{'keep_data'};
+	return $matches;
 }
 
 sub _parse_blast_exact {

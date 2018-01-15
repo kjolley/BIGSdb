@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,9 +35,13 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub reverse_complement {
-	my ($seq) = @_;
+	my ( $seq, $options ) = @_;
 	my $reversed = reverse $seq;
-	$reversed =~ tr/GATCgatc/CTAGctag/;
+	if ( $options->{'diploid'} ) {
+		$reversed =~ tr/GATCKMSWYRgatckmswyr/CTAGMKSWRYctagmkswry/;
+	} else {
+		$reversed =~ tr/GATCgatc/CTAGctag/;
+	}
 	return $reversed;
 }
 
