@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext          => 'Microreact',
 		menutext            => 'Microreact',
 		module              => 'Microreact',
-		version             => '1.0.1',
+		version             => '1.0.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -168,7 +168,7 @@ sub _create_tsv_file {
 		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;
 		my $country = $record->{'country'};
 		if ( !$allowed->{ $record->{'country'} } ) {
-			if ( $mapped->{ $record->{'country'} } ) {
+			if ( defined $mapped->{ $record->{'country'} } ) {
 				$record->{'country'} = $mapped->{ $record->{'country'} };
 			} else {
 				$logger->error("$record->{'country'} is not an allowed country")
