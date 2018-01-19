@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2017, University of Oxford
+#Copyright (c) 2013-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -62,12 +62,14 @@ GetOptions(
 	'y|max=i'              => \$opts{'y'},
 	'a|assign'             => \$opts{'a'},
 	'allow_frameshift'     => \$opts{'allow_frameshift'},
+	'allow_subsequences'                  => \$opts{'allow_subsequences'},
 	'c|coding_sequences'   => \$opts{'c'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
+	
 	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
@@ -188,7 +190,11 @@ ${bold}--allow_frameshift$norm
     New alleles assigned will be flagged either 'frameshift' or 'internal stop
     codon' if appropriate.  Essentially, combining these two options only 
     checks that the sequence starts with a start codon and ends with a stop
-    codon.    
+    codon.  
+    
+${bold}--allow_subsequences$norm
+    Allow definition of sub- or super-sequences. By default these will not
+    be assigned.  
 
 ${bold}-A, --alignment$norm ${under}INT$norm
     Percentage alignment (default: 100).

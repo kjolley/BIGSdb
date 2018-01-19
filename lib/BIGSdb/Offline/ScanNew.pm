@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -161,14 +161,15 @@ sub _handle_match {
 	my $seq = $self->extract_seq_from_match($match);
 	my ( $reject, $flag ) = $self->_check_cds($seq);
 	return if $reject;
+	my $locus = $locus_info->{'id'};
 	if ( $locus_info->{'data_type'} eq 'peptide' ) {
 		my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 		$seq = $seq_obj->translate->seq;
 	}
 	my $seq_hash = Digest::MD5::md5_hex($seq);
-	my $locus    = $locus_info->{'id'};
 	return if $seqs->{$locus}->{$seq_hash};
 	$seqs->{$locus}->{$seq_hash} = 1;
+	return if $self->_check_sub_or_super_seq( $locus, $seq );
 	if ( $self->{'options'}->{'a'} ) {
 		return if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
 		my $allele_id = $self->_define_allele( $locus, $seq, $flag );
@@ -200,6 +201,16 @@ sub _check_cds {
 		}
 	}
 	return ( $reject, $flag );
+}
+
+sub _check_sub_or_super_seq {
+	my ( $self, $locus_name, $seq ) = @_;
+	return if $self->{'options'}->{'allow_subsequences'};
+	my $locus = $self->{'datastore'}->get_locus($locus_name);
+	my $time  = time;
+	return 1 if $locus->is_seq_a_subsequence_of_allele( \$seq );
+	return 1 if $locus->is_seq_a_supersequence_of_allele( \$seq );
+	return;
 }
 
 sub _get_params {

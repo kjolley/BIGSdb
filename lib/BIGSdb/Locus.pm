@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,8 +38,7 @@ sub DESTROY {
 	my ($self) = @_;
 	foreach ( keys %{ $self->{'sql'} } ) {
 		eval {
-			if ( $self->{'sql'}->{$_} && $self->{'sql'}->{$_}->isa('UNIVERSAL') )
-			{
+			if ( $self->{'sql'}->{$_} && $self->{'sql'}->{$_}->isa('UNIVERSAL') ) {
 				$self->{'sql'}->{$_}->finish;
 				$logger->info("Locus $self->{'id'} statement handle '$_' finished.");
 			}
@@ -115,8 +114,7 @@ sub get_all_sequences {
 	$qry .= ' AND type_allele' if $options->{'type_alleles'};
 	my $sql;
 	eval {
-		if ( $options->{'no_temp_table'} )
-		{
+		if ( $options->{'no_temp_table'} ) {
 			$sql = $self->{'db'}->prepare($qry);
 			$sql->execute( $self->{'dbase_id'} );
 		} else {
@@ -197,5 +195,35 @@ sub get_description {
 		return {};
 	}
 	return $sql->fetchrow_hashref;
+}
+
+sub is_seq_a_subsequence_of_allele {
+	my ( $self, $seq_ref ) = @_;
+	if ( !$self->{'sql'}->{'subseq'} ) {
+		$self->{'sql'}->{'subseq'} = $self->{'db'}
+		  ->prepare(q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND (sequence LIKE '%' || ? || '%'))));
+	}
+	eval { $self->{'sql'}->{'subseq'}->execute( $self->{'id'}, $$seq_ref ) };
+	if ($@) {
+		$logger->error($@) if $@;
+		return;
+	}
+	return $self->{'sql'}->{'subseq'}->fetchrow_array;
+}
+
+sub is_seq_a_supersequence_of_allele {
+	my ( $self, $seq_ref ) = @_;
+	if ( !$self->{'sql'}->{'superseq'} ) {
+		$self->{'sql'}->{'superseq'} =
+		  $self->{'db'}
+		  ->prepare(q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND (? LIKE '%' || sequence || '%'))))
+		  ;
+	}
+	eval { $self->{'sql'}->{'superseq'}->execute( $self->{'id'}, $$seq_ref ) };
+	if ($@) {
+		$logger->error($@) if $@;
+		return;
+	}
+	return $self->{'sql'}->{'superseq'}->fetchrow_array;
 }
 1;
