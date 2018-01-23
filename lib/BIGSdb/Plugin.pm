@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -581,7 +581,9 @@ sub print_sequence_export_form {
 		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 		$self->print_scheme_fieldset;
 	} else {
-		$self->print_scheme_locus_fieldset( $scheme_id, $options );
+		if ( !$options->{'no_locus_list'} ) {
+			$self->print_scheme_locus_fieldset( $scheme_id, $options );
+		}
 	}
 	if ( !$options->{'no_options'} ) {
 		my $options_heading = $options->{'options_heading'} || 'Options';
