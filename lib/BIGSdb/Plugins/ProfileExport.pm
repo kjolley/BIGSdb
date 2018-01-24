@@ -27,6 +27,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
+	my ($self) = @_;
 	my %att = (
 		name        => 'Profile Export',
 		author      => 'Keith Jolley',
@@ -42,6 +43,7 @@ sub get_attributes {
 		seqdb_type  => 'schemes',
 		input       => 'query',
 		section     => 'export,postquery',
+		url         => "$self->{'config'}->{'doclink'}/data_export.html#profile-export",
 		requires    => 'offline_jobs',
 		order       => 15
 	);
