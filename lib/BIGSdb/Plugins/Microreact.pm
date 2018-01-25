@@ -30,6 +30,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Utils;
 use LWP::UserAgent;
+use Email::Valid;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -50,7 +51,7 @@ sub get_attributes {
 		buttontext          => 'Microreact',
 		menutext            => 'Microreact',
 		module              => 'Microreact',
-		version             => '1.0.2',
+		version             => '1.0.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -93,11 +94,12 @@ sub _microreact_upload {
 		name => $params->{'title'} || $job_id,
 		description      => $params->{'description'},
 		website          => $params->{'website'},
-		email            => $job->{'email'},
 		map_countryField => 'country',
 		data             => $$tsv,
 		tree             => $$tree
 	};
+	my $email = Email::Valid->address( $job->{'email'} );
+	$upload_data->{'email'} = $email if $email;
 	my $upload_response = $uploader->post(
 		MICROREACT_URL,
 		Content_Type => 'application/json; charset=UTF-8',
