@@ -888,6 +888,18 @@ sub get_nice_duration {
 	return sprintf( '%d:%02d:%02d', $hours, $minutes, $seconds );
 }
 
+sub sanitize_string {
+	my ( $string, $options ) = @_;
+	$string =~ s/\r?\n/ /gx;
+	$string =~ s/^\s+|\s+$//gx;
+	$string =~ s/\t/ /gx if $options->{'tabs_to_spaces'};
+	my $allowed = 'A-z0-9';
+	$allowed .= q(\-_,\.'#~=\(\)\[\]\{\}\+\?\$\£\!\s) if $options->{'allow_punctuation'};
+	my $regex = qr/[^$allowed]/x;
+	( my $return_value = $string ) =~ s/$regex//gx;
+	return $return_value;
+}
+
 sub convert_html_table_to_text {
 	my ($html) = @_;
 	my $buffer = q();

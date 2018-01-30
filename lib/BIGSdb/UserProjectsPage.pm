@@ -649,9 +649,11 @@ sub _is_project_admin {
 sub _add_new_project {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $short_desc = CGI::escapeHTML( $q->param('short_description') );
-	$short_desc =~ s/^\s+|\s+$//gx;
+	my $short_desc = BIGSdb::Utils::sanitize_string( $q->param('short_description'),
+		{ tabs_to_spaces => 1, allow_punctuation => 1 } );
 	return if !$short_desc;
+	my $full_desc = BIGSdb::Utils::sanitize_string( $q->param('full_description'),
+		{ tabs_to_spaces => 1, allow_punctuation => 1 } );
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
@@ -665,16 +667,7 @@ sub _add_new_project {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
 			  . 'list,private,no_quota,curator,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
-			undef,
-			$id,
-			$short_desc,
-			CGI::escapeHTML( $q->param('full_description') ),
-			'false',
-			'false',
-			'true',
-			'false',
-			$user_info->{'id'},
-			'now'
+			undef, $id, $short_desc, $full_desc, 'false', 'false', 'true', 'false', $user_info->{'id'}, 'now'
 		);
 		$self->{'db'}
 		  ->do( 'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
