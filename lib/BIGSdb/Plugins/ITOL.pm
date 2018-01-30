@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.2.1',
+		version             => '1.2.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -142,12 +142,11 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
 			$q->delete('list');
-			foreach my $field_dataset (qw(itol_dataset include_fields)){
+			foreach my $field_dataset (qw(itol_dataset include_fields)) {
 				my @dataset = $q->param($field_dataset);
 				$q->delete($field_dataset);
 				local $" = '|_|';
 				$params->{$field_dataset} = "@dataset";
-				
 			}
 			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -279,6 +278,7 @@ sub generate_tree_files {
 	$self->set_offline_view($params);
 	$self->{'params'}            = $params;
 	$self->{'params'}->{'align'} = 1;
+	$self->{'params'}->{'align_all'} = 1;
 	$params->{'aligner'}         = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
 	$self->{'threads'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
