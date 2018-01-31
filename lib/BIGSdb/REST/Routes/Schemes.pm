@@ -181,7 +181,7 @@ sub _query_scheme_sequence {
 	if ($details) {
 		my $analysis = _run_seq_query_script($values);
 		if ($analysis) {
-			my $heading = $self->{'system'}->{'rest_seq_query_script_heading'} // 'analysis';
+			my $heading = $self->{'system'}->{'rest_hook_seq_query_heading'} // 'analysis';
 			$values->{$heading} = $analysis;
 		}
 	}
@@ -192,13 +192,13 @@ sub _run_seq_query_script {
 	my ($values) = @_;
 	my $self = setting('self');
 	my $analysis;
-	return if !$self->{'system'}->{'rest_seq_query_script'};
+	return if !$self->{'system'}->{'rest_hook_seq_query'};
 	my $results_prefix    = BIGSdb::Utils::get_random();
 	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
-	if ( -x $self->{'system'}->{'rest_seq_query_script'} ) {
+	if ( -x $self->{'system'}->{'rest_hook_seq_query'} ) {
 		my $results_json = encode_json($values);
 		_write_results_file( $results_json_file, $results_json );
-		my $script_out = `$self->{'system'}->{'rest_seq_query_script'} $results_json_file`;
+		my $script_out = `$self->{'system'}->{'rest_hook_seq_query'} $results_json_file`;
 		if ($script_out) {
 			$analysis = decode_json($script_out);
 		}

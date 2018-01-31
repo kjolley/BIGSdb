@@ -303,17 +303,17 @@ sub _blast_now {
 	my ( $self, $seq_ref, $loci ) = @_;
 	my $results = $self->_run_blast( $seq_ref, $loci, 1 );
 	my $q = $self->{'cgi'};
-	if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
+	if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'web_hook_seq_query'} ) {
 		my $results_prefix    = BIGSdb::Utils::get_random();
 		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 		$results->{'debug'} = 1 if $q->param('debug');
 		my $results_json      = encode_json($results);
 		$self->_write_results_file( $results_json_file, $results_json );
-		if ( -e $self->{'system'}->{'seq_query_script'} ) {
-			my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+		if ( -e $self->{'system'}->{'web_hook_seq_query'} ) {
+			my $script_out = `$self->{'system'}->{'web_hook_seq_query'} $results_json_file`;
 			say $script_out;
 		} else {
-			$logger->error("Script $self->{'system'}->{'seq_query_script'} cannot be executed.");
+			$logger->error("Script $self->{'system'}->{'web_hook_seq_query'} cannot be executed.");
 			say $results->{'html'};
 		}
 		unlink $results_json_file;
@@ -351,15 +351,15 @@ sub _blast_fork {
 				open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
 				$self->_update_status_file( $status_file, 'running' );
 				my $results = $self->_run_blast( $seq_ref, $loci, 0 );
-				if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'seq_query_script'} ) {
+				if ( $q->param('page') eq 'sequenceQuery' && $self->{'system'}->{'web_hook_seq_query'} ) {
 					$results->{'debug'} = 1 if $q->param('debug');
 					my $results_json = encode_json($results);
 					$self->_write_results_file( $results_json_file, $results_json );
-					if ( -e $self->{'system'}->{'seq_query_script'} ) {
-						my $script_out = `$self->{'system'}->{'seq_query_script'} $results_json_file`;
+					if ( -e $self->{'system'}->{'web_hook_seq_query'} ) {
+						my $script_out = `$self->{'system'}->{'web_hook_seq_query'} $results_json_file`;
 						$self->_write_results_file( $results_file, $script_out );
 					} else {
-						$logger->error("Script $self->{'system'}->{'seq_query_script'} cannot be executed.");
+						$logger->error("Script $self->{'system'}->{'web_hook_seq_query'} cannot be executed.");
 						$self->_write_results_file( $results_file, $results->{'html'} );
 					}
 					unlink $results_json_file;
