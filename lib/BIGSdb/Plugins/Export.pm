@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -573,15 +573,14 @@ sub _write_allele {
 				print $fh $allele_id;
 				if ( $params->{'info'} ) {
 					my $allele_info = $self->{'datastore'}->run_query(
-						'SELECT allele_designations.datestamp AS des_datestamp,first_name,'
-						  . 'surname,comments FROM allele_designations LEFT JOIN users ON '
-						  . 'allele_designations.curator = users.id WHERE (isolate_id,locus,allele_id)=(?,?,?)',
+						'SELECT datestamp ,curator,comments FROM allele_designations WHERE '.'(isolate_id,locus,allele_id)=(?,?,?)',
 						[ $data->{'id'}, $locus, $allele_id ],
 						{ fetch => 'row_hashref', cache => 'Export::write_allele::info' }
 					);
 					if ( defined $allele_info ) {
-						print $fh "\t$allele_info->{'first_name'} $allele_info->{'surname'}\t";
-						print $fh "$allele_info->{'des_datestamp'}\t";
+						my $user_string = $self->{'datastore'}->get_user_string($allele_info->{'curator'});
+						print $fh "\t$user_string\t";
+						print $fh "$allele_info->{'datestamp'}\t";
 						print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};
 					}
 				}
