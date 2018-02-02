@@ -28,8 +28,10 @@ use MIME::Base64;
 use LWP::UserAgent;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_ISOLATES => 1000;
-use constant URL          => 'http://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant MAX_ISOLATES       => 1000;
+use constant INITIAL_BUSY_DELAY => 60;
+use constant MAX_DELAY          => 600;
+use constant URL                => 'http://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -66,23 +68,22 @@ sub run {
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
-		my $error;
+		my $message_html;
 		if (@$invalid_ids) {
 			local $" = ', ';
-			$error =
+			my $error =
 			    q(<p>The following isolates in your pasted list are invalid - they either do not exist or )
-			  . qq(do not have sequence data available: @$invalid_ids.</p>);
+			  . qq(do not have sequence data available: @$invalid_ids.);
 			if (@ids) {
-				$error .= q(<p>These will be removed from the analysis.</p>);
-				say qq(<div class="box statusbad">$error</div>);
+				$error .= q( These have been removed from the analysis.</p>);
+				$message_html = $error;
 			} else {
-				$error.= q(<p>There are no valid ids in your selection to analyse.<p>);
+				$error .= q(</p><p>There are no valid ids in your selection to analyse.<p>);
 				say qq(<div class="box statusbad">$error</div>);
 				$self->_print_interface;
 				return;
 			}
 		}
-		#TODO Add list of invalid ids to job output.
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$q->delete('isolate_paste_list');
 		$q->delete('isolate_id');
@@ -100,6 +101,7 @@ sub run {
 				isolates     => \@ids,
 			}
 		);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
 		say $self->get_job_redirect($job_id);
 		return;
 	}
@@ -112,21 +114,43 @@ sub run_job {
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $job         = $self->{'jobManager'}->get_job($job_id);
+	my $html        = $job->{'message_html'} // q();
 	my $i           = 0;
 	my $progress    = 0;
+	my $table_header =
+	    q(<div class="scrollable"><table class="resultstable"><tr><th>id</th>)
+	  . qq(<th>$self->{'system'}->{'labelfield'}</th><th>Rank</th><th>Predicted taxon (from alleles)</th>)
+	  . q(<th>Taxonomy</th><th>Support</th><th>rST</th><th>Predicted species (from rST)</th></tr>);
+	my $td = 1;
+	my $row_buffer;
+
 	foreach my $isolate_id (@$isolate_ids) {
 		$progress = int( $i / @$isolate_ids * 100 );
 		$i++;
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { stage => "Scanning isolate $i", percent_complete => $progress } );
-		$self->_perform_rest_query($isolate_id);
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
+		my $values = $self->_perform_rest_query( $job_id, $i, $isolate_id );
+		$row_buffer .= qq(<tr class="td$td">);
+		foreach my $value (@$values) {
+			if ( ref $value eq 'ARRAY' ) {
+				local $" = q(<br />);
+				$row_buffer .= qq(<td>@$value</td>);
+			} else {
+				$value //= q();
+				$row_buffer .= qq(<td>$value</td>);
+			}
+		}
+		$row_buffer .= q(</tr>);
+		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+		$td = $td == 1 ? 2 : 1;
 		last if $self->{'exit'};
 	}
 	return;
 }
 
 sub _perform_rest_query {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $job_id, $i, $isolate_id ) = @_;
 	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
 		$isolate_id, { fetch => 'col_arrayref', cache => 'RMLSTSpecies::get_seqbin_ids' } );
 	my $fasta;
@@ -135,28 +159,57 @@ sub _perform_rest_query {
 		$fasta .= qq(>$seqbin_id\n$$seq_ref\n);
 	}
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
-
-	#TODO Check for server busy message - if it is then wait, increase wait time each iteration
 	my $payload = encode_json(
 		{
-			base64   => 1,
-			details  => 1,
+			base64   => JSON::true(),
+			details  => JSON::true(),
 			sequence => encode_base64($fasta)
 		}
 	);
-	my $response = $agent->post(
-		URL,
-		Content_Type => 'application/json; charset=UTF-8',
-		Content      => $payload
-	);
+	my ( $response, $unavailable );
+	my $delay        = INITIAL_BUSY_DELAY;
+	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
+	my $values       = [ $isolate_id, $isolate_name ];
+	do {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolate $i" } );
+		$unavailable = 0;
+		$response    = $agent->post(
+			URL,
+			Content_Type => 'application/json; charset=UTF-8',
+			Content      => $payload
+		);
+		if ( $response->code == 503 ) {
+			$unavailable = 1;
+			$self->{'jobManager'}->update_job_status( $job_id,
+				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
+			sleep $delay;
+			$delay += 10 if $delay < MAX_DELAY;
+		}
+	} while ($unavailable);
+	my $rank     = [];
+	my $taxon    = [];
+	my $taxonomy = [];
+	my $support  = [];
+	my ( $rST, $species );
 	if ( $response->is_success ) {
 		my $data = decode_json( $response->content );
-		use Data::Dumper;
-		$logger->error( Dumper $data);
+		if ( $data->{'taxon_prediction'} ) {
+			foreach my $prediction ( @{ $data->{'taxon_prediction'} } ) {
+				push @$rank,     $prediction->{'rank'};
+				push @$taxon,    $prediction->{'taxon'};
+				push @$taxonomy, $prediction->{'taxonomy'};
+				push @$support,  $prediction->{'support'};
+			}
+		}
+		if ( $data->{'fields'} ) {
+			$rST = $data->{'fields'}->{'rST'};
+			$species = $data->{'fields'}->{'species'} // q();
+		}
 	} else {
 		$logger->error( $response->as_string );
 	}
-	return;
+	push @$values, ( $rank, $taxon, $taxonomy, $support, $rST, $species );
+	return $values;
 }
 
 sub _print_interface {
