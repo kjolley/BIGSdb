@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use List::Util qw(max);
 use List::MoreUtils qw(uniq);
 use JSON;
 use MIME::Base64;
@@ -59,6 +60,8 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
+
+	#TODO Check number of isolates < MAX
 	my $desc = $self->get_db_description;
 	say qq(<h1>rMLST species identification - $desc</h1>);
 	my $q = $self->{'cgi'};
@@ -119,34 +122,85 @@ sub run_job {
 	my $i           = 0;
 	my $progress    = 0;
 	my $table_header =
-	    q(<div class="scrollable"><table class="resultstable"><tr><th>id</th>)
-	  . qq(<th>$self->{'system'}->{'labelfield'}</th><th>Rank</th><th>Predicted taxon (from alleles)</th>)
-	  . q(<th>Taxonomy</th><th>Support</th><th>rST</th><th>Predicted species (from rST)</th></tr>);
+	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
+	  . qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
+	  . q(<th colspan="4">Prediction from identified rMLST alleles linked to genomes</th>)
+	  . q(<th colspan="2">Identified rSTs</th></tr>)
+	  . q(<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th><th>rST</th><th>Species</th></tr>);
 	my $td = 1;
 	my $row_buffer;
+	my $report = {};
 
 	foreach my $isolate_id (@$isolate_ids) {
 		$progress = int( $i / @$isolate_ids * 100 );
 		$i++;
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
-		my $values = $self->_perform_rest_query( $job_id, $i, $isolate_id );
-		$row_buffer .= qq(<tr class="td$td">);
-		foreach my $value (@$values) {
-			if ( ref $value eq 'ARRAY' ) {
-				local $" = q(<br />);
-				$row_buffer .= qq(<td>@$value</td>);
-			} else {
-				$value //= q();
-				$row_buffer .= qq(<td>$value</td>);
-			}
-		}
-		$row_buffer .= q(</tr>);
+		my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
+		my ( $data, $values ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
+		$report->{$isolate_id} = {
+			$self->{'system'}->{'labelfield'} => $isolate_name,
+			analysis                          => $data
+		};
+		$row_buffer .= $self->_format_row_html( $td, $values );
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
 		last if $self->{'exit'};
 	}
+	if ($report) {
+		my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.json";
+		open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+		say $fh encode_json($report);
+		close $fh;
+		if ( -e $filename ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.json", description => '01_Report file (JSON format)' } );
+		}
+	}
 	return;
+}
+
+sub _format_row_html {
+	my ( $self, $td, $values ) = @_;
+	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
+	my $rows = max( $allele_predictions, 1 );
+	my %italicised = map { $_ => 1 } ( 3, 4, 7 );
+	my $buffer;
+	foreach my $row ( 0 .. $rows - 1 ) {
+		$buffer .= qq(<tr class="td$td">);
+		if ( $row == 0 ) {
+			$buffer .= qq(<td rowspan="$rows">$values->[$_]</td>) foreach ( 0, 1 );
+		}
+		if ( !$allele_predictions ) {
+			$buffer .= q(<td colspan="4" style="text-align:left">No exact matching alleles linked to genome found</td>);
+		} else {
+			foreach my $col ( 2 .. 5 ) {
+				$buffer .= $col == 4 ? q(<td style="text-align:left">) : q(<td>);
+				$buffer .= q(<i>) if $italicised{$col};
+				if ( $col == 5 ) {
+					my $colour = $self->_get_colour( $values->[$col]->[$row] );
+					$buffer .=
+					    qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></span>);
+				} else {
+					$buffer .= $values->[$col]->[$row];
+				}
+				$buffer .= q(</i>) if $italicised{$col};
+				$buffer .= q(</td>);
+			}
+		}
+		if ( $row == 0 ) {
+			foreach my $col ( 6 .. 7 ) {
+				$buffer .= qq(<td rowspan="$rows">);
+				$buffer .= q(<i>) if $italicised{$col};
+				$buffer .= $values->[$col] // q();
+				$buffer .= q(</i>) if $italicised{$col};
+				$buffer .= q(</td>);
+			}
+		}
+	}
+	$buffer .= q(</tr>);
+	return $buffer;
 }
 
 sub _perform_rest_query {
@@ -186,13 +240,14 @@ sub _perform_rest_query {
 			$delay += 10 if $delay < MAX_DELAY;
 		}
 	} while ($unavailable);
+	my $data     = {};
 	my $rank     = [];
 	my $taxon    = [];
 	my $taxonomy = [];
 	my $support  = [];
 	my ( $rST, $species );
 	if ( $response->is_success ) {
-		my $data = decode_json( $response->content );
+		$data = decode_json( $response->content );
 		if ( $data->{'taxon_prediction'} ) {
 			foreach my $prediction ( @{ $data->{'taxon_prediction'} } ) {
 				push @$rank,     $prediction->{'rank'};
@@ -209,7 +264,7 @@ sub _perform_rest_query {
 		$logger->error( $response->as_string );
 	}
 	push @$values, ( $rank, $taxon, $taxonomy, $support, $rST, $species );
-	return $values;
+	return ( $data, $values );
 }
 
 sub _print_interface {
@@ -242,5 +297,18 @@ sub _print_interface {
 	say $q->end_form;
 	say q(</div>);
 	return;
+}
+
+sub _get_colour {
+	my ( $self, $num ) = @_;
+	my ( $min, $max, $middle ) = ( 0, 100, 50 );
+	my $scale = 255 / ( $middle - $min );
+	return q(FF0000) if $num <= $min;    # lower boundry
+	return q(00FF00) if $num >= $max;    # upper boundary
+	if ( $num < $middle ) {
+		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
+	} else {
+		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
+	}
 }
 1;
