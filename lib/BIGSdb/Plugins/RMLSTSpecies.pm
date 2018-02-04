@@ -48,7 +48,7 @@ sub get_attributes {
 		module      => 'RMLSTSpecies',
 		version     => '1.0.0',
 		dbtype      => 'isolates',
-		section     => 'info,analysis,postquery',
+		section     => 'analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'rMLSTSpecies',
