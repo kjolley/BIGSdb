@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1577,7 +1577,7 @@ sub _get_seqbin_link {
 		  ->run_query( "SELECT COUNT(DISTINCT locus) FROM allele_sequences WHERE isolate_id=? $set_clause",
 			$isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
-		push @$list, { title => 'loci tagged', data => $tagged };
+		push @$list, { title => 'loci tagged', data => BIGSdb::Utils::commify($tagged) };
 		push @$list,
 		  {
 			title => 'detailed breakdown',
