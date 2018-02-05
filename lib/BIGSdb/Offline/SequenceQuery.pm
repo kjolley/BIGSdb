@@ -337,7 +337,9 @@ sub _get_locus_matches {
 		my ( $field_values, $attributes, $allele_info, $flags );
 		$$match_count_ref++;
 		next if $locus_info->{'match_longest'} && $locus_count > 1;
-		$designations->{$locus} = $match->{'allele'};
+		$designations->{$locus} //= [];
+		my %existing_alleles = map { $_ => 1 } @{ $designations->{$locus} };
+		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
 		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
@@ -425,47 +427,87 @@ sub _get_scheme_table {
 	return q() if !defined $scheme_info->{'primary_key'};
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $missing_loci;
+
 	foreach my $locus (@$scheme_loci) {
-		push @profile, $designations->{$locus};
-		$designations->{$locus} //= 0;
-		$designations->{$locus} =~ s/'/\\'/gx;
+		$missing_loci = 1 if !defined $designations->{$locus};
+		my $alleles = $designations->{$locus};
+		foreach my $allele (@$alleles) {
+			$allele =~ s/'/\\'/gx;
+		}
+		push @profile, $alleles;
+		$designations->{$locus} //= [0];
 		my $locus_profile_name = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
-		my $temp_qry = "$locus_profile_name=E'$designations->{$locus}'";
-		$temp_qry .= " OR $locus_profile_name='N'" if $scheme_info->{'allow_missing_loci'};
+		local $" = q(',E');
+		push @$alleles, q(N) if $scheme_info->{'allow_missing_loci'};
+		my $temp_qry = "$locus_profile_name IN (E'@$alleles')";
 		push @temp_qry, $temp_qry;
 	}
-	if ( none { !defined $_ } @profile || $scheme_info->{'allow_missing_loci'} ) {
+	if ( !$missing_loci || $scheme_info->{'allow_missing_loci'} ) {
 		local $" = ') AND (';
 		my $temp_qry_string = "@temp_qry";
 		local $" = ',';
-		my $values =
+		my $all_values =
 		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM mv_scheme_$scheme_id WHERE ($temp_qry_string)",
-			undef, { fetch => 'row_hashref' } );
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		return q() if !@$all_values;
 		my $buffer;
 		$buffer .= qq(<h2>$scheme_info->{'name'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
-		$buffer .= q(<table style="margin-top:1em">);
-		my $td = 1;
+		$buffer .= q(<dl class="data">);
+		my $td           = 1;
+		my $field_values = {};
+		my %populated_fields;
 
-		foreach my $field (@$scheme_fields) {
-			my $value = $values->{ lc($field) } // 'Not defined';
-			my $primary_key = $field eq $scheme_info->{'primary_key'} ? 1 : 0;
-			return q() if $primary_key && $value eq 'Not defined';
-			$field =~ tr/_/ /;
-			$buffer .= qq(<tr class="td$td"><th>$field</th><td>);
-			if ( $primary_key && $self->is_page_allowed('profileInfo') ) {
-				$buffer .=
-				    qq(<a href="$self->{'options'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
-				  . qq(scheme_id=$scheme_id&amp;profile_id=$value">$value</a>);
-			} else {
-				$buffer .= $value;
+		foreach my $value (@$all_values) {
+			foreach my $field (@$scheme_fields) {
+				$field_values->{$field} //= [];
+				my %existing = map { $_ => 1 } @{ $field_values->{$field} };
+				if ( defined $value->{ lc($field) } && !$existing{ $value->{ lc($field) } } ) {
+					push @{ $field_values->{$field} }, $value->{ lc($field) };
+					$populated_fields{$field} = 1;
+				}
 			}
-			$buffer .= q(</td></tr>);
+		}
+		my $max_chars = $self->_get_longest_heading_width( [ keys %populated_fields ] );
+		my $width     = int( 0.6 * $max_chars ) + 2;
+		my $margin    = $width + 1;
+		foreach my $field (@$scheme_fields) {
+			my $values = $field_values->{$field};
+			next if !@$values;
+			@$values = sort @$values;
+			my $primary_key = $field eq $scheme_info->{'primary_key'} ? 1 : 0;
+			$field =~ tr/_/ /;
+			$buffer .= qq(<dt style="width:${width}em">$field</dt><dd style="margin: 0 0 0 ${margin}em">);
+			local $" = q(, );
+			if ( $primary_key && $self->is_page_allowed('profileInfo') ) {
+				my @linked_values;
+				foreach my $value (@$values) {
+					push @linked_values,
+					  qq(<a href="$self->{'options'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
+					  . qq(scheme_id=$scheme_id&amp;profile_id=$value">$value</a>);
+				}
+				$buffer .= qq(@linked_values);
+			} else {
+				$buffer .= qq(@$values);
+			}
+			$buffer .= q(</dd>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		$buffer .= q(</table>);
+		$buffer .= q(</dl>);
 		return $buffer;
 	}
 	return q();
+}
+
+sub _get_longest_heading_width {
+	my ( $self, $headings ) = @_;
+	my $longest = 1;
+	foreach my $heading (@$headings) {
+		if ( length $heading > $longest ) {
+			$longest = length $heading;
+		}
+	}
+	return $longest;
 }
 
 sub _get_contig_names {

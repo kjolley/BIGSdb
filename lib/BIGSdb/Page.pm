@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1916,7 +1916,15 @@ sub get_curator_id {
 }
 
 sub isolate_exists {
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
+	if ( $options->{'has_seqbin'} ) {
+		return $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} v JOIN "
+			  . 'seqbin_stats s ON v.id=s.isolate_id WHERE v.id=?)',
+			$id,
+			{ cache => 'Page::isolate_exists::has_seqbin' }
+		);
+	}
 	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)",
 		$id, { cache => 'Page::isolate_exists' } );
 }
@@ -2458,7 +2466,7 @@ sub get_ids_from_pasted_list {
 			next if $id =~ /^\s*$/x;
 			$id =~ s/^\s*//x;
 			$id =~ s/\s*$//x;
-			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists($id) ) {
+			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists( $id, $options ) ) {
 				push @cleaned_ids, $id;
 			} else {
 				push @invalid_ids, $id;
