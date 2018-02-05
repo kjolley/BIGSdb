@@ -91,11 +91,7 @@ sub get_plugin_attributes {
 sub get_plugin_categories {
 	my ( $self, $section, $dbtype, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	return
-	  if ( $section !~ /tools/x
-		&& $section !~ /postquery/x
-		&& $section !~ /stats/x
-		&& $section !~ /options/x );
+	return if $section !~ /postquery|info/x;
 	my ( @categories, %done );
 	foreach (
 		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
@@ -128,7 +124,7 @@ sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	return if none { $section =~ /$_/x } qw (postquery breakdown analysis third_party export miscellaneous);
+	return if none { $section =~ /$_/x } qw (info postquery breakdown analysis third_party export miscellaneous);
 	my @plugins;
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
 	foreach my $plugin (
@@ -139,6 +135,7 @@ sub get_appropriate_plugin_names {
 		my $attr = $self->{'attributes'}->{$plugin};
 		next if !$self->_has_required_item( $attr->{'requires'} );
 		next if !$self->_matches_required_fields( $attr->{'requires'} );
+		next if !$self->_has_required_genome( $attr->{'requires'}, $options );
 
 		#must be a scheme with primary key and loci defined
 		next if !@$pk_scheme_list && ( $attr->{'requires'} // q() ) =~ /pk_scheme/;
@@ -208,6 +205,22 @@ sub _matches_required_fields {
 	return 1;
 }
 
+sub _has_required_genome {
+	my ( $self, $requires, $options ) = @_;
+	return 1 if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my %require_items = map { $_ => 1 } split /,/x, ( $requires // q() );
+	return 1 if !$require_items{'seqbin'};
+	if ( $options->{'single_isolate'} ) {
+		return 1
+		  if $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $options->{'single_isolate'} )
+		  ;
+	} else {
+		return 1 if $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
+	}
+	return;
+}
+
 sub _is_isolate_count_ok {
 	my ( $self, $attr ) = @_;
 	my $q = $self->{'cgi'};
@@ -225,16 +238,16 @@ sub _is_isolate_count_ok {
 sub _has_required_item {
 	my ( $self, $required_attr ) = @_;
 	my %requires = (
-		chartdirector     => 'chartdirector',
-		ref_db            => 'ref_?db',
-		emboss_path       => 'emboss',
-		muscle_path       => 'muscle',
-		clustalw_path     => 'clustalw',
-		aligner           => 'aligner',
-		mogrify_path      => 'mogrify',
-		EnteroMSTree_path => 'EnteroMSTree',
+		chartdirector          => 'chartdirector',
+		ref_db                 => 'ref_?db',
+		emboss_path            => 'emboss',
+		muscle_path            => 'muscle',
+		clustalw_path          => 'clustalw',
+		aligner                => 'aligner',
+		mogrify_path           => 'mogrify',
+		EnteroMSTree_path      => 'EnteroMSTree',
 		MSTree_holder_rel_path => 'EnteroMSTree',
-		jobs_db           => 'offline_jobs'
+		jobs_db                => 'offline_jobs'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

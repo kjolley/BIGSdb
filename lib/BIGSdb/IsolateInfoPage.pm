@@ -455,7 +455,69 @@ sub print_content {
 				say $self->_get_tree($isolate_id);
 			}
 		}
+		$self->_print_plugin_buttons($isolate_id);
 		say q(</div>);
+	}
+	return;
+}
+
+sub _print_plugin_buttons {
+	my ( $self, $isolate_id ) = @_;
+	return if $self->{'curate'};
+	my $q = $self->{'cgi'};
+	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'info', $self->{'system'}->{'dbtype'} );
+	return if !@$plugin_categories;
+	my $buffer;
+	my %icon = (
+		Breakdown     => 'pie-chart',
+		Export        => 'save',
+		Analysis      => 'line-chart',
+		'Third party' => 'external-link',
+		Miscellaneous => 'file-text-o'
+	);
+	my $set_id = $self->get_set_id;
+
+	foreach my $category (@$plugin_categories) {
+		my $cat_buffer;
+		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
+			'info',
+			$self->{'system'}->{'dbtype'},
+			$category || 'none',
+			{ single_isolate => $isolate_id }
+		);
+		if (@$plugin_names) {
+			my $plugin_buffer;
+			$q->param( 'calling_page', $q->param('page') );
+			foreach my $plugin_name (@$plugin_names) {
+				my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+				next if $att->{'min'} && $att->{'min'} > 1;
+				$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
+				$q->param( page           => 'plugin' );
+				$q->param( name           => $att->{'module'} );
+				$q->param( single_isolate => $isolate_id );
+				$q->param( set_id         => $set_id );
+				$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page set_id single_isolate);
+				$plugin_buffer .=
+				  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
+				$plugin_buffer .= $q->end_form;
+			}
+			if ($plugin_buffer) {
+				$category = 'Miscellaneous' if !$category;
+				$cat_buffer .=
+				    q(<div><span style="float:left;text-align:right;width:8em;)
+				  . q(white-space:nowrap;margin-right:0.5em">)
+				  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon" style="margin-right:0.2em">)
+				  . qq(</span>$category:</span>)
+				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
+				$cat_buffer .= $plugin_buffer;
+				$cat_buffer .= q(</div></div>);
+			}
+		}
+		$buffer .= qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
+	}
+	if ($buffer) {
+		say q(<h2>Analysis tools:</h2>);
+		say $buffer;
 	}
 	return;
 }

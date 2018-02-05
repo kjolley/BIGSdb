@@ -48,10 +48,11 @@ sub get_attributes {
 		module      => 'RMLSTSpecies',
 		version     => '1.0.0',
 		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
+		section     => 'info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'rMLSTSpecies',
+		requires    => 'seqbin',
 		order       => 40,
 		priority    => 1
 	);
@@ -60,8 +61,6 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-
-	#TODO Check number of isolates < MAX
 	my $desc = $self->get_db_description;
 	say qq(<h1>rMLST species identification - $desc</h1>);
 	my $q = $self->{'cgi'};
@@ -86,6 +85,20 @@ sub run {
 				$self->_print_interface;
 				return;
 			}
+		}
+		if ( !@ids ) {
+			say q(<div class="box statusbad"><p>You have not selected any records.</p></div>);
+			$self->_print_interface;
+			return;
+		}
+		if ( @ids > MAX_ISOLATES ) {
+			my $count  = BIGSdb::Utils::commify( scalar @ids );
+			my $max    = BIGSdb::Utils::commify(MAX_ISOLATES);
+			my $plural = $count == 1 ? q() : q(s);
+			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
+			  . qq(This analysis is limited to $max records.</p></div>);
+			$self->_print_interface;
+			return;
 		}
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$q->delete('isolate_paste_list');
@@ -278,6 +291,17 @@ sub _print_interface {
 		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
 		return;
 	}
+	if ( $q->param('single_isolate') ) {
+		if ( !BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+			say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+			return;
+		}
+		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
+			say q(<div class="box" id="statusbad"><p>Passed isolate id either does not exist )
+			  . q(or has no sequence bin data.</p></div>);
+			return;
+		}
+	}
 	if ( $q->param('isolate_id') ) {
 		my @ids = $q->param('isolate_id');
 		$selected_ids = \@ids;
@@ -286,11 +310,25 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-	say q(<div class="box" id="queryform"><p>Please select the required isolate ids to run the species )
-	  . q(identification for. These isolate records must include genome sequences.</p>);
+	say q(<div class="box" id="queryform"><p>This analysis attempts to identify exact matching rMLST alleles within )
+	  . q(selected isolate sequence record(s). A predicted taxon will be shown where identified alleles have been )
+	  . q(linked to validated genomes in the rMLST database.</p>);
+	if ( !$q->param('single_isolate') ) {
+		say q(<p>Please select the required isolate ids to run the species identification for. )
+		  . q(These isolate records must include genome sequences.</p>);
+	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	if ( BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+		my $isolate_id = $q->param('single_isolate');
+		my $name       = $self->get_isolate_name_from_id($isolate_id);
+		say q(<h2>Selected record</h2>);
+		say qq(<dl class="data"><dt>id</dt><dd>$isolate_id</dd></dt>);
+		say qq(<dt>$self->{'system'}->{'labelfield'}</dt><dd>$name</dd></dl>);
+		say $q->hidden( isolate_id => $isolate_id );
+	} else {
+		$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	}
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
