@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Constants qw(:interface);
+use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -350,16 +351,17 @@ sub _print_general_info_section {
 	my $cache_string = $self->get_cache_string;
 	my $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $allele_count = $self->_get_allele_count;
+		my $allele_count = BIGSdb::Utils::commify( $self->_get_allele_count );
 		my $tables       = [qw (locus_stats profiles profile_refs accession)];
 		$max_date = $self->_get_max_date($tables);
-		say "<li>Number of sequences: $allele_count</li>";
+		say qq(<li>Number of sequences: $allele_count</li>);
 		if ( @$scheme_data == 1 ) {
 			foreach (@$scheme_data) {
 				my $profile_count =
 				  $self->{'datastore'}
 				  ->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme_data->[0]->{'id'} );
-				say "<li>Number of profiles ($scheme_data->[0]->{'name'}): $profile_count</li>";
+				my $commified = BIGSdb::Utils::commify($profile_count);
+				say qq(<li>Number of profiles ($scheme_data->[0]->{'name'}): $commified</li>);
 			}
 		} elsif ( @$scheme_data > 1 ) {
 			say q(<li>Number of profiles: <a id="toggle1" class="showhide">Show</a>);
@@ -367,8 +369,9 @@ sub _print_general_info_section {
 			foreach (@$scheme_data) {
 				my $profile_count =
 				  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $_->{'id'} );
+				my $commified = BIGSdb::Utils::commify($profile_count);
 				$_->{'name'} =~ s/\&/\&amp;/gx;
-				say qq(<li>$_->{'name'}: $profile_count</li>);
+				say qq(<li>$_->{'name'}: $commified</li>);
 			}
 			say q(</ul></div></li>);
 		}
@@ -376,7 +379,8 @@ sub _print_general_info_section {
 		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 		my @tables        = qw (isolates isolate_aliases allele_designations allele_sequences refs);
 		$max_date = $self->_get_max_date( \@tables );
-		print qq(<li>Isolates: $isolate_count</li>);
+		my $commified = BIGSdb::Utils::commify($isolate_count);
+		say qq(<li>Isolates: $commified</li>);
 	}
 	say qq(<li>Last updated: $max_date</li>) if $max_date;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
