@@ -39,6 +39,8 @@ sub new {
 
 sub run {
 	my ( $self, $params ) = @_;
+	
+	
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
@@ -58,7 +60,16 @@ sub run {
 		my $new_seqs        = {};
 		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
 		my $isolate_count   = 0;
+		
 		my $finish_progress = $params->{'align'} ? 20 : 80;
+		if ($params->{'user_genomes'}){
+			my $id = -1;
+			foreach (keys %{$params->{'user_genomes'}}){
+				unshift @$isolates,$id;
+				$id--;
+			}
+		}
+
 		$pm->run_on_finish(
 			sub {
 				my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;

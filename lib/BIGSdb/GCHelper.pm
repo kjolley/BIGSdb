@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,7 +26,9 @@ use BIGSdb::Constants qw(SEQ_METHODS);
 sub run_script {
 	my ($self) = @_;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $isolates    = $self->get_isolates;
+	my $isolates = $self->_process_user_genomes;
+
+	#$self->{logger}->error("@$isolates");
 	my $merged_data = {};
 	if ( $self->{'options'}->{'reference_file'} ) {
 		foreach my $isolate_id (@$isolates) {
@@ -36,12 +38,54 @@ sub run_script {
 	} else {
 		my $loci = $self->get_selected_loci;
 		foreach my $isolate_id (@$isolates) {
+			$self->{'logger'}->error($isolate_id);
 			my $data = $self->_get_allele_designations_from_defined_loci( $isolate_id, $loci );
 			$merged_data->{$isolate_id} = $data;
 		}
 	}
 	$self->{'results'} = $merged_data;
 	return;
+}
+
+sub _process_user_genomes {
+	my ($self) = @_;
+	my $isolate_ids = $self->get_isolates;
+	return $isolate_ids if !$self->{'options'}->{'user_genomes'};
+	my $user_genomes        = $self->{'options'}->{'user_genomes'};
+	my $temp_list_table     = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
+	my $isolate_table       = 'temp_isolates';
+	my $merged_isolate_view = 'isolates_view';
+	my $seqbin_table        = 'temp_seqbin';
+	my $merged_seqbin_view  = 'seqbin_view';
+	my $id                  = -1;
+	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
+	$self->{'db'}->do("CREATE TEMP table $seqbin_table AS (SELECT * FROM sequence_bin LIMIT 0)");
+	my $seqbin_id = -1;
+
+	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
+		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
+			undef, $id, $genome_name );
+			$self->{'logger'}->error($genome_name);
+		unshift @$isolate_ids, $id if !$self->{'options'}->{'i'};
+		foreach my $contig ( @{ $user_genomes->{$genome_name} } ) {
+			$self->{'db'}->do(
+				"INSERT INTO $seqbin_table (id,isolate_id,remote_contig,sequence,original_designation,"
+				  . 'sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
+				undef, $seqbin_id, $id, 'false', $contig->{'seq'}, $contig->{'id'}, 0, 0, 'now', 'now'
+			);
+			$seqbin_id--;
+		}
+		$id--;
+	}
+	$self->{'db'}->do( "CREATE TEMP view $merged_isolate_view AS (SELECT i.* FROM $self->{'system'}->{'view'} i "
+		  . "JOIN $temp_list_table t ON i.id=t.value) UNION SELECT * FROM $isolate_table" );
+	$self->{'system'}->{'view'} = $merged_isolate_view;
+	$self->{'db'}->do( "CREATE TEMP view $merged_seqbin_view AS (SELECT s.* FROM sequence_bin s "
+		  . "JOIN $temp_list_table t ON s.isolate_id=t.value) UNION SELECT * FROM $seqbin_table" );
+	$self->{'seqbin_table'} = $merged_seqbin_view;
+	$self->{'contigManager'}->set_seqbin_table($merged_seqbin_view);
+	return [$self->{'options'}->{'i'}] if defined $self->{'options'}->{'i'};
+	return $isolate_ids;
 }
 
 sub get_results {
@@ -338,7 +382,8 @@ sub _get_allele_designations_from_defined_loci {
 
 sub _does_isolate_have_sequence_data {
 	my ( $self, $isolate_id ) = @_;
-	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id=?)',
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	return $self->{'datastore'}->run_query( qq(SELECT EXISTS(SELECT * FROM $seqbin WHERE isolate_id=?)),
 		$isolate_id, { cache => 'GCHelper::does_isolate_have_sequence_data' } );
 }
 
@@ -348,7 +393,7 @@ sub _scan_by_loci {
 	my $isolate_prefix = BIGSdb::Utils::get_random();
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	my $params         = {};
-	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast identity alignment word_size);
+	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast partial_matches identity alignment word_size);
 	my ( $exact_matches, $partial_matches );
 	if ( !$self->_does_isolate_have_sequence_data($isolate_id) ) {
 		$exact_matches   = {};

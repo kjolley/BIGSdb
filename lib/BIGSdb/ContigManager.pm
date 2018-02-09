@@ -40,6 +40,12 @@ sub new {
 	return $self;
 }
 
+sub set_seqbin_table {
+	my ($self, $table) = @_;
+	$self->{'seqbin_table'} = $table;
+	return;
+}
+
 #Faster method to retrieve multiple contigs without extended metadata.
 #This checks the isolate URI from the first retrieved contig and if it
 #contains a URI to contigs_fasta will download all contigs in one call.
@@ -91,7 +97,8 @@ sub update_remote_contig_length {
 
 sub update_isolate_remote_contig_lengths {
 	my ( $self, $isolate_id ) = @_;
-	my $qry = 'SELECT r.uri,r.length FROM sequence_bin s JOIN remote_contigs r ON '
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	my $qry = "SELECT r.uri,r.length FROM $seqbin s JOIN remote_contigs r ON "
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::update_isolate_remote_contig_lengths' } );
@@ -128,11 +135,12 @@ sub get_remote_contig {
 		}
 	}
 	if ( $options->{'set_checksum'} && $options->{'seqbin_id'} ) {
+		my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 		eval {
 			$self->{'db'}
 			  ->do( 'UPDATE remote_contigs SET (length,checksum)=(?,?) WHERE uri=?', undef, $length, $checksum, $uri );
 			$self->{'db'}->do(
-				'UPDATE sequence_bin SET (method,original_designation,comments)=(?,?,?) WHERE id=?',
+				"UPDATE $seqbin SET (method,original_designation,comments)=(?,?,?) WHERE id=?",
 				undef, $contig->{'method'}, $contig->{'original_designation'},
 				$contig->{'comments'}, $options->{'seqbin_id'}
 			);
@@ -300,8 +308,9 @@ sub _get_session_token {
 sub get_contig_fragment {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my $contig_info = $self->{'datastore'}->run_query(
-		'SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM sequence_bin s LEFT JOIN '
+		"SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM $seqbin s LEFT JOIN "
 		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
 		$args->{'seqbin_id'},
 		{ fetch => 'row_hashref' }
@@ -349,17 +358,19 @@ sub _get_local_contig_fragment {
 	my ( $self, $args ) = @_;
 	my $flanking = $args->{'flanking'};
 	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my $qry =
 	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
 	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
-	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM sequence_bin WHERE id=?";
+	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM $seqbin WHERE id=?";
 	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
 }
 
 sub get_contig {
 	my ( $self, $seqbin_id ) = @_;
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my ( $remote, $sequence ) =
-	  $self->{'datastore'}->run_query( 'SELECT remote_contig,sequence FROM sequence_bin WHERE id=?',
+	  $self->{'datastore'}->run_query( "SELECT remote_contig,sequence FROM $seqbin WHERE id=?",
 		$seqbin_id, { cache => 'ContigManager::get_contig' } );
 	if ( !defined $remote ) {
 		$logger->error("No seqbin record $seqbin_id");
@@ -383,8 +394,9 @@ sub get_contig {
 
 sub get_contig_length {
 	my ( $self, $seqbin_id ) = @_;
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	return $self->{'datastore'}->run_query(
-		'SELECT GREATEST(r.length,length(s.sequence)) FROM sequence_bin s LEFT JOIN '
+		"SELECT GREATEST(r.length,length(s.sequence)) FROM $seqbin s LEFT JOIN "
 		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
 		$seqbin_id,
 		{ cache => 'ContigManager::get_contig_length' }
@@ -394,8 +406,9 @@ sub get_contig_length {
 sub get_contigs_by_list {
 	my ( $self, $seqbin_ids ) = @_;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids );
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my $data = $self->{'datastore'}->run_query(
-		'SELECT s.id,s.remote_contig,r.uri,r.checksum,s.sequence FROM sequence_bin s LEFT JOIN '
+		"SELECT s.id,s.remote_contig,r.uri,r.checksum,s.sequence FROM $seqbin s LEFT JOIN "
 		  . "remote_contigs r ON s.id=r.seqbin_id JOIN $temp_table t ON s.id=t.value",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }

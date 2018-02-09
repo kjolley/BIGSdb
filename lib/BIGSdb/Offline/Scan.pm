@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -390,10 +390,11 @@ sub _create_query_fasta_file {
 	return if -e $temp_infile;
 	my $experiment      = $params->{'experiment_list'};
 	my $distinct_clause = $experiment ? ' DISTINCT' : '';
-	my $qry             = "SELECT$distinct_clause s.id,sequence FROM sequence_bin s ";
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	my $qry             = "SELECT$distinct_clause s.id,sequence FROM $seqbin s ";
 	$qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
 	$qry .= 'WHERE s.isolate_id=? AND NOT remote_contig';
-	my $remote_qry = "SELECT$distinct_clause s.id,r.uri,r.length,r.checksum FROM sequence_bin s ";
+	my $remote_qry = "SELECT$distinct_clause s.id,r.uri,r.length,r.checksum FROM $seqbin s ";
 	$remote_qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
 	$remote_qry .= 'LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my @criteria = ($isolate_id);

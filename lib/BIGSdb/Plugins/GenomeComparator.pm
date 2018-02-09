@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,8 @@ use BIGSdb::GCForkScan;
 use Bio::AlignIO;
 use Bio::Seq;
 use Bio::SeqIO;
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
+use IO::String;
 use Excel::Writer::XLSX;
 use Digest::MD5;
 use List::MoreUtils qw(uniq);
@@ -49,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.2.1',
+		version     => '2.3.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -81,12 +83,17 @@ sub run {
 			$continue = 0;
 		}
 		$q->param( upload_filename => $q->param('ref_upload') );
-		my $ref_upload;
+		$q->param( user_genome_filename => $q->param('user_upload') );
+		
+		my ( $ref_upload, $user_upload );
 		if ( $q->param('ref_upload') ) {
 			$ref_upload = $self->_upload_ref_file;
 		}
+		if ( $q->param('user_upload') ) {
+			$user_upload = $self->_upload_user_file;
+		}
 		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
-		if ( !@$filtered_ids ) {
+		if ( !@$filtered_ids && !$q->param('user_upload') ) {
 			$error .= '<p>You must include one or more isolates. Make sure your selected isolates '
 			  . "haven't been filtered to none by selecting a project.</p>\n";
 			$continue = 0;
@@ -122,7 +129,8 @@ sub run {
 		if ($error) {
 			say qq(<div class="box statusbad">$error</div>);
 		}
-		$q->param( ref_upload => $ref_upload ) if $ref_upload;
+		$q->param( ref_upload  => $ref_upload )  if $ref_upload;
+		$q->param( user_upload => $user_upload ) if $user_upload;
 		if ( $q->param('calc_distances') ) {
 			$q->param( align       => 'on' );
 			$q->param( align_all   => 'on' );
@@ -199,6 +207,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset(
 		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->_print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(
 		{
@@ -220,6 +229,19 @@ sub _print_interface {
 	say q(</div>);
 	say $q->end_form;
 	say q(</div>);
+	return;
+}
+
+sub _print_user_genome_upload_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
+	say q(<p>Optionally include data not in the<br />database.</p>);
+	say q(<p>Upload FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
+	say q( <a class="tooltip" title="User data - The name of the file(s) containing genome data will be )
+	  . q(used as the name of the isolate(s) in the output."><span class="fa fa-info-circle"></span></a></p>);
+	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
+	say q(</fieldset>);
 	return;
 }
 
@@ -389,11 +411,12 @@ sub run_job {
 	#Allow temp files to be cleaned on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
 	$self->{'params'} = $params;
-	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
-	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $accession   = $params->{'accession'} || $params->{'annotation'};
-	my $ref_upload  = $params->{'ref_upload'};
-	if ( !@$isolate_ids ) {
+	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
+	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $accession    = $params->{'accession'} || $params->{'annotation'};
+	my $ref_upload   = $params->{'ref_upload'};
+	my $user_genomes = $self->_process_uploaded_genomes( $job_id, $isolate_ids, $params );
+	if ( !@$isolate_ids && !keys %$user_genomes ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
@@ -461,7 +484,8 @@ sub run_job {
 		$self->_analyse_by_reference(
 			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, } );
 	} else {
-		$self->_analyse_by_loci( { job_id => $job_id, loci => $loci, ids => $isolate_ids } );
+		$self->_analyse_by_loci(
+			{ job_id => $job_id, loci => $loci, ids => $isolate_ids, user_genomes => $user_genomes } );
 	}
 	return;
 }
@@ -474,9 +498,106 @@ sub _signal_kill_job {
 	return;
 }
 
+sub _process_uploaded_genomes {
+	my ( $self, $job_id, $isolate_ids, $params ) = @_;
+	return if !$params->{'user_upload'};
+	my $filename = "$self->{'config'}->{'tmp_dir'}/" . $params->{'user_upload'};
+	if ( !-e $filename ) {
+		throw BIGSdb::PluginException('Uploaded data file not found.');
+	}
+	my $user_genomes = {};
+	if ( $filename =~ /\.zip$/x ) {
+		my $u = IO::Uncompress::Unzip->new($filename) or throw BIGSdb::PluginException('Cannot open zip file.');
+		my $status;
+		for ( $status = 1 ; $status > 0 ; $status = $u->nextStream ) {
+			my $fasta_file = $u->getHeaderInfo->{'Name'};
+			( my $genome_name = $fasta_file ) =~ s/\.(?:fas|fasta)$//x;
+			my $buff;
+			my $fasta;
+			while ( ( $status = $u->read($buff) ) > 0 ) {
+				$fasta .= $buff;
+			}
+			my $stringfh_in = IO::String->new($fasta);
+			try {
+				my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
+				while ( my $seq_object = $seqin->next_seq ) {
+					my $seq = $seq_object->seq // '';
+					$seq =~ s/[\-\.\s]//gx;
+					push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
+					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+				}
+			}
+			catch Bio::Root::Exception with {
+				throw BIGSdb::PluginException("File $fasta_file in uploaded zip is not valid FASTA format.");
+			};
+			last if $status < 0;
+		}
+		throw BIGSdb::PluginException("Error processing $filename: $!") if $status < 0;
+	} else {
+		try {
+			( my $genome_name = $params->{'user_genome_filename'} ) =~ s/\.(?:fas|fasta)$//x;
+			my $seqin = Bio::SeqIO->new( -file => $filename, -format => 'fasta' );
+			while ( my $seq_object = $seqin->next_seq ) {
+				my $seq = $seq_object->seq // '';
+				$seq =~ s/[\-\.\s]//gx;
+				push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
+				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+			}
+		}
+		catch Bio::Root::Exception with {
+			throw BIGSdb::PluginException('User genome file is not valid FASTA format.');
+		};
+	}
+	$self->_create_temp_tables( $job_id, $isolate_ids, $user_genomes );
+
+	#	my $user_genome_files = $self->_write_user_genome_fasta_files($job_id,$user_genomes);
+	return $user_genomes;
+}
+
+sub _create_temp_tables {
+	my ( $self, $job_id, $isolate_ids, $user_genomes ) = @_;
+	my $temp_list_table    = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
+	my $isolate_table      = "${job_id}_isolates";
+	my $isolate_table_view = "${job_id}_isolates_view";
+	my $id                 = -1;
+	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
+	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
+		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
+			undef, $id, $genome_name );
+		unshift @$isolate_ids, $id;
+		$id--;
+	}
+	my $data = $self->{'datastore'}
+	  ->run_query( "SELECT * FROM $isolate_table", undef, { fetch => 'all_arrayref', slice => {} } );
+	$self->{'db'}->do( "CREATE TEMP view $isolate_table_view AS (SELECT i.* FROM $self->{'system'}->{'view'} i "
+		  . "JOIN $temp_list_table t ON i.id=t.value) UNION SELECT * FROM $isolate_table" );
+	$self->{'system'}->{'view'} = $isolate_table_view;
+	return;
+
+	#	use Data::Dumper;
+	#	$logger->error(Dumper $data);
+}
+
+#sub _write_user_genome_fasta_files {
+#	my ($self, $job_id,$user_genomes) = @_;
+#	my $i = 1;
+#	my $filenames = {};
+#	foreach my $id (sort keys %$user_genomes){
+#		my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_user_genome_$i";
+#		open (my $fh, '>', $filename) || $logger->error("Cannot open $filename for writing");
+#		foreach my $contig (@{$user_genomes->{$id}}){
+#			say $fh qq(>$contig->{'id'});
+#			say $fh $contig->{'seq'};
+#		}
+#		close $fh;
+#		$i++;
+#		$filenames->{"user:$i"} = {id=>$id,filename =>$filename};
+#	}
+#	return $filenames;
+#}
 sub _analyse_by_loci {
 	my ( $self, $data ) = @_;
-	my ( $job_id, $loci, $ids, $worksheet ) = @{$data}{qw(job_id loci ids worksheet)};
+	my ( $job_id, $loci, $ids, $user_genomes, $worksheet ) = @{$data}{qw(job_id loci ids user_genomes worksheet)};
 	if ( @$ids < 2 ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -495,7 +616,8 @@ sub _analyse_by_loci {
 	  . qq(marked as 'New#1, 'New#2' etc.\n)
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
 	  . qq(are marked as 'I'.\n\n);
-	my $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } );
+	my $scan_data = $self->assemble_data_for_defined_loci(
+		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
@@ -926,7 +1048,6 @@ sub _get_isolate_table_header {
 
 sub _get_isolate_name {
 	my ( $self, $id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $isolate = $id;
 	if ( $options->{'name_only'} ) {
 		if ( !$options->{'no_name'} ) {
@@ -942,7 +1063,6 @@ sub _get_isolate_name {
 
 sub _get_identifier {
 	my ( $self, $id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $value = $options->{'no_id'} ? '' : $id;
 	my @includes;
 	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
@@ -1027,7 +1147,8 @@ sub _generate_distance_matrix {
 	my $dismat       = {};
 	my $isolate_data = $data->{'isolate_data'};
 	my $ignore_loci  = [];
-	push @$ignore_loci, @{ $data->{'incomplete_in_some'} } if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
+	push @$ignore_loci, @{ $data->{'incomplete_in_some'} }
+	  if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
 	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous'};
 	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
 	if ( $data->{'by_ref'} ) {
@@ -1203,7 +1324,8 @@ sub align {
 			}
 		}
 		close $fasta_fh;
-		my $core_threshold = BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
+		my $core_threshold =
+		  BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
 		my $core_locus = ( $scan_data->{'frequency'}->{$locus} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
 		$self->{'distances'}->{$locus} = $self->_run_alignment(
 			{
@@ -1414,7 +1536,8 @@ sub _run_infoalign {
 
 sub _generate_excel_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $by_ref, $ids, $scan_data, $dismat, $core ) = @{$args}{qw(job_id by_ref ids scan_data dismat core)};
+	my ( $job_id, $by_ref, $ids, $scan_data, $dismat, $core ) =
+	  @{$args}{qw(job_id by_ref ids scan_data dismat core)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating Excel file' } );
 	open( my $excel_fh, '>', \my $excel )
 	  || $logger->error("Failed to open excel filehandle: $!");    #Store Excel file in scalar $excel
@@ -1899,7 +2022,8 @@ sub _write_excel_citations {
 			  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
 				$scheme_id, { fetch => 'col_arrayref' } );
 			my $citations = $self->{'datastore'}->get_citation_hash($pmids);
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			my $scheme_info =
+			  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
 			$worksheet->write( $row, 0, $scheme_info->{'name'}, $excel_format{'heading'} );
 			foreach my $pmid (@$pmids) {
 				$row++;
@@ -1911,25 +2035,37 @@ sub _write_excel_citations {
 	return;
 }
 
-sub _upload_ref_file {
-	my ($self) = @_;
-	my $temp = BIGSdb::Utils::get_random();
-	my $format = $self->{'cgi'}->param('ref_upload') =~ /.+(\.\w+)$/x ? $1 : q();
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$temp\_ref$format";
+sub _upload_file {
+	my ( $self, $param, $suffix ) = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $format   = $self->{'cgi'}->param($param) =~ /.+(\.\w+)$/x ? $1 : q();
+	my $filename = "$self->{'config'}->{'tmp_dir'}/${temp}_$suffix$format";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
-	my $fh2 = $self->{'cgi'}->upload('ref_upload');
+	my $fh2 = $self->{'cgi'}->upload($param);
 	binmode $fh2;
 	binmode $fh;
 	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	print $fh $buffer;
 	close $fh;
-	return "$temp\_ref$format";
+	return "${temp}_$suffix$format";
+}
+
+sub _upload_ref_file {
+	my ($self) = @_;
+	my $file = $self->_upload_file( 'ref_upload', 'ref' );
+	return $file;
+}
+
+sub _upload_user_file {
+	my ($self) = @_;
+	my $file = $self->_upload_file( 'user_upload', 'user' );
+	return $file;
 }
 
 sub assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $ids, $loci ) = @{$args}{qw(job_id ids loci )};
+	my ( $job_id, $ids, $user_genomes, $loci ) = @{$args}{qw(job_id ids user_genomes loci )};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
 	my $locus_list   = $self->create_list_file( $job_id, 'loci',     $loci );
 	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
@@ -1940,9 +2076,11 @@ sub assemble_data_for_defined_loci {
 		threads           => $self->{'threads'},
 		job_id            => $job_id,
 		exemplar          => 1,
+		partial_matches => 100,
 		use_tagged        => 1,
 		loci              => $loci
 	};
+	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
 	delete $params->{'datatype'};    #This interferes with Script::get_selected_loci.
 	my $data = $self->_run_helper($params);
@@ -2010,6 +2148,8 @@ sub _run_helper {
 	$results->{'paralogous'}     = $paralogous;
 	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
 	$results->{'loci'}           = $params->{'loci'} if $params->{'loci'};
+	use Data::Dumper;
+	$logger->error( Dumper $results);
 	return $results;
 }
 
