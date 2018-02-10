@@ -82,9 +82,8 @@ sub run {
 			$error    = "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>\n";
 			$continue = 0;
 		}
-		$q->param( upload_filename => $q->param('ref_upload') );
+		$q->param( upload_filename      => $q->param('ref_upload') );
 		$q->param( user_genome_filename => $q->param('user_upload') );
-		
 		my ( $ref_upload, $user_upload );
 		if ( $q->param('ref_upload') ) {
 			$ref_upload = $self->_upload_ref_file;
@@ -485,7 +484,13 @@ sub run_job {
 			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, } );
 	} else {
 		$self->_analyse_by_loci(
-			{ job_id => $job_id, loci => $loci, ids => $isolate_ids, user_genomes => $user_genomes } );
+			{
+				job_id       => $job_id,
+				loci         => $loci,
+				ids          => $isolate_ids,
+				user_genomes => $user_genomes,
+			}
+		);
 	}
 	return;
 }
@@ -549,8 +554,6 @@ sub _process_uploaded_genomes {
 		};
 	}
 	$self->_create_temp_tables( $job_id, $isolate_ids, $user_genomes );
-
-	#	my $user_genome_files = $self->_write_user_genome_fasta_files($job_id,$user_genomes);
 	return $user_genomes;
 }
 
@@ -560,11 +563,16 @@ sub _create_temp_tables {
 	my $isolate_table      = "${job_id}_isolates";
 	my $isolate_table_view = "${job_id}_isolates_view";
 	my $id                 = -1;
+	my $map_id             = keys %$user_genomes;
+	my $name_map           = {};
 	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
+
 	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
 		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
 			undef, $id, $genome_name );
 		unshift @$isolate_ids, $id;
+		$name_map->{$id} = "u$map_id";
+		$map_id--;
 		$id--;
 	}
 	my $data = $self->{'datastore'}
@@ -572,32 +580,14 @@ sub _create_temp_tables {
 	$self->{'db'}->do( "CREATE TEMP view $isolate_table_view AS (SELECT i.* FROM $self->{'system'}->{'view'} i "
 		  . "JOIN $temp_list_table t ON i.id=t.value) UNION SELECT * FROM $isolate_table" );
 	$self->{'system'}->{'view'} = $isolate_table_view;
+	$self->{'name_map'} = $name_map;
 	return;
-
-	#	use Data::Dumper;
-	#	$logger->error(Dumper $data);
 }
 
-#sub _write_user_genome_fasta_files {
-#	my ($self, $job_id,$user_genomes) = @_;
-#	my $i = 1;
-#	my $filenames = {};
-#	foreach my $id (sort keys %$user_genomes){
-#		my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_user_genome_$i";
-#		open (my $fh, '>', $filename) || $logger->error("Cannot open $filename for writing");
-#		foreach my $contig (@{$user_genomes->{$id}}){
-#			say $fh qq(>$contig->{'id'});
-#			say $fh $contig->{'seq'};
-#		}
-#		close $fh;
-#		$i++;
-#		$filenames->{"user:$i"} = {id=>$id,filename =>$filename};
-#	}
-#	return $filenames;
-#}
 sub _analyse_by_loci {
 	my ( $self, $data ) = @_;
-	my ( $job_id, $loci, $ids, $user_genomes, $worksheet ) = @{$data}{qw(job_id loci ids user_genomes worksheet)};
+	my ( $job_id, $loci, $ids, $user_genomes, $worksheet ) =
+	  @{$data}{qw(job_id loci ids user_genomes worksheet)};
 	if ( @$ids < 2 ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -953,9 +943,17 @@ sub _get_unique_strain_html_table {
 	$buffer .= q(</tr><tr>);
 	my $td = 1;
 	foreach my $hash (@strain_hashes) {
-		my $isolates = $data->{'unique_strains'}->{'strain_isolates'}->{$hash};
+		my $isolates        = $data->{'unique_strains'}->{'strain_isolates'}->{$hash};
+		my @mapped_isolates = @$isolates;
+		foreach my $isolate (@mapped_isolates) {
+			if ( $isolate =~ /^(-\d+)/x ) {
+				my $isolate_id = $1;
+				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				$isolate =~ s/$isolate_id/$mapped_id/x;
+			}
+		}
 		local $" = q(<br />);
-		$buffer .= qq(<td class="td$td">@$isolates</td>);
+		$buffer .= qq(<td class="td$td">@mapped_isolates</td>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= q(</tr></table></div>);
@@ -995,8 +993,16 @@ sub _get_unique_strain_text_table {
 	my $strain_num = 1;
 	foreach my $strain (@strain_hashes) {
 		$buffer .= qq(Strain $strain_num:\n);
-		my $isolates = $data->{'unique_strains'}->{'strain_isolates'}->{$strain};
-		foreach my $isolate (@$isolates) {
+		my $isolates        = $data->{'unique_strains'}->{'strain_isolates'}->{$strain};
+		my @mapped_isolates = @$isolates;
+		foreach my $isolate (@mapped_isolates) {
+			if ( $isolate =~ /^(-\d+)/x ) {
+				my $isolate_id = $1;
+				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				$isolate =~ s/$isolate_id/$mapped_id/x;
+			}
+		}
+		foreach my $isolate (@mapped_isolates) {
 			$buffer .= qq($isolate\n);
 		}
 		$buffer .= qq(\n);
@@ -1034,6 +1040,8 @@ sub _get_isolate_table_header {
 	}
 	foreach my $id (@$ids) {
 		my $isolate = $self->_get_isolate_name($id);
+		my $mapped_id = $self->{'name_map'}->{$id} // $id;
+		$isolate =~ s/^$id/$mapped_id/x;
 		push @header, $isolate;
 	}
 	if ( $format eq 'html' ) {
@@ -1204,6 +1212,8 @@ sub _make_nexus_file {
 			$labels{$id} = 'ref';
 		} else {
 			$labels{$id} = $self->_get_identifier($id);
+			my $mapped_id = $self->{'name_map'}->{$id} // $id;
+			$labels{$id} =~ s/^$id/$mapped_id/x;
 		}
 	}
 	my $num_taxa         = @ids;
@@ -1628,6 +1638,8 @@ sub _write_excel_table_worksheet {
 	}
 	foreach my $id (@$ids) {
 		my $isolate = $self->_get_isolate_name($id);
+		my $mapped_id = $self->{'name_map'}->{$id} // $id;
+		$isolate =~ s/^$id/$mapped_id/x;
 		push @header, $isolate;
 	}
 	my $worksheet     = $workbook->add_worksheet($tab);
@@ -1747,10 +1759,18 @@ sub _write_excel_unique_strains {
 	my $excel_col_max_width = [];
 	my $strain_id           = 1;
 	foreach my $strain (@strain_hashes) {
-		my $row        = 1;
-		my $max_length = 5;
-		my $isolates   = $scan_data->{'unique_strains'}->{'strain_isolates'}->{$strain};
-		foreach my $isolate (@$isolates) {
+		my $row             = 1;
+		my $max_length      = 5;
+		my $isolates        = $scan_data->{'unique_strains'}->{'strain_isolates'}->{$strain};
+		my @mapped_isolates = @$isolates;
+		foreach my $isolate (@mapped_isolates) {
+			if ( $isolate =~ /^(-\d+)/x ) {
+				my $isolate_id = $1;
+				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				$isolate =~ s/$isolate_id/$mapped_id/x;
+			}
+		}
+		foreach my $isolate (@mapped_isolates) {
 			$excel_values->[$row]->[$col] = $isolate;
 			$max_length = length $isolate if length $isolate > $max_length;
 			$row++;
@@ -1807,6 +1827,8 @@ sub _write_excel_distance_matrix {
 			$labels{$id} = 'ref';
 		} else {
 			$labels{$id} = $self->_get_identifier($id);
+			my $mapped_id = $self->{'name_map'}->{$id} // $id;
+			$labels{$id} =~ s/^$id/$mapped_id/x;
 		}
 	}
 	my $worksheet = $workbook->add_worksheet('distance matrix');
@@ -2076,7 +2098,7 @@ sub assemble_data_for_defined_loci {
 		threads           => $self->{'threads'},
 		job_id            => $job_id,
 		exemplar          => 1,
-		partial_matches => 100,
+		partial_matches   => 100,
 		use_tagged        => 1,
 		loci              => $loci
 	};
@@ -2148,8 +2170,6 @@ sub _run_helper {
 	$results->{'paralogous'}     = $paralogous;
 	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
 	$results->{'loci'}           = $params->{'loci'} if $params->{'loci'};
-	use Data::Dumper;
-	$logger->error( Dumper $results);
 	return $results;
 }
 

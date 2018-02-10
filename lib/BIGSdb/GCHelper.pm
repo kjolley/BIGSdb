@@ -65,7 +65,6 @@ sub _process_user_genomes {
 	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
 		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
 			undef, $id, $genome_name );
-			$self->{'logger'}->error($genome_name);
 		unshift @$isolate_ids, $id if !$self->{'options'}->{'i'};
 		foreach my $contig ( @{ $user_genomes->{$genome_name} } ) {
 			$self->{'db'}->do(
