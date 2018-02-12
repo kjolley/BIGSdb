@@ -206,7 +206,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset(
 		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->_print_user_genome_upload_fieldset;
+	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(
 		{
@@ -231,7 +231,7 @@ sub _print_interface {
 	return;
 }
 
-sub _print_user_genome_upload_fieldset {
+sub print_user_genome_upload_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
@@ -414,7 +414,7 @@ sub run_job {
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $accession    = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload   = $params->{'ref_upload'};
-	my $user_genomes = $self->_process_uploaded_genomes( $job_id, $isolate_ids, $params );
+	my $user_genomes = $self->process_uploaded_genomes( $job_id, $isolate_ids, $params );
 	if ( !@$isolate_ids && !keys %$user_genomes ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -481,7 +481,14 @@ sub run_job {
 		}
 		return if !$seq_obj;
 		$self->_analyse_by_reference(
-			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, user_genomes => $user_genomes} );
+			{
+				job_id       => $job_id,
+				accession    => $accession,
+				seq_obj      => $seq_obj,
+				ids          => $isolate_ids,
+				user_genomes => $user_genomes
+			}
+		);
 	} else {
 		$self->_analyse_by_loci(
 			{
@@ -503,7 +510,7 @@ sub _signal_kill_job {
 	return;
 }
 
-sub _process_uploaded_genomes {
+sub process_uploaded_genomes {
 	my ( $self, $job_id, $isolate_ids, $params ) = @_;
 	return if !$params->{'user_upload'};
 	my $filename = "$self->{'config'}->{'tmp_dir'}/" . $params->{'user_upload'};
@@ -565,6 +572,7 @@ sub _create_temp_tables {
 	my $id                 = -1;
 	my $map_id             = keys %$user_genomes;
 	my $name_map           = {};
+	my $reverse_name_map   = {};
 	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
 
 	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
@@ -572,6 +580,7 @@ sub _create_temp_tables {
 			undef, $id, $genome_name );
 		unshift @$isolate_ids, $id;
 		$name_map->{$id} = "u$map_id";
+		$reverse_name_map->{"u$map_id"} = $id;
 		$map_id--;
 		$id--;
 	}
@@ -580,7 +589,8 @@ sub _create_temp_tables {
 	$self->{'db'}->do( "CREATE TEMP view $isolate_table_view AS (SELECT i.* FROM $self->{'system'}->{'view'} i "
 		  . "JOIN $temp_list_table t ON i.id=t.value) UNION SELECT * FROM $isolate_table" );
 	$self->{'system'}->{'view'} = $isolate_table_view;
-	$self->{'name_map'} = $name_map;
+	$self->{'name_map'}         = $name_map;
+	$self->{'reverse_name_map'} = $reverse_name_map;
 	return;
 }
 
@@ -637,7 +647,8 @@ sub _analyse_by_loci {
 
 sub _analyse_by_reference {
 	my ( $self, $data ) = @_;
-	my ( $job_id, $accession, $seq_obj, $ids, $user_genomes, $worksheet ) = @{$data}{qw(job_id accession seq_obj ids user_genomes worksheet)};
+	my ( $job_id, $accession, $seq_obj, $ids, $user_genomes, $worksheet ) =
+	  @{$data}{qw(job_id accession seq_obj ids user_genomes worksheet)};
 	my @cds;
 	foreach my $feature ( $seq_obj->get_SeqFeatures ) {
 		push @cds, $feature if $feature->primary_tag eq 'CDS';
@@ -685,7 +696,8 @@ sub _analyse_by_reference {
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
-	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, user_genomes=>$user_genomes, cds => \@cds } );
+	my $scan_data = $self->_assemble_data_for_reference_genome(
+		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
 		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
@@ -1056,7 +1068,7 @@ sub _get_isolate_table_header {
 
 sub _get_isolate_name {
 	my ( $self, $id, $options ) = @_;
-	my $isolate = $id;
+	my $isolate = $self->{'name_map'}->{$id} // $id;
 	if ( $options->{'name_only'} ) {
 		if ( !$options->{'no_name'} ) {
 			my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
@@ -1325,11 +1337,12 @@ sub align {
 			my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 			$name =~ s/[\(\)]//gx;
 			$name =~ tr/[:,. ]/_/;
-			$names->{$id} = $name;
+			my $identifier = $self->{'name_map'}->{$id} // $id;
+			$names->{$identifier} = $name;
 			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
 			if ($seq) {
 				$seq_count++;
-				say $fasta_fh ">$id";
+				say $fasta_fh ">$identifier";
 				say $fasta_fh $seq;
 			}
 		}
@@ -1443,9 +1456,8 @@ sub _run_alignment {
 	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
 		my $threads =
 		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
-		system(
-"$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase --clustalout $fasta_file > $aligned_out"
-		);
+		system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
+			  . "--preservecase --clustalout $fasta_file > $aligned_out" );
 	} elsif ( $params->{'aligner'} eq 'MUSCLE'
 		&& $self->{'config'}->{'muscle_path'}
 		&& -e $fasta_file
@@ -1478,8 +1490,9 @@ sub _run_alignment {
 		}
 		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
 		foreach my $id (@$ids) {
-			next if $id_has_seq{$id};
-			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
+			my $identifier = $self->{'name_map'}->{$id} // $id;
+			next if $id_has_seq{$identifier};
+			$xmfa_buffer .= ">$names->{$identifier}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
 		}
 		$xmfa_buffer .= '=';
 		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");

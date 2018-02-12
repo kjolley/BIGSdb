@@ -133,7 +133,7 @@ sub _create_tsv_file {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $tsv_file = "$self->{'config'}->{'tmp_dir'}/$job_id.tsv";
 	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
-	my @include_fields = split /\|_\|/x, $params->{'include_fields'};
+	my @include_fields = split /\|_\|/x, ($params->{'include_fields'} // q());
 	my %include_fields = map { $_ => 1 } @include_fields;
 	$include_fields{"f_$_"} = 1 foreach qw(id country year);
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;

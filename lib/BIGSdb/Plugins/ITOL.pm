@@ -49,12 +49,13 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.2.2',
+		version             => '1.3.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'aligner,offline_jobs,js_tree,clustalw',
+		supports            => 'user_genomes',
 		order               => 35,
 		min                 => 2,
 		max                 => MAX_RECORDS,
@@ -89,25 +90,24 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
-		my @list = split /[\r\n]+/x, $q->param('list');
-		@list = uniq @list;
-		my @non_integers;
-
-		foreach my $id (@list) {
-			push @non_integers, $id if !BIGSdb::Utils::is_int($id);
-		}
-		if ( !@list ) {
-			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-			@list = @$id_list;
-		}
+		my @ids = $q->param('isolate_id');
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @ids, @$pasted_cleaned_ids;
+		@ids = uniq @ids;
+		my $continue = 1;
 		my @errors;
-		if ( !@list || @list < 2 ) {
-			push @errors, q(You must select at least two valid isolate ids.);
+
+		if (@$invalid_ids) {
+			local $" = ', ';
+			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 		}
-		if (@non_integers) {
-			local $" = q(, );
-			push @errors, qq(The following ids are not valid integers: @non_integers.);
+		$q->param( user_genome_filename => $q->param('user_upload') );
+		my $user_upload;
+		if ( $q->param('user_upload') ) {
+			$user_upload = $self->_upload_user_file;
+		}
+		if ( ( !@ids || @ids < 2 ) && !$user_upload ) {
+			push @errors, q(You must select at least two valid isolate ids.);
 		}
 		if (@$invalid_loci) {
 			local $" = q(, );
@@ -119,7 +119,7 @@ sub run {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
-		my $total_seqs          = @$loci_selected * @list;
+		my $total_seqs          = @$loci_selected * @ids;
 		my $max_records         = $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS;
 		my $max_seqs            = $self->{'system'}->{'itol_seq_limit'} // MAX_SEQS;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
@@ -129,8 +129,8 @@ sub run {
 			push @errors, qq(Output is limited to a total of $commify_max_seqs sequences )
 			  . qq((records x loci). You have selected $commify_total_seqs.);
 		}
-		if ( @list > $max_records ) {
-			my $commify_total_records = BIGSdb::Utils::commify( scalar @list );
+		if ( @ids > $max_records ) {
+			my $commify_total_records = BIGSdb::Utils::commify( scalar @ids );
 			push @errors, qq(Output is limited to a total of $commify_max_records records. )
 			  . qq(You have selected $commify_total_records.);
 		}
@@ -149,6 +149,7 @@ sub run {
 				$params->{$field_dataset} = "@dataset";
 			}
 			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
+			$params->{'user_upload'} = $user_upload if $user_upload;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -159,7 +160,7 @@ sub run {
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
 					loci         => $loci_selected,
-					isolates     => \@list
+					isolates     => \@ids
 				}
 			);
 			say $self->get_job_redirect($job_id);
@@ -193,7 +194,18 @@ sub _print_interface {
 	  . q(of the scheme.</p>);
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
-	$self->print_sequence_export_form( 'id', $list, $scheme_id, { no_includes => 1, no_options => 1 } );
+	say $q->start_form;
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
+	my $atts = $self->get_attributes;
+
+	#Subclassed plugins may not yet support uploaded genomes.
+	$self->print_user_genome_upload_fieldset if ($atts->{'supports'} // q()) =~ /user_genomes/x;
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_scheme_fieldset;
+	$self->print_extra_form_elements;
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->hidden($_) foreach qw (page name db);
+	say $q->end_form;
 	say q(</div>);
 	return;
 }
@@ -214,7 +226,10 @@ sub print_extra_form_elements {
 		push @allowed_fields, $field;
 	}
 	say q(<fieldset style="float:left"><legend>iTOL datasets</legend>);
-	say q(<p>Select to create data overlays</p>);
+	say q(<p>Select to create data overlays<br />(Use Ctrl to select multiple) )
+	  . q(<a class="tooltip" title="Datasets - These are not available for uploaded genomes since they require )
+	  . q(metadata or designations to be tagged within the database."><span class="fa fa-info-circle"></span>)
+	  . q(</a></p>);
 	say $q->scrolling_list(
 		-name     => 'itol_dataset',
 		-id       => 'itol_dataset',
@@ -260,7 +275,7 @@ sub _get_identifier_list {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $ret_val = $self->generate_tree_files( $job_id, $params );
-	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed)};
+	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed )};
 	if ( !$failed ) {
 		my $identifiers = $self->_get_identifier_list($fasta_file);
 		my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
@@ -276,23 +291,27 @@ sub run_job {
 sub generate_tree_files {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
-	$self->{'params'}            = $params;
-	$self->{'params'}->{'align'} = 1;
+	$self->{'params'}                = $params;
+	$self->{'params'}->{'align'}     = 1;
 	$self->{'params'}->{'align_all'} = 1;
-	$params->{'aligner'}         = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
+	$params->{'aligner'}             = $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE';
 	$self->{'threads'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
 	  ? $self->{'config'}->{'genome_comparator_threads'}
 	  : 2;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
-	my $ids      = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $loci     = $self->{'jobManager'}->get_job_loci($job_id);
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
+	my $ids          = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $user_genomes = $self->process_uploaded_genomes( $job_id, $ids, $params );
+	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
+	my $filename     = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	( $ids, my $missing ) = $self->filter_missing_isolates($ids);
 	my ( $message_html, $failed );
 	my $scan_data;
-	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
+	eval {
+		$scan_data = $self->assemble_data_for_defined_loci(
+			{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, loci => $loci } );
+	};
 
 	if ($@) {
 		$logger->error($@);
@@ -457,8 +476,8 @@ sub _create_itol_dataset {
 	my @ids;
 
 	foreach my $identifier (@$identifiers) {
-		if ( $identifier =~ /^(\d+)/x ) {
-			push @ids, $1;
+		if ( $identifier =~ /^(u?\d+)/x ) {
+			push @ids, $self->{'reverse_name_map'}->{$1} // $1;
 		}
 	}
 	if ( $type eq 'scheme_field' ) {
@@ -523,8 +542,8 @@ sub _create_itol_dataset {
 	};
 	my $buffer = q();
 	foreach my $identifier (@$identifiers) {
-		if ( $identifier =~ /^(\d+)/x ) {
-			my $id = $1;
+		if ( $identifier =~ /^(u?\d+)/x ) {
+			my $id = $self->{'reverse_name_map'}->{$1} // $1;
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
 			next if !defined $data;

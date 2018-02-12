@@ -75,6 +75,7 @@ sub print_info_panel {
 	say q(<p>This plugin generates a minimum-spanning tree and visualizes within GrapeTree:</p>);
 	say q(<h2>GrapeTree: Visualization of core genomic relationships</h2>);
 	say q(<p>GrapeTree is developed by:</p>);
+	say q(<ul>);
 	say q(<li>Zhemin Zhou (1)</li>);
 	say q(<li>Nabil-Fareed Alikhan (1)</li>);
 	say q(<li>Martin J. Sergeant (1)</li>);
