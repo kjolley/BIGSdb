@@ -481,14 +481,14 @@ sub run_job {
 		}
 		return if !$seq_obj;
 		$self->_analyse_by_reference(
-			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, } );
+			{ job_id => $job_id, accession => $accession, seq_obj => $seq_obj, ids => $isolate_ids, user_genomes => $user_genomes} );
 	} else {
 		$self->_analyse_by_loci(
 			{
 				job_id       => $job_id,
 				loci         => $loci,
 				ids          => $isolate_ids,
-				user_genomes => $user_genomes,
+				user_genomes => $user_genomes
 			}
 		);
 	}
@@ -637,10 +637,10 @@ sub _analyse_by_loci {
 
 sub _analyse_by_reference {
 	my ( $self, $data ) = @_;
-	my ( $job_id, $accession, $seq_obj, $ids, $worksheet ) = @{$data}{qw(job_id accession seq_obj ids worksheet)};
+	my ( $job_id, $accession, $seq_obj, $ids, $user_genomes, $worksheet ) = @{$data}{qw(job_id accession seq_obj ids user_genomes worksheet)};
 	my @cds;
-	foreach ( $seq_obj->get_SeqFeatures ) {
-		push @cds, $_ if $_->primary_tag eq 'CDS';
+	foreach my $feature ( $seq_obj->get_SeqFeatures ) {
+		push @cds, $feature if $feature->primary_tag eq 'CDS';
 	}
 	my %att;
 	eval {
@@ -685,7 +685,7 @@ sub _analyse_by_reference {
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
-	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, cds => \@cds } );
+	my $scan_data = $self->_assemble_data_for_reference_genome( { job_id => $job_id, ids => $ids, user_genomes=>$user_genomes, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
 		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
@@ -2112,7 +2112,7 @@ sub assemble_data_for_defined_loci {
 
 sub _assemble_data_for_reference_genome {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $ids, $cds ) = @{$args}{qw(job_id ids cds )};
+	my ( $job_id, $ids, $user_genomes, $cds ) = @{$args}{qw(job_id ids user_genomes cds )};
 	my $locus_data = {};
 	my $loci       = [];
 	my $locus_num  = 1;
@@ -2139,6 +2139,7 @@ sub _assemble_data_for_reference_genome {
 		loci              => $loci
 	};
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
+	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	return $data;

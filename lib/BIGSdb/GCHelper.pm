@@ -27,8 +27,6 @@ sub run_script {
 	my ($self) = @_;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
 	my $isolates = $self->_process_user_genomes;
-
-	#$self->{logger}->error("@$isolates");
 	my $merged_data = {};
 	if ( $self->{'options'}->{'reference_file'} ) {
 		foreach my $isolate_id (@$isolates) {
@@ -38,7 +36,6 @@ sub run_script {
 	} else {
 		my $loci = $self->get_selected_loci;
 		foreach my $isolate_id (@$isolates) {
-			$self->{'logger'}->error($isolate_id);
 			my $data = $self->_get_allele_designations_from_defined_loci( $isolate_id, $loci );
 			$merged_data->{$isolate_id} = $data;
 		}
@@ -83,7 +80,7 @@ sub _process_user_genomes {
 		  . "JOIN $temp_list_table t ON s.isolate_id=t.value) UNION SELECT * FROM $seqbin_table" );
 	$self->{'seqbin_table'} = $merged_seqbin_view;
 	$self->{'contigManager'}->set_seqbin_table($merged_seqbin_view);
-	return [$self->{'options'}->{'i'}] if defined $self->{'options'}->{'i'};
+	return [ $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
 	return $isolate_ids;
 }
 
@@ -100,12 +97,15 @@ sub get_new_sequences {
 sub _get_allele_designations_from_reference {
 	my ( $self, $isolate_id ) = @_;
 	my $isolate_fasta = $self->_create_isolate_FASTA_db($isolate_id);
-	my $word_size = BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} ) ? $self->{'params'}->{'word_size'} : 15;
+	my $word_size =
+	  BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} )
+	  ? $self->{'params'}->{'word_size'}
+	  : 15;
 	my $out_file =
 	  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'options'}->{'job_id'}_isolate_${isolate_id}_outfile.txt";
 	if ( !$self->_does_isolate_have_sequence_data($isolate_id) ) {
 
-		#Don't bother with BLAST but we do not an empty results file.
+		#Don't bother with BLAST but we do need an empty results file.
 		open( my $fh, '>', $out_file ) || $self->{'logger'}->error("Cannot touch $out_file");
 		close $fh;
 	} else {
@@ -288,8 +288,9 @@ sub _create_isolate_FASTA_db {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $qry = 'SELECT DISTINCT id FROM sequence_bin LEFT JOIN experiment_sequences ON '
-	  . 'sequence_bin.id=seqbin_id WHERE sequence_bin.isolate_id=?';
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	my $qry = "SELECT DISTINCT id FROM $seqbin s LEFT JOIN experiment_sequences e ON "
+	  . 's.id=e.seqbin_id WHERE s.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
 	if ($method) {
@@ -314,8 +315,8 @@ sub _create_isolate_FASTA {
 	  $self->{'datastore'}
 	  ->run_query( $qry, \@criteria, { fetch => 'col_arrayref', cache => 'GenomeComparator::create_isolate_FASTA' } );
 	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
-	if ( $isolate_id =~ /(\d*)/x ) { $isolate_id = $1 }    #untaint
-	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix\_isolate_$isolate_id.txt";
+	if ( $isolate_id =~ /(-?\d*)/x ) { $isolate_id = $1 }    #untaint
+	my $temp_infile = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_isolate_$isolate_id.txt";
 	open( my $infile_fh, '>', $temp_infile ) || $self->{'logger'}->error("Cannot open $temp_infile for writing");
 	foreach my $seqbin_id (@$seqbin_ids) {
 		say $infile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
