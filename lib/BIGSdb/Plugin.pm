@@ -965,20 +965,6 @@ sub write_list_file {
 	return;
 }
 
-sub get_ids_from_list_file {
-	my ( $self, $list_file ) = @_;
-	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
-	open( my $fh, '<', $full_path ) || $logger->error("Cannot open $full_path for reading");
-	my $ids = [];
-	while ( my $line = <$fh> ) {
-		chomp $line;
-		next if $line eq q();
-		push @$ids, $line;
-	}
-	close $fh;
-	return $ids;
-}
-
 sub escape_params {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};

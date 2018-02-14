@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.1',
+		version     => '1.4.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -66,8 +66,6 @@ sub get_hidden_attributes {
 	return \@list;
 }
 
-
-
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -75,12 +73,7 @@ sub run {
 	my $format = $q->param('format');
 	$self->{'extended'} = $self->get_extended_attributes;
 	my $id_list = [];
-	if ( defined $q->param('list') ) {
-		@$id_list = split /[\r\n]+/x, $q->param('list');
-		$self->write_list_file($id_list);
-	} elsif ( $q->param('list_file') ) {
-		$id_list = $self->get_ids_from_list_file( $q->param('list_file') );
-	} elsif ( $q->param('query_file') ) {
+	if ( $q->param('query_file') ) {
 		my $qry_ref = $self->get_query( $q->param('query_file') );
 		if ($qry_ref) {
 			$id_list = $self->get_ids_from_query($qry_ref);
