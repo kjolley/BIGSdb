@@ -1,6 +1,6 @@
 #SchemeBreakdown.pm - SchemeBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.7',
+		version     => '1.1.8',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
@@ -525,7 +525,7 @@ sub _print_tree {
 	say q(<noscript><p class="highlight">You need to enable Javascript in order to select schemes )
 	  . q(for analysis.</p></noscript>);
 	say q(<fieldset style="float:left"><legend>Select schemes</legend>);
-	say q(<div id="tree" class="tree" style="display:none; height:10em; width:30em">);
+	say q(<div id="tree" class="tree" style="display:none; height:20em; width:30em">);
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
 	say q(</div></fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
