@@ -102,10 +102,10 @@ sub run {
 		  ? $self->{'system'}->{'genome_comparator_limit'}
 		  : MAX_GENOMES;
 		if ( @$filtered_ids > $max_genomes ) {
-			$error .=
-			    "<p>Genome Comparator analysis is limited to $max_genomes isolates.  You have selected "
-			  . @$filtered_ids
-			  . ".</p>\n";
+			my $nice_max = BIGSdb::Utils::commify($max_genomes);
+			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
+			$error .= qq(<p>Genome Comparator analysis is limited to $nice_max isolates. )
+			  . qq(You have selected $selected.</p>);
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
