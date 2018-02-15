@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.0.0',
+		version             => '1.0.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -50,7 +50,6 @@ sub get_attributes {
 		order               => 20,
 		min                 => 2,
 		max                 => $self->_get_limit,
-		system_flag         => 'GrapeTree',
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -114,7 +113,9 @@ sub _print_interface {
 	my $commify_limit = BIGSdb::Utils::commify($limit);
 	say qq(<p>Analysis is limited to $commify_limit records.</p>);
 	say $q->start_form;
-	$self->print_id_fieldset( { list => $isolate_ids } );
+	my $query_file = $q->param('query_file');
+	my $list = $self->get_id_list( 'id', $query_file );
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	say q(<fieldset style="float:left"><legend>Include fields</legend>);
@@ -166,29 +167,20 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
-		my @list = split /[\r\n]+/x, $q->param('list');
-		@list = uniq @list;
-		my @non_integers;
+		my @ids = $q->param('isolate_id');
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @ids, @$pasted_cleaned_ids;
+		@ids = uniq @ids;
+		my $continue = 1;
+		my ( @errors, @info );
 
-		foreach my $id (@list) {
-			push @non_integers, $id if !BIGSdb::Utils::is_int($id);
+		if ( !@ids || @ids < 2 ) {
+			push @errors, q(You must select at least two valid isolate id.);
 		}
-		if ( !@list ) {
-			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
-			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-			@list = @$id_list;
-		}
-		my @errors;
-		if (@non_integers) {
+		if (@$invalid_ids) {
 			local $" = q(, );
-			push @errors, qq(The following ids are not valid integers: @non_integers.);
-		}
-		if ( !@list || @list < 2 ) {
-			push @errors, q(You must select at least two valid isolate ids.);
-		}
-		if (@$invalid_loci) {
-			local $" = q(, );
-			push @errors, qq(The following loci in your pasted list are invalid: @$invalid_loci.);
+			push @info,
+			  qq(The id list contained some invalid values - these will be ignored. Invalid values: @$invalid_ids.);
 		}
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
@@ -198,50 +190,50 @@ sub run {
 		}
 		my $max_records         = $self->_get_limit;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
-		if ( @list > $max_records ) {
-			my $commify_total_records = BIGSdb::Utils::commify( scalar @list );
+		if ( @ids > $max_records ) {
+			my $commify_total_records = BIGSdb::Utils::commify( scalar @ids );
 			push @errors, qq(Output is limited to a total of $commify_max_records records. )
 			  . qq(You have selected $commify_total_records.);
 		}
-		if (@errors) {
-			local $" = qq(</p>\n<p>);
-			say qq(<div class="box" id="statusbad"><p>@errors</p></div>);
-		} else {
-			$self->set_scheme_param;
-			my $params = $q->Vars;
-			$params->{'set_id'} = $self->get_set_id;
-			$q->delete('list');
-			foreach my $field_dataset (qw(itol_dataset include_fields)) {
-				my @dataset = $q->param($field_dataset);
-				$q->delete($field_dataset);
-				local $" = '|_|';
-				$params->{$field_dataset} = "@dataset";
+		if ( @errors || @info ) {
+			say q(<div class="box" id="statusbad">);
+			foreach my $msg ( @errors, @info ) {
+				say qq(<p>$msg</p>);
 			}
-			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
-			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $job_id    = $self->{'jobManager'}->add_job(
-				{
-					dbase_config => $self->{'instance'},
-					ip_address   => $q->remote_host,
-					module       => 'GrapeTree',
-					parameters   => $params,
-					username     => $self->{'username'},
-					email        => $user_info->{'email'},
-					loci         => $loci_selected,
-					isolates     => \@list
-				}
-			);
-			say $self->get_job_redirect($job_id);
-			return;
+			say q(</div>);
+			if (@errors) {
+				$self->_print_interface;
+				return;
+			}
 		}
-	}
-	if ( $q->param('query_file') ) {
-		my $qry_ref = $self->get_query( $q->param('query_file') );
-		if ($qry_ref) {
-			$isolate_ids = $self->get_ids_from_query($qry_ref);
+		$self->set_scheme_param;
+		my $params = $q->Vars;
+		$params->{'set_id'} = $self->get_set_id;
+		$q->delete('list');
+		foreach my $field_dataset (qw(itol_dataset include_fields)) {
+			my @dataset = $q->param($field_dataset);
+			$q->delete($field_dataset);
+			local $" = '|_|';
+			$params->{$field_dataset} = "@dataset";
 		}
+		$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $job_id    = $self->{'jobManager'}->add_job(
+			{
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => 'GrapeTree',
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'},
+				loci         => $loci_selected,
+				isolates     => \@ids
+			}
+		);
+		say $self->get_job_redirect($job_id);
+		return;
 	}
-	$self->_print_interface($isolate_ids);
+	$self->_print_interface;
 	return;
 }
 
