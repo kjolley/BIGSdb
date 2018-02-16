@@ -689,13 +689,12 @@ sub _get_differences_output {
 				$diff_buffer .= $self->_format_difference( $diff, $qry_type ) . q(<br />);
 			}
 			my $plural = $non_missing_diffs > 1 ? 's' : '';
-			$buffer .= qq(<p>$non_missing_diffs difference$plural found. );
+			$buffer .= qq(<p>$non_missing_diffs difference$plural found.);
 			if ($non_missing_diffs) {
-				$buffer .=
-				    qq(<a class="tooltip" title="differences - The information to the left of the arrow$plural )
-				  . q(shows the identity and position on the reference sequence and the information to the )
-				  . q(right shows the corresponding identity and position on your query sequence.">)
-				  . q(<span class="fa fa-info-circle"></span></a>);
+				$buffer .= $self->get_tooltip(
+					qq(differences - The information to the left of the arrow$plural shows the identity and position )
+					  . q(on the reference sequence and the information to the right shows the corresponding identity )
+					  . q(and position on your query sequence.) );
 			}
 			$buffer .= qq(</p><p>$diff_buffer</p>);
 			if ( $match->{'sstart'} > 1 ) {
@@ -705,10 +704,10 @@ sub _get_differences_output {
 				    q(<p>The locus start point is at position )
 				  . ( $match->{'start'} - $match->{'sstart'} + 1 )
 				  . q( of your query sequence.);
-				$buffer .=
-				    q( <a class="tooltip" title="start position - This may be approximate if there are )
-				  . q(gaps near the beginning of the alignment between your query and the reference )
-				  . q(sequence."><span class="fa fa-info-circle"></span></a></p>);
+				$buffer .= $self->get_tooltip(
+					q(start position - This may be approximate if there are gaps near the beginning of the alignment )
+					  . q(between your query and the reference sequence)
+				);
 			}
 		} else {
 			$buffer .= qq(<p>Your query sequence only starts at position $match->{'sstart'} of sequence.);

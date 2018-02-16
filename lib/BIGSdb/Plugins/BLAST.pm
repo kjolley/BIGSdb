@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -109,7 +109,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.2',
+		version     => '1.4.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -310,10 +310,10 @@ sub _run_now {
 		say q(</table>);
 		say q(<p style="margin-top:1em">Download );
 		say qq(<a href="/tmp/$out_file" target="_blank">FASTA</a> | ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file";
-		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a> )
-		  . q( <a class="tooltip" title="Flanking sequence - You can change the amount of flanking )
-		  . q(sequence exported by selecting the appropriate length in the options page.">)
-		  . q(<span class="fa fa-info-circle"></span></a> | )
+		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a>)
+		  . $self->get_tooltip( q(Flanking sequence - You can change the amount of flanking )
+			  . q(sequence exported by selecting the appropriate length in the options page.) )
+		  . q( | )
 		  if -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking";
 		say qq(<a href="/tmp/$out_file_table" target="_blank">Table (tab-delimited text)</a>);
 		my $excel =
@@ -468,6 +468,7 @@ sub _append_fasta {
 	$fasta_id .= "|$match->{'seqbin_id'}|$start" if $include_seqbin;
 	$fasta_id .= "|$_" foreach @$include_values;
 	my $seq_with_flanking;
+
 	if ( $match->{'reverse'} ) {
 		$seq_with_flanking =
 		  BIGSdb::Utils::break_line( $seq_ref->{'downstream'} . $seq_ref->{'seq'} . $seq_ref->{'upstream'}, 60 );
@@ -658,10 +659,9 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
 	say q(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
-	say q( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to initiate an )
-	  . q(extension. Larger values increase speed at the expense of sensitivity."><span class="fa fa-info-circle">)
-	  . q(</span></a></li>);
-	say q(<li><label for="scores" class="parameter">BLASTN scoring:</label>);
+	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to initiate an )
+		  . q(extension. Larger values increase speed at the expense of sensitivity.) );
+	say q(</li><li><label for="scores" class="parameter">BLASTN scoring:</label>);
 	my %labels;
 
 	foreach (BLASTN_SCORES) {
@@ -675,10 +675,9 @@ sub _print_interface {
 		-labels  => \%labels,
 		-default => '2,-3,5,2'
 	);
-	say q( <a class="tooltip" title="BLASTN scoring - This is a combination of rewards for identically )
-	  . q(matched nucleotides, penalties for mismatching nucleotides, gap opening costs and gap extension )
-	  . q(costs. Only the listed combinations are supported by the BLASTN algorithm.">)
-	  . q(<span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip( q(BLASTN scoring - This is a combination of rewards for identically )
+		  . q(matched nucleotides, penalties for mismatching nucleotides, gap opening costs and gap extension )
+		  . q(costs. Only the listed combinations are supported by the BLASTN algorithm.) );
 	say q(</li><li><label for="hits" class="parameter">Hits per isolate:</label>);
 	say $q->popup_menu(
 		-name    => 'hits',
@@ -693,15 +692,14 @@ sub _print_interface {
 		-values  => [FLANKING],
 		-default => $self->{'prefs'}->{'flanking'}
 	);
-	say q( <a class="tooltip" title="Flanking length - This is the length of flanking sequence (if present) )
-	  . q(that will be output in the secondary FASTA file.  The default value can be changed in the options page.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li>);
-	say q(<li>);
+	say $self->get_tooltip( q(Flanking length - This is the length of flanking sequence (if present) )
+		  . q(that will be output in the secondary FASTA file.  The default value can be changed in the options page.)
+	);
+	say q(</li><li>);
 	say $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
-	say q( <a class="tooltip" title="TBLASTX - Compares the six-frame translation of your nucleotide query )
-	  . q(against the six-frame translation of the sequences in the sequence bin.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li>);
-	say q(</ul></fieldset>);
+	say $self->get_tooltip( q(TBLASTX - Compares the six-frame translation of your nucleotide query )
+		  . q(against the six-frame translation of the sequences in the sequence bin.) );
+	say q(</li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li>);
 	say $q->checkbox( -name => 'show_no_match', label => 'Show isolates with no matches' );

@@ -2732,8 +2732,14 @@ sub print_home_link {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
 	my $home = HOME;
-	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" ) . qq(style="margin-right:1em">$home</a>);
+	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
 	return;
+}
+
+sub get_tooltip {
+	my ( $self, $text ) = @_;
+	return qq(<a class="tooltip" style="margin-left:0.2em" title="$text">)
+	  . q(<span class="fa fa-info-circle"></span></a>);
 }
 
 sub is_page_allowed {
