@@ -41,7 +41,7 @@ sub new {
 }
 
 sub set_seqbin_table {
-	my ($self, $table) = @_;
+	my ( $self, $table ) = @_;
 	$self->{'seqbin_table'} = $table;
 	return;
 }
@@ -185,7 +185,14 @@ sub _get_remote_record {
 		$base_uri, { fetch => 'row_hashref', cache => 'ContigManager::get_credentials' } );
 	my $requires_authorization = $oauth_credentials ? 1 : 0;
 	if ( !$requires_authorization ) {
-		my $response = $self->{'ua'}->get($uri);
+		my $response;
+		for my $attempt ( 1 .. 5 ) {
+			$response = $self->{'ua'}->get($uri);
+			last if $response->is_success || $response->code == 401;
+			my ( $code, $msg ) = ( $response->code, $response->message );
+			$logger->error("Error retrieving $uri: Response $code: $msg. Will retry in 1s.");
+			sleep 1;
+		}
 		if ( $response->is_success ) {
 			if ( $options->{'non_json'} ) {
 				return $response->decoded_content;
@@ -320,6 +327,7 @@ sub get_contig_fragment {
 	$args->{'flanking'} =
 	  ( BIGSdb::Utils::is_int( $args->{'flanking'} ) && $args->{'flanking'} >= 0 ) ? $args->{'flanking'} : 100;
 	my $seq_ref;
+
 	if ( $contig_info->{'remote_contig'} ) {
 		$seq_ref = $self->_get_remote_contig_fragment($args);
 	} else {
@@ -358,7 +366,7 @@ sub _get_local_contig_fragment {
 	my ( $self, $args ) = @_;
 	my $flanking = $args->{'flanking'};
 	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
-	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	my $seqbin   = $self->{'seqbin_table'} // 'sequence_bin';
 	my $qry =
 	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
 	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
