@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -681,7 +681,7 @@ sub _check_data {
 		  . q(you've included the header line.</p></div>);
 		return;
 	}
-	return if $self->_is_over_quota( $table, scalar @checked_buffer );
+	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
 	$self->_report_check(
 		{
 			table          => $table,
