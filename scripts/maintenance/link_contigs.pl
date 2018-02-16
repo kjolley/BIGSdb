@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Link remote contigs to isolate records
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -131,7 +131,7 @@ sub main {
 	}
 	say q(done.);
 	$script->{'db'}->commit;
-	process( $opts{'i'} );
+	process( $opts{'i'} ) if $opts{'p'};
 	return;
 }
 
