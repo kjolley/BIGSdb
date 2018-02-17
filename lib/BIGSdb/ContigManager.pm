@@ -117,9 +117,13 @@ sub update_isolate_remote_contig_lengths {
 
 sub get_remote_contig {
 	my ( $self, $uri, $options ) = @_;
+
 	( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
 	if ( $uri !~ /\?/x ) {
 		$uri .= q(?no_loci=1);
+	}
+	if ($self->{'cache'}->{'remote_contig'}->{$uri}){
+		return $self->{'cache'}->{'remote_contig'}->{$uri}
 	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
 	my $length = length $contig->{'sequence'};
@@ -152,6 +156,7 @@ sub get_remote_contig {
 			$self->{'db'}->commit;
 		}
 	}
+	$self->{'cache'}->{'remote_contig'}->{$uri} = $contig;
 	return $contig;
 }
 
