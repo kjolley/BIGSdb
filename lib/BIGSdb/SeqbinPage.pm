@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -216,7 +216,6 @@ sub _print_contig_table {
 	my $contig_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
 
 	foreach my $data (@$contig_data) {
-		$logger->error($@) if $@;
 		my $allele_count =
 		  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM allele_sequences WHERE seqbin_id=? $set_clause",
 			$data->{'id'}, { cache => 'SeqbinPage::print_content::count' } );
@@ -319,11 +318,12 @@ sub _make_artemis_jnlp {
 		my $full_path     = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
 		open( my $fh_embl, '>', $full_path ) || $logger->error("Can't open $full_path for writing");
 		my %page_attributes = (
-			system    => $self->{'system'},
-			cgi       => $self->{'cgi'},
-			instance  => $self->{'instance'},
-			datastore => $self->{'datastore'},
-			db        => $self->{'db'},
+			system        => $self->{'system'},
+			cgi           => $self->{'cgi'},
+			instance      => $self->{'instance'},
+			datastore     => $self->{'datastore'},
+			db            => $self->{'db'},
+			contigManager => $self->{'contigManager'}
 		);
 		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
 		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { get_buffer => 1 } );
