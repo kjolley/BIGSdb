@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2017, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,15 +43,15 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.4',
-		dbtype      => 'isolates',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
-		section     => 'breakdown,postquery',
-		requires    => 'aligner,offline_jobs',
-		input       => 'query',
-		help        => 'tooltips',
-		order       => 16,
-		max         => MAX_SEQUENCES
+		version  => '1.1.5',
+		dbtype   => 'isolates',
+		url      => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
+		section  => 'breakdown,postquery',
+		requires => 'aligner,offline_jobs',
+		input    => 'query',
+		help     => 'tooltips',
+		order    => 16,
+		max      => MAX_SEQUENCES
 	);
 	return \%att;
 }
@@ -360,8 +360,8 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(If both allele designations and tagged sequences<br />)
 	  . q(exist for a locus, choose how you want these handled: );
-	say q[ <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from ]
-	  . q[the sequence bin (as nucleotide sequences)."><span class="fa fa-info-circle"></span></a>];
+	say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from )
+		  . q(the sequence bin (as nucleotide sequences).) );
 	say q(<br /><br />);
 	say q(<ul><li>);
 	my %labels = (

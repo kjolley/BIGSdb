@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,7 +56,7 @@ sub print_content {
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	say qq(<h1>Locus information - $cleaned_locus</h1>);
-	say q(<div class="box" id="resultstable">);
+	say q(<div class="box" id="resultspanel">);
 	$self->_print_description($locus_info);
 	$self->_print_aliases($locus_info);
 	$self->_print_refs($locus_info);

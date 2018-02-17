@@ -237,8 +237,9 @@ sub print_user_genome_upload_fieldset {
 	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
 	say q(<p>Optionally include data not in the<br />database.</p>);
 	say q(<p>Upload FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
-	say q( <a class="tooltip" title="User data - The name of the file(s) containing genome data will be )
-	  . q(used as the name of the isolate(s) in the output."><span class="fa fa-info-circle"></span></a></p>);
+	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
+		  . q(used as the name of the isolate(s) in the output.) );
+	say q(</p>);
 	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
 	say q(</fieldset>);
 	return;
@@ -250,18 +251,16 @@ sub _print_parameters_fieldset {
 	say q(<fieldset style="float:left;height:12em"><legend>Parameters / options</legend>);
 	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
-	say q( <a class="tooltip" title="Minimum % identity - Match required for partial matching.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li>);
-	say q(<li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
+	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
-	say q( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length required to be )
-	  . q(aligned for partial matching."><span class="fa fa-info-circle"></span></a></li>);
-	say q(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length required to be )
+		  . q(aligned for partial matching.) );
+	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
-	say q( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required to )
-	  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li>);
-	say q(</ul></fieldset>);
+	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to )
+		  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.) );
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -271,8 +270,9 @@ sub _print_reference_genome_fieldset {
 	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
 	say q(Enter accession number:<br />);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say q( <a class="tooltip" title="Reference genome - Use of a reference genome will override any locus )
-	  . q(or scheme settings."><span class="fa fa-info-circle"></span></a><br />);
+	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.))
+	  ;
+	say q(<br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
 	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} )
@@ -307,9 +307,8 @@ sub _print_reference_genome_fieldset {
 	}
 	say q(or upload Genbank/EMBL/FASTA file:<br />);
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
-	say q( <a class="tooltip" title="Reference upload - File format is recognised by the extension in the )
-	  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.">)
-	  . q(<span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip( q(Reference upload - File format is recognised by the extension in the )
+		  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.) );
 	say q(</fieldset>);
 	return;
 }
@@ -319,9 +318,9 @@ sub _print_alignment_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>Alignments</legend><ul><li>);
 	say $q->checkbox( -name => 'align', -id => 'align', -label => 'Produce alignments', -onChange => 'enable_seqs()' );
-	say q( <a class="tooltip" title="Alignments - Alignments will be produced in clustal format using the )
-	  . q(selected aligner for any loci that vary between isolates. This may slow the analysis considerably.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
+	say $self->get_tooltip( q(Alignments - Alignments will be produced in clustal format using the )
+		  . q(selected aligner for any loci that vary between isolates. This may slow the analysis considerably.) );
+	say q(</li><li>);
 	say $q->checkbox(
 		-name     => 'include_ref',
 		-id       => 'include_ref',
@@ -386,16 +385,18 @@ sub _print_core_genome_fieldset {
 	say q(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
 	say q(<li><label for="core_threshold">Core threshold (%):</label>);
 	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
-	say q( <a class="tooltip" title="Core threshold - Percentage of isolates that locus must be present )
-	  . q(in to be considered part of the core genome."><span class="fa fa-info-circle"></span></a></li><li>);
+	say $self->get_tooltip( q(Core threshold - Percentage of isolates that locus must be present )
+		  . q(in to be considered part of the core genome.) );
+	say q(</li><li>);
 	say $q->checkbox(
 		-name     => 'calc_distances',
 		-id       => 'calc_distances',
 		-label    => 'Calculate mean distances',
 		-onChange => 'enable_seqs()'
 	);
-	say q( <a class="tooltip" title="Mean distance - This requires performing alignments of sequences so will )
-	  . q(take longer to perform."><span class="fa fa-info-circle"></span></a></li></ul></fieldset>);
+	say $self->get_tooltip(
+		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.) );
+	say q(</li></ul></fieldset>);
 	return;
 }
 

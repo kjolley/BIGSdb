@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -221,13 +221,13 @@ sub _print_interface {
 		if ($pcr_links) {
 			say q(<li>);
 			say $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
-			say q[ <a class="tooltip" title="Filter by PCR - Loci can be defined by a simulated PCR reaction(s) ]
-			  . q[so that only regions of the genome predicted to be amplified will be recognised in the scan. ]
-			  . q[De-selecting this option will ignore this filter and the whole sequence bin will be scanned ]
-			  . q[instead.  Partial matches will also be returned (up to the number set in the parameters) even ]
-			  . q[if exact matches are found.  De-selecting this option will be necessary if the gene in question ]
-			  . q[is incomplete due to being located at the end of a contig since it cannot then be bounded by ]
-			  . q[PCR primers."><span class="fa fa-info-circle"></span></a>];
+			say $self->get_tooltip( q(Filter by PCR - Loci can be defined by a simulated PCR reaction(s) )
+				  . q(so that only regions of the genome predicted to be amplified will be recognised in the scan. )
+				  . q(De-selecting this option will ignore this filter and the whole sequence bin will be scanned )
+				  . q(instead.  Partial matches will also be returned (up to the number set in the parameters) even )
+				  . q(if exact matches are found.  De-selecting this option will be necessary if the gene in question )
+				  . q(is incomplete due to being located at the end of a contig since it cannot then be bounded by )
+				  . q(PCR primers.) );
 			say q(</li><li><label for="alter_pcr_mismatches" class="parameter">&Delta; PCR mismatch:</label>);
 			say $q->popup_menu(
 				-name    => 'alter_pcr_mismatches',
@@ -235,31 +235,29 @@ sub _print_interface {
 				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
 				-default => 0
 			);
-			say q( <a class="tooltip" title="Change primer mismatch - Each defined PCR reaction will have a )
-			  . q(parameter specifying the allowed number of mismatches per primer. You can increase or decrease )
-			  . q(this value here, altering the stringency of the reaction.">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
+			say $self->get_tooltip( q(Change primer mismatch - Each defined PCR reaction will have a )
+				  . q(parameter specifying the allowed number of mismatches per primer. You can increase or decrease )
+				  . q(this value here, altering the stringency of the reaction.) );
 			say q(</li>);
 		}
 		if ($probe_links) {
 			say q(<li>);
 			say $q->checkbox( -name => 'probe_filter', -label => 'Filter by probe', -checked => 'checked' );
-			say q( <a class="tooltip" title="Filter by probe - Loci can be defined by a simulated hybridization )
-			  . q(reaction(s) so that only regions of the genome predicted to be within a set distance of a )
-			  . q(hybridization sequence will be recognised in the scan. De-selecting this option will ignore this )
-			  . q(filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned )
-			  . q((up to the number set in the parameters) even if exact matches are found.">)
-			  . q(<span class="fa fa-info-circle"></span></a></li>);
-			say q(<li><label for="alter_probe_mismatches" class="parameter">&Delta; Probe mismatch:</label>);
+			say $self->get_tooltip( q(Filter by probe - Loci can be defined by a simulated hybridization )
+				  . q(reaction(s) so that only regions of the genome predicted to be within a set distance of a )
+				  . q(hybridization sequence will be recognised in the scan. De-selecting this option will ignore this )
+				  . q(filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned )
+				  . q((up to the number set in the parameters) even if exact matches are found.) );
+			say q(</li><li><label for="alter_probe_mismatches" class="parameter">&Delta; Probe mismatch:</label>);
 			say $q->popup_menu(
 				-name    => 'alter_probe_mismatches',
 				-id      => 'alter_probe_mismatches',
 				-values  => [qw (-3 -2 -1 0 +1 +2 +3)],
 				-default => 0
 			);
-			say q( <a class="tooltip" title="Change probe mismatch - Each hybridization reaction will have a )
-			  . q(parameter specifying the allowed number of mismatches. You can increase or decrease this value )
-			  . q(here, altering the stringency of the reaction."><span class="fa fa-info-circle"></span></a>);
+			say $self->get_tooltip( q(Change probe mismatch - Each hybridization reaction will have a )
+				  . q(parameter specifying the allowed number of mismatches. You can increase or decrease this value )
+				  . q(here, altering the stringency of the reaction.) );
 			say q(</li>);
 		}
 		say q(</ul></fieldset>);
@@ -293,28 +291,26 @@ sub _print_parameter_fieldset {
 		-values  => [ 50 .. 100 ],
 		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
 	);
-	say q( <a class="tooltip" title="Minimum % identity - Match required for partial matching.">)
-	  . q(<span class="fa fa-info-circle"></span>)
-	  . q(</a></li><li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
+	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
 	say $q->popup_menu(
 		-name    => 'alignment',
 		-id      => 'alignment',
 		-values  => [ 30 .. 100 ],
 		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
 	);
-	say q( <a class="tooltip" title="Minimum % alignment - Percentage of allele sequence length )
-	  . q(required to be aligned for partial matching."><span class="fa fa-info-circle"></span></a></li>)
-	  . q(<li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length )
+		  . q(required to be aligned for partial matching.) );
+	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu(
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [ 7 .. 30 ],
 		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
 	);
-	say q( <a class="tooltip" title="BLASTN word size - This is the length of an exact match required )
-	  . q(to initiate an extension. Larger values increase speed at the expense of sensitivity.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li>)
-	  . q(<li><label for="partial_matches" class="parameter">Return up to:</label>);
+	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required )
+		  . q(to initiate an extension. Larger values increase speed at the expense of sensitivity.) );
+	say q(</li><li><label for="partial_matches" class="parameter">Return up to:</label>);
 	say $q->popup_menu(
 		-name    => 'partial_matches',
 		-id      => 'partial_matches',
@@ -328,37 +324,40 @@ sub _print_parameter_fieldset {
 		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
 		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
 	);
-	say q( new matches <a class="tooltip" title="Stop after matching - Limit the number of previously )
-	  . q(undesignated matches. You may wish to terminate the search after finding a set number of new )
-	  . q(matches.  You will be able to tag any sequences found and next time these won't be searched )
-	  . q((by default) so this enables you to tag in batches. If scanning all loci together you may get )
-	  . q(more results than this as it will complete the scan for an isolate and return all results found )
-	  . q(so far."><span class="fa fa-info-circle"></span></a></li>)
-	  . q(<li><label for="limit_time" class="parameter">Stop after:</label>);
+	say q( new matches);
+	say $self->get_tooltip( q(Stop after matching - Limit the number of previously )
+		  . q(undesignated matches. You may wish to terminate the search after finding a set number of new )
+		  . q(matches.  You will be able to tag any sequences found and next time these won't be searched )
+		  . q((by default) so this enables you to tag in batches. If scanning all loci together you may get )
+		  . q(more results than this as it will complete the scan for an isolate and return all results found )
+		  . q(so far.) );
+	say q(</li><li><label for="limit_time" class="parameter">Stop after:</label>);
 	say $q->popup_menu(
 		-name    => 'limit_time',
 		-id      => 'limit_time',
 		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
 		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
 	);
-	say q( minute(s) <a class="tooltip" title="Stop after time - Searches against lots of loci or for )
-	  . q(multiple isolates may take a long time. You may wish to terminate the search after a set time.  )
-	  . q(You will be able to tag any sequences found and next time these won't be searched (by default) so )
-	  . q(this enables you to tag in batches."><span class="fa fa-info-circle"></span></a></li>);
-	say q(<li>);
-	if (($self->{'system'}->{'fast_scan'} // q()) eq 'yes'){
-	say $q->checkbox(
-		-name    => 'loci_together',
-		-id      => 'loci_together',
-		-label   => 'Scan selected loci together',
-		-checked => ( $general_prefs->{'scan_loci_together'} && $general_prefs->{'scan_loci_together'} eq 'on' )
-		? 'checked'
-		: ''
-	);
-	say q( <a class="tooltip" title="Scan loci together - This should be quicker if scanning multiple loci but it )
-	  . q(will take longer for the first results to be returned. This scan uses defined exemplar alleles to reduce )
-	  . q(the search space. This is less sensitive than scanning all alleles, so it may miss some matches.">)
-	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
+	say q( minute(s));
+	say $self->get_tooltip( q(Stop after time - Searches against lots of loci or for )
+		  . q(multiple isolates may take a long time. You may wish to terminate the search after a set time.  )
+		  . q(You will be able to tag any sequences found and next time these won't be searched (by default) so )
+		  . q(this enables you to tag in batches.) );
+	say q(</li><li>);
+
+	if ( ( $self->{'system'}->{'fast_scan'} // q() ) eq 'yes' ) {
+		say $q->checkbox(
+			-name    => 'loci_together',
+			-id      => 'loci_together',
+			-label   => 'Scan selected loci together',
+			-checked => ( $general_prefs->{'scan_loci_together'} && $general_prefs->{'scan_loci_together'} eq 'on' )
+			? 'checked'
+			: ''
+		);
+		say $self->get_tooltip( q(Scan loci together - This should be quicker if scanning multiple loci but it )
+			  . q(will take longer for the first results to be returned. This scan uses defined exemplar alleles to reduce )
+			  . q(the search space. This is less sensitive than scanning all alleles, so it may miss some matches.) );
+		say q(</li><li>);
 	}
 	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
 		say q(<li><span class="warning">);
@@ -370,13 +369,14 @@ sub _print_parameter_fieldset {
 			? 'checked'
 			: ''
 		);
-		say q( <a class="tooltip" title="TBLASTX - Compares the six-frame translation of your nucleotide )
-		  . q(query against the six-frame translation of the sequences in the sequence bin.  This can be )
-		  . q(VERY SLOW (a few minutes for each comparison). Use with caution.<br /><br />Partial matches )
-		  . q(may be indicated even when an exact match is found if the matching allele contains a partial )
-		  . q(codon at one of the ends.  Identical matches will be indicated if the translated sequences )
-		  . q(match even if the nucleotide sequences don't. For this reason, allele designation tagging is )
-		  . q(disabled for TBLASTX matching."><span class="fa fa-info-circle"></span></a></span></li>);
+		say $self->get_tooltip( q(TBLASTX - Compares the six-frame translation of your nucleotide )
+			  . q(query against the six-frame translation of the sequences in the sequence bin.  This can be )
+			  . q(VERY SLOW (a few minutes for each comparison). Use with caution.<br /><br />Partial matches )
+			  . q(may be indicated even when an exact match is found if the matching allele contains a partial )
+			  . q(codon at one of the ends.  Identical matches will be indicated if the translated sequences )
+			  . q(match even if the nucleotide sequences don't. For this reason, allele designation tagging is )
+			  . q(disabled for TBLASTX matching.) );
+		say q(</li>);
 	}
 	say q(<li>);
 	say $q->checkbox(
@@ -385,10 +385,11 @@ sub _print_parameter_fieldset {
 		-label   => 'Hunt for nearby start and stop codons',
 		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
 	);
-	say q( <a class="tooltip" title="Hunt for start/stop codons - If the aligned sequence is not an )
-	  . q(exact match to an existing allele and is not a complete coding sequence with start and stop )
-	  . q(codons at the ends, selecting this option will hunt for these by walking in and out from the )
-	  . q(ends in complete codons for up to 6 amino acids."><span class="fa fa-info-circle"></span></a></li><li>);
+	say $self->get_tooltip( q(Hunt for start/stop codons - If the aligned sequence is not an )
+		  . q(exact match to an existing allele and is not a complete coding sequence with start and stop )
+		  . q(codons at the ends, selecting this option will hunt for these by walking in and out from the )
+		  . q(ends in complete codons for up to 6 amino acids.) );
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'partial_when_exact',
 		-id      => 'partial_when_exact',
@@ -424,12 +425,12 @@ sub _print_parameter_fieldset {
 		? 'checked'
 		: q()
 	);
-	say q( <a class="tooltip" title="Type alleles - Constrain the search space to contain only type alleles. These )
-	  . q(are defined in the sequence record. This can prevent more variable alleles being defined over time. )
-	  . q(If the locus region is identified then a full database lookup will be used to identify a known allele. )
-	  . q(<br /><br />)
-	  . q(Note that if no type alleles have been defined then you will not find any matches!">)
-	  . q(<span class="fa fa-info-circle"></span></a></li><li>);
+	say $self->get_tooltip( q(Type alleles - Constrain the search space to contain only type alleles. These )
+		  . q(are defined in the sequence record. This can prevent more variable alleles being defined over time. )
+		  . q(If the locus region is identified then a full database lookup will be used to identify a known allele.)
+		  . q(<br /><br />)
+		  . q(Note that if no type alleles have been defined then you will not find any matches!) );
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'mark_missing',
 		-id      => 'mark_missing',
@@ -485,7 +486,6 @@ sub _scan {
 			tblastx hunt rescan_alleles rescan_seqs type_alleles mark_missing loci_together)
 		  )
 		{
-			
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
 		}
@@ -522,8 +522,8 @@ sub _scan {
 			};
 			my $params = $q->Vars;
 			$params->{'scannew'} = 1;
-			if ($params->{'loci_together'}){
-				$params->{'exemplar'} = 1;
+			if ( $params->{'loci_together'} ) {
+				$params->{'exemplar'}             = 1;
 				$params->{'scan_partial_matches'} = 100;
 			}
 			try {
@@ -879,7 +879,7 @@ sub _get_ids {
 	return if !$self->_create_temp_tables( \$qry );
 	$qry =~ s/SELECT\ \*/SELECT id/x;
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	@$ids = sort {$a <=> $b} @$ids;
+	@$ids = sort { $a <=> $b } @$ids;
 	return $ids;
 }
 

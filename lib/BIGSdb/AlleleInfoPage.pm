@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,18 +68,12 @@ sub print_content {
 	}
 	my $length = length( $seq_ref->{'sequence'} );
 	my $seq    = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
-	my $desc_exists =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
-	my $desc_link =
-	  $desc_exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus" )
-	  . q(class="tooltip"><span class="fa fa-info-circle"></span></a>)
-	  : q();
 	say q(<div class="box" id="resultspanel">);
 	say q(<div class="scrollable">);
 	say q(<h2>Provenance/meta data</h2>);
 	say q(<dl class="data">);
-	say qq(<dt>locus</dt><dd>$cleaned_locus $desc_link</dd>);
+	say qq(<dt>locus</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=locusInfo&amp;locus=$locus">$cleaned_locus</a></dd>);
 	say qq(<dt>allele</dt><dd>$allele_id</dd>);
 
 	if ( $allele_id eq '0' ) {

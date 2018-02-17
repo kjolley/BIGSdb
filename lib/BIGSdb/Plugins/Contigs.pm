@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2017, University of Oxford
+#Copyright (c) 2013-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -203,8 +203,7 @@ sub _calculate {
 	my $q = $self->{'cgi'};
 	my $qry =
 	    'SELECT id,GREATEST(r.length,length(s.sequence)) AS seq_length,original_designation FROM '
-	  . 'sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE isolate_id=?'
-	  ;
+	  . 'sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method = $q->param('seq_method_list') // $q->param('seq_method');
 	if ($method) {
@@ -313,8 +312,8 @@ sub _print_options_fieldset {
 		-values => [qw (1 2)],
 		-labels => { 1 => 'original designation', 2 => 'seqbin id' }
 	);
-	say q( <a class="tooltip" title="FASTA header line - Seqbin id will be used if the original designation )
-	  . q(has not been stored."><span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip(
+		q(FASTA header line - Seqbin id will be used if the original designation ) . q(has not been stored.) );
 	say q(</li></ul></fieldset>);
 	return;
 }

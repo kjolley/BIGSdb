@@ -1,6 +1,6 @@
 #TagStatus.pm - Tag status plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2015, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#tag-status",
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -236,9 +236,10 @@ sub _print_schematic {
 	say qq(<p><span style="color: #$colours[1]; font-weight:600">Allele designated only</span> | )
 	  . qq(<span style="color: #$colours[2]; font-weight:600">Sequence tagged only</span> | )
 	  . qq(<span style="color: #$colours[3]; font-weight:600">Allele designated + sequence tagged</span> | )
-	  . qq(<span style="color: #$colours[4]; font-weight:600\">Flagged</span> )
-	  . q(<a class="tooltip" title="Flags - Sequences may be flagged to indicate problems, e.g. ambiguous )
-	  . q(reads, internal stop codons etc."><span class="fa fa-info-circle"></span></a></p>);
+	  . qq(<span style="color: #$colours[4]; font-weight:600\">Flagged</span>);
+	say $self->get_tooltip( q(Flags - Sequences may be flagged to indicate problems, e.g. ambiguous )
+		  . q(reads, internal stop codons etc.) );
+	say q(</p>);
 	my $plural = $locus_count == 1 ? q(us) : q(i);
 	say qq(<p><b>$locus_count loc$plural selected:</b></p>);
 	say qq(<map id="schemes" name="schemes">\n@image_map</map>);

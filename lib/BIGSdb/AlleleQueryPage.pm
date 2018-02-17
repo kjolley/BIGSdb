@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -206,9 +206,10 @@ sub _print_table_fields {
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
 		  . q(class="button">+</a>);
-		say q( <a class="tooltip" title="Search values - Empty field values can be searched using the term 'null'. )
-		  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button."><span class="fa fa-info-circle">)
-		  . q(</span></a>);
+		say $self->get_tooltip(
+			q(Search values - Empty field values can be searched using the term 'null'. )
+			  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button.)
+		);
 	}
 	say q(</span>);
 	return;
@@ -697,7 +698,7 @@ sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	return;
 }
 
-sub _equals {                             ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	if ( lc($text) eq 'null' ) {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -184,8 +184,7 @@ sub _print_interface {
 			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
 			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
 			if ( $attribute->{'description'} ) {
-				say qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">)
-				  . q(<span class="fa fa-info-circle"></span></a>);
+				say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
 			}
 		}
 	}

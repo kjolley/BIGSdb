@@ -98,13 +98,13 @@ sub print_options {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
 	say $q->checkbox(
-		-name    => 'indicate_tags',
-		-id      => 'indicate_tags',
-		-label   => 'Indicate sequence status if no allele defined'
+		-name  => 'indicate_tags',
+		-id    => 'indicate_tags',
+		-label => 'Indicate sequence status if no allele defined'
 	);
-	say q(<a class="tooltip" title="Indicate sequence status - Where alleles have not been designated but the )
-	  . q(sequence has been tagged in the sequence bin, [S] will be shown. If the tagged sequence is incomplete )
-	  . q(then [I] will also be shown."><span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip( q(Indicate sequence status - Where alleles have not been designated but the )
+		  . q(sequence has been tagged in the sequence bin, [S] will be shown. If the tagged sequence is incomplete )
+		  . q(then [I] will also be shown.) );
 	say q(</li><li>);
 	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
 	say q(</li><li>);
@@ -573,12 +573,13 @@ sub _write_allele {
 				print $fh $allele_id;
 				if ( $params->{'info'} ) {
 					my $allele_info = $self->{'datastore'}->run_query(
-						'SELECT datestamp ,curator,comments FROM allele_designations WHERE '.'(isolate_id,locus,allele_id)=(?,?,?)',
+						'SELECT datestamp ,curator,comments FROM allele_designations WHERE '
+						  . '(isolate_id,locus,allele_id)=(?,?,?)',
 						[ $data->{'id'}, $locus, $allele_id ],
 						{ fetch => 'row_hashref', cache => 'Export::write_allele::info' }
 					);
 					if ( defined $allele_info ) {
-						my $user_string = $self->{'datastore'}->get_user_string($allele_info->{'curator'});
+						my $user_string = $self->{'datastore'}->get_user_string( $allele_info->{'curator'} );
 						print $fh "\t$user_string\t";
 						print $fh "$allele_info->{'datestamp'}\t";
 						print $fh $allele_info->{'comments'} if defined $allele_info->{'comments'};

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -349,8 +349,7 @@ sub _print_interface {
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 
 	if ( $scheme_field_info->{'description'} ) {
-		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		say $self->get_tooltip(qq($primary_key - $scheme_field_info->{'description'}));
 	}
 	say q(</li>);
 	foreach my $locus (@$loci) {
@@ -399,8 +398,7 @@ sub _print_interface {
 		);
 
 		if ( $scheme_field_info->{'description'} ) {
-			print qq( <a class="tooltip" title="$label - $scheme_field_info->{'description'}">)
-			  . q(<span class="fa fa-info-circle"></span></a>);
+			say $self->get_tooltip(qq($label - $scheme_field_info->{'description'}));
 		}
 		say q(</li>);
 	}

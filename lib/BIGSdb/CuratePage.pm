@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -502,7 +502,7 @@ sub _show_tooltip {
 	my ( $name, $att )  = @$args{qw(name att)};
 	my $buffer = q();
 	if ( $att->{'tooltip'} ) {
-		$buffer .= qq(&nbsp;<a class="tooltip" title="$att->{'tooltip'}"><span class="fa fa-info-circle"></span></a>);
+		$buffer .= $self->get_tooltip( $att->{'tooltip'} );
 	}
 	if ( $att->{'comments'} ) {
 		my $padding = $att->{'type'} eq 'bool' ? '3em' : 0;
@@ -790,8 +790,8 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 		if ( $newdata_ref->{'remote_contig'} ) {
 			my $uri = $self->{'datastore'}
 			  ->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $newdata_ref->{'id'} );
-			$buffer .= qq(<li><label for="remote_contig" class="form" style="width:${width}em">remote contig:</label>\n)
-			  ;
+			$buffer .=
+			  qq(<li><label for="remote_contig" class="form" style="width:${width}em">remote contig:</label>\n);
 			$buffer .= $q->textfield(
 				-name     => 'remote_contig',
 				-id       => 'remote_contig',
@@ -845,8 +845,7 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 				-value => $newdata_ref->{ $attribute->{'key'} }
 			);
 			if ( $attribute->{'description'} ) {
-				$buffer .= qq( <a class="tooltip" title="$attribute->{'key'} - $attribute->{'description'}">)
-				  . q(<span class="fa fa-info-circle"></span></a>);
+				$buffer .= $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}));
 			}
 		}
 	}

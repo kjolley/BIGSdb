@@ -199,7 +199,7 @@ sub _print_interface {
 	my $atts = $self->get_attributes;
 
 	#Subclassed plugins may not yet support uploaded genomes.
-	$self->print_user_genome_upload_fieldset if ($atts->{'supports'} // q()) =~ /user_genomes/x;
+	$self->print_user_genome_upload_fieldset if ( $atts->{'supports'} // q() ) =~ /user_genomes/x;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_scheme_fieldset;
 	$self->print_extra_form_elements;
@@ -226,10 +226,10 @@ sub print_extra_form_elements {
 		push @allowed_fields, $field;
 	}
 	say q(<fieldset style="float:left"><legend>iTOL datasets</legend>);
-	say q(<p>Select to create data overlays<br />(Use Ctrl to select multiple) )
-	  . q(<a class="tooltip" title="Datasets - These are not available for uploaded genomes since they require )
-	  . q(metadata or designations to be tagged within the database."><span class="fa fa-info-circle"></span>)
-	  . q(</a></p>);
+	say q(<p>Select to create data overlays<br />(Use Ctrl to select multiple) );
+	say $self->get_tooltip( q(Datasets - These are not available for uploaded genomes since they require )
+		  . q(metadata or designations to be tagged within the database.) );
+	say q(</p>);
 	say $q->scrolling_list(
 		-name     => 'itol_dataset',
 		-id       => 'itol_dataset',

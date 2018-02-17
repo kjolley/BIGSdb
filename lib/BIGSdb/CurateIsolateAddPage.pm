@@ -434,8 +434,7 @@ sub print_provenance_form_elements {
 				}
 				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 				if ( $thisfield->{'comments'} ) {
-					say qq(<a class="tooltip" title="$thisfield->{'comments'}">)
-					  . q(<span class="fa fa-info-circle"></span></a>);
+					say $self->get_tooltip( $thisfield->{'comments'} );
 				}
 				my %special_date_field = map { $_ => 1 } qw(datestamp date_entered);
 				if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
@@ -461,8 +460,7 @@ sub print_provenance_form_elements {
 		-style   => 'width:10em',
 		-default => "@$aliases"
 	);
-	say q(<a class="tooltip" title="List of alternative names for this isolate. Put each alias on a separate line.">)
-	  . q(<span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip(q(List of alternative names for this isolate. Put each alias on a separate line.));
 	say q(</li>);
 	my $pubmed;
 	if ( $options->{'update'} ) {
@@ -479,10 +477,9 @@ sub print_provenance_form_elements {
 		-style   => 'width:10em',
 		-default => "@$pubmed"
 	);
-	say q(<a class="tooltip" title="List of PubMed ids of publications associated with this isolate. )
-	  . q(Put each identifier on a separate line."><span class="fa fa-info-circle"></span></a>);
-	say q(</li>);
-	say q(</ul>);
+	say $self->get_tooltip( q(List of PubMed ids of publications associated with this isolate. )
+		  . q(Put each identifier on a separate line.) );
+	say q(</li></ul>);
 	if ( $options->{'update'} ) {
 		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
 	}
@@ -490,7 +487,7 @@ sub print_provenance_form_elements {
 	return;
 }
 
-sub _print_id_no_update {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_id_no_update {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self,  $args )    = @_;
 	my ( $field, $newdata ) = @{$args}{qw(field newdata)};
 	my $q = $self->{'cgi'};
@@ -502,7 +499,7 @@ sub _print_id_no_update {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	return;
 }
 
-sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_optlist {                 ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
 	if ( $thisfield->{'optlist'} ) {

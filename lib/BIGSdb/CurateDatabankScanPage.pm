@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -157,9 +157,7 @@ sub _print_results {
 		}
 		$tags{'product'} //= '';
 		$table_buffer .= qq(<tr class="td$td"><td>$locus</td><td>@aliases</td><td>$tags{'product'} );
-		$table_buffer .=
-		  qq(<a class="tooltip" title="$locus - $tags{'note'}"><span class="fa fa-info-circle"></span></a>)
-		  if $tags{'note'};
+		$table_buffer .= $self->get_tooltip(qq($locus - $tags{'note'})) if $tags{'note'};
 		my $length = $cds->length;
 		$table_buffer .= qq(</td><td>$length</td></tr>);
 		$td = $td == 1 ? 2 : 1;
