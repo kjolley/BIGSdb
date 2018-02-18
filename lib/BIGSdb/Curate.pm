@@ -58,6 +58,7 @@ use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
+use BIGSdb::IDList;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
@@ -99,6 +100,7 @@ sub print_page {
 		extractedSequence     => 'ExtractedSequencePage',
 		fieldValues           => 'FieldHelpPage',
 		importUser            => 'CurateImportUserPage',
+		idList                => 'IDList',
 		index                 => 'CurateIndexPage',
 		info                  => 'IsolateInfoPage',
 		isolateAdd            => 'CurateIsolateAddPage',
