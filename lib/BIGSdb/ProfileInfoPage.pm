@@ -221,45 +221,42 @@ sub _print_profile {
 	foreach my $field (qw (sender curator date_entered datestamp)) {
 		my $cleaned = $field;
 		$cleaned =~ tr/_/ /;
-		say qq(<dt>$cleaned</dt>);
-		if ( $field eq 'sender' || $field eq 'curator' ) {
-			my $userdata = $self->{'datastore'}->get_user_info( $data->{$field} );
-			my $person   = qq($userdata->{'first_name'} $userdata->{'surname'});
-			$person .= qq(, $userdata->{'affiliation'})
-			  if !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} );
-			if ( $field eq 'curator' || !$self->{'system'}->{'privacy'} ) {
-				if ( $userdata->{'email'} =~ /\@/x ) {
-					$person .= qq( (E-mail: <a href=\"mailto:$userdata->{'email'}\">$userdata->{'email'}</a>));
-				} else {
-					$person .= qq( (E-mail: $userdata->{'email'}));
+		if ( $field eq 'sender' ) {
+			my $sender = $self->{'datastore'}->get_user_string(
+				$data->{'sender'},
+				{
+					affiliation => ( $data->{'sender'} != $data->{'curator'} ),
+					email       => !$self->{'system'}->{'privacy'}
 				}
-			}
-			say qq(<dd>$person</dd>);
-			if ( $field eq 'curator' ) {
-				my ( $history, $num_changes ) = $self->_get_history( $scheme_id, $profile_id, 10 );
-				if ($num_changes) {
-					my $plural = $num_changes == 1 ? '' : 's';
-					my $title;
-					$title = q(Update history - );
-					foreach (@$history) {
-						my $time = $_->{'timestamp'};
-						$time =~ s/\ \d\d:\d\d:\d\d\.\d+//x;
-						my $action = $_->{'action'};
-						$action =~ s/:.*//gx;
-						$title .= qq($time: $action<br />);
-					}
-					if ( $num_changes > 10 ) {
-						$title .= q(more ...);
-					}
-					say q(<dt>update history</dt>);
-					my $refer_page = $self->{'cgi'}->param('page');
-					say qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>)
-					  . qq( <a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;)
-					  . qq(db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$profile_id&amp;)
-					  . qq(history=1&amp;refer=$refer_page">show details</a></dd>);
+			);
+			say qq(<dt>sender</dt><dd>$sender</dd>);
+		} elsif ( $field eq 'curator' ) {
+			my $curator = $self->{'datastore'}->get_user_string( $data->{'curator'}, { affiliation => 1, email => 1 } );
+			say qq(<dt>curator</dt><dd>$curator</dd>);
+			my ( $history, $num_changes ) = $self->_get_history( $scheme_id, $profile_id, 10 );
+			if ($num_changes) {
+				my $plural = $num_changes == 1 ? '' : 's';
+				my $title;
+				$title = q(Update history - );
+				foreach (@$history) {
+					my $time = $_->{'timestamp'};
+					$time =~ s/\ \d\d:\d\d:\d\d\.\d+//x;
+					my $action = $_->{'action'};
+					$action =~ s/:.*//gx;
+					$title .= qq($time: $action<br />);
 				}
+				if ( $num_changes > 10 ) {
+					$title .= q(more ...);
+				}
+				say q(<dt>update history</dt>);
+				my $refer_page = $self->{'cgi'}->param('page');
+				say qq(<dd><a title="$title" class="update_tooltip">$num_changes update$plural</a>)
+				  . qq( <a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;)
+				  . qq(db=$self->{'instance'}&amp;scheme_id=$scheme_id&amp;profile_id=$profile_id&amp;)
+				  . qq(history=1&amp;refer=$refer_page">show details</a></dd>);
 			}
 		} else {
+			say qq(<dt>$cleaned</dt>);
 			$data->{ lc($field) } ||= '';
 			say qq(<dd>$data->{lc($field)}</dd>);
 		}

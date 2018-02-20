@@ -88,9 +88,13 @@ sub print_content {
 		  . qq(<dt>status</dt><dd>$seq_ref->{'status'}</dd>)
 		  . qq(<dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>)
 		  . qq(<dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>);
-		my $sender =
-		  $self->{'datastore'}->get_user_string( $seq_ref->{'sender'},
-			{ affiliation => 1, email => ( $self->{'system'}->{'privacy'} ? 0 : 1 ) } );
+		my $sender = $self->{'datastore'}->get_user_string(
+			$seq_ref->{'sender'},
+			{
+				affiliation => ( $seq_ref->{'sender'} != $seq_ref->{'curator'} ),
+				email => !$self->{'system'}->{'privacy'} 
+			}
+		);
 		say qq(<dt>sender</dt><dd>$sender</dd>);
 		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
 		say qq(<dt>curator</dt><dd>$curator</dd>);
