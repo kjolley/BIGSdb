@@ -1225,7 +1225,7 @@ CREATE OR REPLACE FUNCTION modify_scheme() RETURNS TRIGGER AS $modify_scheme$
 	END;
 $modify_scheme$ LANGUAGE plpgsql;
 
-CREATE TRIGGER modify_scheme AFTER INSERT OR UPDATE OR DELETE ON scheme_fields
+CREATE TRIGGER modify_scheme AFTER INSERT OR DELETE ON scheme_fields
 	FOR EACH ROW
 	EXECUTE PROCEDURE modify_scheme();
 	
