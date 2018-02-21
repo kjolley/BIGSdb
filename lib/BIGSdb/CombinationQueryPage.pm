@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -331,18 +331,18 @@ sub _generate_query {
 			next;
 		}
 		next if $values{$locus} eq '';
-		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
+		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'ad' : 'pm';
 		my $locus_qry;
 		if ( $values{$locus} eq 'N' ) {
 			$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
 		} else {
-			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
+			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? q(,'N') : q();
 			$locus_qry =
 			  $locus_info->{'allele_id_format'} eq 'text'
-			  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
-			  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
+			  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) IN (upper(E'$values{$locus}')$arbitrary_clause))"
+			  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id IN (E'$values{$locus}'$arbitrary_clause))";
 		}
-		$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
+		$locus_qry .= ')';
 		push @lqry, $locus_qry;
 	}
 	my $view = $self->{'system'}->{'view'};
@@ -352,11 +352,10 @@ sub _generate_query {
 		$required_matches = @lqry if $required_matches == @loci;
 		my $lqry;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
-			  . "$view.id=allele_designations.isolate_id WHERE @lqry";
+			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ad ON "
+			  . "$view.id=ad.isolate_id WHERE @lqry";
 		} else {
-			$lqry = '(SELECT profile_members.profile_id FROM profile_members WHERE '
-			  . "profile_members.scheme_id=$scheme_id AND (@lqry)";
+			$lqry = "(SELECT pm.profile_id FROM profile_members pm WHERE pm.scheme_id=$scheme_id AND (@lqry)";
 		}
 		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
 			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
@@ -368,7 +367,7 @@ sub _generate_query {
 		$lqry .=
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
-		  : " GROUP BY profile_members.profile_id HAVING count(profile_members.profile_id)>=$required_matches)";
+		  : " GROUP BY pm.profile_id HAVING count(pm.profile_id)>=$required_matches)";
 		$qry =
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
 		  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
@@ -376,6 +375,7 @@ sub _generate_query {
 	}
 	$self->_modify_qry_by_filters( \$qry );
 	$self->_add_query_ordering( \$qry, $scheme_id );
+	$logger->error($qry);
 	return ( $qry, $msg, \@errors );
 }
 
@@ -447,7 +447,7 @@ sub _find_best_match_count {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $view = $self->{'system'}->{'view'};
 		$match_qry =
-		  "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=isolate_id WHERE (@$lqry) ";
+		  "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ad ON $view.id=isolate_id WHERE (@$lqry) ";
 		my $project_id = $q->param('project_list');
 		if ( BIGSdb::Utils::is_int($project_id) ) {
 			$match_qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id) ";
@@ -455,11 +455,9 @@ sub _find_best_match_count {
 		$match_qry .= "GROUP BY $view.id ORDER BY count($view.id) desc LIMIT 1";
 	} else {
 		$match_qry =
-		    'SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members '
-		  . 'ON profiles.profile_id=profile_members.profile_id AND '
-		  . 'profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id='
-		  . "$scheme_id WHERE @$lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) "
-		  . 'desc LIMIT 1';
+		    'SELECT COUNT(p.profile_id) FROM profiles p LEFT JOIN profile_members pm ON p.profile_id=pm.profile_id '
+		  . "AND p.scheme_id=pm.scheme_id AND pm.scheme_id=$scheme_id WHERE @$lqry GROUP BY p.profile_id ORDER BY "
+		  . 'COUNT(p.profile_id) desc LIMIT 1';
 	}
 	my $match = $self->{'datastore'}->run_query($match_qry);
 	return $match;
