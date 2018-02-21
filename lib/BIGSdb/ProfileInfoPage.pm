@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -190,8 +190,7 @@ sub _print_profile {
 	say qq(<dl class="profile"><dt>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( $scheme_field_info->{'description'} ) {
-		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
-		  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say qq(</dt><dd>$profile_id</dd></dl>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -210,8 +209,9 @@ sub _print_profile {
 		$cleaned =~ tr/_/ /;
 		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
-			$cleaned .= qq( <a class="tooltip" title="$cleaned - $scheme_field_info->{'description'}">)
-			  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+			$cleaned .=
+			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } )
+			  ;
 		}
 		say qq(<dl class="profile"><dt>$cleaned</dt>);
 		$data->{ lc($field) } //= q(&nbsp;);

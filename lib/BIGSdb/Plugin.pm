@@ -416,9 +416,9 @@ sub print_isolates_fieldset {
 				push @com_js2, qq(\$("#c_$_").prop("checked",false));
 			}
 			say q(<fieldset style="float:left"><legend>Composite fields);
-			say q( <a class="tooltip" title="Composite fields - These are constructed from combinations of )
-			  . q(other fields (some of which may come from external databases).  Including composite fields )
-			  . q(will slow down the processing."><span class="fa fa-info-circle"></span></a>);
+			say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+				  . q(other fields (some of which may come from external databases). Including composite fields )
+				  . q(will slow down the processing.) );
 			say q(</legend>);
 			$self->_print_fields(
 				{ fields => $composites, prefix => 'c', num_columns => 1, labels => {}, default_select => 0 } );
@@ -591,9 +591,9 @@ sub print_sequence_export_form {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			say q(<p>If both allele designations and tagged sequences<br />)
 			  . q(exist for a locus, choose how you want these handled: );
-			say q( <a class="tooltip" title="Sequence retrieval - Peptide loci will only be retrieved from the )
-			  . q(sequence bin (as nucleotide sequences)."><span class="fa fa-info-circle"></span></a></p>);
-			say q(<ul><li>);
+			say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from the )
+				  . q(sequence bin (as nucleotide sequences).) );
+			say q(</p><ul><li>);
 			my %labels = (
 				seqbin             => 'Use sequences tagged from the bin',
 				allele_designation => 'Use allele sequence retrieved from external database'
@@ -625,9 +625,8 @@ sub print_sequence_export_form {
 				say q(Include );
 				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 				say q( bp flanking sequence);
-				say q( <a class="tooltip" title="Flanking sequence - This can only be included if you )
-				  . q(select to retrieve sequences from the sequence bin rather than from an external database.">)
-				  . q(<span class="fa fa-info-circle"></span></a>);
+				say $self->get_tooltip( q(Flanking sequence - This can only be included if you )
+					  . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
 				say q(</li>);
 			}
 		} else {

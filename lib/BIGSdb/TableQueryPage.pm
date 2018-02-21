@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -195,8 +195,8 @@ sub _print_table_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1" )
-		  . q(data-rel="ajax" class="button">+</a> <a class="tooltip" id="field_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'field_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -510,7 +510,7 @@ sub _run_query {
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} 
+	}
 	return;
 }
 
@@ -747,13 +747,13 @@ sub _check_invalid_fieldname {
 	my $additional = {
 		sequences => [ qw(sequence_length), @sender_fields ],
 		sequence_bin => [ @$extended, @sender_fields, $self->{'system'}->{'labelfield'} ],
-		allele_designations  => [ @sender_fields, $self->{'system'}->{'labelfield'} ],
+		allele_designations  => [ @sender_fields,                    $self->{'system'}->{'labelfield'} ],
 		allele_sequences     => [ $self->{'system'}->{'labelfield'} ],
 		project_members      => [ $self->{'system'}->{'labelfield'} ],
 		history              => [ $self->{'system'}->{'labelfield'} ],
 		isolate_aliases      => [ $self->{'system'}->{'labelfield'} ],
 		refs                 => [ $self->{'system'}->{'labelfield'} ],
-		experiment_sequences => [ 'isolate_id', $self->{'system'}->{'labelfield'} ],
+		experiment_sequences => [ 'isolate_id',                      $self->{'system'}->{'labelfield'} ],
 		user_group_members   => [@user_fields],
 		profile_history      => ['timestamp (date)'],
 		history              => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]

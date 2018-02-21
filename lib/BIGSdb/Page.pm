@@ -1087,9 +1087,10 @@ sub get_filter {
 
 	#Page::popup_menu faster than CGI::popup_menu as it doesn't escape values.
 	$buffer .= ( $args{'-class'} // '' ) eq 'multiselect' ? $q->scrolling_list(%args) : $self->popup_menu(%args);
-	$options->{'tooltip'} =~ tr/_/ / if $options->{'tooltip'};
-	$buffer .= qq( <a class="tooltip" title="$options->{'tooltip'}\"><span class="fa fa-info-circle"></span></a>)
-	  if $options->{'tooltip'};
+	if ( $options->{'tooltip'} ) {
+		$options->{'tooltip'} =~ tr/_/ /;
+		$buffer .= $self->get_tooltip( $options->{'tooltip'} );
+	}
 	return $buffer;
 }
 
@@ -1120,8 +1121,10 @@ sub get_number_records_control {
 		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
-	$buffer .= q( records per page <a class="tooltip" title="Records per page - Analyses use the full query dataset, )
-	  . q(rather than just the page shown."><span class="fa fa-info-circle"></span></a></span>);
+	$buffer .= q( records per page);
+	$buffer .=
+	  $self->get_tooltip(q(Records per page - Analyses use the full query dataset, rather than just the page shown.));
+	$buffer .= q(</span>);
 	return $buffer;
 }
 
@@ -2737,9 +2740,11 @@ sub print_home_link {
 }
 
 sub get_tooltip {
-	my ( $self, $text ) = @_;
-	return qq(<a class="tooltip" style="margin-left:0.2em" title="$text">)
-	  . q(<span class="fa fa-info-circle"></span></a>);
+	my ( $self, $text, $options ) = @_;
+	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
+	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
+	return qq(<a class="tooltip"$id style="margin-left:0.2em" title="$text">)
+	  . qq(<span class="fa fa-info-circle"$style></span></a>);
 }
 
 sub is_page_allowed {

@@ -732,19 +732,23 @@ sub _show_results {
 		  . q(<th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th>)
 		  . q(<th>E-value</th><th>Sequence bin id</th><th>Start</th><th>End</th><th>Predicted start</th>)
 		  . q(<th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th>)
-		  . q(<th>Flag <a class="tooltip" title="Flag - Set a status flag for the sequence.  You need to also )
-		  . q(tag the sequence for any flag to take effect."><span class="fa fa-info-circle" style="color:white">)
-		  . q(</span></a></th></tr>);
+		  . q(<th>Flag);
+		say $self->get_tooltip(
+			q(Flag - Set a status flag for the sequence.  You need to also )
+			  . q(tag the sequence for any flag to take effect.),
+			{ style => 'color:white' }
+		);
+		say q(</th></tr>);
 		$self->print_file($filename);
 		say q(</table></div>);
 		say q(<p>* Allele continues beyond end of contig</p>) if $status->{'allele_off_contig'};
 	}
 	if ( $status->{'new_seqs_found'} ) {
-		say qq(<p><a href="/tmp/$scan_job\_unique_sequences.txt" target="_blank">New unique sequences</a> )
-		  . q(<a class="tooltip" title="Unique sequence - This is a list of new unique sequences found in )
-		  . q(this search (tab-delimited with locus name). This can be used to facilitate rapid upload of )
-		  . q(new sequences to a sequence definition database for allele assignment.">)
-		  . q(<span class="fa fa-info-circle"></span></a></p>);
+		say qq(<p><a href="/tmp/${scan_job}_unique_sequences.txt" target="_blank">New unique sequences</a>);
+		say $self->get_tooltip( q(Unique sequence - This is a list of new unique sequences found in )
+			  . q(this search (tab-delimited with locus name). This can be used to facilitate rapid upload of )
+			  . q(new sequences to a sequence definition database for allele assignment.) );
+		say q(</p>);
 	}
 	if ( -s $filename && $status->{'stop_time'} ) {
 		if ( $status->{'tag_isolates'} ) {

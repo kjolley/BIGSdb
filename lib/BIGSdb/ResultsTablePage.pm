@@ -823,10 +823,11 @@ sub _print_isolate_table_header {
 		  if $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view';
 	}
 	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
-	$fieldtype_header .=
-	    q( <a class="tooltip" title="Isolate fields - You can select the isolate fields )
-	  . q(that are displayed here by going to the options page.">)
-	  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+	$fieldtype_header .= $self->get_tooltip(
+		q(Isolate fields - You can select the isolate fields )
+		  . q(that are displayed here by going to the options page.),
+		{ style => 'color:white' }
+	);
 	$fieldtype_header .= q(</th>);
 	my %pref_fields = (
 		display_seqbin_main  => 'Seqbin size (bp)',
@@ -901,9 +902,8 @@ sub _get_isolate_header_scheme_fields {
 				$field =~ tr/_/ /;
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_name );
 				if ( $scheme_field_info->{'description'} ) {
-					$field .=
-					    qq( <a class="tooltip" title="$field - $scheme_field_info->{'description'}">)
-					  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+					$field .= $self->get_tooltip( qq($field - $scheme_field_info->{'description'}),
+						{ style => 'color:white' } );
 				}
 				push @scheme_header, $field;
 			}
@@ -1081,8 +1081,7 @@ sub _print_profile_table {
 	print qq(<th>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( $scheme_field_info->{'description'} ) {
-		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
-		  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say q(</th>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -1097,8 +1096,9 @@ sub _print_profile_table {
 		$cleaned =~ tr/_/ /;
 		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
-			$cleaned .= qq( <a class="tooltip" title="$cleaned - $scheme_field_info->{'description'}">)
-			  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+			$cleaned .=
+			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } )
+			  ;
 		}
 		say qq(<th>$cleaned</th>);
 	}

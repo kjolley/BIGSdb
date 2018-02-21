@@ -589,9 +589,8 @@ sub _get_classification_group_data {
 		if ($cg_buffer) {
 			my $desc = $cscheme->{'description'};
 			my $tooltip =
-			  $desc
-			  ? qq( <a class="tooltip" title="$cscheme->{'name'} - $desc"> )
-			  . q(<span class="fa fa-info-circle"></span></a>)
+			    $desc
+			  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
 			$buffer .=
@@ -1269,9 +1268,8 @@ sub _get_scheme_values {
 		( my $cleaned = $field ) =~ tr/_/ /;
 		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
-			my $display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-			$cleaned .= qq( <a class="tooltip" title="$field - $scheme_field_info->{'description'}" )
-			  . qq(style="display:$display"><span class="fa fa-info-circle" style="color:white"></span></a>);
+			$cleaned .=
+			  $self->get_tooltip( qq($field - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		$buffer .= qq(<dl class="profile"><dt>$cleaned</dt><dd>);
 		local $" = ', ';

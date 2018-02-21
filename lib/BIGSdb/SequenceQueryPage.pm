@@ -55,9 +55,9 @@ sub _get_text {
 		$buffer .=
 		    q(Query sequences will be checked first for an exact match against the chosen (or all) loci - )
 		  . q(they do not need to be trimmed. The nearest partial matches will be identified if an exact )
-		  . q(match is not found. You can query using either DNA or peptide sequences. )
-		  . q( <a class="tooltip" title="Query sequence - Your query sequence is assumed to be DNA if it contains )
-		  . q(90% or more G,A,T,C or N characters."><span class="fa fa-info-circle"></span></a>);
+		  . q(match is not found. You can query using either DNA or peptide sequences. );
+		$buffer .= $self->get_tooltip( q(Query sequence - Your query sequence is assumed to be DNA if it contains )
+			  . q(90% or more G,A,T,C or N characters.) );
 	}
 	return $buffer;
 }
@@ -307,7 +307,7 @@ sub _blast_now {
 		my $results_prefix    = BIGSdb::Utils::get_random();
 		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 		$results->{'debug'} = 1 if $q->param('debug');
-		my $results_json      = encode_json($results);
+		my $results_json = encode_json($results);
 		$self->_write_results_file( $results_json_file, $results_json );
 		if ( -e $self->{'system'}->{'web_hook_seq_query'} ) {
 			my $script_out = `$self->{'system'}->{'web_hook_seq_query'} $results_json_file`;

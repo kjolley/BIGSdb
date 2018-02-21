@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -978,9 +978,8 @@ sub _print_sequence_details_fieldset {
 	);
 	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_length', -label => 'Sequence length outside usual range' );
-	say q( <a class="tooltip" title="Length check - If you select this checkbox your sequence must still be )
-	  . q(trimmed to the standard start and end sites or it will be rejected by the curator.">)
-	  . q(<span class="fa fa-info-circle"></span></a>);
+	say $self->get_tooltip( q(Length check - If you select this checkbox your sequence must still be )
+		  . q(trimmed to the standard start and end sites or it will be rejected by the curator.) );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	return;

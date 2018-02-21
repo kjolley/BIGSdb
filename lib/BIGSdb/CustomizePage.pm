@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -149,13 +149,14 @@ sub print_content {
 
 	foreach my $att (@$attributes) {
 		next
-		  if $att->{'hide'} 
+		  if $att->{'hide'}
 		  || ( !$action{ $att->{'name'} } && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
 		( my $cleaned = $att->{'name'} ) =~ tr/_/ /;
 		my $tooltip = $self->_get_tooltip( $att->{'name'} );
 		say qq(<li style="white-space:nowrap"><label for="$att->{'name'}" class="parameter" )
-		  . qq(style="padding-top:0.7em">$cleaned <a class="tooltip" title="$tooltip">)
-		  . q(<span class="fa fa-info-circle"></span></a></label>);
+		  . qq(style="padding-top:0.7em">$cleaned);
+		say $self->get_tooltip($tooltip);
+		say q(</label>);
 		if ( $att->{'type'} eq 'bool' ) {
 			say $q->popup_menu( -name => $att->{'name'}, -id => $att->{'name'}, -values => [qw(true false)] );
 		} elsif ( $att->{'optlist'} ) {
