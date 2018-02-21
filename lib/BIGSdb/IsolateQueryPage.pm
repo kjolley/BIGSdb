@@ -824,8 +824,8 @@ sub _print_provenance_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-		  . q(<a class="tooltip" id="prov_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+		  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'prov_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -859,8 +859,8 @@ sub _print_allele_status_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a> <a class="tooltip" id="allele_status_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'allele_status_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -897,8 +897,8 @@ sub _print_allele_count_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=allele_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a> <a class="tooltip" id="allele_count_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'allele_count_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -932,8 +932,8 @@ sub _print_loci_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-		  . q( <a class="tooltip" id="loci_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+		  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'loci_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -962,8 +962,8 @@ sub _print_locus_tag_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>)
-		  . q( <a class="tooltip" id="tag_tooltip" title=""><span class="fa fa-info-circle"></span></a>);
+		  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'tag_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -1000,8 +1000,8 @@ sub _print_tag_count_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=tag_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a> <a class="tooltip" id="tag_count_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'tag_count_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -1615,10 +1615,10 @@ sub _modify_query_by_private_status {
 		1 => sub { $clause = "($my_private)" },
 		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
 		3 => sub { $clause = "($my_private AND $not_in_quota)" },
-		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" }
-		,
+		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
 		5 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
+
 	if ( $term->{ $q->param('private_records_list') } ) {
 		$term->{ $q->param('private_records_list') }->();
 	} else {
@@ -2356,19 +2356,26 @@ sub get_javascript {
    	\$('#tag_count_fieldset').css({display:"$tag_count_fieldset_display"});
    	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
    	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
-  	\$('#prov_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+ 	setTooltips();
+  	if (! Modernizr.touch){
+  	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
+  	}
+$panel_js
+	$ajax_load
+	\$(document).ajaxComplete(function() {
+        setTooltips();
+	});
+ });
+ 
+function setTooltips() {
+	\$('#prov_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more "
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
   	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip').tooltip({ content: "<h3>Number of "
   		+ "fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
-  	if (! Modernizr.touch){
-  	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
-  	}
-$panel_js
-	$ajax_load
- });
+}
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);

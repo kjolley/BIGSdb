@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -236,8 +236,8 @@ sub _print_scheme_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=scheme_fields&amp;scheme_id=$scheme_id&amp;row=$next_row&amp;no_header=1" )
-		  . q(data-rel="ajax" class="button">+</a> <a class="tooltip" id="scheme_field_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'scheme_field_tooltip' } );
 	}
 	say q(</span>);
 	return;
