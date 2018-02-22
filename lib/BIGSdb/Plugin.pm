@@ -173,6 +173,9 @@ sub create_temp_tables {
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
+	if ( defined $q->param('temp_table_file') ) {
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+	}
 	$self->{'temp_tables_created'} = 1;
 	return $continue;
 }
@@ -354,7 +357,7 @@ sub print_field_export_form {
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
+	say $q->hidden($_) foreach qw (db page name query_file set_id list_file temp_table_file datatype);
 	say $q->end_form;
 	return;
 }

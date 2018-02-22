@@ -1097,8 +1097,7 @@ sub _print_profile_table {
 		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
 			$cleaned .=
-			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } )
-			  ;
+			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		say qq(<th>$cleaned</th>);
 	}
@@ -1186,7 +1185,11 @@ sub _print_plugin_buttons {
 					$q->param( set_id => $set_id );
 					$plugin_buffer .= $q->hidden($_)
 					  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
-					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
+
+					if ( ( $att->{'input'} // '' ) eq 'query' ) {
+						$plugin_buffer .= $q->hidden('query_file');
+						$plugin_buffer .= $q->hidden('temp_table_file');
+					}
 					$plugin_buffer .=
 					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 					$plugin_buffer .= $q->end_form;

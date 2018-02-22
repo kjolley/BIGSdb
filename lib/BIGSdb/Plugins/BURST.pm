@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.3',
+		version     => '1.1.4',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -130,7 +130,7 @@ sub run {
 	  . q(image format that can be manipulated and scaled in drawing packages, including the freely )
 	  . q(available <a href="http://www.inkscape.org">Inkscape</a>.</p>);
 	say $q->start_form;
-	say $q->hidden($_) foreach qw (db page name query_file list_file datatype);
+	say $q->hidden($_) foreach qw (db page name query_file list_file temp_table_file datatype);
 	my $locus_count;
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 

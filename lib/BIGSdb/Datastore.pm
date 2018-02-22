@@ -1277,6 +1277,26 @@ sub create_temp_list_table_from_array {
 	return $table;
 }
 
+sub create_temp_combinations_table_from_file {
+	my ( $self, $filename ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	my $pk_type   = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
+	my $text      = BIGSdb::Utils::slurp($full_path);
+	eval {
+		$self->{'db'}->do("CREATE TEMP TABLE count_table (id $pk_type,count int)");
+		$self->{'db'}->do('COPY count_table(id,count) FROM STDIN');
+		local $" = "\t";
+		foreach my $row ( split /\n/x, $$text ) {
+			my @values = split /\t/x, $row;
+			$self->{'db'}->pg_putcopydata("@values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do('CREATE INDEX ON count_table(count)');
+	};
+	$logger->error($@) if $@;
+	return;
+}
+
 sub get_scheme_group_info {
 	my ( $self, $group_id ) = @_;
 	return $self->run_query( 'SELECT * FROM scheme_groups WHERE id=?',
