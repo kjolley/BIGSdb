@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -178,6 +178,7 @@ sub _format_row_html {
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
 	my %italicised = map { $_ => 1 } ( 3, 4, 7 );
+	my %left_align = map { $_ => 1 } ( 4, 5 );
 	my $buffer;
 	foreach my $row ( 0 .. $rows - 1 ) {
 		$buffer .= qq(<tr class="td$td">);
@@ -188,13 +189,15 @@ sub _format_row_html {
 			$buffer .= q(<td colspan="4" style="text-align:left">No exact matching alleles linked to genome found</td>);
 		} else {
 			foreach my $col ( 2 .. 5 ) {
-				$buffer .= $col == 4 ? q(<td style="text-align:left">) : q(<td>);
+				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
 					my $colour = $self->_get_colour( $values->[$col]->[$row] );
 					$buffer .=
-					    qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
-					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></span>);
+					    q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
+					  . qq($values->[$col]->[$row]%</span>)
+					  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></div>);
 				} else {
 					$buffer .= $values->[$col]->[$row];
 				}
