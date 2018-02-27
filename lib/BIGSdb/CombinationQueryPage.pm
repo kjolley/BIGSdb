@@ -74,7 +74,17 @@ sub print_content {
 		$self->_print_query_interface($scheme_id);
 	}
 	if ( defined $q->param('temp_table_file') ) {
-		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('temp_table_file');
+		if ( !-e $full_path ) {
+			$logger->error("Temporary file $full_path does not exist");
+			say q(<div class="box" id="statusbad"><p>Temporary file does not exist. Please repeat query.</p></div>);
+			$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
+			$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
+			$self->_print_query_interface($scheme_id);
+			return;
+		}
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') )
+		  ;
 	}
 	if (   defined $q->param('query_file')
 		or defined $q->param('submit') )
@@ -368,9 +378,7 @@ sub _generate_query {
 			  . "WHERE pm.scheme_id=$scheme_id AND (@lqry) GROUP BY pm.profile_id";
 		}
 		$create_temp_table .= ';CREATE INDEX ON count_table(count)';
-		eval {
-			$self->{'db'}->do($create_temp_table);
-		};
+		eval { $self->{'db'}->do($create_temp_table); };
 		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
 			my $match = $self->{'datastore'}->run_query('SELECT MAX(count) FROM count_table');
 			if ($match) {

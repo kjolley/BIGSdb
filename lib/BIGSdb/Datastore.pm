@@ -1281,9 +1281,18 @@ sub create_temp_combinations_table_from_file {
 	my ( $self, $filename ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	my $pk_type   = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
-	my $text      = BIGSdb::Utils::slurp($full_path);
+	my $text;
+	my $error;
+	try {
+		$text      = BIGSdb::Utils::slurp($full_path);
+	} catch BIGSdb::CannotOpenFileException with {
+		$logger->error("Cannot open $full_path for reading");
+		$error = 1;
+	};
+	
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE count_table (id $pk_type,count int)");
+		return if $error;
 		$self->{'db'}->do('COPY count_table(id,count) FROM STDIN');
 		local $" = "\t";
 		foreach my $row ( split /\n/x, $$text ) {
