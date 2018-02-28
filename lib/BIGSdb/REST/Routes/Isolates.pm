@@ -97,7 +97,8 @@ sub _get_isolate {
 	my $values = {};
 	my $field_values =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
+	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } )
+	  ;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $provenance = {};
 
@@ -117,6 +118,7 @@ sub _get_isolate {
 	}
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
+	return $values if $params->{'provenance_only'};
 	my $publications = _get_publications($id);
 	$values->{'publications'} = $publications if @$publications;
 	my $seqbin_stats =
