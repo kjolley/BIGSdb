@@ -28,7 +28,7 @@ sub _get_sequences {
 	my $self = setting('self');
 	my ($db) = params->{'db'};
 	$self->check_seqdef_database;
-	my $count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM sequences');
+	my $count = $self->{'datastore'}->run_query('SELECT SUM(allele_count) FROM locus_stats');
 	my $values = { loci => request->uri_for("/db/$db/loci"), records => int($count) };
 	return $values;
 }
