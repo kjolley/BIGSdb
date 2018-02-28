@@ -44,6 +44,7 @@ use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Projects;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
+use BIGSdb::REST::Routes::Sequences;
 use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;

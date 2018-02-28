@@ -79,6 +79,8 @@ sub _get_db {
 		$routes->{'projects'} = request->uri_for("/db/$db/projects") if $projects;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$routes->{'sequences'} = request->uri_for("/db/$db/sequences");
+		
 		return $routes;
 	} else {
 		return { title => 'Database configuration is invalid' };
