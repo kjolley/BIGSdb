@@ -20,7 +20,7 @@ package BIGSdb::REST::Routes::Resources;
 use strict;
 use warnings;
 use 5.010;
-use Dancer2 appname => 'BIGSdb::REST::Interface';
+use Dancer2 appname      => 'BIGSdb::REST::Interface';
 use constant GENOME_SIZE => 500_000;
 get '/robots.txt' => sub { _get_robots() };
 
@@ -78,14 +78,14 @@ sub _get_db {
 		$routes->{'fields'}   = request->uri_for("/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
 		$routes->{'projects'} = request->uri_for("/db/$db/projects") if $projects;
-		my $genome_size = BIGSdb::Utils::is_int(params->{'genome_size'}) ? params->{'genome_size'} : GENOME_SIZE;
-		my $genomes = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?',$genome_size);
+		my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+		my $genomes =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?', $genome_size );
 		my $size_param = $genome_size != GENOME_SIZE ? qq(?genome_size=$genome_size) : q();
 		$routes->{'genomes'} = request->uri_for("/db/$db/genomes") . $size_param if $genomes;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$routes->{'sequences'} = request->uri_for("/db/$db/sequences");
-		
 		return $routes;
 	} else {
 		return { title => 'Database configuration is invalid' };
