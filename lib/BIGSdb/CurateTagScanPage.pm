@@ -725,7 +725,7 @@ sub _show_results {
 			say q(<p>No matches found.</p>);
 		} else {
 			say q(<p>No results yet ... please wait.</p>);
-			say q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+			say q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		}
 	} else {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Isolate</th><th>Match</th>)

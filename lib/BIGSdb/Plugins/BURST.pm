@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.4',
+		version     => '1.1.5',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -188,7 +188,7 @@ sub _run_burst {
 	my ( $self, $scheme_id, $pk, $list ) = @_;
 	local $| = 1;
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
-	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) =
 	  $self->_get_profile_array( $scheme_id, $pk, $list );

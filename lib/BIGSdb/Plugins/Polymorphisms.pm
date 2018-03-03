@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version  => '1.1.5',
+		version  => '1.1.6',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section  => 'breakdown,postquery',
@@ -81,7 +81,7 @@ sub run {
 	}
 	local $| = 1;
 	say q(<div class="hideonload"><p>Please wait - checking sequences (do not refresh) ...</p>)
-	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush;
 		return if $self->{'mod_perl_request'}->connection->aborted;

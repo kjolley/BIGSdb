@@ -169,7 +169,7 @@ sub _print_interface {
 	my $order_clause = $table eq 'isolates' ? q(&amp;order=scheme) : q();
 	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=tableHeader&amp;table=$table$locus_attribute$order_clause">Download tab-delimited header for your spreadsheet</a>)
-	  . q( - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' to paste the data.</li>);
+	  . q( - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' to paste the data.</li>);
 	say
 	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($locus_attribute$order_clause">Download submission template (xlsx format)</a>);
@@ -261,7 +261,7 @@ sub _cannot_upload_private_data {
 	}
 	if ( !$options->{'no_message'} ) {
 		say q(<div class="box" id="resultspanel">);
-		say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 		say q(<h2>Private data upload</h2>);
 		if ($project) {
 			say q(<p>These isolates will be added to the private )

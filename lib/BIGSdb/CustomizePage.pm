@@ -48,8 +48,9 @@ sub print_content {
 	say qq(<h1>Customize $record display</h1>);
 
 	if ( !$q->cookie('guid') ) {
-		say q(<div class="box" id="statusbad"><span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span>)
-		  . q(<h2>Unable to proceed</h2><p class="statusbad">In order to store options, a cookie needs to be saved )
+		say
+		  q(<div class="box" id="statusbad"><span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span>)
+		  . q(<h2>Unable to proceed</h2><p>In order to store options, a cookie needs to be saved )
 		  . q(on your computer. Cookies appear to be disabled, however. )
 		  . q(Please enable them in your browser settings to proceed.</p></div>);
 		return;

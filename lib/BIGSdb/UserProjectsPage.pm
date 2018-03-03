@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -647,13 +647,13 @@ sub _is_project_admin {
 }
 
 sub _add_new_project {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $short_desc = BIGSdb::Utils::sanitize_string( $q->param('short_description'),
-		{ tabs_to_spaces => 1, allow_punctuation => 1 } );
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $short_desc =
+	  BIGSdb::Utils::sanitize_string( $q->param('short_description'), { tabs_to_spaces => 1, allow_punctuation => 1 } );
 	return if !$short_desc;
-	my $full_desc = BIGSdb::Utils::sanitize_string( $q->param('full_description'),
-		{ tabs_to_spaces => 1, allow_punctuation => 1 } );
+	my $full_desc =
+	  BIGSdb::Utils::sanitize_string( $q->param('full_description'), { tabs_to_spaces => 1, allow_punctuation => 1 } );
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
@@ -689,7 +689,7 @@ sub _add_new_project {
 sub _print_user_projects {
 	my ($self) = @_;
 	say q(<div class="box" id="queryform">);
-	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>New private projects</h2>);
 	say q(<p>Projects allow you to group isolates so that you can analyse them easily together.</p>);
 	say q(<p>Please enter the details for a new project. The project name needs to be unique on the system. )
@@ -730,7 +730,7 @@ sub _print_user_projects {
 	if (@$projects) {
 		my $is_admin = $self->_is_admin_of_any($projects);
 		say q(<h2>Your projects</h2>);
-		say q(<div class="scrollable"><table class="resultstable">);
+		say q(<div class="scrollable"><table class="resultstable" style="margin-bottom:1em">);
 		say q(<tr>);
 		if ($is_admin) {
 			say q(<th>Delete</th><th>Add/remove records</th><th>Modify users</th>);
@@ -810,7 +810,7 @@ sub _get_project_row {
 	if ($count) {
 		$buffer .=
 		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a>);
 	}
 	$buffer .= q(</td></tr>);

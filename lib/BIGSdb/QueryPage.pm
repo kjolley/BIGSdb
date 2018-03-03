@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -122,7 +122,7 @@ sub get_javascript {
 function add_rows(url,list_name,row_name,row,field_heading,button_id){
 	var new_row = row+1;
 	\$("ul#"+list_name).append('<li id="' + row_name + row + '" />');
-	\$("li#"+row_name+row).html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
+	\$("li#"+row_name+row).html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
 	url = url.replace(/row=\\d+/,'row='+new_row);
 	\$("#"+button_id).attr('href',url);
 	\$("span#"+field_heading).show();
@@ -189,22 +189,23 @@ sub search_users {
 		$qry .= "$suffix $operator '$text'";
 	}
 	my $local_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	if ($suffix ne 'id'){
-	my $remote_db_ids =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
-	foreach my $user_db_id (@$remote_db_ids) {
-		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
-		( my $user_qry = $qry ) =~ s/^SELECT\ id/SELECT user_name/x;
-		my $remote_user_names =
-		  $self->{'datastore'}->run_query( $user_qry, undef, { db => $user_db, fetch => 'col_arrayref' } );
-		foreach my $user_name (@$remote_user_names) {
+	if ( $suffix ne 'id' ) {
+		my $remote_db_ids =
+		  $self->{'datastore'}->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL',
+			undef, { fetch => 'col_arrayref' } );
+		foreach my $user_db_id (@$remote_db_ids) {
+			my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
+			( my $user_qry = $qry ) =~ s/^SELECT\ id/SELECT user_name/x;
+			my $remote_user_names =
+			  $self->{'datastore'}->run_query( $user_qry, undef, { db => $user_db, fetch => 'col_arrayref' } );
+			foreach my $user_name (@$remote_user_names) {
 
-			#Only add user if exists in local database with the same user_db
-			my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
-			push @$local_ids, $user_info->{'id'} if $user_info->{'id'};
+				#Only add user if exists in local database with the same user_db
+				my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+				push @$local_ids, $user_info->{'id'} if $user_info->{'id'};
+			}
 		}
-	}}
+	}
 	$local_ids = [-999] if !@$local_ids;    #Need to return an integer but not 0 since this is actually the setup user.
 	local $" = "' OR $table.$field = '";
 	return "($table.$field = '@$local_ids')";
@@ -269,8 +270,8 @@ sub clean_list {
 		$value =~ tr/[\x{ff10}-\x{ff19}]/[0-9]/;    #Convert Unicode full width integers
 		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
 		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
-		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
-		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
+		next if lc($data_type) eq 'date'   && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float'  && !BIGSdb::Utils::is_float($value);
 		push @new_list, uc($value);
 	}
 	return \@new_list;

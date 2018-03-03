@@ -926,7 +926,7 @@ sub _get_row {
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
 	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
 	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf">)
-	  . qq(extract <span class="fa fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
+	  . qq(extract <span class="fas fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
 	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
 	$buffer .= qq(<td>$arrow</td><td>);
 	my $seq_disabled = 0;
@@ -1016,7 +1016,7 @@ sub _get_row {
 sub _get_dir_arrow {
 	my ( $self, $reverse ) = @_;
 	my $dir = $reverse ? 'left' : 'right';
-	return qq(<span class="fa fa-2x fa-long-arrow-$dir"></span>);
+	return qq(<span class="fas fa-2x fa-long-arrow-alt-$dir"></span>);
 }
 
 sub _hunt_for_start_and_stop_codons {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -308,7 +308,7 @@ sub _print_interface {
 	my $plural = $count == 1 ? '' : 's';
 	say q(<div class="box" id="statusbad">);
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
-	say q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say qq(<p>If you proceed, you will delete $count $record_name record$plural.  )

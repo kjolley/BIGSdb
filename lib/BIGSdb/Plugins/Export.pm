@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.2',
+		version     => '1.4.3',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -200,7 +200,7 @@ sub run {
 			}
 			say q(<div class="box" id="resultstable">);
 			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			say q(<p class="hideonload"><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+			say q(<p class="hideonload"><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 			print q(<p>Output files being generated ...);
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			$self->_write_tab_text(
@@ -264,8 +264,8 @@ sub run_job {
 		my $BY_ID = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
 		$params->{'qry'} =~ s/(FROM\ $view.*?)WHERE.*ORDER\ BY/$1 WHERE $BY_ID/x;
 	}
-	if ($params->{'qry'} =~ /count_table/x){
-		$self->{'datastore'}->create_temp_combinations_table_from_file($params->{'temp_table_file'});
+	if ( $params->{'qry'} =~ /count_table/x ) {
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $params->{'temp_table_file'} );
 	}
 	my $limit =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )

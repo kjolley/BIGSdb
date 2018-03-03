@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.5',
+		version          => '1.3.6',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -295,7 +295,7 @@ sub _get_seqs {
 		if ( $options->{'print_status'} ) {
 			local $| = 1;
 			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
-			  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+			  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
@@ -571,9 +571,8 @@ sub _site_explorer {
 			say qq(<br />($cleaned-@sortedalleles));
 		}
 		say qq(</td><td>$pc</td>);
-
 		foreach my $scheme_id (@schemes) {
-			my $locus_name = $self->{'datastore'}->get_scheme_warehouse_locus_name($scheme_id,$locus);
+			my $locus_name = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
 			local $" = "' OR $locus_name='";
 			my $qry      = "SELECT COUNT(*) FROM mv_scheme_$scheme_id WHERE $locus_name='@allelelist'";
 			my $numSTs   = $self->{'datastore'}->run_query($qry);
@@ -692,7 +691,7 @@ sub _translate {
 	if ( $allele_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		local $| = 1;
 		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
-		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;

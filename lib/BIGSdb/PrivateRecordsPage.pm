@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,7 +60,7 @@ sub print_content {
 sub _print_limits {
 	my ( $self, $user_id ) = @_;
 	say q(<div class="box" id="resultspanel">);
-	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 	say q(<h2>Limits</h2>);
 	my $private       = $self->{'datastore'}->get_private_isolate_count($user_id);
 	my $total_private = $self->{'datastore'}->run_query(
@@ -83,14 +83,14 @@ sub _print_limits {
 	say q(</dl>);
 
 	if ($available) {
-		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);
 		my $link = $self->_get_upload_link;
 		say qq(<ul class="toplevel"><li><a href="$link">Upload private isolate records</a></li></ul>);
 	}
 	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	if ($user_id) {
-		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say q(<h2>Curate</h2>);
 		say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
 		  . q(Update private records</a> <span class="link">Curator's interface</span></li></ul>);
@@ -117,7 +117,7 @@ sub _print_projects {
 	return if !@$projects;
 	my $available = $self->{'datastore'}->get_available_quota($user_id);
 	say q(<div class="box" id="resultstable">);
-	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>Projects</h2>);
 	if ( $available > 0 ) {
 		say q(<p>You can upload private data to the following projects. Anything you upload will be )
@@ -145,7 +145,7 @@ sub _print_projects {
 		  . qq(<td>$users</td><td>$isolates</td><td>$quota_free</td>);
 		say $isolates
 		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a></td>)
 		  : q(<td></td>);
 		my $can_upload = $project->{'no_quota'} || $available > 0;

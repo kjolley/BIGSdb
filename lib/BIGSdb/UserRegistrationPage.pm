@@ -118,7 +118,7 @@ sub _print_registration_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box queryform">);
-	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>Register</h2>);
 	say q(<p>If you don't already have a site account, you can register below. Please ensure that you enter a valid )
 	  . q(E-mail address as account validation details will be sent to this.</p>);
@@ -245,7 +245,7 @@ sub _register {
 	$self->{'db'}->commit;
 	$self->_send_email($data);
 	say q(<div class="box" id="resultspanel">);
-	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>New account</h2>);
 	say q(<p>A new account has been created with the details below. The user name and a randomly-generated )
 	  . q(password has been sent to your E-mail address. You are required to validate your account by )

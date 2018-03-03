@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -89,7 +89,7 @@ sub _site_account {
 sub _show_registration_details {
 	my ($self) = @_;
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
-	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>User details</h2>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
 	  . q(appropriate capitalization etc. These details will be linked to any data you submit to the )
@@ -120,7 +120,7 @@ sub _edit_user {
 		$self->_update_user($username);
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<span class="config_icon fa fa-edit fa-3x pull-left"></span>);
+	say q(<span class="config_icon fas fa-edit fa-3x fa-pull-left"></span>);
 	say q(<h2>User account details</h2>);
 	if ( $username eq $self->{'username'} ) {
 		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
@@ -244,7 +244,7 @@ sub _registrations {
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
 	return $buffer if !@$configs;
-	$buffer .= q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	$buffer .= q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
 	    q(<p>Use this page to register your account with specific databases. )
@@ -466,12 +466,12 @@ sub _show_admin_roles {
 	$buffer .= $self->_show_modify_users;
 	if ($buffer) {
 		say q(<div class="box" id="restricted">);
-		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 		say $buffer;
 		say q(</div>);
 	} else {
 		say q(<div class="box" id="statusbad" style="min-height:5em">);
-		say q(<span class="config_icon fa fa-thumbs-o-down fa-5x pull-left"></span>);
+		say q(<span class="config_icon far fa-thumbs-down fa-5x fa-pull-left"></span>);
 		say q(<p>Your account has no administrator privileges for this site.</p>);
 		say q(</div>);
 	}

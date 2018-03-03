@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -272,7 +272,7 @@ sub print_content {
 	}
 	if ($buffer) {
 		say q(<div class="box" id="index">);
-		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say qq(<h2>Add, update or delete records</h2>\n)
 		  . q(<div class="scrollable">)
 		  . q(<table style="text-align:center"><tr><th>Record type</th><th>Add</th>)
@@ -290,7 +290,7 @@ sub print_content {
 	$can_do_something = 1 if $list_buffer;
 	if ( $buffer || $list_buffer ) {
 		say q(<div class="box" id="restricted">);
-		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 		say q(<h2>Database configuration</h2>);
 		say q();
 		say q(<div class="scrollable"><table style="text-align:center"><tr><th>Table</th><th>Add</th><th>Batch Add</th>)
@@ -486,7 +486,7 @@ sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $linked =
 	  ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
 	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs">)
-	  . q(<span class="fa fa-chain"></span></a> )
+	  . q(<span class="fas fa-link"></span></a> )
 	  : q();
 	my $query_cell =
 	  $exists
@@ -1159,7 +1159,7 @@ sub _print_submission_section {
 	my $publish_buffer = $self->_get_publication_requests;
 	return if !$buffer && !$closed_buffer && !$publish_buffer;
 	say q(<div class="box" id="submissions"><div class="scrollable">);
-	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $on_or_off =
 	  $user_info->{'submission_emails'}
@@ -1167,7 +1167,7 @@ sub _print_submission_section {
 	  : 'OFF';
 	say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
-	  . q(<span class="main_icon fa fa-envelope fa-lg pull-left">)
+	  . q(<span class="main_icon fas fa-envelope fa-lg fa-pull-left">)
 	  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
 
 	if ($buffer) {
@@ -1190,11 +1190,11 @@ sub _get_closed_submission_section {
 	if ($closed_buffer) {
 		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer =
-		    q(<a id="show_closed" style="cursor:pointer">)
+		    q(<div style="margin-top:1em"><a id="show_closed" style="cursor:pointer">)
 		  . q(<span id="show_closed_text" title="Show closed submissions" )
 		  . qq(style="display:inline">$show</span>)
 		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
-		  . qq(style="display:none">$hide</span></a>);
+		  . qq(style="display:none">$hide</span></a></div>);
 		$buffer .=
 		  q(<div id="closed" style="display:none">) . q(<h2>Closed submissions for which you had curator rights</h2>);
 		my $days = $self->get_submission_days;
@@ -1238,7 +1238,7 @@ sub _get_publication_requests {
 		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
 		$buffer .= qq(<tr class="td$td"><td>$user_string</td><td>$isolate_count</td><td>)
-		  . qq(<a href="$link"><span class="fa fa-binoculars action browse"></span></a></td></tr>);
+		  . qq(<a href="$link"><span class="fas fa-binoculars action browse"></span></a></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= q(</table>);
@@ -1276,7 +1276,7 @@ sub _print_account_requests_section {
 	}
 	return if !@user_details;
 	say q(<div class="box" id="account_requests">);
-	say q(<span class="main_icon fa fa-user fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-user fa-3x fa-pull-left"></span>);
 	say q(<h2>Account requests</h2>);
 	say q(<p>Please note that accepting or rejecting these requests does not currently notify the user.</p>);
 	say q(<div class="scrollable">);

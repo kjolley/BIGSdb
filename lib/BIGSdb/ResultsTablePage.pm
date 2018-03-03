@@ -1156,11 +1156,11 @@ sub _print_plugin_buttons {
 	  ->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
 		my %icon = (
-			Breakdown     => 'pie-chart',
-			Export        => 'save',
-			Analysis      => 'line-chart',
-			'Third party' => 'external-link',
-			Miscellaneous => 'file-text-o'
+			Breakdown     => 'fas fa-chart-pie',
+			Export        => 'far fa-save',
+			Analysis      => 'fas fa-chart-line',
+			'Third party' => 'fas fa-external-link-alt',
+			Miscellaneous => 'far fa-file-alt'
 		);
 		say q(<h2>Analysis tools:</h2>);
 		my $set_id = $self->get_set_id;
@@ -1199,7 +1199,7 @@ sub _print_plugin_buttons {
 					$cat_buffer .=
 					    q(<div><span style="float:left;text-align:right;width:8em;)
 					  . q(white-space:nowrap;margin-right:0.5em">)
-					  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon" style="margin-right:0.2em">)
+					  . qq(<span class="fa-fw fa-lg $icon{$category} main_icon" style="margin-right:0.2em">)
 					  . qq(</span>$category:</span>)
 					  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 					$cat_buffer .= $plugin_buffer;

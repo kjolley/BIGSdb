@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.0',
+		version     => '2.3.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -787,7 +787,7 @@ sub _output_file_buffer {
 	say $job_fh $buffer;
 	close $job_fh;
 	$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file (text)' } );
 	return;
 }
 
@@ -1632,7 +1632,7 @@ sub _generate_excel_file {
 
 	if ( -e $excel_file ) {
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } );
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format (Excel)' } );
 	}
 	return;
 }
@@ -2436,7 +2436,7 @@ sub _core_analysis {
 
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
-			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency' } );
+			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency (text)' } );
 	}
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.png";

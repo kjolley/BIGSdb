@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -332,7 +332,7 @@ sub _blast_fork {
 	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 	say $self->_get_polling_javascript($results_prefix);
 	say q(<div id="results"><div class="box" id="resultspanel">)
-	  . q(<span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="main_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
 	  . q(<span class="wait_message">Scanning - Please wait.</span></div>)
 	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
 

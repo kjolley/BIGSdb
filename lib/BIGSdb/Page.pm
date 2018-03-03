@@ -259,8 +259,8 @@ sub _initiate_plugin {
 sub get_file_icon {
 	my ( $self, $type ) = @_;
 	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em;top">);
+	$buffer .= q(<span class="fas fa-file fa-stack-2x"></span>);
 	$buffer .= qq(<span class="fa-stack-1x filetype-text" style="top:0.25em">$type</span>);
-	$buffer .= q(<span class="fa fa-file-o fa-stack-2x"></span>);
 	$buffer .= q(</span>);
 	return $buffer;
 }
@@ -403,8 +403,8 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20171201';
-	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
+	my $version   = '20180303';
+	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
@@ -444,7 +444,7 @@ sub print_set_section {
 	say q(<div class="box" id="sets">);
 	say q(<div class="scrollable">);
 	say q(<div style="float:left; margin-right:1em">);
-	say q(<span class="dataset_icon fa fa-database fa-3x pull-left"></span>);
+	say q(<span class="dataset_icon fas fa-database fa-3x fa-pull-left"></span>);
 	say q(<h2>Datasets</h2>);
 	say q(<p>This database contains multiple datasets.);
 	print(
@@ -649,9 +649,8 @@ sub _print_login_details {
 	if ( !$user_info ) {
 		if ( !$self->{'username'} ) {
 			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
-				say q(<span class="fa fa-sign-in"></span> )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
-				  . q(Log in</a>);
+				say qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
+				  . q(<span class="fas fa-sign-in-alt" style="margin-right:0.3em"></span>Log in</a>);
 			} else {
 				say q(<i>Not logged in.</i>);
 			}
@@ -664,7 +663,7 @@ sub _print_login_details {
 	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' ) {
 		if ( $self->{'username'} ) {
 			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=logout">)
-			  . q(<span class="fa fa-sign-out"></span>Log out</a> | );
+			  . q(<span class="fas fa-sign-out-alt"></span>Log out</a> | );
 			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword">)
 			  . q(Change password</a>);
 		}
@@ -699,7 +698,7 @@ sub _print_help_panel {
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
-				  . q(title="Open help in new window">Help <span class="fa fa-external-link"></span></a></span>);
+				  . q(title="Open help in new window">Help <span class="fas fa-external-link-alt"></span></a></span>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
@@ -709,14 +708,14 @@ sub _print_help_panel {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			say qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
-			  . q(<span class="fa fa-external-link"></span></a></span>);
+			  . q(<span class="fas fa-external-link-alt"></span></a></span>);
 		}
 	}
 	if ( $self->{'tooltips'} ) {
 		say q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
-		  . q(<span class="fa fa-info-circle fa-lg"></span></a>);
+		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);
 	}
 	say q(</div>);
 	return;
@@ -730,7 +729,7 @@ sub _print_menu {
 	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
 	return if !$self->{'system'}->{'db'};
 	say q(<div id="menubutton">);
-	say q(<a style="cursor:pointer"><span class="fa fa-bars"></span></a>);
+	say q(<a style="cursor:pointer"><span class="fas fa-bars"></span></a>);
 	say q(</div>);
 	say q(<div id="menupanel"></div>);
 	return;
@@ -2744,7 +2743,7 @@ sub get_tooltip {
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
 	return qq(<a class="tooltip"$id style="margin-left:0.2em" title="$text">)
-	  . qq(<span class="fa fa-info-circle"$style></span></a>);
+	  . qq(<span class="fas fa-info-circle"$style></span></a>);
 }
 
 sub is_page_allowed {

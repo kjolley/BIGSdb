@@ -73,6 +73,8 @@ sub print_content {
 			$self->_print_interface;
 		};
 	} else {
+		my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
+		say $icon;
 		$self->_print_interface;
 	}
 	return;

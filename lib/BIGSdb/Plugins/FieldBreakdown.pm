@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.1',
+		version       => '1.2.2',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -135,7 +135,7 @@ sub run {
 	if ( !( defined $q->param('function') && $q->param('function') eq 'summary_table' ) ) {
 		say q(<h1>Field breakdown of dataset</h1>);
 		say q(<div class="hideonload"><p><b>Please wait for charts to be generated ...</b></p>)
-		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	}
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush;
@@ -520,10 +520,8 @@ sub _get_value_frequency_hash {
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		next if !defined $metaset;
-		my $meta_data = $self->{'datastore'}->run_query(
-			"SELECT isolate_id,$metafield FROM meta_$metaset",
-			undef, { fetch => 'all_hashref', key => 'isolate_id' }
-		);
+		my $meta_data = $self->{'datastore'}->run_query( "SELECT isolate_id,$metafield FROM meta_$metaset",
+			undef, { fetch => 'all_hashref', key => 'isolate_id' } );
 		foreach my $isolate_id ( keys %{ $value_frequency->{'id'} } ) {
 			my $value = $meta_data->{$isolate_id}->{$metafield};
 			$value = 'No value/unassigned' if !defined $value || $value eq '';

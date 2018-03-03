@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2016, University of Oxford
+#(c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -201,14 +201,14 @@ sub _MD5_login {
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
 	my ( $self, $options ) = @_;
-	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'Please enter username.',     $options ) }
+	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'Please enter username.', $options ) }
 	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit( 'Please enter password.', $options ) }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
 	}
 	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
-	if ( !$stored_hash || !$self->{'datastore'}->user_name_exists( $self->{'vars'}->{'user'}) ) {
+	if ( !$stored_hash || !$self->{'datastore'}->user_name_exists( $self->{'vars'}->{'user'} ) ) {
 		$self->_delete_session( $self->{'cgi'}->param('session') );
 		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	}
@@ -260,9 +260,9 @@ sub _print_login_form {
 	say q(<div class="box queryform">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	say q(<span class="main_icon fa fa-sign-in fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-sign-in-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>Please enter your account details.</h2>);
-	if (!$ENV{'HTTP_COOKIE'}){
+	if ( !$ENV{'HTTP_COOKIE'} ) {
 		say q(<p class="highlight">You need to enable cookies to create a session.</p>);
 		$logger->info('Log in attempted with cookies disabled.');
 	}
@@ -272,7 +272,6 @@ sub _print_login_form {
 		  . q(password.value=CryptoJS.MD5(password.value+user.value); return true) );
 	say q(<fieldset style="float:left"><legend>Account</legend>);
 	say q(<ul>);
-
 	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
 		my $user_dbs = $self->{'config'}->{'site_user_dbs'};
 		my $values   = [];
@@ -335,16 +334,16 @@ sub _print_registration_links {
 	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user' || $self->{'curate'};
 	say q(<div class="box queryform">);
 	say q(<h2>Not registered?</h2>);
-	say q(<span class="main_icon fa fa-id-card-o fa-2x pull-left"></span>);
+	say q(<span class="main_icon far fa-address-card fa-2x fa-pull-left"></span>);
 	say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
 	  . q(Register for a site-wide account</a>.</li></ul>);
 	if ( $self->{'config'}->{'site_admin_email'} ) {
 		say q(<h2>Forgotten username or password</h2>);
-		say q(<span class="main_icon fa fa-envelope fa-2x pull-left"></span>);
+		say q(<span class="main_icon fas fa-envelope fa-2x fa-pull-left"></span>);
 		say qq(<ul class="toplevel"><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
 		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
 		say q(<h2>Multiple accounts?</h2>);
-		say q(<span class="main_icon fa fa-users fa-2x pull-left"></span>);
+		say q(<span class="main_icon fas fa-users fa-2x fa-pull-left"></span>);
 		say q(<ul class="toplevel"><li>If you are registered for different databases with separate accounts, )
 		  . q(these can be merged so that you only need to log in with this one site account. )
 		  . q(Please first register for a site-wide account (see link above) and then )
@@ -526,8 +525,7 @@ sub _remove_old_pending_users {
 		);
 		next if !@$users;
 		eval {
-			foreach my $user (@$users)
-			{
+			foreach my $user (@$users) {
 				$db->{'db'}->do( 'DELETE FROM users WHERE user_name=?', undef, $user );
 				$self->{'auth_db'}->do( 'DELETE FROM users WHERE (dbase,name)=(?,?)', undef, $db->{'name'}, $user );
 			}

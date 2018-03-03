@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
-		version      => '1.1.2',
+		version      => '1.1.3',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -163,13 +163,13 @@ sub _run_analysis {
 		say $results->{'pc_untagged'}
 		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 		  . qq(name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=1&amp;@attributes">)
-		  . q(<span class="file_icon fa fa-download"></span></a></td>)
+		  . q(<span class="file_icon fas fa-download"></span></a></td>)
 		  : q(<td></td>);
 		my $non_match = $results->{'total'} - $results->{'pc_untagged'};
 		say $non_match
 		  ? qq(<td>$non_match</td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=plugin&amp;name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=0&amp;@attributes">)
-		  . q(<span class="file_icon fa fa-download"></span></a></td>)
+		  . q(<span class="file_icon fas fa-download"></span></a></td>)
 		  : qq(<td>$non_match</td><td></td>);
 		say q(</tr>);
 		$filebuffer .= qq($isolate_id\t$isolate_name\t$results->{'total'}\t$results->{'pc_untagged'}\t$non_match\n);

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,7 +64,7 @@ sub print_content {
 
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
-		say q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>)
+		say q(<span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span><h2>Oops ...</h2>)
 		  . qq(<p>Unknown function '$function' requested - either an incorrect link brought you )
 		  . q(here or this functionality has not been implemented yet!</p>);
 		$logger->info(qq(Unknown function '$function' specified in URL));
@@ -72,11 +72,11 @@ sub print_content {
 		my %show_warning = map { $_ => 1 } qw(userNotAuthenticated accessDisabled configAccessDenied);
 		my $warning =
 		  $show_warning{ $self->{'error'} }
-		  ? q(<span class="warning_icon fa fa-exclamation-triangle fa-5x pull-left"></span>)
-		  : q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>);
+		  ? q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>)
+		  : q(<span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span><h2>Oops ...</h2>);
 		say qq($warning<p>$error{$self->{'error'}}</p><div style="clear:both"></div>);
 	} elsif ( $self->{'error'} eq 'noPrefs' ) {
-		say q(<span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span><h2>Oops ...</h2>);
+		say q(<span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span><h2>Oops ...</h2>);
 		if ( $self->{'fatal'} ) {
 			say q(<p>The preference database can be reached but it appears to be misconfigured!</p>);
 		} else {

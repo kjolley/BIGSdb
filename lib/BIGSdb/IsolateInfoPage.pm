@@ -469,14 +469,13 @@ sub _print_plugin_buttons {
 	return if !@$plugin_categories;
 	my $buffer;
 	my %icon = (
-		Breakdown     => 'pie-chart',
-		Export        => 'save',
-		Analysis      => 'line-chart',
-		'Third party' => 'external-link',
-		Miscellaneous => 'file-text-o'
+		Breakdown     => 'fas fa-chart-pie',
+		Export        => 'far fa-save',
+		Analysis      => 'fas fa-chart-line',
+		'Third party' => 'fas fa-external-link-alt',
+		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;
-
 	foreach my $category (@$plugin_categories) {
 		my $cat_buffer;
 		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
@@ -506,7 +505,7 @@ sub _print_plugin_buttons {
 				$cat_buffer .=
 				    q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon" style="margin-right:0.2em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} main_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
 				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 				$cat_buffer .= $plugin_buffer;
@@ -788,7 +787,7 @@ sub _get_provenance_fields {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q();
 		$buffer .=
-		    q(<p><span class="main_icon fa fa-2x fa-user-secret"></span> )
+		    q(<p><span class="main_icon fas fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
 		  . qq($request_string</span></p>);
 	}
@@ -1294,7 +1293,7 @@ sub _get_locus_value {
 	if ( $locus_info->{'description_url'} ) {
 		$locus_info->{'description_url'} =~ s/\&/\&amp;/gx;
 		$buffer .= qq(&nbsp;<a href="$locus_info->{'description_url'}" class="info_tooltip">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(<span class="fas fa-info-circle"></span></a>);
 	}
 	$buffer .= q(</dt><dd>);
 	my $first = 1;

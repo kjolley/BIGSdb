@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -533,7 +533,7 @@ sub _print_interface {
 	}
 	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download tab-delimited header for your spreadsheet</a> - use )
-	  . q(Paste Special <span class="fa fa-arrow-circle-right"></span> Text to paste the data.</li><li>)
+	  . q(Paste Special <span class="fas fa-arrow-circle-right"></span> Text to paste the data.</li><li>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
 	say $q->start_form;

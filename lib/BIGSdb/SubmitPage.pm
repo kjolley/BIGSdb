@@ -430,7 +430,7 @@ sub _get_own_submissions {
 				$table_buffer .=
 				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;remove=1">)
-				  . q(<span class="fa fa-lg fa-remove"></span></a></td>);
+				  . q(<span class="fas fa-lg fa-times"></span></a></td>);
 			}
 			$table_buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
@@ -847,7 +847,7 @@ sub _submit_profiles {
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download tab-delimited )
-	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
+	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
 	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download submission template ]
@@ -911,7 +911,7 @@ sub _submit_isolates {
 	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download tab-delimited )
-	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fa fa-arrow-circle-right"></span> Text' )
+	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' )
 	  . q(to paste the data.</li>);
 	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
 	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download submission template ]
@@ -1254,7 +1254,7 @@ sub _print_abort_form {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div style="float:left">);
-	say q(<span class="warning_icon fa fa-exclamation-triangle fa-4x pull-left"></span>);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-4x fa-pull-left"></span>);
 	say q(</div>);
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );

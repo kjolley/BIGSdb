@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -567,7 +567,7 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
 	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
@@ -2336,7 +2336,7 @@ sub get_javascript {
 			$ajax_load .=
 			    qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
 			  . qq(\$('fieldset#${fieldset}_fieldset div').)
-			  . q(html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
+			  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
 			  . qq(load(fieldset_url + '&fieldset=$fieldset')};);
 		}
 	}
@@ -2344,7 +2344,7 @@ sub get_javascript {
 		$ajax_load .=
 		    qq(if (\$('fieldset#list_fieldset').length){\n)
 		  . q($('fieldset#list_fieldset div').)
-		  . q(html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
+		  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
 		  . q(load(fieldset_url + '&fieldset=list')};);
 	}
 	$buffer .= << "END";

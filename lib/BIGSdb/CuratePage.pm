@@ -1410,18 +1410,25 @@ sub update_blast_caches {
 
 sub get_form_icon {
 	my ( $self, $table, $highlight ) = @_;
-	my $icons = { users => 'fa-user', user_groups => 'fa-users', experiments => 'fa-flask' };
+	my $icons = {
+		users              => 'fa-user',
+		user_groups        => 'fa-users',
+		user_group_members => 'fa-users',
+		experiments        => 'fa-flask',
+		sequences          => 'fa-dna',
+		sequence_bin       => 'fa-dna'
+	};
 	my $highlight_class = {
 		plus   => 'fa-plus form_icon_plus',
-		edit   => 'fa-pencil form_icon_edit',
+		edit   => 'fa-pencil-alt form_icon_edit',
 		trash  => 'fa-times form_icon_trash',
 		import => 'fa-arrow-left form_icon_plus'
 	};
-	my $icon = $icons->{$table} // 'fa-file-text';
+	my $icon = $icons->{$table} // 'fa-file-alt';
 	my $bordered =
 	    q(<span class="form_icon"><span class="fa-stack fa-3x">)
-	  . qq(<span class="fa $icon fa-stack-2x form_icon_main"></span>)
-	  . qq(<span class="fa $highlight_class->{$highlight} fa-stack-1x" style="left:0.5em;"></span></span></span>);
+	  . qq(<span class="fas $icon fa-stack-2x form_icon_main"></span>)
+	  . qq(<span class="fas $highlight_class->{$highlight} fa-stack-1x" style="left:0.5em;"></span></span></span>);
 	return $bordered;
 }
 

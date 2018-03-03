@@ -74,7 +74,7 @@ sub _print_jobs {
 	my $days_plural = $days == 1  ? '' : 's';
 	my $jobs_plural = @$jobs == 1 ? '' : 's';
 	say q(<div class="box" id="jobs">);
-	say q(<span class="job_icon fa fa-briefcase fa-3x pull-left"></span>);
+	say q(<span class="job_icon fas fa-briefcase fa-3x fa-pull-left"></span>);
 	say q(<h2>Jobs</h2>);
 	say q(<p>You have submitted or run )
 	  . @$jobs
@@ -144,7 +144,7 @@ sub _print_query_section {
 	my $cache_string = $self->get_cache_string;
 	my $set_id       = $self->get_set_id;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-search fa-3x fa-pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
@@ -203,7 +203,7 @@ sub _print_projects_section {
 	}
 	return if !@list;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>Projects</h2><ul class="toplevel">);
 	local $" = qq(</li>\n<li>);
 	say qq(<li>@list</li>);
@@ -227,7 +227,7 @@ sub _print_private_data_section {
 	return if !$limit && !$is_member_of_no_quota_project;
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 	say q(<h2>Private data</h2><ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
 	  . q(page=privateRecords">Upload/manage records</a></li>);
@@ -271,7 +271,7 @@ sub _print_download_section {
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
 		say q(<div style="float:left; margin-right:1em" class="grid-item">);
-		say q(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-download fa-3x fa-pull-left"></span>);
 		say q(<h2>Downloads</h2>);
 		say q(<ul class="toplevel">);
 		say $seq_download_buffer;
@@ -285,7 +285,7 @@ sub _print_options_section {
 	my ($self) = @_;
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-cogs fa-3x fa-pull-left"></span>);
 	say q(<h2>Option settings</h2>);
 	say q(<ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$cache_string">)
@@ -332,7 +332,7 @@ sub _print_submissions_section {
 		return;
 	}
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
 	my $set_string =
@@ -346,7 +346,7 @@ sub _print_submissions_section {
 sub _print_general_info_section {
 	my ( $self, $scheme_data ) = @_;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-info-circle fa-3x fa-pull-left"></span>);
 	say q(<h2>General information</h2><ul class="toplevel">);
 	my $cache_string = $self->get_cache_string;
 	my $max_date;
@@ -422,11 +422,11 @@ sub _print_plugin_section {
 	if (@$plugins) {
 		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
 		my %icon = (
-			breakdown     => 'pie-chart',
-			export        => 'save',
-			analysis      => 'line-chart',
-			third_party   => 'external-link',
-			miscellaneous => 'file-text-o'
+			breakdown     => 'fas fa-chart-pie',
+			export        => 'far fa-save',
+			analysis      => 'fas fa-chart-line',
+			third_party   => 'fas fa-external-link-alt',
+			miscellaneous => 'far fa-file-alt'
 		);
 		foreach my $section (@sections) {
 			$q->param( 'page', 'index' );
@@ -435,7 +435,7 @@ sub _print_plugin_section {
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em" class="grid-item">);
-			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
+			say qq(<span class="plugin_icon $icon{$section} fa-3x fa-pull-left"></span>);
 			say qq(<h2 style="margin-right:1em">$names{$section}</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);

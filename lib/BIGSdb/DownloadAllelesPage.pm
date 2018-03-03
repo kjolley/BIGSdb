@@ -446,7 +446,7 @@ sub _print_locus_row {
 	print qq(<tr class="td$options->{'td'}"><td><a href="$self->{'system'}->{'script_name'}?)
 	  . qq(db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">$display_name</a></td><td> );
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;)
-	  . qq(locus=$locus"> <span class="file_icon fa fa-download"></span></a>)
+	  . qq(locus=$locus"> <span class="file_icon fas fa-download"></span></a>)
 	  if $count;
 	print qq(</td><td>$locus_info->{'data_type'}</td><td>$count</td>);
 	if ( $locus_info->{'length_varies'} ) {

@@ -444,7 +444,6 @@ div#account_requests {background:#e0e0d5}
 div#sets {background:#e0e0d5}
 div#schemes {background:#e0e0d5}
 div#projects,div#jobs {background:#f0f0e5}
-div#index img,#plugins img,#sets img, #restricted img {float:left;margin-right:10px;width:32px}
 div#restricted {background:#e0d5d5}
 div#statuswarn, div.statuswarn {background:#e0e0d5;color:#404000}
 div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
@@ -460,7 +459,7 @@ div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
-div.scrollable {overflow-x:auto}
+div.scrollable {overflow-x:auto;padding-top:0.1em}
 div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
@@ -683,7 +682,7 @@ div.scheme_tree {
 }
 	
 .profile dd {
-	min-height:1.5em;
+	min-height:1.7em;
 	padding: 0 0.2em;
 	margin:0;
 	background:white;
@@ -744,19 +743,21 @@ span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.wait_message {color:#66a;font-size:3em}
 span.browse {color:#080}
-span.file_icon {color:#44d}
+span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 button.main {color:#66a}
 button.main:hover {color:#88c}
 button.plugin {color:#a6a}
 button.plugin:hover {color:#c8c}
 
-.filetype-text {font-size:0.7em;font-weight:700;font-family:'Oswald'}
+.filetype-text {color:white;font-size:0.7em;font-weight:700;font-family:Sans-Serif}
 
 .form_icon {display:inline;position:absolute;right:0;margin: 0.5em 1em}
 .form_icon_main {color:#bbb;background:transparent;z-index:1}
 .form_icon_plus {color:#7a7;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_edit {color:#77a;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_trash {color:#a77;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
+.form_icon > .fa-stack > .fa-users {font-size:1.7em}
+
 @media (max-width: 600px){
 	.form_icon {display:none}
 }
