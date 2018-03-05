@@ -459,7 +459,7 @@ div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
-div.scrollable {overflow-x:auto;padding-top:0.1em}
+div.scrollable {overflow-x:auto;padding-top:0.2em}
 div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
