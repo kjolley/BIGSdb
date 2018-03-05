@@ -252,7 +252,7 @@ sub read_fasta {
 		$seqs{$header} .= $temp_seq;
 	}
 	foreach my $id ( keys %seqs ) {
-		$seqs{$id} =~ s/\s//gx;
+		$seqs{$id} =~ s/[^A-z\-\.]//gx;
 		if ( !$options->{'allow_peptide'} ) {
 			throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
 		}
