@@ -469,19 +469,20 @@ div#curatetools { background: #e5e5f0}
 
 div#menubutton {
 	float:right;
-	font-size:1.2em;
+	font-size:1.4em;
 	position:absolute;
-	top:4px;
+	top:1px;
 	right:5px;
-	z-index:3;		
+	z-index:3	
 }
 
 div#menubutton a  {
 	border:1px solid transparent;
 	border-radius: 3px;
 	box-shadow: 1px 1px 1px transparent;
-	padding:0 0.1em;
-	color:black
+	padding:0 0;
+	margin-left:0.2em;
+	color:#555;
 }
 div#menubutton a:hover {
 	border:1px solid #ccc;
