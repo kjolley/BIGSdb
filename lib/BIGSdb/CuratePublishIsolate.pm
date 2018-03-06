@@ -58,7 +58,7 @@ sub print_content {
 			say q(<div class="box" id="statusbad"><p>Publication request could not be made public.</p></div>);
 		}
 		$no_further_action = 1;
-	} elsif ( $is_owner && $self->{'permissions'}->{'only_private'} ) {
+	} elsif ( ($is_owner && $self->{'permissions'}->{'only_private'}) || !$self->can_modify_table('isolates')  ) {
 		say q(<div class="box" id="resultsheader"><p>Your account does not have permission to directly make )
 		  . q(isolates public. You can, however, send a request to a curator for this to happen.</p></div>);
 		$request_only = 1;

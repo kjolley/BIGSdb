@@ -367,7 +367,7 @@ sub _print_publish_function {
 		return if !@$matched && !$q->param('publish');
 	}
 	say q(<fieldset><legend>Private records</legend>);
-	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
+	my $label = $self->{'permissions'}->{'only_private'}|| !$self->can_modify_table('isolates')  ? 'Request publication' : 'Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
@@ -1819,7 +1819,7 @@ sub publish {
 		$matched = $self->_get_query_private_records( $user_info->{'id'} );
 	}
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
-	my $request_only = $self->{'permissions'}->{'only_private'} ? 1 : 0;
+	my $request_only = $self->{'permissions'}->{'only_private'}|| !$self->can_modify_table('isolates')  ? 1 : 0;
 	my $message;
 	my $count = @$matched;
 	my $plural = $count == 1 ? q() : q(s);
