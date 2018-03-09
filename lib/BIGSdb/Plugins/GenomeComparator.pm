@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.1',
+		version     => '2.3.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -270,8 +270,7 @@ sub _print_reference_genome_fieldset {
 	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
 	say q(Enter accession number:<br />);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.))
-	  ;
+	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.));
 	say q(<br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
@@ -395,7 +394,7 @@ sub _print_core_genome_fieldset {
 		-onChange => 'enable_seqs()'
 	);
 	say $self->get_tooltip(
-		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.) );
+		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.));
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -1365,7 +1364,8 @@ sub align {
 				core_xmfa_out    => $core_xmfa_file,
 				xmfa_start_ref   => \$xmfa_start,
 				xmfa_end_ref     => \$xmfa_end,
-				names            => $names
+				names            => $names,
+				infoalign        => $no_output ? 0 : 1
 			}
 		);
 		unlink $fasta_file;
@@ -1445,12 +1445,13 @@ sub align {
 sub _run_alignment {
 	my ( $self, $args ) = @_;
 	my (
-		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
-		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
+		$ids,        $names,         $locus,    $seq_count,      $aligned_out,
+		$fasta_file, $align_file,    $xmfa_out, $xmfa_start_ref, $xmfa_end_ref,
+		$core_locus, $core_xmfa_out, $infoalign
 	  )
 	  = @{$args}{
 		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out
-		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
+		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out infoalign)
 	  };
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
@@ -1513,7 +1514,7 @@ sub _run_alignment {
 		close $align_fh;
 		BIGSdb::Utils::append( $aligned_out, $align_file, { blank_after => 1 } );
 		$args->{'alignment'} = $aligned_out;
-		$distance = $self->_run_infoalign($args);
+		$distance = $self->_run_infoalign($args) if $infoalign;
 		unlink $aligned_out;
 	}
 	return $distance;
