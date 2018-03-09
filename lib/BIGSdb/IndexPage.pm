@@ -331,8 +331,18 @@ sub _print_submissions_section {
 		$logger->error('Submission directory is not configured in bigsdb.conf.');
 		return;
 	}
+	my $pending_submissions = $self->_get_pending_submission_count;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
+	if ($pending_submissions) {
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
+		$pending_submissions = '99+' if $pending_submissions > 99;
+		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
+		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#d44"></span>);
+		say qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
+		say q(</span>);
+	} else {
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
+	}
 	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
 	my $set_string =
@@ -341,6 +351,49 @@ sub _print_submissions_section {
 	  . q(Manage submissions</a></li>);
 	say q(</ul></div>);
 	return;
+}
+
+sub _get_pending_submission_count {
+	my ($self) = @_;
+	return 0 if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return 0 if $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator';
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		return 0 if !$self->can_modify_table('isolates');
+		my $count = $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'isolates', 'pending' ] );
+		if ( $self->can_modify_table('sequence_bin') ) {
+			$count +=
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'genomes', 'pending' ] );
+		}
+		return $count;
+	} else {
+		my $count = 0;
+		my $allele_submissions =
+		  $self->{'datastore'}->run_query(
+			'SELECT a.locus FROM submissions s JOIN allele_submissions a ON s.id=a.submission_id WHERE s.status=?',
+			'pending', { fetch => 'col_arrayref' } );
+		foreach my $locus (@$allele_submissions) {
+			if (   $self->is_admin
+				|| $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $user_info->{'id'} ) )
+			{
+				$count++;
+			}
+		}
+		my $profile_submissions = $self->{'datastore'}->run_query(
+			'SELECT ps.scheme_id FROM submissions s JOIN profile_submissions ps '
+			  . 'ON s.id=ps.submission_id WHERE s.status=?',
+			'pending',
+			{ fetch => 'col_arrayref' }
+		);
+		foreach my $scheme_id (@$profile_submissions) {
+			if ( $self->is_admin || $self->{'datastore'}->is_scheme_curator( $scheme_id, $user_info->{'id'} ) ) {
+				$count++;
+			}
+		}
+		return $count;
+	}
 }
 
 sub _print_general_info_section {

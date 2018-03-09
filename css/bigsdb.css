@@ -733,6 +733,7 @@ h3.group4 {color:white;background:#60A060}
 h3.group5 {background:#80C080}
 h3.group6 {background:#A0E0A0}
 
+span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
 span.nav_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.nav_icon:hover {color:#88c}
