@@ -41,25 +41,25 @@ use constant MICROREACT_URL => 'https://microreact.org/api/1.0/project/';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name                => 'Microreact',
-		author              => 'Keith Jolley',
-		affiliation         => 'University of Oxford, UK',
-		email               => 'keith.jolley@zoo.ox.ac.uk',
-		description         => 'Open data visualization and sharing for genomic epidemiology',
-		menu_description    => 'Open data visualization and sharing for genomic epidemiology',
-		category            => 'Third party',
-		buttontext          => 'Microreact',
-		menutext            => 'Microreact',
-		module              => 'Microreact',
-		version             => '1.0.3',
-		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
-		input               => 'query',
-		help                => 'tooltips',
-		requires            => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
-		order               => 40,
-		min                 => 2,
-		max                 => MAX_RECORDS,
+		name             => 'Microreact',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Open data visualization and sharing for genomic epidemiology',
+		menu_description => 'Open data visualization and sharing for genomic epidemiology',
+		category         => 'Third party',
+		buttontext       => 'Microreact',
+		menutext         => 'Microreact',
+		module           => 'Microreact',
+		version          => '1.0.4',
+		dbtype           => 'isolates',
+		section          => 'third_party,postquery',
+		input            => 'query',
+		help             => 'tooltips',
+		requires         => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
+		order            => 40,
+		min              => 2,
+		max                 => $self->{'system'}->{'microreact_record_limit'} // MAX_RECORDS,
 		system_flag         => 'Microreact',
 		always_show_in_menu => 1
 	);
@@ -133,7 +133,7 @@ sub _create_tsv_file {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $tsv_file = "$self->{'config'}->{'tmp_dir'}/$job_id.tsv";
 	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
-	my @include_fields = split /\|_\|/x, ($params->{'include_fields'} // q());
+	my @include_fields = split /\|_\|/x, ( $params->{'include_fields'} // q() );
 	my %include_fields = map { $_ => 1 } @include_fields;
 	$include_fields{"f_$_"} = 1 foreach qw(id country year);
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;

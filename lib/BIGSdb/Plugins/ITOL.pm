@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.0',
+		version             => '1.3.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -58,7 +58,7 @@ sub get_attributes {
 		supports            => 'user_genomes',
 		order               => 35,
 		min                 => 2,
-		max                 => MAX_RECORDS,
+		max                 => $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS,
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -119,9 +119,9 @@ sub run {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
-		my $total_seqs          = @$loci_selected * @ids;
-		my $max_records         = $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS;
-		my $max_seqs            = $self->{'system'}->{'itol_seq_limit'} // MAX_SEQS;
+		my $total_seqs  = @$loci_selected * @ids;
+		my $max_records = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
+		my $max_seqs    = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
 		my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 		my $commify_total_seqs  = BIGSdb::Utils::commify($total_seqs);
@@ -170,8 +170,8 @@ sub run {
 	$self->print_info_panel;
 	$self->_print_interface(
 		{
-			max_records => $self->{'system'}->{"$attr->{'module'}_record_limit"},
-			max_seqs    => $self->{'system'}->{"$attr->{'module'}_seq_limit"}
+			max_records => $self->{'system'}->{ lc("$attr->{'module'}_record_limit") },
+			max_seqs    => $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") }
 		}
 	);
 	return;
@@ -300,7 +300,8 @@ sub generate_tree_files {
 	  ? $self->{'config'}->{'genome_comparator_threads'}
 	  : 2;
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} =
+	  ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my $ids          = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $user_genomes = $self->process_uploaded_genomes( $job_id, $ids, $params );
 	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
@@ -516,10 +517,11 @@ sub _create_itol_dataset {
 		  . 'ORDER BY e.value',
 		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
 	};
-	my $distinct_values = $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
-	my $distinct        = @$distinct_values;
-	my $i               = 1;
-	my $all_ints        = BIGSdb::Utils::all_ints($distinct_values);
+	my $distinct_values =
+	  $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
+	my $distinct = @$distinct_values;
+	my $i        = 1;
+	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
 	foreach my $value ( sort { $all_ints ? $a <=> $b : $a cmp $b } @$distinct_values ) {
 		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
 		$i++;
