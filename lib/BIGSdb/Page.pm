@@ -197,6 +197,54 @@ sub clean_value {
 	return $value;
 }
 
+sub create_temp_tables {
+	my ( $self, $qry_ref ) = @_;
+	return 1 if $self->{'temp_tables_created'};
+	my $qry     = $$qry_ref;
+	my $q       = $self->{'cgi'};
+	my $format  = $q->param('format') || 'html';
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $cschemes =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
+	my $continue = 1;
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		try {
+			foreach my $scheme_id (@$schemes) {
+				
+				if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				}
+				if ( $qry =~ /temp_isolates_scheme_completion_$scheme_id\s/x ) {
+					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+				}
+			}
+			foreach my $cscheme_id (@$cschemes) {
+				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
+					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
+				}
+			}
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+			if ( $format ne 'text' ) {
+				say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
+				  . q(The query can not be performed.</p></div>);
+			} else {
+				say q(Cannot connect to remote database.  The query can not be performed.);
+			}
+			$logger->error('Cannot connect to remote database.');
+			$continue = 0;
+		};
+	}
+	if ( $q->param('list_file') && $q->param('datatype') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
+	if ( defined $q->param('temp_table_file') ) {
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+	}
+	$self->{'temp_tables_created'} = 1;
+	return $continue;
+}
+
 sub print_banner {
 	my ($self) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";

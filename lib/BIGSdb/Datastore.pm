@@ -1001,25 +1001,16 @@ sub create_temp_isolate_scheme_fields_view {
 	#This view can instead be created as a persistent indexed table using the update_scheme_cache.pl script.
 	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
 	$options = {} if ref $options ne 'HASH';
-	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_${view}_scheme_fields_$scheme_id";
+	my $table = "temp_isolates_scheme_fields_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
-
-		#Check if cache of whole isolate table exists
-		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates_scheme_fields_$scheme_id";
-			return $full_table
-			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-				$full_table );
-		}
 	}
 	local $| = 1;
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
-	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'isolates',$temp_table,'$method')") };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -1280,16 +1271,16 @@ sub create_temp_list_table_from_array {
 sub create_temp_combinations_table_from_file {
 	my ( $self, $filename ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-	my $pk_type   = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
+	my $pk_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
 	my $text;
 	my $error;
 	try {
-		$text      = BIGSdb::Utils::slurp($full_path);
-	} catch BIGSdb::CannotOpenFileException with {
+		$text = BIGSdb::Utils::slurp($full_path);
+	}
+	catch BIGSdb::CannotOpenFileException with {
 		$logger->error("Cannot open $full_path for reading");
 		$error = 1;
 	};
-	
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE count_table (id $pk_type,count int)");
 		return if $error;
@@ -1811,9 +1802,9 @@ sub get_client_data_linked_to_allele {
 	);
 	my $field_values;
 	my $detailed_values;
-	my $dl_buffer       = q();
-	my $td_buffer       = q();
-	my $i               = 0;
+	my $dl_buffer = q();
+	my $td_buffer = q();
+	my $i         = 0;
 
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];

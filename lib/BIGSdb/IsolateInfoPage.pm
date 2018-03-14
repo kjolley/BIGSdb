@@ -544,8 +544,8 @@ sub _get_classification_group_data {
 		my $cg_buffer;
 		my $scheme_id          = $cscheme->{'scheme_id'};
 		my $cache_table_exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
-			[ "temp_isolates_scheme_fields_$scheme_id", "temp_${view}_scheme_fields_$scheme_id" ]
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			[ "temp_isolates_scheme_fields_$scheme_id" ]
 		);
 		if ( !$cache_table_exists ) {
 			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "

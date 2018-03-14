@@ -147,7 +147,6 @@ sub run {
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
 	$qry =~ s/ORDER\ BY.*$//gx;
-	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
 	$self->{'extended'} = $self->get_extended_attributes;
 

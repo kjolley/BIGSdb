@@ -46,13 +46,12 @@ sub _calculate_totals {
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_${view}_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_${view}_scheme_completion_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_isolates_scheme_completion_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
 			}
@@ -1856,6 +1855,7 @@ sub get_query_ids {
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/ORDER\ BY.*$//gx;
 	$qry =~ s/SELECT\ \*/SELECT $view.id/x;
+	$self->create_temp_tables(\$qry);
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}
