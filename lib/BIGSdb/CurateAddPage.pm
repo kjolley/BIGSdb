@@ -999,6 +999,8 @@ sub _next_id_isolates {
 	my $test     = $start_id - 1 // 0;
 	my $id       = 0;
 	my $isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	return $start_id if !@$isolates;
+
 	foreach my $isolate_id (@$isolates) {
 		$test++;
 		$id = $isolate_id;
@@ -1011,8 +1013,7 @@ sub _next_id_isolates {
 
 sub id_exists {
 	my ( $self, $id ) = @_;
-	my $num =
-	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $id );
+	my $num = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $id );
 	return $num;
 }
 
