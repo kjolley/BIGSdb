@@ -937,6 +937,22 @@ sub _read_config_xml {
 		return;
 	}
 	my $system = $self->{'xmlHandler'}->get_system_hash;
+
+	#Read system.override file
+	my $override_file = "$self->{'dbase_config_dir'}/$config/system.overrides";
+	if ( -e $override_file ) {
+		open( my $fh, '<', $override_file )
+		  || $logger->error("Cannot open $override_file for reading");
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^\#/x;
+			$line =~ s/^\s+//x;
+			$line =~ s/\s+$//x;
+			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
+				$system->{$1} = $2;
+			}
+		}
+		close $fh;
+	}
 	return $system;
 }
 
