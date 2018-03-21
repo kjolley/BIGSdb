@@ -225,14 +225,37 @@ sub _print_private_data_section {
 		$user_info->{'id'}
 	);
 	return if !$limit && !$is_member_of_no_quota_project;
+	my $total_private = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
+		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
+		$user_info->{'id'}
+	);
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
+	if ($total_private) {
+		my $label = $self->_get_label($total_private);
+		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
+		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
+		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#484"></span>);
+		say qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
+		say q(</span>);
+	} else {
+		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
+	}
 	say q(<h2>Private data</h2><ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
 	  . q(page=privateRecords">Upload/manage records</a></li>);
 	say q(</ul></div>);
 	return;
+}
+
+sub _get_label {
+	my ( $self, $number ) = @_;
+	return $number if $number < 100;
+	return qq(<span style="font-size:0.8em">$number</span>) if $number < 1000;
+	my $label = int( $number / 1000 );
+	$label = 9 if $label > 9;
+	return qq(<span style="font-size:0.8em">${label}K+</span>);
 }
 
 sub _print_download_section {
