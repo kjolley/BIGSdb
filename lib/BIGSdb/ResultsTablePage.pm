@@ -345,7 +345,7 @@ sub _print_project_add_function {
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
-	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach qw (db query_file table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
