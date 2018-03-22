@@ -124,7 +124,11 @@ sub print_content {
 	$locus =~ s/^cn_//x;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
+	
 	my $cleaned_locus = $self->clean_locus($locus);
+	if (!$self->{'datastore'}->is_locus($locus)){
+		$cleaned_locus = q();
+	}
 	my $desc          = $self->get_db_description;
 	say qq(<h1>Query $cleaned_locus sequences - $desc database</h1>);
 	my $qry;
