@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -240,6 +240,7 @@ sub _perform_rest_query {
 	my $delay        = INITIAL_BUSY_DELAY;
 	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
 	my $values       = [ $isolate_id, $isolate_name ];
+	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
 	do {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolate $i" } );
 		$unavailable = 0;
@@ -248,7 +249,7 @@ sub _perform_rest_query {
 			Content_Type => 'application/json; charset=UTF-8',
 			Content      => $payload
 		);
-		if ( $response->code == 503 ) {
+		if ( $server_error{ $response->code } ) {
 			$unavailable = 1;
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
