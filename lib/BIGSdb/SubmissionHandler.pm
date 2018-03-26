@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -871,7 +871,7 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	foreach my $option (@$options) {
 		return if $value eq $option;
 	}
-	if ( ($thisfield->{'required'} // q()) eq 'no' ) {
+	if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
 		return if $value eq q();
 	}
 	return qq("$value" is not on the list of allowed values for this field.);
@@ -1163,7 +1163,12 @@ sub get_text_summary {
 		$msg .= "Curator: $curator_string\n";
 	}
 	$msg .= "Outcome: $outcome\n" if $outcome;
-	my %methods = ( alleles => '_get_allele_submission_summary', profiles => '_get_profile_submission_summary' );
+	my %methods = (
+		alleles  => '_get_allele_submission_summary',
+		profiles => '_get_profile_submission_summary',
+		isolates => '_get_isolate_submission_summary',
+		genomes  => '_get_isolate_submission_summary'
+	);
 	if ( $methods{ $submission->{'type'} } ) {
 		my $method  = $methods{ $submission->{'type'} };
 		my $summary = $self->$method($submission_id);
@@ -1356,6 +1361,14 @@ sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 		$return_buffer .= $self->_get_text_heading( 'Assignments', { blank_line_before => 1 } );
 		$return_buffer .= $buffer;
 	}
+	return $return_buffer;
+}
+
+sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
+	$return_buffer .= 'Isolate count: ' . scalar @{ $isolate_submission->{'isolates'} } . "\n";
 	return $return_buffer;
 }
 1;
