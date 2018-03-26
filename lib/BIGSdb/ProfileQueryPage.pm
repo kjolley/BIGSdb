@@ -433,7 +433,6 @@ sub _generate_query_from_locus_fields {
 			  lc($text) eq 'null'
 			  ? "$cleaned_field is null"
 			  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
-			$equals .= " OR $cleaned_field='N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
 			my %modify = (
 				'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
 				'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
