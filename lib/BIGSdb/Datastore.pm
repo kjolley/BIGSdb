@@ -1270,6 +1270,8 @@ sub create_temp_list_table_from_array {
 
 sub create_temp_combinations_table_from_file {
 	my ( $self, $filename ) = @_;
+	return
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'count_table' );
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	my $pk_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
 	my $text;
@@ -1281,9 +1283,9 @@ sub create_temp_combinations_table_from_file {
 		$logger->error("Cannot open $full_path for reading");
 		$error = 1;
 	};
+	return if $error;
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE count_table (id $pk_type,count int)");
-		return if $error;
 		$self->{'db'}->do('COPY count_table(id,count) FROM STDIN');
 		local $" = "\t";
 		foreach my $row ( split /\n/x, $$text ) {
