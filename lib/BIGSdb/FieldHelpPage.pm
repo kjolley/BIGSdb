@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -151,7 +151,7 @@ sub _print_isolate_field {
 	  defined $metaset
 	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN "
 	  . "(SELECT id FROM $self->{'system'}->{'view'}) AND $metafield IS NOT NULL"
-	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE " . "$field IS NOT NULL ORDER BY $field ";
+	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field ";
 	my $used_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
@@ -160,12 +160,16 @@ sub _print_isolate_field {
 		|| $field eq 'curator'
 		|| ( ( $attributes->{'userfield'} // q() ) eq 'yes' ) )
 	{
-		my $filter = $field eq 'curator' ? q( WHERE status IN ('curator','admin') AND id>0 ) : q( WHERE id>0 );
+		my $filter = $field eq 'curator' ? q(WHERE status IN ('curator','admin') AND id>0) : q(WHERE id>0);
 		my $users =
 		  $self->{'datastore'}->run_query(
-			"SELECT id FROM users$filter" . "AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
+			"SELECT id FROM users $filter AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
 			undef, { fetch => 'col_arrayref' } );
 		my $buffer;
+		if ($field eq 'sender' && $self->{'username'}){
+			my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+			$buffer.= qq(<p>Your user id is: <b>$user_info->{'id'}</b></p>);
+		}
 		foreach my $id (@$users) {
 			next if !$used->{$id};
 			my $data = $self->{'datastore'}->get_user_info($id);
