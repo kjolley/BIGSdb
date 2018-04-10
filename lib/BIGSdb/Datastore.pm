@@ -1251,6 +1251,8 @@ sub create_temp_list_table_from_array {
 	my ( $self, $datatype, $list, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
+	return
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
 		$self->{'db'}->do("COPY $table FROM STDIN");

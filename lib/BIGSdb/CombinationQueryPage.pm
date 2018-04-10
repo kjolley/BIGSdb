@@ -415,7 +415,7 @@ sub _make_temp_table_file {
 	local $" = qq(\t);
 	$buffer .= qq(@$_\n) foreach @$data;
 	open( my $fh, '>:encoding(utf8)', $full_file_path ) || $logger->error("Cannot open $full_file_path for writing");
-	print $fh $buffer;
+	print $fh $buffer if $buffer;
 	close $fh;
 	return $filename;
 }
