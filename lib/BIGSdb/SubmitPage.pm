@@ -2143,8 +2143,9 @@ sub _print_summary {
 		say qq(<dt>read length</dt><dd>$allele_submission->{'read_length'}</dd>)
 		  if $allele_submission->{'read_length'};
 		say qq(<dt>coverage</dt><dd>$allele_submission->{'coverage'}</dd>) if $allele_submission->{'coverage'};
-		say qq(<dt>assembly</dt><dd>$allele_submission->{'assembly'}</dd>);
-		say qq(<dt>assembly software</dt><dd>$allele_submission->{'software'}</dd>);
+		say qq(<dt>assembly</dt><dd>$allele_submission->{'assembly'}</dd>) if $allele_submission->{'assembly'};
+		say qq(<dt>assembly software</dt><dd>$allele_submission->{'software'}</dd>)
+		  if $allele_submission->{'software'};
 	}
 	say q(</dl></fieldset>);
 	return;
