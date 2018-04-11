@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -217,7 +217,7 @@ ${bold}--schemes$norm ${under}LIST$norm
 ${bold}--update$norm
     Update exemplar flags in database.
     
-${bold}--variation$norm ${under}IDENTITY$norm
+${bold}--variation$norm ${under}DISSIMILARITY$norm
     Value for percentage identity variation that exemplar alleles
     cover (smaller value will result in more exemplars). Default: 10. 
 
