@@ -298,6 +298,9 @@ sub _print_curate_headerbar_functions {
 	my ( $self, $table, $qry_filename ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		$table = 'isolates';
+	}
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
 		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
@@ -309,7 +312,7 @@ sub _print_curate_headerbar_functions {
 			$self->_print_set_sequence_flags_function;
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}
@@ -366,7 +369,8 @@ sub _print_publish_function {
 		return if !@$matched && !$q->param('publish');
 	}
 	say q(<fieldset><legend>Private records</legend>);
-	my $label = $self->{'permissions'}->{'only_private'}|| !$self->can_modify_table('isolates')  ? 'Request publication' : 'Publish';
+	my $label = $self->{'permissions'}->{'only_private'}
+	  || !$self->can_modify_table('isolates') ? 'Request publication' : 'Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
@@ -1818,7 +1822,7 @@ sub publish {
 		$matched = $self->_get_query_private_records( $user_info->{'id'} );
 	}
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
-	my $request_only = $self->{'permissions'}->{'only_private'}|| !$self->can_modify_table('isolates')  ? 1 : 0;
+	my $request_only = $self->{'permissions'}->{'only_private'} || !$self->can_modify_table('isolates') ? 1 : 0;
 	my $message;
 	my $count = @$matched;
 	my $plural = $count == 1 ? q() : q(s);
@@ -1855,7 +1859,8 @@ sub get_query_ids {
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/ORDER\ BY.*$//gx;
 	$qry =~ s/SELECT\ \*/SELECT $view.id/x;
-	$self->create_temp_tables(\$qry);
+	$self->create_temp_tables( \$qry );
+
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}

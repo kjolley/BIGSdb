@@ -68,6 +68,9 @@ sub print_content {
 		say q(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
 		return;
 	}
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		$table = 'isolates';
+	}
 	if ( !$self->can_modify_table($table) ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete )
 		  . qq(records from the $table table.</p></div>);
