@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.9',
+		version     => '1.1.10',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
@@ -433,7 +433,8 @@ sub _print_field_cells {
 				$q->param( field           => "${scheme_id}_$field" );
 				$q->param( type            => 'field' );
 				$q->param( field_breakdown => 1 );
-				say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown list_file datatype);
+				say $q->hidden($_)
+				  foreach qw (page name db query_file type field field_breakdown list_file temp_table_file datatype);
 				say $q->end_form;
 			}
 			say q(</td>);
@@ -475,14 +476,15 @@ sub _print_locus_cells {
 			$q->param( field => $locus );
 			$q->param( type  => 'locus' );
 			say $q->hidden( field_breakdown => 1 );
-			say $q->hidden($_) foreach qw (page name db query_file field type list_file datatype);
+			say $q->hidden($_) foreach qw (page name db query_file field type list_file temp_table_file datatype);
 			say $q->end_form;
 			say q(</td><td>);
 			say $q->start_form;
 			say q(<button type="submit" class="main fas fa-download smallbutton"></button>);
 			say $q->hidden( download => 1 );
 			$q->param( format => 'text' );
-			say $q->hidden($_) foreach qw (page name db query_file field type format list_file datatype);
+			say $q->hidden($_)
+			  foreach qw (page name db query_file field type format list_file temp_table_file datatype);
 			say $q->end_form;
 			say q(</td>);
 		} else {
@@ -531,7 +533,7 @@ sub _print_tree {
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
+	say $q->hidden($_) foreach qw(db page name query_file set_id list_file temp_table_file datatype);
 	say $q->end_form;
 	return;
 }
