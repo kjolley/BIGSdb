@@ -177,7 +177,7 @@ sub _print_isolate_field {
 			$buffer .= qq(<tr><td>$data->{'id'}</td><td>$data->{'surname'}</td><td>$data->{'first_name'}</td>)
 			  . qq(<td style="text-align:left">$data->{'affiliation'}</td></tr>\n);
 		}
-		if ($buffer) {
+		if (@$users) {
 			print q(<p>The integer stored in this field is the key to the following users);
 			print q( (only curators or administrators shown)) if $field eq 'curator';
 			say q(. Only users linked to an isolate record are shown.</p>);
