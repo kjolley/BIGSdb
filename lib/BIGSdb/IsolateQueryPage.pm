@@ -2053,7 +2053,8 @@ sub _modify_query_for_tags {
 						  'Searching for any locus not flagged is not supported. Choose a specific locus.';
 					} else {
 						$temp_qry = "$view.id IN (SELECT isolate_id FROM allele_sequences WHERE $locus_clause) "
-						  . "AND id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)";
+						  . "AND $view.id NOT IN (SELECT isolate_id FROM $flag_joined_table WHERE $locus_clause)"
+						  ;
 					}
 				} else {
 					$temp_qry = "$view.id IN (SELECT allele_sequences.isolate_id FROM $flag_joined_table "
