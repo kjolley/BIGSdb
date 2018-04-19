@@ -571,10 +571,12 @@ sub _upload {
 		return;
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
-		  . qq(sender=$sender">Add more</a> | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
+		$self->print_home_link;
+		my $more = MORE;
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
+		  . qq(sender=$sender" title="Add more" style="margin-right:1em">$more</a>);
+		say q(</p></div>);
 	}
 	return;
 }

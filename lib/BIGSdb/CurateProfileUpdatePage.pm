@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -253,8 +253,7 @@ sub _update {
 		} else {
 			if ( defined $field_data->{$field} && $field_data->{$field} ne '' ) {
 				eval {
-					if ( $newdata->{"field:$field"} eq '' )
-					{
+					if ( $newdata->{"field:$field"} eq '' ) {
 						$self->{'db'}
 						  ->do( 'DELETE FROM profile_fields WHERE (scheme_id,scheme_field,profile_id)=(?,?,?)',
 							undef, $scheme_id, $field, $profile_id );
@@ -300,8 +299,7 @@ sub _update {
 	}
 	local $" = q(;);
 	eval {
-		foreach my $insert (@$extra_inserts)
-		{
+		foreach my $insert (@$extra_inserts) {
 			$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 		}
 	};
@@ -310,9 +308,9 @@ sub _update {
 		return;
 	}
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader"><p>Updated!</p>);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-	  . q(Back to main page</a></p></div>);
+	say q(<div class="box" id="resultsheader"><p>Updated!</p><p>);
+	$self->print_home_link;
+	say q(</p></div>);
 	local $" = q(<br />);
 	$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
 	return;
@@ -343,7 +341,7 @@ sub _print_interface {
 	say qq($icon<div class="box" id="queryform">);
 	say q(<div class="scrollable" style="white-space:nowrap">);
 	my ( $users, $usernames ) = $self->{'datastore'}->get_users;
-	$usernames->{''} = ' ';                           #Required for HTML5 validation.
+	$usernames->{''} = ' ';    #Required for HTML5 validation.
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $longest_name  = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$scheme_fields ] );

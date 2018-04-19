@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2016, University of Oxford
+#Copyright (c) 2012-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -96,8 +96,7 @@ sub _update {
 	  $self->{'db'}->prepare('INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)');
 	my $curator_id = $self->get_curator_id;
 	eval {
-		foreach my $allele (@$alleles)
-		{
+		foreach my $allele (@$alleles) {
 			$sql_delete->execute( $allele->{'locus'}, $allele->{'allele_id'} );
 			foreach my $flag ( $self->{'cgi'}->param('flags') ) {
 				$sql_insert->execute( $allele->{'locus'}, $allele->{'allele_id'}, $flag, $curator_id, 'now' )
@@ -110,9 +109,9 @@ sub _update {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		say q(<div class="box" id="resultsheader"><p>Flags updated.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		say q(<div class="box" id="resultsheader"><p>Flags updated.</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		$self->{'db'}->commit;
 	}
 	return;

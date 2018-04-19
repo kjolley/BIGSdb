@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -164,6 +164,7 @@ sub _update {
 	foreach my $field (@$field_list) {
 		$data->{ lc($field) } //= '';
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ( $att->{'no_curate'} // q() ) eq 'yes';
 		if ( $att->{'type'} eq 'bool' ) {
 			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
@@ -268,18 +269,19 @@ sub _update {
 				say q(</div>);
 				$self->{'db'}->rollback;
 			} else {
-				$self->{'db'}->commit
-				  && say q(<div class="box" id="resultsheader"><p>Updated!</p>);
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				$self->{'db'}->commit;
+				say q(<div class="box" id="resultsheader"><p>Updated!</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				local $" = '<br />';
 				$self->update_history( $data->{'id'}, "@updated_field" );
 				return SUCCESS;
 			}
 		} else {
 			say q(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			say q(<p>);
+			$self->print_home_link;
+			say q(</p></div>);
 		}
 	}
 	return;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,22 +103,22 @@ sub print_content {
 			my $error = $@;
 			if ( $error =~ /duplicate/ ) {
 				say q(<div class="box" id="statusbad"><p>Update failed - a tag already exists for this )
-				  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 			} else {
 				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-				  . q(no records have been touched.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
-				  . q(</p></div>);
+				  . q(no records have been touched.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				$logger->error($error);
 			}
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Sequence tag updated!</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			say q(<div class="box" id="resultsheader"><p>Sequence tag updated!</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			local $" = q(<br />);
 			my $isolate_id =
 			  $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );
@@ -191,6 +191,7 @@ sub print_content {
 	);
 	say $display->{'seq'};
 	say q(</p>);
+
 	if ($translate) {
 		my @stops = @{ $display->{'internal_stop'} };
 		if (@stops) {

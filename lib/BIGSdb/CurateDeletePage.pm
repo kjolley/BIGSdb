@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(DATABANKS);
+use BIGSdb::Constants qw(DATABANKS :interface);
 
 sub print_content {
 	my ($self) = @_;
@@ -351,8 +351,10 @@ sub _delete {
 		$proceed = 0;
 	}
 	if ( !$proceed ) {
-		say qq(<div class="box" id="statusbad"><p>$nogo_buffer</p><p>)
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+		my $home = HOME;
+		say qq(<div class="box" id="statusbad"><p>$nogo_buffer</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		return;
 	}
 	$buffer .= "</p>\n";
@@ -468,18 +470,21 @@ sub _confirm {
 	}
 	my $record_name = $self->get_record_name($table);
 	$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name deleted!</p>);
+	say q(<p>);
+	say $self->print_home_link;
+	my $query_more = QUERY_MORE;
 	if ( $table eq 'composite_fields' ) {
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=compositeQuery">Query another</a>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=compositeQuery" title="Query another" style="margin-right:1em">$query_more</a>);
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(scheme_id=$scheme_id">Query another</a>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id" title="Query another" style="margin-right:1em">$query_more</a>);
 	} else {
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=tableQuery&amp;table=$table">Query another</a>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=tableQuery&amp;table=$table" title="Query another" style="margin-right:1em">$query_more</a>);
 	}
-	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+	say q(</p></div>);
 	$logger->debug("Deleted record: $qry");
 	if ( $table eq 'allele_designations' ) {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
@@ -554,8 +559,8 @@ sub _get_extra_seqbin_fields {
 		( my $cleaned_field = $att->{'key'} ) =~ tr/_/ /;
 		$buffer .= qq(<dt>$cleaned_field</dt><dd>$att->{'value'}</dd>\n);
 	}
-	if ($data->{'remote_contig'}){
-		my $uri = $self->{'datastore'}->run_query('SELECT uri FROM remote_contigs WHERE seqbin_id=?', $data->{'id'});
+	if ( $data->{'remote_contig'} ) {
+		my $uri = $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $data->{'id'} );
 		$buffer .= qq(<dt>remote contig</dt><dd>$uri</dd>\n);
 	}
 	return $buffer;

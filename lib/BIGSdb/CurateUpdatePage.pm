@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -323,9 +323,9 @@ sub _check_users {
 	{
 		say q(<div class="box" id="statusbad"><p>It is not a good idea to remove admin status from )
 		  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
-		  . q(to do it from another admin account.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		  . q(to do it from another admin account.</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		return FAILURE;
 	}
 	return;
@@ -340,9 +340,9 @@ sub _check_scheme_fields {
 		my $primary_key = $scheme_info->{'primary_key'};
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
 			say q(<div class="box" id="statusbad"><p>This scheme already has a primary key field )
-			  . qq(set ($primary_key).</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			  . qq(set ($primary_key).</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			return FAILURE;
 		}
 	}
@@ -352,9 +352,9 @@ sub _check_allele_designations {
 	my ( $self, $newdata ) = @_;
 	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
-		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		return FAILURE;
 	}
 	return;
@@ -379,16 +379,16 @@ sub _check_loci {
 		if ($non_int) {
 			say q(<div class="box" id="statusbad"><p>The sequence table already contains data with )
 			  . q(non-integer allele ids. You will need to remove these before you can change the )
-			  . q(allele_id_format to 'integer'.</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			  . q(allele_id_format to 'integer'.</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			return FAILURE;
 
 			#special case to ensure that a locus length is set if it is not marked as variable length
 		} elsif ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
-			say q(<div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			say q(<div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			return FAILURE;
 		}
 	}
@@ -411,14 +411,14 @@ sub _check_allele_data {
 		if ( $required && $newdata->{$field} eq '' ) {
 			push @missing_field, $field;
 		} elsif ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
-			say qq(<div class="box" id="statusbad"><p>$field must be an integer.</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			say qq(<div class="box" id="statusbad"><p>$field must be an integer.</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			return FAILURE;
 		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/x ) {
-			say qq(<div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			say qq(<div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p><p>);
+			$self->print_home_link;
+			say q(</p></div>);
 			return FAILURE;
 		} else {
 			$self->_get_allele_extended_attribute_inserts( $newdata, $field, $extra_inserts );
@@ -427,8 +427,9 @@ sub _check_allele_data {
 	if (@missing_field) {
 		local $" = ', ';
 		say q(<div class="box" id="statusbad"><p>Please fill in all extended attribute fields. )
-		  . qq( The following extended attribute fields are missing: @missing_field.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+		  . qq( The following extended attribute fields are missing: @missing_field.</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		return FAILURE;
 	}
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
@@ -445,9 +446,9 @@ sub _check_allele_data {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -658,9 +659,9 @@ sub _check_locus_descriptions {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -712,9 +713,9 @@ sub _check_locus_descriptions {
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
 				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
-				  . q(from the URL by a '|'.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				  . q(from the URL by a '|'.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
@@ -822,9 +823,9 @@ sub _prepare_extra_inserts_for_schemes {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -876,9 +877,9 @@ sub _prepare_extra_inserts_for_schemes {
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
 				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
-				  . q(from the URL by a '|'.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				  . q(from the URL by a '|'.</p><p>);
+				$self->print_home_link;
+				say q(</p></div>);
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
@@ -898,9 +899,9 @@ sub _prepare_extra_inserts_for_seqbin {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
 		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
-		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p>)
-		  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-		  . q(Back to main page</a></p></div>);
+		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p><p>);
+		$self->print_home_link;
+		say q(</p></div>);
 		return FAILURE;
 	}
 	my $q              = $self->{'cgi'};

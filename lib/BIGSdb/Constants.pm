@@ -65,21 +65,23 @@ use constant FALSE          => q(<span class="far fa-lg fa-square"></span>);
 use constant BAN            => q(<span class="fas fa-ban" style="color:#a44"></span>);
 use constant DOWNLOAD       => q(<span class="fas fa-download" style="color:#44a"></span>);
 use constant BACK           => q(<span class="nav_icon fas fa-2x fa-arrow-circle-left"></span>);
+use constant QUERY_MORE     => q(<span class="nav_icon fas fa-2x fa-search"></span>);
 use constant EDIT_MORE      => q(<span class="nav_icon fas fa-2x fa-pencil-alt"></span>);
 use constant UPLOAD_CONTIGS => q(<span class="nav_icon fas fa-2x fa-upload"></span>);
 use constant LINK_CONTIGS   => q(<span class="nav_icon fas fa-2x fa-link"></span>);
 use constant MORE           => q(<span class="nav_icon fas fa-2x fa-plus"></span>);
 use constant HOME           => q(<span class="nav_icon fas fa-2x fa-home"></span>);
+use constant RELOAD         => q(<span class="nav_icon fas fa-2x fa-sync"></span>);
 use constant KEY            => q(<span class="nav_icon fas fa-2x fa-key"></span>);
 use constant EYE_SHOW       => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE       => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
 use constant EXCEL_FILE     => q(<span class="file_icon far fa-2x fa-file-excel" style="color:green"></span>);
 use constant TEXT_FILE      => q(<span class="file_icon far fa-2x fa-file-alt" style="color:#333"></span>);
-use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant MAX_ROWS => 20;
+use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant MAX_ROWS       => 20;
 my @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK EDIT_MORE UPLOAD_CONTIGS
-  LINK_CONTIGS MORE HOME KEY EYE_SHOW EYE_HIDE EXCEL_FILE TEXT_FILE FLANKING MAX_ROWS);
+  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS
+  LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE EXCEL_FILE TEXT_FILE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

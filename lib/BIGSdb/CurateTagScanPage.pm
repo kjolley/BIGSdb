@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use Error qw(:try);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
+use BIGSdb::Constants qw(:interface SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY       = 70;
@@ -667,12 +667,15 @@ sub _tag {
 			return;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Database updated ok.</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a> | )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-			  . qq(parameters=$scan_job">Reload scan form</a></p></div>);
+			say q(<div class="box" id="resultsheader"><p>Database updated ok.</p><p>);
+			$self->print_home_link;
+			my $reload = RELOAD;
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+			  . qq(parameters=$scan_job" title="Reload scan form" style="margin-right:1em">$reload</a>);
+			say q(</p></div>);
 			say q(<div class="box" id="resultstable">);
 			local $" = qq(<br />\n);
+
 			if (@allele_updates) {
 				say q(<h2>Allele designations set</h2>);
 				say qq(<p>@allele_updates</p>);
@@ -691,10 +694,12 @@ sub _tag {
 			say q(</div>);
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No updates required.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a> | )
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-		  . qq(parameters=$scan_job">Reload scan form</a></p></div>);
+		say q(<div class="box" id="resultsheader"><p>No updates required.</p><p>);
+		$self->print_home_link;
+		my $reload = RELOAD;
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+		  . qq(parameters=$scan_job" title="Reload scan form" style="margin-right:1em">$reload</a>);
+		say q(</p></div>);
 	}
 	return;
 }

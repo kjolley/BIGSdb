@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2016, University of Oxford
+#Copyright (c) 2012-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -154,7 +154,9 @@ sub _print_interface {
 		say $q->hidden($_) foreach qw(db page table users_list);
 		say $q->end_form;
 		say q(</fieldset>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main</a></p>);
+		my $back = BACK;
+		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>)
+		  ;
 	} else {
 		say q(<div class="box" id="queryform">);
 		say $self->_print_user_form;
@@ -177,8 +179,7 @@ sub _perform_action {
 		);
 		my $sql_add = $self->{'db'}->prepare( $qry{$table} );
 		eval {
-			foreach my $record ( $q->param('available') )
-			{
+			foreach my $record ( $q->param('available') ) {
 				next if $record eq '';
 				my %method = (
 					locus_curators =>
@@ -199,8 +200,7 @@ sub _perform_action {
 		my $qry        = "DELETE FROM $table WHERE $table_data->{'foreign'}=? AND  $table_data->{'user_field'}=?";
 		my $sql_remove = $self->{'db'}->prepare($qry);
 		eval {
-			foreach my $record ( $q->param('selected') )
-			{
+			foreach my $record ( $q->param('selected') ) {
 				next if $record eq '';
 				$sql_remove->execute( $record, $user_id );
 			}
