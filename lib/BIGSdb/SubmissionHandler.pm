@@ -38,7 +38,7 @@ sub new {
 	my ( $class, @atr ) = @_;
 	my $self = {@atr};
 	bless( $self, $class );
-	$logger->info('Submission handler set up.');
+	$logger->debug('Submission handler set up.');
 	$self->_delete_expired_flood_protection_files;
 	return $self;
 }
@@ -1136,6 +1136,7 @@ sub email {
 	eval {
 		try_to_sendmail( $email, { transport => $transport } )
 		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+		$logger->info("Email to $recipient->{'email'}: $subject");
 	};
 	$logger->error($@) if $@;
 	return;
