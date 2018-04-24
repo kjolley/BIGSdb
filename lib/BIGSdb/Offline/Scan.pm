@@ -29,6 +29,7 @@ use Error qw(:try);
 use Fcntl qw(:flock);
 use Bio::Seq;
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
+use constant INF => 9**99;
 
 sub _get_word_size {
 	my ( $self, $program, $locus, $params ) = @_;
@@ -109,10 +110,17 @@ sub blast_multiple_loci {
 			-outfmt    => 6,
 			-$filter   => 'no',
 		);
+
+		#Will not return some matches with low-complexity regions otherwise.
 		$params{'-comp_based_stats'} = 0
 		  if $program ne 'blastn'
-		  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
-		$params{'-evalue'} = 20 if $program ne 'blastn';    #Some peptide loci are just short loops
+		  && $program ne 'tblastx';
+
+		#Very short sequences won't be matched unless we increase the expect value significantly
+		my $shortest_seq = $self->_get_shortest_seq_length($temp_fastafile);
+		if ( $shortest_seq <= 20 ) {
+			$params{'-evalue'} = 1000;
+		}
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 		next DATATYPE if !-e $temp_outfile;
 		my $matched_regions;
@@ -140,7 +148,6 @@ sub blast_multiple_loci {
 			}
 		);
 	  LOCUS: foreach my $locus (@locus_list) {
-
 			if ( $params->{'exemplar'} ) {
 				$self->_lookup_partial_matches(
 					$locus,
@@ -200,9 +207,17 @@ sub blast {
 		-outfmt    => 6,
 		-$filter   => 'no'
 	);
+
+	#Will not return some matches with low-complexity regions otherwise.
 	$params{'-comp_based_stats'} = 0
 	  if $program ne 'blastn'
-	  && $program ne 'tblastx';    #Will not return some matches with low-complexity regions otherwise.
+	  && $program ne 'tblastx';
+
+	#Very short sequences won't be matched unless we increase the expect value significantly
+	my $shortest_seq = $self->_get_shortest_seq_length($temp_fastafile);
+	if ( $shortest_seq <= 20 ) {
+		$params{'-evalue'} = 1000;
+	}
 	open( my $infile_fh, '<', $temp_infile ) or $logger->error("Can't open temp file $temp_infile for reading");
 
 	#Make sure query file has finished writing (it may be another thread doing it).
@@ -258,6 +273,20 @@ sub blast {
 	#Calling function should delete working files.  This is not done here as they can be re-used
 	#if multiple loci are being scanned for the same isolate.
 	return;
+}
+
+sub _get_shortest_seq_length {
+	my ( $self, $fasta ) = @_;
+	my $shortest = INF;
+	open( my $fh, '<', $fasta ) || $self->{'logger'}->error("Cannot open $fasta for reading");
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^>/x;
+		chomp $line;
+		my $length = length $line;
+		$shortest = $length if $length < $shortest;
+	}
+	close $fh;
+	return $shortest;
 }
 
 sub _always_lookup_partials {
@@ -390,7 +419,7 @@ sub _create_query_fasta_file {
 	return if -e $temp_infile;
 	my $experiment      = $params->{'experiment_list'};
 	my $distinct_clause = $experiment ? ' DISTINCT' : '';
-	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
+	my $seqbin          = $self->{'seqbin_table'} // 'sequence_bin';
 	my $qry             = "SELECT$distinct_clause s.id,sequence FROM $seqbin s ";
 	$qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
 	$qry .= 'WHERE s.isolate_id=? AND NOT remote_contig';
