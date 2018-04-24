@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -149,12 +149,12 @@ sub run_job {
 		$i++;
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
-		my ( $data, $values ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
+		my ( $data, $values, $response_code ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
 		$report->{$isolate_id} = {
 			$self->{'system'}->{'labelfield'} => $isolate_name,
 			analysis                          => $data
 		};
-		$row_buffer .= $self->_format_row_html( $td, $values );
+		$row_buffer .= $self->_format_row_html( $td, $values, $response_code );
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
@@ -174,7 +174,7 @@ sub run_job {
 }
 
 sub _format_row_html {
-	my ( $self, $td, $values ) = @_;
+	my ( $self, $td, $values, $response_code ) = @_;
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
 	my %italicised = map { $_ => 1 } ( 3, 4, 7 );
@@ -186,7 +186,13 @@ sub _format_row_html {
 			$buffer .= qq(<td rowspan="$rows">$values->[$_]</td>) foreach ( 0, 1 );
 		}
 		if ( !$allele_predictions ) {
-			$buffer .= q(<td colspan="4" style="text-align:left">No exact matching alleles linked to genome found</td>);
+			my $message;
+			if ($response_code == 413){
+				$message = q(Genome size is too large for analysis);
+			} else {
+				$message = q(No exact matching alleles linked to genome found);
+			}
+			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
 			foreach my $col ( 2 .. 5 ) {
 				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
@@ -281,7 +287,7 @@ sub _perform_rest_query {
 		$logger->error( $response->as_string );
 	}
 	push @$values, ( $rank, $taxon, $taxonomy, $support, $rST, $species );
-	return ( $data, $values );
+	return ( $data, $values, $response->code );
 }
 
 sub _print_interface {

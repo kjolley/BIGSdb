@@ -155,7 +155,7 @@ sub _print_interface {
 			push @ids, $_->[0];
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 		}
-		say $q->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
+		say $self->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
 		say q(</li><li><label for="identifier_field" class="parameter">identifier field: </label>);
 		my $fields = $self->{'xmlHandler'}->get_field_list;
 		say $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
