@@ -156,12 +156,21 @@ sub _get_breakdown {
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
 		send_error( "Field $field does not exist.", 404 );
 	}
-	my $value_counts = $self->{'datastore'}->run_query(
-		"SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL "
-		  . "GROUP BY $field",
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my $qry =
+	  "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL GROUP BY $field";
+
+	#Undocumented call - needed to generate stats of genome submissions
+	if ( $params->{'genomes'} && $field eq 'date_entered' ) {
+
+		#Need to ensure we use minimum date_entered value from sequence bin not the isolate date_entered
+		$qry =
+		    'CREATE TEMP TABLE temp_table_date_breakdown AS SELECT isolate_id,min(date_entered) AS date_entered FROM '
+		  . 'sequence_bin GROUP BY isolate_id;'
+		  . 'SELECT date_entered,COUNT(DISTINCT isolate_id) AS count FROM temp_table_date_breakdown WHERE '
+		  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}) GROUP BY date_entered";
+	}
+	my $value_counts =
+	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my %values = map { $_->{$field} => $_->{'count'} } @$value_counts;
 	return \%values;
 }
