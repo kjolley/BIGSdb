@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Bio::DB::GenBank;
 use Error qw(:try);
-use BIGSdb::Constants qw(SEQ_METHODS :interface);
+use BIGSdb::Constants qw(SEQ_METHODS :interface :limits);
 
 sub print_content {
 	my ($self) = @_;
@@ -104,7 +104,7 @@ sub print_seqbin_warnings {
 }
 
 sub _print_interface {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>)
@@ -123,8 +123,9 @@ sub _print_interface {
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
 	my $sender;
+	my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 
-	if ( $q->param('isolate_id') ) {
+	if ( $q->param('isolate_id') && !$options->{'error'} ) {
 		say q(<li><label class="parameter">isolate id: !</label>);
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
@@ -142,6 +143,9 @@ sub _print_interface {
 		}
 		say qq{<span id="isolate_id">$isolate_id) $isolate_name</span>};
 		say $q->hidden( 'isolate_id', $isolate_id );
+	} elsif ( $isolate_count > MAX_ISOLATES_DROPDOWN ) {
+		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
+		say $q->textfield( -name => 'isolate_id', id => 'isolate_id' );
 	} else {
 		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
 		my $id_arrayref =
@@ -156,12 +160,12 @@ sub _print_interface {
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 		}
 		say $self->popup_menu( -name => 'isolate_id', -id => 'isolate_id', -values => \@ids, -labels => \%labels );
-		say q(</li><li><label for="identifier_field" class="parameter">identifier field: </label>);
+		say q(</li><li><label for="identifier_field" class="parameter">identifier field: !</label>);
 		my $fields = $self->{'xmlHandler'}->get_field_list;
 		say $q->popup_menu( -name => 'identifier_field', -id => 'identifier_field', -values => $fields );
 	}
 	say q(</li><li><label for="sender" class="parameter">sender: !</label>);
-	say $q->popup_menu(
+	say $self->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
 		-values   => [ '', @$users ],
@@ -299,7 +303,7 @@ sub _check_data {
 		};
 	}
 	if ( !$continue ) {
-		$self->_print_interface;
+		$self->_print_interface( { error => 1 } );
 		return;
 	}
 	if ( $q->param('isolate_id') ) {
