@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.5',
+		version     => '1.1.6',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -151,7 +151,7 @@ sub run {
 		#Make sure the following SQL ends with a ;
 		#Paging will break otherwise!
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list list_file datatype);
+		my @hidden_attributes = qw (name all_records author_list year_list list_file temp_table_file datatype);
 		$self->paged_display(
 			{
 				table             => 'refs',
