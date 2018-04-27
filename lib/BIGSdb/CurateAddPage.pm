@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,7 +67,8 @@ sub _table_exists {
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		say q(<h1>Add new record</h1>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}
 	return 1;
@@ -86,11 +87,19 @@ sub print_content {
 		if ( ( $seq_table{$table} && $q->param('locus') ) || $locus_table{$table} ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
-			say qq(<div class="box" id="statusbad"><p>Your user account is not allowed to add $locus $record_type)
-			  . q(s to the database.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add $locus ${record_type}s to the database.),
+					navbar  => 1
+				}
+			);
 		} else {
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
-			  . qq(to the $table table.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add records to the $table table.),
+					navbar  => 1
+				}
+			);
 		}
 		return;
 	}
@@ -100,8 +109,12 @@ sub print_content {
 		if (   !$self->is_admin
 			&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 		{
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
-			  . qq(add ${record_name}s for this locus.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add ${record_name}s for this locus.),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 	}
@@ -111,7 +124,7 @@ sub print_content {
 		sequence_bin        => 'Add contigs using the batch add page.'
 	);
 	if ( $bad_table{$table} ) {
-		say qq(<div class="box" id="statusbad"><p>$bad_table{$table}</p></div>);
+		$self->print_bad_status( { message => $bad_table{$table}, navbar => 1 } );
 		return;
 	}
 	$self->_warn_about_scheme_modification($table);
@@ -233,7 +246,7 @@ sub _insert {
 	}
 	if (@problems) {
 		local $" = "<br />\n";
-		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
+		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
 	} else {
 		my ( @table_fields, @placeholders, @values );
 		foreach my $att (@$attributes) {
@@ -263,17 +276,17 @@ sub _insert {
 		};
 		return if !$continue;
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
-			  . q(no records have been touched.</p>);
+			my $message = q(Insert failed - transaction cancelled - no records have been touched);
+			my $detail;
 			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-				say q(<p>Data entry would have resulted in records with either duplicate ids or another unique )
-				  . q(field with duplicate values.  This can result from another curator adding data at the same )
-				  . q(time.  Try pressing the browser back button and then re-submit the records.</p>);
+				$detail =
+				    q(Data entry would have resulted in records with either duplicate ids or another unique )
+				  . q(field with duplicate values. This can result from another curator adding data at the same )
+				  . q(time. Try pressing the browser back button and then re-submit the records.);
 			} else {
-				say qq(<p>Error message: $@</p>);
 				$logger->error($@);
 			}
-			say q(</div>);
+			$self->print_bad_status( { message => $message, detail => $detail } );
 			$self->{'db'}->rollback;
 			foreach my $transaction (@$extra_transactions) {
 				$transaction->{'db'}->rollback;
@@ -283,15 +296,15 @@ sub _insert {
 			foreach my $transaction (@$extra_transactions) {
 				$transaction->{'db'}->commit;
 			}
+			say q(<div class="box" id="resultsheader">);
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 				$cleaned_locus =~ s/\\'/'/gx;
-				say q(<div class="box" id="resultsheader">)
-				  . qq(<p>Sequence $cleaned_locus: $newdata->{'allele_id'} added!</p>);
+				$self->show_success( { message => "Sequence $cleaned_locus: $newdata->{'allele_id'} added." } );
 				$self->update_blast_caches;
 			} else {
 				my $record_name = $self->get_record_name($table);
-				say qq(<div class="box" id="resultsheader"><p>$record_name added!</p>);
+				$self->show_success( { message => "$record_name added." } );
 			}
 			if ( $table eq 'composite_fields' ) {
 				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -308,29 +321,31 @@ sub _insert {
 
 sub _display_navlinks {
 	my ( $self, $table, $newdata ) = @_;
-	say q(<p>);
 	my ( $back, $more, $key ) = ( BACK, MORE, KEY );
-	my $q = $self->{'cgi'};
+	my $q             = $self->{'cgi'};
+	my $submission_id = $q->param('submission_id');
+	my $back_url;
 	$self->print_return_to_submission;
 	if ( $table eq 'samples' ) {
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateUpdate&amp;)
-		  . qq(id=$newdata->{'isolate_id'}" title="Back to isolate update" style="margin-right:1em">$back</a>);
+		$back_url =
+		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=isolateUpdate&amp;id=$newdata->{'isolate_id'});
 	}
-	$self->print_home_link;
+	my $change_password;
 	if ( $table eq 'users' ) {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
 			&& ( $self->{'permissions'}->{'set_user_passwords'} || $self->is_admin ) )
 		{
 			my $user_db_string =
 			  BIGSdb::Utils::is_int( $newdata->{'user_db'} ) ? qq(&amp;user_db=$newdata->{'user_db'}) : q();
-			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}$user_db_string" title="Set password" )
-			  . qq(style="margin-right:1em">$key</a>);
+			$change_password = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=setPassword&amp;user=$newdata->{'user_name'}$user_db_string);
 		}
 	}
+	my $more_url;
 	if ( $table eq 'samples' ) {
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;)
-		  . qq(isolate_id=$newdata->{'isolate_id'}" title="Add another sample" style="margin-right:1em">$more</a>);
+		$more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;)
+		  . qq(isolate_id=$newdata->{'isolate_id'});
 	} else {
 		my $locus_clause = '';
 		if ( $table eq 'sequences' ) {
@@ -338,10 +353,17 @@ sub _display_navlinks {
 			$locus_clause =
 			  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'});
 		}
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-		  . qq(table=$table$locus_clause" title="Add another" style="margin-right:1em">$more</a>);
+		$more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
+		  . qq(table=$table$locus_clause);
 	}
-	say q(</p>);
+	$self->print_navigation_bar(
+		{
+			back_url        => $back_url,
+			submission_id   => $submission_id,
+			change_password => $change_password,
+			more_url        => $more_url
+		}
+	);
 	return;
 }
 

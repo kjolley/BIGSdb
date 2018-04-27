@@ -430,6 +430,13 @@ div.box {
 	border-radius: 10px;
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
+div.navigation {
+	float:left;
+	border:2px solid #aaa;
+	padding:0 0 0 1em;
+	background:#ccf;
+	border-radius:5px;
+}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -450,8 +457,8 @@ div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
 div.statusbad_no_resize {background:#e0d5d5;color:#800000}
 div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
-div#resultsheader {background:#d5e0d5;padding:5px}
-div#resultsfooter {background:#d5e0d5;padding:5px}
+div#resultsheader, div.resultsheader {background:#d5e0d5;padding:5px}
+div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
 div#resultspanel, div.resultspanel {background:#f0f0f0}
 div#resultspanel li,p,dd {position:relative;z-index:3}
@@ -583,6 +590,8 @@ span.flag {
 	border-bottom-style:solid;
 	padding:0 0.1em
 }
+p.outcome_message {font-size:1.2em}
+p.outcome_detail {font-size:1em}
 .flash_message {color:purple}
 
 .hiddenbydefault {display:none}
@@ -746,6 +755,8 @@ span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.wait_message {color:#66a;font-size:3em}
 span.browse {color:#080}
 span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
+span.success {color:#080;text-shadow: 5px 5px 5px #aaa}
+span.failure {color:#800;text-shadow: 5px 5px 5px #aaa}
 button.main {color:#66a}
 button.main:hover {color:#88c}
 button.plugin {color:#a6a}

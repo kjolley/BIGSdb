@@ -102,23 +102,29 @@ sub print_content {
 		if ($@) {
 			my $error = $@;
 			if ( $error =~ /duplicate/ ) {
-				say q(<div class="box" id="statusbad"><p>Update failed - a tag already exists for this )
-				  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Update failed - a tag already exists for this )
+						  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id),
+						navbar => 1
+					}
+				);
 			} else {
-				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-				  . q(no records have been touched.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Update failed - transaction cancelled - ) . q(no records have been touched.),
+						navbar  => 1
+					}
+				);
 				$logger->error($error);
 			}
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Sequence tag updated!</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			say q(<div class="box" id="resultsheader">);
+			$self->show_success( { message => 'Sequence tag updated.' } );
+			$self->print_navigation_bar;
+			say q(</div>);
 			local $" = q(<br />);
 			my $isolate_id =
 			  $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );

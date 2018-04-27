@@ -57,8 +57,12 @@ sub print_content {
 	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		say qq(<h1>Batch profile query - $desc</h1>);
-		say q(<div class="box" id="statusbad"><p>This function is only available )
-		  . q(for sequence definition databases.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This function is only available for sequence definition databases.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	say qq(<h1>Batch profile query - $desc</h1>);
@@ -212,12 +216,8 @@ sub _run_query {
 		}
 		say q(</p>);
 	}
-	say q(</div><p>);
-	my $back = BACK;
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles" )
-	  . qq(title="Back" style="margin-right:1em">$back</a>);
-	$self->print_home_link;
-	say q(</p></div>);
+	$self->print_navigation_bar( { back_page => 'batchProfiles' } );
+	say q(</div></div>);
 	return;
 }
 

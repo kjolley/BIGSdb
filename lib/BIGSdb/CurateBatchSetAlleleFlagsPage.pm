@@ -32,12 +32,12 @@ sub print_content {
 	say q(<h1>Batch set allele flags</h1>);
 	my $query_file = $q->param('query_file');
 	if ( !$query_file ) {
-		say q(<div class="box" id="statusbad"><p>No query file passed.</p>);
+		$self->print_bad_status( { message => q(No query file passed.), navbar => 1 } );
 		return;
 	}
 	my $qry = $self->get_query_from_temp_file($query_file);
 	if ( !$qry ) {
-		say q(<div class="box" id="statusbad"><p>No query passed.</p>);
+		$self->print_bad_status( { message => q(No query passed.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('list_file') ) {
@@ -49,8 +49,12 @@ sub print_content {
 	if ( !$self->is_admin ) {
 		foreach my $locus ( keys %$loci ) {
 			if ( !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $curator_id ) ) {
-				say q(<div class="box" id="statusbad"><p>Your user account isn't allowed )
-				  . qq(to modify $locus sequences.</p>);
+				$self->print_bad_status(
+					{
+						message => qq(Your user account isn't allowed to modify $locus sequences.),
+						navbar  => 1
+					}
+				);
 				return;
 			}
 		}
@@ -105,13 +109,14 @@ sub _update {
 		}
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Update failed.</p></div>);
+		$self->print_bad_status( { message => 'Update failed!' } );
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		say q(<div class="box" id="resultsheader"><p>Flags updated.</p><p>);
-		$self->print_home_link;
-		say q(</p></div>);
+		say q(<div class="box" id="resultsheader">);
+		$self->show_success( { message => 'Flags updated.' } );
+		$self->print_navigation_bar;
+		say q(</div>);
 		$self->{'db'}->commit;
 	}
 	return;

@@ -37,9 +37,10 @@ sub print_content {
 	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
-	say "<h1>Delete multiple $record_name records</h1>";
+	say qq(<h1>Delete multiple $record_name records</h1>);
 	if ( !$self->can_delete_all ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete all records.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Your user account is not allowed to delete all records.), navbar => 1 } );
 		return;
 	}
 	if ( $table eq 'profiles' && $query =~ /SELECT\ \*\ FROM\ m?v?_?scheme_(\d+)/x ) {
@@ -56,32 +57,40 @@ sub print_content {
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}
 	if ( !$query ) {
-		say q(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
+		$self->print_bad_status( { message => q(No selection query passed!), navbar => 1 } );
 		return;
 	}
 	if ( $query !~ /SELECT\ \*\ FROM\ $table/x ) {
 		$logger->error("Table: $table; Query:$query");
-		say q(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
+		$self->print_bad_status( { message => q(Invalid query passed!), navbar => 1 } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
 		$table = 'isolates';
 	}
 	if ( !$self->can_modify_table($table) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete )
-		  . qq(records from the $table table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(Your user account is not allowed to delete records from the $table table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if (   $self->{'system'}->{'dbtype'} eq 'sequences'
 		&& !$self->is_admin
 		&& ( $table eq 'sequences' || $table eq 'sequence_refs' ) )
 	{
-		say q(<div class="box" id="statusbad"><p>Only administrators can batch delete )
-		  . qq(from the $table table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(Only administrators can batch delete from the $table table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -92,8 +101,13 @@ sub print_content {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				catch BIGSdb::DatabaseConnectionException with {
-					say q[<div class="box" id="statusbad"><p>Can't copy data into temporary table - please ]
-					  . q[check scheme configuration (more details will be in the log file).</p></div>];
+					$self->print_bad_status(
+						{
+							message => q(Cannot copy data into temporary table - please )
+							  . q(check scheme configuration (more details will be in the log file).),
+							navbar => 1
+						}
+					);
 					$logger->error('Cannot copy data to temporary table.');
 				};
 			}
@@ -170,20 +184,25 @@ sub _delete {
 		$self->_refresh_db_views( $table, $scheme_ids );
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
-		  . q(no records have been touched.</p>);
+		my $detail;
 		if ( $@ =~ /foreign key/ ) {
-			say q(<p>Selected records are referred to by other tables and cannot be deleted.</p>);
+			$detail = q(Selected records are referred to by other tables and cannot be deleted.);
 			if ( $table eq 'sequences' ) {
-				say q(<p>Alleles can belong to profiles so check these.</p>);
+				$detail .= q( Alleles can belong to profiles so check these.);
 			}
-			say q(</div>);
 			$logger->debug($@);
 		} else {
-			say q(<p>This is a bug in the software or database structure.  Please report this to the )
-			  . q(database administrator. More details will be available in the error log.</p></div>);
+			$detail = q(This is a bug in the software or database structure. Please report this to the )
+			  . q(database administrator. More details will be available in the error log.);
 			$logger->fatal($@);
 		}
+		$self->print_bad_status(
+			{
+				message => q(Delete failed - transaction cancelled - ) . q(no records have been touched.),
+				detail  => $detail,
+				navbar  => 1
+			}
+		);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
@@ -212,8 +231,7 @@ sub _delete {
 				$self->{'db'}->rollback;
 			}
 		}
-		say q(<div class="box" id="resultsheader"><p>Records deleted.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Return to index</a></p></div>);
+		$self->print_good_status( { message => 'Records deleted.', navbar => 1 } );
 	}
 	if ( $table eq 'sequences' ) {
 		$self->mark_locus_caches_stale($loci);

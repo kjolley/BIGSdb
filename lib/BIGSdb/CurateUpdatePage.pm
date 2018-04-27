@@ -41,16 +41,16 @@ sub _pre_check_failed {
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return 1;
 	}
 	if ( !$self->can_modify_table($table) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not )
-		  . q(allowed to update this record.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Your user account is not allowed to update this record.), navbar => 1 } );
 		return 1;
 	}
 	if ( $table eq 'allele_sequences' ) {
-		say q(<div class="box" id="statusbad"><p>Sequence tags cannot be updated ) . q(using this function.</p></div>);
+		$self->print_bad_status( { message => q(Sequence tags cannot be updated using this function.), navbar => 1 } );
 		return 1;
 	}
 	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
@@ -86,14 +86,15 @@ sub print_content {
 		}
 	}
 	if ( !@query_values ) {
-		say q(<div class="box" id="statusbad"><p>No identifying attributes sent.</p>);
+		$self->print_bad_status( { message => q(No identifying attributes sent.), navbar => 1 } );
 		return;
 	}
 	local $" = q( AND );
 	my $record_count =
 	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE @query_terms", \@query_values );
 	if ( $record_count != 1 ) {
-		say q(<div class="box" id="statusbad"><p>The search terms did not unique identify a single record.</p></div>);
+		$self->print_bad_status(
+			{ message => q(The search terms did not unique identify a single record.), navbar => 1 } );
 		return;
 	}
 	my $data =
@@ -192,7 +193,7 @@ sub _upload {
 
 	if (@problems) {
 		local $" = qq(<br />\n);
-		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
+		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
 	} else {
 		my %methods = (
 			users => sub {
@@ -219,9 +220,6 @@ sub _upload {
 					$status = $desc_status if !$status;
 				}
 				$self->_check_locus_aliases_when_updating_other_table( $newdata->{'id'}, $newdata, $extra_inserts );
-			},
-			allele_designations => sub {
-				$status = $self->_check_allele_designations($newdata);
 			},
 			sequence_bin => sub {
 				$status = $self->_prepare_extra_inserts_for_seqbin( $newdata, $extra_inserts );
@@ -267,15 +265,19 @@ sub _upload {
 				}
 			};
 			if ($@) {
-				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-				  . q(no records have been touched.</p>);
+				$logger->error($@);
+				my $detail;
 				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-					say q(<p>Data entry would have resulted in records with either duplicate ids or )
-					  . q(another unique field with duplicate values.</p></div>);
-					$logger->error($@);
-				} else {
-					say qq(<p>Error message: $@</p></div>);
+					$detail = q(Data entry would have resulted in records with either duplicate ids or )
+					  . q(another unique field with duplicate values.);
 				}
+				$self->print_bad_status(
+					{
+						message => q(Update failed - transaction cancelled - no records have been touched.),
+						detail  => $detail,
+						navbar  => 1
+					}
+				);
 				$self->{'db'}->rollback;
 				foreach my $transaction (@$extra_transactions) {
 					$transaction->{'db'}->rollback;
@@ -286,12 +288,15 @@ sub _upload {
 				foreach my $transaction (@$extra_transactions) {
 					$transaction->{'db'}->commit;
 				}
-				say qq(<div class="box" id="resultsheader"><p>$record_name updated!</p><p>);
-				my $edit_more = EDIT_MORE;
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=tableQuery&amp;table=$table" title="Update more" style="margin-right:1em">$edit_more</a>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_good_status(
+					{
+						message => qq($record_name updated.),
+						navbar  => 1,
+						query_more_url =>
+						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+						  . qq(page=tableQuery&amp;table=$table)
+					}
+				);
 				if ( $table eq 'allele_designations' ) {
 					$self->update_history( $data->{'isolate_id'},
 						"$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
@@ -321,11 +326,14 @@ sub _check_users {
 		&& $newdata->{'id'} == $self->get_curator_id
 		&& $newdata->{'status'} ne 'admin' )
 	{
-		say q(<div class="box" id="statusbad"><p>It is not a good idea to remove admin status from )
-		  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
-		  . q(to do it from another admin account.</p><p>);
-		$self->print_home_link;
-		say q(</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(It is not a good idea to remove admin status from )
+				  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
+				  . q(to do it from another admin account.),
+				navbar => 1
+			}
+		);
 		return FAILURE;
 	}
 	return;
@@ -339,25 +347,11 @@ sub _check_scheme_fields {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $newdata->{'scheme_id'}, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
-			say q(<div class="box" id="statusbad"><p>This scheme already has a primary key field )
-			  . qq(set ($primary_key).</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			$self->print_bad_status(
+				{ message => qq(This scheme already has a primary key field set ($primary_key).), navbar => 1 } );
 			return FAILURE;
 		}
 	}
-}
-
-sub _check_allele_designations {
-	my ( $self, $newdata ) = @_;
-	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
-		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p><p>);
-		$self->print_home_link;
-		say q(</p></div>);
-		return FAILURE;
-	}
-	return;
 }
 
 sub _check_loci {
@@ -377,18 +371,20 @@ sub _check_loci {
 			}
 		}
 		if ($non_int) {
-			say q(<div class="box" id="statusbad"><p>The sequence table already contains data with )
-			  . q(non-integer allele ids. You will need to remove these before you can change the )
-			  . q(allele_id_format to 'integer'.</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(The sequence table already contains data with )
+					  . q(non-integer allele ids. You will need to remove these before you can change the )
+					  . q(allele_id_format to 'integer'.),
+					navbar => 1
+				}
+			);
 			return FAILURE;
 
 			#special case to ensure that a locus length is set if it is not marked as variable length
 		} elsif ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
-			say q(<div class="box" id="statusbad"><p>Locus set as non variable length but no length is set.</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			$self->print_bad_status(
+				{ message => q(Locus set as non variable length but no length is set.), navbar => 1 } );
 			return FAILURE;
 		}
 	}
@@ -411,14 +407,11 @@ sub _check_allele_data {
 		if ( $required && $newdata->{$field} eq '' ) {
 			push @missing_field, $field;
 		} elsif ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
-			say qq(<div class="box" id="statusbad"><p>$field must be an integer.</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			$self->print_bad_status( { message => qq($field must be an integer.), navbar => 1 } );
 			return FAILURE;
 		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/x ) {
-			say qq(<div class="box" id="statusbad"><p>Field '$field' does not conform to specified format.</p><p>);
-			$self->print_home_link;
-			say q(</p></div>);
+			$self->print_bad_status(
+				{ message => qq(Field '$field' does not conform to specified format.), navbar => 1 } );
 			return FAILURE;
 		} else {
 			$self->_get_allele_extended_attribute_inserts( $newdata, $field, $extra_inserts );
@@ -426,10 +419,13 @@ sub _check_allele_data {
 	}
 	if (@missing_field) {
 		local $" = ', ';
-		say q(<div class="box" id="statusbad"><p>Please fill in all extended attribute fields. )
-		  . qq( The following extended attribute fields are missing: @missing_field.</p><p>);
-		$self->print_home_link;
-		say q(</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Please fill in all extended attribute fields. )
+				  . qq( The following extended attribute fields are missing: @missing_field.),
+				navbar => 1
+			}
+		);
 		return FAILURE;
 	}
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
@@ -446,9 +442,7 @@ sub _check_allele_data {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status( { message => q(PubMed ids must be integers.), navbar => 1 } );
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -659,9 +653,7 @@ sub _check_locus_descriptions {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status( { message => q(PubMed ids must be integers.), navbar => 1 } );
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -712,10 +704,12 @@ sub _check_locus_descriptions {
 		next if $new eq '';
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
-				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
-				  . q(from the URL by a '|'.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Links must have an associated description separated from the URL by a '|'.),
+						navbar  => 1
+					}
+				);
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
@@ -823,9 +817,12 @@ sub _prepare_extra_inserts_for_schemes {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(PubMed ids must be integers.),
+						navbar  => 1
+					}
+				);
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -876,10 +873,12 @@ sub _prepare_extra_inserts_for_schemes {
 		next if $new eq '';
 		if ( !@existing_links || none { $new eq $_ } @existing_links ) {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
-				say q(<div class="box" id="statusbad"><p>Links must have an associated description separated )
-				  . q(from the URL by a '|'.</p><p>);
-				$self->print_home_link;
-				say q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Links must have an associated description separated from the URL by a '|'.),
+						navbar  => 1
+					}
+				);
 				return FAILURE;
 			} else {
 				my ( $field_order, $url, $desc ) = ( $1, $2, $3 );
@@ -897,13 +896,6 @@ sub _prepare_extra_inserts_for_schemes {
 
 sub _prepare_extra_inserts_for_seqbin {
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	if ( !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
-		  . qq(record_type for isolate $newdata->{'isolate_id'}.</p><p>);
-		$self->print_home_link;
-		say q(</p></div>);
-		return FAILURE;
-	}
 	my $q              = $self->{'cgi'};
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );

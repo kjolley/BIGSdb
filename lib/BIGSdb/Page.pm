@@ -207,10 +207,10 @@ sub create_temp_tables {
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	my $continue = 1;
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		try {
 			foreach my $scheme_id (@$schemes) {
-				
 				if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
@@ -226,10 +226,10 @@ sub create_temp_tables {
 		}
 		catch BIGSdb::DatabaseConnectionException with {
 			if ( $format ne 'text' ) {
-				say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
-				  . q(The query can not be performed.</p></div>);
+				$self->print_bad_status(
+					{ message => q(Cannot connect to remote database. The query can not be performed.) } );
 			} else {
-				say q(Cannot connect to remote database.  The query can not be performed.);
+				say q(Cannot connect to remote database. The query cannot be performed.);
 			}
 			$logger->error('Cannot connect to remote database.');
 			$continue = 0;
@@ -451,7 +451,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20180309';
+	my $version   = '20180427';
 	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -531,22 +531,27 @@ sub is_scheme_invalid {
 	$options = {} if ref $options ne 'HASH';
 	my $set_id = $self->get_set_id;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 		return 1;
 	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say q(<div class="box" id="statusbad"><p>The selected scheme is unavailable.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is unavailable.), navbar => 1 } );
 			return 1;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info && !( $scheme_id == 0 && $options->{'all_loci'} ) ) {
-		say q(<div class="box" id="statusbad">Scheme does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Scheme does not exist.), navbar => 1 } );
 		return 1;
 	}
 	if ( $options->{'with_pk'} && !$scheme_info->{'primary_key'} ) {
-		say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
-		  . q(This function is unavailable until this has been set.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(No primary key field has been set for this scheme. )
+				  . q(This function is unavailable until this has been set.),
+				navbar => 1
+			}
+		);
 		return 1;
 	}
 	return;
@@ -2765,6 +2770,7 @@ sub get_user_db_name {
 	return $db_name;
 }
 
+#TODO Remove when no longer called from anywhere
 sub print_return_to_submission {
 	my ($self) = @_;
 	my $back   = BACK;
@@ -2778,20 +2784,114 @@ sub print_return_to_submission {
 	return;
 }
 
-sub print_home_link {
-	my ( $self, $options ) = @_;
-	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my $home = HOME;
-	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
-	return;
-}
-
 sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
 	return qq(<a class="tooltip"$id style="margin-left:0.2em" title="$text">)
 	  . qq(<span class="fas fa-info-circle"$style></span></a>);
+}
+
+sub print_navigation_bar {
+	my ( $self, $options ) = @_;
+	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
+	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload ) =
+	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD );
+	my $buffer = q(<div class="navigation">);
+	if ( $options->{'submission_id'} ) {
+		$buffer .=
+		    qq(<a href="$script?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" title="Return to submission" )
+		  . qq(style="margin-right:1em">$back</a>);
+	} elsif ( $options->{'back_url'} || $options->{'back_page'} ) {
+		my $page = $options->{'back_page'} // 'index';
+		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
+		$buffer .= qq(<a href="$url" title="Back" style="margin-right:1em">$back</a>);
+	}
+	if ( !$options->{'no_home'} ) {
+		$buffer .=
+		  qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
+	}
+	if ( $options->{'change_password'} ) {
+		$buffer .= qq(<a href="$options->{'change_password'}" title="Set password" style="margin-right:1em">$key</a>);
+	}
+	if ( $options->{'closed_submissions'} ) {
+		$buffer .=
+		    q(<a id="show_closed" style="cursor:pointer;margin-right:1em">)
+		  . q(<span id="show_closed_text" title="Show closed submissions" )
+		  . qq(style="display:inline">$show</span>)
+		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+		  . qq(style="display:none">$hide</span></a>);
+	}
+	if ( $options->{'more_url'} ) {
+		$buffer .= qq(<a href="$options->{'more_url'}" title="Add another" style="margin-right:1em">$more</a>);
+	}
+	if ( $options->{'query_more_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'query_more_url'}" title="Query another" style="margin-right:1em">)
+		  . qq($query_more</a>);
+	}
+	if ( $options->{'upload_contigs_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'upload_contigs_url'}" title="Upload contigs" style="margin-right:1em">)
+		  . qq($upload_contigs</a>);
+	}
+	if ( $options->{'link_contigs_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'link_contigs_url'}" title="Link remote contigs" style="margin-right:1em">)
+		  . qq($link_contigs</a>);
+	}
+	if ( $options->{'reload_url'} ) {
+		$buffer .= qq(<a href="$options->{'reload_url'}" title="Reload scan form" style="margin-right:1em">$reload</a>);
+	}
+	$buffer .= q(</div><div style="clear:both"></div>);
+	return $buffer if $options->{'get_only'};
+	say $buffer;
+	return;
+}
+
+sub print_bad_status {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Failed!';
+	say q(<div class="box statusbad" style="min-height:5em">);
+	say q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	if ( $options->{'navbar'} ) {
+		$self->print_navigation_bar($options);
+	}
+	say q(</div>);
+	return;
+}
+
+sub print_good_status {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Success!';
+	say q(<div class="box resultsheader" style="min-height:5em");
+	say q(<p><a><span class="success fas fa-check fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	if ( $options->{'navbar'} ) {
+		$self->print_navigation_bar($options);
+	}
+	say q(</div>);
+	return;
+}
+
+#TODO Remove if no longer called
+sub show_success {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Success!';
+	say q(<p><a><span class="success fas fa-check fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	return;
 }
 
 sub is_page_allowed {

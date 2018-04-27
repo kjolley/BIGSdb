@@ -32,11 +32,16 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Batch insert sequences</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function can only be called for an isolate database.</p></div>);
+		$self->print_bad_status(
+			{ message => q(This function can only be called for an isolate database.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
-		  . q(upload sequences to the database.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to upload sequences to the database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -65,10 +70,9 @@ sub print_content {
 			my $err = shift;
 			$logger->debug($err);
 			if ( $err eq 'INVALID_ACCESSION' ) {
-				say q(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+				$self->print_bad_status( { message => q(Accession is invalid.) } );
 			} elsif ( $err eq 'NO_DATA' ) {
-				say q(<div class="box" id="statusbad"><p>The accession is valid but it )
-				  . q(contains no sequence data.</p></div>);
+				$self->print_bad_status( { message => q(The accession is valid but it contains no sequence data.) } );
 			}
 			$self->_print_interface;
 		};
@@ -232,7 +236,7 @@ sub _print_interface {
 	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div></div>);
 	return;
 }
@@ -252,14 +256,13 @@ sub _check_data {
 		)
 	  )
 	{
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer and )
-		  . q(exist in the isolate table.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer and exist in the isolate table.) } );
 		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( $q->param('sender') )
 		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $q->param('sender') ) )
 	{
-		say q(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
+		$self->print_bad_status( { message => q(Sender is required and must exist in the users table.) } );
 		$continue = 0;
 	}
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
@@ -278,7 +281,7 @@ sub _check_data {
 	}
 	if (@att_problems) {
 		local $" = '<br />';
-		say qq(<div class="box" id="statusbad"><p>@att_problems</p></div>);
+		$self->print_bad_status( { message => qq(@att_problems) } );
 		$continue = 0;
 	}
 	my $seq_ref;
@@ -293,11 +296,11 @@ sub _check_data {
 				if ( $ex =~ /DNA\ -\ (.*)$/x ) {
 					$header = $1;
 				}
-				say q(<div class="box" id="statusbad"><p>)
-				  . qq(FASTA data '$header' contains non-valid nucleotide characters.</p></div>);
+				$self->print_bad_status(
+					{ message => qq(FASTA data '$header' contains non-valid nucleotide characters.) } );
 				$continue = 0;
 			} else {
-				say q(<div class="box" id="statusbad"><p>Sequence data is not in valid FASTA format.</p></div>);
+				$self->print_bad_status( { message => q(Sequence data is not in valid FASTA format.) } );
 				$continue = 0;
 			}
 		};
@@ -388,7 +391,7 @@ sub _check_records_single_isolate {
 		say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
 		say $q->end_form;
 	} else {
-		say q(<div class="box" id="statusbad"><p>No valid sequences to upload.</p></div>);
+		$self->print_bad_status( { message => q(No valid sequences to upload.), navbar => 1 } );
 	}
 	say q(</div>);
 	return;
@@ -489,8 +492,13 @@ sub _upload {
 	if ( -e $tmp_file ) {
 		$fasta_ref = BIGSdb::Utils::slurp($tmp_file);
 	} else {
-		say q(<div class="box" id="statusbad"><p>Checked temporary file is no longer available. )
-		  . q(Please start again.</p></div>);
+		$self->print_bad_status(
+			{
+				message   => q(Checked temporary file is no longer available. Please start again.),
+				navbar    => 1,
+				back_page => 'batchAddSeqbin'
+			}
+		);
 		return;
 	}
 	my $seq_ref;
@@ -509,7 +517,13 @@ sub _upload {
 		$logger->error("Can't delete temp file $tmp_file");
 	}
 	if ( !$continue ) {
-		say q(<div class="box" id="statusbad"><p>Unable to upload sequences.  Please try again.</p></div>);
+		$self->print_bad_status(
+			{
+				message   => q(Unable to upload sequences. Please try again.),
+				navbar    => 1,
+				back_page => 'batchAddSeqbin'
+			}
+		);
 		return;
 	}
 	my $qry = 'INSERT INTO sequence_bin (isolate_id,sequence,method,run_id,assembly_id,original_designation,'
@@ -562,25 +576,28 @@ sub _upload {
 	};
 	if ($@) {
 		local $" = ', ';
-		say q(<div class="box" id="statusbad"><p>Database update failed - )
-		  . q(transaction cancelled - no records have been touched.</p>);
+		my $message = 'Failed! - transaction cancelled - no records have been touched.';
+		my $detail;
 		if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-			say q(<p>Data entry would have resulted in records with either duplicate ids or )
-			  . q(another unique field with duplicate values.</p>);
+			$detail = q(Data entry would have resulted in records with either duplicate ids or )
+			  . q(another unique field with duplicate values.);
 		} else {
-			say qq(<p>Error message: $@</p>);
+			$detail = qq(Error message: $@);
 		}
-		say q(</div>);
+		$self->print_bad_status( { message => $message, detail => $detail } );
 		$self->{'db'}->rollback;
 		return;
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
-		$self->print_home_link;
-		my $more = MORE;
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
-		  . qq(sender=$sender" title="Add more" style="margin-right:1em">$more</a>);
-		say q(</p></div>);
+		say q(<div class="box" id="resultsheader">);
+		$self->show_success;
+		$self->print_navigation_bar(
+			{
+				more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
+				  . qq(sender=$sender")
+			}
+		);
+		say q(</div>);
 	}
 	return;
 }

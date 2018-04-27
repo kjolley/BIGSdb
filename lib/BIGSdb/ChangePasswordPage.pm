@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,32 +41,39 @@ sub initiate {
 	return;
 }
 
-#TODO Don't allow changing passwords for users defined in external database unless specific permission granted.
 sub _can_continue {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'authentication'} ne 'builtin' ) {
-		say q(<div class="box" id="statusbad"><p>This database uses external means of authentication and the password )
-		  . q(cannot be changed from within the web application.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This database uses external means of authentication and the password )
+				  . q(cannot be changed from within the web application.)
+			}
+		);
 		return;
 	}
 	if (   $q->param('page') eq 'setPassword'
 		&& !$self->{'permissions'}->{'set_user_passwords'}
 		&& !$self->is_admin )
 	{
-		say q(<div class="box" id="statusbad"><p>You are not allowed to change other users' passwords.</p></div>);
+		$self->print_bad_status( { message => q(You are not allowed to change other users' passwords.) } );
 		return;
 	}
 	if ( $q->param('sent') && $q->param('page') eq 'setPassword' && !$q->param('user') ) {
-		say q(<div class="box" id="statusbad"><p>Please select a user.</p></div>);
+		$self->print_bad_status( { message => q(Please select a user.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( !$self->is_admin && $q->param('user') && $self->{'system'}->{'dbtype'} ne 'user' ) {
 		my $subject_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		if ( $subject_info && $subject_info->{'status'} eq 'admin' ) {
-			say q(<div class="box" id="statusbad"><p>You cannot change the password of an admin )
-			  . q(user unless you are an admin yourself.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(You cannot change the password of an admin )
+					  . q(user unless you are an admin yourself.)
+				}
+			);
 			$self->_print_interface;
 			return;
 		}
@@ -74,9 +81,13 @@ sub _can_continue {
 	if ( $q->param('user') && $q->param('page') eq 'setPassword' ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 		if ( $user_info && $user_info->{'user_db'} && !$self->{'permissions'}->{'set_site_user_passwords'} ) {
-			say q(<div class="box" id="statusbad"><p>The account details for this )
-			  . q(user are set in a site-wide user database. Your account does not have )
-			  . q(permission to update passwords for such user accounts.</p></div>);
+			$self->print_bad_status(
+				{
+					    message => q(The account details for this )
+					  . q(user are set in a site-wide user database. Your account does not have )
+					  . q(permission to update passwords for such user accounts.)
+				}
+			);
 			$self->_print_interface;
 			return;
 		}
@@ -96,8 +107,12 @@ sub print_content {
 			#make sure user is only attempting to change their own password (user parameter is passed as a hidden
 			#parameter and could be changed)
 			if ( $self->{'username'} ne $q->param('user') ) {
-				say q(<div class="box" id="statusbad"><p>You are attempting to change another user's password. )
-				  . q(You are not allowed to do that!</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(You are attempting to change another user's password. )
+						  . q(You are not allowed to do that!)
+					}
+				);
 				$further_checks = 0;
 			} else {
 
@@ -120,8 +135,12 @@ sub print_content {
 					}
 				}
 				if ( !$password_matches ) {
-					say q(<div class="box" id="statusbad"><p>Your existing password was entered incorrectly. )
-					  . q(The password has not been updated.</p></div>);
+					$self->print_bad_status(
+						{
+							message => q(Your existing password was entered incorrectly. )
+							  . q(The password has not been updated.)
+						}
+					);
 					$further_checks = 0;
 				}
 			}
@@ -146,21 +165,26 @@ sub print_content {
 				  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
 				  ? $self->{'username'}
 				  : $q->param('user');
+				my $instance_clause = $self->{'instance'} ? qq(?db=$self->{'instance'}) : q();
+				my $back_url = qq($self->{'system'}->{'script_name'}$instance_clause);
 				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
-					say q(<div class="box" id="resultsheader"><p>)
-					  . (
-						$q->param('page') eq 'changePassword'
-						? q(Password updated ok.)
-						: qq(Password set for user '$username'.)
-					  ) . q(</p>);
+					my $message =
+					  $q->param('page') eq 'changePassword'
+					  ? q(Password updated ok.)
+					  : qq(Password set for user '$username'.);
+					$self->print_good_status(
+						{ message => $message, navbar => 1, no_home => 1, back_url => $back_url } );
 					$self->_set_validated_status;
 				} else {
-					say q(<div class="box" id="resultsheader"><p>Password not updated.  )
-					  . q(Please check with the system administrator.</p>);
+					$self->print_bad_status(
+						{
+							message  => q(Password not updated. Please check with the system administrator.),
+							navbar   => 1,
+							no_home  => 1,
+							back_url => $back_url
+						}
+					);
 				}
-				my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?$instance_clause">)
-				  . q(Return to index</a></p></div>);
 				return;
 			}
 		}
@@ -174,29 +198,32 @@ sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my $q          = $self->{'cgi'};
 	my $min_length = MIN_PASSWORD_LENGTH;
 	if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
-		say q(<div class="box" id="statusbad"><p>The password is too short and has not been updated. )
-		  . qq(It must be at least $min_length characters long.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The password is too short and has not been updated. )
+				  . qq(It must be at least $min_length characters long.)
+			}
+		);
 		return 1;
 	}
 	return;
 }
 
-sub _fails_retype_check {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _fails_retype_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('new_password1') ne $q->param('new_password2') ) {
-		say q(<div class="box" id="statusbad"><p>The password was not re-typed the same )
-		  . q(as the first time.</p></div>);
+		$self->print_bad_status( { message => q(The password was not re-typed the same as the first time.) } );
 		return 1;
 	}
 	return;
 }
 
-sub _fails_new_check {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _fails_new_check {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('existing_password') eq $q->param('new_password1') ) {
-		say q(<div class="box" id="statusbad"><p>You must use a new password!</p></div>);
+		$self->print_bad_status( { message => q(You must use a new password!) } );
 		return 1;
 	}
 	return;
@@ -206,7 +233,7 @@ sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('username_as_password') eq $q->param('new_password1') ) {
-		say q(<div class="box" id="statusbad"><p>You can't use your username as your password!</p></div>);
+		$self->print_bad_status( { message => q(You can't use your username as your password!) } );
 		return 1;
 	}
 	return;

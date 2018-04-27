@@ -37,24 +37,25 @@ sub print_content {
 	my $locus  = $q->param('locus');
 	if ( !defined $locus ) {
 		say q(<h1>Allele information</h1>);
-		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
+		$self->print_bad_status( { message => q(No locus selected.), navbar => 1 } );
 		return;
 	}
-	$locus =~ s/%27/'/gx;    #Web-escaped locus
+	$locus =~ s/%27/'/gx;                                                                #Web-escaped locus
 	my $allele_id = $q->param('allele_id');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		say q(<h1>Allele information</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	say q(<h1>Allele information) . ( defined $allele_id ? qq( - $cleaned_locus: $allele_id) : '' ) . q(</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available from an isolate database.</p></div>);
+		$self->print_bad_status(
+			{ message => q(This function is not available from an isolate database.), navbar => 1 } );
 		return;
 	}
 	if ( !defined $allele_id ) {
-		say q(<div class="box" id="statusbad"><p>No allele id selected.</p></div>);
+		$self->print_bad_status( { message => q(No allele id selected.), navbar => 1 } );
 		return;
 	}
 	my $seq_ref = $self->{'datastore'}->run_query(
@@ -63,7 +64,7 @@ sub print_content {
 		{ fetch => 'row_hashref' }
 	);
 	if ( !$seq_ref ) {
-		say q(<div class="box" id="statusbad"><p>This sequence does not exist.</p></div>);
+		$self->print_bad_status( { message => q(This sequence does not exist.), navbar => 1 } );
 		return;
 	}
 	my $length = length( $seq_ref->{'sequence'} );
@@ -92,7 +93,7 @@ sub print_content {
 			$seq_ref->{'sender'},
 			{
 				affiliation => ( $seq_ref->{'sender'} != $seq_ref->{'curator'} ),
-				email => !$self->{'system'}->{'privacy'} 
+				email       => !$self->{'system'}->{'privacy'}
 			}
 		);
 		say qq(<dt>sender</dt><dd>$sender</dd>);

@@ -124,28 +124,33 @@ sub print_content {
 	$locus =~ s/^cn_//x;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
-	
 	my $cleaned_locus = $self->clean_locus($locus);
-	if (!$self->{'datastore'}->is_locus($locus)){
+
+	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$cleaned_locus = q();
 	}
-	my $desc          = $self->get_db_description;
+	my $desc = $self->get_db_description;
 	say qq(<h1>Query $cleaned_locus sequences - $desc database</h1>);
 	my $qry;
-
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<noscript><div class="box statusbad"><p>This interface requires )
-		  . q(that you enable Javascript in your browser.</p></div></noscript>);
+		say q(<noscript>);
+		$self->print_bad_status(
+			{ message => q(This interface requires that you enable Javascript in your browser.) } );
+		say q(</noscript>);
 		$self->_print_interface;
 	}
 	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		if ( $q->param('locus') eq q() ) {
-			say q(<div class="box" id="statusbad"><p>Please select locus or use the general )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-			  . q(table=sequences">sequence attribute query</a> page.</p></div>);
+			$self->print_bad_status(
+				{
+					    message => q(Please select locus or use the general )
+					  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+					  . q(table=sequences">sequence attribute query</a> page.)
+				}
+			);
 		} else {
 			$self->_run_query;
 		}
@@ -210,10 +215,8 @@ sub _print_table_fields {
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
 		  . q(class="button">+</a>);
-		say $self->get_tooltip(
-			q(Search values - Empty field values can be searched using the term 'null'. )
-			  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button.)
-		);
+		say $self->get_tooltip( q(Search values - Empty field values can be searched using the term 'null'. )
+			  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button.) );
 	}
 	say q(</span>);
 	return;
@@ -340,7 +343,7 @@ sub _run_query {
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$logger->error("Invalid locus $locus");
-		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid locus selected.) } );
 		return;
 	}
 	if ( !defined $q->param('query_file') ) {
@@ -362,8 +365,7 @@ sub _run_query {
 	}
 	push @hidden_attributes, qw(locus list list_file allele_flag_list);
 	if (@$errors) {
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 		return;
 	}
 	$qry =~ s/AND\ \(\)//x;

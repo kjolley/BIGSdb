@@ -300,9 +300,13 @@ sub print_content {
 		say q(</div>);
 	}
 	if ( !$can_do_something ) {
-		say q(<div class="box" id="statusbad"><p>Although you are set as a curator/submitter, )
-		  . q(you haven't been granted specific permission to do anything.  Please contact the )
-		  . q(database administrator to set your appropriate permissions.</p></div>);
+		$self->print_bad_status(
+			{
+				    message => q(Although you are set as a curator/submitter, )
+				  . q(you haven't been granted specific permission to do anything.  Please contact the )
+				  . q(database administrator to set your appropriate permissions.)
+			}
+		);
 	}
 	return;
 }
@@ -1188,15 +1192,9 @@ sub _get_closed_submission_section {
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 	my $buffer = q();
 	if ($closed_buffer) {
-		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-		$buffer =
-		    q(<div style="margin-top:1em"><a id="show_closed" style="cursor:pointer">)
-		  . q(<span id="show_closed_text" title="Show closed submissions" )
-		  . qq(style="display:inline">$show</span>)
-		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
-		  . qq(style="display:none">$hide</span></a></div>);
+		$buffer .= $self->print_navigation_bar( { no_home => 1, closed_submissions => 1, get_only => 1 } );
 		$buffer .=
-		  q(<div id="closed" style="display:none">) . q(<h2>Closed submissions for which you had curator rights</h2>);
+		  q(<div id="closed" style="display:none"><h2>Closed submissions for which you had curator rights</h2>);
 		my $days = $self->get_submission_days;
 		$buffer .= q(<p>The following submissions are now closed - they will remain here until )
 		  . qq(removed by the submitter or for $days days.);

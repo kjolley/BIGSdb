@@ -274,32 +274,34 @@ sub _upload {
 				}
 			};
 			if ($@) {
-				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
-				  . q(no records have been touched.</p>);
+				my $detail;
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
-					  . q(unique field with duplicate values.</p>);
+					$detail = q(Data entry would have resulted in records with either duplicate ids or another )
+					  . q(unique field with duplicate values.);
 				} else {
 					$logger->error("Insert failed: $@");
 				}
-				say q(</div>);
+				$self->print_bad_status(
+					{
+						message => 'Insert failed - transaction cancelled - no records have been touched.',
+						detail  => $detail
+					}
+				);
 				$self->{'db'}->rollback;
 			} else {
-				$self->{'db'}->commit
-				  && say qq(<div class="box" id="resultsheader"><p>$primary_key-$newdata->{"field:$primary_key"} )
-				  . q(added!</p><p>);
-				my ( $back, $more ) = ( BACK, MORE );
-				if ( $q->param('submission_id') ) {
-					my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
-					if ($submission) {
-						say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-						  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
-						  . qq(submission" style="margin-right:1em">$back</a>);
+				$self->{'db'}->commit;
+				my $submission_id = $q->param('submission_id');
+				say q(<div class="box" id="resultsheader">);
+				$self->show_success( { message => qq($primary_key-$newdata->{"field:$primary_key"} added.) } );
+				$self->print_navigation_bar(
+					{
+						submission_id => $submission_id,
+						more_url =>
+						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+						  . qq(scheme_id=$scheme_id)
 					}
-				}
-				$self->print_home_link;
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
-				  . qq(scheme_id=$scheme_id" title="Add another">$more</a></p></div>);
+				);
+				say q(</div>);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
 			}

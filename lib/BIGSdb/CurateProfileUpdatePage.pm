@@ -308,9 +308,10 @@ sub _update {
 		return;
 	}
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader"><p>Updated!</p><p>);
-	$self->print_home_link;
-	say q(</p></div>);
+	say q(<div class="box" id="resultsheader">);
+	$self->show_success( { message => 'Profile updated.' } );
+	$self->print_navigation_bar;
+	say q(</div>);
 	local $" = q(<br />);
 	$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
 	return;
@@ -320,8 +321,7 @@ sub _handle_failure {
 	my ($self) = @_;
 	$logger->error($@);
 	$self->{'db'}->rollback;
-	say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-	  . q(no records have been touched.</p></div>);
+	$self->print_bad_status( { message => q(Update failed - transaction cancelled - record has not been touched.) } );
 	return;
 }
 

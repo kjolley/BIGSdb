@@ -497,19 +497,12 @@ sub _upload {
 			return;
 		}
 	}
-	$self->{'db'}->commit
-	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
-	my $back = BACK;
-	if ( $q->param('submission_id') ) {
-		my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
-		if ($submission) {
-			say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
-			  . qq(submission" style="margin-right:1em">$back</a>);
-		}
-	}
-	$self->print_home_link;
-	say q(</p></div>);
+	$self->{'db'}->commit;
+	say q(<div class="box" id="resultsheader">);
+	$self->show_success( { message => 'Profiles added.' } );
+	my $submission_id = $q->param('submission_id');
+	$self->print_navigation_bar( { submission_id => $submission_id } );
+	say q(</div>);
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}
@@ -562,7 +555,7 @@ sub _print_interface {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

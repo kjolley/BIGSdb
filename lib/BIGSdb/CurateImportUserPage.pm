@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,11 +30,12 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Import user from remote users database</h1>);
 	if ( !$self->{'datastore'}->user_dbs_defined ) {
-		say q(<div class="box" id="statusbad"><p>No user databases are defined.</p></div>);
+		$self->print_bad_status( { message => q(No user databases are defined.), navbar => 1 } );
 		return;
 	}
 	if ( !( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) ) {
-		say q(<div class="box" id="statusbad"><p>Your account does not have permission to import users.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Your account does not have permission to import users.), navbar => 1 } );
 		return;
 	}
 	my $default_db =
@@ -45,7 +46,7 @@ sub print_content {
 	}
 	my $user_db = $q->param('user_db');
 	if ( !BIGSdb::Utils::is_int($user_db) || !$self->{'datastore'}->user_db_defined($user_db) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid user database submitted.</p></div>);
+		$self->print_bad_status( { message => q(Invalid user database submitted.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('submit') && $q->param('users') ) {
@@ -143,8 +144,7 @@ sub _import {
 	my $matching_configs =
 	  $self->{'datastore'}->get_configs_using_same_database( $remote_db, $self->{'system'}->{'db'} );
 	eval {
-		foreach my $user_name (@users)
-		{
+		foreach my $user_name (@users) {
 			$invalid_upload = 1 if !$self->_check_valid_import( $user_db, $user_name );
 			my $id         = $self->next_id('users');
 			my $curator_id = $self->get_curator_id;
@@ -172,17 +172,15 @@ sub _import {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		$remote_db->rollback;
-		say q(<div class="box" id="statusbad"><p>User upload failed.</p>);
+		$self->print_bad_status( { message => q(User upload failed.), navbar => 1 } );
 	} else {
 		$self->{'db'}->commit;
 		$remote_db->commit;
 		local $" = q(, );
 		my $plural = @users == 1 ? q() : q(s);
-		say qq(<div class="box" id="resultsheader"><p>User$plural @users successfully imported.</p>);
+		$self->print_good_status( { message => qq(User$plural @users successfully imported.), navbar => 1 } );
 		my $user_db_object = $self->{'datastore'}->get_user_db($user_db);
 	}
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to index</a></p>);
-	say q(</div>);
 	return;
 }
 
@@ -192,7 +190,8 @@ sub _check_valid_import {
 		$user_name, { cache => 'CurateImportUserPage::check_valid_import::local' } );
 	if ($exists_in_local) {
 		$logger->error("User '$user_name' already exists in the local database.");
-		say qq(<div class="box" id="statusbad"><p>User '$user_name' already exists in the local database.</p></div>);
+		$self->print_bad_status(
+			{ message => qq(User '$user_name' already exists in the local database.), navbar => 1 } );
 		return;
 	}
 	my $remote_db        = $self->{'datastore'}->get_user_db($user_db);
@@ -203,8 +202,12 @@ sub _check_valid_import {
 	);
 	if ( !$exists_in_remote ) {
 		$logger->error("User '$user_name' does not exist in the remote user database.");
-		say qq(<div class="box" id="statusbad"><p>User '$user_name' does not )
-		  . q(exist in the remote user database.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(User '$user_name' does not exist in the remote user database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	return 1;

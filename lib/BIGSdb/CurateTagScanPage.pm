@@ -653,29 +653,34 @@ sub _tag {
 		};
 		if ($@) {
 			my $err = $@;
-			say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled - )
-			  . q(no records have been touched.</p>);
+			my $detail;
 			if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-				say q(<p>Data entry would have resulted in records with either duplicate ids )
-				  . q(or another unique field with duplicate values.</p>);
+				$detail = q(Data entry would have resulted in records with either duplicate ids )
+				  . q(or another unique field with duplicate values.);
 			} else {
-				say qq(<p>Error message: $err</p>);
 				$logger->error($err);
 			}
-			say q(</div>);
+			$self->print_bad_status(
+				{
+					message => q(Database update failed - transaction cancelled - no records have been touched.),
+					detail  => $detail
+				}
+			);
 			$self->{'db'}->rollback;
 			return;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Database updated ok.</p><p>);
-			$self->print_home_link;
-			my $reload = RELOAD;
-			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-			  . qq(parameters=$scan_job" title="Reload scan form" style="margin-right:1em">$reload</a>);
-			say q(</p></div>);
+			say q(<div class="box" id="resultsheader">);
+			$self->show_success( { message => 'Database updated.' } );
+			$self->print_navigation_bar(
+				{
+					reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+					  . qq(parameters=$scan_job)
+				}
+			);
+			say q(</div>);
 			say q(<div class="box" id="resultstable">);
 			local $" = qq(<br />\n);
-
 			if (@allele_updates) {
 				say q(<h2>Allele designations set</h2>);
 				say qq(<p>@allele_updates</p>);
@@ -694,12 +699,14 @@ sub _tag {
 			say q(</div>);
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No updates required.</p><p>);
-		$self->print_home_link;
-		my $reload = RELOAD;
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-		  . qq(parameters=$scan_job" title="Reload scan form" style="margin-right:1em">$reload</a>);
-		say q(</p></div>);
+		say q(<div class="box" id="resultsheader"><p>No updates required.</p>);
+		$self->print_navigation_bar(
+			{
+				reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+				  . qq(parameters=$scan_job)
+			}
+		);
+		say q(</div>);
 	}
 	return;
 }

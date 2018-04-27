@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,21 +37,29 @@ sub print_content {
 	my $buffer;
 	say q(<h1>Delete isolate</h1>);
 	if ( !$id ) {
-		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
+		$self->print_bad_status( { message => q(No id passed.), navbar => 1 } );
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($id) ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $data = $self->{'datastore'}->get_isolate_field_values($id);
 	if ( !$data ) {
-		say qq(<div class="box" id="statusbad"><p>No record with id-$id exists or your )
-		  . q(account is not allowed to delete it.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(No record with id-$id exists or your account is not allowed to delete it.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
-		  . q(delete records in the isolates table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to delete records in the isolates table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $icon = $self->get_form_icon( 'isolates', 'trash' );
@@ -136,17 +144,16 @@ sub _delete {
 		}
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
-		  . q(no records have been touched.</p>);
-		say qq(<p>Failed SQL: $_</p>);
-		say qq(<p>Error message: $@</p></div>);
+		$self->print_bad_status(
+			{ message => 'Delete failed - transaction cancelled - no records have been touched.' } );
 		$logger->error("Delete failed: $_ $@");
 		$self->{'db'}->rollback;
 		return;
 	}
-	$self->{'db'}->commit
-	  && say qq(<div class="box" id="resultsheader"><p>Isolate id:$isolate_id deleted!</p>);
-	$self->print_home_link;
+	$self->{'db'}->commit;
+	say q(<div class="box" id="resultsheader">);
+	$self->show_success( { message => "Isolate id:$isolate_id deleted!" } );
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

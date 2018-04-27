@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,7 +45,7 @@ sub _create_query_table {
 		my $plural = $field_count > 1 ? q(s) : q();
 		say qq(<div class="box" id="resultsheader">$field_count composite field$plural defined.</div>);
 	} else {
-		say q(<div class="box" id="statusbad">No composite fields have been defined.</div>);
+		$self->print_bad_status( { message => q(No composite fields have been defined.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

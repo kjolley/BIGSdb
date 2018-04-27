@@ -77,14 +77,15 @@ sub print_content {
 		|| ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) )
 	{
 		say q(<h1>Table query</h1>);
-		say q(<div class="box" id="statusbad"><p>You cannot use this function to query the isolate table.</p></div>);
+		$self->print_bad_status(
+			{ message => q(You cannot use this function to query the isolate table.), navbar => 1 } );
 		return;
 	}
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
 		say q(<h1>Table query</h1>);
-		say qq(<div class="box" id="statusbad"><p>Table '$table' is not defined.</p></div>);
+		$self->print_bad_status( { message => qq(Table '$table' is not defined.), navbar => 1 } );
 		return;
 	}
 	my $cleaned = $table;
@@ -96,8 +97,10 @@ sub print_content {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<noscript><div class="box statusbad"><p>This interface requires )
-		  . q(that you enable Javascript in your browser.</p></div></noscript>);
+		say q(<noscript>);
+		$self->print_bad_status(
+			{ message => q(This interface requires that you enable Javascript in your browser.) } );
+		say q(</noscript>);
 		$self->_print_interface;
 	}
 	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
@@ -504,8 +507,7 @@ sub _run_query {
 	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@$errors) {
 		local $" = q(<br />);
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');

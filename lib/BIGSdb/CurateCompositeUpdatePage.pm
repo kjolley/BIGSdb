@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,13 +39,14 @@ sub print_content {
 	my $id     = $q->param('id');
 	say qq(<h1>Update composite field - $id</h1>);
 	if ( !$self->can_modify_table('composite_fields') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not )
-		  . q(allowed to update composite fields.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Your user account is not allowed to update composite fields.), navbar => 1 } );
 		return;
 	}
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)', $id );
 	if ( !$exists ) {
-		say qq(<div class="box" id="statusbad">Composite field '$id' has not been defined.</div>);
+		$self->print_bad_status( { message => qq(Composite field '$id' has not been defined.), navbar => 1 } )
+		  ;
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

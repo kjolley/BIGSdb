@@ -53,7 +53,7 @@ sub _process {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Isolate does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Isolate does not exist.), navbar => 1 } );
 		$self->_print_interface;
 		return;
 	}
@@ -69,7 +69,7 @@ sub _process {
 	say q(<h2 id="title">Processing contigs</h2>);
 	say q(<div id="results"></div>);
 	say q(<div id="nav" style="display:none">);
-	$self->_print_nav_link;
+	$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 	say q(</div></div>);
 	my $prefix      = BIGSdb::Utils::get_random();
 	my $output_file = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
@@ -178,7 +178,7 @@ sub _upload {
 	my $q            = $self->{'cgi'};
 	my $contigs_list = $q->param('contigs_list');
 	if ( !$contigs_list ) {
-		say q(<div class="box" id="statusbad"><p>No contigs list passed.</p></div>);
+		$self->print_bad_status( { message => q(No contigs list passed.), navbar => 1 } );
 		return;
 	}
 	my $data;
@@ -189,15 +189,15 @@ sub _upload {
 			$data = $self->{'contigManager'}->get_remote_contig_list($contigs_list);
 		}
 		catch BIGSdb::AuthenticationException with {
-			say q(<div class="box" id="statusbad"><p>OAuth authentication failed.</p></div>);
+			$self->print_bad_status( { message => q(OAuth authentication failed.), navbar => 1 } );
 			$error = 1;
 		}
 		catch BIGSdb::FileException with {
-			say q(<div class="box" id="statusbad"><p>URI is inaccessible.</p></div>);
+			$self->print_bad_status( { message => q(URI is inaccessible.), navbar => 1 } );
 			$error = 1;
 		}
 		catch BIGSdb::DataException with {
-			say q(<div class="box" id="statusbad"><p>Contigs list is not valid JSON.</p></div>);
+			$self->print_bad_status( { message => q(Contigs list is not valid JSON.), navbar => 1 } );
 			$error = 1;
 		};
 		if ( $data->{'paging'} ) {
@@ -208,12 +208,12 @@ sub _upload {
 	} until ( $error || $all_records );
 	my $contigs = $data->{'contigs'};
 	if ( ref $contigs ne 'ARRAY' || !@$contigs ) {
-		say q(<div class="box" id="statusbad"><p>No contigs found.</p></div>);
+		$self->print_bad_status( { message => q(No contigs found.), navbar => 1 } );
 		return;
 	}
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>You do not have permission to modify this isolate.</p></div>);
+		$self->print_bad_status( { message => q(You do not have permission to modify this isolate.), navbar => 1 } );
 		$self->_print_interface;
 		return;
 	}
@@ -232,7 +232,7 @@ sub _upload {
 	};
 	if ($@) {
 		$logger->error($@);
-		say q(<div class="box" id="statusbad"><p>Contig upload failed.</p></div>);
+		$self->print_bad_status( { message => q(Contig upload failed.), navbar => 1 } );
 		$self->{'db'}->rollback;
 		return;
 	}
@@ -271,7 +271,7 @@ sub _upload {
 		say $q->hidden($_) foreach qw(db page contigs_list isolate_id process);
 		say $q->end_form;
 	}
-	$self->_print_nav_link;
+	$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 	say q(</div>);
 	return;
 }
@@ -294,7 +294,7 @@ sub _check {
 	}
 	$error = 'Please enter URI for isolate record.' if !$isolate_uri;
 	if ($error) {
-		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
+		$self->print_bad_status( { message => $error, navbar => 1 } );
 		$self->_print_interface;
 		return;
 	}
@@ -319,7 +319,7 @@ sub _check {
 		$error = 1;
 	};
 	if ($error) {
-		$self->_print_nav_link;
+		$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 	} else {
 		say q(done.</p>);
 		if ($@) {
@@ -328,7 +328,7 @@ sub _check {
 		}
 		if ( ref $isolate_data ne 'HASH' || !$isolate_data->{'sequence_bin'} ) {
 			say q(<p class="statusbad">No contigs found.</p>);
-			$self->_print_nav_link;
+			$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 		} else {
 			my $contig_count = $isolate_data->{'sequence_bin'}->{'contig_count'};
 			my $length       = BIGSdb::Utils::commify( $isolate_data->{'sequence_bin'}->{'total_length'} );
@@ -344,15 +344,6 @@ sub _check {
 		}
 	}
 	say q(</div>);
-	return;
-}
-
-sub _print_nav_link {
-	my ($self) = @_;
-	my $back = BACK;
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs")
-	  . qq( title="Return to batch add remote contigs" style="margin-right:1em">$back</a>);
-	$self->print_home_link;
 	return;
 }
 
@@ -393,6 +384,7 @@ sub _print_interface {
 	$q->param( check => 1 );
 	say $q->hidden($_) foreach qw(db page check);
 	say $q->end_form;
+	$self->print_navigation_bar;
 	say q(</div></div>);
 	return;
 }

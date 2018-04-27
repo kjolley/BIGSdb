@@ -117,7 +117,7 @@ sub print_content {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
 		say q(<h1>Manage submissions</h1>);
-		say q(<div class="box" id="statusbad"><p>The submission system is not enabled.</p></div>);
+		$self->print_bad_status( { message => q(The submission system is not enabled.), navbar => 1 } );
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -137,7 +137,8 @@ sub print_content {
 	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>You are not a recognized user. Submissions are disabled.</p></div>);
+		$self->print_bad_status(
+			{ message => q(You are not a recognized user. Submissions are disabled.), navbar => 1 } );
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -148,30 +149,27 @@ sub print_content {
 			return;
 		}
 	}
+	my $submissions_to_show = $self->_any_pending_submissions_to_show;
 	$self->_delete_old_submissions;
+	my $closed_buffer =
+	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
+		if ( !$submissions_to_show ) {
+			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+		}
 		say q(</div></div>);
 	}
-	say q(<div class="box resultstable"><div class="scrollable">);
-	$self->_print_pending_submissions;
-	$self->print_submissions_for_curation;
-	$self->_print_closed_submissions;
-	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-	say q(<p style="margin-top:1em">);
-	$self->print_home_link;
-	my $closed_buffer =
-	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
-
-	if ($closed_buffer) {
-		say q(<a id="show_closed" style="cursor:pointer">)
-		  . q(<span id="show_closed_text" title="Show closed submissions" )
-		  . qq(style="display:inline">$show</span>)
-		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
-		  . qq(style="display:none">$hide</span></a>);
+	if ($submissions_to_show) {
+		say q(<div class="box resultstable"><div class="scrollable">);
+		$self->_print_pending_submissions;
+		$self->print_submissions_for_curation;
+		$self->_print_closed_submissions;
+		say q(<p style="margin-top:1em">);
+		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+		say q(</p></div></div>);
 	}
-	say q(</p></div></div>);
 	if ($closed_buffer) {
 		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
 		say q(<h2>Closed submissions for which you had curator rights</h2>);
@@ -181,6 +179,14 @@ sub print_content {
 		say $closed_buffer;
 		say q(</div></div>);
 	}
+	return;
+}
+
+sub _any_pending_submissions_to_show {
+	my ($self) = @_;
+	return 1 if $self->_get_own_submissions('pending');
+	return 1 if $self->print_submissions_for_curation( { get_only => 1 } );
+	return 1 if $self->_get_own_submissions('closed');
 	return;
 }
 
@@ -195,8 +201,12 @@ sub _user_over_quota {
 	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?)',
 		[ $user_info->{'id'}, 'pending' ] );
 	if ( $total_pending >= $total_limit ) {
-		say q(<div class="box" id="statusbad"><p>Your account has too many pending submissions. )
-		  . q(You will not be able to submit any more until these have been curated.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account has too many pending submissions. )
+				  . q(You will not be able to submit any more until these have been curated.)
+			}
+		);
 		return 1;
 	}
 	my $daily_limit =
@@ -208,9 +218,13 @@ sub _user_over_quota {
 	  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status,date_submitted)=(?,?,?)',
 		[ $user_info->{'id'}, 'pending', 'now' ] );
 	if ( $daily_pending >= $daily_limit ) {
-		say q(<div class="box" id="statusbad"><p>Your account has too many pending submissions )
-		  . q(submitted today. You will not be able to submit any more until either tomorrow or )
-		  . q(when these have been curated.</p></div>);
+		$self->print_bad_status(
+			{
+				    message => q(Your account has too many pending submissions )
+				  . q(submitted today. You will not be able to submit any more until either tomorrow or )
+				  . q(when these have been curated.)
+			}
+		);
 		return 1;
 	}
 	return;
@@ -220,8 +234,12 @@ sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		say q(<div class="box" id="statusbad"><p>You cannot submit new allele sequences for definition in an )
-		  . q(isolate database.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You cannot submit new allele sequences for definition in an isolate database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( $q->param('submit') ) {
@@ -235,8 +253,12 @@ sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		say q(<div class="box" id="statusbad"><p>You cannot submit new profiles for definition in an )
-		  . q(isolate database.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You cannot submit new profiles for definition in an isolate database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_submit_profiles;
@@ -247,20 +269,28 @@ sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>You cannot submit new isolates to a )
-		  . q(sequence definition database.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You cannot submit new isolates to a sequence definition database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_submit_isolates;
 	return;
 }
 
-sub _handle_genomes {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _handle_genomes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>You cannot submit new genomes to a )
-		  . q(sequence definition database.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You cannot submit new genomes to a sequence definition database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_submit_isolates( { genomes => 1 } );
@@ -747,7 +777,7 @@ sub _submit_alleles {
 			my @err = @{ $ret->{'err'} };
 			local $" = '<br />';
 			my $plural = @err == 1 ? '' : 's';
-			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@err</p></div>);
+			$self->print_bad_status( { message => qq(Error$plural:), detail => qq(@err) } );
 		} else {
 			if ( $ret->{'info'} ) {
 				$self->_print_allele_warnings( $ret->{'info'} );
@@ -823,9 +853,9 @@ sub _submit_profiles {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
-			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
+			$self->print_bad_status( { message => qq(Error$plural:), detail => qq(@$err) } );
 		} elsif ( !@{ $ret->{'profiles'} } ) {
-			say q(<div class="box" id="statusbad"><h2>Error:</h2><p>No profiles in upload.</p></div>);
+			$self->print_bad_status( { message => q(Error:), detail => 'No profiles in upload.' } );
 		} else {
 			$self->_presubmit_profiles( undef, $ret->{'profiles'} );
 			return;
@@ -833,13 +863,13 @@ sub _submit_profiles {
 	}
 	my $scheme_id = $q->param('scheme_id');
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer</p></div>);
+		$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
 	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
-		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
@@ -880,7 +910,7 @@ sub _submit_isolates {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
-			say qq(<div class="box" id="statusbad"><h2>Error$plural:</h2><p>@$err</p></div>);
+			$self->print_bad_status( { message => qq(Error$plural:), detail => qq(@$err) } );
 		} else {
 			$self->_presubmit_isolates(
 				{ isolates => $ret->{'isolates'}, positions => $ret->{'positions'}, options => $options } );
@@ -2156,21 +2186,24 @@ sub _is_submission_valid {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ( !$submission_id ) {
-		say q(<div class="box" id="statusbad"><p>No submission id passed.</p></div>) if !$options->{'no_message'};
+		$self->print_bad_status( { message => q(No submission id passed.), navbar => 1 } ) if !$options->{'no_message'};
 		return;
 	}
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( !$submission ) {
-		say qq(<div class="box" id="statusbad"><p>Submission '$submission_id' does not exist.</p></div>)
+		$self->print_bad_status( { message => qq(Submission '$submission_id' does not exist.), navbar => 1 } )
 		  if !$options->{'no_message'};
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( $options->{'curate'} ) {
 		if ( !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' ) ) {
-			say q(<div class="box" id="statusbad"><p>Your account does not have the required )
-			  . q(permissions to curate this submission.</p></div>)
-			  if !$options->{'no_message'};
+			$self->print_bad_status(
+				{
+					message => q(Your account does not have the required permissions to curate this submission.),
+					navbar  => 1
+				}
+			) if !$options->{'no_message'};
 			return;
 		}
 		if ( $submission->{'type'} eq 'alleles' ) {
@@ -2179,8 +2212,13 @@ sub _is_submission_valid {
 			  $self->{'datastore'}
 			  ->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} );
 			if ( !( $self->is_admin || $curator_allowed ) ) {
-				say q(<div class="box" id="statusbad"><p>Your account does not have the required )
-				  . qq(permissions to curate new $allele_submission->{'locus'} sequences.</p></div>)
+				$self->print_bad_status(
+					{
+						message => q(Your account does not have the required )
+						  . qq(permissions to curate new $allele_submission->{'locus'} sequences.),
+						navbar => 1
+					}
+				  )
 				  if !$options->{'no_message'};
 				return;
 			}
@@ -2199,7 +2237,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $curate     = 1;
 	if ( $submission->{'status'} eq 'closed' ) {
-		say q(<div class="box" id="statusbad"><p>This submission is closed and cannot now be modified.</p></div>);
+		$self->print_bad_status( { message => q(This submission is closed and cannot now be modified.) } );
 		$curate = 0;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);

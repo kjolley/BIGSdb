@@ -751,9 +751,9 @@ sub _print_user_projects {
 		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
-	say q(<p>);
-	$self->print_home_link;
-	say q(</p></div>);
+	$self->print_navigation_bar;
+	say q(</div>);
+	
 	return;
 }
 

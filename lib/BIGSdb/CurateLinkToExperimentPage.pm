@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,34 +31,37 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	say q(<h1>Link sequences to experiment</h1>);
 	if ( !$query ) {
-		say q(<div class="box" id="statusbad"><p>No selection query passed!</p></div>);
+		$self->print_bad_status( { message => q(No selection query passed!), navbar => 1 } );
 		return;
 	} elsif ( $query !~ /SELECT\ \*\ FROM\ sequence_bin/x ) {
 		$logger->error("Query:$query");
-		say q(<div class="box" id="statusbad"><p>Invalid query passed!</p></div>);
+		$self->print_bad_status( { message => q(Invalid query passed!), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
-		  . q(to link sequences to experiments.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to link sequences to experiments.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$query =~ s/SELECT\ \*/SELECT id/x;
 	my $ids = $self->{'datastore'}->run_query( $query, undef, { fetch => 'col_arrayref' } );
-	if ( $q->param('Link') ) {
+	if ( $q->param('submit') ) {
 		my $experiment = $q->param('experiment');
 		if ( !$experiment ) {
-			say q(<div class="box" id="statusbad"><p>No experiment selected.</p></div>);
+			$self->print_bad_status( { message => q(No experiment selected.), navbar => 1 } );
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($experiment) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid experiment selected.</p></div>);
+			$self->print_bad_status( { message => q(Invalid experiment selected.), navbar => 1 } );
 			return;
 		}
 		my $qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
 		my $sql_insert = $self->{'db'}->prepare($qry);
 		my $curator_id = $self->get_curator_id;
 		eval {
-			foreach my $id (@$ids)
-			{
+			foreach my $id (@$ids) {
 				my $exists = $self->{'datastore'}->run_query(
 					'SELECT EXISTS(SELECT * FROM experiment_sequences WHERE (experiment_id,seqbin_id)=(?,?))',
 					[ $experiment, $id ],
@@ -71,12 +74,22 @@ sub print_content {
 		};
 		if ($@) {
 			$logger->error("Can't execute $@");
-			say q(<div class="box" id="statusbad"><p>Error encountered linking experiments. )
-			  . q(There should be more details of this error in the server log.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(Error encountered linking experiments. )
+					  . q(There should be more details of this error in the server log.),
+					navbar => 1
+				}
+			);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Sequences linked!</p></div>);
+			$self->print_good_status(
+				{
+					message => q(Sequences linked.),
+					navbar  => 1
+				}
+			);
 		}
 		return;
 	}
@@ -84,7 +97,6 @@ sub print_content {
 	my $count = @$ids;
 	my $plural = @$ids == 1 ? q() : q(s);
 	say qq(<p>$count sequence$plural selected.</p>);
-	say q(<p>Please select the experiment to link these sequences to:</p>);
 	my $exp_data = $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @ids = (0);
@@ -95,8 +107,10 @@ sub print_content {
 		$desc{ $data->{'id'} } = $data->{'description'};
 	}
 	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Select experiment</legend>);
 	say $q->popup_menu( -name => 'experiment', -values => \@ids, -labels => \%desc );
-	say $q->submit( -name => 'Link', -class => 'button' );
+	say q(</fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Link', no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page query_file);
 	say $q->end_form;
 	say q(</div>);

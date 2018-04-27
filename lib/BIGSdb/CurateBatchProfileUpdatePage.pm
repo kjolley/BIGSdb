@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2017, University of Oxford
+#Copyright (c) 2013-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,32 +33,41 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	my $scheme_id = $q->param('scheme_id');
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>You can only update profiles in a sequence/profile database - )
-		  . q(this is an isolate database.</p></div>);
+		say q(<h1>Batch profile update</h1>);
+		$self->print_bad_status(
+			{
+				message => q(You can only update profiles in a sequence/profile database - )
+				  . q(this is an isolate database.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( !$scheme_id ) {
-		say q(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);
+		say q(<h1>Batch profile update</h1>);
+		$self->print_bad_status( { message => q(No scheme_id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme_id must be an integer.</p></div>);
+		say q(<h1>Batch profile update</h1>);
+		$self->print_bad_status( { message => q(Scheme_id must be an integer.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed ) . q(to update profiles.</p></div>);
+		say q(<h1>Batch profile update</h1>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to update profiles.), navbar => 1 } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say q(<div class="box" id="statusbad"><p>The selected scheme is inaccessible.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
 			return;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	say qq(<h1>Batch profile update ($scheme_info->{'name'})</h1>);
 	if ( !defined $scheme_info->{'primary_key'} ) {
-		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
+		$self->print_bad_status( { message => q(The selected scheme has no primary key.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -78,7 +87,7 @@ sub _check {
 	my $data      = $q->param('data');
 	my @rows = split /\n/x, $data;
 	if ( @rows < 2 ) {
-		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p></div>);
+		$self->print_bad_status( { message => q(Nothing entered. Make sure you include a header line.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -87,7 +96,7 @@ sub _check {
 	my $pk_field    = $scheme_info->{'primary_key'};
 	if ( !defined $pk_field ) {
 		$logger->error("No primary key defined for scheme $scheme_id");
-		say q(<div class="box" id="statusbad"><p>The selected scheme has no primary key.</p></div>);
+		$self->print_bad_status( { message => q(The selected scheme has no primary key.) } );
 		return;
 	}
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -208,11 +217,12 @@ sub _check {
 		say $q->hidden($_) foreach qw (db page update file scheme_id);
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
 		say $q->end_form;
+		$self->print_navigation_bar;
+		say q(</div></div>);
 	} else {
-		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
+		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
+		return;
 	}
-	$self->print_home_link;
-	say q(</div></div>);
 	return;
 }
 
@@ -246,7 +256,7 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }
@@ -553,7 +563,7 @@ sub _update {
 			say q(<p>Transaction complete - database updated.</p>);
 		}
 	}
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

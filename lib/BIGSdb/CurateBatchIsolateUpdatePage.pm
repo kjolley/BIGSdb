@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,8 +37,13 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Batch isolate update</h1>);
 	if ( !$self->can_modify_table('isolates') || !$self->can_modify_table('allele_designations') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update either )
-		  . q(isolate records or allele designations.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to update either )
+				  . q(isolate records or allele designations.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -46,7 +51,8 @@ sub print_content {
 	} elsif ( $q->param('data') ) {
 		foreach my $param (qw (idfield1 idfield2)) {
 			if ( !$self->{'xmlHandler'}->is_field( $q->param($param) ) && $q->param($param) ne '<none>' ) {
-				say q(<div class="box" id="statusbad"><p>Invalid selection field.</p></div>);
+				$self->print_bad_status(
+					{ message => q(Invalid selection field.), navbar => 1, back_page => 'batchIsolateUpdate' } );
 				return;
 			}
 		}
@@ -99,7 +105,7 @@ HTML
 		say q(</fieldset>);
 		$self->print_action_fieldset;
 		say $q->end_form;
-		$self->print_home_link;
+		$self->print_navigation_bar;
 		say q(</div>);
 	}
 	return;
@@ -158,16 +164,24 @@ sub _get_match_criteria {
 sub _failed_basic_checks {
 	my ( $self, $rows ) = @_;
 	if ( @$rows < 2 ) {
-		say q(<div class="box" id="statusbad"><p>Nothing entered.  Make sure you include a header line.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">)
-		  . q(Back</a></p></div>);
+		$self->print_bad_status(
+			{
+				message   => q(Nothing entered. Make sure you include a header line.),
+				navbar    => 1,
+				back_page => 'batchIsolateUpdate'
+			}
+		);
 		return 1;
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('idfield1') eq $q->param('idfield2') ) {
-		say q(<div class="box" id="statusbad"><p>Please select different id fields.<p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate">)
-		  . q(Back</a></p></div>);
+		$self->print_bad_status(
+			{
+				message   => q(Please select different id fields.),
+				navbar    => 1,
+				back_page => 'batchIsolateUpdate'
+			}
+		);
 		return 1;
 	}
 	return;
@@ -354,11 +368,12 @@ sub _check {
 		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 		say $q->end_form;
+		$self->print_navigation_bar;
+		say q(</div>);
 	} else {
-		say q(<div class="box" id="statusbad"><p>No valid values to update.</p>);
+		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
+		return;
 	}
-	$self->print_home_link;
-	say q(</div>);
 	return;
 }
 
@@ -366,8 +381,14 @@ sub _display_error {
 	my ( $self, $err ) = @_;
 	foreach my $type (qw (integer date float)) {
 		if ( $err =~ /$type/x ) {
-			say q(<div class="box" id="statusbad"><p>Your id field(s) contain text characters but the )
-			  . qq(field can only contain ${type}s.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(Your id field(s) contain text characters but the )
+					  . qq(field can only contain ${type}s.),
+					navbar    => 1,
+					back_page => 'batchIsolateUpdate'
+				}
+			);
 			return;
 		}
 	}
@@ -585,9 +606,7 @@ sub _update {
 		say q(<table class="resultstable"><tr><th>Condition</th><th>Field</th>)
 		  . qq(<th>New value</th><th>Status</th></tr>$tablebuffer</table>);
 	}
-	say q(<div>);
-	$self->print_home_link;
-	say q(</div>);
+	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
 }
 

@@ -77,14 +77,13 @@ sub print_content {
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('temp_table_file');
 		if ( !-e $full_path ) {
 			$logger->error("Temporary file $full_path does not exist");
-			say q(<div class="box" id="statusbad"><p>Temporary file does not exist. Please repeat query.</p></div>);
+			$self->print_bad_status( { message => q(Temporary file does not exist. Please repeat query.) } );
 			$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
 			$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
 			$self->_print_query_interface($scheme_id);
 			return;
 		}
-		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') )
-		  ;
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
 	}
 	if (   defined $q->param('query_file')
 		or defined $q->param('submit') )
@@ -231,7 +230,7 @@ sub _print_query_interface {
 
 	if (@$errors) {
 		local $" = q(<br />);
-		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	}
 	return;
 }
@@ -502,14 +501,12 @@ sub _run_query {
 	}
 	if (@$errors) {
 		local $" = '<br />';
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say "<p>@$errors</p></div>";
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} elsif ( $qry !~ /^\ ORDER\ BY/x ) {
 		my @hidden_attributes;
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
 		my $set_id = $self->get_set_id;
-		my $loci =
-		    $scheme_id
+		my $loci   = $scheme_id
 		  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 		  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 		foreach my $locus (@$loci) {
@@ -521,7 +518,7 @@ sub _run_query {
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed.</div>);
+		$self->print_bad_status( { message => q(Invalid search performed.) } );
 	}
 	return;
 }

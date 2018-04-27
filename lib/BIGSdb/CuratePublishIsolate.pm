@@ -140,7 +140,7 @@ sub _print_interface {
 		say $q->hidden($_) foreach qw(db page isolate_id);
 		say $q->end_form;
 	}
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

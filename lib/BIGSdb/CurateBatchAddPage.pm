@@ -50,13 +50,13 @@ sub print_content {
 	my $sample_field_list = $self->{'xmlHandler'}->get_sample_field_list;
 	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @$sample_field_list ) ) {
 		say q(<h1>Batch insert records</h1>);
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}
 	if ( $table eq 'sequences' && $locus ) {
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
 			say q(<h1>Batch insert sequences</h1>);
-			say qq(<div class="box" id="statusbad"><p>Locus $locus does not exist!</p></div>);
+			$self->print_bad_status( { message => qq(Locus $locus does not exist!), navbar => 1 } );
 			return;
 		}
 		my $cleaned_locus = $self->clean_locus($locus);
@@ -65,8 +65,12 @@ sub print_content {
 		say qq(<h1>Batch insert $cleaned_table</h1>);
 	}
 	if ( !$self->can_modify_table($table) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
-		  . qq(to the $table table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(Your user account is not allowed to add records to the $table table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my %table_message = (
@@ -74,7 +78,7 @@ sub print_content {
 		allele_sequences => 'Tag allele sequences using the scan interface.'
 	);
 	if ( $table_message{$table} ) {
-		say qq(<div class="box" id="statusbad">$table_message{$table}</p></div>);
+		$self->print_bad_status( { message => $table_message{$table}, navbar => 1 } );
 		return;
 	}
 	my %modify_warning = map { $_ => 1 } qw (scheme_fields scheme_members);
@@ -192,7 +196,7 @@ sub _print_interface {
 	$self->print_action_fieldset( { table => $table } );
 	say $q->end_form;
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	$self->print_home_link( { script => $script } );
+	$self->print_navigation_bar( { script => $script } );
 	say q(</div></div>);
 	return;
 }
@@ -233,13 +237,13 @@ sub _cannot_upload_private_data {
 	my $project;
 	if ($project_id) {
 		if ( !BIGSdb::Utils::is_int($project_id) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
 			return 1;
 		}
 		$project = $self->{'datastore'}->run_query( 'SELECT short_description,no_quota FROM projects WHERE id=?',
 			$project_id, { fetch => 'row_hashref' } );
 		if ( !$project ) {
-			say q(<div class="box" id="statusbad"><p>Invalid project id selected.</p></div>);
+			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
 			return 1;
 		}
 		my $is_project_user =
@@ -247,16 +251,20 @@ sub _cannot_upload_private_data {
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND modify)',
 			[ $project_id, $user_info->{'id'} ] );
 		if ( !$is_project_user ) {
-			say q(<div class="box" id="statusbad"><p>You are not a registered user for )
-			  . qq(the $project->{'short_description'} project.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(You are not a registered user for the $project->{'short_description'} project.),
+					navbar  => 1
+				}
+			);
 			return 1;
 		}
 		if ( !$project->{'no_quota'} && !$limit ) {
-			say q(<div class="box" id="statusbad"><p>Your account cannot upload private data.</p></div>);
+			$self->print_bad_status( { message => q(Your account cannot upload private data.), navbar => 1 } );
 			return 1;
 		}
 	} elsif ( !$limit ) {
-		say q(<div class="box" id="statusbad"><p>Your account cannot upload private data.</p></div>);
+		$self->print_bad_status( { message => q(Your account cannot upload private data.), navbar => 1 } );
 		return 1;
 	}
 	if ( !$options->{'no_message'} ) {
@@ -426,8 +434,12 @@ sub _sender_needed {
 		my $q      = $self->{'cgi'};
 		my $sender = $q->param('sender');
 		if ( !BIGSdb::Utils::is_int($sender) ) {
-			say q(<div class="box" id="statusbad"><p>Please go back and select the sender )
-			  . q(for this submission.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(Please go back and select the sender for this submission.),
+					navbar  => 1
+				}
+			);
 			return 1;
 		}
 	}
@@ -677,8 +689,12 @@ sub _check_data {
 	}
 	$tablebuffer .= q(</table></div>);
 	if ( !$record_count ) {
-		say q(<div class="box" id="statusbad"><p>No valid data entered. Make sure )
-		  . q(you've included the header line.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(No valid data entered. Make sure you've included the header line.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
@@ -709,9 +725,13 @@ sub _is_over_quota {
 	if ( $record_count > $available ) {
 		my $av_plural = $available == 1    ? q() : q(s);
 		my $up_plural = $record_count == 1 ? q() : q(s);
-		say
-		  qq(<div class="box" id="statusbad"><p>Your available quota for private data is $available record$av_plural. )
-		  . qq(You are attempting to upload $record_count record$up_plural.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(Your available quota for private data is $available record$av_plural. )
+				  . qq(You are attempting to upload $record_count record$up_plural.),
+				navbar => 1
+			}
+		);
 		return 1;
 	}
 	return;
@@ -1241,12 +1261,20 @@ sub _check_data_primary_key {
 				  . "@{$arg_ref->{'pk_values'}} $message" );
 			my $plural = scalar @primary_keys > 1 ? 's' : '';
 			if ( $message =~ /invalid input/ ) {
-				say qq(<div class="box" id="statusbad"><p>Your pasted data has invalid primary key field$plural )
-				  . qq((@primary_keys) data.</p></div>);
+				$self->print_bad_status(
+					{
+						message => qq(Your pasted data has invalid primary key field$plural )
+						  . qq((@primary_keys) data.)
+					}
+				);
 				throw BIGSdb::DataException('Invalid primary key');
 			}
-			say q(<div class="box" id="statusbad"><p>Your pasted data does not appear to contain the primary )
-			  . qq(key field$plural (@primary_keys) required for this table.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(Your pasted data does not appear to contain the primary )
+					  . qq(key field$plural (@primary_keys) required for this table.)
+				}
+			);
 			throw BIGSdb::DataException("no primary key field$plural (@primary_keys)");
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
@@ -1932,20 +1960,26 @@ sub _upload_data {
 
 sub _report_upload_error {
 	my ( $self, $err, $failed_file ) = @_;
-	say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled )
-	  . q(- no records have been touched.</p>);
+	my $detail;
 	if ( $err eq 'Invalid FASTA file' ) {
-		say qq(<p>The contig file '$failed_file' was not in valid FASTA format.</p>);
+		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
 	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-		say q(<p>Data entry would have resulted in records with either duplicate ids or another )
-		  . q(unique field with duplicate values.  This can result from another curator adding )
+		$detail =
+		    q(Data entry would have resulted in records with either duplicate ids or another )
+		  . q(unique field with duplicate values. This can result from another curator adding )
 		  . q(data at the same time.  Try pressing the browser back button twice and then re-submit )
-		  . q(the records.</p>);
+		  . q(the records.);
 	} else {
-		say q(<p>An error has occurred - more details will be available in the server log.</p>);
+		$detail = q(An error has occurred - more details will be available in the server log.);
 		$logger->error($err);
 	}
-	say q(</div>);
+	$self->print_bad_status(
+		{
+			message => q(Database update failed - transaction cancelled - no records have been touched.),
+			detail  => $detail,
+			navbar  => 1
+		}
+	);
 	return;
 }
 
@@ -1969,28 +2003,26 @@ sub _update_submission_database {
 
 sub _display_update_footer_links {
 	my ( $self, $table ) = @_;
-	my $q = $self->{'cgi'};
-	say q(<p>);
+	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
-	my $more          = MORE;
 	if ($submission_id) {
-		$self->print_return_to_submission;
 		$self->_update_submission_database($submission_id);
 	}
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	$self->print_home_link( { script => $script } );
+	my $more_url;
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
 		my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
 		my $ignore_non_DNA    = $q->param('ignore_non_DNA') ? 'on' : 'off';
 		my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
 		my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
+		$more_url =
+		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
 		  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
-		  . qq(ignore_similarity=$ignore_similarity" title="Add more" style="margin-right:1em">$more</a>);
+		  . qq(ignore_similarity=$ignore_similarity);
 	}
-	say q(</p>);
+	$self->print_navigation_bar( { submission_id => $submission_id, more_url => $more_url } );
 	return;
 }
 
@@ -2190,9 +2222,14 @@ sub _extract_checked_records {
 	my @records;
 	my $tmp_file = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
 	if ( !-e $tmp_file ) {
-		say q(<div class="box" id="statusbad"><p>The temp file containing the checked data does not exist.</p>)
-		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
-		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The temp file containing the checked data does not exist.</p>)
+				  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
+				  . q(re-upload already submitted data.  Please report this if the problem persists.),
+				navbar => 1
+			}
+		);
 		$logger->error("Checked buffer file $tmp_file does not exist.");
 		return [];
 	}
