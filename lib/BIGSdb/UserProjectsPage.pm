@@ -52,7 +52,7 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>User projects</h1>);
 	if ( !$self->_user_projects_enabled ) {
-		say q(<div class="box" id="statusbad">User projects are not enabled in this database.</p></div>);
+		$self->print_bad_status( { message => q(User projects are not enabled in this database.), navbar => 1 } );
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -114,7 +114,7 @@ sub _actually_delete_project {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>Cannot delete project.</p></div>);
+		$self->print_bad_status( { message => q(Cannot delete project.) } );
 	}
 	$self->{'db'}->commit;
 	return;
@@ -123,12 +123,12 @@ sub _actually_delete_project {
 sub _fails_project_check {
 	my ( $self, $project_id ) = @_;
 	if ( !BIGSdb::Utils::is_int($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>No valid project id passed.</p></div>);
+		$self->print_bad_status( { message => q(No valid project id passed.), navbar => 1 } );
 		return 1;
 	}
 	my $project = $self->_get_project($project_id);
 	if ( !$project ) {
-		say q(<div class="box" id="statusbad"><p>Project does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Project does not exist.), navbar => 1 } );
 		return 1;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -137,7 +137,7 @@ sub _fails_project_check {
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?))',
 		[ $project_id, $user_info->{'id'} ] );
 	if ( !$is_project_user ) {
-		say q(<div class="box" id="statusbad"><p>You account is not registered to view this project.</p></div>);
+		$self->print_bad_status( { message => q(Your account is not registered to view this project.), navbar => 1 } );
 		return 1;
 	}
 	return;
@@ -146,7 +146,7 @@ sub _fails_project_check {
 sub _fails_admin_check {
 	my ( $self, $project_id ) = @_;
 	if ( !$self->_is_project_admin($project_id) ) {
-		say q(<div class="box" id="statusbad"><p>You are not an admin for this project.</p></div>);
+		$self->print_bad_status( { message => q(You are not an admin for this project.), navbar => 1 } );
 		return 1;
 	}
 	return;
@@ -193,7 +193,7 @@ sub _edit_members {
 		}
 		if (@errors) {
 			local $" = q(</p><p>);
-			say qq(<div class="box" id="statusbad"><p>Update failed: @errors</p></div>);
+			$self->print_bad_status( { message => q(Update failed:), detail => qq(@errors) } );
 		} else {
 			$self->_update_project_members( $project_id, $current_ids, $new_ids );
 		}
@@ -218,9 +218,12 @@ sub _edit_members {
 	say q(</div>);
 	say q(<p>You can also add isolate records to this project from the results of a )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
-	  . qq(title="Back">$back</a></p>);
+	$self->print_navigation_bar(
+		{
+			no_home  => 1,
+			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
+		}
+	);
 	say q(</div>);
 	return;
 }
@@ -252,7 +255,7 @@ sub _update_project_members {
 		};
 		if ($@) {
 			$logger->error($@);
-			say q(<div class="box" id="statusbad"><p>Adding ids to project failed.</p></div>);
+			$self->print_bad_status( { message => q(Adding ids to project failed.) } );
 			$self->{'db'}->rollback;
 			return;
 		}
@@ -270,7 +273,7 @@ sub _update_project_members {
 		};
 		if ($@) {
 			$logger->error($@);
-			say q(<div class="box" id="statusbad"><p>Removing ids from project failed.</p></div>);
+			$self->print_bad_status( { message => q(Removing ids from project failed.) } );
 			$self->{'db'}->rollback;
 			return;
 		}
@@ -281,9 +284,9 @@ sub _update_project_members {
 	$self->{'db'}->commit;
 	if ( @$add || @$remove ) {
 		local $" = q(</p><p>);
-		say qq(<div class="box" id="resultsheader"><p>@results</p></div>);
+		$self->print_good_status( { message => qq(@results) } );
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
+		$self->print_bad_status( { message => q(No changes made.) } );
 	}
 	return;
 }
@@ -320,9 +323,12 @@ sub _modify_users {
 		$self->_print_user_group_form( $project_id, $user_groups );
 	}
 	$self->_print_user_form($project_id);
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
-	  . qq(title="Back">$back</a></p>);
+	$self->print_navigation_bar(
+		{
+			no_home  => 1,
+			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
+		}
+	);
 	say q(</div>);
 	return;
 }
@@ -424,7 +430,7 @@ sub _update_user_groups {
 		}
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Cannot update user groups.</p></div>);
+		$self->print_bad_status( { message => q(Cannot update user groups.) } );
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
@@ -657,8 +663,9 @@ sub _add_new_project {
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
-		say q(<div class="box" id="statusbad"><p>There is already a project defined with this name. )
-		  . q(Please choose a different name.</p></div>);
+		$self->print_bad_status(
+			{ message => q(There is already a project defined with this name. ) . q(Please choose a different name.) }
+		);
 		return;
 	}
 	my $id        = $self->next_id('projects');
@@ -676,10 +683,10 @@ sub _add_new_project {
 	};
 	if ($@) {
 		$logger->error($@);
-		say q(<div class="box" id="statusbad"><p>Could not add project at this time. Please try again later.</p></div>);
+		$self->print_bad_status( { message => q(Could not add project at this time. Please try again later.) } );
 		$self->{'db'}->rollback;
 	} else {
-		say q(<div class="box" id="resultsheader"></p>Project successfully added.</p></div>);
+		$self->print_good_status( { message => q(Project successfully added.) } );
 		$self->{'db'}->commit;
 	}
 	$q->delete($_) foreach qw(short_description full_description);
@@ -753,7 +760,6 @@ sub _print_user_projects {
 	}
 	$self->print_navigation_bar;
 	say q(</div>);
-	
 	return;
 }
 
@@ -877,9 +883,13 @@ sub _project_info {
 	if ( !$self->_is_project_admin($project_id) ) {
 		say q(<p>Please contact a project admin if you wish to be removed from the project.</p>);
 	}
+	$self->print_navigation_bar(
+		{
+			no_home  => 1,
+			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
+		}
+	);
 	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects" )
-	  . qq(title="Back">$back</a></p>);
 	say q(</div>);
 	return;
 }
@@ -895,7 +905,7 @@ sub _update_project_details {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=? AND id!=?)',
 		[ $short_desc, $project_id ] );
 	if ($name_used) {
-		say q(<div class="box" id="statusbad"><p>A project already exists with that name.</p></div>);
+		$self->print_bad_status( { message => q(A project already exists with that name.) } );
 		return;
 	}
 	if ( $short_desc ne $project->{'short_description'} || $full_desc ne $project->{'full_description'} ) {
@@ -906,11 +916,11 @@ sub _update_project_details {
 				undef, $short_desc, $full_desc, $user_info->{'id'}, 'now', $project_id );
 		};
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>Cannot update project details.</p></div>);
+			$self->print_bad_status( { message => q(Cannot update project details.) } );
 			$logger->error($@);
 			$self->{'db'}->rollback;
 		} else {
-			say q(<div class="box" id="resultsheader"><p>Project details updated.</p></div>);
+			$self->print_good_status( { message => q(Project details updated.) } );
 			$self->{'db'}->commit;
 		}
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,15 +42,17 @@ sub print_content {
 	my $record = $self->get_record_name($table);
 	my $name   = $self->_get_name;
 	if ( !$table || !$self->{'datastore'}->is_table($table) ) {
-		say qq(<div class="box" id="statusbad"><p>Table $table isn't valid.</p></div>);
+		say q(<h1>Record information</h1>);
+		$self->print_bad_status( { message => q(Table isn't valid.), navbar => 1 } );
 		return;
 	}
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my @values;
 	foreach my $key (@primary_keys) {
 		if ( !$q->param($key) ) {
-			say qq(<div class="box" id="statusbad"><p>A value for the $key field is required )
-			  . q(to display scheme field information but it wasn't provided.</p></div>);
+			say q(<h1>Record information</h1>);
+			$self->print_bad_status( { message => qq(A value for the $key field is required )
+			  . q(to display scheme field information but it wasn't provided.), navbar => 1 } );
 			return;
 		}
 		push @values, $q->param($key);
@@ -60,7 +62,8 @@ sub print_content {
 	local $" = ' ';
 	my $data = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'row_hashref' } );
 	if ( !$data ) {
-		say q(<div class="box" id="statusbad"><p>Record does not exist.</p></div>);
+		say q(<h1>Record information</h1>);
+		$self->print_bad_status( { message => q(Record does not exist.), navbar => 1 } );
 		return;
 	}
 	say qq(<h1>Information on $record $name</h1>);

@@ -244,16 +244,12 @@ sub print_content {
 	}
 	print q(<h1>Job status viewer</h1>);
 	if ( !defined $id || $id !~ /BIGSdb_\d+/x ) {
-		say q(<div class="box" id="statusbad">);
-		say q(<p>The submitted job id is invalid.</p>);
-		say q(</div>);
+		$self->print_bad_status( { message => q(The submitted job id is invalid.), navbar => 1 } );
 		return;
 	}
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
-		say q(<div class="box" id="statusbad">);
-		say q(<p>The submitted job does not exist.</p>);
-		say q(</div>);
+		$self->print_bad_status( { message => q(The submitted job does not exist.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('cancel') ) {

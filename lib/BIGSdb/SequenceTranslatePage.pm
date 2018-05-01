@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2015, University of Oxford
+#Copyright (c) 2013-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,26 +40,33 @@ sub print_content {
 	say q(<h1>Sequence translation</h1>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
 		$logger->fatal('EMBOSS not installed');
-		say q(<div class="box" id="statusbad"><p>EMBOSS needs to be installed for this functionality.</p></div>)
-		  ;
+		$self->print_bad_status( { message => q(EMBOSS needs to be installed for this functionality.), navbar => 1 } );
 		return;
 	}
 	my $seq = $q->param('sequence') // '';
-	$seq = $self->_strip_headers(\$seq);
+	$seq = $self->_strip_headers( \$seq );
 	$seq =~ s/[^acgtunACGTUN]//x;
 	if ( !$seq ) {
-		say q(<div class="box" id="statusbad"><p>No valid nucleotide sequence passed.</p></div>);
+		$self->print_bad_status( { message => q(No valid nucleotide sequence passed.), navbar => 1 } );
 		return;
 	}
 	if ( length $seq < 3 ) {
-		say q(<div class="box" id="statusbad"><p>Passed sequence is shorter than the length of )
-		  . q(a codon so cannot be translated.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Passed sequence is shorter than the length of a codon so cannot be translated.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( length $seq > MAX_SEQ_LENGTH ) {
 		my $max = MAX_SEQ_LENGTH;
-		say q(<div class="box" id="statusbad"><p>Passed sequence is longer than the )
-		  . qq(maximum permissible length ($max bp)</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(Passed sequence is longer than the maximum permissible length ($max bp)),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$seq = BIGSdb::Utils::reverse_complement($seq) if $q->param('reverse');
@@ -103,12 +110,12 @@ sub print_content {
 }
 
 sub _strip_headers {
-	my ($self, $seq_ref) = @_;
-	my @lines = split/\n/x, $$seq_ref;
+	my ( $self, $seq_ref ) = @_;
+	my @lines = split /\n/x, $$seq_ref;
 	my $seq;
-	foreach my $line (@lines){
+	foreach my $line (@lines) {
 		next if $line =~ /^>/x;
-		$seq.=$line;
+		$seq .= $line;
 	}
 	return $seq;
 }

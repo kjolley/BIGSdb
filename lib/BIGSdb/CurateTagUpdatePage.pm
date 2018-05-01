@@ -33,13 +33,13 @@ sub print_content {
 	my $id     = $q->param('id');
 	say q(<h1>Update sequence tag</h1>);
 	if ( !BIGSdb::Utils::is_int($id) ) {
-		say q(<div class="box" id="statusbad"><p>Tag id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Tag id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $existing_tag =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE id=?', $id, { fetch => 'row_hashref' } );
 	if ( !$existing_tag ) {
-		say q(<div class="box" id="statusbad"><p>Tag does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Tag does not exist.), navbar => 1 } );
 		return;
 	}
 	my ( $seqbin_id, $locus, $orig_start, $orig_end ) = @{$existing_tag}{qw(seqbin_id locus start_pos end_pos)};
@@ -219,18 +219,18 @@ sub _check_values {
 	my $q = $self->{'cgi'};
 	if ( $q->param('update') || $q->param('submit') ) {
 		if ( !defined $q->param('new_start') || !BIGSdb::Utils::is_int( $q->param('new_start') ) ) {
-			say q(<div class="box" id="statusbad"><p>The start position must be an integer. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The start position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( $q->param('new_end') ) ) {
-			say q(<div class="box" id="statusbad"><p>The end position must be an integer. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The end position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		} elsif ( $q->param('new_start') && $q->param('new_start') && $q->param('new_start') > $q->param('new_end') ) {
-			say q(<div class="box" id="statusbad"><p>The end position must be greater than the start. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The end position must be greater than the start. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		}

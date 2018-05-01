@@ -41,13 +41,13 @@ sub get_attributes {
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version     => '1.1.7',
-		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
-		input       => 'query',
-		requires    => 'js_tree,offline_jobs',
-		help        => 'tooltips',
-		order       => 16
+		version  => '1.1.8',
+		dbtype   => 'isolates',
+		section  => 'analysis,postquery',
+		input    => 'query',
+		requires => 'js_tree,offline_jobs',
+		help     => 'tooltips',
+		order    => 16
 	);
 	return \%att;
 }
@@ -66,10 +66,10 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>The following loci in your pasted )
-			  . qq(list are invalid: @$invalid_loci.</p></div>);
+			$self->print_bad_status(
+				{ message => qq(The following loci in your pasted list are invalid: @$invalid_loci.) } );
 		} elsif ( !@$loci_selected ) {
-			say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
+			$self->print_bad_status( { message => q(You must select one or more loci or schemes.) } );
 		} else {
 			my $params = $q->Vars;
 			my @list = split /[\r\n]+/x, $q->param('list');
@@ -208,8 +208,7 @@ sub print_extra_form_elements {
 	say q(</li><li>);
 	say $q->checkbox( -name => 'dismat', -id => 'dismat', -label => 'Generate distance matrix' );
 	my $max = MAX_DISMAT_TAXA;
-	say $self->get_tooltip(
-		qq(Distance matrix - This is limited to $max isolates and is disabled if more are selected) );
+	say $self->get_tooltip(qq(Distance matrix - This is limited to $max isolates and is disabled if more are selected));
 	say q(</li></ul></fieldset>);
 	return;
 }

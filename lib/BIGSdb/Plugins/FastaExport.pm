@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2015, University of Oxford
+#Copyright (c) 2012-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub get_attributes {
 		menutext    => 'Export FASTA',
 		buttontext  => 'FASTA',
 		module      => 'FastaExport',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -53,7 +53,7 @@ sub run {
 	my $locus = $q->param('locus');
 	$locus =~ s/^cn_//x;
 	if ( !$locus ) {
-		say q(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
+		$self->print_bad_status( { message => q(No locus passed.) } );
 		$logger->error('No locus passed.');
 		return;
 	}
@@ -61,14 +61,14 @@ sub run {
 	my $list_file  = $q->param('list_file');
 	my $list       = $self->get_allele_id_list( $query_file, $list_file );
 	if ( !@$list ) {
-		say q(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
+		$self->print_bad_status( { message => q(No sequences available from query.) } );
 		$logger->error('No sequences available.');
 		return;
 	}
 	my $temp      = BIGSdb::Utils::get_random();
 	my $filename  = "$temp.fas";
 	my $full_path = $self->{'config'}->{'tmp_dir'} . "/$filename";
-	open( my $fh, '>', $full_path ) or $logger->error("Can't open $full_path for writing.");
+	open( my $fh, '>', $full_path ) or $logger->error("Cannot open $full_path for writing.");
 	foreach my $allele_id (@$list) {
 		my $seq_data = $self->{'datastore'}->run_query(
 			'SELECT allele_id,sequence FROM sequences WHERE (locus,allele_id)=(?,?)',
@@ -81,7 +81,7 @@ sub run {
 	}
 	close $fh;
 	if ( !-e $full_path ) {
-		say q(<div class="box" id="statusbad"><p>Sequence file could not be generated.</p></div>);
+		$self->print_bad_status( { message => q(Sequence file could not be generated.) } );
 		$logger->error('Sequence file cannot be generated');
 		return;
 	}

@@ -34,12 +34,15 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>Account registration</h1>);
 	if ( !$self->{'config'}->{'auto_registration'} ) {
-		say q(<div class="box" id="statusbad"><p>This site does not allow automated registrations.</p></div>);
+		$self->print_bad_status( { message => q(This site does not allow automated registrations.) } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'user' ) {
-		say q(<div class="box" id="statusbad"><p>Account registrations cannot be performed )
-		  . q(when accessing a database.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Account registrations cannot be performed when accessing a database.),
+			}
+		);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -59,7 +62,7 @@ sub username_reminder {
 	my ( $self, $email_address ) = @_;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
-		say q(<div class="box" id="statusbad"><p>The passed E-mail address is not valid.</p></div>);
+		$self->print_bad_status( { message => q(The passed E-mail address is not valid) } );
 		return;
 	}
 
@@ -67,9 +70,14 @@ sub username_reminder {
 	#to check if specific addresses have registered accounts).
 	my $usernames = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE email=? ORDER BY user_name',
 		$email_address, { fetch => 'col_arrayref' } );
-	my $back = BACK;
-	say qq(<div class="box" id="resultsheader"><p>A user name reminder has been sent to $email_address.</p>)
-	  . qq(<a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></div>);
+	$self->print_good_status(
+		{
+			message  => qq(A user name reminder has been sent to $email_address.),
+			navbar   => 1,
+			no_home  => 1,
+			back_url => qq($self->{'system'}->{'script_name'})
+		}
+	);
 	return if !@$usernames;
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
@@ -192,7 +200,7 @@ sub _register {
 		my $cleaned = $self->clean_value( $q->param($param), { no_escape => 1 } );
 		$q->param( $param => $cleaned );
 		if ( !$q->param($param) ) {
-			say q(<div class="box" id="statusbad"><p>Please complete form.</p></div>);
+			$self->print_bad_status( { message => q(Please complete form.) } );
 			$self->_print_registration_form;
 			return;
 		}
@@ -235,8 +243,8 @@ sub _register {
 		);
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>User creation failed. This error has been logged - )
-		  . q(please try again later.</p></div>);
+		$self->print_bad_status(
+			{ message => q(User creation failed. This error has been logged - please try again later.) } );
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		return;
@@ -273,20 +281,25 @@ sub _bad_email {
 	my ( $self, $email ) = @_;
 	my $address = Email::Valid->address($email);
 	if ( !$address ) {
-		say q(<div class="box" id="statusbad"><p>The provided E-mail address is not valid.</p></div>);
+		$self->print_bad_status( { message => q(The provided E-mail address is not valid.) } );
 		return 1;
 	}
 	my $registration_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE UPPER(email)=UPPER(?))', $email );
 	if ($registration_exists) {
-		say q(<div class="box" id="statusbad"><p>An account has already been registered with this E-mail address. </p>)
-		  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
-		  . q(for a reminder of your user name to be sent to this address.</p>);
+		my $detail;
 		if ( $self->{'config'}->{'site_admin_email'} ) {
-			say qq(<p>Contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">site administrator</a> )
-			  . q(if you need to reset your password.</p>);
+			$detail = qq(Contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">site administrator</a> )
+			  . q(if you need to reset your password.);
 		}
-		say q(</div>);
+		$self->print_bad_status(
+			{
+				message => q(An account has already been registered with this E-mail address. )
+				  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
+				  . q(for a reminder of your user name to be sent to this address.),
+				detail => $detail
+			}
+		);
 		return 1;
 	}
 	return;
@@ -313,7 +326,7 @@ sub _bad_username {
 	}
 	if (@problems) {
 		local $" = q(<br />);
-		say qq(<div class="box" id="statusbad"><p>@problems</p></div>);
+		$self->print_bad_status( { message => qq(@problems) } );
 		return 1;
 	}
 	return;

@@ -48,17 +48,21 @@ sub create_record_table {
 	my ( $self, $table, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ( ref $newdata ne 'HASH' ) {
-		say q(<div class="box" id="statusbad"><p>Record doesn't exist.</p></div>);
+		$self->print_bad_status( { message => q(Record doesn't exist.) } );
 		return q();
 	} elsif ( defined $newdata->{'isolate_id'} && !BIGSdb::Utils::is_int( $newdata->{'isolate_id'} ) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid isolate_id submitted.</p></div>);
+		$self->print_bad_status( { message => q(Invalid isolate_id submitted.) } );
 		return q();
 	} elsif ( defined $newdata->{'isolate_id'}
 		&& $table ne 'retired_isolates'
 		&& !$self->is_allowed_to_view_isolate( $newdata->{'isolate_id'} ) )
 	{
-		say q(<div class="box" id="statusbad"><p>Your account is not allowed to modify values for isolate )
-		  . qq(id-$newdata->{'isolate_id'}.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account is not allowed to modify values for isolate )
+				  . qq(id-$newdata->{'isolate_id'}.)
+			}
+		);
 		return q();
 	}
 	my $q = $self->{'cgi'};

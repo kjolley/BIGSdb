@@ -62,14 +62,14 @@ sub _calculate_totals {
 			}
 		}
 		catch BIGSdb::DatabaseConnectionException with {
-			say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
-			  . q( The query can not be performed.</p></div>);
+			$self->print_bad_status(
+				{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
 			$logger->error('Cannot create temporary table');
 			return;
 		};
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid query attempted.</p></div>);
+		$self->print_bad_status( { message => q(Invalid query attempted.) } );
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -559,8 +559,8 @@ sub _print_isolate_table {
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Invalid search performed</p></div>);
-		$logger->warn("Can't execute query $qry_limit  $@");
+		$self->print_bad_status( { message => q(Invalid search performed) } );
+		$logger->warn("Cannot execute query $qry_limit  $@");
 		return;
 	}
 	my %data = ();
@@ -1068,15 +1068,20 @@ sub _print_profile_table {
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Invalid search performed</p></div>);
-		$logger->warn("Can't execute query $qry_limit  $@");
+		$self->print_bad_status( { message => q(Invalid search performed.) } );
+		$logger->warn("Cannot execute query $qry_limit  $@");
 		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
-		  . q(Profile browsing can not be done until this has been set.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(No primary key field has been set for this scheme. )
+				  . q(Profile browsing can not be done until this has been set.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable"><tr>);

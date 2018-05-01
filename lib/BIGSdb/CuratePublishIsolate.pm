@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,12 +31,16 @@ sub print_content {
 	say q(<h1>Publish isolate record</h1>);
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your account doesn't have permission )
-		  . q(to modify isolate records.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account doesn't have permission ) . q(to modify isolate records.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $curator_id = $self->get_curator_id;
@@ -45,20 +49,20 @@ sub print_content {
 	my $no_further_action;
 	if ( $q->param('publish') && !$request_only ) {
 		if ( $self->_publish($isolate_id) ) {
-			say q(<div class="box" id="resultsheader"><p>Isolate is now publicly accessible.</p></div>);
+			$self->print_good_status( { message => q(Isolate is now publicly accessible.) } );
 		} else {
-			say q(<div class="box" id="statusbad"><p>Isolate could not be made public.</p></div>);
+			$self->print_bad_status( { message => q(Isolate could not be made public.) } );
 		}
 		$no_further_action = 1;
 	} elsif ( $q->param('request') && $is_owner ) {
 		if ( $self->_request($isolate_id) ) {
-			say q(<div class="box" id="resultsheader"><p>Publication has been requested. )
-			. q(Isolate is now viewable by curators.</p></div>);
+			$self->print_good_status(
+				{ message => q(Publication has been requested. ) . q(Isolate is now viewable by curators.) } );
 		} else {
-			say q(<div class="box" id="statusbad"><p>Publication request could not be made public.</p></div>);
+			$self->print_bad_status( { message => q(Publication request could not be made.) } );
 		}
 		$no_further_action = 1;
-	} elsif ( ($is_owner && $self->{'permissions'}->{'only_private'}) || !$self->can_modify_table('isolates')  ) {
+	} elsif ( ( $is_owner && $self->{'permissions'}->{'only_private'} ) || !$self->can_modify_table('isolates') ) {
 		say q(<div class="box" id="resultsheader"><p>Your account does not have permission to directly make )
 		  . q(isolates public. You can, however, send a request to a curator for this to happen.</p></div>);
 		$request_only = 1;

@@ -206,7 +206,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available in isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is not available in isolate databases.), navbar => 1 } );
 		return;
 	}
 	my $sequence;
@@ -237,10 +237,10 @@ sub print_content {
 				my $err = shift;
 				$logger->debug($err);
 				if ( $err =~ /INVALID_ACCESSION/x ) {
-					say q(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+					$self->print_bad_status( { message => q(Accession is invalid.) } );
 				} elsif ( $err =~ /NO_DATA/x ) {
-					say q(<div class="box" id="statusbad"><p>The accession is valid but it )
-					  . q(contains no sequence data.</p></div>);
+					$self->print_bad_status(
+						{ message => q(The accession is valid but it contains no sequence data.) } );
 				}
 			};
 		}

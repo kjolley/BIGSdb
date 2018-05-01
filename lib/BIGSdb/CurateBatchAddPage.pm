@@ -1941,12 +1941,15 @@ sub _upload_data {
 			}
 		}
 	}
-	$self->{'db'}->commit && say q(<div class="box" id="resultsheader"><p>Database updated ok</p>);
+	$self->{'db'}->commit;
+	my $nav_data = $self->_get_nav_data($table);
+	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	$self->print_good_status( { message => q(Database updated.), navbar => 1, script => $script, %$nav_data } )
+	  ;
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
 		$self->update_history( $isolate_id, $action );
 	}
-	$self->_display_update_footer_links($table);
 	if ( $table eq 'sequences' ) {
 		my @loci = keys %loci;
 		$self->mark_locus_caches_stale( \@loci );
@@ -1954,7 +1957,6 @@ sub _upload_data {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
 	}
-	say q(</div>);
 	return;
 }
 
@@ -2001,7 +2003,7 @@ sub _update_submission_database {
 	return;
 }
 
-sub _display_update_footer_links {
+sub _get_nav_data {
 	my ( $self, $table ) = @_;
 	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
@@ -2022,8 +2024,7 @@ sub _display_update_footer_links {
 		  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
 		  . qq(ignore_similarity=$ignore_similarity);
 	}
-	$self->print_navigation_bar( { submission_id => $submission_id, more_url => $more_url } );
-	return;
+	return { submission_id => $submission_id, more_url => $more_url };
 }
 
 sub _get_locus_list {

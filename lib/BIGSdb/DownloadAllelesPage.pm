@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -147,9 +147,13 @@ sub print_content {
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-			say q(<h1>Download allele sequences</h1>)
-			  . q(<div class="box" id="statusbad"><p>This function is only available for )
-			  . q(sequence definition databases</p></div>);
+			say q(<h1>Download allele sequences</h1>);
+			$self->print_bad_status(
+				{
+					message => q(This function is only available for sequence definition databases),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -204,17 +208,17 @@ sub print_content {
 	}
 	say q(<h1>Download allele sequences</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available for isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is not available for isolate databases.), navbar => 1 } );
 		return;
 	}
 	if ( $self->_downloads_disabled ) {
-		say q(<div class="box" id="statusbad"><p>Allele sequence downloads are )
-		  . q(disabled for this database.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Allele sequence downloads are disabled for this database.), navbar => 1 } );
 		return;
 	}
 	my $all_loci = $self->{'datastore'}->get_loci;
 	if ( !@$all_loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

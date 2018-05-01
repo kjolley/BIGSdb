@@ -109,7 +109,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.3',
+		version     => '1.4.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -149,28 +149,28 @@ sub run {
 	@ids = uniq @ids;
 	if (@$invalid_ids) {
 		local $" = ', ';
-		say q(<div class="box" id="statusbad"><p>The following isolates in your )
-		  . qq(pasted list are invalid: @$invalid_ids.</p></div>);
+		$self->print_bad_status(
+			{ message => qq(The following isolates in your pasted list are invalid: @$invalid_ids.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( !@ids ) {
-		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
+		$self->print_bad_status( { message => q(You must select one or more isolates.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( @ids > MAX_TAXA ) {
 		my $selected = BIGSdb::Utils::commify( scalar @ids );
 		my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
-		say qq(<div class="box" id="statusbad"><p>Analysis is restricted to $limit isolates. )
-		  . qq(You have selected $selected.</p></div>);
+		$self->print_bad_status(
+			{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( length $q->param('sequence') > MAX_QUERY_LENGTH ) {
 		my $limit = BIGSdb::Utils::commify(MAX_QUERY_LENGTH);
-		say q(<div class="box" id="statusbad"><p>Query sequence is limited to a )
-		  . qq(maximum of $limit characters.</p></div>);
+		$self->print_bad_status( { message => qq(Query sequence is limited to a maximum of $limit characters.) } )
+		  ;
 		$self->_print_interface;
 		return;
 	}

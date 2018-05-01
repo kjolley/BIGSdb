@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.6',
+		version     => '1.1.7',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -63,7 +63,7 @@ sub run {
 	say q(<h1>Publication breakdown of dataset</h1>);
 	return if $self->has_set_changed;
 	if ( !$self->{'config'}->{'ref_db'} ) {
-		say q(<div class="box" id="statusbad">No reference database has been defined.</p></div>);
+		$self->print_bad_status( { message => q(No reference database has been defined.), navbar => 1 } );
 		return;
 	}
 	my $query_file = $q->param('query_file');

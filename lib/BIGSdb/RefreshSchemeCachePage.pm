@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -69,7 +69,7 @@ sub print_content {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	say "<h1>Refresh scheme caches - $desc</h1>";
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is only for use on isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is only for use on isolate databases.), navbar => 1 } );
 		return;
 	}
 	my $schemes =
@@ -86,7 +86,7 @@ sub print_content {
 		@filtered_schemes = @$schemes;
 	}
 	if ( !@filtered_schemes ) {
-		say q(<div class="box" id="statusbad"><p>There are no schemes that can be cached.<p></div>);
+		$self->print_bad_status( { message => q(There are no schemes that can be cached.), navbar => 1 } );
 		return;
 	}
 	$self->_print_interface( \@filtered_schemes );
@@ -126,8 +126,7 @@ sub _refresh_caches {
 			}
 			$self->{'datastore'}
 			  ->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
-			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } )
-			  ;
+			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
 			say q(done.<br />);
 		}
 	}

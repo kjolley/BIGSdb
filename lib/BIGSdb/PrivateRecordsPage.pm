@@ -35,21 +35,25 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>Private records</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is only available in isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is only available in isolate databases.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->{'username'} ) {
-		say q(<div class="box" id="statusbad"><p>You are not logged in.</p></div>);
+		$self->print_bad_status( { message => q(You are not logged in.), navbar => 1 } );
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>You are not a recognized user.</p></div>);
+		$self->print_bad_status( { message => q(You are not a recognized user.), navbar => 1 } );
 		return;
 	}
 	if ( $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your account does not have )
-		  . q(permission to upload private records.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account does not have permission to upload private records.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_print_limits( $user_info->{'id'} );

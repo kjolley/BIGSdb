@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,7 +46,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#unique-combinations",
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -68,14 +68,14 @@ sub run {
 	}
 	my $selected_fields = $self->get_selected_fields;
 	if ( !@$selected_fields ) {
-		say q(<div class="box" id="statusbad"><p>No fields have been selected!</p></div>);
+		$self->print_bad_status( { message => q(No fields have been selected!) } );
 		$self->_print_interface;
 		return;
-	} elsif (@$selected_fields > MAX_FIELDS){
-		my $limit = MAX_FIELDS;
+	} elsif ( @$selected_fields > MAX_FIELDS ) {
+		my $limit          = MAX_FIELDS;
 		my $selected_count = @$selected_fields;
-		say qq(<div class="box" id="statusbad"><p>This analysis is limited to $limit fields. )
-		  . qq(You have selected $selected_count!</p></div>);
+		$self->print_bad_status(
+			{ message => qq(This analysis is limited to $limit fields. You have selected $selected_count!) } );
 		$self->_print_interface;
 		return;
 	}
@@ -89,7 +89,6 @@ sub run {
 	my $field_string = "$view.@$fields";
 	$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
 	$self->rewrite_query_ref_order_by($qry_ref);
-	
 	local $| = 1;
 	my @header;
 	my %schemes;
@@ -102,7 +101,7 @@ sub run {
 			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
-		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//gx;                      #strip off prefix for header row
+		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//gx;    #strip off prefix for header row
 		$field =~ s/^meta_.+?://x;
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);

@@ -113,7 +113,7 @@ sub _edit_user {
 	my ( $self, $username ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->{'permissions'}->{'modify_users'} && $username ne $self->{'username'} ) {
-		say q(<div class="box" id="statusbad"><p>You do not have permission to edit other users' accounts.</p></div>);
+		$self->print_bad_status( { message => q(You do not have permission to edit other users' accounts.) } );
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -149,8 +149,7 @@ sub _edit_user {
 	$q->param( update => 1 );
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
+	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div></div>);
 	return;
 }
@@ -182,7 +181,7 @@ sub _update_user {
 		$error = q(Your E-mail address is not valid.);
 	}
 	if ($error) {
-		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
+		$self->print_bad_status( { message => qq($error) } );
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
@@ -207,15 +206,15 @@ sub _update_user {
 			$logger->info("$self->{'username'} updated user details for $username.");
 		};
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>User detail update failed.</p></div>);
+			$self->print_bad_status( { message => q(User detail update failed.) } );
 			$logger->error($@);
 			$self->{'db'}->rollback;
 		} else {
-			say q(<div class="box" id="resultsheader"><p>Details successfully updated</p></div>);
+			$self->print_good_status( { message => q(Details successfully updated.) } );
 			$self->{'db'}->commit;
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
+		$self->print_bad_status( { message => q(No changes made.) } );
 	}
 	return;
 }
@@ -405,10 +404,10 @@ sub _register {
 				  . q(site admin</a> for advice.);
 			}
 		}
-		say qq(<div class="box" id="statusbad"><p>User registration failed.$msg</p></div>);
+		$self->print_bad_status( { message => q(User registration failed.), detail => $msg } );
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>User registration succeeded.</p></div>);
+		$self->print_good_status( { message => q(User registration succeeded.) } );
 	}
 	return;
 }
@@ -438,10 +437,10 @@ sub _request {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>User request failed.</p></div>);
+		$self->print_bad_status( { message => q(User request failed.) } );
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>User request is now pending.</p></div>);
+		$self->print_bad_status( { message => q(User request is now pending.) } );
 	}
 	return;
 }
@@ -635,11 +634,11 @@ sub _select_merge_users {
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>No information available for user.</p></div>);
+		$self->print_bad_status( { message => q(No information available for user.) } );
 		return;
 	}
 	if ( !$self->{'permissions'}->{'merge_users'} ) {
-		say q(<div class="box" id="statusbad"><p>Your account does not have permission to merge accounts.</p></div>);
+		$self->print_bad_status( { message => q(Your account does not have permission to merge accounts.) } );
 		return;
 	}
 	if ( $q->param('merge') ) {
@@ -724,8 +723,7 @@ sub _select_merge_users {
 	say $q->hidden($_) foreach qw(merge merge_user user);
 	say $q->end_form;
 	say q(</div>);
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
+	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div>);
 	return;
 }
@@ -747,7 +745,7 @@ sub _merge {
 	  $self->{'datastore'}->run_query( 'SELECT id FROM users WHERE user_name=?', $user, { db => $db } );
 
 	if ( !$db_user_id ) {
-		say qq(<div class="box" id="statusbad"><p>User $remote_user is not found in $config.<p></div>);
+		$self->print_bad_status( { message => qq(User $remote_user is not found in $config.) } );
 		return;
 	}
 	my $site_db =
@@ -782,11 +780,11 @@ sub _merge {
 		$logger->error($@);
 		$db->rollback;
 		$self->{'auth_db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>Account failed to merge</p></div>);
+		$self->print_bad_status( { message => q(Account failed to merge.) } );
 	} else {
 		$db->commit;
 		$self->{'auth_db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>Account successfully merged</p></div>);
+		$self->print_good_status( { message => q(Account successfully merged.) } );
 	}
 	$self->_drop_connection($system);
 	return;

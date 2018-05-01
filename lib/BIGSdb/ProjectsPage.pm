@@ -42,7 +42,8 @@ sub print_content {
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	if ( !@$projects ) {
-		say q(<div class="box" id="statusbad"><p>There are no listable projects defined in this database.</p></div>);
+		$self->print_bad_status(
+			{ message => q(There are no listable projects defined in this database.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);

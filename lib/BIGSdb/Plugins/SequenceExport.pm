@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.13',
+		version          => '1.5.14',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -75,7 +75,7 @@ sub run {
 	my $desc       = $self->get_db_description;
 	my $max_seqs = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
 	my $commified_max = BIGSdb::Utils::commify($max_seqs);
-	say "<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>";
+	say qq(<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>);
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
 
@@ -94,7 +94,7 @@ sub run {
 			$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 		}
 		if ( !defined $scheme_id ) {
-			say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+			$self->print_bad_status( { message => q(Invalid scheme selected.), navbar => 1 } );
 			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -110,14 +110,14 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>The following loci in your pasted list are )
-			  . qq(invalid: @$invalid_loci.</p></div>);
+			$self->print_bad_status(
+				{ message => qq(The following loci in your pasted list are invalid: @$invalid_loci.) } );
 		} elsif ( !@$loci_selected ) {
-			print q(<div class="box" id="statusbad"><p>You must select one or more loci);
-			print q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
-			say q(.</p></div>);
+			my $msg = q(You must select one or more loci);
+			$msg .= q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
+			$self->print_bad_status( { message => $msg } );
 		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
+			$self->print_bad_status( { message => q(Invalid data detected in list.) } );
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
@@ -141,14 +141,24 @@ sub run {
 			my $total_seqs = @$loci_selected * @list;
 			if ( $total_seqs > $max_seqs ) {
 				my $commified_total = BIGSdb::Utils::commify($total_seqs);
-				say qq(<div class="box" id="statusbad"><p>Output is limited to a total of $commified_max sequences )
-				  . qq((records x loci).  You have selected $commified_total.</p></div>);
+				$self->print_bad_status(
+					{
+						message => qq(Output is limited to a total of $commified_max sequences )
+						  . qq((records x loci). You have selected $commified_total.),
+						navbar => 1
+					}
+				);
 				return;
 			}
 			my $record_count = @list;
 			if ( $record_count > $limit && $q->param('align') ) {
-				say qq(<div class="box" id="statusbad"><p>Aligned output is limited to a total of $limit )
-				  . qq(records. You have selected $record_count.</p></div>);
+				$self->print_bad_status(
+					{
+						message => qq(Aligned output is limited to a total of $limit )
+						  . qq(records. You have selected $record_count.),
+						navbar => 1
+					}
+				);
 				return;
 			}
 			my $list_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'isolates' : 'profiles';

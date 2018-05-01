@@ -94,7 +94,7 @@ sub print_content {
 	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE @query_terms", \@query_values );
 	if ( $record_count != 1 ) {
 		$self->print_bad_status(
-			{ message => q(The search terms did not unique identify a single record.), navbar => 1 } );
+			{ message => q(The search terms did not uniquely identify a single record.), navbar => 1 } );
 		return;
 	}
 	my $data =
@@ -946,7 +946,7 @@ sub _prepare_extra_inserts_for_seqbin {
 	}
 	if (@type_errors) {
 		local $" = q(<br />);
-		say qq(<div class="box" id="statusbad"><p>@type_errors</p></div>);
+		$self->print_bad_status( { message => qq(@type_errors) } );
 		return FAILURE;
 	}
 	return;

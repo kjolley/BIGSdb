@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -44,27 +44,27 @@ sub print_content {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say q(<div class="box" id="statusbad"><p>No connection to reference database</p></div>);
+		$self->print_bad_status( { message => q(No connection to reference database.), navbar => 1 } );
 		$continue = 0;
 	};
 	return if !$continue;
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		my $refs_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM refs)');
 		if ( !$refs_exist ) {
-			say q(<div class="box" id="statusbad">) . q(<p>No isolates have been linked to PubMed records.</p></div>);
+			$self->print_bad_status( { message => q(No isolates have been linked to PubMed records.), navbar => 1 } );
 			return;
 		}
 	} else {
 		my $refs_exist =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profile_refs WHERE scheme_id=?)', $scheme_id );
 		if ( !$refs_exist ) {
-			say q(<div class="box" id="statusbad"><p>No profiles have been linked to PubMed records.</p></div>);
+			$self->print_bad_status( { message => q(No profiles have been linked to PubMed records.), navbar => 1 } );
 			return;
 		}
 	}
 	my $pmid = $q->param('pmid');
 	if ( !$pmid ) {
-		say q(<div class="box" id="statusbad"><p>No pmid passed.</p>);
+		$self->print_bad_status( { message => q(No pmid passed.), navbar => 1 } );
 		return;
 	}
 	say qq(<h2>Citation query (PubMed id: $pmid)</h2>);

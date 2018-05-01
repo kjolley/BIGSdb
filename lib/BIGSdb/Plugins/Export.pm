@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.3',
+		version     => '1.4.4',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -152,7 +152,7 @@ sub run {
 		my $selected_fields = $self->get_selected_fields;
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
-			say q(<div class="box" id="statusbad"><p>No fields have been selected!</p></div>);
+			$self->print_bad_status( { message => q(No fields have been selected!) } );
 		} else {
 			my $prefix     = BIGSdb::Utils::get_random();
 			my $filename   = "$prefix.txt";

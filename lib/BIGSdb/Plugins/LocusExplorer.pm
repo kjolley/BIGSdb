@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.6',
+		version          => '1.3.7',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -98,7 +98,7 @@ sub run {
 	my $desc       = $self->get_db_description;
 	if ( !@$display_loci ) {
 		say qq(<h1>Locus Explorer - $desc</h1>);
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	if ( !$q->param('locus') ) {
@@ -114,14 +114,14 @@ sub run {
 		my $continue = 1;
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
 			say qq(<h1>Locus Explorer - $desc</h1>);
-			say q(<div class="box" id="statusbad"><p>Invalid locus.</p></div>);
+			$self->print_bad_status( { message => q(Invalid locus.), navbar => 1 } );
 			$continue = 0;
 		} elsif ( !$total_seq_count ) {
-			say q(<div class="box" id="statusbad"><p>No sequences defined for this locus.</p></div>);
+			$self->print_bad_status( { message => q(No sequences defined for this locus.), navbar => 1 } );
 			$continue = 0;
 		} elsif ( !@allele_ids ) {
 			say qq(<h1>Locus Explorer - $desc</h1>);
-			say q(<div class="box" id="statusbad"><p>No sequences selected.</p></div>);
+			$self->print_bad_status( { message => q(No sequences selected.), navbar => 1 } );
 			$continue = 0;
 		}
 		if ( !$continue ) {
@@ -347,9 +347,16 @@ sub _snp {
 
 		#Keep temp files as they are needed for site explorer function.
 	} elsif ( $seq_count > $max_sequences && $length_varies ) {
-		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore require )
-		  . qq(real-time alignment. Consequently this function is limited to $max_sequences sequences or )
-		  . qq(fewer - you have selected $allele_count.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This locus is variable length and will therefore require )
+				  . qq(real-time alignment. Consequently this function is limited to $max_sequences sequences or )
+				  . qq(fewer - you have selected $allele_count.),
+				navbar => 1,
+				back_url =>
+				  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer)
+			}
+		);
 	} else {
 		$self->_submit_job( $locus, $allele_ids );
 	}
@@ -517,11 +524,11 @@ sub _get_prop_class {
 sub _site_explorer {
 	my ( $self, $locus ) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Site Explorer</h1>\n";
+	say q(<h1>Site Explorer</h1>);
 	my $pos       = $q->param('pos');
 	my $temp_file = $q->param('file');
 	if ( !$temp_file || !-e "$self->{'config'}->{'secure_tmp_dir'}/$temp_file" ) {
-		say q(<div class="box" id="statusbad"><p>No sequence file passed.</p></div>);
+		$self->print_bad_status( { message => q(No sequence file passed.), navbar => 1 } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -611,7 +618,7 @@ sub _codon {
 	my $q = $self->{'cgi'};
 	say q(<h1>Codon Usage</h1>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
-		say q(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
+		$self->print_bad_status( { message => q(EMBOSS is not installed - function unavailable.), navbar => 1 } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -681,7 +688,7 @@ sub _translate {
 	my $q = $self->{'cgi'};
 	say q(<h1>Translate - aligned protein sequences</h1>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
-		say q(<div class="box" id="statusbad"><p>EMBOSS is not installed - function unavailable.</p></div>);
+		$self->print_bad_status( { message => q(EMBOSS is not installed - function unavailable.), navbar => 1 } );
 		return;
 	}
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
@@ -710,9 +717,16 @@ sub _translate {
 		say q(</pre></div></div>);
 		unlink $final_file;
 	} elsif ( $length_varies && @$allele_ids > MAX_SEQUENCES ) {
-		say q(<div class="box" id="statusbad"><p>This locus is variable length and will therefore )
-		  . qq(require real-time alignment. Consequently this function is limited to $max_sequences )
-		  . qq(sequences or fewer - you have selected $allele_count.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This locus is variable length and will therefore )
+				  . qq(require real-time alignment. Consequently this function is limited to $max_sequences )
+				  . qq(sequences or fewer - you have selected $allele_count.),
+				navbar => 1,
+				back_url =>
+				  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer)
+			}
+		);
 	} else {
 		$self->_submit_job( $locus, $allele_ids );
 	}

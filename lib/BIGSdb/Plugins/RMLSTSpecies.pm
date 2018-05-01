@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -187,7 +187,7 @@ sub _format_row_html {
 		}
 		if ( !$allele_predictions ) {
 			my $message;
-			if ($response_code == 413){
+			if ( $response_code == 413 ) {
 				$message = q(Genome size is too large for analysis);
 			} else {
 				$message = q(No exact matching alleles linked to genome found);
@@ -298,17 +298,22 @@ sub _print_interface {
 	my $selected_ids;
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(There are no sequences in the sequence bin.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('single_isolate') ) {
 		if ( !BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+			$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 			return;
 		}
 		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
-			say q(<div class="box" id="statusbad"><p>Passed isolate id either does not exist )
-			  . q(or has no sequence bin data.</p></div>);
+			$self->print_bad_status(
+				{
+					message =>
+					  q(Passed isolate id either does not exist or has no sequence bin data.),
+					navbar => 1
+				}
+			);
 			return;
 		}
 	}

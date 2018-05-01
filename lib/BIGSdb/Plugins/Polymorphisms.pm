@@ -43,15 +43,15 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version  => '1.1.6',
-		dbtype   => 'isolates',
-		url      => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
-		section  => 'breakdown,postquery',
-		requires => 'aligner,offline_jobs',
-		input    => 'query',
-		help     => 'tooltips',
-		order    => 16,
-		max      => MAX_SEQUENCES
+		version     => '1.1.7',
+		dbtype      => 'isolates',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
+		section     => 'breakdown,postquery',
+		requires    => 'aligner,offline_jobs',
+		input       => 'query',
+		help        => 'tooltips',
+		order       => 16,
+		max         => MAX_SEQUENCES
 	);
 	return \%att;
 }
@@ -75,7 +75,7 @@ sub run {
 	$locus =~ s/^cn_//x;
 
 	if ( !$locus ) {
-		say q(<div class="box" id="statusbad"><p>Please select a locus.</p></div>) if $q->param('submit');
+		$self->print_bad_status( { message => q(Please select a locus.) } ) if $q->param('submit');
 		$self->_print_interface;
 		return;
 	}
@@ -100,7 +100,7 @@ sub run {
 		$options{'count_only'} = 0;
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
-			say qq(<div class="box" id="statusbad"><p>There are no $locus alleles in your selection.</p></div>);
+			$self->print_bad_status( { message => qq(There are no $locus alleles in your selection.), navbar => 1 } );
 			return;
 		}
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
@@ -147,10 +147,14 @@ sub run {
 	} else {
 		my $max      = MAX_SEQUENCES;
 		my $num_seqs = @$ids;
-		say q(<div class="box" id="statusbad"><p>This analysis relies are being able to produce )
-		  . q(an alignment of your sequences. This is a potentially processor- and memory-intensive operation )
-		  . qq(for large numbers of sequences and is consequently limited to $max records.  You have $num_seqs )
-		  . q(records in your analysis.</p></div>);
+		$self->print_bad_status(
+			{
+				    message => q(This analysis relies are being able to produce )
+				  . q(an alignment of your sequences. This is a potentially processor- and memory-intensive operation )
+				  . qq(for large numbers of sequences and is consequently limited to $max records.  You have $num_seqs )
+				  . q(records in your analysis.)
+			}
+		);
 	}
 	return;
 }
@@ -336,7 +340,7 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
 	if ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	my $max = MAX_INSTANT_RUN;

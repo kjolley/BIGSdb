@@ -109,7 +109,7 @@ sub get_query {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
 					say 'Cannot open temporary file.';
 				} else {
-					say q(<div class="box" id="statusbad"><p>Cannot open temporary file.</p></div>);
+					$self->print_bad_status( { message => q(Cannot open temporary file.) } );
 				}
 				$logger->error($@);
 				return;
@@ -118,8 +118,12 @@ sub get_query {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
 				say 'The temporary file containing your query does not exist. Please repeat your query.';
 			} else {
-				say q(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
-				  . q(Please repeat your query.</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(The temporary file containing your query does not exist. )
+						  . q(Please repeat your query.)
+					}
+				);
 			}
 			return;
 		}
@@ -145,7 +149,7 @@ sub print_content {
 	if ( !$self->{'pluginManager'}->is_plugin($plugin_name) ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		say qq(<h1>$desc</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid (or no) plugin called.</p></div>);
+		$self->print_bad_status( { message => q(Invalid (or no) plugin called.), navbar => 1 } );
 		return;
 	}
 	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
@@ -153,8 +157,13 @@ sub print_content {
 	$plugin->{'username'} = $self->{'username'};
 	my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
-		say q(<div class="box" id="statusbad"><p>This plugin is not compatible )
-		  . qq(with this type of database ($dbtype).</p></div>);
+		say q(<h1>Incompatible plugin</h1>);
+		$self->print_bad_status(
+			{
+				message => qq(This plugin is not compatible with this type of database ($dbtype).),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $option_list = $plugin->get_option_list;
@@ -628,8 +637,12 @@ sub has_set_changed {
 	my $set_id = $self->get_set_id;
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {
-			say q(<div class="box" id="statusbad"><p>The dataset has been changed since this )
-			  . q(plugin was started. Please repeat the query.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(The dataset has been changed since this )
+					  . q(plugin was started. Please repeat the query.)
+				}
+			);
 			return 1;
 		}
 	}
@@ -769,6 +782,15 @@ sub print_sequence_filter_fieldset {
 	}
 	say q(</ul></fieldset>);
 	return;
+}
+
+sub filter_list_to_ids {
+	my ($self, $list) = @_;
+	my $returned_list = [];
+	foreach my $value (@$list){
+		push @$returned_list,$value if BIGSdb::Utils::is_int($value);
+	}
+	return $returned_list;
 }
 
 sub filter_ids_by_project {

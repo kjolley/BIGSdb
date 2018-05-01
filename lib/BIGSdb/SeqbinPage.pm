@@ -43,18 +43,18 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !defined $isolate_id ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id not specified.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id not specified.), navbar => 1 } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $exists =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say q(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
+		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
 		return;
 	}
 	my $name = $self->get_name($isolate_id);

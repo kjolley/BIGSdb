@@ -32,31 +32,36 @@ sub print_content {
 	say q(<h1>Update profile</h1>);
 	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
 	if ( !$scheme_id ) {
-		say q(<div class="box" id="statusbad"><p>No scheme_id passed.</p></div>);
+		$self->print_bad_status( { message => q(No scheme_id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme_id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Scheme_id must be an integer.), navbar => 1 } );
 		return;
 	}
 	if ( !$profile_id ) {
-		say q(<div class="box" id="statusbad"><p>No profile_id passed.</p></div>);
+		$self->print_bad_status( { message => q(No profile_id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed ) . q(to modify profiles.</p></div>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to modify profiles.), navbar => 1 } );
 		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.</p></div>);
+		$self->print_bad_status( { message => q(This scheme doesn't have a primary key field defined.), navbar => 1 } );
 		return;
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	if ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  )
-		  . q(Profiles can not be entered until there is at least one locus defined.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This scheme doesn't have any loci belonging to it.  )
+				  . q(Profiles can not be entered until there is at least one locus defined.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	my $profile_data = $self->{'datastore'}->run_query(
@@ -65,8 +70,13 @@ sub print_content {
 		{ fetch => 'row_hashref' }
 	);
 	if ( !$profile_data->{'profile_id'} ) {
-		say qq(<div class="box" id="statusbad"><p>No profile from scheme $scheme_id )
-		  . qq(($scheme_info->{'name'}) with profile_id = '$profile_id' exists.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(No profile from scheme $scheme_id )
+				  . qq(($scheme_info->{'name'}) with the selected id exists.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -212,13 +222,16 @@ sub _update {
 	my ( $bad_field_buffer, $locus_changed, $field_changed, $extra_inserts, $newdata, $updated_field ) =
 	  @{$update_data}{qw(bad_field_buffer locus_changed field_changed extra_inserts newdata updated_field)};
 	if (@$bad_field_buffer) {
-		say q(<div class="box" id="statusbad"><p>There are problems with your record submission. )
-		  . q(Please address the following:</p>);
 		local $" = q(<br />);
-		say qq(<p>@$bad_field_buffer</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(There are problems with your record submission. Please address the following:),
+				detail  => qq(@$bad_field_buffer)
+			}
+		);
 		return;
 	} elsif ( !%$locus_changed && !%$field_changed && !@$extra_inserts ) {
-		say q(<div class="box" id="statusbad"><p>No fields were changed.</p></div>);
+		$self->print_bad_status( { message => q(No fields were changed.), navbar => 1 } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );

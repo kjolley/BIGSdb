@@ -1053,8 +1053,7 @@ sub _run_query {
 	}
 	if (@errors) {
 		local $" = '<br />';
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@errors) } );
 	} else {
 		my $view              = $self->{'system'}->{'view'};
 		my $hidden_attributes = $self->get_hidden_attributes;

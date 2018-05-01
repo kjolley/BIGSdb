@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.3',
+		version     => '2.3.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -71,15 +71,15 @@ sub run {
 	say qq(<h1>Genome Comparator - $desc</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my @ids = $q->param('isolate_id');
+		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
-		push @ids, @$pasted_cleaned_ids;
-		@ids = uniq @ids;
+		push @$ids, @$pasted_cleaned_ids;
+		@$ids = uniq @$ids;
 		my $continue = 1;
-		my $error;
+		my @errors;
 		if (@$invalid_ids) {
 			local $" = ', ';
-			$error    = "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>\n";
+			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 			$continue = 0;
 		}
 		$q->param( upload_filename      => $q->param('ref_upload') );
@@ -91,10 +91,10 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
 		if ( !@$filtered_ids && !$q->param('user_upload') ) {
-			$error .= '<p>You must include one or more isolates. Make sure your selected isolates '
-			  . "haven't been filtered to none by selecting a project.</p>\n";
+			push @errors, q(You must include one or more isolates. Make sure your selected isolates )
+			  . q(haven't been filtered to none by selecting a project.);
 			$continue = 0;
 		}
 		my $max_genomes =
@@ -104,8 +104,8 @@ sub run {
 		if ( @$filtered_ids > $max_genomes ) {
 			my $nice_max = BIGSdb::Utils::commify($max_genomes);
 			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
-			$error .= qq(<p>Genome Comparator analysis is limited to $nice_max isolates. )
-			  . qq(You have selected $selected.</p>);
+			push @errors,
+			  qq(Genome Comparator analysis is limited to $nice_max isolates. ) . qq(You have selected $selected.);
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -115,18 +115,24 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			$error .= "<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n";
+			push @errors, qq(<p>The following loci in your pasted list are invalid: @$invalid_loci.);
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
-			$error .= q[<p>You must either select one or more loci or schemes (make sure these haven't been filtered ]
-			  . qq[by your options), provide a genome accession number, or upload an annotated genome.</p>\n];
+			push @errors,
+			  q[You must either select one or more loci or schemes (make sure these haven't been filtered ]
+			  . q[by your options), provide a genome accession number, or upload an annotated genome.];
 			$continue = 0;
 		}
-		if ($error) {
-			say qq(<div class="box statusbad">$error</div>);
+		if (@errors) {
+			if ( @errors == 1 ) {
+				$self->print_bad_status( { message => qq(@errors) } );
+			} else {
+				local $" = q(</p><p>);
+				$self->print_bad_status( { message => q(Please address the following:), detail => qq(@errors) } );
+			}
 		}
 		$q->param( ref_upload  => $ref_upload )  if $ref_upload;
 		$q->param( user_upload => $user_upload ) if $user_upload;
@@ -193,7 +199,7 @@ sub _print_interface {
 	};
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(There are no sequences in the sequence bin.), navbar => 1 } );
 		return;
 	}
 	$self->print_set_section if $q->param('select_sets');
@@ -239,8 +245,7 @@ sub print_user_genome_upload_fieldset {
 	say q(<p>Upload assembly FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
 	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
 	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
-		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) )
-	  ;
+		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
 	say q(</p>);
 	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
 	say q(</fieldset>);

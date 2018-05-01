@@ -48,16 +48,16 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version          => '1.1.1',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		system_flag      => 'PhyloViz',
-		requires         => 'js_tree',
-		help             => 'tooltips',
-		order            => 36,
-		min              => 2,
-		max              => 10000,
+		version             => '1.1.2',
+		dbtype              => 'isolates',
+		section             => 'third_party,postquery',
+		input               => 'query',
+		system_flag         => 'PhyloViz',
+		requires            => 'js_tree',
+		help                => 'tooltips',
+		order               => 36,
+		min                 => 2,
+		max                 => 10000,
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -165,8 +165,7 @@ sub run {
 			)
 		  )
 		{
-			say q(</div><div class="box" id="statusbad"><p>Nothing found )
-			  . q(in the database for your isolates!</p></div>);
+			$self->print_bad_status( { message => q(Nothing found in the database for your isolates!) } );
 			return;
 		}
 		$self->_generate_auxiliary_file(
@@ -183,11 +182,12 @@ sub run {
 			{ dataset => $uuid, profile => $profile_file, auxiliary => $auxiliary_file, count => scalar @$isolate_ids }
 		  );
 		if ( !$phylo_id ) {
-			say qq(</div><div class="box" id="statusbad"><p>Something went wrong: $msg</p></div>);
+			$self->print_bad_status( { message => qq(Something went wrong: $msg) } );
 			return;
 		}
 		my $domain = PHYLOVIZ_DOMAIN;
-		say qq(<p style="margin-top:2em"><a href="$phylo_id" target="_blank" class="launchbutton">Launch PhyloViz</a></p>);
+		say
+qq(<p style="margin-top:2em"><a href="$phylo_id" target="_blank" class="launchbutton">Launch PhyloViz</a></p>);
 		say q(</div>);
 		unlink $profile_file, $auxiliary_file;
 		return;

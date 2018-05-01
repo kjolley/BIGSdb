@@ -348,7 +348,14 @@ sub _print_separate_scheme_data {
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} else {
-		say q(<div class="box" id="statusbad"><p>No scheme or group passed.</p></div>);
+		$self->print_bad_status(
+			{
+				message  => q(No scheme or group passed.),
+				navbar   => 1,
+				back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=info&amp;id=$isolate_id)
+			}
+		);
 	}
 	return;
 }
@@ -366,12 +373,13 @@ sub print_content {
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
 		say qq(<h1>Isolate information: id-$isolate_id</h1>);
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		say q(<h1>Isolate information</h1>);
-		say q(<div class="box" id="statusbad"><p>This function can only be called for isolate databases.</p></div>);
+		$self->print_bad_status(
+			{ message => q(This function can only be called for isolate databases.), navbar => 1 } );
 		return;
 	}
 	my $data =
@@ -379,12 +387,16 @@ sub print_content {
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		say qq(<h1>Isolate information: id-$isolate_id</h1>);
-		say q(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
+		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
 		say q(<h1>Isolate information</h1>);
-		say q(<div class="box" id="statusbad"><p>Your user account does not )
-		  . q(have permission to view this record.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account does not have permission to view this record.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $identifier;
@@ -476,6 +488,7 @@ sub _print_plugin_buttons {
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;
+
 	foreach my $category (@$plugin_categories) {
 		my $cat_buffer;
 		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
@@ -542,11 +555,10 @@ sub _get_classification_group_data {
 	my $td = 1;
 	foreach my $cscheme (@$classification_schemes) {
 		my $cg_buffer;
-		my $scheme_id          = $cscheme->{'scheme_id'};
-		my $cache_table_exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-			[ "temp_isolates_scheme_fields_$scheme_id" ]
-		);
+		my $scheme_id = $cscheme->{'scheme_id'};
+		my $cache_table_exists =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			["temp_isolates_scheme_fields_$scheme_id"] );
 		if ( !$cache_table_exists ) {
 			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
 				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '

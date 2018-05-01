@@ -89,7 +89,7 @@ sub run {
 	return if $self->has_set_changed;
 	my $loci = $self->{'datastore'}->run_query( 'SELECT id FROM loci ORDER BY id', undef, { fetch => 'col_arrayref' } );
 	if ( !scalar @$loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci are defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci are defined for this database.), navbar => 1 } );
 		return;
 	}
 	my $qry_ref = $self->get_query($query_file);
@@ -136,7 +136,7 @@ sub _do_analysis {
 			$scheme_id = $1;
 			$field     = $2;
 			if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-				say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
+				$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
 				$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
 				return;
 			}
@@ -150,15 +150,21 @@ sub _do_analysis {
 					  . "LEFT JOIN $temp_table ON $list_table.value=$temp_table.id GROUP BY $temp_table.$field";
 				}
 				catch BIGSdb::DatabaseConnectionException with {
-					say qq("<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
-					  . q(This may be a configuration problem.</p></div>);
+					$self->print_bad_status(
+						{
+							message => q(The database for scheme $scheme_id is not accessible. )
+							  . q(This may be a configuration problem.),
+							navbar => 1
+						}
+					);
 					$continue = 0;
 				};
 				return if !$continue;
 			}
 		} else {
-			say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
-			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
+			$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
+			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) )
+			  ;
 			return;
 		}
 	} elsif ( $q->param('type') eq 'locus' ) {
@@ -173,7 +179,7 @@ sub _do_analysis {
 		  . qq($list_table.value=allele_designations.isolate_id AND allele_designations.locus=E'$locus' )
 		  . q(GROUP BY allele_designations.allele_id);
 	} else {
-		say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
+		$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
 		$logger->error( q(Invalid field passed for analysis. Field type is set as ') . $q->param('type') . q('.) );
 		return;
 	}

@@ -233,7 +233,7 @@ sub run {
 	say q(</p></div></div>);
 	say q(<noscript><p class="highlight">Please enable Javascript to view breakdown charts in place.</p></noscript>);
 	if ( !$field_count ) {
-		say q(<div class="box" id="statusbad"><p>There are no displayable fields defined.</p></div>);
+		$self->print_bad_status( { message => q(There are no displayable fields defined.) } );
 		return;
 	}
 	say qq(<div class="box" id="chart"><h2 id="field">$display_name</h2><div class="scrollable">)

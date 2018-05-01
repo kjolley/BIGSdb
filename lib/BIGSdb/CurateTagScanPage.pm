@@ -168,10 +168,10 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	if ( !@$ids ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(There are no sequences in the sequence bin.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to tag sequences.</p></div>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -467,12 +467,12 @@ sub _scan {
 	$q->param( isolate_id => @ids );
 
 	if ( !@ids ) {
-		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
+		$self->print_bad_status( { message => q(You must select one or more isolates.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
+		$self->print_bad_status( { message => q(You must select one or more loci or schemes.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -717,17 +717,17 @@ sub _show_results {
 	my $scan_job = $q->param('scan');
 	$scan_job = $scan_job =~ /^(BIGSdb_[0-9_]+)$/x ? $1 : undef;
 	if ( !defined $scan_job ) {
-		say q(<div class="box" id="statusbad"><p>Invalid job id passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid job id passed.), navbar => 1 } );
 		return;
 	}
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_table.html";
 	my $status   = $self->_read_status($scan_job);
 	if ( $status->{'server_busy'} ) {
-		say q(<div class="box" id="statusbad"><p>The server is currently too busy to run your scan. )
-		  . q(Please wait a few minutes and then try again.</p></div>);
+		$self->print_bad_status( { message => q(The server is currently too busy to run your scan. )
+		  . q(Please wait a few minutes and then try again.), navbar => 1 } );
 		return;
 	} elsif ( !$status->{'start_time'} ) {
-		say q(<div class="box" id="statusbad"><p>The requested job does not exist.</p></div>);
+		$self->print_bad_status( { message => q(The requested job does not exist.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

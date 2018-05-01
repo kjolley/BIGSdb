@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2017, University of Oxford
+#Copyright (c) 2012-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.1.1',
+		version          => '1.1.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -73,13 +73,13 @@ sub run {
 	my $q        = $self->{'cgi'};
 	my $rulesets = $self->_get_defined_rules;
 	if ( !$rulesets ) {
-		say q(<div class="box" id="statusbad">No rulesets have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No rulesets have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	my $ruleset_id = $q->param('ruleset');
 	if ( defined $ruleset_id ) {
 		if ( !defined $rulesets->{$ruleset_id} ) {
-			say q(<div class="box" id="statusbad"><p>Ruleset is not defined.</p></div>);
+			$self->print_bad_status( { message => q(Ruleset is not defined.), navbar => 1 } );
 			return;
 		}
 	}

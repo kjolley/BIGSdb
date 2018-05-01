@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.1',
+		version             => '1.3.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -119,9 +119,9 @@ sub run {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
-		my $total_seqs  = @$loci_selected * @ids;
-		my $max_records = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
-		my $max_seqs    = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
+		my $total_seqs          = @$loci_selected * @ids;
+		my $max_records         = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
+		my $max_seqs            = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
 		my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 		my $commify_total_seqs  = BIGSdb::Utils::commify($total_seqs);
@@ -135,8 +135,12 @@ sub run {
 			  . qq(You have selected $commify_total_records.);
 		}
 		if (@errors) {
-			local $" = qq(</p>\n<p>);
-			say qq(<div class="box" id="statusbad"><p>@errors</p></div>);
+			if ( @errors == 1 ) {
+				$self->print_bad_status( { message => qq(@errors) } );
+			} else {
+				local $" = q(</p><p>);
+				$self->print_bad_status( { message => q(Please address the following:), detail => qq(@errors) } );
+			}
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;

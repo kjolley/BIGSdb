@@ -2795,8 +2795,8 @@ sub get_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload ) =
-	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD );
+	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit ) =
+	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE );
 	my $buffer = q(<div class="navigation">);
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
@@ -2843,6 +2843,9 @@ sub print_navigation_bar {
 	}
 	if ( $options->{'reload_url'} ) {
 		$buffer .= qq(<a href="$options->{'reload_url'}" title="Reload scan form" style="margin-right:1em">$reload</a>);
+	}
+	if ($options->{'update_url'}){
+		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
 	}
 	$buffer .= q(</div><div style="clear:both"></div>);
 	return $buffer if $options->{'get_only'};

@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.3',
+		version     => '1.4.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -413,8 +413,7 @@ sub _print_controls {
 	if ( $q->param('display') ne 'values only' ) {
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Calculate percentages</legend>);
-		say $q->hidden($_)
-		  foreach qw (db page name function field1 field2 display calcpc list_file datatype);
+		say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc list_file datatype);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
 		say q(<span style="text-align:center; display:block">);
 		say $q->submit(
@@ -438,8 +437,13 @@ sub _breakdown {
 		$freq_hashes = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say q(<div class="box" id="statusbad"><p>The database for the scheme of one of your selected )
-		  . q(fields is inaccessible. This may be a configuration problem.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The database for the scheme of one of your selected )
+				  . q(fields is inaccessible. This may be a configuration problem.),
+				navbar => 1
+			}
+		);
 		return;
 	};
 	my ( $grand_total, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
@@ -463,11 +467,13 @@ sub _breakdown {
 
 	if ( $field1_count > MAX_TABLE || $field2_count > MAX_TABLE ) {
 		my $max_table = MAX_TABLE;
-		say qq(<div class="box" id="statusbad"><p>One of your selected fields has more than $max_table values - )
-		  . q(table rendering has been disabled to prevent your browser locking up.</p>);
-		say qq(<p>$print_field1: $field1_count<br />);
-		say qq($print_field2: $field2_count</p>);
-		say q(</div>);
+		$self->print_bad_status(
+			{
+				message => qq(One of your selected fields has more than $max_table values - )
+				  . q(table rendering has been disabled to prevent your browser locking up.),
+				detail => qq($print_field1: $field1_count<br />$print_field2: $field2_count)
+			}
+		);
 		$disable_html_table = 1;
 	}
 	if ( $q->param('toggledisplay') ) {

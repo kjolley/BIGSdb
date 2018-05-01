@@ -28,6 +28,7 @@ use List::MoreUtils qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
 use constant MAX_ISOLATES => 1000;
+use List::MoreUtils qw(uniq);
 use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub get_attributes {
@@ -43,7 +44,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
-		version      => '1.1.3',
+		version      => '1.1.4',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -101,13 +102,30 @@ sub run {
 	}
 	say q(<h1>Contig analysis and export</h1>);
 	return if $self->has_set_changed;
-	$self->_print_interface;
 	if ( $q->param('submit') ) {
-		my @ids = $q->param('isolate_id');
-		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
+		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @$ids, @$pasted_cleaned_ids;
+		@$ids = uniq @$ids;
+		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
+		if (@$invalid_ids) {
+			local $" = ', ';
+			$self->print_bad_status(
+				{
+					message => qq(The following isolates in your pasted list are invalid: @$invalid_ids.)
+				}
+			);
+			$self->_print_interface;
+			return;
+		}
 		if ( !@$filtered_ids ) {
-			say q(<div class="box" id="statusbad"><p>You must include one or more isolates. Make sure your )
-			  . q(selected isolates haven't been filtered to none by selecting a project.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(You must include one or more isolates. Make sure your )
+					  . q(selected isolates haven't been filtered to none by selecting a project.)
+				}
+			);
+			$self->_print_interface;
 			return;
 		} elsif ( @$filtered_ids > MAX_ISOLATES ) {
 			my $max_isolates =
@@ -116,11 +134,19 @@ sub run {
 			  ? $self->{'system'}->{'contig_analysis_limit'}
 			  : MAX_ISOLATES;
 			my $selected_count = @$filtered_ids;
-			say qq(<div class="box" id="statusbad"><p>Contig analysis is limited to $max_isolates )
-			  . qq(isolates. You have selected $selected_count.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Contig analysis is limited to $max_isolates )
+					  . qq(isolates. You have selected $selected_count.)
+				}
+			);
+			$self->_print_interface;
 			return;
 		}
+		$self->_print_interface;
 		$self->_run_analysis($filtered_ids);
+	} else {
+		$self->_print_interface;
 	}
 	return;
 }
@@ -276,7 +302,7 @@ sub _print_interface {
 	}
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(There are no sequences in the sequence bin.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids from which contigs are )
@@ -286,7 +312,7 @@ sub _print_interface {
 	  . q(but it won't exceed the length of the contig.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids } );
+	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->_print_options_fieldset;
 	$self->print_sequence_filter_fieldset( { min_length => 1 } );
 	$self->print_action_fieldset( { name => 'Contigs' } );

@@ -59,10 +59,14 @@ sub print_content {
 	$self->{'extended'} = $self->get_extended_attributes if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(<h1>Set database options</h1>);
 	if ( !$q->cookie('guid') ) {
-		say q(<div class="box" id="statusbad">);
-		say q(<p>In order to store options, a cookie needs to be saved on your computer. )
-		  . q(Cookies appear to be disabled, however.  Please enable them in your browser )
-		  . q(settings to proceed.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(In order to store options, a cookie needs to be saved on your computer. )
+				  . q(Cookies appear to be disabled, however.  Please enable them in your browser )
+				  . q(settings to proceed.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	say q(<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  )
