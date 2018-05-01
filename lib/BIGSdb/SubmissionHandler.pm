@@ -30,7 +30,7 @@ use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:submissions SEQ_METHODS);
+use BIGSdb::Constants qw(:submissions SEQ_METHODS DEFAULT_DOMAIN);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
 my $logger = get_logger('BIGSdb.Submissions');
 
@@ -1099,12 +1099,13 @@ sub _user_exists {
 sub email {
 	my ( $self, $submission_id, $params ) = @_;
 	my $submission = $self->get_submission($submission_id);
-	my $subject = $params->{'subject'} // "Submission#$submission_id";
 	foreach (qw(sender recipient message)) {
 		$logger->logdie("No $_") if !$params->{$_};
 	}
-	my $sender    = $self->{'datastore'}->get_user_info( $params->{'sender'} );
-	my $recipient = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
+	my $domain     = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $from_email = qq(no_reply\@$domain);
+	my $sender     = $self->{'datastore'}->get_user_info( $params->{'sender'} );
+	my $recipient  = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
 	foreach my $user ( $sender, $recipient ) {
 		my $address = Email::Valid->address( $user->{'email'} );
 		if ( !$address ) {
@@ -1112,6 +1113,7 @@ sub email {
 			return;
 		}
 	}
+	my $subject = qq([$sender->{'email'}] ) . ( $params->{'subject'} // "Submission#$submission_id" );
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
@@ -1121,7 +1123,7 @@ sub email {
 	  : undef;
 	my $header_params = [
 		To      => $recipient->{'email'},
-		From    => $sender->{'email'},
+		From    => $from_email,
 		Subject => $subject
 	];
 	push @$header_params, ( Cc => $cc ) if defined $cc;
@@ -1157,10 +1159,14 @@ sub get_text_summary {
 	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
 	}
-	my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { affiliation => 1 } );
+	my $submitter_string =
+	  $self->{'datastore'}
+	  ->get_user_string( $submission->{'submitter'}, { email => 1, text_email => 1, affiliation => 1 } )
+	  ;
 	$msg .= "Submitter: $submitter_string\n";
 	if ( $submission->{'curator'} ) {
-		my $curator_string = $self->{'datastore'}->get_user_string( $submission->{'curator'}, { affiliation => 1 } );
+		my $curator_string = $self->{'datastore'}
+		  ->get_user_string( $submission->{'curator'}, { email => 1, text_email => 1, affiliation => 1 } );
 		$msg .= "Curator: $curator_string\n";
 	}
 	$msg .= "Outcome: $outcome\n" if $outcome;

@@ -21,13 +21,12 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
-use BIGSdb::Constants qw(:accounts :interface);
+use BIGSdb::Constants qw(:accounts :interface DEFAULT_DOMAIN);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
 use Digest::MD5;
-use constant DEFAULT_DOMAIN => 'pubmlst.org';
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.User');
 
