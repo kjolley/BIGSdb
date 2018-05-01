@@ -22,6 +22,8 @@ use strict;
 use warnings;
 our @EXPORT_OK;
 our %EXPORT_TAGS;
+use constant DEFAULT_DOMAIN => 'pubmlst.org';
+push @EXPORT_OK, qw(DEFAULT_DOMAIN);
 
 #Limits
 use constant MAX_SPLITS_TAXA       => 150;

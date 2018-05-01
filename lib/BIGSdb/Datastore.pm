@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -107,14 +107,15 @@ sub get_user_string {
 	  ( $options->{'email'} && $info->{'email'} =~ /@/x )
 	  ? 1
 	  : 0;    #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
-	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email;
-	$user .= "$info->{'first_name'} "               if $info->{'first_name'};
+	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email && !$options->{'text_email'};
+	$user .= qq($info->{'first_name'} )             if $info->{'first_name'};
 	$user .= $info->{'surname'}                     if $info->{'surname'};
-	$user .= '</a>'                                 if $use_email;
+	$user .= qq( ($info->{'email'}))                if $use_email && $options->{'text_email'};
+	$user .= q(</a>)                                if $use_email && !$options->{'text_email'};
 
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
 		$info->{'affiliation'} =~ s/^\s*//x;
-		$user .= ", $info->{'affiliation'}";
+		$user .= qq(, $info->{'affiliation'});
 	}
 	return $user;
 }
