@@ -2770,20 +2770,6 @@ sub get_user_db_name {
 	return $db_name;
 }
 
-#TODO Remove when no longer called from anywhere
-sub print_return_to_submission {
-	my ($self) = @_;
-	my $back   = BACK;
-	my $q      = $self->{'cgi'};
-	if ( $q->param('submission_id') ) {
-		my $submission_id = $q->param('submission_id');
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
-	}
-	return;
-}
-
 sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();

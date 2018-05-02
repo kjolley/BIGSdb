@@ -2218,8 +2218,7 @@ sub _is_submission_valid {
 						  . qq(permissions to curate new $allele_submission->{'locus'} sequences.),
 						navbar => 1
 					}
-				  )
-				  if !$options->{'no_message'};
+				) if !$options->{'no_message'};
 				return;
 			}
 		}
@@ -2250,11 +2249,10 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
 	$self->_print_close_submission_fieldset($submission_id) if $curate;
-	my $back = BACK;
+	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
-	say qq(<div style="clear:both;padding-bottom:0.5em"><a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=$page" title="Back to submissions">$back</a></div>);
-	say q(</div></div>);
+	$self->print_navigation_bar( { no_home => 1, back_page => $page } );
+	say q(</div><div>);
 	return;
 }
 

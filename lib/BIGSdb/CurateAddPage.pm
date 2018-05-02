@@ -321,11 +321,9 @@ sub _insert {
 
 sub _display_navlinks {
 	my ( $self, $table, $newdata ) = @_;
-	my ( $back, $more, $key ) = ( BACK, MORE, KEY );
 	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
 	my $back_url;
-	$self->print_return_to_submission;
 	if ( $table eq 'samples' ) {
 		$back_url =
 		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
