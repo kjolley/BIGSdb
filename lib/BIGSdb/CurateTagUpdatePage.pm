@@ -186,7 +186,7 @@ sub print_content {
 	my $length = abs( $end - $start + 1 );
 	say q(<p class="seq" style="text-align:left">);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $translate  = $locus_info->{'coding_sequence'} ? 1 : 0;
+	my $translate  = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
 	my $orf        = $locus_info->{'orf'} || 1;
 	my $display    = $self->format_seqbin_sequence(
 		{
