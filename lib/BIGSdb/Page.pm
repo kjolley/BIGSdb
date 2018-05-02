@@ -2824,7 +2824,10 @@ sub print_navigation_bar {
 		  . qq(style="display:none">$hide</span></a>);
 	}
 	if ( $options->{'more_url'} ) {
-		$buffer .= qq(<a href="$options->{'more_url'}" title="Add another" style="margin-right:1em">$more</a>);
+		$options->{'more_text'} //= 'Add another';
+		$buffer .=
+		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>)
+		  ;
 	}
 	if ( $options->{'query_more_url'} ) {
 		$buffer .=
@@ -2844,7 +2847,7 @@ sub print_navigation_bar {
 	if ( $options->{'reload_url'} ) {
 		$buffer .= qq(<a href="$options->{'reload_url'}" title="Reload scan form" style="margin-right:1em">$reload</a>);
 	}
-	if ($options->{'update_url'}){
+	if ( $options->{'update_url'} ) {
 		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
 	}
 	$buffer .= q(</div><div style="clear:both"></div>);

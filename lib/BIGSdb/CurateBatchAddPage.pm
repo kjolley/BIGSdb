@@ -1944,8 +1944,25 @@ sub _upload_data {
 	$self->{'db'}->commit;
 	my $nav_data = $self->_get_nav_data($table);
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	$self->print_good_status( { message => q(Database updated.), navbar => 1, script => $script, %$nav_data } )
-	  ;
+	my ( $more_url, $back_url );
+	if ( $script eq $self->{'system'}->{'script_name'} ) {
+		$more_url = qq($script?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
+	} elsif ( $self->{'system'}->{'curate_script'} && $table eq 'isolates' && $q->param('private') ) {
+		$more_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
+		  . q(table=isolates&amp;private=1&amp;user_header=1);
+		$back_url = qq($script?db=$self->{'instance'}&amp;page=privateRecords);
+	}
+	$self->print_good_status(
+		{
+			message => q(Database updated.),
+			navbar  => 1,
+			script  => $script,
+			%$nav_data,
+			more_text => q(Add more),
+			more_url  => $more_url,
+			back_url  => $back_url
+		}
+	);
 	foreach (@history) {
 		my ( $isolate_id, $action ) = split /\|/x, $_;
 		$self->update_history( $isolate_id, $action );
