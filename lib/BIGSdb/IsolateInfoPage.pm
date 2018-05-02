@@ -926,11 +926,11 @@ sub _get_field_extended_attributes {
 					$att_web .= qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
 				}
 			}
-			push @$list,
-			  {
-				title => $attribute,
-				data  => ( $att_web || $attributes{$attribute} )
-			  };
+			( my $display_field = $attribute ) =~ tr/_/ /;
+			push @$list, {
+				title => $display_field,
+				data => ( $att_web || $attributes{$attribute} )
+			};
 		}
 	}
 	return $list;

@@ -810,7 +810,8 @@ sub _print_isolate_table_header {
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
 				if ( $self->{'prefs'}->{'maindisplayfields'}->{"$col\..$extended_attribute"} ) {
-					$header_buffer .= qq(<th>$extended_attribute</th>);
+					( my $display_field = $extended_attribute ) =~ tr/_/ /;
+					$header_buffer .= qq(<th>$display_field</th>);
 					$col_count++;
 				}
 			}
