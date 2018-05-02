@@ -516,12 +516,11 @@ sub _upload {
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
 				  . q(unique field with duplicate values.</p>);
-			} 
+			}
 			$self->print_bad_status(
 				{
-					message => q(Database update failed - transaction cancelled - )
-					  . q(no records have been touched.),
-					detail => $detail
+					message => q(Database update failed - transaction cancelled - ) . q(no records have been touched.),
+					detail  => $detail
 				}
 			);
 			$self->{'db'}->rollback;
@@ -530,11 +529,17 @@ sub _upload {
 		}
 	}
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader">);
-	$self->show_success( { message => 'Profiles added.' } );
 	my $submission_id = $q->param('submission_id');
-	$self->print_navigation_bar( { submission_id => $submission_id } );
-	say q(</div>);
+	$self->print_good_status(
+		{
+			message       => q(Profiles added.),
+			navbar        => 1,
+			submission_id => $submission_id,
+			more_text     => q(Add more),
+			more_url      => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id)
+		}
+	);
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}

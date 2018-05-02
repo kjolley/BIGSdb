@@ -670,15 +670,14 @@ sub _tag {
 			return;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader">);
-			$self->show_success( { message => 'Database updated.' } );
-			$self->print_navigation_bar(
+			$self->print_good_status(
 				{
+					message    => 'Database updated.',
+					navbar     => 1,
 					reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
 					  . qq(parameters=$scan_job)
 				}
 			);
-			say q(</div>);
 			say q(<div class="box" id="resultstable">);
 			local $" = qq(<br />\n);
 			if (@allele_updates) {
@@ -699,14 +698,14 @@ sub _tag {
 			say q(</div>);
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No updates required.</p>);
-		$self->print_navigation_bar(
+		$self->print_bad_status(
 			{
+				message    => q(No updates required.),
+				navbar     => 1,
 				reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
 				  . qq(parameters=$scan_job)
 			}
-		);
-		say q(</div>);
+		  )
 	}
 	return;
 }
@@ -723,8 +722,13 @@ sub _show_results {
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_table.html";
 	my $status   = $self->_read_status($scan_job);
 	if ( $status->{'server_busy'} ) {
-		$self->print_bad_status( { message => q(The server is currently too busy to run your scan. )
-		  . q(Please wait a few minutes and then try again.), navbar => 1 } );
+		$self->print_bad_status(
+			{
+				message => q(The server is currently too busy to run your scan. )
+				  . q(Please wait a few minutes and then try again.),
+				navbar => 1
+			}
+		);
 		return;
 	} elsif ( !$status->{'start_time'} ) {
 		$self->print_bad_status( { message => q(The requested job does not exist.), navbar => 1 } );

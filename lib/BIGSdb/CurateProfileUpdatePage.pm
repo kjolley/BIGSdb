@@ -321,10 +321,12 @@ sub _update {
 		return;
 	}
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader">);
-	$self->show_success( { message => 'Profile updated.' } );
-	$self->print_navigation_bar;
-	say q(</div>);
+	$self->print_good_status(
+		{
+			message => 'Profile updated.',
+			navbar  => 1
+		}
+	);
 	local $" = q(<br />);
 	$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
 	return;

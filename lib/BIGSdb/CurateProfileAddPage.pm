@@ -315,17 +315,16 @@ sub _upload {
 			} else {
 				$self->{'db'}->commit;
 				my $submission_id = $q->param('submission_id');
-				say q(<div class="box" id="resultsheader">);
-				$self->show_success( { message => qq($primary_key-$newdata->{"field:$primary_key"} added.) } );
-				$self->print_navigation_bar(
+				$self->print_good_status(
 					{
+						message       => qq($primary_key-$newdata->{"field:$primary_key"} added.),
+						navbar        => 1,
 						submission_id => $submission_id,
 						more_url =>
 						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
 						  . qq(scheme_id=$scheme_id)
 					}
 				);
-				say q(</div>);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
 			}

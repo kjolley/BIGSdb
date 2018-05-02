@@ -296,30 +296,34 @@ sub _insert {
 			foreach my $transaction (@$extra_transactions) {
 				$transaction->{'db'}->commit;
 			}
-			say q(<div class="box" id="resultsheader">);
+			my $navlinks = $self->_get_navlinks( $table, $newdata );
+			my $detail;
+			if ( $table eq 'composite_fields' ) {
+				$detail =
+				    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}">)
+				  . q(Add values and fully customize this composite field</a>.);
+			}
+			my $message;
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 				$cleaned_locus =~ s/\\'/'/gx;
-				$self->show_success( { message => "Sequence $cleaned_locus: $newdata->{'allele_id'} added." } );
+				$self->print_good_status(
+					{ message => qq(Sequence $cleaned_locus: $newdata->{'allele_id'} added.), navbar => 1, %$navlinks }
+				);
 				$self->update_blast_caches;
 			} else {
 				my $record_name = $self->get_record_name($table);
-				$self->show_success( { message => "$record_name added." } );
+				$self->print_good_status(
+					{ message => qq($record_name added.), detail => $detail, navbar => 1, %$navlinks } );
 			}
-			if ( $table eq 'composite_fields' ) {
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}">)
-				  . q(Add values and fully customize this composite field</a>.</p>);
-			}
-			$self->_display_navlinks( $table, $newdata );
-			say q(</div>);
 			return SUCCESS;
 		}
 	}
 	return;
 }
 
-sub _display_navlinks {
+sub _get_navlinks {
 	my ( $self, $table, $newdata ) = @_;
 	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
@@ -354,15 +358,12 @@ sub _display_navlinks {
 		$more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
 		  . qq(table=$table$locus_clause);
 	}
-	$self->print_navigation_bar(
-		{
-			back_url        => $back_url,
-			submission_id   => $submission_id,
-			change_password => $change_password,
-			more_url        => $more_url
-		}
-	);
-	return;
+	return {
+		back_url        => $back_url,
+		submission_id   => $submission_id,
+		change_password => $change_password,
+		more_url        => $more_url
+	};
 }
 
 sub _check_accession {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

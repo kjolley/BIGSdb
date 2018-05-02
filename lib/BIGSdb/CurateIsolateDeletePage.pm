@@ -151,10 +151,12 @@ sub _delete {
 		return;
 	}
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader">);
-	$self->show_success( { message => "Isolate id:$isolate_id deleted!" } );
-	$self->print_navigation_bar;
-	say q(</div>);
+	$self->print_good_status(
+		{
+			message => qq(Isolate id:$isolate_id deleted!),
+			navbar  => 1
+		}
+	);
 	return;
 }
 

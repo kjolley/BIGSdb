@@ -426,15 +426,14 @@ sub _upload {
 		$self->{'db'}->rollback;
 		return;
 	}
-	say q(<div class="box" id="resultsheader">);
-	$self->show_success;
-	$self->print_navigation_bar(
+	$self->print_good_status(
 		{
+			message       => q(Sequences added.),
+			navbar        => 1,
 			submission_id => $submission_id,
 			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
 		}
 	);
-	say q(</div>);
 	$self->{'db'}->commit;
 	$self->mark_locus_caches_stale( [ $q->param('locus') ] );
 	$self->update_blast_caches;

@@ -121,10 +121,14 @@ sub print_content {
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader">);
-			$self->show_success( { message => 'Sequence tag updated.' } );
-			$self->print_navigation_bar;
-			say q(</div>);
+			$self->print_good_status(
+				{
+					message        => q(Sequence tag updated.),
+					navbar         => 1,
+					query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					  . q(page=tableQuery&amp;table=allele_sequences)
+				}
+			);
 			local $" = q(<br />);
 			my $isolate_id =
 			  $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );

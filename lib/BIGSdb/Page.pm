@@ -2812,8 +2812,7 @@ sub print_navigation_bar {
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';
 		$buffer .=
-		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>)
-		  ;
+		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>);
 	}
 	if ( $options->{'query_more_url'} ) {
 		$buffer .=
@@ -2871,18 +2870,6 @@ sub print_good_status {
 		$self->print_navigation_bar($options);
 	}
 	say q(</div>);
-	return;
-}
-
-#TODO Remove if no longer called
-sub show_success {
-	my ( $self, $options ) = @_;
-	$options->{'message'} //= 'Success!';
-	say q(<p><a><span class="success fas fa-check fa-5x fa-pull-left"></span></a></p>);
-	say qq(<p class="outcome_message">$options->{'message'}</p>);
-	if ( $options->{'detail'} ) {
-		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
-	}
 	return;
 }
 

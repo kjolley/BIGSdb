@@ -113,10 +113,7 @@ sub _update {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		say q(<div class="box" id="resultsheader">);
-		$self->show_success( { message => 'Flags updated.' } );
-		$self->print_navigation_bar;
-		say q(</div>);
+		$self->print_good_status( { message => 'Flags updated.', navbar => 1 } );
 		$self->{'db'}->commit;
 	}
 	return;

@@ -477,8 +477,6 @@ sub _confirm {
 	}
 	my $record_name = $self->get_record_name($table);
 	$self->{'db'}->commit;
-	say q(<div class="box" id="resultsheader">);
-	$self->show_success( { message => "$record_name deleted." } );
 	my $query_more_url;
 	if ( $table eq 'composite_fields' ) {
 		$query_more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery);
@@ -490,8 +488,13 @@ sub _confirm {
 		$query_more_url =
 		  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;) . qq(page=tableQuery&amp;table=$table);
 	}
-	$self->print_navigation_bar( { query_more_url => $query_more_url } );
-	say q(</div>);
+	$self->print_good_status(
+		{
+			message        => qq($record_name deleted.),
+			navbar         => 1,
+			query_more_url => $query_more_url
+		}
+	);
 	$logger->debug("Deleted record: $qry");
 	if ( $table eq 'allele_designations' ) {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';

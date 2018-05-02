@@ -149,9 +149,8 @@ sub _check {
 		local $" = '<br />';
 		$self->print_bad_status(
 			{
-				message => q(There are problems with your record submission. )
-				  . q(Please address the following:),
-				detail => qq(@bad_field_buffer)
+				message => q(There are problems with your record submission. ) . q(Please address the following:),
+				detail  => qq(@bad_field_buffer)
 			}
 		);
 	} else {
@@ -279,29 +278,31 @@ sub _update {
 				}
 				$self->print_bad_status(
 					{
-						message => 'Update failed - transaction cancelled - no records have been touched.',
+						message => q(Update failed - transaction cancelled - no records have been touched.),
 						detail  => $detail
 					}
 				);
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
-				say q(<div class="box" id="resultsheader">);
-				$self->show_success( { message => 'Isolate updated.' } );
-				$self->print_navigation_bar(
+				$self->print_good_status(
 					{
+						message        => q(Isolate updated.),
+						navbar         => 1,
 						query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query)
 					}
 				);
-				say q(</div>);
 				local $" = '<br />';
 				$self->update_history( $data->{'id'}, "@updated_field" );
 				return SUCCESS;
 			}
 		} else {
-			say q(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
-			$self->print_navigation_bar;
-			say q(</div>);
+			$self->print_bad_status(
+				{
+					message => q(No field changes have been made.),
+					navbar  => 1
+				}
+			);
 		}
 	}
 	return;

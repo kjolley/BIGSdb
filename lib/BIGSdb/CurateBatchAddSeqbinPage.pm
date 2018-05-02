@@ -589,15 +589,14 @@ sub _upload {
 		return;
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader">);
-		$self->show_success;
-		$self->print_navigation_bar(
+		$self->print_good_status(
 			{
+				message  => q(Sequences uploaded.),
+				navbar   => 1,
 				more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin&amp;)
 				  . qq(sender=$sender")
 			}
 		);
-		say q(</div>);
 	}
 	return;
 }
