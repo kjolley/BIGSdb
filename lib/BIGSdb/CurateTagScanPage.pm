@@ -168,7 +168,7 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	if ( !@$ids ) {
-		$self->print_bad_status( { message => q(There are no sequences in the sequence bin.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
 		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
