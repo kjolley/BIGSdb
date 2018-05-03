@@ -49,7 +49,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		order       => 80,
-		requires    => 'offline_jobs,js_tree',
+		requires    => 'offline_jobs,js_tree,seqbin',
 		system_flag => 'SeqbinBreakdown'
 	);
 	return \%att;

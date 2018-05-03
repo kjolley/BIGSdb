@@ -56,7 +56,7 @@ sub get_attributes {
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
 		order       => 31,
-		requires    => 'aligner,offline_jobs,js_tree',
+		requires    => 'aligner,offline_jobs,js_tree,seqbin',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator',

@@ -51,7 +51,8 @@ sub get_attributes {
 		help         => 'tooltips',
 		order        => 20,
 		system_flag  => 'ContigExport',
-		tar_filename => 'contigs.tar'
+		tar_filename => 'contigs.tar',
+		requires     => 'seqbin'
 	);
 	return \%att;
 }
