@@ -417,11 +417,14 @@ sub print_content {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
 		say $self->_get_update_history($isolate_id);
-		my $back = BACK;
 		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-		say
-		  qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
-		  . qq($set_clause&amp;id=$isolate_id" title="Back">$back</a></p>);
+		$self->print_navigation_bar(
+			{
+				back_url =>
+				  qq($self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
+				  . qq($set_clause&amp;id=$isolate_id)
+			}
+		);
 		say q(</div>);
 	} else {
 		$self->_print_action_panel($isolate_id) if $self->{'curate'};
@@ -927,10 +930,11 @@ sub _get_field_extended_attributes {
 				}
 			}
 			( my $display_field = $attribute ) =~ tr/_/ /;
-			push @$list, {
+			push @$list,
+			  {
 				title => $display_field,
-				data => ( $att_web || $attributes{$attribute} )
-			};
+				data  => ( $att_web || $attributes{$attribute} )
+			  };
 		}
 	}
 	return $list;

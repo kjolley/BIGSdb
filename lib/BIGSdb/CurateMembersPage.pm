@@ -160,8 +160,9 @@ sub _print_interface {
 		say $q->hidden($_) foreach qw(db page table users_list);
 		say $q->end_form;
 		say q(</fieldset>);
-		my $back = BACK;
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}" title="Back">$back</a></p>);
+		say q(<div>);
+		$self->print_navigation_bar;
+		say q(</div>);
 	} else {
 		say q(<div class="box" id="queryform">);
 		say $self->_print_user_form;

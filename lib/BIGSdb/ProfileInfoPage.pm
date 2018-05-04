@@ -81,9 +81,13 @@ sub print_content {
 	if ( $q->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
-		  . qq(scheme_id=$scheme_id&amp;profile_id=$profile_id\">Back to profile information</a></p>);
 		say $self->_get_update_history( $scheme_id, $profile_id ) // '';
+		$self->print_navigation_bar(
+			{
+				back_url => qq($self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
+				  . qq(scheme_id=$scheme_id&amp;profile_id=$profile_id)
+			}
+		);
 	} else {
 		say q(<div class="box" id="resultspanel">);
 		say q(<div class="scrollable">);

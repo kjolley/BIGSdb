@@ -889,7 +889,6 @@ sub _project_info {
 			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
 		}
 	);
-	my $back = BACK;
 	say q(</div>);
 	return;
 }
