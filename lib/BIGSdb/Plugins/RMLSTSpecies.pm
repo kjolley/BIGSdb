@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.4',
+		version     => '1.1.0',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -125,6 +125,29 @@ sub run {
 	return;
 }
 
+sub _get_inline_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+<script type="text/Javascript">
+\$(function () {
+	\$("#hidden_matches").css('display', 'none');
+	\$("#show_matches").click(function() {
+		if (\$("span#show_matches_text").css('display') == 'none'){
+			\$("span#show_matches_text").css('display', 'inline');
+			\$("span#hide_matches_text").css('display', 'none');
+		} else {
+			\$("span#show_matches_text").css('display', 'none');
+			\$("span#hide_matches_text").css('display', 'inline');
+		}
+		\$("#hidden_matches").toggle( 'blind', {} , 500 );
+		return false;
+	});
+});
+</script>
+END
+	return $buffer;
+}
+
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
@@ -143,6 +166,7 @@ sub run_job {
 	my $td = 1;
 	my $row_buffer;
 	my $report = {};
+	my $match_output;
 
 	foreach my $isolate_id (@$isolate_ids) {
 		$progress = int( $i / @$isolate_ids * 100 );
@@ -158,6 +182,14 @@ sub run_job {
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
+
+		if ( @$isolate_ids == 1 ) {
+			$match_output = $self->_format_matches($data);
+			if ($match_output) {
+				$message_html .= $match_output;
+				$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+			}
+		}
 		last if $self->{'exit'};
 	}
 	if ($report) {
@@ -171,6 +203,64 @@ sub run_job {
 		}
 	}
 	return;
+}
+
+sub _format_matches {
+	my ( $self, $data ) = @_;
+	return if !$data->{'exact_matches'};
+	my $buffer       = q(<h2>Matches</h2>);
+	my $loci_matches = keys %{ $data->{'exact_matches'} };
+	my $plural       = $loci_matches == 1 ? q(us) : q(i);
+	$buffer .= qq(<p>$loci_matches loc$plural matched (rMLST uses 53 in total). );
+	$buffer .=
+	    q(<span style="margin-left:1em"><a id="show_matches" style="cursor:pointer">)
+	  . q(<span id="show_matches_text" title="Show matches" style="display:inline">)
+	  . q(<span class="nav_icon fas fa-2x fa-eye"></span>)
+	  . q(</span><span id="hide_matches_text" title="Hide matches" style="display:none">)
+	  . q(<span class="nav_icon fas fa-2x fa-eye-slash"></span></span></a></span></p>);
+	$buffer .= q(<div id="hidden_matches" style="display:none">);
+	my @headings = ( 'Locus', 'Allele', 'Length', 'Contig', 'Start position', 'End position', 'Linked data values' );
+	local $" = q(</th><th>);
+	$buffer .= qq(<table class="resultstable"><tr><th>@headings</th></tr>\n);
+	my $td = 1;
+
+	foreach my $locus ( sort keys %{ $data->{'exact_matches'} } ) {
+		my $matches = $data->{'exact_matches'}->{$locus};
+		foreach my $match (@$matches) {
+			my @values = (
+				$locus, $match->{'allele_id'}, $match->{'length'}, $match->{'contig'}, $match->{'start'},
+				$match->{'end'}
+			);
+			my $linked = q();
+			if ( $match->{'linked_data'} ) {
+				$linked = $self->_format_linked_data( $match->{'linked_data'} );
+			}
+			local $" = q(</td><td>);
+			$buffer .= qq(<tr class="td$td"><td>@values</td><td style="text-align:left">$linked</td></tr>\n);
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	$buffer .= q(</table></div>);
+	$buffer .= $self->_get_inline_javascript;
+	return $buffer;
+}
+
+sub _format_linked_data {
+	my ( $self, $linked_data ) = @_;
+	my @values;
+	my $s;
+	foreach my $resource ( sort keys %{$linked_data} ) {
+		$s = qq(<span class="source">$resource</span> );
+		foreach my $field ( sort keys %{ $linked_data->{$resource} } ) {
+			$s .= qq(<b>$field: </b>);
+			foreach my $value ( @{ $linked_data->{$resource}->{$field} } ) {
+				push @values, qq(<i>$value->{'value'}</i> [n=$value->{'frequency'}]);
+			}
+			local $" = q(; );
+			$s .= qq(@values);
+		}
+	}
+	return $s;
 }
 
 sub _format_row_html {
@@ -309,9 +399,8 @@ sub _print_interface {
 		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
 			$self->print_bad_status(
 				{
-					message =>
-					  q(Passed isolate id either does not exist or has no sequence bin data.),
-					navbar => 1
+					message => q(Passed isolate id either does not exist or has no sequence bin data.),
+					navbar  => 1
 				}
 			);
 			return;
