@@ -166,7 +166,6 @@ sub run_job {
 	my $td = 1;
 	my $row_buffer;
 	my $report = {};
-	my $match_output;
 
 	foreach my $isolate_id (@$isolate_ids) {
 		$progress = int( $i / @$isolate_ids * 100 );
@@ -184,7 +183,7 @@ sub run_job {
 		$td = $td == 1 ? 2 : 1;
 
 		if ( @$isolate_ids == 1 ) {
-			$match_output = $self->_format_matches($data);
+			my $match_output = $self->_format_matches($data);
 			if ($match_output) {
 				$message_html .= $match_output;
 				$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
