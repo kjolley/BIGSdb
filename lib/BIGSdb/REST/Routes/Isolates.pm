@@ -26,10 +26,11 @@ use BIGSdb::Utils;
 use constant GENOME_SIZE => 500_000;
 
 #Isolate database routes
-get '/db/:db/isolates'         => sub { _get_isolates() };
-get '/db/:db/genomes'          => sub { _get_genomes() };
-get '/db/:db/isolates/:id'     => sub { _get_isolate() };
-post '/db/:db/isolates/search' => sub { _query_isolates() };
+get '/db/:db/isolates'             => sub { _get_isolates() };
+get '/db/:db/genomes'              => sub { _get_genomes() };
+get '/db/:db/isolates/:id'         => sub { _get_isolate() };
+get '/db/:db/isolates/:id/history' => sub { _get_history() };
+post '/db/:db/isolates/search'     => sub { _query_isolates() };
 
 sub _get_isolates {
 	my $self = setting('self');
@@ -97,8 +98,7 @@ sub _get_isolate {
 	my $values = {};
 	my $field_values =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } )
-	  ;
+	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $provenance = {};
 
@@ -119,11 +119,14 @@ sub _get_isolate {
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
 	return $values if $params->{'provenance_only'};
+	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
+	$values->{'history'} = request->uri_for("/db/$db/isolates/$id/history") if $has_history;
 	my $publications = _get_publications($id);
 	$values->{'publications'} = $publications if @$publications;
 	my $seqbin_stats =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $id, { fetch => 'row_hashref' } );
+
 	if ($seqbin_stats) {
 		my $seqbin = {
 			contig_count  => $seqbin_stats->{'contigs'},
@@ -217,6 +220,24 @@ sub _get_publications {
 		  };
 	}
 	return $publications;
+}
+
+sub _get_history {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id ) = @{$params}{qw(db id)};
+	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM history WHERE isolate_id=? ORDER BY timestamp',
+		$id, { fetch => 'all_arrayref', slice => {} } );
+	my $history = [];
+	foreach my $record (@$data) {
+		my @actions = split /<br\ \/>/x, $record->{'action'};
+		push @$history, {
+			curator   => request->uri_for("/db/$db/users/$record->{'curator'}"),
+			actions   => \@actions,
+			timestamp => $record->{'timestamp'}
+		};
+	}
+	return { records => scalar @$history, updates => $history };
 }
 
 sub _get_similar {
