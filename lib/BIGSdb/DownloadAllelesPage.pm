@@ -542,13 +542,13 @@ sub _print_locus_row {
 sub _print_alphabetical_list {
 	my ($self) = @_;
 	my $locus_pattern = LOCUS_PATTERN;
-	foreach my $letter ( 0 .. 9, 'A' .. 'Z', q(') ) {
+	foreach my $letter ( 0 .. 9, 'A' .. 'Z', q('), q(_) ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 			$self->{'mod_perl_request'}->rflush;
 		}
-		my $qry_letter = $letter =~ /\d/x ? '\\\_' . $letter : $letter;
-		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($qry_letter);
+#		my $qry_letter = $letter =~ /\d/x ? '\\\_' . $letter : $letter;
+		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
 		if ( @$main || @$common || @$aliases ) {
 			my %names;
 			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
@@ -558,17 +558,17 @@ sub _print_alphabetical_list {
 				'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus IN '
 				  . '(SELECT id FROM loci WHERE UPPER(id) LIKE ? OR upper(common_name) LIKE ?) OR locus IN '
 				  . '(SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?))',
-				[ ("$qry_letter%") x 3 ],
+				[ ("$letter%") x 3 ],
 				{ cache => 'DownloadAllelesPage::print_alphabetical_list::descs_exists' }
 			);
 			my $aliases_exist =
 			  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_aliases WHERE alias LIKE ?)',
-				"$qry_letter%", { cache => 'DownloadAllelesPage::print_alphabetical_list::aliases_exists' } );
+				"$letter%", { cache => 'DownloadAllelesPage::print_alphabetical_list::aliases_exists' } );
 			my $curators_exist = $self->{'datastore'}->run_query(
 				'SELECT EXISTS(SELECT * FROM locus_curators WHERE (locus IN '
 				  . '(SELECT id FROM loci WHERE UPPER(id) LIKE ? OR UPPER(common_name) LIKE ?) OR '
 				  . 'locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?)) AND NOT hide_public)',
-				[ ("$qry_letter%") x 3 ],
+				[ ("$letter%") x 3 ],
 				{ cache => 'DownloadAllelesPage::print_alphabetical_list::curators_exists' }
 			);
 			say qq(<h2>$letter</h2>);
@@ -600,6 +600,7 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
+	$letter= q(\_) if $letter eq q(_);
 	my $set_id = $self->get_set_id;
 
 	#make sure 'id IN' has a space before it - used in the substitution a
