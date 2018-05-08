@@ -451,7 +451,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20180427';
+	my $version   = '20180508';
 	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
 	my @paths;
 	foreach my $filename (@filenames) {
@@ -1489,7 +1489,7 @@ sub get_link_button_to_ref {
 	my $count = $self->{'datastore'}->run_query( $qry, $ref, { cache => 'Page::link_ref' } );
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form( -style => 'display:inline' );
+	$buffer .= $q->start_form( -style => 'display:inline;margin-left:0.5em' );
 	$q->param( curate => 1 ) if $self->{'curate'};
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );

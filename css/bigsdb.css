@@ -3,7 +3,7 @@ select{margin:0}
 p {margin:0 0 1em 0;padding:0}
 
 body {
-	font:0.9em/110% Arial,Helvetica,sans-serif;
+	font:1em/110% Arial,Helvetica,sans-serif;
 	background:#fff;
 	color:#000;
 	margin-left:3px;
@@ -34,6 +34,7 @@ h3 {
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
 ul.toplevel {margin-left:8px}
+ul.infopanel {background:#f6f6f6;padding:1em 1em 0 2em;border:1px dashed #888}
 table {font-size: 1em;border-spacing:1px}
 
 a {color:#00b;text-decoration:none;z-index:9}
@@ -200,6 +201,7 @@ a.update:hover {background:#d0f5d0}
 	border:1px solid #999;
 	box-shadow: 1px 1px 1px #999;
 	border-radius:3px;
+	white-space:nowrap
 }
 
 .button:hover,.smallbutton:hover,.fieldvaluebutton:hover {
@@ -393,10 +395,10 @@ td.private_record {background:#ebb}
 tr.total {background:green;color:white}
 tr.warning {background:#e0a0a0;color:black}
 
-span.link {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
-span.source {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
-span.metaset {padding:0 0.5em;font-size:0.8em; background:blue; color:white;}
-span.highlightvalue {background:#ffffa0; border-bottom:1px solid #e0e000; color: #400000}
+span.link {padding:0 0.5em;font-size:0.8em;background:green;color:white;white-space:nowrap}
+span.source {padding:0 0.5em;font-size:0.8em;background:green;color:white}
+span.metaset {padding:0 0.5em;font-size:0.8em;background:blue;color:white}
+span.highlightvalue {background:#ffffa0;border-bottom:1px solid #e0e000;color:#400000}
 
 .A,.G,.T,.C {font-weight:600}
 .A {color:green}
@@ -664,7 +666,7 @@ div.scheme_tree {
  .data dt { 
  	float: left; 
  	clear: left; 
- 	width: 10em; 
+ 	width: 12em; 
  	white-space: nowrap;
  	overflow: hidden;
  	text-overflow: ellipsis;
@@ -673,7 +675,7 @@ div.scheme_tree {
  	color: #404080; 
  } 
  .data dt:after {content:":"} 
- .data dd {margin: 0 0 0 11em;padding: 0 0 0.3em 0}
+ .data dd {margin: 0 0 0 13em;padding: 0 0 0.3em 0}
  
  dl.profile {
 	margin:0;
@@ -743,8 +745,17 @@ h3.group4 {color:white;background:#60A060}
 h3.group5 {background:#80C080}
 h3.group6 {background:#A0E0A0}
 
+span.navigation_button {
+	display:inline-block;
+	border:2px solid #aaa;
+	padding:0 0.5em 0 0.5em;
+	background:#ddf;
+	border-radius:5px;
+}
 span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
+span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
+span.info_plugin_icon {color:#66a;text-shadow: 2px 2px 2px #999}
 span.nav_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.nav_icon:hover {color:#88c}
 span.job_icon {color:#a66;text-shadow: 3px 3px 3px #999}

@@ -115,10 +115,7 @@ sub get_javascript {
 		return false;
 	});
 	\$("#provenance").columnize({width:400});
-	\$("#seqbin").columnize({
-		width:300, 
-		lastNeverTallest: true,
-	});  
+	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
 });
 
@@ -420,8 +417,7 @@ sub print_content {
 		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 		$self->print_navigation_bar(
 			{
-				back_url =>
-				  qq($self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
+				back_url => qq($self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
 				  . qq($set_clause&amp;id=$isolate_id)
 			}
 		);
@@ -433,22 +429,24 @@ sub print_content {
 		say $self->get_isolate_record($isolate_id);
 		my $tree_button =
 		    q( <span id="tree_button" style="margin-left:1em;display:none">)
-		  . q(<a id="show_tree" class="smallbutton" style="cursor:pointer">)
-		  . q(<span id="show_tree_text" style="display:none">show</span>)
-		  . q(<span id="hide_tree_text" style="display:inline">hide</span> tree</a></span>);
+		  . q(<a id="show_tree" class="button" style="cursor:pointer">)
+		  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> show</span>)
+		  . q(<span id="hide_tree_text" style="display:inline"><span class="fa fas fa-eye-slash"></span> hide</span> tree</a></span>);
 		my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
 		my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 		my $aliases_button =
 		    q( <span id="aliases_button" style="margin-left:1em;display:none">)
-		  . q(<a id="show_aliases" class="smallbutton" style="cursor:pointer">)
-		  . qq(<span id="show_aliases_text" style="display:$show_aliases">)
-		  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">hide</span> )
+		  . q(<a id="show_aliases" class="button" style="cursor:pointer">)
+		  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
+		  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
+		  . q(<span class="fa fas fa-eye-slash"></span> hide</span> )
 		  . q(locus aliases</a></span>);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 		if (@$loci) {
 			say $self->_get_classification_group_data($isolate_id);
-			say qq(<h2>Schemes and loci$tree_button$aliases_button</h2>);
+			say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
+			say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button);
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
 				my $schemes =
 				  $self->{'datastore'}
@@ -469,6 +467,7 @@ sub print_content {
 			} else {
 				say $self->_get_tree($isolate_id);
 			}
+			say q(</div>);
 		}
 		$self->_print_plugin_buttons($isolate_id);
 		say q(</div>);
@@ -521,7 +520,7 @@ sub _print_plugin_buttons {
 				$cat_buffer .=
 				    q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} main_icon" style="margin-right:0.2em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
 				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 				$cat_buffer .= $plugin_buffer;
@@ -531,7 +530,8 @@ sub _print_plugin_buttons {
 		$buffer .= qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
 	}
 	if ($buffer) {
-		say q(<h2>Analysis tools:</h2>);
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-bar fa-pull-left" style="margin-top:-0.2em"></span>);
+		say q(<h2>Tools</h2>);
 		say $buffer;
 	}
 	return;
@@ -794,7 +794,9 @@ sub get_isolate_record {
 
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view ) = @_;
-	my $buffer = qq(<h2>Provenance/meta data</h2>\n);
+	my $buffer =
+	  q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
 	my ( $private_owner, $request_publish ) =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
@@ -858,7 +860,9 @@ sub _get_provenance_fields {
 			}
 			$web = qq(<a href="$url">$value</a>);
 			if ( $domain && $domain ne $q->virtual_host ) {
-				$web .= qq( <span class="link"><span style="font-size:1.2em">&rarr;</span> $domain</span>);
+				$web .= qq( <span class="link">$domain)
+				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>)
+				  ;
 			}
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
@@ -1509,30 +1513,37 @@ sub _get_ref_links {
 
 sub get_refs {
 	my ( $self, $pmids ) = @_;
-	my $buffer = '';
+	my $buffer = q();
 	if (@$pmids) {
+		$buffer .= q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left"></span>);
 		my $count = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my $display = @$pmids > 4 ? 'none' : 'block';
+		my ( $display, $class );
+		if ( @$pmids > 4 ) {
+			$display = q(none);
+			$class   = q(infopanel);
+		} else {
+			$display = q(block);
+			$class   = q();
+		}
 		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
-		    q(<span style="margin-left:1em"><a id="show_refs" )
+		    q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_refs" )
 		  . qq(style="cursor:pointer"><span id="show_refs_text" title="Show references" style="display:inline">$show</span>)
 		  . qq(<span id="hide_refs_text" title="Hide references" style="display:none">$hide</span></a></span>)
 		  if $display eq 'none';
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
-		$buffer .= qq(<ul id="$id" style="display:$display">\n);
+		$buffer .= qq(<ul id="$id" class="$class" style="display:$display">\n);
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
-
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
 			$buffer .= qq(<li style="padding-bottom:1em">$citations->{$pmid});
 			$buffer .= $self->get_link_button_to_ref($pmid);
 			$buffer .= qq(</li>\n);
 		}
-		$buffer .= qq(</ul>\n);
+		$buffer .= qq(</ul></div>\n);
 	}
 	return $buffer;
 }
@@ -1548,9 +1559,12 @@ sub _get_seqbin_link {
 		my %commify =
 		  map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) } qw(contigs total_length max_length mean_length);
 		my $plural = $seqbin_stats->{'contigs'} == 1 ? '' : 's';
+		$buffer .= q(<div>);
+		$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-dna fa-pull-left" style="margin-top:-0.1em"></span>);
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
 		$buffer .= q(<div id="seqbin">);
 		push @$list, { title => 'contigs', data => $commify{'contigs'} };
+
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $lengths =
 			  $self->{'datastore'}->run_query(
@@ -1598,7 +1612,7 @@ sub _get_seqbin_link {
 			  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display</a>)
 		  };
 		$buffer .= $self->_get_list_block($list);
-		$buffer .= q(</div>);
+		$buffer .= q(</div></div>);
 	}
 	return $buffer;
 }
@@ -1639,6 +1653,7 @@ sub _print_projects {
 	}
 	if (@$projects) {
 		say q(<div class="box" id="projects"><div class="scrollable">);
+		say q(<span class="info_icon fas fa-2x fa-fw fa-list-alt fa-pull-left" style="margin-top:0.3em"></span>);
 		say q(<h2>Projects</h2>);
 		my $plural = @$projects == 1 ? '' : 's';
 		say qq(<p>This isolate is a member of the following project$plural:</p>);
