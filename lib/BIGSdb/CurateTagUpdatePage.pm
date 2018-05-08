@@ -32,6 +32,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	say q(<h1>Update sequence tag</h1>);
+	say $self->get_form_icon( 'allele_sequences', 'edit' );
 	if ( !BIGSdb::Utils::is_int($id) ) {
 		$self->print_bad_status( { message => q(Tag id must be an integer.), navbar => 1 } );
 		return;

@@ -174,12 +174,14 @@ sub _print_interface {
 		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
 		return;
 	}
+	say $self->get_form_icon( 'allele_sequences', 'scan' );
 	say q(<div class="box" id="queryform">);
-	say q(<p>Please select the required isolate ids and loci for sequence scanning - use Ctrl or Shift to make )
-	  . q(multiple selections. In addition to selecting individual loci, you can choose to include all loci )
-	  . q(defined in schemes by selecting the appropriate scheme description. By default, loci are only scanned )
-	  . q(for an isolate when no allele designation has been made or sequence tagged. You can choose to rescan loci )
-	  . q(with existing designations or tags by selecting the appropriate options.</p>);
+	say q(<p style="margin-right:10%">Please select the required isolate ids and loci for sequence scanning - )
+	  . q(use Ctrl or Shift to make multiple selections. In addition to selecting individual loci, you can choose )
+	  . q(to include all loci defined in schemes by selecting the appropriate scheme description. By default, loci )
+	  . q(are only scanned for an isolate when no allele designation has been made or sequence tagged. You can )
+	  . q(choose to rescan loci with existing designations or tags by selecting the appropriate options.</p>)
+	  ;
 	my $guid = $self->get_guid;
 	my $general_prefs;
 	if ($guid) {
@@ -705,7 +707,7 @@ sub _tag {
 				reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
 				  . qq(parameters=$scan_job)
 			}
-		  )
+		);
 	}
 	return;
 }

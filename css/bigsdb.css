@@ -780,6 +780,7 @@ button.plugin:hover {color:#c8c}
 .form_icon_plus {color:#7a7;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_edit {color:#77a;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_trash {color:#a77;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
+.form_icon_scan {color:#99c;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon > .fa-stack > .fa-users {font-size:1.7em}
 
 @media (max-width: 600px){

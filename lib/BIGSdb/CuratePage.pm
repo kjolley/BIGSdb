@@ -1420,13 +1420,15 @@ sub get_form_icon {
 		user_group_members => 'fa-users',
 		experiments        => 'fa-flask',
 		sequences          => 'fa-dna',
-		sequence_bin       => 'fa-dna'
+		sequence_bin       => 'fa-dna',
+		allele_sequences   => ( $highlight eq 'scan' ? 'fa-dna' : 'fa-tag' )
 	};
 	my $highlight_class = {
 		plus   => 'fa-plus form_icon_plus',
 		edit   => 'fa-pencil-alt form_icon_edit',
 		trash  => 'fa-times form_icon_trash',
-		import => 'fa-arrow-left form_icon_plus'
+		import => 'fa-arrow-left form_icon_plus',
+		scan   => 'fa-tag form_icon_scan'
 	};
 	my $icon = $icons->{$table} // 'fa-file-alt';
 	my $bordered =
