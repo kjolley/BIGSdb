@@ -861,8 +861,7 @@ sub _get_provenance_fields {
 			$web = qq(<a href="$url">$value</a>);
 			if ( $domain && $domain ne $q->virtual_host ) {
 				$web .= qq( <span class="link">$domain)
-				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>)
-				  ;
+				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
 			}
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
@@ -1039,15 +1038,20 @@ sub get_sample_summary {
 		my $show_samples = $options->{'hide'} ? 'inline' : 'none';
 		my $hide_samples = $options->{'hide'} ? 'none'   : 'inline';
 		if ( $options->{'hide'} ) {
+			my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+			$buffer .= q(<div>);
+			$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-vial fa-pull-left" style="margin-top:0.2em"></span>)
+			  ;
+			$buffer .= q(<h2 style="display:inline-block">Samples</h2>);
 			$buffer .=
-			    q(<h2>Samples<span style="margin-left:1em"><a id="show_samples" class="smallbutton" )
-			  . q(style="cursor:pointer;display:none">)
-			  . qq(<span id="show_samples_text" style="display:$show_samples">show</span>)
-			  . qq(<span id="hide_samples_text" style="display:$hide_samples">hide</span></a></span></h2>\n);
+			    q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle">)
+			  . q(<a id="show_samples" style="cursor:pointer">)
+			  . qq(<span id="show_samples_text" title="Show samples" style="display:inline">$show</span>)
+			  . qq(<span id="hide_samples_text" title="Hide samples" style="display:none">$hide</span></a></span>);
 		}
 		$buffer .= qq(<table class="resultstable" id="sample_table">\n);
 		$buffer .= $sample_buffer;
-		$buffer .= qq(</table>\n);
+		$buffer .= qq(</table></div>\n);
 	}
 	return $buffer;
 }
