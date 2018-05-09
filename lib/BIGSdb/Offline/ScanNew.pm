@@ -157,6 +157,7 @@ sub _scan_locus_by_locus {
 
 sub _handle_match {
 	my ( $self, $locus_info, $match, $seqs ) = @_;
+	use Data::Dumper;
 	return if $self->_off_end_of_contig($match);
 	my $seq = $self->extract_seq_from_match($match);
 	my ( $reject, $flag ) = $self->_check_cds($seq);
@@ -299,8 +300,12 @@ sub _define_allele {
 
 sub _off_end_of_contig {
 	my ( $self, $match ) = @_;
-	my $seqbin_length = $self->{'datastore'}->run_query( 'SELECT length(sequence) FROM sequence_bin WHERE id=?',
-		$match->{'seqbin_id'}, { cache => 'ScanNew::off_end_of_contig' } );
+	my $seqbin_length = $self->{'datastore'}->run_query(
+		'SELECT GREATEST(r.length,length(s.sequence)) FROM sequence_bin s LEFT JOIN '
+		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
+		$match->{'seqbin_id'},
+		{ cache => 'ScanNew::off_end_of_contig' }
+	);
 	if ( BIGSdb::Utils::is_int( $match->{'predicted_start'} ) && $match->{'predicted_start'} < 1 ) {
 		$match->{'predicted_start'} = '1';
 		$match->{'incomplete'}      = 1;
