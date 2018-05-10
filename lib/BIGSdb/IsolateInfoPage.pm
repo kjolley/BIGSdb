@@ -446,7 +446,7 @@ sub print_content {
 		if (@$loci) {
 			say $self->_get_classification_group_data($isolate_id);
 			say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
-			say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button);
+			say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
 			if ( @$scheme_data < 3 && @$loci <= 100 ) {
 				my $schemes =
 				  $self->{'datastore'}
@@ -467,7 +467,7 @@ sub print_content {
 			} else {
 				say $self->_get_tree($isolate_id);
 			}
-			say q(</div>);
+			say q(</div></div>);
 		}
 		$self->_print_plugin_buttons($isolate_id);
 		say q(</div>);
