@@ -1959,7 +1959,7 @@ sub _upload_data {
 			script  => $script,
 			%$nav_data,
 			more_text => q(Add more),
-			more_url  => $more_url,
+			more_url  => $nav_data->{'more_url'} // $more_url,
 			back_url  => $back_url
 		}
 	);
@@ -2027,7 +2027,6 @@ sub _get_nav_data {
 	if ($submission_id) {
 		$self->_update_submission_database($submission_id);
 	}
-	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	my $more_url;
 	if ( $table eq 'sequences' ) {
 		my $sender            = $q->param('sender');
