@@ -168,12 +168,12 @@ sub search_users {
 	my ( $field, $suffix ) = split / /, $name;
 	$suffix =~ s/[\(\)\s]//gx;
 	my $qry = 'SELECT id FROM users WHERE ';
-	my $equals = $suffix ne 'id' ? "upper($suffix) = upper('$text')" : "$suffix = '$text'";
+	my $equals = $suffix ne 'id' ? "upper($suffix) = upper(E'$text')" : "$suffix = E'$text'";
 	my $contains =
-	  $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text\%')" : "CAST($suffix AS text) LIKE ('\%$text\%')";
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text\%')" : "CAST($suffix AS text) LIKE (E'\%$text\%')";
 	my $starts_with =
-	  $suffix ne 'id' ? "upper($suffix) LIKE upper('$text\%')" : "CAST($suffix AS text) LIKE ('$text\%')";
-	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper('\%$text')" : "CAST($suffix AS text) LIKE ('\%$text')";
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'$text\%')" : "CAST($suffix AS text) LIKE (E'$text\%')";
+	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text')" : "CAST($suffix AS text) LIKE (E'\%$text')";
 	my %modify = (
 		'NOT'         => "NOT $equals",
 		'contains'    => $contains,
@@ -186,7 +186,7 @@ sub search_users {
 	if ( $modify{$operator} ) {
 		$qry .= $modify{$operator};
 	} else {
-		$qry .= "$suffix $operator '$text'";
+		$qry .= "$suffix $operator E'$text'";
 	}
 	my $local_ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	if ( $suffix ne 'id' ) {
