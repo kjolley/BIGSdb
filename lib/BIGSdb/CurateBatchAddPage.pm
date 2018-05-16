@@ -222,8 +222,14 @@ sub _is_private_record {
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $q = $self->{'cgi'};
 	return if !$q->param('private');
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $user_info       = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $limit           = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $private_project = $self->_get_private_project_id;
+	if ($private_project) {
+		my $project_info = $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM projects WHERE id=?', $private_project, { fetch => 'row_hashref' } );
+		return 1 if $project_info->{'no_quota'};
+	}
 	return 1 if $limit;
 	return;
 }
@@ -1808,9 +1814,20 @@ sub _upload_data {
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $project_id = $self->_get_private_project_id;
 	my $private    = $self->_is_private_record;
+
+	if ( $table eq 'isolates' && !$private && $self->{'permissions'}->{'only_private'} ) {
+		$self->print_bad_status(
+			{
+				message =>
+				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
+			}
+		);
+		my $user_string = $self->{'datastore'}->get_user_string($user_info->{'id'});
+		$logger->error("Attempt to upload public data by user ($user_string) who not have permission.");
+		return;
+	}
 	my %loci;
 	$loci{$locus} = 1 if $locus;
-
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
 		if ($record) {
