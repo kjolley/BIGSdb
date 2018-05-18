@@ -363,9 +363,10 @@ sub _get_remote_contig_fragment {
 	my $flanking       = $args->{'flanking'};
 	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
 	my $upstream_start = $args->{'start'} - 1 - $flanking;
+	$upstream_start = 0 if $upstream_start < 0;
 	return {
 		seq => substr( $contig->{'sequence'}, $args->{'start'} - 1, $extract_length ),
-		upstream => $upstream_start < 0 ? q() : substr( $contig->{'sequence'}, $upstream_start, $flanking ),
+		upstream => substr( $contig->{'sequence'}, $upstream_start, $flanking ),
 		downstream => substr( $contig->{'sequence'}, $args->{'end'}, $flanking )
 	};
 }
