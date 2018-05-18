@@ -290,7 +290,7 @@ sub _registrations {
 			-id       => 'auto_reg',
 			-values   => $auto_reg,
 			-multiple => 'true',
-			-style    => 'min-width:10em; min-height:8em',
+			-style    => 'min-width:10em; min-height:10em',
 			-labels   => $labels
 		);
 		$buffer .= q(<div style='text-align:right'>);
