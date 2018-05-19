@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -40,7 +41,7 @@ sub print_content {
 		$self->print_bad_status( { message => q(No locus selected.), navbar => 1 } );
 		return;
 	}
-	$locus =~ s/%27/'/gx;                                                                #Web-escaped locus
+	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $allele_id = $q->param('allele_id');
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		say q(<h1>Allele information</h1>);
@@ -69,26 +70,40 @@ sub print_content {
 	}
 	my $length = length( $seq_ref->{'sequence'} );
 	my $seq    = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
+	my $data   = [];
 	say q(<div class="box" id="resultspanel">);
 	say q(<div class="scrollable">);
+	say q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
 	say q(<h2>Provenance/meta data</h2>);
-	say q(<dl class="data">);
-	say qq(<dt>locus</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=locusInfo&amp;locus=$locus">$cleaned_locus</a></dd>);
-	say qq(<dt>allele</dt><dd>$allele_id</dd>);
+	push @$data,
+	  {
+		title => 'locus',
+		data  => $cleaned_locus,
+		href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus)
+	  };
+	push @$data, { title => 'allele', data => $allele_id };
 
 	if ( $allele_id eq '0' ) {
-		say q(<dt>description</dt><dd>This is a null allele. When included in a )
-		  . q(profile it means that this locus is missing.</dd>);
+		push @$data,
+		  {
+			title => 'description',
+			data  => q(This is a null allele. When included in a profile it means that this locus is missing.)
+		  };
 	} elsif ( $allele_id eq 'N' ) {
-		say q(<dt>description</dt><dd>This is an arbitrary allele.  When included )
-		  . q(in a profile it means that this locus is ignored.</dd>);
+		push @$data,
+		  {
+			title => 'description',
+			data  => q(This is an arbitrary allele.  When included in a profile it means that this locus is ignored.)
+		  };
 	} else {
-		say qq(<dt>sequence</dt><dd style="text-align:left" class="seq">$seq</dd>)
-		  . qq(<dt>length</dt><dd>$length</dd>)
-		  . qq(<dt>status</dt><dd>$seq_ref->{'status'}</dd>)
-		  . qq(<dt>date entered</dt><dd>$seq_ref->{'date_entered'}</dd>)
-		  . qq(<dt>datestamp</dt><dd>$seq_ref->{'datestamp'}</dd>);
+		push @$data,
+		  (
+			{ title => 'sequence',     data => $seq, class => 'seq' },
+			{ title => 'length',       data => $length },
+			{ title => 'status',       data => $seq_ref->{'status'} },
+			{ title => 'date entered', data => $seq_ref->{'date_entered'} },
+			{ title => 'datestamp',    data => $seq_ref->{'datestamp'} }
+		  );
 		my $sender = $self->{'datastore'}->get_user_string(
 			$seq_ref->{'sender'},
 			{
@@ -96,12 +111,14 @@ sub print_content {
 				email       => !$self->{'system'}->{'privacy'}
 			}
 		);
-		say qq(<dt>sender</dt><dd>$sender</dd>);
+		push @$data, { title => 'sender', data => $sender };
 		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
-		say qq(<dt>curator</dt><dd>$curator</dd>);
+		push @$data, { title => 'curator', data => $curator };
 	}
 	say qq(<dt>comments</dt><dd>$seq_ref->{'comments'}</dd>) if $seq_ref->{'comments'};
-	$self->_process_flags( $locus, $allele_id );
+	push @$data, { title => 'comments', data => $seq_ref->{'comments'} } if $seq_ref->{'comments'};
+	my $flags = $self->_get_flags( $locus, $allele_id );
+	push @$data, { title => 'flags', data => $flags } if $flags;
 	my $extended_attributes = $self->{'datastore'}->get_allele_extended_attributes( $locus, $allele_id );
 	my $extended_att_urls =
 	  $self->{'datastore'}->run_query( 'SELECT field,url FROM locus_extended_attributes WHERE locus=?',
@@ -111,24 +128,25 @@ sub print_content {
 		$cleaned_field =~ tr/_/ /;
 		if ( $cleaned_field =~ /sequence$/x ) {
 			my $ext_seq = BIGSdb::Utils::split_line( $ext->{'value'} );
-			say qq(<dt>$cleaned_field</dt><dd class="seq">$ext_seq</dd>);
+			push @$data, { title => $cleaned_field, data => $ext_seq, class => 'seq' };
 		} else {
 			my $url = $extended_att_urls->{ $ext->{'field'} }->{'url'};
 			if ($url) {
 				$url =~ s/\[\?\]/$ext->{'value'}/gx;
-				$ext->{'value'} = qq(<a href="$url">$ext->{'value'}</a>);
 			}
-			say qq(<dt>$cleaned_field</dt><dd>$ext->{'value'}</dd>);
+			push @$data, { title => $cleaned_field, data => $ext->{'value'}, href => $url };
 		}
 	}
-	say q(</dl>);
+	say $self->get_list_block($data);
+	say q(</div>);
 	$self->_print_accessions( $locus, $allele_id );
 	$self->_print_ref_links( $locus, $allele_id );
 	my $qry         = 'SELECT schemes.* FROM schemes LEFT JOIN scheme_members ON schemes.id=scheme_id WHERE locus=?';
 	my $scheme_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	my $set_id      = $self->get_set_id;
+
 	if (@$scheme_list) {
-		my $profile_buffer;
+		my $profiles_list = [];
 		foreach my $scheme (@$scheme_list) {
 			my $scheme_info =
 			  $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
@@ -138,11 +156,8 @@ sub print_content {
 			  ->run_query( 'SELECT COUNT(*) FROM profile_members WHERE (scheme_id,locus,allele_id)=(?,?,?)',
 				[ $scheme->{'id'}, $locus, $allele_id ] );
 			next if !$profiles;
-			$profile_buffer .= "<dt>$scheme_info->{'name'}</dt>";
 			my $plural  = $profiles == 1 ? ''         : 's';
 			my $contain = $profiles == 1 ? 'contains' : 'contain';
-			$profile_buffer .= q(<dd>);
-			$profile_buffer .= $q->start_form;
 			$q->param( page      => 'query' );
 			$q->param( scheme_id => $scheme->{'id'} );
 			$q->param( s1        => $locus );
@@ -150,13 +165,18 @@ sub print_content {
 			$q->param( t1        => $allele_id );
 			$q->param( order     => $scheme_info->{'primary_key'} );
 			$q->param( submit    => 1 );
+			my $profile_buffer = $q->start_form;
 			$profile_buffer .= $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
 			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'smallbutton' );
 			$profile_buffer .= $q->end_form;
-			$profile_buffer .= q(</dd>);
+			push @$profiles_list, { title => $scheme_info->{'name'}, data => $profile_buffer };
 		}
-		if ($profile_buffer) {
-			say qq(<h2>Profiles containing this allele</h2>\n<dl class="data">\n$profile_buffer</dl>);
+		if (@$profiles_list) {
+			say q(<div>);
+			say q(<span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:-0.1em"></span>);
+			say q(<h2>Profiles containing this allele</h2>);
+			say $self->get_list_block($profiles_list);
+			say q(</div>);
 		}
 	}
 	$self->_print_client_database_data( $locus, $allele_id );
@@ -173,14 +193,13 @@ sub _print_client_database_data {
 	  . 'client_dbases.id=client_dbase_id WHERE locus=?';
 	my $client_list = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
 	if (@$client_list) {
-		my $buffer;
+		my $clients = [];
 		foreach my $client (@$client_list) {
 			my $isolate_count =
 			  $self->{'datastore'}->get_client_db( $client->{'id'} )
 			  ->count_isolates_with_allele( $client->{'locus_alias'} || $locus, $allele_id );
 			next if !$isolate_count;
-			$buffer .= "<dt>$client->{'name'}</dt>";
-			$buffer .= "<dd>$client->{'description'} ";
+			my $buffer = qq($client->{'description'} );
 			my $plural = $isolate_count == 1 ? '' : 's';
 			if ( $client->{'url'} ) {
 
@@ -213,23 +232,26 @@ sub _print_client_database_data {
 				$buffer .= $q->end_form;
 			}
 			$buffer .= q(</dd>);
+			push @$clients, { title => $client->{'name'}, data => $buffer };
 		}
-		if ($buffer) {
-			say qq(<h2>Isolate databases</h2>\n<dl class="data">);
-			say $buffer;
-			say q(</dl>);
+		if (@$clients) {
+			say q(<div>);
+			say q(<span class="info_icon far fa-2x fa-fw fa-file-alt fa-pull-left" style="margin-top:-0.2em"></span>);
+			say q(<h2>Isolate databases</h2>);
+			say $self->get_list_block($clients);
+			say q(</div>);
 		}
 	}
 	return;
 }
 
-sub _process_flags {
+sub _get_flags {
 	my ( $self, $locus, $allele_id ) = @_;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		if (@$flags) {
 			local $" = q(</span> <span class="seqflag">);
-			say qq(<dt>flags</dt><dd><span class="seqflag">@$flags</span></dd>);
+			return qq(<span class="seqflag">@$flags</span>);
 		}
 	}
 	return;
@@ -256,32 +278,47 @@ sub _print_accessions {
 	my $qry = 'SELECT databank,databank_id FROM accession WHERE (locus,allele_id)=(?,?) ORDER BY databank,databank_id';
 	my $accession_list =
 	  $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
-	my $buffer = q();
 	if (@$accession_list) {
-		say '<h2>Accession' . ( @$accession_list > 1 ? 's' : '' ) . ' (' . @$accession_list . ')';
-		my $display = @$accession_list > 4 ? 'none' : 'block';
-		say q(<span style="margin-left:1em"><a id="show_accessions" class="smallbutton" style="cursor:pointer">&nbsp;)
-		  . q(show/hide&nbsp;</a></span>)
+		my $plural = @$accession_list > 1 ? q(s) : q();
+		my $count = @$accession_list;
+		say q(<div>);
+		my ( $display, $offset );
+		if ( @$accession_list > 4 ) {
+			$display = 'none';
+			$offset  = 0.1;
+		} else {
+			$display = 'block';
+			$offset  = -0.1;
+		}
+		say q(<span class="info_icon fas fa-2x fa-fw fa-external-link-square-alt fa-pull-left" )
+		  . qq(style="margin-top:${offset}em"></span>);
+		say qq(<h2 style="display:inline">Accession$plural ($count)</h2>);
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle;margin-bottom:0.5em">)
+		  . q(<a id="show_accessions" )
+		  . qq(style="cursor:pointer"><span id="show_accessions_text" title="Show accessions" style="display:inline">$show</span>)
+		  . qq(<span id="hide_accessions_text" title="Hide accessions" style="display:none">$hide</span></a></span>)
 		  if $display eq 'none';
-		say "</h2>\n";
 		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
-		say qq(<div id="$id">);
-		say $buffer .= qq(<dl class="data">\n);
+		my $accessions = [];
+
 		foreach my $accession (@$accession_list) {
-			say "<dt>$accession->{'databank'}</dt>";
+			my $href;
 			if ( $accession->{'databank'} eq 'Genbank' ) {
-				say qq(<dd><a href="https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}">)
-				  . qq($accession->{'databank_id'}</a></dd>);
+				$href = qq(https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'});
 			} elsif ( $accession->{'databank'} eq 'ENA' ) {
+				$href = qq(http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'});
 				say qq(<dd><a href="http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}">)
 				  . qq($accession->{'databank_id'}</a></dd>);
-			} else {
-				say "<dd>$accession->{'databank_id'}</dd>";
 			}
+			push @$accessions,
+			  { title => $accession->{'databank'}, data => $accession->{'databank_id'}, href => $href };
 		}
-		say q(</dl></div>);
+		say qq(<div id="$id">);
+		say $self->get_list_block($accessions);
+		say q(</div></div>);
 	}
-	return $buffer;
+	return;
 }
 
 sub _print_ref_links {
@@ -294,14 +331,26 @@ sub _print_ref_links {
 	if (@$pmids) {
 		my $count = @$pmids;
 		my $plural = $count > 1 ? q(s) : q();
-		say qq(<h2>Publication$plural ($count));
-		my $display = @$pmids > 4 ? 'none' : 'block';
-		say q(<span style="margin-left:1em"><a id="show_refs" class="smallbutton" style="cursor:pointer">)
-		  . q(&nbsp;show/hide&nbsp;</a></span>)
+		my ( $display, $class, $icon_offset );
+		if ( @$pmids > 4 ) {
+			$display     = q(none);
+			$class       = q(infopanel);
+			$icon_offset = 0;
+		} else {
+			$display     = q(block);
+			$class       = q();
+			$icon_offset = -0.2;
+		}
+		say q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" )
+		  . qq(style="margin-top:${icon_offset}em"></span>);
+		say qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_refs" )
+		  . qq(style="cursor:pointer"><span id="show_refs_text" title="Show references" style="display:inline">$show</span>)
+		  . qq(<span id="hide_refs_text" title="Hide references" style="display:none">$hide</span></a></span>)
 		  if $display eq 'none';
-		say q(</h2>);
 		my $id = $display eq 'none' ? 'hidden_references' : 'references';
-		say qq(<ul id="$id">\n);
+		say qq(<ul id="$id" class="$class" style="display:$display">);
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
@@ -309,7 +358,7 @@ sub _print_ref_links {
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
 			say qq(<li style="padding-bottom:1em">$citations->{$pmid}</li>);
 		}
-		say q(</ul>);
+		say q(</ul></div>);
 	}
 	return;
 }
@@ -318,16 +367,30 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-	\$( "#hidden_accessions" ).css('display', 'none');
-	\$( "#show_accessions" ).click(function() {
-		\$( "#hidden_accessions" ).toggle( 'blind', {} , 500 );
-		return false;
+
+	\$("#hidden_accessions").css('display', 'none');
+	\$("#show_accessions").click(function() {
+		if (\$("span#show_accessions_text").css('display') == 'none'){
+			\$("span#show_accessions_text").css('display', 'inline');
+			\$("span#hide_accessions_text").css('display', 'none');
+		} else {
+			\$("span#show_accessions_text").css('display', 'none');
+			\$("span#hide_accessions_text").css('display', 'inline');
+		}
+		\$("#hidden_accessions").toggle( 'blind', {} , 500 );
 	});
 	\$( "#hidden_references" ).css('display', 'none');
 	\$( "#show_refs" ).click(function() {
+		if (\$("span#show_refs_text").css('display') == 'none'){
+			\$("span#show_refs_text").css('display', 'inline');
+			\$("span#hide_refs_text").css('display', 'none');
+		} else {
+			\$("span#show_refs_text").css('display', 'none');
+			\$("span#hide_refs_text").css('display', 'inline');
+		}
 		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
-		return false;
 	});
+
 });
 
 END

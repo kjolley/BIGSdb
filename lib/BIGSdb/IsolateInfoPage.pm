@@ -533,6 +533,7 @@ sub _print_plugin_buttons {
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-bar fa-pull-left" style="margin-top:-0.2em"></span>);
 		say q(<h2>Tools</h2>);
 		say $buffer;
+		say q(</div>);
 	}
 	return;
 }
@@ -892,8 +893,8 @@ sub _get_provenance_fields {
 			push @$list, @$composites if @$composites;
 		}
 	}
-	$buffer .= $self->_get_list_block($list);
-	$buffer .= qq(</div>\n);
+	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
+	$buffer .= q(</div></div>);
 	return $buffer;
 }
 
@@ -1040,8 +1041,7 @@ sub get_sample_summary {
 		if ( $options->{'hide'} ) {
 			my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 			$buffer .= q(<div>);
-			$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-vial fa-pull-left" style="margin-top:0.2em"></span>)
-			  ;
+			$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-vial fa-pull-left" style="margin-top:0.2em"></span>);
 			$buffer .= q(<h2 style="display:inline-block">Samples</h2>);
 			$buffer .=
 			    q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle">)
@@ -1615,23 +1615,9 @@ sub _get_seqbin_link {
 			data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display</a>)
 		  };
-		$buffer .= $self->_get_list_block($list);
+		$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 		$buffer .= q(</div></div>);
 	}
-	return $buffer;
-}
-
-sub _get_list_block {
-	my ( $self, $list ) = @_;
-
-	#It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
-	#columnizer plugin can result in the title and data item appearing in different columns. All browsers
-	#seem to handle this way ok.
-	my $buffer = q(<dl class="data">);
-	foreach my $item (@$list) {
-		$buffer .= qq(<span class="dontsplit"><dt>$item->{'title'}</dt><dd>$item->{'data'}</dd></span>\n);
-	}
-	$buffer .= qq(</dl>\n);
 	return $buffer;
 }
 

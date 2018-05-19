@@ -2873,6 +2873,38 @@ sub print_good_status {
 	return;
 }
 
+sub get_list_block {
+	my ( $self, $list, $options ) = @_;
+
+	#It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
+	#columnizer plugin can result in the title and data item appearing in different columns. All browsers
+	#seem to handle this way ok.
+	my ( $dt_width_clause, $dd_left_margin_clause, $id_clause );
+	if ( $options->{'width'} ) {
+		$dt_width_clause = qq( style="width:$options->{'width'}em");
+		my $margin_width = $options->{'width'} + 1;
+		$dd_left_margin_clause = qq( style="margin-left:${margin_width}em");
+	} 
+	if ($options->{'id'}){
+		$id_clause = qq( id="$options->{'id'}");
+	}
+	$_ //= q() foreach ($dt_width_clause, $dd_left_margin_clause, $id_clause);
+	my $buffer = qq(<dl class="data"$id_clause>\n);
+	foreach my $item (@$list) {
+		my $class = $item->{'class'};
+		$buffer .= q(<span class="dontsplit">) if $options->{'columnize'};
+		$buffer .= qq(<dt$dt_width_clause>$item->{'title'}</dt>);
+		$buffer .= $class ? qq(<dd class="$class"$dd_left_margin_clause>) : qq(<dd$dd_left_margin_clause>);
+		$buffer .= qq(<a href="$item->{'href'}">) if $item->{'href'};
+		$buffer .= $item->{'data'};
+		$buffer .= q(</a>)                        if $item->{'href'};
+		$buffer .= qq(</dd>\n);
+		$buffer .= q(</span>)                     if $options->{'columnize'};
+	}
+	$buffer .= qq(</dl>\n);
+	return $buffer;
+}
+
 sub is_page_allowed {
 	my ( $self, $page ) = @_;
 	return 1 if !$self->{'system'}->{'kiosk'};
