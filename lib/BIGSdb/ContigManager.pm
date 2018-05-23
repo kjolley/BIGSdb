@@ -361,12 +361,17 @@ sub _get_remote_contig_fragment {
 		$logger->error('Seq start is <1!');
 	}
 	my $flanking       = $args->{'flanking'};
+	my $upstream_flanking=$flanking;
 	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
 	my $upstream_start = $args->{'start'} - 1 - $flanking;
-	$upstream_start = 0 if $upstream_start < 0;
+	if ($upstream_start < 0){
+		$upstream_flanking += $upstream_start;
+		$upstream_start=0;
+		$upstream_flanking = 0 if $upstream_flanking<0;
+	}
 	return {
 		seq => substr( $contig->{'sequence'}, $args->{'start'} - 1, $extract_length ),
-		upstream => substr( $contig->{'sequence'}, $upstream_start, $flanking ),
+		upstream => substr( $contig->{'sequence'}, $upstream_start, $upstream_flanking ),
 		downstream => substr( $contig->{'sequence'}, $args->{'end'}, $flanking )
 	};
 }
