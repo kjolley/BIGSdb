@@ -205,7 +205,7 @@ sub _check_if_over_limit {
 		send_error(
 			'You have made too many separate submissions today - please try again tomorrow. '
 			  . 'A quota is in place to prevent misbehaving scripts flooding the submission system.',
-			403
+			429
 		);
 	}
 	return;
