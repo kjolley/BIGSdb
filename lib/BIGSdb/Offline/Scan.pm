@@ -954,7 +954,8 @@ sub _get_row {
 	    qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
 	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
-	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf">)
+	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf" )
+	  . q(style="white-space:nowrap">)
 	  . qq(extract <span class="fas fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
 	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
 	$buffer .= qq(<td>$arrow</td><td>);
