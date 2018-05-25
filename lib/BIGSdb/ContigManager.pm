@@ -312,6 +312,7 @@ sub _get_session_token {
 		$oauth_credentials->{'session_secret'} = $session_response->token_secret;
 		return $session_response;
 	} else {
+		$logger->error($res->as_string);
 		throw BIGSdb::AuthenticationException("Invalid access token for $base_uri");
 	}
 }
