@@ -1438,19 +1438,15 @@ sub _get_version_links {
 	my $buffer       = '';
 	my $old_versions = $self->_get_old_versions($isolate_id);
 	my $new_versions = $self->_get_new_versions($isolate_id);
-	if ( @$old_versions || @$new_versions ) {
-		$buffer .= qq(<h2>Versions</h2>\n);
-		$buffer .= qq(<p>More than one version of this isolate record exist.</p>\n);
-		$buffer .= q(<dl class="data">);
-	}
+	my $list         = [];
 	if (@$old_versions) {
 		my @version_links;
 		foreach my $version ( reverse @$old_versions ) {
 			push @version_links, qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=info&amp;id=$version">$version</a>);
 		}
-		local $" = ', ';
-		$buffer .= qq(<dt>Older versions</dt><dd>@version_links</dd>\n);
+		local $" = q(, );
+		push @$list, { title => 'Older versions', data => qq(@version_links) };
 	}
 	if (@$new_versions) {
 		my @version_links;
@@ -1459,10 +1455,12 @@ sub _get_version_links {
 			  . qq(page=info&amp;id=$version">$version</a>);
 		}
 		local $" = q(, );
-		$buffer .= qq(<dt>Newer versions</dt><dd>@version_links</dd>\n);
+		push @$list, { title => 'Newer versions', data => qq(@version_links) };
 	}
-	if ( @$old_versions || @$new_versions ) {
-		$buffer .= qq(</dl>\n);
+	if (@$list) {
+		$buffer .= qq(<h2>Versions</h2>\n);
+		$buffer .= qq(<p>More than one version of this isolate record exist.</p>\n);
+		$buffer .= $self->get_list_block($list);
 	}
 	return $buffer;
 }
