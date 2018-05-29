@@ -1458,6 +1458,8 @@ sub _get_version_links {
 		push @$list, { title => 'Newer versions', data => qq(@version_links) };
 	}
 	if (@$list) {
+		$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-code-branch fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span>);
 		$buffer .= qq(<h2>Versions</h2>\n);
 		$buffer .= qq(<p>More than one version of this isolate record exist.</p>\n);
 		$buffer .= $self->get_list_block($list);
