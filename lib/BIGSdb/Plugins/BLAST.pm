@@ -382,7 +382,7 @@ sub run_job {
 			);
 			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
 			$html_buffer .= $self->_get_match_attribute_html_cells( $match, $flanking );
-			$file_buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );    #
+			$file_buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );
 			$file_buffer .= qq(\n);
 			$self->_append_fasta(
 				{

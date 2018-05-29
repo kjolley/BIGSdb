@@ -181,6 +181,8 @@ sub _check {
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Sequence check</h2>);
 	say q(<div class="scrollable">);
+	my $clean_locus = $self->clean_locus($locus);
+	say qq(<p><b>Locus: </b>$clean_locus</p>);
 	say q(<table class="resultstable" style="float:left;margin-right:1em">)
 	  . q(<tr><th>Original designation</th><th>Allele id</th><th>Status</th></tr>);
 	my $td      = 1;
