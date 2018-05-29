@@ -753,8 +753,11 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 			{ fetch => 'col_arrayref' }
 		);
 	} else {
-		$schemes = $self->{'datastore'}->run_query( 'SELECT scheme_id FROM scheme_curators WHERE curator_id=?',
-			$self->get_curator_id, { fetch => 'col_arrayref' } );
+		$schemes = $self->{'datastore'}->run_query(
+			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
+			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
+			$self->get_curator_id, { fetch => 'col_arrayref' }
+		);
 	}
 	my $buffer;
 	my %desc;
