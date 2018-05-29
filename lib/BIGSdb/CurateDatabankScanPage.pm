@@ -104,8 +104,7 @@ sub _print_results {
 	say q(</div>);
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Annotation information</h2>);
-	say q(<dl class="data">);
-	my $td = 1;
+	my $list = [];
 	my @cds;
 
 	foreach ( $seq_obj->get_SeqFeatures ) {
@@ -123,11 +122,10 @@ sub _print_results {
 	foreach my $field (qw (accession version type length description cds)) {
 		if ( $att{$field} ) {
 			my $field_name = $abb{$field} || $field;
-			say qq(<dt>$field_name</dt><dd>$att{$field}</dd>);
-			$td = $td == 1 ? 2 : 1;
+			push @$list, { title => $field_name, data => $att{$field} };
 		}
 	}
-	say q(</dl>);
+	say $self->get_list_block($list);
 	say q(<h2>Coding sequences</h2>);
 	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
 	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
@@ -136,6 +134,7 @@ sub _print_results {
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
+	my $td = 1;
 	my @locus_error;
 	my $table_buffer = q();
 

@@ -96,20 +96,20 @@ sub print_content {
 		}
 		$buffer .= q(<div style="float:left">);
 		$buffer .= qq(<h2>Contig position$update_buffer</h2>\n);
-		$buffer .= q(<dl class="data">);
-		$buffer .= qq(<dt class="dontend">sequence bin id</dt><dd>$seqbin_id</dd>);
-		$buffer .= qq(<dt class="dontend">contig length</dt><dd>$seqlength</dd>);
+		my $list = [
+			{ title => 'sequence bin id', data => $seqbin_id },
+			{ title => 'contig length',   data => $seqlength },
+			{ title => 'start',           data => $start_pos },
+			{ title => 'end',             data => $end_pos },
+			{ title => 'length',          data => abs( $end_pos - $start_pos + 1 ) },
+			{ title => 'orientation',     data => $reverse ? 'reverse' : 'forward' },
+			{ title => 'complete',        data => $complete ? 'yes' : 'no' }
+		];
+		push @$list, { title => 'method', data => $method } if $method;
+		$buffer .= $self->get_list_block($list);
+		$buffer .= q(</div>);
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
-		$buffer .= qq(<dt class="dontend">start</dt><dd>$start_pos</dd>\n);
-		$buffer .= qq(<dt class="dontend">end</dt><dd>$end_pos</dd>\n);
-		my $length = abs( $end_pos - $start_pos + 1 );
-		$buffer .= qq(<dt class="dontend">length</dt><dd>$length</dd>\n);
-		my $orientation = $reverse ? 'reverse' : 'forward';
-		$buffer .= qq(<dt class="dontend">orientation</dt><dd>$orientation</dd>\n);
-		$buffer .= q(<dt class="dontend">complete</dt><dd>) . ( $complete ? 'yes' : 'no' ) . qq(</dd>\n);
-		$buffer .= qq(<dt class="dontend">method</dt><dd>$method</dd>\n) if $method;
-		$buffer .= q(</dl></div>);
 		my $display = $self->format_seqbin_sequence(
 			{
 				seqbin_id => $seqbin_id,
@@ -125,7 +125,6 @@ sub print_content {
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
 		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
-
 		if ($translate) {
 			$buffer .= qq(<h2>Translation</h2>\n);
 			my @stops = @{ $display->{'internal_stop'} };

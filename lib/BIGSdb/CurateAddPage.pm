@@ -745,10 +745,16 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			  $self->{'datastore'}->get_remote_user_info( $newdata->{'user_name'}, $newdata->{'user_db'} );
 			my $msg =
 			    qq(Username '$newdata->{'user_name'}' already exists in remote user database.</p>)
-			  . qq(<dl class="data"><dt>Surname</dt><dd>$remote_user->{'surname'}</dd>)
-			  . qq(<dt>First name</dt><dd>$remote_user->{'first_name'}</dd>)
-			  . qq(<dt>E-mail</dt><dd>$remote_user->{'email'}</dd>)
-			  . qq(<dt>Affiliation</dt><dd>$remote_user->{'affiliation'}</dd></dl><p>);
+			  . q(<div style="margin-top:3em">);
+			$msg .= $self->get_list_block(
+				[
+					{ title => 'Surname',     data => $remote_user->{'surname'} },
+					{ title => 'First name',  data => $remote_user->{'first_name'} },
+					{ title => 'E-mail',      data => $remote_user->{'email'} },
+					{ title => 'Affiliation', data => $remote_user->{'affiliation'} }
+				]
+			);
+			$msg .= q(</div><p>);
 			if ( !@$problems ) {
 				my $class = RESET_BUTTON_CLASS;
 				$msg .=
