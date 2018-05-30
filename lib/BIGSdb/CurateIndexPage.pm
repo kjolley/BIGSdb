@@ -128,7 +128,7 @@ sub _get_standard_links {
 	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
 	my $buffer;
-	foreach (qw (users user_groups user_group_members permissions)) {
+	foreach (qw (users user_groups user_group_members)) {
 		if ( $self->can_modify_table($_) ) {
 			my $function = "_print_$_";
 			try {
@@ -179,7 +179,7 @@ sub _get_seqdef_links {
 	my $set_string = $self->_get_set_string;
 	my $buffer     = q();
 	foreach (
-		qw (locus_descriptions locus_links scheme_curators locus_curators sequences retired_allele_ids accession
+		qw (locus_descriptions locus_links sequences retired_allele_ids accession
 		sequence_refs profiles profile_refs retired_profiles)
 	  )
 	{
@@ -210,7 +210,7 @@ sub _get_admin_links {
 
 	#Only modify schemes/loci etc. when sets not selected.
 	return q() if $set_id;
-	my @tables = qw (user_dbases loci);
+	my @tables = qw (permissions user_dbases loci);
 	my @skip_table;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @tables,
@@ -218,7 +218,7 @@ sub _get_admin_links {
 		  sequence_attributes);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
-		  client_dbase_loci_fields);
+		  client_dbase_loci_fields scheme_curators locus_curators);
 	}
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		push @tables, 'sets';
