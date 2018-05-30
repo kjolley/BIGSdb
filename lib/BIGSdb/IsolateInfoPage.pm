@@ -1562,13 +1562,14 @@ sub _get_seqbin_link {
 	my $q            = $self->{'cgi'};
 	if ( $seqbin_stats->{'contigs'} ) {
 		my $list = [];
+		my $div_id = $seqbin_stats->{'contigs'} > 1 ? 'seqbin' : 'seqbin_no_columnize';
 		my %commify =
 		  map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) } qw(contigs total_length max_length mean_length);
 		my $plural = $seqbin_stats->{'contigs'} == 1 ? '' : 's';
 		$buffer .= q(<div>);
 		$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-dna fa-pull-left" style="margin-top:-0.1em"></span>);
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
-		$buffer .= q(<div id="seqbin">);
+		$buffer .= qq(<div id="$div_id">);
 		push @$list, { title => 'contigs', data => $commify{'contigs'} };
 
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
@@ -1617,7 +1618,8 @@ sub _get_seqbin_link {
 			data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display</a>)
 		  };
-		$buffer .= $self->get_list_block( $list, { columnize => 1 } );
+		my $columnize = $seqbin_stats->{'contigs'} > 1 ? 1 : 0;
+		$buffer .= $self->get_list_block( $list, { columnize => $columnize } );
 		$buffer .= q(</div></div>);
 	}
 	return $buffer;
