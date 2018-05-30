@@ -75,17 +75,25 @@ sub _print_limits {
 	my $limit = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	say q(<p>Accounts have a quota for the number of private records that they can upload. )
 	  . q(Uploading of private data to some registered projects may not count against your quota.<p>);
-	say q(<dl class="data">);
-	say qq(<dt>Records (total)</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1">$total_private</a></dd>);
-	say qq(<dt>Records (quota)</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1">$private</a></dd>);
-	say qq(<dt>Quota</dt><dd>$limit</dd>);
 	my $available = $limit - $private;
 	$available = 0 if $available < 0;
-	say qq(<dt>You can upload</dt><dd>$available</dd>);
-	say q(</dl>);
-
+	my $list = [
+		{
+			title => 'Records (total)',
+			data  => $total_private,
+			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1)
+		},
+		{
+			title => 'Records (quota)',
+			data  => $private,
+			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
+		},
+		{ title => 'Quota',          data => $limit },
+		{ title => 'You can upload', data => $available }
+	];
+	say $self->get_list_block($list);
 	if ($available) {
 		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);
