@@ -617,12 +617,14 @@ sub _get_classification_group_data {
 	}
 	if ($buffer) {
 		$buffer =
-		    q(<h2>Similar isolates (determined by classification schemes)</h2>)
+		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span>)
+		  . q(<h2>Similar isolates (determined by classification schemes)</h2>)
 		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
-		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th></tr>$buffer</table></div></div>);
+		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th></tr>$buffer</table></div></div></div>);
 	}
 	return $buffer;
 }
