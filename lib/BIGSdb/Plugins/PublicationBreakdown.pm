@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.7',
+		version     => '1.1.8',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -87,7 +87,7 @@ sub run {
 		say q(<div class="box" id="queryform">);
 		say $q->start_form;
 		$q->param( all_records => 1 ) if !$query_file;
-		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype);
+		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype temp_table_file);
 		say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		my $author_list = $self->_get_author_list;
 		say q(<ul><li><label for="author_list" class="display">Author:</label>);
