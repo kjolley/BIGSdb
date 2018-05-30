@@ -340,7 +340,9 @@ sub _send_email {
 	  . qq(will be removed if you do not log in within this time - if this happens you will need to re-register.\n\n)
 	  . qq(You will be required to change your password when you first log in.\n\n)
 	  . qq(Username: $data->{'user_name'}\n)
-	  . qq(Password: $data->{'password'}\n);
+	  . qq(Password: $data->{'password'}\n\n)
+	  . q(PLEASE NOTE: Once you have validated your account, you then need to register this with individual )
+	  . qq(databases before you are able to log in to them.\n);
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
