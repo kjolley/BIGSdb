@@ -439,6 +439,15 @@ div.navigation {
 	background:#ddf;
 	border-radius:5px;
 }
+div.curategroup {
+	text-align:center;
+	padding:1em;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	float:left;
+}
+div.curategroup h2 {font-size:1.2em;margin:0}
+div.curategroup_users {background:white}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -754,6 +763,7 @@ span.navigation_button {
 }
 span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
+span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
 span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
 span.info_plugin_icon {color:#66a;text-shadow: 2px 2px 2px #999}
 span.nav_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
@@ -783,9 +793,19 @@ button.plugin:hover {color:#c8c}
 .form_icon_scan {color:#99c;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon > .fa-stack > .fa-users {font-size:1.7em}
 
+
 @media (max-width: 600px){
 	.form_icon {display:none}
 }
+
+.curate_icon_highlight {position:absolute;font-size:2em;text-shadow:0px 0px 10px #fff;z-index:2}
+.curate_icon_link:hover .curate_icon_highlight{text-shadow:0px 0px 10px red}
+.curate_icon_plus {color:#080}
+.curate_icon_query {color:#44a}
+.curate_icon_edit {color:#22a}
+.curate_icon_delete {color:#a22}
+.curate_icon_import {color:#29f}
+.curate_icon_info {color:#88c}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}

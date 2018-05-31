@@ -36,7 +36,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache);
+	$self->{$_} = 1 foreach qw (jQuery noCache packery);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	return;
@@ -72,7 +72,23 @@ sub get_javascript {
 	  		});
 	   	});
 	});
-});	
+	var \$grid = \$(".grid").packery({
+       	itemSelector: '.grid-item',
+  		gutter: 5,
+    });        
+    \$(window).resize(function() {
+    	delay(function(){
+     			\$grid.packery();
+    	}, 1000);
+ 	});
+});
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();	
 END
 	return $buffer;
 }
@@ -122,10 +138,9 @@ sub _get_set_string {
 }
 
 #Display links for updating database records. Most curators will have
-#access to most of these (but not curator permissions).
+#access to most of these.
 sub _get_standard_links {
 	my ( $self, $td_ref, $can_do_something ) = @_;
-	my $set_id     = $self->get_set_id;
 	my $set_string = $self->_get_set_string;
 	my $buffer;
 	foreach (qw (users user_groups user_group_members)) {
@@ -142,6 +157,139 @@ sub _get_standard_links {
 		}
 	}
 	return $buffer;
+}
+
+sub _get_standard_links_new {
+	my ($self) = @_;
+	my $buffer = $self->_get_user_fields;
+	return $buffer;
+}
+
+sub _get_user_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	my $import;
+	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
+		&& $self->{'datastore'}->user_dbs_defined )
+	{
+		$import = 1;
+	}
+	my $modify_users = $self->can_modify_table('users');
+	if ( $modify_users || $import ) {
+		my $import_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=importUser);
+		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>Users</h2>);
+		$buffer .= $self->_get_icon_group(
+			'users', 'user',
+			{
+				add          => $modify_users,
+				batch_add    => $modify_users,
+				query        => $modify_users,
+				import       => $import,
+				import_url   => $import_url,
+				import_label => 'Import user account from centralized user database'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	if ( $self->can_modify_table('user_groups') ) {
+		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>User groups</h2>);
+		$buffer .= $self->_get_icon_group(
+			'user_groups',
+			'users',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info => 'User groups - Users can be members of user groups to facilitate setting access permissions'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	if ( $self->can_modify_table('user_group_members') ) {
+		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>User group members</h2>);
+		$buffer .= $self->_get_icon_group(
+			'user_group_members', 'users',    #Change to user-friends when update FontAwesome
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'User group members - Add users to user groups to facilitate setting access permissions'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
+		&& $self->{'datastore'}->user_dbs_defined )
+	{
+	}
+	return $buffer;
+}
+
+sub _get_icon_group {
+	my ( $self, $table, $icon, $options ) = @_;
+	my $set_string = $self->_get_set_string;
+	my $links      = 0;
+	foreach my $value (qw(add batch_add query import)) {
+		$links++ if $options->{$value};
+	}
+	my $pos = 4.4 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
+	my $buffer = q(<span style="position:relative">);
+	if ( $options->{'info'} ) {
+		$buffer .= q(<span style="position:absolute;right:2em;bottom:6.5em">);
+		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
+		$buffer .= qq(</a></span>\n);
+	}
+	$buffer .= qq(<span class="curate_icon fa-7x fa-fw fas fa-$icon"></span>);
+	if ( $options->{'add'} ) {
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=add&amp;table=$table$set_string" title="Add" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	if ( $options->{'batch_add'} ) {
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=batchAdd&amp;table=$table$set_string" title="Batch add" class="curate_icon_link">);
+		$buffer .=
+		    q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus" )
+		  . qq(style="left:0.5em;bottom:-0.8em;font-size:1.5em"></span>\n);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	my $records_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)");
+	if ( $options->{'query'} && $records_exist ) {
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=tableQuery&amp;table=$table$set_string" title="Update/delete" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
+		$buffer .=
+		    q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
+		  . qq(style="left:0.8em;bottom:-0.5em;font-size:1.2em"></span>\n);
+		$buffer .=
+		    q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
+		  . qq(style="left:0.8em;bottom:-1.5em;font-size:1.2em"></span>\n);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	if ( $options->{'import'} ) {
+		my $text = $options->{'import_label'} // 'Import';
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$options->{'import_url'}" title="$text" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_import fas fa-arrow-left"></span>);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	$buffer .= q(</span>);
+	return $buffer;
+}
+
+sub _get_field_group {
+	my ($self) = @_;
+	my $buffer;
 }
 
 sub _get_isolate_links {
@@ -258,12 +406,11 @@ sub print_content {
 	my $system      = $self->{'system'};
 	return if $self->_ajax_call;
 	my $desc = $self->get_db_description;
-	say "<h1>Database curator's interface - $desc</h1>";
+	say qq(<h1>Database curator's interface - $desc</h1>);
 	my $td = 1;
 	my $can_do_something;
 	$self->_print_set_section;
 	my $buffer = $self->_get_standard_links( \$td, \$can_do_something );
-	my $set_id = $self->get_set_id;
 
 	if ( $system->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_isolate_links( \$td, \$can_do_something );
@@ -278,6 +425,17 @@ sub print_content {
 		  . q(<table style="text-align:center"><tr><th>Record type</th><th>Add</th>)
 		  . q(<th>Batch Add</th><th>Update or delete</th>)
 		  . qq(<th>Comments</th></tr>\n$buffer</table></div></div>);
+	}
+	$buffer = $self->_get_standard_links_new;
+	if ($buffer) {
+		say q(<div class="box" id="index">);
+		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
+		say q(<h2>Add, update or delete records</h2>);
+		say q(<div class="grid">);
+		say $buffer;
+		say q(</div>);
+		say q(<div style="clear:both"></div>);
+		say q(</div>);
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
@@ -756,7 +914,8 @@ sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutine
 		$schemes = $self->{'datastore'}->run_query(
 			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
 			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
-			$self->get_curator_id, { fetch => 'col_arrayref' }
+			$self->get_curator_id,
+			{ fetch => 'col_arrayref' }
 		);
 	}
 	my $buffer;
