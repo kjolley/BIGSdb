@@ -149,7 +149,7 @@ sub _print_interface {
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} elsif ( $isolate_count > MAX_ISOLATES_DROPDOWN ) {
 		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
-		say $q->textfield( -name => 'isolate_id', id => 'isolate_id' );
+		say $self->textfield( -name => 'isolate_id', id => 'isolate_id', required => 'required', type=>'number' );
 	} else {
 		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
 		my $id_arrayref =
@@ -245,7 +245,10 @@ sub _check_data {
 	my ( $self, $passed_seq_ref ) = @_;
 	my $q        = $self->{'cgi'};
 	my $continue = 1;
-	if (
+	if ( !$q->param('isolate_id') ) {
+		$self->print_bad_status( { message => q(Isolate id is required.) } );
+		$continue = 0;
+	} elsif (
 		$q->param('isolate_id')
 		&& (
 			!BIGSdb::Utils::is_int( $q->param('isolate_id') )
