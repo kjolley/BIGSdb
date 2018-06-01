@@ -1930,9 +1930,14 @@ sub can_modify_table {
 		  if $table eq 'samples'
 		  && $self->{'permissions'}->{'sample_management'}
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
-	} else {
+	} else {    #Sequence definition database only tables
 
-		#Sequence definition database only tables
+		#Locus descriptions/links. Checks for specific loci are in next section
+		my %desc_tables = map { $_ => 1 } qw (locus_descriptions locus_links);
+		if ( $desc_tables{$table} ) {
+			return if !$self->{'permissions'}->{'modify_locus_descriptions'};
+		}
+
 		#Alleles and locus descriptions
 		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids);
 		if ( $seq_tables{$table} ) {
@@ -2884,11 +2889,11 @@ sub get_list_block {
 		$dt_width_clause = qq( style="width:$options->{'width'}em");
 		my $margin_width = $options->{'width'} + 1;
 		$dd_left_margin_clause = qq( style="margin-left:${margin_width}em");
-	} 
-	if ($options->{'id'}){
+	}
+	if ( $options->{'id'} ) {
 		$id_clause = qq( id="$options->{'id'}");
 	}
-	$_ //= q() foreach ($dt_width_clause, $dd_left_margin_clause, $id_clause);
+	$_ //= q() foreach ( $dt_width_clause, $dd_left_margin_clause, $id_clause );
 	my $buffer = qq(<dl class="data"$id_clause>\n);
 	foreach my $item (@$list) {
 		my $class = $item->{'class'};
