@@ -208,7 +208,7 @@ sub _get_user_fields {
 	if ( $self->can_modify_table('user_group_members') ) {
 		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>User group members</h2>);
 		$buffer .= $self->_get_icon_group(
-			'user_group_members', 'users',    #Change to user-friends when update FontAwesome
+			'user_group_members', 'user-friends',
 			{
 				add       => 1,
 				batch_add => 1,
