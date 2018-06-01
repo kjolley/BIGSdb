@@ -39,6 +39,16 @@ sub initiate {
 	$self->{$_} = 1 foreach qw (jQuery noCache packery);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
+	my $guid = $self->get_guid;
+	try {
+		$self->{'prefs'}->{'all_curator_methods'} =
+		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_curator_methods' ) // '' )
+		  eq 'on' ? 1 : 0;
+	}
+	catch BIGSdb::DatabaseNoRecordException with {
+		$self->{'prefs'}->{'all_curator_methods'} = 0;
+	};
+	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 	return;
 }
 
@@ -68,6 +78,22 @@ sub get_javascript {
 	  				} else {
 	  					\$('span#notify_text').text('ON');
 	  				}
+	  			}
+	  		});
+	   	});
+	});
+	\$('a#toggle_all_curator_methods').click(function(event){		
+		event.preventDefault();
+  		\$(this).attr('href', function(){  	
+	  		\$.ajax({
+	  			url : this.href,
+	  			success: function () {
+	  				\$('#all_curator_methods_off').toggle();	
+	  				\$('#all_curator_methods_on').toggle();
+	  				\$('.default_hide_curator').fadeToggle(200,'',function(){
+	  					\$('#curator_grid').packery();
+	  				});
+	  				
 	  			}
 	  		});
 	   	});
@@ -111,11 +137,28 @@ sub _toggle_notifications {
 	return;
 }
 
+sub _toggle_all_curator_methods {
+	my ($self) = @_;
+	my $new_value = $self->{'prefs'}->{'all_curator_methods'} ? 'off' : 'on';
+	my $guid = $self->get_guid;
+	try {
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_curator_methods', $new_value );
+	}
+	catch BIGSdb::DatabaseNoRecordException with {
+		$logger->error('Cannot toggle show all curator methods');
+	};
+	return;
+}
+
 sub _ajax_call {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('toggle_notifications') ) {
 		$self->_toggle_notifications;
+		return 1;
+	}
+	if ( $q->param('toggle_all_curator_methods') ) {
+		$self->_toggle_all_curator_methods;
 		return 1;
 	}
 	return;
@@ -165,6 +208,20 @@ sub _get_standard_links_new {
 	return $buffer;
 }
 
+sub _get_seqdef_links_new {
+	my ($self) = @_;
+	my $buffer = $self->_get_locus_description_fields;
+	$buffer .= $self->_get_sequence_fields;
+	$buffer .= $self->_get_profile_fields;
+	return $buffer;
+}
+
+sub _get_isolate_links_new {
+	my ($self) = @_;
+	my $buffer;
+	return $buffer;
+}
+
 sub _get_user_fields {
 	my ($self) = @_;
 	my $buffer = q();
@@ -192,7 +249,8 @@ sub _get_user_fields {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->can_modify_table('user_groups') ) {
-		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>User groups</h2>);
+		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User groups</h2>);
 		$buffer .= $self->_get_icon_group(
 			'user_groups',
 			'users',
@@ -200,20 +258,22 @@ sub _get_user_fields {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info => 'User groups - Users can be members of user groups to facilitate setting access permissions'
+				info => 'User groups - Users can be members of user groups to facilitate setting access permissions.',
 			}
 		);
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->can_modify_table('user_group_members') ) {
-		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>User group members</h2>);
+		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User group members</h2>);
 		$buffer .= $self->_get_icon_group(
-			'user_group_members', 'user-friends',
+			'user_group_members',
+			'user-friends',
 			{
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'User group members - Add users to user groups to facilitate setting access permissions'
+				info      => 'User group members - Add users to user groups to facilitate setting access permissions.'
 			}
 		);
 		$buffer .= qq(</div>\n);
@@ -225,13 +285,173 @@ sub _get_user_fields {
 	return $buffer;
 }
 
+sub _get_locus_description_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('locus_descriptions');
+	if ( !$self->is_admin ) {
+		my $allowed =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
+		return $buffer if !$allowed;
+	}
+	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus descriptions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'locus_descriptions',
+		'clipboard',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1
+		}
+	);
+	$buffer .= qq(</div>\n);
+	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus links</h2>);
+	$buffer .= $self->_get_icon_group(
+		'locus_links',
+		'link',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Locus links - Hyperlinks to further information on the internet about a locus.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_sequence_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('sequences');
+	my $set_string = $self->_get_set_string;
+	my $fasta_url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
+	$buffer .= q(<div class="curategroup curategroup_sequences grid-item"><h2>Sequences</h2>);
+	$buffer .= $self->_get_icon_group(
+		'sequences',
+		'dna',
+		{
+			add         => 1,
+			batch_add   => 1,
+			query       => 1,
+			fasta       => 1,
+			fasta_url   => $fasta_url,
+			fasta_label => 'Upload new sequences using a FASTA file containing new variants of a single locus.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired alleles</h2>);
+	$buffer .= $self->_get_icon_group(
+		'retired_allele_ids',
+		'trash-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Retired alleles - Alleles ids defined here will be prevented from being reused.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele accessions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'accession',
+		'external-link-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Allele accessions - Associate sequences with Genbank/ENA accessions numbers.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele publications</h2>);
+	$buffer .= $self->_get_icon_group(
+		'sequence_refs',
+		'book-open',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Allele references - Associate sequences with publications using PubMed id.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_profile_fields {
+	my ($self) = @_;
+	my $schemes;
+	my $set_id = $self->get_set_id;
+	if ( $self->is_admin ) {
+		$schemes = $self->{'datastore'}->run_query(
+			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
+			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
+			undef,
+			{ fetch => 'col_arrayref' }
+		);
+	} else {
+		$schemes = $self->{'datastore'}->run_query(
+			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
+			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
+			$self->get_curator_id,
+			{ fetch => 'col_arrayref' }
+		);
+	}
+	my $buffer = q();
+	my %desc;
+	foreach my $scheme_id (@$schemes)
+	{    #Can only order schemes after retrieval since some can be renamed by set membership
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$desc{$scheme_id} = $scheme_info->{'name'};
+	}
+	my $curator_id = $self->get_curator_id;
+	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
+		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		my $class   = q();
+		my $display = q();
+		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
+			$class   = q(default_hide_curator);
+			$display = qq(style="display:$self->{'optional_curator_display'}");
+		}
+		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
+		$buffer .=
+		    qq(<div class="curategroup curategroup_profiles grid-item $class" )
+		  . qq($display><h2>$desc{$scheme_id} profiles</h2>);
+		$buffer .= $self->_get_icon_group(
+			undef, 'table',
+			{
+				add     => 1,
+				add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileAdd&amp;scheme_id=$scheme_id),
+				batch_add     => 1,
+				batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id),
+				query     => 1,
+				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=query&amp;scheme_id=$scheme_id)
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	return $buffer;
+}
+
 sub _get_icon_group {
 	my ( $self, $table, $icon, $options ) = @_;
-	my $set_string = $self->_get_set_string;
-	my $links      = 0;
-	foreach my $value (qw(add batch_add query import)) {
+	my $set_string    = $self->_get_set_string;
+	my $links         = 0;
+	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)") : 1;
+	foreach my $value (qw(add batch_add query import fasta)) {
 		$links++ if $options->{$value};
 	}
+	$links-- if $options->{'query'} && !$records_exist;
 	my $pos = 4.4 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
@@ -242,17 +462,19 @@ sub _get_icon_group {
 	}
 	$buffer .= qq(<span class="curate_icon fa-7x fa-fw fas fa-$icon"></span>);
 	if ( $options->{'add'} ) {
+		my $url = $options->{'add_url'}
+		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table);
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=add&amp;table=$table$set_string" title="Add" class="curate_icon_link">);
+		$buffer .= qq(<a href="$url$set_string" title="Add" class="curate_icon_link">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
 	if ( $options->{'batch_add'} ) {
+		my $url = $options->{'batch_add_url'}
+		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=batchAdd&amp;table=$table$set_string" title="Batch add" class="curate_icon_link">);
+		$buffer .= qq(<a href="$url$set_string" title="Batch add" class="curate_icon_link">);
 		$buffer .=
 		    q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus" )
 		  . qq(style="left:0.5em;bottom:-0.8em;font-size:1.5em"></span>\n);
@@ -260,11 +482,22 @@ sub _get_icon_group {
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
-	my $records_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)");
+	if ( $options->{'fasta'} ) {
+		my $text = $options->{'fasta_label'} // 'Upload FASTA';
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:-1em">);
+		$buffer .= qq(<a href="$options->{'fasta_url'}" title="$text" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight  fa-stack" style="font-size:1em">);
+		$buffer .= q(<span class="fas fa-file fa-stack-2x curate_icon_fasta"></span>);
+		$buffer .= q(<span class="fa-stack-1x filetype-text" style="top:0.25em">FAS</span>);
+		$buffer .= q(</span>);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
 	if ( $options->{'query'} && $records_exist ) {
+		my $url = $options->{'query_url'}
+		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=tableQuery&amp;table=$table$set_string" title="Update/delete" class="curate_icon_link">);
+		$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
 		$buffer .=
 		    q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
@@ -285,11 +518,6 @@ sub _get_icon_group {
 	}
 	$buffer .= q(</span>);
 	return $buffer;
-}
-
-sub _get_field_group {
-	my ($self) = @_;
-	my $buffer;
 }
 
 sub _get_isolate_links {
@@ -427,11 +655,27 @@ sub print_content {
 		  . qq(<th>Comments</th></tr>\n$buffer</table></div></div>);
 	}
 	$buffer = $self->_get_standard_links_new;
+	if ( $system->{'dbtype'} eq 'isolates' ) {
+		$buffer .= $self->_get_isolate_links_new;
+	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
+		$buffer .= $self->_get_seqdef_links_new;
+	}
 	if ($buffer) {
 		say q(<div class="box" id="index">);
-		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
-		say q(<h2>Add, update or delete records</h2>);
-		say q(<div class="grid">);
+		say q(<div style="float:right">);
+		say q(<a id="toggle_all_curator_methods" style="text-decoration:none" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_curator_methods=1">);
+		my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
+		my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+		say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+		  . qq(style="display:$off"></span>);
+		say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+		  . qq(style="display:$on"></span>);
+		say q(Show all</a>);
+		say q(</div>);
+		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
+		say q(<h2>Curator functions</h2>);
+		say q(<div class="grid" id="curator_grid">);
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);

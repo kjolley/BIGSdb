@@ -447,7 +447,10 @@ div.curategroup {
 	float:left;
 }
 div.curategroup h2 {font-size:1.2em;margin:0}
-div.curategroup_users {background:white}
+div.curategroup_users {background:#fff}
+div.curategroup_locus_descriptions {background:#eef}
+div.curategroup_sequences {background:#fef}
+div.curategroup_profiles {background:#eff}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -805,7 +808,10 @@ button.plugin:hover {color:#c8c}
 .curate_icon_edit {color:#22a}
 .curate_icon_delete {color:#a22}
 .curate_icon_import {color:#29f}
+.curate_icon_fasta {color:#77d}
 .curate_icon_info {color:#88c}
+
+.toggle_icon {color:#66a}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}
