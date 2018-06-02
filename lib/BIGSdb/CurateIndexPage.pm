@@ -36,7 +36,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache packery);
+	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	my $guid = $self->get_guid;
@@ -176,39 +176,17 @@ sub _print_set_section {
 sub _get_set_string {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my $set_string = $set_id ? "&amp;set_id=$set_id" : '';
+	my $set_string = $set_id ? qq(&amp;set_id=$set_id) : q();
 	return $set_string;
 }
 
-#Display links for updating database records. Most curators will have
-#access to most of these.
 sub _get_standard_links {
-	my ( $self, $td_ref, $can_do_something ) = @_;
-	my $set_string = $self->_get_set_string;
-	my $buffer;
-	foreach (qw (users user_groups user_group_members)) {
-		if ( $self->can_modify_table($_) ) {
-			my $function = "_print_$_";
-			try {
-				$buffer .= $self->$function( $$td_ref, $set_string );
-			}
-			catch BIGSdb::DataException with {
-				$$td_ref = $$td_ref == 1 ? 2 : 1;
-			};
-			$$td_ref = $$td_ref == 1 ? 2 : 1;
-			$$can_do_something = 1;
-		}
-	}
-	return $buffer;
-}
-
-sub _get_standard_links_new {
 	my ($self) = @_;
 	my $buffer = $self->_get_user_fields;
 	return $buffer;
 }
 
-sub _get_seqdef_links_new {
+sub _get_seqdef_links {
 	my ($self) = @_;
 	my $buffer = $self->_get_locus_description_fields;
 	$buffer .= $self->_get_sequence_fields;
@@ -216,9 +194,17 @@ sub _get_seqdef_links_new {
 	return $buffer;
 }
 
-sub _get_isolate_links_new {
+sub _get_isolate_links {
 	my ($self) = @_;
 	my $buffer;
+	$buffer .= $self->_get_isolate_fields;
+	$buffer .= $self->_get_isolate_field_extended_attribute_field;
+	$buffer .= $self->_get_projects;
+	$buffer .= $self->_get_allele_designations;
+	$buffer .= $self->_get_sequence_bin;
+	$buffer .= $self->_get_allele_sequences;
+	$buffer .= $self->_get_experiments;
+	$buffer .= $self->_get_samples;
 	return $buffer;
 }
 
@@ -435,7 +421,38 @@ sub _get_profile_fields {
 				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id),
 				query     => 1,
 				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=query&amp;scheme_id=$scheme_id)
+				  . qq(page=query&amp;scheme_id=$scheme_id),
+				batch_update     => 1,
+				batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id)
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	if ($buffer) {
+		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Profile publications</h2>);
+		$buffer .= $self->_get_icon_group(
+			'profile_refs',
+			'book-open',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Profile references - Associate allelic profiles with publications using PubMed id.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired profiles</h2>);
+		$buffer .= $self->_get_icon_group(
+			'retired_profiles',
+			'trash-alt',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
 			}
 		);
 		$buffer .= qq(</div>\n);
@@ -443,12 +460,285 @@ sub _get_profile_fields {
 	return $buffer;
 }
 
+sub _get_isolate_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('isolates');
+	my $exists  = $self->_isolates_exist;
+	my $add_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd);
+	my $batch_add_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates);
+	my $query_url        = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query);
+	my $batch_update_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item"><h2>Isolates</h2>);
+	$buffer .= $self->_get_icon_group(
+		'isolates',
+		'file-alt',
+		{
+			add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
+			add_url          => $add_url,
+			batch_add        => 1,
+			batch_add_url    => $batch_add_url,
+			query            => $exists,
+			query_url        => $query_url,
+			batch_update     => $exists,
+			batch_update_url => $batch_update_url
+		}
+	);
+	$buffer .= qq(</div>\n);
+
+	if ($exists) {
+		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Isolate aliases</h2>);
+		$buffer .= $self->_get_icon_group(
+			'isolate_aliases',
+			'list-ul',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Isolate aliases - Alternative names for isolates.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Publications</h2>);
+		$buffer .= $self->_get_icon_group(
+			'refs',
+			'book-open',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Publications - Associate isolates with publications using PubMed id.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired isolates</h2>);
+	$buffer .= $self->_get_icon_group(
+		'retired_isolates',
+		'trash-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Retired isolates - Isolate ids defined here will not be reused.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_isolate_field_extended_attribute_field {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('isolate_value_extended_attributes');
+	my $count = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes)');
+	return $buffer if !$count;
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Extended attributes</h2>);
+	$buffer .= $self->_get_icon_group(
+		'isolate_value_extended_attributes',
+		'expand-arrows-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Extended attributes - Data linked to isolate record field values.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_projects {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('projects');
+	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Projects</h2>);
+	$buffer .= $self->_get_icon_group(
+		'projects',
+		'list-alt',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Projects - Group isolate records.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects)');
+	return $buffer if !$projects;
+	return $buffer if !$self->_isolates_exist;
+	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Project members</h2>);
+	$buffer .= $self->_get_icon_group(
+		'project_members',
+		'object-group',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'Project members - Isolates belonging to projects. Isolates can belong to any number of projects.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_allele_designations {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('allele_designations');
+	return $buffer if !$self->_isolates_exist;
+	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele designations</h2>);
+	$buffer .= $self->_get_icon_group(
+		'allele_designations',
+		'table',
+		{
+			batch_add => 1,
+			query     => 1,
+			info =>
+			  'Allele designations - Update individual allele designations from within the isolate update function.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_sequence_bin {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('sequence_bin');
+	return $buffer if !$self->_isolates_exist;
+	$buffer .= q(<div class="curategroup curategroup_designations grid-item"><h2>Sequence bin</h2>);
+	$buffer .= $self->_get_icon_group(
+		'sequence_bin',
+		'dna',
+		{
+			batch_add     => 1,
+			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
+			query         => 1,
+			link          => ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ? 1 : 0,
+			link_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs),
+			link_label => 'Link contigs stored in remote isolate database',
+			info       => 'Sequence bin - The sequence bin for an isolate can contain sequences from any source, '
+			  . 'but usually consists of genome assembly contigs.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	return $buffer if !$seqbin;
+	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Sequence accessions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'accession',
+		'external-link-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Accessions - Associate individual contigs in the '
+			  . 'sequence bin with Genbank/ENA accessions numbers.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_allele_sequences {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('allele_sequences');
+	return $buffer if !$self->_isolates_exist;
+	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
+	return $buffer if !$seqbin;
+	$buffer .= q(<div class="curategroup curategroup_designations grid-item"><h2>Sequence tags</h2>);
+	$buffer .= $self->_get_icon_group(
+		'allele_sequences',
+		'tags',
+		{
+			query    => 1,
+			scan     => 1,
+			scan_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan),
+			info     => 'Sequence tags - Scan genomes to identify locus regions, '
+			  . 'then tag these positions and allele designations.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_experiments {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('experiments');
+	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiments</h2>);
+	$buffer .= $self->_get_icon_group(
+		'experiments',
+		'flask',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Experiments - Set up experiments to group contigs in the sequence bin.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	my $experiments = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM experiments)');
+	return $buffer if !$experiments;
+	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiment contigs</h2>);
+	$buffer .= $self->_get_icon_group(
+		'experiment_sequences',
+		'object-group',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Experiment contigs - Group contigs by experiment.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_samples {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('samples');
+	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
+	return $buffer if !@$sample_fields;
+	return $buffer if !$self->_isolates_exist;
+	$buffer .= q(<div class="curategroup curategroup_samples grid-item"><h2>Samples</h2>);
+	$buffer .= $self->_get_icon_group(
+		'samples',
+		'vial',
+		{
+			batch_add => 1,
+			query     => 1,
+			info      => 'Sample storage records - These can also be added and updated from the isolate update page.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
 sub _get_icon_group {
 	my ( $self, $table, $icon, $options ) = @_;
+	my $fa_class      = $options->{'fa_class'} // 'fas';
 	my $set_string    = $self->_get_set_string;
 	my $links         = 0;
 	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)") : 1;
-	foreach my $value (qw(add batch_add query import fasta)) {
+	foreach my $value (qw(add batch_add link query import fasta batch_update scan)) {
 		$links++ if $options->{$value};
 	}
 	$links-- if $options->{'query'} && !$records_exist;
@@ -456,11 +746,11 @@ sub _get_icon_group {
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
 		$buffer .= q(<span style="position:absolute;right:2em;bottom:6.5em">);
-		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}">);
+		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}" class="tooltip">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
 		$buffer .= qq(</a></span>\n);
 	}
-	$buffer .= qq(<span class="curate_icon fa-7x fa-fw fas fa-$icon"></span>);
+	$buffer .= qq(<span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span>);
 	if ( $options->{'add'} ) {
 		my $url = $options->{'add_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table);
@@ -475,10 +765,17 @@ sub _get_icon_group {
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
 		$buffer .= qq(<a href="$url$set_string" title="Batch add" class="curate_icon_link">);
-		$buffer .=
-		    q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus" )
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus" )
 		  . qq(style="left:0.5em;bottom:-0.8em;font-size:1.5em"></span>\n);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	if ( $options->{'link'} ) {
+		my $text = $options->{'link_label'} // 'Link';
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$options->{'link_url'}$set_string" title="$text" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_link_remote fas fa-link"></span>);
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
@@ -516,63 +813,27 @@ sub _get_icon_group {
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
+	if ( $options->{'batch_update'} ) {
+		my $text = $options->{'batch_update_label'} // 'Batch Update';
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$options->{'batch_update_url'}$set_string" title="$text" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-pencil-alt"></span>);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-plus" )
+		  . qq(style="left:0em;bottom:-0.8em;font-size:1.5em"></span>\n);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
+	if ( $options->{'scan'} ) {
+		my $text = $options->{'scan_label'} // 'Scan';
+		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+		$buffer .= qq(<a href="$options->{'scan_url'}" title="$text" class="curate_icon_link">);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_scan_barcode fas fa-barcode"></span>);
+		$buffer .= q(<span class="curate_icon_highlight curate_icon_scan_query fas fa-search" )
+		  . qq(style="left:0.8em;bottom:-1.4em;font-size:1.5em"></span>\n);
+		$buffer .= qq(</a></span>\n);
+		$pos += 2.2;
+	}
 	$buffer .= q(</span>);
-	return $buffer;
-}
-
-sub _get_isolate_links {
-	my ( $self, $td_ref, $can_do_something ) = @_;
-	my $set_id     = $self->get_set_id;
-	my $set_string = $self->_get_set_string;
-	my $buffer     = q();
-	my @tables     = qw (isolates);
-	push @tables, qw (retired_isolates isolate_value_extended_attributes projects project_members isolate_aliases refs
-	  allele_designations sequence_bin accession experiments experiment_sequences allele_sequences samples
-	  oauth_credentials);
-
-	foreach (@tables) {
-		if ( $self->can_modify_table($_) ) {
-			my $function  = "_print_$_";
-			my $exception = 0;
-			try {
-				my $temp_value = $self->$function( $$td_ref, $set_string );
-				$buffer .= $temp_value if $temp_value;
-			}
-			catch BIGSdb::DataException with {
-				$exception = 1;
-			};
-			next if $exception;
-			$$td_ref = $$td_ref == 1 ? 2 : 1;
-			$$can_do_something = 1;
-		}
-	}
-	return $buffer;
-}
-
-sub _get_seqdef_links {
-	my ( $self, $td_ref, $can_do_something ) = @_;
-	my $set_id     = $self->get_set_id;
-	my $set_string = $self->_get_set_string;
-	my $buffer     = q();
-	foreach (
-		qw (locus_descriptions locus_links sequences retired_allele_ids accession
-		sequence_refs profiles profile_refs retired_profiles)
-	  )
-	{
-		if ( $self->can_modify_table($_) || $_ eq 'profiles' ) {
-			my $function = "_print_$_";
-			try {
-				my ( $temp_buffer, $returned_td ) = $self->$function( $$td_ref, $set_string );
-				if ($temp_buffer) {
-					$buffer .= $temp_buffer;
-					$$can_do_something = 1;
-				}
-				$$td_ref = $returned_td || ( $$td_ref == 1 ? 2 : 1 );
-			}
-			catch BIGSdb::DataException with {    #Do nothing
-			};
-		}
-	}
 	return $buffer;
 }
 
@@ -591,7 +852,7 @@ sub _get_admin_links {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @tables,
 		  qw(locus_aliases pcr pcr_locus probes probe_locus isolate_field_extended_attributes composite_fields
-		  sequence_attributes);
+		  sequence_attributes oauth_credentials);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @tables, qw(locus_aliases locus_extended_attributes client_dbases client_dbase_loci client_dbase_schemes
 		  client_dbase_loci_fields scheme_curators locus_curators);
@@ -635,42 +896,27 @@ sub print_content {
 	return if $self->_ajax_call;
 	my $desc = $self->get_db_description;
 	say qq(<h1>Database curator's interface - $desc</h1>);
-	my $td = 1;
 	my $can_do_something;
 	$self->_print_set_section;
-	my $buffer = $self->_get_standard_links( \$td, \$can_do_something );
+	my $buffer = $self->_get_standard_links;
 
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		$buffer .= $self->_get_isolate_links( \$td, \$can_do_something );
+		$buffer .= $self->_get_isolate_links;
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		$buffer .= $self->_get_seqdef_links( \$td, \$can_do_something );
+		$buffer .= $self->_get_seqdef_links;
 	}
 	if ($buffer) {
-		say q(<div class="box" id="index">);
-		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
-		say qq(<h2>Add, update or delete records</h2>\n)
-		  . q(<div class="scrollable">)
-		  . q(<table style="text-align:center"><tr><th>Record type</th><th>Add</th>)
-		  . q(<th>Batch Add</th><th>Update or delete</th>)
-		  . qq(<th>Comments</th></tr>\n$buffer</table></div></div>);
-	}
-	$buffer = $self->_get_standard_links_new;
-	if ( $system->{'dbtype'} eq 'isolates' ) {
-		$buffer .= $self->_get_isolate_links_new;
-	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		$buffer .= $self->_get_seqdef_links_new;
-	}
-	if ($buffer) {
-		say q(<div class="box" id="index">);
+		$can_do_something = 1;
+		say q(<div class="box" id="curator">);
 		say q(<div style="float:right">);
 		say q(<a id="toggle_all_curator_methods" style="text-decoration:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_curator_methods=1">);
 		my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
 		my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 		say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
-		  . qq(style="display:$off"></span>);
+		  . qq(style="display:$off" title="Showing common functions"></span>);
 		say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
-		  . qq(style="display:$on"></span>);
+		  . qq(style="display:$on" title="Showing all authorized functions"></span>);
 		say q(Show all</a>);
 		say q(</div>);
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
@@ -724,13 +970,6 @@ sub _get_admin_list_links {
 			  . qq(or change an existing password.</li>\n);
 		}
 	}
-	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
-		&& $self->{'datastore'}->user_dbs_defined )
-	{
-		$list_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=importUser">Import users</a> - Import user account from centralized user database.</li>\n);
-	}
 	if ( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) {
 		$list_buffer .=
 		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
@@ -756,24 +995,6 @@ sub _cache_tables_exists {
 	return $exists;
 }
 
-sub _print_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'users', $td, { set_string => $set_string } );
-}
-
-sub _print_user_group_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'user_group_members',
-		$td,
-		{
-			requires   => 'user_groups',
-			comments   => 'Add users to groups for setting access permissions.',
-			set_string => $set_string
-		}
-	);
-}
-
 sub _print_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return
@@ -781,54 +1002,6 @@ sub _print_permissions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions$set_string">)
 	  . q(?</a></td><td class="comment" style="text-align:left">Set curator permissions for )
 	  . q(individual users - these are only active for users with a status of 'curator' in the users table.</td></tr>);
-}
-
-sub _print_user_groups {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'user_groups',
-		$td,
-		{
-			comments   => 'Users can be members of these groups - use for setting access permissions.',
-			set_string => $set_string
-		}
-	);
-}
-
-sub _print_isolates {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	my $query_cell =
-	  $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query$set_string">)
-	  . q(query/browse</a> | )
-	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=batchIsolateUpdate$set_string">batch&nbsp;update</a>)
-	  : q();
-	my $add =
-	  $self->{'permissions'}->{'only_private'}
-	  ? q()
-	  : qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd$set_string">+</a>);
-	my $buffer =
-	    qq(<tr class="td$td"><td>isolates</td>)
-	  . qq(<td>$add</td>)
-	  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=batchAdd&amp;table=isolates$set_string">++</a></td><td>$query_cell</td>)
-	  . q(<td class="comment" style="text-align:left">Query or browse for isolates to update or delete.</td></tr>);
-	return $buffer;
-}
-
-sub _print_isolate_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'isolate_aliases',
-		$td,
-		{
-			comments   => 'Add alternative names for isolates.',
-			set_string => $set_string,
-			requires   => $self->{'system'}->{'view'}
-		}
-	);
 }
 
 sub _print_isolate_field_extended_attributes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -843,73 +1016,7 @@ sub _print_isolate_field_extended_attributes { ## no critic (ProhibitUnusedPriva
 	);
 }
 
-sub _print_isolate_value_extended_attributes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $count_att = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes)');
-	throw BIGSdb::DataException('No extended attributes') if !$count_att;
-	return $self->_print_table(
-		'isolate_value_extended_attributes',
-		$td,
-		{
-			title      => 'isolate field extended attribute values',
-			comments   => 'Add values for additional isolate field attributes.',
-			set_string => $set_string
-		}
-	);
-}
-
-sub _print_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'refs', $td,
-		{ title => 'PubMed links', set_string => $set_string, requires => $self->{'system'}->{'view'} } );
-}
-
-sub _print_allele_designations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT isolate_id FROM allele_designations)');
-	my $query_cell =
-	  $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-	  . qq(table=allele_designations$set_string">?</a>)
-	  : q();
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>allele designations</td>
-<td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=allele_designations$set_string">++</a></td>
-<td>$query_cell</td>
-<td class="comment" style="text-align:left">Allele designations can be set within the isolate table functions.</td></tr>
-HTML
-	return $buffer;
-}
-
-sub _print_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $isolates_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})");
-	throw BIGSdb::DataException('No isolates') if !$isolates_exists;
-	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	my $linked =
-	  ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes'
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs">)
-	  . q(<span class="fas fa-link"></span></a> )
-	  : q();
-	my $query_cell =
-	  $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-	  . qq(table=sequence_bin$set_string">?</a>)
-	  : q();
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>sequences</td>
-<td></td>
-<td>$linked<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin$set_string">++</a></td>
-<td>$query_cell</td>
-<td class="comment" style="text-align:left">The sequence bin holds sequence contigs from any source.</td></tr>
-HTML
-	return $buffer;
-}
-
-sub _print_oauth_credentials {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_oauth_credentials {                 ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
 	return $self->_print_table(
@@ -941,167 +1048,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_accession {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'accession',
-		$td,
-		{
-			title      => 'accession number links',
-			comments   => 'Associate sequences with Genbank/EMBL accession number.',
-			set_string => $set_string,
-			requires   => $self->{'system'}->{'dbtype'} eq 'sequences' ? 'sequences' : 'sequence_bin'
-		}
-	);
-}
-
-sub _print_experiments {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'experiments', $td,
-		{ comments => 'Set up experiments to which sequences in the bin can belong.', set_string => $set_string } );
-}
-
-sub _print_experiment_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'experiment_sequences',
-		$td,
-		{
-			requires   => 'projects',
-			comments   => 'Add links associating sequences to experiments.',
-			set_string => $set_string,
-			requires   => 'experiments',
-			no_add     => 1
-		}
-	);
-}
-
-sub _print_samples {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-	return if !@$sample_fields;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>sample storage records</td>
-<td></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=samples$set_string">++</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=samples$set_string">?</a></td>
-<td class="comment" style="text-align:left">Add sample storage records.  These can also be added and updated from the isolate update page.</td></tr>	
-HTML
-	return $buffer;
-}
-
-sub _print_allele_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $seqbin_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	throw BIGSdb::DataException('No sequences in bin') if !$seqbin_exists;
-	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT seqbin_id FROM allele_sequences)');
-	my $query_cell =
-	  $exists
-	  ? qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-	  . qq(table=allele_sequences$set_string">?</a>)
-	  : q();
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>sequence tags</td>
-<td colspan="2"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan$set_string">scan</a></td>
-<td>$query_cell</td>
-<td class="comment" style="text-align:left" >Tag regions of sequences within the sequence bin with locus information.</td></tr>
-HTML
-	return $buffer;
-}
-
-sub _print_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $buffer = <<"HTML";
-<tr class="td$td"><td>sequences (all loci)</td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences$set_string">+</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences$set_string">++</a> | 
-<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string">FASTA</a></td>
-<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences$set_string">?</a></td>
-<td></td></tr>	
-HTML
-	my $locus_curator = $self->is_admin ? undef : $self->get_curator_id;
-	my $set_id = $self->get_set_id;
-	my ( $loci, undef ) =
-	  $self->{'datastore'}
-	  ->get_locus_list( { set_id => $set_id, locus_curator => $locus_curator, no_list_by_common_name => 1 } );
-	return ( '', $td ) if !@$loci;
-	$td = $td == 1 ? 2 : 1;
-	if ( scalar @$loci < 15 ) {
-
-		foreach (@$loci) {
-			my $cleaned = $self->clean_locus($_);
-			$buffer .= <<"HTML";
-	<tr class="td$td"><td>$cleaned sequences</td>
-	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=sequences&amp;locus=$_$set_string">+</a></td>
-	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=sequences&amp;locus=$_$set_string">++</a></td>
-	<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=sequences&amp;locus_list=$_$set_string">?</a></td>
-	<td></td></tr>	
-HTML
-			$td = $td == 1 ? 2 : 1;
-		}
-	}
-	return ( $buffer, $td );
-}
-
-sub _print_retired_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'retired_isolates', $td,
-		{ set_string => $set_string, comments => 'Isolate ids defined here will be prevented from being used.' } );
-}
-
-sub _print_retired_allele_ids {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	if ( !$self->is_admin ) {
-		my $allowed =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
-		return if !$allowed;
-	}
-	return $self->_print_table(
-		'retired_allele_ids',
-		$td,
-		{
-			set_string => $set_string,
-			requires   => 'loci',
-			comments   => 'Allele ids defined here will be prevented from being used.'
-		}
-	);
-}
-
-sub _print_retired_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $set_id = $self->get_set_id;
-	if ($set_id) {
-		my $schemes_in_set =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
-		return if !$schemes_in_set;
-	} else {
-		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
-		return if !$scheme_count;
-	}
-	return $self->_print_table(
-		'retired_profiles',
-		$td,
-		{
-			set_string => $set_string,
-			requires   => 'schemes',
-			comments   => 'Scheme profiles defined here will be prevented from being used.'
-		}
-	);
-}
-
-sub _print_locus_descriptions {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	if ( !$self->is_admin ) {
-		my $allowed =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
-		return if !$allowed;
-	}
-	return $self->_print_table( 'locus_descriptions', $td, { set_string => $set_string } );
-}
-
-sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_sets {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
 		'sets', $td,
@@ -1113,78 +1060,28 @@ sub _print_sets {                  ## no critic (ProhibitUnusedPrivateSubroutine
 	);
 }
 
-sub _print_set_loci {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_set_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_loci', $td,
 		{ requires => 'sets,loci', comments => 'Add loci to sets.', set_string => $set_string } );
 }
 
-sub _print_set_schemes {           ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_set_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_schemes', $td,
 		{ requires => 'sets,schemes', comments => 'Add schemes to sets.', set_string => $set_string } );
 }
 
-sub _print_set_metadata {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_set_metadata {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_metadata', $td,
 		{ requires => 'sets', comments => 'Add metadata collection to sets.', set_string => $set_string } );
 }
 
-sub _print_set_view {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_set_view {        ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table( 'set_view', $td,
 		{ requires => 'sets', comments => 'Set database views linked to sets.', set_string => $set_string } );
-}
-
-sub _print_sequence_refs {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'sequence_refs', $td,
-		{ title => 'PubMed links (to sequences)', set_string => $set_string } );
-}
-
-sub _print_profiles {              ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $schemes;
-	my $set_id = $self->get_set_id;
-	if ( $self->is_admin ) {
-		$schemes = $self->{'datastore'}->run_query(
-			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
-			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
-			undef,
-			{ fetch => 'col_arrayref' }
-		);
-	} else {
-		$schemes = $self->{'datastore'}->run_query(
-			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
-			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
-			$self->get_curator_id,
-			{ fetch => 'col_arrayref' }
-		);
-	}
-	my $buffer;
-	my %desc;
-	foreach my $scheme_id (@$schemes)
-	{    #Can only order schemes after retrieval since some can be renamed by set membership
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = $scheme_info->{'name'};
-	}
-	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
-		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
-		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .=
-		    qq(<tr class="td$td"><td>$desc{$scheme_id} profiles</td>)
-		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
-		  . qq(scheme_id=$scheme_id$set_string">+</a></td>)
-		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileBatchAdd&amp;)
-		  . qq(scheme_id=$scheme_id$set_string">++</a></td>)
-		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(scheme_id=$scheme_id$set_string">query/browse/list</a> | )
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfileUpdate&amp;)
-		  . qq(scheme_id=$scheme_id$set_string">batch update</a></td><td></td></tr>);
-		$td = $td == 1 ? 2 : 1;
-	}
-	return ( $buffer, $td );
 }
 
 sub _print_scheme_curators {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -1215,41 +1112,7 @@ HTML
 	return $buffer;
 }
 
-sub _print_profile_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	my $set_id = $self->get_set_id;
-	if ($set_id) {
-		my $schemes_in_set =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM set_schemes WHERE set_id=?)', $set_id );
-		return if !$schemes_in_set;
-	} else {
-		my $scheme_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM schemes');
-		return if !$scheme_count;
-	}
-	return $self->_print_table( 'profile_refs', $td,
-		{ title => 'PubMed links (to profiles)', set_string => $set_string } );
-}
-
-sub _print_projects {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'projects',
-		$td,
-		{
-			comments   => 'Set up projects to which isolates can belong.',
-			set_string => $set_string,
-			requires   => $self->{'system'}->{'view'}
-		}
-	);
-}
-
-sub _print_project_members {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table( 'project_members', $td,
-		{ requires => 'projects', comments => 'Add isolates to projects.', set_string => $set_string } );
-}
-
-sub _print_loci {               ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	my $exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM loci)');
 	my $query_cell =
@@ -1335,20 +1198,6 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		}
 	);
 }
-
-sub _print_locus_links {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $td, $set_string ) = @_;
-	return $self->_print_table(
-		'locus_links',
-		$td,
-		{
-			requires   => 'loci',
-			comments   => 'Links to external sites to add to the locus description.',
-			set_string => $set_string
-		}
-	);
-}
-
 sub _print_user_dbases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
@@ -1759,6 +1608,12 @@ sub _import_user {
 		$self->{'db'}->commit;
 	}
 	return;
+}
+
+sub _isolates_exist {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'})",
+		undef, { cache => 'CurateIndexPage::isolates_exists' } );
 }
 
 sub get_title {

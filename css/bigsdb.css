@@ -448,9 +448,14 @@ div.curategroup {
 }
 div.curategroup h2 {font-size:1.2em;margin:0}
 div.curategroup_users {background:#fff}
-div.curategroup_locus_descriptions {background:#eef}
-div.curategroup_sequences {background:#fef}
+div.curategroup_locus_descriptions {background:#fef}
+div.curategroup_sequences {background:#eef}
 div.curategroup_profiles {background:#eff}
+div.curategroup_isolates {background:#eef}
+div.curategroup_projects {background:#ddf}
+div.curategroup_designations {background:#fee}
+div.curategroup_experiments {background:#eff}
+div.curategroup_samples {background:#fdd}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -460,6 +465,7 @@ div#queryform table.queryform td {padding:0}
 div#chart {background:#e0e0e0}
 div#sequence {background:#efefff}
 div#index {background:#d5e0d5}
+div#curator {background:#e5e5e5}
 div#submissions {background:#d5d5e0}
 div#account_requests {background:#e0e0d5}
 div#sets {background:#e0e0d5}
@@ -810,6 +816,10 @@ button.plugin:hover {color:#c8c}
 .curate_icon_import {color:#29f}
 .curate_icon_fasta {color:#77d}
 .curate_icon_info {color:#88c}
+.curate_icon_batch_edit {color:#44a}
+.curate_icon_link_remote {color:#f54}
+.curate_icon_scan_barcode {color:#000}
+.curate_icon_scan_query {color:#a22}
 
 .toggle_icon {color:#66a}
 
