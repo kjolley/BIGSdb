@@ -456,6 +456,8 @@ div.curategroup_projects {background:#ddf}
 div.curategroup_designations {background:#fee}
 div.curategroup_experiments {background:#eff}
 div.curategroup_samples {background:#fdd}
+div.curategroup_permissions {background:#fff}
+div.curategroup_remote_dbases {background:#eef}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -466,6 +468,7 @@ div#chart {background:#e0e0e0}
 div#sequence {background:#efefff}
 div#index {background:#d5e0d5}
 div#curator {background:#e5e5e5}
+div#admin {background:#f0e5e5}
 div#submissions {background:#d5d5e0}
 div#account_requests {background:#e0e0d5}
 div#sets {background:#e0e0d5}

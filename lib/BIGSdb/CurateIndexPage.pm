@@ -44,11 +44,16 @@ sub initiate {
 		$self->{'prefs'}->{'all_curator_methods'} =
 		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_curator_methods' ) // '' )
 		  eq 'on' ? 1 : 0;
+		$self->{'prefs'}->{'all_admin_methods'} =
+		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_admin_methods' ) // '' ) eq
+		  'on' ? 1 : 0;
 	}
 	catch BIGSdb::DatabaseNoRecordException with {
 		$self->{'prefs'}->{'all_curator_methods'} = 0;
+		$self->{'prefs'}->{'all_admin_methods'}   = 0;
 	};
 	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+	$self->{'optional_admin_display'}   = $self->{'prefs'}->{'all_admin_methods'}   ? 'inline' : 'none';
 	return;
 }
 
@@ -92,6 +97,22 @@ sub get_javascript {
 	  				\$('#all_curator_methods_on').toggle();
 	  				\$('.default_hide_curator').fadeToggle(200,'',function(){
 	  					\$('#curator_grid').packery();
+	  				});
+	  				
+	  			}
+	  		});
+	   	});
+	});
+	\$('a#toggle_all_admin_methods').click(function(event){		
+		event.preventDefault();
+  		\$(this).attr('href', function(){  	
+	  		\$.ajax({
+	  			url : this.href,
+	  			success: function () {
+	  				\$('#all_admin_methods_off').toggle();	
+	  				\$('#all_admin_methods_on').toggle();
+	  				\$('.default_hide_admin').fadeToggle(200,'',function(){
+	  					\$('#admin_grid').packery();
 	  				});
 	  				
 	  			}
@@ -150,6 +171,19 @@ sub _toggle_all_curator_methods {
 	return;
 }
 
+sub _toggle_all_admin_methods {
+	my ($self) = @_;
+	my $new_value = $self->{'prefs'}->{'all_admin_methods'} ? 'off' : 'on';
+	my $guid = $self->get_guid;
+	try {
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_admin_methods', $new_value );
+	}
+	catch BIGSdb::DatabaseNoRecordException with {
+		$logger->error('Cannot toggle show all admin methods');
+	};
+	return;
+}
+
 sub _ajax_call {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -159,6 +193,10 @@ sub _ajax_call {
 	}
 	if ( $q->param('toggle_all_curator_methods') ) {
 		$self->_toggle_all_curator_methods;
+		return 1;
+	}
+	if ( $q->param('toggle_all_admin_methods') ) {
+		$self->_toggle_all_admin_methods;
 		return 1;
 	}
 	return;
@@ -208,6 +246,23 @@ sub _get_isolate_links {
 	return $buffer;
 }
 
+sub _get_admin_links_new {
+	my ($self) = @_;
+	my $buffer;
+	$buffer .= $self->_get_permissions;
+	$buffer .= $self->_get_user_dbases;
+	$buffer .= $self->_get_oauth_credentials;
+
+	#User passwords
+	#Configuration check
+	#Configuration repair
+	#STOP IF SET_ID DEFINED
+	#Only modify schemes/loci etc. when sets not selected.
+	my $set_id = $self->get_set_id;
+	return $buffer if $set_id;
+	return $buffer;
+}
+
 sub _get_user_fields {
 	my ($self) = @_;
 	my $buffer = q();
@@ -220,7 +275,7 @@ sub _get_user_fields {
 	my $modify_users = $self->can_modify_table('users');
 	if ( $modify_users || $import ) {
 		my $import_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=importUser);
-		$buffer .= q(<div class="curategroup curategroup_users grid-item"><h2>Users</h2>);
+		$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_curator"><h2>Users</h2>);
 		$buffer .= $self->_get_icon_group(
 			'users', 'user',
 			{
@@ -315,7 +370,7 @@ sub _get_sequence_fields {
 	return $buffer if !$self->can_modify_table('sequences');
 	my $set_string = $self->_get_set_string;
 	my $fasta_url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
-	$buffer .= q(<div class="curategroup curategroup_sequences grid-item"><h2>Sequences</h2>);
+	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_show_curator"><h2>Sequences</h2>);
 	$buffer .= $self->_get_icon_group(
 		'sequences',
 		'dna',
@@ -400,7 +455,7 @@ sub _get_profile_fields {
 	my $curator_id = $self->get_curator_id;
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
-		my $class   = q();
+		my $class   = q(default_show_curator);
 		my $display = q();
 		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
 			$class   = q(default_hide_curator);
@@ -470,7 +525,7 @@ sub _get_isolate_fields {
 	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates);
 	my $query_url        = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query);
 	my $batch_update_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate);
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item"><h2>Isolates</h2>);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_show_curator"><h2>Isolates</h2>);
 	$buffer .= $self->_get_icon_group(
 		'isolates',
 		'file-alt',
@@ -617,7 +672,8 @@ sub _get_sequence_bin {
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('sequence_bin');
 	return $buffer if !$self->_isolates_exist;
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item"><h2>Sequence bin</h2>);
+	$buffer .=
+	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence bin</h2>);
 	$buffer .= $self->_get_icon_group(
 		'sequence_bin',
 		'dna',
@@ -659,7 +715,8 @@ sub _get_allele_sequences {
 	return $buffer if !$self->_isolates_exist;
 	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	return $buffer if !$seqbin;
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item"><h2>Sequence tags</h2>);
+	$buffer .=
+	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence tags</h2>);
 	$buffer .= $self->_get_icon_group(
 		'allele_sequences',
 		'tags',
@@ -718,7 +775,7 @@ sub _get_samples {
 	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 	return $buffer if !@$sample_fields;
 	return $buffer if !$self->_isolates_exist;
-	$buffer .= q(<div class="curategroup curategroup_samples grid-item"><h2>Samples</h2>);
+	$buffer .= q(<div class="curategroup curategroup_samples grid-item default_show_curator"><h2>Samples</h2>);
 	$buffer .= $self->_get_icon_group(
 		'samples',
 		'vial',
@@ -726,6 +783,67 @@ sub _get_samples {
 			batch_add => 1,
 			query     => 1,
 			info      => 'Sample storage records - These can also be added and updated from the isolate update page.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_permissions {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('permissions');
+	$buffer .= q(<div class="curategroup curategroup_permissions grid-item default_show_admin"><h2>Permissions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'permissions',
+		'user-shield',
+		{
+			query     => 1,
+			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions),
+			info      => q(Permissions - Set curator permissions for individual users - )
+			  . q(these are only active for users with a status of 'curator' in the users table.)
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_user_dbases {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('user_dbases');
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
+	  . qq(style="display:$self->{'optional_admin_display'}"><h2>User databases</h2>);
+	$buffer .= $self->_get_icon_group(
+		'user_dbases',
+		'database',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'User databases - Add global databases containing site-wide user data - '
+			  . 'these can be used to set up accounts that work across databases.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_oauth_credentials {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
+	return $buffer if !$self->can_modify_table('oauth_credentials');
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
+	  . qq(style="display:$self->{'optional_admin_display'}"><h2>OAuth credentials</h2>);
+	$buffer .= $self->_get_icon_group(
+		'oauth_credentials',
+		'unlock-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
 		}
 	);
 	$buffer .= qq(</div>\n);
@@ -896,7 +1014,6 @@ sub print_content {
 	return if $self->_ajax_call;
 	my $desc = $self->get_db_description;
 	say qq(<h1>Database curator's interface - $desc</h1>);
-	my $can_do_something;
 	$self->_print_set_section;
 	my $buffer = $self->_get_standard_links;
 
@@ -905,20 +1022,24 @@ sub print_content {
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_seqdef_links;
 	}
+	my $can_do_something;
 	if ($buffer) {
 		$can_do_something = 1;
 		say q(<div class="box" id="curator">);
-		say q(<div style="float:right">);
-		say q(<a id="toggle_all_curator_methods" style="text-decoration:none" )
-		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_curator_methods=1">);
-		my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
-		my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
-		say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
-		  . qq(style="display:$off" title="Showing common functions"></span>);
-		say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
-		  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-		say q(Show all</a>);
-		say q(</div>);
+		my $toggle_status = $self->_get_curator_toggle_status( \$buffer );
+		if ( $toggle_status->{'show_toggle'} ) {
+			say q(<div style="float:right">);
+			say q(<a id="toggle_all_curator_methods" style="text-decoration:none" )
+			  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_curator_methods=1">);
+			my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
+			my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+			say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+			  . qq(style="display:$off" title="Showing common functions"></span>);
+			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
+			say q(Show all</a>);
+			say q(</div>);
+		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
 		say q(<h2>Curator functions</h2>);
 		say q(<div class="grid" id="curator_grid">);
@@ -926,6 +1047,11 @@ sub print_content {
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
+
+		if ( $toggle_status->{'always_show_hidden'} ) {
+			say q[<script>$(function() {$(".default_hide_curator").css("display","inline");]
+			  . q[$("#curator_grid").packery()});</script>];
+		}
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
@@ -947,6 +1073,36 @@ sub print_content {
 		say qq(<ul>$list_buffer</ul>) if $list_buffer;
 		say q(</div>);
 	}
+	$buffer = $self->_get_admin_links_new;
+	if ($buffer) {
+		$can_do_something = 1;
+		say q(<div class="box" id="admin">);
+		my $toggle_status = $self->_get_admin_toggle_status( \$buffer );
+		if ( $toggle_status->{'show_toggle'} ) {
+		say q(<div style="float:right">);
+		say q(<a id="toggle_all_admin_methods" style="text-decoration:none" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_admin_methods=1">);
+		my $off = $self->{'prefs'}->{'all_admin_methods'} ? 'none'   : 'inline';
+		my $on  = $self->{'prefs'}->{'all_admin_methods'} ? 'inline' : 'none';
+		say q(<span id="all_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+		  . qq(style="display:$off" title="Showing common admin functions"></span>);
+		say q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span>);
+		say q(Show all</a>);
+		say q(</div>);
+		}
+		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
+		say q(<h2>Admin functions</h2>);
+		say q(<div class="grid" id="admin_grid">);
+		say $buffer;
+		say q(</div>);
+		say q(<div style="clear:both"></div>);
+		say q(</div>);
+		if ( $toggle_status->{'always_show_hidden'} ) {
+			say q[<script>$(function() {$(".default_hide_admin").css("display","inline");]
+			  . q[$("#admin_grid").packery()});</script>];
+		}
+	}
 	if ( !$can_do_something ) {
 		$self->print_bad_status(
 			{
@@ -957,6 +1113,30 @@ sub print_content {
 		);
 	}
 	return;
+}
+
+sub _get_curator_toggle_status {
+	my ( $self, $buffer_ref ) = @_;
+	my $hidden  = $$buffer_ref =~ /default_hide_curator/x ? 1 : 0;
+	my $default = $$buffer_ref =~ /default_show_curator/x ? 1 : 0;
+	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
+	my $always_show_hidden;
+	if ( $hidden && !$default ) {
+		$always_show_hidden = 1;
+	}
+	return { show_toggle => $show_toggle, always_show_hidden => $always_show_hidden };
+}
+
+sub _get_admin_toggle_status {
+	my ( $self, $buffer_ref ) = @_;
+	my $hidden  = $$buffer_ref =~ /default_hide_admin/x ? 1 : 0;
+	my $default = $$buffer_ref =~ /default_show_admin/x ? 1 : 0;
+	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
+	my $always_show_hidden;
+	if ( $hidden && !$default ) {
+		$always_show_hidden = 1;
+	}
+	return { show_toggle => $show_toggle, always_show_hidden => $always_show_hidden };
 }
 
 sub _get_admin_list_links {
@@ -1198,6 +1378,7 @@ sub _print_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		}
 	);
 }
+
 sub _print_user_dbases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $td, $set_string ) = @_;
 	return $self->_print_table(
