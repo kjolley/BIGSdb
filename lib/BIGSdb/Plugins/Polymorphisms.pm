@@ -43,7 +43,7 @@ sub get_attributes {
 		category    => 'Breakdown',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.1.7',
+		version     => '1.1.8',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#polymorphisms",
 		section     => 'breakdown,postquery',
@@ -389,7 +389,7 @@ sub _print_interface {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Analyse' } );
-	say $q->hidden($_) foreach qw (page name db query_file list_file datatype);
+	say $q->hidden($_) foreach qw (page name db query_file list_file datatype temp_table_file);
 	say $q->end_form;
 	say q(</div></div>);
 	return;
