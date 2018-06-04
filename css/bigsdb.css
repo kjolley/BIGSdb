@@ -458,6 +458,10 @@ div.curategroup_experiments {background:#eff}
 div.curategroup_samples {background:#fdd}
 div.curategroup_permissions {background:#fff}
 div.curategroup_remote_dbases {background:#eef}
+div.curategroup_maintenance {background:#ffe}
+div.curategroup_loci {background:#fdd}
+div.curategroup_schemes {background:#dcf}
+div.curategroup_sets {background:#cdf}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -823,6 +827,8 @@ button.plugin:hover {color:#c8c}
 .curate_icon_link_remote {color:#f54}
 .curate_icon_scan_barcode {color:#000}
 .curate_icon_scan_query {color:#a22}
+.curate_icon_set {color:#848}
+.curate_icon_action {color:#484}
 
 .toggle_icon {color:#66a}
 
