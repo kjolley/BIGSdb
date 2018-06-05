@@ -1967,6 +1967,9 @@ sub _upload_data {
 	} elsif ( $self->{'system'}->{'curate_script'} && $table eq 'isolates' && $q->param('private') ) {
 		$more_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
 		  . q(table=isolates&amp;private=1&amp;user_header=1);
+		if ($project_id){
+			$more_url .= qq(&amp;project_id=$project_id);
+		}
 		$back_url = qq($script?db=$self->{'instance'}&amp;page=privateRecords);
 	}
 	$self->print_good_status(
