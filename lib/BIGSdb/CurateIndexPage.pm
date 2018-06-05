@@ -1628,12 +1628,7 @@ sub print_content {
 			  . q[$("#curator_grid").packery()});</script>];
 		}
 	}
-	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
-		$self->_print_submission_section;
-	}
-	if ( $self->{'datastore'}->user_dbs_defined ) {
-		$self->_print_account_requests_section;
-	}
+
 	$buffer = $self->_get_admin_links;
 	if ($buffer) {
 		$can_do_something = 1;
@@ -1664,6 +1659,12 @@ sub print_content {
 			say q[<script>$(function() {$(".default_hide_admin").css("display","inline");]
 			  . q[$("#admin_grid").packery()});</script>];
 		}
+	}
+		if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
+		$self->_print_submission_section;
+	}
+	if ( $self->{'datastore'}->user_dbs_defined ) {
+		$self->_print_account_requests_section;
 	}
 	if ( !$can_do_something ) {
 		$self->print_bad_status(

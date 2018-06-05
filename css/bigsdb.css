@@ -471,10 +471,10 @@ div#queryform table.queryform td {padding:0}
 div#chart {background:#e0e0e0}
 div#sequence {background:#efefff}
 div#index {background:#d5e0d5}
-div#curator {background:#e5e5e5}
-div#admin {background:#f0e5e5}
-div#submissions {background:#d5d5e0}
-div#account_requests {background:#e0e0d5}
+div#curator {background:#e7e7e7}
+div#admin {background:#f0e7e7}
+div#submissions {background:#e7e7f0}
+div#account_requests {background:#f0f0e7}
 div#sets {background:#e0e0d5}
 div#schemes {background:#e0e0d5}
 div#projects,div#jobs {background:#f0f0e5}
