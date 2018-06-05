@@ -1238,7 +1238,7 @@ sub _get_composite_fields {
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
 			info      => 'Composite fields - '
-			  . 'Used to construct composite fields consisting of isolate, loci or scheme fields.'
+			  . 'Consist of a combination of different isolate, loci or scheme fields.'
 		}
 	);
 	$buffer .= qq(</div>\n);
