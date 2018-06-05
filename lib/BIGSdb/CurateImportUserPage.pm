@@ -90,9 +90,10 @@ sub _print_interface {
 	my $user_names = [];
 	foreach my $user (@$possible_users) {
 		push @$user_names, $user->{'user_name'};
+		my ($truncated_affiliation) = $self->get_truncated_label($user->{'affiliation'},80);
 		$labels->{ $user->{'user_name'} } =
 		    qq($user->{'surname'}, $user->{'first_name'} ($user->{'user_name'}) - )
-		  . qq($user->{'affiliation'} ($user->{'email'}));
+		  . qq($truncated_affiliation ($user->{'email'}));
 	}
 	if (@$possible_users) {
 		say $q->start_form;
