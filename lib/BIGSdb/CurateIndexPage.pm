@@ -76,7 +76,8 @@ sub get_javascript {
 		event.preventDefault();
   		\$(this).attr('href', function(){  		
 	  		\$.ajax({
-	  			url : this.href,
+	  			url: this.href,
+	  			cache: false,
 	  			success: function () {
 	  				if (\$('span#notify_text').text() == 'ON'){
 	  					\$('span#notify_text').text('OFF');
@@ -91,7 +92,8 @@ sub get_javascript {
 		event.preventDefault();
   		\$(this).attr('href', function(){  	
 	  		\$.ajax({
-	  			url : this.href,
+	  			url: this.href,
+	  			cache: false,
 	  			success: function () {
 	  				\$('#all_curator_methods_off').toggle();	
 	  				\$('#all_curator_methods_on').toggle();
@@ -107,7 +109,8 @@ sub get_javascript {
 		event.preventDefault();
   		\$(this).attr('href', function(){  	
 	  		\$.ajax({
-	  			url : this.href,
+	  			url: this.href,
+	  			cache: false,
 	  			success: function () {
 	  				\$('#all_admin_methods_off').toggle();	
 	  				\$('#all_admin_methods_on').toggle();

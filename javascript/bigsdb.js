@@ -23,7 +23,8 @@ $(function () {
 		event.preventDefault();
 	  	$(this).attr('href', function(){  		
 	  		$.ajax({
-	  			url : this.href,
+	  			url: this.href,
+	  			cache: false,
 	  			success: function () {
 	  				$('.tooltip').toggle();
 	  			}
