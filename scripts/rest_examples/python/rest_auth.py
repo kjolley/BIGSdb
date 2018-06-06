@@ -145,7 +145,10 @@ def get_route(route,token,secret):
         if re.search('unauthorized',r.json()['message']):
             print ('Access denied - client is unauthorized')
             return
-        else:          
+        else:
+            if re.search('verification',r.json()['message']):
+                print (r.json())
+                return         
             print ('Invalid session token, requesting new one...\n')
             (token,secret) = get_session_token(None,None)
             get_route(route, token, secret)
