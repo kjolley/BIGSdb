@@ -149,7 +149,7 @@ sub _isolate_items {
 	my $main_projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
 	my $user_projects = $self->show_user_projects;
 	if ( $main_projects || $user_projects ) {
-		say q(<span class="main_icon far fa-list-alt fa-lg fa-pull-left"></span>);
+		say q(<span class="main_icon fas fa-list-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say qq(<li><a href="$base_url&amp;page=projects">Public projects</a></li>)   if $main_projects;
 		say qq(<li><a href="$base_url&amp;page=userProjects">Your projects</a></li>) if $user_projects;
@@ -195,7 +195,7 @@ sub _isolate_curate_items {
 	$self->_users_link;
 	my $buffer = $self->_isolates_link;
 	if ($buffer) {
-		say q(<span class="main_icon far fa-file-alt fa-lg fa-pull-left"></span>);
+		say q(<span class="main_icon fas fa-file-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say $buffer;
 		say q(</ul>);
@@ -209,7 +209,7 @@ sub _seqdef_curate_items {
 	my $buffer = $self->_sequences_link;
 	$buffer .= $self->_profiles_link;
 	if ($buffer) {
-		say q(<span class="main_icon far fa-file-alt fa-lg fa-pull-left"></span>);
+		say q(<span class="main_icon fas fa-file-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say $buffer;
 		say q(</ul>);
