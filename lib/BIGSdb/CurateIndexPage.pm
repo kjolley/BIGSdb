@@ -1046,8 +1046,7 @@ sub _get_locus_curators {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('locus_curators');
-	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus curators</h2>);
+	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Locus curators</h2>);
 	$buffer .= $self->_get_icon_group(
 		'locus_curators',
 		'user-tie',
@@ -1069,8 +1068,7 @@ sub _get_scheme_curators {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('scheme_curators');
-	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme curators</h2>);
+	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Scheme curators</h2>);
 	$buffer .= $self->_get_icon_group(
 		'scheme_curators',
 		'user-tie',
