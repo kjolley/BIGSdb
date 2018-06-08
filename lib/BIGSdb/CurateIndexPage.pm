@@ -90,35 +90,29 @@ sub get_javascript {
 	});
 	\$('a#toggle_all_curator_methods').click(function(event){		
 		event.preventDefault();
-  		\$(this).attr('href', function(){  	
+  		\$(this).attr('href', function(){  
+  			\$('#all_curator_methods_off').toggle();	
+	  		\$('#all_curator_methods_on').toggle();
+	  		\$('.default_hide_curator').fadeToggle(200,'',function(){
+	  			\$('#curator_grid').packery();
+	  		});	
 	  		\$.ajax({
 	  			url: this.href,
 	  			cache: false,
-	  			success: function () {
-	  				\$('#all_curator_methods_off').toggle();	
-	  				\$('#all_curator_methods_on').toggle();
-	  				\$('.default_hide_curator').fadeToggle(200,'',function(){
-	  					\$('#curator_grid').packery();
-	  				});
-	  				
-	  			}
 	  		});
 	   	});
 	});
 	\$('a#toggle_all_admin_methods').click(function(event){		
 		event.preventDefault();
-  		\$(this).attr('href', function(){  	
+  		\$(this).attr('href', function(){  
+  			\$('#all_admin_methods_off').toggle();	
+	  		\$('#all_admin_methods_on').toggle();
+	  		\$('.default_hide_admin').fadeToggle(200,'',function(){
+	  			\$('#admin_grid').packery();
+	  		});	
 	  		\$.ajax({
 	  			url: this.href,
 	  			cache: false,
-	  			success: function () {
-	  				\$('#all_admin_methods_off').toggle();	
-	  				\$('#all_admin_methods_on').toggle();
-	  				\$('.default_hide_admin').fadeToggle(200,'',function(){
-	  					\$('#admin_grid').packery();
-	  				});
-	  				
-	  			}
 	  		});
 	   	});
 	});
