@@ -306,7 +306,7 @@ sub _initiate_plugin {
 
 sub get_file_icon {
 	my ( $self, $type ) = @_;
-	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em;top">);
+	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em">);
 	$buffer .= q(<span class="fas fa-file fa-stack-2x"></span>);
 	$buffer .= qq(<span class="fa-stack-1x filetype-text" style="top:0.25em">$type</span>);
 	$buffer .= q(</span>);
@@ -451,7 +451,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system    = $self->{'system'};
-	my $version   = '20180601';
+	my $version   = '20180605';
 	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
 	my @paths;
 	foreach my $filename (@filenames) {

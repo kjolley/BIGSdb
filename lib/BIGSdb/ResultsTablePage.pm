@@ -1578,7 +1578,7 @@ sub _print_fk_field_with_label {
 	my $value = $table_info->{'labels'}->{$field};
 	my $i     = 0;
 	foreach ( @{ $self->{'cache'}->{'fields_to_query'}->{$field} } ) {
-		$value =~ s/$_/$labels[$i]/x;
+		$value =~ s/\$$_/$labels[$i]/x;
 		$i++;
 	}
 	$value =~ s/[\|\$]//gx;

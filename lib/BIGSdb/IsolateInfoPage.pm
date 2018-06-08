@@ -797,20 +797,19 @@ sub get_isolate_record {
 
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view ) = @_;
-	my $buffer =
-	  q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
+	my $buffer;
 	my ( $private_owner, $request_publish ) =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q();
-		$buffer .=
-		    q(<p><span class="main_icon fas fa-2x fa-user-secret"></span> )
+		$buffer .= q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
 		  . qq($request_string</span></p>);
 	}
+	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
 
 	#We need to enclose description lists in <li> tags to prevent title and data from being split
 	#by the columnizer plugin.
