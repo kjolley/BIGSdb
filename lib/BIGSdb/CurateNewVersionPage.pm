@@ -28,7 +28,7 @@ use constant ERROR => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache);
+	$self->{$_} = 1 foreach qw (jQuery noCache jQuery.columnizer);
 	return;
 }
 
