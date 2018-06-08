@@ -21,13 +21,11 @@ $(function () {
 	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		
 		event.preventDefault();
+		$('.tooltip').toggle();
 	  	$(this).attr('href', function(){  		
 	  		$.ajax({
 	  			url: this.href,
 	  			cache: false,
-	  			success: function () {
-	  				$('.tooltip').toggle();
-	  			}
 	  		});
 	   	});
 	});
