@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.4',
+		version     => '1.4.5',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -192,7 +192,7 @@ sub run {
 						parameters   => $params,
 						username     => $self->{'username'},
 						email        => $user_info->{'email'},
-						isolates     => $$qry_ref =~ /temp_list/x ? $ids : undef
+						isolates     => $$qry_ref =~ /(temp_list|count_table)/x ? $ids : undef
 					}
 				);
 				say $self->get_job_redirect($job_id);
@@ -255,7 +255,7 @@ sub run_job {
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my @fields = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
-	if ( $params->{'qry'} =~ /temp_list/x ) {
+	if ( $params->{'qry'} =~ /(temp_list|count_table)/x ) {
 		my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
 
@@ -263,9 +263,6 @@ sub run_job {
 		my $view  = $self->{'system'}->{'view'};
 		my $BY_ID = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
 		$params->{'qry'} =~ s/(FROM\ $view.*?)WHERE.*ORDER\ BY/$1 WHERE $BY_ID/x;
-	}
-	if ( $params->{'qry'} =~ /count_table/x ) {
-		$self->{'datastore'}->create_temp_combinations_table_from_file( $params->{'temp_table_file'} );
 	}
 	my $limit =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
