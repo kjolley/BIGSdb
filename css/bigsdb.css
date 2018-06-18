@@ -499,7 +499,7 @@ div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background:#d5d5e0}
 div#message {background:#e0d5d5}
-div#curatetools { background: #e5e5f0}
+
 
 div#menubutton {
 	float:right;
@@ -552,6 +552,7 @@ div#pluginoptions, div#curatetools {
 	border-radius: 10px;
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
+div#curatetools {background: #e5e5f0}
 
 div#pluginoptions ul {list-style-type:none; margin-left:-2em}
 
