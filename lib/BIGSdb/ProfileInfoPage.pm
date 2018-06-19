@@ -179,6 +179,7 @@ sub _print_client_db_links {
 	}
 	if ($buffer) {
 		my $plural = @$clients > 1 ? q(s) : q();
+		say q(<span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-0.2em"></span>);
 		say qq(<h2>Client database$plural</h2>);
 		say q(<dl class="data">);
 		say $buffer;
