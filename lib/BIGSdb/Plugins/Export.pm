@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.5',
+		version     => '1.4.6',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -412,6 +412,7 @@ sub _write_tab_text {
 			if ( $new_progress > $progress ) {
 				$progress = $new_progress;
 				$self->{'jobManager'}->update_job_status( $params->{'job_id'}, { percent_complete => $progress } );
+				$self->{'db'}->commit;    #prevent idle in transaction table locks
 			}
 			last if $self->{'exit'};
 		}
