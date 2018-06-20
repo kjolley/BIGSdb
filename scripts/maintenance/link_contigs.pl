@@ -82,7 +82,7 @@ my $script = BIGSdb::Offline::Script->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => \%opts,
+		options          => { %opts, always_run => 1 },
 		instance         => $opts{'d'},
 	}
 );
