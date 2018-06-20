@@ -1417,6 +1417,10 @@ sub _presubmit_isolates {
 		$submission_id = $self->_start_submission($type);
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
 	}
+	my $isolate_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/isolate_submit.html";
+	if ( -e $isolate_submit_message && !$options->{'genomes'} ) {
+		$self->print_file($isolate_submit_message);
+	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
