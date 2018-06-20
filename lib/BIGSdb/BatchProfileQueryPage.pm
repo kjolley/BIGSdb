@@ -43,6 +43,11 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#batch-profile-queries";
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
