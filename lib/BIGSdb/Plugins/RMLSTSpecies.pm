@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.1.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -316,12 +316,39 @@ sub _format_row_html {
 
 sub _perform_rest_query {
 	my ( $self, $job_id, $i, $isolate_id ) = @_;
-	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
-		$isolate_id, { fetch => 'col_arrayref', cache => 'RMLSTSpecies::get_seqbin_ids' } );
+	my $qry = 'SELECT id,sequence FROM sequence_bin WHERE isolate_id=? AND NOT remote_contig';
+	my $contigs =
+	  $self->{'datastore'}
+	  ->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', cache => 'RMLSTSpecies::blast_create_fasta::local' } );
 	my $fasta;
-	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
-		$fasta .= qq(>$seqbin_id\n$$seq_ref\n);
+	foreach my $contig (@$contigs) {
+		$fasta .= qq(>$contig->[0]\n$contig->[1]\n);
+	}
+	my $remote_qry = 'SELECT s.id,r.uri,r.length,r.checksum FROM sequence_bin s LEFT JOIN remote_contigs r ON '
+	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
+	my $remote_contigs =
+	  $self->{'datastore'}->run_query( $remote_qry, $isolate_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'RMLSTSpecies::blast_create_fasta::remote' } );
+	my $remote_uris = [];
+	foreach my $contig_link (@$remote_contigs) {
+		push @$remote_uris, $contig_link->{'uri'};
+	}
+	my $remote_data;
+	eval { $remote_data = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uris); };
+	if ($@) {
+		$logger->error($@);
+	} else {
+		foreach my $contig_link (@$remote_contigs) {
+			$fasta .= qq(>$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}\n);
+			if ( !$contig_link->{'length'} ) {
+				$self->{'contigManager'}->update_remote_contig_length( $contig_link->{'uri'},
+					length( $remote_data->{ $contig_link->{'uri'} } ) );
+			} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
+				$logger->error("$contig_link->{'uri'} length has changed!");
+			}
+
+			#We won't set checksum because we're not extracting all metadata here
+		}
 	}
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $payload = encode_json(
@@ -426,8 +453,9 @@ sub _print_interface {
 		my $isolate_id = $q->param('single_isolate');
 		my $name       = $self->get_isolate_name_from_id($isolate_id);
 		say q(<h2>Selected record</h2>);
-		say qq(<dl class="data"><dt>id</dt><dd>$isolate_id</dd></dt>);
-		say qq(<dt>$self->{'system'}->{'labelfield'}</dt><dd>$name</dd></dl>);
+		say $self->get_list_block(
+			[ { title => 'id', data => $isolate_id }, { title => $self->{'system'}->{'labelfield'}, data => $name } ],
+			{ width => 6 } );
 		say $q->hidden( isolate_id => $isolate_id );
 	} else {
 		$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
