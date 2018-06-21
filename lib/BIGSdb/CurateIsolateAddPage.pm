@@ -313,7 +313,7 @@ sub _insert {
 			$self->{'db'}->commit;
 			my ( $upload_contigs_url, $link_contigs_url );
 			$upload_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'});
+			  . qq(page=addSeqbin&amp;isolate_id=$newdata->{'id'});
 			if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
 				$link_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'});

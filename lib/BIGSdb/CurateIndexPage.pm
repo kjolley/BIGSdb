@@ -696,6 +696,8 @@ sub _get_sequence_bin {
 		'sequence_bin',
 		'dna',
 		{
+			add     => 1,
+			add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
 			batch_add     => 1,
 			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
 			query         => 1,

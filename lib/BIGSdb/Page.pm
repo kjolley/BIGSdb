@@ -1502,14 +1502,10 @@ sub get_link_button_to_ref {
 
 sub get_isolate_name_from_id {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'isolate_id'} ) {
-		my $view        = $self->{'system'}->{'view'};
-		my $label_field = $self->{'system'}->{'labelfield'};
-		$self->{'sql'}->{'isolate_id'} = $self->{'db'}->prepare("SELECT $view.$label_field FROM $view WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my ($isolate) = $self->{'sql'}->{'isolate_id'}->fetchrow_array;
+	my $isolate =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+		$isolate_id, { cache => 'Page::get_isolate_name_from_id' } );
 	return $isolate // '';
 }
 
@@ -2835,7 +2831,9 @@ sub print_navigation_bar {
 		  . qq($link_contigs</a>);
 	}
 	if ( $options->{'reload_url'} ) {
-		$buffer .= qq(<a href="$options->{'reload_url'}" title="Reload scan form" style="margin-right:1em">$reload</a>);
+		$options->{'reload_text'} //= 'Reload scan form';
+		$buffer .= qq(<a href="$options->{'reload_url'}" title="$options->{'reload_text'}" )
+		  . qq(style="margin-right:1em">$reload</a>);
 	}
 	if ( $options->{'update_url'} ) {
 		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);

@@ -123,7 +123,7 @@ sub print_content {
 				message            => q(The new record shown below has been created.),
 				navbar             => 1,
 				upload_contigs_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=batchAddSeqbin&amp;isolate_id=$new_id),
+				  . qq(page=addSeqbin&amp;isolate_id=$new_id),
 				update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=isolateUpdate&amp;id=$new_id")
 			}

@@ -687,20 +687,20 @@ sub _print_action_panel {
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultsheader"><div class="scrollable">);
 	my %titles = (
-		isolateDelete  => 'Delete record',
-		isolateUpdate  => 'Update record',
-		batchAddSeqbin => 'Sequence bin',
-		newVersion     => 'New version',
-		tagScan        => 'Sequence tags',
-		publish        => 'Make public',
+		isolateDelete => 'Delete record',
+		isolateUpdate => 'Update record',
+		addSeqbin     => 'Sequence bin',
+		newVersion    => 'New version',
+		tagScan       => 'Sequence tags',
+		publish       => 'Make public',
 	);
 	my %labels = (
-		isolateDelete  => 'Delete',
-		isolateUpdate  => 'Update',
-		batchAddSeqbin => 'Upload contigs',
-		newVersion     => 'Create',
-		tagScan        => 'Scan',
-		publish        => 'Publish'
+		isolateDelete => 'Delete',
+		isolateUpdate => 'Update',
+		addSeqbin     => 'Upload contigs',
+		newVersion    => 'Create',
+		tagScan       => 'Scan',
+		publish       => 'Publish'
 	);
 	$q->param( isolate_id => $isolate_id );
 	my $page = $q->param('page');
@@ -709,13 +709,12 @@ sub _print_action_panel {
 	my $private =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE isolate_id=?)', $isolate_id );
-
-	foreach my $action (qw (isolateDelete isolateUpdate batchAddSeqbin newVersion tagScan publish)) {
+	foreach my $action (qw (isolateDelete isolateUpdate addSeqbin newVersion tagScan publish)) {
 		next
 		  if $action eq 'tagScan'
 		  && ( !$seqbin_exists
 			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
-		next if $action eq 'batchAddSeqbin' && !$self->can_modify_table('sequences');
+		next if $action eq 'addSeqbin' && !$self->can_modify_table('sequences');
 		next if $action eq 'publish' && !$private;
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
@@ -804,7 +803,8 @@ sub _get_provenance_fields {
 	if ( defined $private_owner ) {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q();
-		$buffer .= q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
+		$buffer .=
+		    q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
 		  . qq($request_string</span></p>);
 	}
