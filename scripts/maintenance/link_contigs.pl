@@ -117,11 +117,18 @@ sub main {
 		$opts{'i'}, { fetch => 'col_arrayref' } );
 	my %existing = map { $_ => 1 } @$existing;
 	eval {
+		$script->{'db'}->do('ALTER TABLE sequence_bin DISABLE TRIGGER check_sequence_bin');
+		my $insert_sql =
+		  $script->{'db'}->prepare( 'INSERT INTO sequence_bin(isolate_id,remote_contig,sequence,sender,curator,'
+			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?) RETURNING id' );
 		foreach my $contig (@$contigs) {
 			next if $existing{$contig};    #Don't add duplicates
+			$insert_sql->execute( $opts{'i'}, 'true', '', $opts{'c'}, $opts{'c'}, 'now', 'now' );
+			my ($seqbin_id) = $insert_sql->fetchrow_array;
 			$script->{'db'}
-			  ->do( 'SELECT add_remote_contig(?,?,?,?)', undef, $opts{'i'}, $opts{'c'}, $opts{'c'}, $contig );
+			  ->do( 'INSERT INTO remote_contigs (seqbin_id,uri) VALUES (?,?)', undef, $seqbin_id, $contig );
 		}
+		$script->{'db'}->do('ALTER TABLE sequence_bin ENABLE TRIGGER check_sequence_bin');
 	};
 	if ($@) {
 		say q(failed!);
