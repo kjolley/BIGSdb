@@ -93,12 +93,14 @@ sub _check {
 	if ( !$self->{'xmlHandler'}->is_field($id_field) ) {
 		return { message => 'Selected field is not valid' };
 	}
-	my $field_atts = $self->{'xmlHandler'}->get_field_attributes($id_field);
-	my $int_field  = $field_atts->{'type'} =~ /int/x ? 1 : 0;
-	my @rows       = split /\r?\n/x, $$data;
-	my $validated  = [];
-	my $invalid    = {};
-	my $number     = 0;
+	my $field_atts    = $self->{'xmlHandler'}->get_field_attributes($id_field);
+	my $int_field     = $field_atts->{'type'} =~ /int/x ? 1 : 0;
+	my @rows          = split /\r?\n/x, $$data;
+	my $validated     = [];
+	my $invalid       = {};
+	my $number        = 0;
+	my $id_used       = {};
+	my $filename_used = {};
 	foreach my $row (@rows) {
 		$row =~ s/^\s+|\s+$//x;
 		next if !$row;
@@ -134,7 +136,17 @@ sub _check {
 			  { id => $id, problem => "$matching_records matching records - cannot uniquely identify!" };
 			next;
 		}
+		if ( $id_used->{$id} ) {
+			$invalid->{$number} = { id => $id, problem => "$id is listed more than once!" };
+			next;
+		}
+		if ( $filename_used->{$filename} ) {
+			$invalid->{$number} = { id => $id, problem => "Filename $filename is used more than once!" };
+			next;
+		}
 		push @$validated => { row => $number, identifier => $id, id => $ids->[0], filename => $filename };
+		$id_used->{$id}             = 1;
+		$filename_used->{$filename} = 1;
 	}
 	my $temp_file = $self->_write_validated_temp_file($validated);
 	return { invalid => $invalid, validated => $validated, temp_file => $temp_file };
@@ -170,8 +182,8 @@ sub _file_upload {
 		);
 		return;
 	}
-	if ( $q->param('Cancel') ) {
-		$self->_cancel($temp_file);
+	if ( $q->param('Remove') ) {
+		$self->_remove_row($temp_file);
 	}
 	my $validated = [];
 	my $failed;
@@ -197,16 +209,23 @@ sub _file_upload {
 		);
 		return;
 	}
+	if ( $q->param('file_upload') ) {
+		$self->_upload_files($upload_id);
+	}
+	if ( $q->param('delete') ) {
+
+		#			$self->_delete_selected_submission_files($submission_id);
+	}
 	say q(<div class="box resultstable"><div class="scrollable">);
 	say q(<p>Please upload the assembly contig files for each isolate record.<p>);
 	say $q->start_form;
 	say q(<table class="resultstable">);
-	say q(<tr><th rowspan="2">Cancel</th><th rowspan="2">id</th>);
+	say q(<tr><th rowspan="2">remove<br />row</th><th rowspan="2">id</th>);
 	say qq(<th rowspan="2">$field</th>) if $field ne 'id';
 	say qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>) if $field ne $self->{'system'}->{'labelfield'};
-	say q(<th colspan="2">Current sequence bin state</th><th rowspan="2">filename</th>)
-	  . q(<th rowspan="2">Upload status</th></tr>);
-	say q(<tr><th>Contigs</th><th>Total size (bp)</th></tr>);
+	say q(<th colspan="2">current sequence bin state</th><th rowspan="2">filename</th>)
+	  . q(<th rowspan="2">upload status</th></tr>);
+	say q(<tr><th>contigs</th><th>total size (bp)</th></tr>);
 	my $td        = 1;
 	my $to_upload = 0;
 
@@ -238,16 +257,20 @@ sub _file_upload {
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
+	say q(<tr><td>);
+	say $q->submit( -name => 'Remove', -class => 'smallbutton' );
+	say q(</td><td colspan="6"></td></tr>);
 	say q(</table>);
-	say $q->submit( -name => 'Cancel', -class => 'smallbutton' );
 	$q->param( temp_file => $temp_file );
 	say $q->hidden($_) foreach qw(db page upload_id field temp_file);
 	say $q->end_form;
+
 	if ($to_upload) {
 		my $plural = $to_upload == 1 ? q() : q(s);
 		say qq(<p class="statusbad">$to_upload FASTA file$plural left to upload.</p>);
 	}
 	$self->_print_file_upload_fieldset;
+	say q(<div style="clear:both"></div>);
 	$self->print_navigation_bar(
 		{
 			back     => 1,
@@ -258,7 +281,7 @@ sub _file_upload {
 	return;
 }
 
-sub _cancel {
+sub _remove_row {
 	my ( $self, $temp_file ) = @_;
 	my $q = $self->{'cgi'};
 	my $failed;
@@ -285,15 +308,6 @@ sub _print_file_upload_fieldset {
 
 	#	if ( $submission_id =~ /(BIGSdb_\d+_\d+_\d+)/x ) {    #Untaint
 	#		$submission_id = $1;
-	if ( $q->param('file_upload') ) {
-
-		#			$self->_upload_files($submission_id);
-	}
-	if ( $q->param('delete') ) {
-
-		#			$self->_delete_selected_submission_files($submission_id);
-	}
-
 	#	}
 	say q(<fieldset style="float:left"><legend>Contig assembly files</legend>);
 	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
@@ -305,7 +319,7 @@ sub _print_file_upload_fieldset {
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
 
 	#	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page upload_id);
+	say $q->hidden($_) foreach qw(db page upload_id field temp_file);
 	say $q->end_form;
 ##	my $files = $self->_get_submission_files($submission_id);
 	#	if (@$files) {
@@ -318,6 +332,36 @@ sub _print_file_upload_fieldset {
 	#		say $q->end_form;
 	#	}
 	say q(</fieldset>);
+	return;
+}
+
+sub _upload_files {
+	my ( $self, $upload_id ) = @_;
+	if ( $upload_id =~ /(BIGSdb_\d+_\d+_\d+)/x ) {
+		$upload_id = $1;    #Untaint
+		$logger->error("Untainted upload_id: $upload_id");
+	}
+	my $q         = $self->{'cgi'};
+	my @filenames = $q->param('file_upload');
+	my $i         = 0;
+	foreach my $fh2 ( $q->upload('file_upload') ) {
+		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\\#)]+)/x ) {
+			$filenames[$i] = $1;
+		} else {
+			$logger->error("Invalid filename $filenames[$i]!");
+		}
+		my $filename = "$self->{'config'}->{'tmp_dir'}/${upload_id}_$filenames[$i]";
+		$logger->error($filename);
+		$i++;
+		next if -e $filename;    #Don't reupload if already done.
+		my $buffer;
+		open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+		binmode $fh2;
+		binmode $fh;
+		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+		print $fh $buffer;
+		close $fh;
+	}
 	return;
 }
 
