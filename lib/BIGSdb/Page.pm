@@ -2876,6 +2876,19 @@ sub print_good_status {
 	return;
 }
 
+sub print_warning {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Warning!';
+	say q(<div class="box statuswarn" style="min-height:5em");
+	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	say q(</div>);
+	return;
+}
+
 sub get_list_block {
 	my ( $self, $list, $options ) = @_;
 

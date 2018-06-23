@@ -24,6 +24,7 @@ use JSON;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
+use File::Path qw(make_path remove_tree);
 use BIGSdb::Constants qw(:interface);
 my $logger = get_logger('BIGSdb.Page');
 use constant LIMIT => 100;
@@ -45,19 +46,6 @@ sub print_content {
 		);
 		return;
 	}
-	my $upload_id = $q->param('upload_id') // BIGSdb::Utils::get_random();
-	if ( $upload_id !~ /BIGSdb_\d+_\d+_\d+/x ) {
-		$self->print_bad_status(
-			{
-				message     => q(Upload id is invalid. Please restart upload.),
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
-			}
-		);
-		return;
-	}
-	$q->param( upload_id => $upload_id );
 	my $field = $q->param('field');
 	if ( $q->param('filenames') ) {
 		my $check_data = $self->_check( $field, \$q->param('filenames') );
@@ -170,18 +158,6 @@ sub _print_problems {
 sub _file_upload {
 	my ( $self, $field, $temp_file ) = @_;
 	my $q = $self->{'cgi'};
-	my $upload_id = $q->param('upload_id') // q();
-	if ( $upload_id !~ /BIGSdb_\d+_\d+_\d+/x ) {
-		$self->print_bad_status(
-			{
-				message     => q(Upload id is invalid. Please restart upload.),
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
-			}
-		);
-		return;
-	}
 	if ( $q->param('Remove') ) {
 		$self->_remove_row($temp_file);
 	}
@@ -209,67 +185,90 @@ sub _file_upload {
 		);
 		return;
 	}
+	my $allowed_files = $self->_get_list_of_files($validated);
 	if ( $q->param('file_upload') ) {
-		$self->_upload_files($upload_id);
+		$self->_upload_files($allowed_files);
 	}
-	if ( $q->param('delete') ) {
-
-		#			$self->_delete_selected_submission_files($submission_id);
-	}
-	say q(<div class="box resultstable"><div class="scrollable">);
-	say q(<p>Please upload the assembly contig files for each isolate record.<p>);
-	say $q->start_form;
-	say q(<table class="resultstable">);
-	say q(<tr><th rowspan="2">remove<br />row</th><th rowspan="2">id</th>);
-	say qq(<th rowspan="2">$field</th>) if $field ne 'id';
-	say qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>) if $field ne $self->{'system'}->{'labelfield'};
-	say q(<th colspan="2">current sequence bin state</th><th rowspan="2">filename</th>)
+	my $buffer = q(<div class="box resultstable"><div class="scrollable">);
+	$buffer .= q(<p>Please upload the assembly contig files for each isolate record.<p>);
+	$buffer .= $q->start_form;
+	$buffer .= q(<table class="resultstable">);
+	$buffer .= q(<tr><th rowspan="2">remove<br />row</th><th rowspan="2">id</th>);
+	$buffer .= qq(<th rowspan="2">$field</th>) if $field ne 'id';
+	$buffer .= qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
+	  if $field ne $self->{'system'}->{'labelfield'};
+	$buffer .= q(<th colspan="2">current sequence bin state</th><th rowspan="2">filename</th>)
 	  . q(<th rowspan="2">upload status</th></tr>);
-	say q(<tr><th>contigs</th><th>total size (bp)</th></tr>);
-	my $td        = 1;
-	my $to_upload = 0;
+	$buffer .= q(<tr><th>contigs</th><th>total size (bp)</th></tr>);
+	my $td                = 1;
+	my $to_upload         = 0;
+	my $dir               = $self->_get_upload_dir;
+	my $already_populated = 0;
 
 	foreach my $row (@$validated) {
-		say qq(<tr class="td$td"><td>);
-		say $q->checkbox( -name => "cancel_$row->{'id'}", -label => '' );
-		say qq(</td><td>$row->{'id'}</td>);
-		say qq(<td>$row->{'identifier'}</td>) if $field ne 'id';
+		$buffer .= qq(<tr class="td$td"><td>);
+		$buffer .= $q->checkbox( -name => "cancel_$row->{'id'}", -label => '' );
+		$buffer .= qq(</td><td>$row->{'id'}</td>);
+		$buffer .= qq(<td>$row->{'identifier'}</td>) if $field ne 'id';
 		if ( $field ne $self->{'system'}->{'labelfield'} ) {
 			my $name = $self->get_isolate_name_from_id( $row->{'id'} );
-			say qq(<td>$name</td>);
+			$buffer .= qq(<td>$name</td>);
 		}
 		my $stats = $self->{'datastore'}->get_seqbin_stats( $row->{'id'}, { general => 1 } );
 		foreach my $att (qw(contigs total_length)) {
 			my $value = BIGSdb::Utils::commify( $stats->{$att} ) || q(-);
-			say qq(<td>$value</td>);
+			$buffer .= qq(<td>$value</td>);
 		}
-		my $filename = "$self->{'config'}->{'tmp_dir'}/${upload_id}_$row->{'filename'}";
-		say -e $filename
-		  ? qq(<td><a href="/tmp/${upload_id}_$row->{'filename'}">$row->{'filename'}</a></td>)
+		$already_populated++ if $stats->{'total_length'};
+		my $filename = "$dir/$row->{'filename'}";
+		$buffer .=
+		  -e $filename
+		  ? qq(<td><a href="/tmp/$self->{'system'}->{'db'}/$self->{'username'}/$row->{'filename'}">$row->{'filename'}</a></td>)
 		  : qq(<td>$row->{'filename'}</td>);
 		my ( $good, $bad ) = ( GOOD, BAD );
 		if ( -e $filename ) {
-			say qq(<td>$good</td>);
+			$buffer .= qq(<td>$good</td>);
 		} else {
-			say qq(<td>$bad<?td>);
+			$buffer .= qq(<td>$bad<?td>);
 			$to_upload++;
 		}
-		say q(</tr>);
+		$buffer .= q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say q(<tr><td>);
-	say $q->submit( -name => 'Remove', -class => 'smallbutton' );
-	say q(</td><td colspan="6"></td></tr>);
-	say q(</table>);
+	$buffer .= q(<tr><td>);
+	$buffer .= $q->submit( -name => 'Remove', -class => 'smallbutton' );
+	$buffer .= q(</td><td colspan="6"></td></tr>);
+	$buffer .= q(</table>);
 	$q->param( temp_file => $temp_file );
-	say $q->hidden($_) foreach qw(db page upload_id field temp_file);
-	say $q->end_form;
+	$buffer .= $q->hidden($_) foreach qw(db page field temp_file);
+	$buffer .= $q->end_form;
 
+	if ($already_populated) {
+		my $plural = $already_populated == 1 ? q() : q(s);
+		$self->print_warning(
+			{
+				message => qq(Sequences already uploaded for $already_populated record$plural),
+				detail  => qq(Please note that $already_populated of your records already )
+				  . q(has sequences uploaded. If you upload now, these sequences will be added to those already existing. )
+				  . q(If you did not intend to add new contigs to an existing sequence bin, please remove the isolate )
+				  . q(record from the table.)
+			}
+		);
+	}
+	say $buffer;
 	if ($to_upload) {
 		my $plural = $to_upload == 1 ? q() : q(s);
 		say qq(<p class="statusbad">$to_upload FASTA file$plural left to upload.</p>);
+		$self->_print_file_upload_fieldset;
+	} else {
+		say q(<p>All files uploaded. The sequences have not yet been validated. )
+		  . q(This needs to be done before they can be added to the database.<p>);
+		say $q->start_form;
+		$self->print_action_fieldset( { submit_label => 'Validate', no_reset => 1 } );
+		$q->param( validate => 1 );
+		say $q->hidden($_) foreach qw(db page temp_file validate);
+		say $q->end_form;
 	}
-	$self->_print_file_upload_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->print_navigation_bar(
 		{
@@ -279,6 +278,15 @@ sub _file_upload {
 	);
 	say q(</div></div>);
 	return;
+}
+
+sub _get_list_of_files {
+	my ( $self, $validated ) = @_;
+	my $files = [];
+	foreach my $row (@$validated) {
+		push @$files, $row->{'filename'};
+	}
+	return $files;
 }
 
 sub _remove_row {
@@ -294,8 +302,14 @@ sub _remove_row {
 	};
 	return if $failed;
 	my $new_validated = [];
+	my $dir           = $self->_get_upload_dir;
 	foreach my $row (@$validated) {
-		next if $q->param("cancel_$row->{'id'}");
+		if ( $q->param("cancel_$row->{'id'}") ) {
+			if ( $row->{'filename'} =~ /([A-z0-9_\-\.'\ \(\#)]+)/x ) {
+				unlink "$dir/$1";
+			}
+			next;
+		}
 		push @$new_validated, $row;
 	}
 	$self->_write_validated_temp_file( $new_validated, $temp_file );
@@ -305,10 +319,6 @@ sub _remove_row {
 sub _print_file_upload_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-
-	#	if ( $submission_id =~ /(BIGSdb_\d+_\d+_\d+)/x ) {    #Untaint
-	#		$submission_id = $1;
-	#	}
 	say q(<fieldset style="float:left"><legend>Contig assembly files</legend>);
 	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
 	say q(<p>Please upload contig assemblies with the filenames as you specified (indicated in the table). );
@@ -317,41 +327,39 @@ sub _print_file_upload_fieldset {
 	say $q->start_form;
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
-
-	#	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page upload_id field temp_file);
+	say $q->hidden($_) foreach qw(db page field temp_file);
 	say $q->end_form;
-##	my $files = $self->_get_submission_files($submission_id);
-	#	if (@$files) {
-	#		say $q->start_form;
-	#		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
-	#		$q->param( delete => 1 );
-	#		say $q->hidden($_)
-	#		  foreach qw(db page alleles profiles isolates genomes locus submission_id delete no_check view);
-	#		say $q->submit( -label => 'Delete selected files', -class => BUTTON_CLASS );
-	#		say $q->end_form;
-	#	}
 	say q(</fieldset>);
 	return;
 }
 
 sub _upload_files {
-	my ( $self, $upload_id ) = @_;
-	if ( $upload_id =~ /(BIGSdb_\d+_\d+_\d+)/x ) {
-		$upload_id = $1;    #Untaint
-		$logger->error("Untainted upload_id: $upload_id");
-	}
+	my ( $self, $allowed_files ) = @_;
 	my $q         = $self->{'cgi'};
 	my @filenames = $q->param('file_upload');
 	my $i         = 0;
+	my $dir       = $self->_get_upload_dir;
+	$self->_mkpath($dir);
+	my %allowed = map { $_ => 1 } @$allowed_files;
 	foreach my $fh2 ( $q->upload('file_upload') ) {
+		my $invalid;
 		if ( $filenames[$i] =~ /([A-z0-9_\-\.'\ \(\\#)]+)/x ) {
 			$filenames[$i] = $1;
 		} else {
+			$invalid = 1;
 			$logger->error("Invalid filename $filenames[$i]!");
 		}
-		my $filename = "$self->{'config'}->{'tmp_dir'}/${upload_id}_$filenames[$i]";
-		$logger->error($filename);
+		if ( !$allowed{ $filenames[$i] } ) {
+			$self->print_bad_status(
+				{
+					message => 'Filename not recognized',
+					detail =>
+					  "You have tried to upload $filenames[$i] but this is not included in your list to upload."
+				}
+			);
+			return;
+		}
+		my $filename = "$dir/$filenames[$i]";
 		$i++;
 		next if -e $filename;    #Don't reupload if already done.
 		my $buffer;
@@ -361,6 +369,42 @@ sub _upload_files {
 		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 		print $fh $buffer;
 		close $fh;
+	}
+	return;
+}
+
+sub _mkpath {
+	my ( $self, $dir ) = @_;
+	my $save_u = umask();
+	umask(0);
+	##no critic (ProhibitLeadingZeros)
+	make_path( $dir, { mode => 0775, error => \my $err } );
+	if (@$err) {
+		for my $diag (@$err) {
+			my ( $path, $message ) = %$diag;
+			if ( $path eq '' ) {
+				$logger->error("general error: $message");
+			} else {
+				$logger->error("problem with $path: $message");
+			}
+		}
+	}
+	umask($save_u);
+	return;
+}
+
+sub _remove_dir {
+	my ( $self, $dir ) = @_;
+	remove_tree( $dir, { error => \my $err } );
+	if (@$err) {
+		for my $diag (@$err) {
+			my ( $file, $message ) = %$diag;
+			if ( $file eq '' ) {
+				$logger->error("general error: $message");
+			} else {
+				$logger->error("problem unlinking $file: $message");
+			}
+		}
 	}
 	return;
 }
@@ -383,6 +427,15 @@ sub _write_validated_temp_file {
 	say $fh $json;
 	close $fh;
 	return $filename;
+}
+
+sub _get_upload_dir {
+	my ($self) = @_;
+	my $dir = "$self->{'config'}->{'tmp_dir'}/$self->{'system'}->{'db'}/$self->{'username'}";
+	if ( $dir =~ /(.*)/x ) {
+		$dir = $1;    #Untaint
+	}
+	return $dir;
 }
 
 sub _parse_validated_temp_file {
@@ -424,9 +477,11 @@ sub _print_interface {
 	);
 	say q(</fieldset>);
 	$self->print_action_fieldset;
-	say $q->hidden($_) foreach qw(db page upload_id);
+	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
 	say q(</div></div>);
+	my $dir = $self->_get_upload_dir;
+	$self->_remove_dir($dir);
 	return;
 }
 
