@@ -144,7 +144,8 @@ sub _get_javascript_paths {
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
 			'CryptoJS.MD5'        => [qw(md5.js)],
-			'packery'             => [qw(packery.js)]
+			'packery'             => [qw(packery.js)],
+			'dropzone'            => [qw(dropzone.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -452,7 +453,7 @@ sub get_stylesheets {
 	my $stylesheet;
 	my $system    = $self->{'system'};
 	my $version   = '20180605';
-	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
+	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css dropzone.css);
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";

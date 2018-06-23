@@ -324,11 +324,17 @@ sub _print_file_upload_fieldset {
 	say q(<p>Please upload contig assemblies with the filenames as you specified (indicated in the table). );
 	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go, )
 	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
-	say $q->start_form;
+	say $q->start_form( -id => 'file_upload_form' );
+	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
+	say q(</div>);
+	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	say $q->hidden($_) foreach qw(db page field temp_file);
 	say $q->end_form;
+	#Drag and drop JS needs to read the temp_file param from page.
+	my $temp_file = $q->param('temp_file');
+	say qq(<span id="temp_file" style="display:none">$temp_file</span>);
 	say q(</fieldset>);
 	return;
 }
@@ -489,5 +495,38 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return "Batch add new sequences - $desc";
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (tooltips jQuery dropzone noCache);
+	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $field  = $q->param('field');
+	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
+	my $buffer = << "END";
+\$(function () {
+	\$("form#file_upload_form").dropzone({ 
+		paramName: "file_upload",
+		maxFilesize: $max,
+		init: function () {
+        	this.on('complete', function () {
+         		//location.reload();
+         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+         		+"page=batchAddSeqbin&amp;field=$field&amp;temp_file=" 
+         		+ \$("span#temp_file").text();
+             	location.href = url;
+        });
+    }
+	});
+	\$("form#file_upload_form").addClass("dropzone");
+});
+
+END
+	return $buffer;
 }
 1;
