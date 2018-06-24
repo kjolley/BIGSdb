@@ -327,7 +327,7 @@ sub _check_records_single_isolate {
 	my $td             = 1;
 	my $min_size       = 0;
 	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
-		$min_size = $q->param('size_filter') && $q->param('size');
+		$min_size = $q->param('size');
 	}
 	my $buffer;
 	foreach ( sort { $a cmp $b } keys %$seq_ref ) {

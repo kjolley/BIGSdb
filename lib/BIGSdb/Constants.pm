@@ -69,7 +69,7 @@ use constant DOWNLOAD       => q(<span class="fas fa-download" style="color:#44a
 use constant BACK           => q(<span class="nav_icon fas fa-2x fa-arrow-circle-left"></span>);
 use constant QUERY_MORE     => q(<span class="nav_icon fas fa-2x fa-search"></span>);
 use constant EDIT_MORE      => q(<span class="nav_icon fas fa-2x fa-pencil-alt"></span>);
-use constant UPLOAD_CONTIGS => q(<span class="nav_icon fas fa-2x fa-upload"></span>);
+use constant UPLOAD_CONTIGS => q(<span class="nav_icon fas fa-2x fa-dna"></span>);
 use constant LINK_CONTIGS   => q(<span class="nav_icon fas fa-2x fa-link"></span>);
 use constant MORE           => q(<span class="nav_icon fas fa-2x fa-plus"></span>);
 use constant HOME           => q(<span class="nav_icon fas fa-2x fa-home"></span>);

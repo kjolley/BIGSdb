@@ -25,7 +25,7 @@ use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use File::Path qw(make_path remove_tree);
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
 use constant LIMIT => 100;
 
@@ -47,6 +47,14 @@ sub print_content {
 		return;
 	}
 	my $field = $q->param('field');
+	if ( $q->param('validate') && $q->param('temp_file') ) {
+		$self->_validate( $field, $q->param('temp_file') );
+		return;
+	}
+	if ( $q->param('upload') && $q->param('temp_file') ) {
+		$self->_upload( $field, $q->param('temp_file') );
+		return;
+	}
 	if ( $q->param('filenames') ) {
 		my $check_data = $self->_check( $field, \$q->param('filenames') );
 		if ( $check_data->{'message'} ) {
@@ -77,6 +85,7 @@ sub print_content {
 
 sub _check {
 	my ( $self, $id_field, $data ) = @_;
+	#TODO Check that user can modify each isolate record
 	my $q = $self->{'cgi'};
 	if ( !$self->{'xmlHandler'}->is_field($id_field) ) {
 		return { message => 'Selected field is not valid' };
@@ -140,6 +149,281 @@ sub _check {
 	return { invalid => $invalid, validated => $validated, temp_file => $temp_file };
 }
 
+sub _validate {
+	my ( $self, $field, $temp_file ) = @_;
+	my $q = $self->{'cgi'};
+	if ( !$self->{'xmlHandler'}->is_field($field) ) {
+		return { message => 'Selected field is not valid' };
+	}
+	my ( $validated, $failed );
+	try {
+		$validated = $self->_parse_validated_temp_file($temp_file);
+	}
+	catch BIGSdb::CannotOpenFileException with {
+		$failed = 1;
+	};
+	if ($failed) {
+		$self->_print_interface;
+		$self->print_bad_status( { message => 'Cannot read temporary file. Please repeat upload' } );
+		return;
+	}
+	say q(<div class="box resultstable"><div class="scrollable">);
+	say q(<h2>Validation</h2>);
+	say q(<table class="resultstable">);
+	say q(<tr><th>id</th>);
+	say qq(<th>$field</th>) if $field ne 'id';
+	say qq(<th>$self->{'system'}->{'labelfield'}</th>)
+	  if $field ne $self->{'system'}->{'labelfield'};
+	say q(<th>filename</th><th>valid FASTA</th><th>contigs</th><th>total size</th></tr>);
+	my $td      = 1;
+	my $dir     = $self->_get_upload_dir;
+	my $success = 0;
+	my $failure = 0;
+
+	foreach my $row (@$validated) {
+		say qq(<tr class="td$td"><td>$row->{'id'}</td>);
+		say qq(<td>$row->{'identifier'}</td>) if $field ne 'id';
+		if ( $field ne $self->{'system'}->{'labelfield'} ) {
+			my $name = $self->get_isolate_name_from_id( $row->{'id'} );
+			say qq(<td>$name</td>);
+		}
+		say qq(<td>$row->{'filename'}</td>);
+		my $filename = "$dir/$row->{'filename'}";
+		my $seq_ref;
+		my ( $good, $bad ) = ( GOOD, BAD );
+		try {
+			my $fasta_ref = BIGSdb::Utils::slurp($filename);
+			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+			say qq(<td><span class="statusbad">$good</td>);
+			$success++;
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			say q(<td><span class="statusbad">Cannot open file</td>);
+			$failure++;
+		}
+		catch BIGSdb::DataException with {
+			my $exception = shift;
+			my $msg =
+			  $exception->{'-text'} =~ /format/x
+			  ? 'Invalid format'
+			  : 'Invalid DNA sequence';
+			say qq(<td><span class="statusbad">$bad ($msg)</td>);
+			$failure++;
+		};
+		if ($failure) {
+			say q(<td>-</td><td>-</td>);
+		} else {
+			my $contigs = keys %$seq_ref;
+			$contigs = BIGSdb::Utils::commify($contigs);
+			my $size = 0;
+			$size += length( $seq_ref->{$_} ) foreach keys %$seq_ref;
+			$size = BIGSdb::Utils::commify($size);
+			say qq(<td>$contigs</td><td>$size</td>);
+		}
+		say q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
+	if ($success) {
+		my $plural = $success == 1 ? q() : q(s);
+		say qq(<p>You can upload $success record$plural.</p>);
+		say $q->start_form;
+		say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
+		my $sender;
+		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+		my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
+		say q(</li><li><label for="sender" class="parameter">sender: !</label>);
+		say $self->popup_menu(
+			-name     => 'sender',
+			-id       => 'sender',
+			-values   => [ '', @$users ],
+			-labels   => $user_names,
+			-required => 'required',
+			-default  => $sender
+		);
+		say q(</li><li><label for="method" class="parameter">method: </label>);
+		my $method_labels = { '' => ' ' };
+		say $q->popup_menu(
+			-name   => 'method',
+			-id     => 'method',
+			-values => [ '', SEQ_METHODS ],
+			-labels => $method_labels
+		);
+		my $seq_attributes =
+		  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+
+		if (@$seq_attributes) {
+			foreach my $attribute (@$seq_attributes) {
+				( my $label = $attribute->{'key'} ) =~ s/_/ /;
+				say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
+				say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
+				if ( $attribute->{'description'} ) {
+					say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
+				}
+			}
+		}
+		say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+		say q(<ul><li>);
+		say $q->checkbox( -name => 'size_filter', -label => q(Don't insert sequences shorter than ) );
+		say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 200 300 400 500 1000)], -default => 250 );
+		say q( bps.</li>);
+		say q(</ul></fieldset>);
+		$self->print_action_fieldset( { submit_label => 'Upload validated contigs', no_reset => 1 } );
+		$q->param( upload => 1 );
+		say $q->hidden($_) foreach qw(db page field temp_file upload);
+		say $q->end_form;
+		$self->print_navigation_bar(
+			{
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			}
+		);
+	}
+	say q(</div></div>);
+	if ($failure) {
+		my $plural = $failure == 1 ? q() : q(s);
+		my %navbar;
+		if ( !$success ) {
+			%navbar = (
+				navbar      => 1,
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			);
+		}
+		$self->print_bad_status(
+			{
+				message => "$failure record$plural failed validation.",
+				detail  => 'These cannot be uploaded.',
+				%navbar
+			}
+		);
+	}
+	return;
+}
+
+sub _upload {
+	my ( $self, $field, $temp_file ) = @_;
+	my $q = $self->{'cgi'};
+	if ( !$self->{'xmlHandler'}->is_field($field) ) {
+		return { message => 'Selected field is not valid' };
+	}
+	my ( $validated, $failed );
+	try {
+		$validated = $self->_parse_validated_temp_file($temp_file);
+	}
+	catch BIGSdb::CannotOpenFileException with {
+		$failed = 1;
+	};
+	if ($failed) {
+		$self->_print_interface;
+		$self->print_bad_status( { message => 'Cannot read temporary file. Please repeat upload' } );
+		return;
+	}
+	my $dir = $self->_get_upload_dir;
+	my $failure;
+	my $seq_ref;
+	my $qry = 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,'
+	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
+	my $insert_sql = $self->{'db'}->prepare($qry);
+	my $curator    = $self->get_curator_id;
+	my $sender     = $q->param('sender');
+
+	if ( !$sender ) {
+		$self->print_bad_status(
+			{
+				message     => 'No sender selected.',
+				navbar      => 1,
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			}
+		);
+	}
+	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my @attribute_sql;
+	if (@$seq_attributes) {
+		foreach my $attribute (@$seq_attributes) {
+			if ( $q->param( $attribute->{'key'} ) ) {
+				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/gx;
+				$qry = q(INSERT INTO sequence_attribute_values (seqbin_id,key,value,curator,datestamp) VALUES )
+				  . qq((?,'$attribute->{'key'}',E'$value',$curator,'now'));
+				push @attribute_sql, $self->{'db'}->prepare($qry);
+			}
+		}
+	}
+	my $added = 0;
+	foreach my $row (@$validated) {
+		my $filename = "$dir/$row->{'filename'}";
+		try {
+			my $fasta_ref = BIGSdb::Utils::slurp($filename);
+			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+		}
+		catch BIGSdb::CannotOpenFileException with {
+			$failure = 1;
+		}
+		catch BIGSdb::DataException with {
+			$failure = 1;
+		};
+		next if $failure;
+		my $min_size = 0;
+		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+			$min_size = $q->param('size');
+		}
+		eval {
+			foreach my $seq_id ( keys %$seq_ref ) {
+				next if length $seq_ref->{$seq_id} < $min_size;
+				my ( $designation, $comments );
+				if ( $seq_id =~ /(\S*)\s+(.*)/x ) {
+					( $designation, $comments ) = ( $1, $2 );
+				} else {
+					$designation = $seq_id;
+				}
+				undef $designation if $designation eq q();
+				foreach my $field (qw(method run_id assembly_id)) {
+					$q->delete($field) if defined $q->param($field) && $q->param($field) eq q();
+				}
+				my @values = (
+					$row->{'id'}, $seq_ref->{$seq_id}, $q->param('method') // undef,
+					$designation, $comments, $sender, $curator, 'now', 'now'
+				);
+				$insert_sql->execute(@values);
+				my $id = $self->{'db'}->last_insert_id( undef, undef, 'sequence_bin', 'id' );
+				$_->execute($id) foreach @attribute_sql;
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			$failure = 1;
+		}
+		$added++;
+	}
+	if ($failure) {
+		local $" = ', ';
+		$self->print_bad_status(
+			{
+				message     => 'Failed! - transaction cancelled - no records have been touched.',
+				navbar      => 1,
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			}
+		);
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit;
+	my $plural = $added == 1 ? q(y) : q(ies);
+	$self->print_good_status(
+		{
+			message     => qq($added sequence assembl$plural uploaded.),
+			navbar      => 1,
+			reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+			reload_text => 'Restart'
+		}
+	);
+	return;
+}
+
 sub _print_problems {
 	my ( $self, $check_data ) = @_;
 	my $td = 1;
@@ -189,7 +473,8 @@ sub _file_upload {
 	if ( $q->param('file_upload') ) {
 		$self->_upload_files($allowed_files);
 	}
-	my $buffer = q(<div class="box resultstable"><div class="scrollable">);
+	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
+	my $buffer = qq($icon<div class="box resultstable"><div class="scrollable">);
 	$buffer .= q(<p>Please upload the assembly contig files for each isolate record.<p>);
 	$buffer .= $q->start_form;
 	$buffer .= q(<table class="resultstable">);
@@ -204,6 +489,7 @@ sub _file_upload {
 	my $to_upload         = 0;
 	my $dir               = $self->_get_upload_dir;
 	my $already_populated = 0;
+	my @filenames;
 
 	foreach my $row (@$validated) {
 		$buffer .= qq(<tr class="td$td"><td>);
@@ -220,6 +506,7 @@ sub _file_upload {
 			$buffer .= qq(<td>$value</td>);
 		}
 		$already_populated++ if $stats->{'total_length'};
+		push @filenames, $row->{'filename'};
 		my $filename = "$dir/$row->{'filename'}";
 		$buffer .=
 		  -e $filename
@@ -266,9 +553,14 @@ sub _file_upload {
 		say $q->start_form;
 		$self->print_action_fieldset( { submit_label => 'Validate', no_reset => 1 } );
 		$q->param( validate => 1 );
-		say $q->hidden($_) foreach qw(db page temp_file validate);
+		say $q->hidden($_) foreach qw(db page field temp_file validate);
 		say $q->end_form;
 	}
+
+	#Drag and drop JS needs to read the temp_file param from page.
+	say qq(<span id="temp_file" style="display:none">$temp_file</span>);
+	local $" = q(|);
+	say qq(<span id="filenames" style="display:none">@filenames</span>);
 	say q(<div style="clear:both"></div>);
 	$self->print_navigation_bar(
 		{
@@ -323,7 +615,7 @@ sub _print_file_upload_fieldset {
 	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
 	say q(<p>Please upload contig assemblies with the filenames as you specified (indicated in the table). );
 	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go, )
-	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
+	  . q(although you can upload multiple times so that the total size of the upload can be larger.</p>);
 	say $q->start_form( -id => 'file_upload_form' );
 	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
@@ -332,9 +624,6 @@ sub _print_file_upload_fieldset {
 	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	say $q->hidden($_) foreach qw(db page field temp_file);
 	say $q->end_form;
-	#Drag and drop JS needs to read the temp_file param from page.
-	my $temp_file = $q->param('temp_file');
-	say qq(<span id="temp_file" style="display:none">$temp_file</span>);
 	say q(</fieldset>);
 	return;
 }
@@ -359,8 +648,8 @@ sub _upload_files {
 			$self->print_bad_status(
 				{
 					message => 'Filename not recognized',
-					detail =>
-					  "You have tried to upload $filenames[$i] but this is not included in your list to upload."
+					detail  => "You have tried to upload $filenames[$i] but "
+					  . 'this is not included in your list to upload.'
 				}
 			);
 			return;
@@ -508,20 +797,33 @@ sub get_javascript {
 	my $q      = $self->{'cgi'};
 	my $field  = $q->param('field');
 	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
-	my $buffer = << "END";
+	my $max_files = LIMIT * 2;    #Allow more in case some wrong files are selected
+	my $buffer    = << "END";
 \$(function () {
+	var filenames = \$("span#filenames").text().split("|");
 	\$("form#file_upload_form").dropzone({ 
-		paramName: "file_upload",
+		paramName: function() { return 'file_upload'; },
+		parallelUploads: 6,
+		maxFiles: $max_files,
+		uploadMultiple: true,
 		maxFilesize: $max,
+		accept: function(file, done) {
+   		if (jQuery.inArray(file.name,filenames) !== -1){
+    			done();
+    		} else {
+    			done("Filename not in list.");
+    		}
+  		},
 		init: function () {
-        	this.on('complete', function () {
-         		//location.reload();
-         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-         		+"page=batchAddSeqbin&amp;field=$field&amp;temp_file=" 
-         		+ \$("span#temp_file").text();
-             	location.href = url;
-        });
-    }
+        	this.on('queuecomplete', function () {
+         		if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
+	         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+	         		+"page=batchAddSeqbin&amp;field=$field&amp;temp_file=" 
+	         		+ \$("span#temp_file").text();
+	             	location.href = url;
+         		}
+        	});
+    	}
 	});
 	\$("form#file_upload_form").addClass("dropzone");
 });

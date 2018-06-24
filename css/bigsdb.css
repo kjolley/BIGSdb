@@ -828,6 +828,9 @@ button.plugin:hover {color:#c8c}
 
 .toggle_icon {color:#66a}
 
+.dropzone{border:dashed 3px #666;border-radius:25px;background-color:#f0f0ff;}
+.dz-message{font-size:2em;color:#aaa}
+
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}
 	div#alleles {float:left; width:95%}

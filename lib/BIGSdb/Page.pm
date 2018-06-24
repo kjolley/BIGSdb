@@ -451,10 +451,13 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
-	my $system    = $self->{'system'};
-	my $version   = '20180605';
-	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css dropzone.css);
+	my $system  = $self->{'system'};
+	my $version = '20180605';
+	my @filenames;
+	push @filenames, q(dropzone.css) if $self->{'dropzone'};
+	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
+
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
@@ -468,7 +471,12 @@ sub get_stylesheets {
 				}
 			}
 		}
-		push @paths, $stylesheet;
+		my %added = map { $_ => 1 } @paths;
+		if ( !$added{$stylesheet} ) {
+			push @paths, $stylesheet;
+		} else {
+			$logger->error("Stylesheet $filename not found!");
+		}
 	}
 	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";

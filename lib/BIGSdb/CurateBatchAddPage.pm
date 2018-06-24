@@ -1822,7 +1822,7 @@ sub _upload_data {
 				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
 			}
 		);
-		my $user_string = $self->{'datastore'}->get_user_string($user_info->{'id'});
+		my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'} );
 		$logger->error("Attempt to upload public data by user ($user_string) who not have permission.");
 		return;
 	}
@@ -1961,16 +1961,22 @@ sub _upload_data {
 	$self->{'db'}->commit;
 	my $nav_data = $self->_get_nav_data($table);
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	my ( $more_url, $back_url );
+	my ( $more_url, $back_url, $upload_contigs_url );
 	if ( $script eq $self->{'system'}->{'script_name'} ) {
 		$more_url = qq($script?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
-	} elsif ( $self->{'system'}->{'curate_script'} && $table eq 'isolates' && $q->param('private') ) {
-		$more_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
-		  . q(table=isolates&amp;private=1&amp;user_header=1);
-		if ($project_id){
-			$more_url .= qq(&amp;project_id=$project_id);
+		if ( $table eq 'isolates' ) {
+			$upload_contigs_url = qq($script?db=$self->{'instance'}&amp;page=batchAddSeqbin);
 		}
-		$back_url = qq($script?db=$self->{'instance'}&amp;page=privateRecords);
+	} elsif ( $self->{'system'}->{'curate_script'} && $table eq 'isolates' ) {
+		if ( $q->param('private') ) {
+			$more_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
+			  . q(table=isolates&amp;private=1&amp;user_header=1);
+			if ($project_id) {
+				$more_url .= qq(&amp;project_id=$project_id);
+			}
+			$back_url = qq($script?db=$self->{'instance'}&amp;page=privateRecords);
+		}
+		$upload_contigs_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAddSeqbin);
 	}
 	$self->print_good_status(
 		{
@@ -1978,9 +1984,10 @@ sub _upload_data {
 			navbar  => 1,
 			script  => $script,
 			%$nav_data,
-			more_text => q(Add more),
-			more_url  => $nav_data->{'more_url'} // $more_url,
-			back_url  => $back_url
+			more_text          => q(Add more),
+			more_url           => $nav_data->{'more_url'} // $more_url,
+			back_url           => $back_url,
+			upload_contigs_url => $upload_contigs_url,
 		}
 	);
 	foreach (@history) {
