@@ -85,7 +85,6 @@ sub print_content {
 
 sub _check {
 	my ( $self, $id_field, $data ) = @_;
-	#TODO Check that user can modify each isolate record
 	my $q = $self->{'cgi'};
 	if ( !$self->{'xmlHandler'}->is_field($id_field) ) {
 		return { message => 'Selected field is not valid' };
@@ -768,7 +767,8 @@ sub _print_interface {
 		-name        => 'filenames',
 		-cols        => 40,
 		-rows        => 6,
-		-placeholder => "1001\tisolate_1001.fasta\n1002\tisolate_1002.fasta"
+		-placeholder => "1001\tisolate_1001.fasta\n1002\tisolate_1002.fasta",
+		-required    => 'required'
 	);
 	say q(</fieldset>);
 	$self->print_action_fieldset;
