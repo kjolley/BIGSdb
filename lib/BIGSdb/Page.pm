@@ -144,7 +144,8 @@ sub _get_javascript_paths {
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
 			'CryptoJS.MD5'        => [qw(md5.js)],
-			'packery'             => [qw(packery.js)]
+			'packery'             => [qw(packery.js)],
+			'dropzone'            => [qw(dropzone.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -450,10 +451,13 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
-	my $system    = $self->{'system'};
-	my $version   = '20180622';
-	my @filenames = qw(bigsdb.css jquery-ui.css fontawesome-all.css);
+	my $system  = $self->{'system'};
+	my $version = '20180625';
+	my @filenames;
+	push @filenames, q(dropzone.css) if $self->{'dropzone'};
+	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
+
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
@@ -467,7 +471,12 @@ sub get_stylesheets {
 				}
 			}
 		}
-		push @paths, $stylesheet;
+		my %added = map { $_ => 1 } @paths;
+		if ( !$added{$stylesheet} ) {
+			push @paths, $stylesheet;
+		} else {
+			$logger->error("Stylesheet $filename not found!");
+		}
 	}
 	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";
@@ -1502,14 +1511,10 @@ sub get_link_button_to_ref {
 
 sub get_isolate_name_from_id {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'isolate_id'} ) {
-		my $view        = $self->{'system'}->{'view'};
-		my $label_field = $self->{'system'}->{'labelfield'};
-		$self->{'sql'}->{'isolate_id'} = $self->{'db'}->prepare("SELECT $view.$label_field FROM $view WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my ($isolate) = $self->{'sql'}->{'isolate_id'}->fetchrow_array;
+	my $isolate =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+		$isolate_id, { cache => 'Page::get_isolate_name_from_id' } );
 	return $isolate // '';
 }
 
@@ -2835,7 +2840,9 @@ sub print_navigation_bar {
 		  . qq($link_contigs</a>);
 	}
 	if ( $options->{'reload_url'} ) {
-		$buffer .= qq(<a href="$options->{'reload_url'}" title="Reload scan form" style="margin-right:1em">$reload</a>);
+		$options->{'reload_text'} //= 'Reload scan form';
+		$buffer .= qq(<a href="$options->{'reload_url'}" title="$options->{'reload_text'}" )
+		  . qq(style="margin-right:1em">$reload</a>);
 	}
 	if ( $options->{'update_url'} ) {
 		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
@@ -2873,6 +2880,19 @@ sub print_good_status {
 	}
 	if ( $options->{'navbar'} ) {
 		$self->print_navigation_bar($options);
+	}
+	say q(</div>);
+	return;
+}
+
+sub print_warning {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Warning!';
+	say q(<div class="box statuswarn" style="min-height:5em");
+	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
 	}
 	say q(</div>);
 	return;

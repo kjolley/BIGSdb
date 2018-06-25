@@ -649,7 +649,7 @@ sub _print_isolate_id_links {
 		  . q(</a></td>);
 		if ( $self->can_modify_table('sequence_bin') ) {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$id" class="action">)
+			  . qq(page=addSeqbin&amp;isolate_id=$id" class="action">)
 			  . UPLOAD
 			  . q(</a></td>);
 		}

@@ -70,10 +70,9 @@ sub {bottom: -0.25em}
 a.no_link {color:black}
 a.no_link:hover {text-decoration:none;color:black}
 
-#tooltip,a.update_tooltip {
+a.update_tooltip {
 	background:#fafad2;
 	color:black;
-	opacity:0.9
 }
 
 a.sequence_tooltip {
@@ -795,6 +794,7 @@ span.browse {color:#080}
 span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.success {color:#080;text-shadow: 5px 5px 5px #aaa}
 span.failure {color:#800;text-shadow: 5px 5px 5px #aaa}
+span.warn {color:#f94;text-shadow: 5px 5px 5px #aaa}
 button.main {color:#66a}
 button.main:hover {color:#88c}
 button.plugin {color:#a6a}
@@ -832,6 +832,9 @@ button.plugin:hover {color:#c8c}
 .curate_icon_action {color:#484}
 
 .toggle_icon {color:#66a}
+
+.dropzone{border:dashed 3px #666;border-radius:25px;background-color:#f0f0ff;}
+.dz-message{font-size:2em;color:#aaa}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}
