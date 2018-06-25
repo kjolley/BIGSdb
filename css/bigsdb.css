@@ -70,6 +70,11 @@ sub {bottom: -0.25em}
 a.no_link {color:black}
 a.no_link:hover {text-decoration:none;color:black}
 
+a.update_tooltip {
+	background:#fafad2;
+	color:black;
+}
+
 a.sequence_tooltip {
 	background:#d2fad2;
 	color:black	
