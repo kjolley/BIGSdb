@@ -46,12 +46,13 @@ sub _calculate_totals {
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view =$self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_isolates_scheme_completion_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
 			}

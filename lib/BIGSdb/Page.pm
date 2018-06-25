@@ -210,12 +210,13 @@ sub create_temp_tables {
 	my $continue = 1;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+				if ( $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_isolates_scheme_completion_$scheme_id\s/x ) {
+				if ( $qry =~ /temp_(?:isolates|view)_scheme_completion_$scheme_id\s/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
 			}
