@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.2',
+		version             => '1.3.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -418,7 +418,6 @@ sub _itol_upload {
 			my $file = $self->_create_itol_dataset( $job_id, $params->{'data_type'}, $identifiers, $field, $colour );
 			next if !$file;
 			( my $new_name = $field ) =~ s/\|\|/_/x;
-			$new_name =~ s/^(e_|f_|s_\d+_)//x;
 			$zip->addFile( $file, $new_name );
 			push @files_to_delete, $file;
 		}
@@ -494,6 +493,7 @@ sub _create_itol_dataset {
 	return if !$type;
 	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
 	my $filename      = "${job_id}_$field";
+	$filename .= qq(_$scheme_id) if $scheme_id;
 	my $full_path     = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	my $dataset_type = {
