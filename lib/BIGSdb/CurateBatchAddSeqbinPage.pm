@@ -354,17 +354,18 @@ sub _upload {
 	my $added = 0;
 	foreach my $row (@$validated) {
 		my $filename = "$dir/$row->{'filename'}";
+		my $failed_validation;
 		try {
 			my $fasta_ref = BIGSdb::Utils::slurp($filename);
 			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
 		}
 		catch BIGSdb::CannotOpenFileException with {
-			$failure = 1;
+			$failed_validation = 1;
 		}
 		catch BIGSdb::DataException with {
-			$failure = 1;
+			$failed_validation = 1;
 		};
-		next if $failure;
+		next if $failed_validation;
 		my $min_size = 0;
 		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 			$min_size = $q->param('size');
