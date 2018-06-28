@@ -571,7 +571,7 @@ sub print_scheme_section {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	my $schemes = $self->get_scheme_data( { with_pk => 1 } );
+	my $schemes = $self->get_scheme_data( { with_pk => $options->{'with_pk'} } );
 	$q->param( scheme_id => $schemes->[0]->{'id'} ) if !defined $q->param('scheme_id') && @$schemes;
 	return if @$schemes < 2;
 	say q(<div class="box" id="schemes">);

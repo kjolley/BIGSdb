@@ -34,6 +34,7 @@ sub get_attributes { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
 sub print_extra_fields        { }
+sub print_extra_scheme_fields { }
 sub print_options             { }
 sub print_extra_options       { }
 sub get_hidden_attributes     { return [] }
@@ -312,6 +313,7 @@ sub print_field_export_form {
 	$self->print_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_extra_scheme_fields;
 	$self->print_options;
 	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -488,6 +490,13 @@ sub get_selected_fields {
 	my $selected_loci = $self->get_selected_loci;
 	foreach my $locus (@$loci) {
 		push @fields_selected, "l_$locus" if any { $locus eq $_ } @$selected_loci;
+	}
+	if ($q->param('classification_schemes')){
+		my @cschemes = $q->param('classification_schemes');
+		foreach my $cs (@cschemes){
+			push @fields_selected, "cs_$cs";
+		}
+		
 	}
 	return \@fields_selected;
 }
@@ -785,10 +794,10 @@ sub print_sequence_filter_fieldset {
 }
 
 sub filter_list_to_ids {
-	my ($self, $list) = @_;
+	my ( $self, $list ) = @_;
 	my $returned_list = [];
-	foreach my $value (@$list){
-		push @$returned_list,$value if BIGSdb::Utils::is_int($value);
+	foreach my $value (@$list) {
+		push @$returned_list, $value if BIGSdb::Utils::is_int($value);
 	}
 	return $returned_list;
 }

@@ -26,6 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Error qw(:try);
 use Apache2::Connection ();
+use List::MoreUtils qw(uniq);
 use Bio::Tools::SeqStats;
 use constant MAX_INSTANT_RUN         => 2000;
 use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.4.6',
+		version     => '1.5.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -127,6 +128,37 @@ sub print_options {
 	return;
 }
 
+sub print_extra_scheme_fields {
+	my ($self) = @_;
+	my $classification_schemes =
+	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$classification_schemes;
+	my $ids    = [];
+	my $labels = {};
+	foreach my $cf (@$classification_schemes) {
+		push @$ids, $cf->{'id'};
+		$labels->{ $cf->{'id'} } = $cf->{'name'};
+	}
+	say q(<fieldset style="float:left"><legend>Classification schemes</legend>);
+	say $self->popup_menu(
+		-name     => 'classification_schemes',
+		-id       => 'classification_schemes',
+		-values   => $ids,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-style    => 'width:100%'
+	);
+	say
+	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("classification_schemes",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin-top:1em" )
+	  . q(class="smallbutton" /></div>);
+	say q(</fieldset>);
+	return;
+}
+
 sub print_extra_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -150,6 +182,7 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields;
+		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
 			$self->print_bad_status( { message => q(No fields have been selected!) } );
@@ -229,8 +262,8 @@ sub run {
 		}
 	}
 	say q(<div class="box" id="queryform">);
-	say q(<p>This script will export the dataset in tab-delimited text, suitable for importing into a spreadsheet. )
-	  . q(Select which fields you would like included.  Select loci either from the locus list or by selecting one or )
+	say q(<p>This script will export the dataset in tab-delimited text and Excel formats. )
+	  . q(Select which fields you would like included. Select loci either from the locus list or by selecting one or )
 	  . q(more schemes to include all loci (and/or fields) from a scheme.</p>);
 	foreach my $suffix (qw (shtml html)) {
 		my $policy = "$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/policy.$suffix";
@@ -357,11 +390,12 @@ sub _write_tab_text {
 		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach my $field (@$fields) {
 			my $regex = {
-				field           => qr/^f_(.*)/x,
-				locus           => qr/^(s_\d+_l_|l_)(.*)/x,
-				scheme_field    => qr/^s_(\d+)_f_(.*)/x,
-				composite_field => qr/^c_(.*)/x,
-				reference       => qr/^m_references/x
+				field                 => qr/^f_(.*)/x,
+				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
+				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
+				composite_field       => qr/^c_(.*)/x,
+				classification_scheme => qr/^cs_(.*)/x,
+				reference             => qr/^m_references/x
 			};
 			my $methods = {
 				field => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
@@ -385,11 +419,14 @@ sub _write_tab_text {
 				composite_field => sub {
 					$self->_write_composite( $fh, $1, \%data, $first, $params );
 				},
+				classification_scheme => sub {
+					$self->_write_classification_scheme( $fh, $1, \%data, $first, $params );
+				},
 				reference => sub {
 					$self->_write_ref( $fh, \%data, $first, $params );
 				  }
 			};
-			foreach my $field_type (qw(field locus scheme_field composite_field reference)) {
+			foreach my $field_type (qw(field locus scheme_field composite_field classification_scheme reference)) {
 				if ( $field =~ $regex->{$field_type} ) {
 					$methods->{$field_type}->();
 					last;
@@ -441,7 +478,12 @@ sub _get_header {
 				$schemes{$1} = 1;
 			}
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
-			$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|m)_//x;    #strip off prefix for header row
+			my ( $cscheme, $is_cscheme );
+			if ( $field =~ /^cs_(\d+)/x ) {
+				$is_cscheme = 1;
+				$cscheme    = $1;
+			}
+			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs)_//x;    #strip off prefix for header row
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$field =~ s/^.*___//x;
 			if ($is_locus) {
@@ -451,18 +493,21 @@ sub _get_header {
 				if ( $params->{'alleles'} ) {
 					$buffer .= "\t" if !$first;
 					$buffer .= $field;
-					$first = 0;
 				}
 				if ( $params->{'molwt'} ) {
 					$buffer .= "\t" if !$first;
 					$buffer .= "$field Mwt";
-					$first = 0;
 				}
+			} elsif ($is_cscheme) {
+				$buffer .= "\t" if !$first;
+				my $name =
+				  $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE id=?', $cscheme );
+				$buffer .= $name;
 			} else {
 				$buffer .= "\t" if !$first;
 				$buffer .= $metafield // $field;
-				$first = 0;
 			}
+			$first = 0;
 		}
 		if ($first) {
 			$buffer .= 'Make sure you select an option for locus export.';
@@ -657,6 +702,66 @@ sub _write_composite {
 		print $fh "$composite_field\t";
 		print $fh $value if defined $value;
 		print $fh "\n";
+	} else {
+		print $fh "\t"   if !$first;
+		print $fh $value if defined $value;
+	}
+	return;
+}
+
+sub _write_classification_scheme {
+	my ( $self, $fh, $cscheme, $data, $first, $params ) = @_;
+	if ( !$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
+		my $scheme_id =
+		  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM classification_schemes WHERE id=?', $cscheme );
+		$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'} = $scheme_id;
+		$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			["temp_isolates_scheme_fields_$scheme_id"] );
+	}
+	if ( !$self->{'cache'}->{'cscheme_name'}->{$cscheme} ) {
+		$self->{'cache'}->{'cscheme_name'}->{$cscheme} =
+		  $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE id=?', $cscheme );
+	}
+	my $value;
+	if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
+		if ( !$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'} ) {
+			my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'};
+			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'table'} =
+			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'} = $scheme_info->{'primary_key'};
+		}
+		my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'};
+		my $scheme_table = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'table'};
+		my $pk           = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'};
+		my $pk_values    = $self->{'datastore'}->run_query( "SELECT $pk FROM $scheme_table WHERE id=?",
+			$data->{'id'}, { fetch => 'col_arrayref', cache => "Export::write_cscheme::$scheme_id" } );
+		if (@$pk_values) {
+			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme);
+			my $view          = $self->{'system'}->{'view'};
+
+			#You may get multiple groups if you have a mixed sample
+			my @groups = ();
+			foreach my $pk_value (@$pk_values) {
+				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+					$pk_value,
+					{ fetch => 'col_arrayref', cache => "Export::write_cscheme::get_group::$cscheme_table" } );
+				push @groups, @$groups;
+			}
+			@groups = sort uniq @groups;
+			local $" = q(;);
+			$value = qq(@groups);
+		}
+	}
+	if ( $params->{'oneline'} ) {
+		if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "$self->{'cache'}->{'cscheme_name'}->{$cscheme}\t";
+			print $fh $value if defined $value;
+			print $fh "\n";
+		}
 	} else {
 		print $fh "\t"   if !$first;
 		print $fh $value if defined $value;
