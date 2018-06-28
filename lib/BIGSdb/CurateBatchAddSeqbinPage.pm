@@ -140,6 +140,11 @@ sub _check {
 			$invalid->{$number} = { id => $id, problem => "Filename $filename is used more than once!" };
 			next;
 		}
+		if ( $number > LIMIT ) {
+			my $limit = LIMIT;
+			$invalid->{$number} = { id => $id, problem => "Upload is limited to $limit records" };
+			next;
+		}
 		push @$validated => { row => $number, identifier => $id, id => $ids->[0], filename => $filename };
 		$id_used->{$id}             = 1;
 		$filename_used->{$filename} = 1;
@@ -226,6 +231,8 @@ sub _validate {
 	if ($success) {
 		my $plural = $success == 1 ? q() : q(s);
 		say qq(<p>You can upload $success record$plural.</p>);
+		say q(<p><strong><em>Please do not refresh the page after you click the upload button. )
+		  . q(Upload may take a short while.</em></strong>);
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
 		my $sender;
@@ -301,6 +308,23 @@ sub _validate {
 	return;
 }
 
+sub _create_lock_file {
+	my ($self) = @_;
+	my $dir = $self->_get_upload_dir;
+	return if !-e $dir;
+	my $lock_file = "$dir/.LOCK";
+	open( my $fh, '>', $lock_file ) || $logger->error("Cannot touch $lock_file");
+	close $fh;
+	return;
+}
+
+sub _lock_file_exists {
+	my ($self)    = @_;
+	my $dir       = $self->_get_upload_dir;
+	my $lock_file = "$dir/.LOCK";
+	return -e $lock_file;
+}
+
 sub _upload {
 	my ( $self, $field, $temp_file ) = @_;
 	my $q = $self->{'cgi'};
@@ -319,6 +343,22 @@ sub _upload {
 		$self->print_bad_status( { message => 'Cannot read temporary file. Please repeat upload' } );
 		return;
 	}
+	if ( $self->_lock_file_exists ) {
+		$self->print_bad_status(
+			{
+				message => 'Please do not refresh!',
+				detail  => 'Your contigs are already uploading. Check the database to see if '
+				  . 'they have finished uploading. If you click Restart below and they have not '
+				  . 'finished uploading, the process will be terminated.'
+				,
+				navbar      => 1,
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			}
+		);
+		return;
+	}
+	$self->_create_lock_file;
 	my $dir = $self->_get_upload_dir;
 	my $failure;
 	my $seq_ref;
@@ -365,7 +405,10 @@ sub _upload {
 		catch BIGSdb::DataException with {
 			$failed_validation = 1;
 		};
-		next if $failed_validation;
+		if ($failed_validation){
+			$failure++;
+			last;
+		}
 		my $min_size = 0;
 		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
 			$min_size = $q->param('size');
@@ -398,6 +441,19 @@ sub _upload {
 		}
 		$added++;
 	}
+	if ( !$added ) {
+		$self->print_bad_status(
+			{
+				message     => 'Please do not refresh!',
+				detail      => 'Your contigs have either already uploaded or are doing so.',
+				navbar      => 1,
+				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
+				reload_text => 'Restart'
+			}
+		);
+		$self->{'db'}->rollback;
+		return;
+	}
 	if ($failure) {
 		local $" = ', ';
 		$self->print_bad_status(
@@ -421,6 +477,7 @@ sub _upload {
 			reload_text => 'Restart'
 		}
 	);
+	$self->_remove_dir($dir);
 	return;
 }
 
