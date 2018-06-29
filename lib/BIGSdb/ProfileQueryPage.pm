@@ -80,7 +80,13 @@ sub print_content {
 	  ? qq(<h1>Query/update profiles - $desc</h1>)
 	  : qq(<h1>Search or browse profiles - $desc</h1>);
 	my $qry;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 
+	if ( !@$schemes ) {
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+		  ;
+		return;
+	}
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);

@@ -59,7 +59,16 @@ sub print_content {
 			$self->publish;
 		}
 	}
-	say "<h1>Search $desc database by combinations of loci</h1>";
+	say qq(<h1>Search $desc database by combinations of loci</h1>);
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+		if ( !@$schemes ) {
+			$self->print_bad_status(
+				{ message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+			  ;
+			return;
+		}
+	}
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
@@ -506,7 +515,8 @@ sub _run_query {
 		my @hidden_attributes;
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
 		my $set_id = $self->get_set_id;
-		my $loci   = $scheme_id
+		my $loci =
+		    $scheme_id
 		  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 		  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 		foreach my $locus (@$loci) {

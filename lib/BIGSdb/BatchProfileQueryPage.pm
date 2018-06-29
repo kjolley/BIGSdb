@@ -50,6 +50,13 @@ sub get_help_url {
 
 sub print_content {
 	my ($self) = @_;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+	if ( !@$schemes ) {
+		say q(<h1>Batch profile query</h1>);
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+		  ;
+		return;
+	}
 	my $q = $self->{'cgi'};
 	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
