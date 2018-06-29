@@ -221,6 +221,7 @@ sub _print_interface {
 			include_scheme_fields => 1
 		}
 	);
+	$self->_print_favourite_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -316,6 +317,32 @@ sub _print_reference_genome_fieldset {
 	say $self->get_tooltip( q(Reference upload - File format is recognised by the extension in the )
 		  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.) );
 	say q(</fieldset>);
+	return;
+}
+
+sub _print_favourite_scheme_fieldset {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'genome_comparator_recommended_schemes'};
+	
+	my @schemes = split /,/x, $self->{'system'}->{'genome_comparator_recommended_schemes'};
+	my $buffer;
+	foreach my $scheme_id (@schemes) {
+		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
+				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
+			return;
+		}
+	}
+	
+	return if !@schemes;
+		my $scheme_labels = $self->{'datastore'}->run_query('SELECT id,name FROM schemes',undef,{fetch=>'all_arrayref',slice=>{}});
+		my %labels = map {$_->{'id'} => $_->{'name'}} @$scheme_labels;
+		my $q = $self->{'cgi'};
+		say q(<fieldset style="float:left"><legend>Recommended schemes</legend>);
+		say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
+		say $self->popup_menu(-name =>'recommended_schemes',-id=>'recommended_schemes',-values=>[@schemes],-labels=>\%labels,-size=>6,-multiple=>'true');
+		say q(</fieldset>);
+	
 	return;
 }
 
