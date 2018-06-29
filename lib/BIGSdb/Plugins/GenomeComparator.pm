@@ -119,6 +119,7 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
+		$self->_add_recommended_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
 			push @errors,
@@ -173,6 +174,23 @@ sub run {
 	return;
 }
 
+sub _add_recommended_scheme_loci {
+	my ( $self, $loci ) = @_;
+	my $q              = $self->{'cgi'};
+	my @schemes        = $q->param('recommended_schemes');
+	my %locus_selected = map { $_ => 1 } @$loci;
+	foreach my $scheme_id (@schemes) {
+		next if !BIGSdb::Utils::is_int($scheme_id);
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach my $locus (@$scheme_loci) {
+			next if $locus_selected{$locus};
+			push @$loci, $locus;
+			$locus_selected{$locus} = 1;
+		}
+	}
+	return;
+}
+
 sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -221,7 +239,7 @@ sub _print_interface {
 			include_scheme_fields => 1
 		}
 	);
-	$self->_print_favourite_scheme_fieldset;
+	$self->_print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -320,10 +338,9 @@ sub _print_reference_genome_fieldset {
 	return;
 }
 
-sub _print_favourite_scheme_fieldset {
+sub _print_recommended_scheme_fieldset {
 	my ($self) = @_;
 	return if !$self->{'system'}->{'genome_comparator_recommended_schemes'};
-	
 	my @schemes = split /,/x, $self->{'system'}->{'genome_comparator_recommended_schemes'};
 	my $buffer;
 	foreach my $scheme_id (@schemes) {
@@ -333,16 +350,24 @@ sub _print_favourite_scheme_fieldset {
 			return;
 		}
 	}
-	
 	return if !@schemes;
-		my $scheme_labels = $self->{'datastore'}->run_query('SELECT id,name FROM schemes',undef,{fetch=>'all_arrayref',slice=>{}});
-		my %labels = map {$_->{'id'} => $_->{'name'}} @$scheme_labels;
-		my $q = $self->{'cgi'};
-		say q(<fieldset style="float:left"><legend>Recommended schemes</legend>);
-		say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
-		say $self->popup_menu(-name =>'recommended_schemes',-id=>'recommended_schemes',-values=>[@schemes],-labels=>\%labels,-size=>6,-multiple=>'true');
-		say q(</fieldset>);
-	
+	my $scheme_labels =
+	  $self->{'datastore'}->run_query( 'SELECT id,name FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+	my %labels = map { $_->{'id'} => $_->{'name'} } @$scheme_labels;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
+	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
+	say $self->popup_menu(
+		-name     => 'recommended_schemes',
+		-id       => 'recommended_schemes',
+		-values   => [@schemes],
+		-labels   => \%labels,
+		-size     => 5,
+		-multiple => 'true'
+	);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
+	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -2591,6 +2616,7 @@ sub get_plugin_javascript {
 function enable_seqs(){
 	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
 		\$("#scheme_fieldset").hide(500);
+		\$("#recommended_scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").prop("disabled", false);
 		\$("#use_tagged").prop("disabled", true);
@@ -2598,6 +2624,7 @@ function enable_seqs(){
 		\$("#paralogous_options").prop("disabled", false);
 	} else {
 		\$("#scheme_fieldset").show(500);
+		\$("#recommended_scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
 		\$("#use_tagged").prop("disabled", false);
