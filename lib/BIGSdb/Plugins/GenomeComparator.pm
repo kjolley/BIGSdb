@@ -583,8 +583,14 @@ sub _create_temp_tables {
 	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
 
 	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
-		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
-			undef, $id, $genome_name );
+		eval {
+			$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
+				undef, $id, $genome_name );
+		};
+		if ($@) {
+			$logger->error('Invalid characters in user genome zip file.');
+			throw BIGSdb::PluginException('Invalid characters in uploaded zip file.');
+		}
 		unshift @$isolate_ids, $id;
 		$name_map->{$id} = "u$map_id";
 		$reverse_name_map->{"u$map_id"} = $id;
