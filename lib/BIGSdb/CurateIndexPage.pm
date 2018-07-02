@@ -348,6 +348,7 @@ sub _get_locus_description_fields {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('locus_descriptions');
+	return $buffer if !$self->_loci_exist;
 	if ( !$self->is_admin ) {
 		my $allowed =
 		  $self->{'datastore'}
@@ -386,6 +387,7 @@ sub _get_sequence_fields {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('sequences');
+	return $buffer if !$self->_loci_exist;
 	my $set_string = $self->_get_set_string;
 	my $fasta_url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_show_curator"><h2>Sequences</h2>);
@@ -696,8 +698,8 @@ sub _get_sequence_bin {
 		'sequence_bin',
 		'dna',
 		{
-			add     => 1,
-			add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
+			add           => 1,
+			add_url       => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
 			batch_add     => 1,
 			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
 			query         => 1,
@@ -1048,6 +1050,7 @@ sub _get_locus_curators {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('locus_curators');
+	return $buffer if !$self->_loci_exist;
 	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Locus curators</h2>);
 	$buffer .= $self->_get_icon_group(
 		'locus_curators',
@@ -1070,6 +1073,7 @@ sub _get_scheme_curators {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('scheme_curators');
+	return $buffer if !$self->_schemes_exist;
 	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Scheme curators</h2>);
 	$buffer .= $self->_get_icon_group(
 		'scheme_curators',
@@ -1184,6 +1188,7 @@ sub _get_loci {
 		}
 	);
 	$buffer .= qq(</div>\n);
+	return $buffer if !$self->_loci_exist;
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus aliases</h2>);
 	$buffer .= $self->_get_icon_group(
@@ -1234,8 +1239,7 @@ sub _get_composite_fields {
 			add       => 1,
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
-			info      => 'Composite fields - '
-			  . 'Consist of a combination of different isolate, loci or scheme fields.'
+			info      => 'Composite fields - ' . 'Consist of a combination of different isolate, loci or scheme fields.'
 		}
 	);
 	$buffer .= qq(</div>\n);
@@ -1298,6 +1302,7 @@ sub _get_scheme_groups {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('scheme_groups');
+	return $buffer if !$self->_schemes_exist;
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme groups</h2>);
 	$buffer .= $self->_get_icon_group(
@@ -1351,6 +1356,7 @@ sub _get_scheme_groups {
 sub _get_classification_schemes {
 	my ($self) = @_;
 	my $buffer = q();
+	return $buffer if !$self->_schemes_exist;
 	return $buffer if !$self->can_modify_table('classification_schemes');
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification schemes</h2>);
@@ -1625,7 +1631,6 @@ sub print_content {
 			  . q[$("#curator_grid").packery()});</script>];
 		}
 	}
-
 	$buffer = $self->_get_admin_links;
 	if ($buffer) {
 		$can_do_something = 1;
@@ -1657,7 +1662,7 @@ sub print_content {
 			  . q[$("#admin_grid").packery()});</script>];
 		}
 	}
-		if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
+	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
 	}
 	if ( $self->{'datastore'}->user_dbs_defined ) {
