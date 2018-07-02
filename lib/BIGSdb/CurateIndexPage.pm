@@ -820,7 +820,8 @@ sub _get_permissions {
 		'permissions',
 		'user-shield',
 		{
-			query     => 1,
+			query             => 1,
+			always_show_query => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions),
 			info      => q(Permissions - Set curator permissions for individual users - )
 			  . q(these are only active for users with a status of 'curator' in the users table.)
@@ -1472,7 +1473,7 @@ sub _get_icon_group {
 	foreach my $value (qw(add batch_add link query import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
 	}
-	$links-- if $options->{'query'} && !$records_exist;
+	$links-- if $options->{'query'} && !$records_exist && !$options->{'always_show_query'};
 	my $pos = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
@@ -1521,7 +1522,7 @@ sub _get_icon_group {
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
-	if ( $options->{'query'} && $records_exist ) {
+	if ( $options->{'query'} && ( $records_exist || $options->{'always_show_query'} ) ) {
 		my $url = $options->{'query_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
