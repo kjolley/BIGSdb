@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Apache2::Connection ();
 use Error qw(:try);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
+use BIGSdb::Constants qw(:interface SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
 my $MIN_IDENTITY       = 70;
@@ -168,18 +168,19 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	if ( !@$ids ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to tag sequences.</p></div>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
 		return;
 	}
+	say $self->get_form_icon( 'allele_sequences', 'scan' );
 	say q(<div class="box" id="queryform">);
-	say q(<p>Please select the required isolate ids and loci for sequence scanning - use Ctrl or Shift to make )
-	  . q(multiple selections. In addition to selecting individual loci, you can choose to include all loci )
-	  . q(defined in schemes by selecting the appropriate scheme description. By default, loci are only scanned )
-	  . q(for an isolate when no allele designation has been made or sequence tagged. You can choose to rescan loci )
-	  . q(with existing designations or tags by selecting the appropriate options.</p>);
+	say q(<p style="margin-right:10%">Please select the required isolate ids and loci for sequence scanning - )
+	  . q(use Ctrl or Shift to make multiple selections. In addition to selecting individual loci, you can choose )
+	  . q(to include all loci defined in schemes by selecting the appropriate scheme description. By default, loci )
+	  . q(are only scanned for an isolate when no allele designation has been made or sequence tagged. You can )
+	  . q(choose to rescan loci with existing designations or tags by selecting the appropriate options.</p>);
 	my $guid = $self->get_guid;
 	my $general_prefs;
 	if ($guid) {
@@ -467,12 +468,12 @@ sub _scan {
 	$q->param( isolate_id => @ids );
 
 	if ( !@ids ) {
-		say q(<div class="box" id="statusbad"><p>You must select one or more isolates.</p></div>);
+		$self->print_bad_status( { message => q(You must select one or more isolates.) } );
 		$self->_print_interface;
 		return;
 	}
 	if ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
+		$self->print_bad_status( { message => q(You must select one or more loci or schemes.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -653,24 +654,31 @@ sub _tag {
 		};
 		if ($@) {
 			my $err = $@;
-			say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled - )
-			  . q(no records have been touched.</p>);
+			my $detail;
 			if ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-				say q(<p>Data entry would have resulted in records with either duplicate ids )
-				  . q(or another unique field with duplicate values.</p>);
+				$detail = q(Data entry would have resulted in records with either duplicate ids )
+				  . q(or another unique field with duplicate values.);
 			} else {
-				say qq(<p>Error message: $err</p>);
 				$logger->error($err);
 			}
-			say q(</div>);
+			$self->print_bad_status(
+				{
+					message => q(Database update failed - transaction cancelled - no records have been touched.),
+					detail  => $detail
+				}
+			);
 			$self->{'db'}->rollback;
 			return;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Database updated ok.</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a> | )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-			  . qq(parameters=$scan_job">Reload scan form</a></p></div>);
+			$self->print_good_status(
+				{
+					message    => 'Database updated.',
+					navbar     => 1,
+					reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+					  . qq(parameters=$scan_job)
+				}
+			);
 			say q(<div class="box" id="resultstable">);
 			local $" = qq(<br />\n);
 			if (@allele_updates) {
@@ -691,10 +699,14 @@ sub _tag {
 			say q(</div>);
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No updates required.</p>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a> | )
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-		  . qq(parameters=$scan_job">Reload scan form</a></p></div>);
+		$self->print_bad_status(
+			{
+				message    => q(No updates required.),
+				navbar     => 1,
+				reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+				  . qq(parameters=$scan_job)
+			}
+		);
 	}
 	return;
 }
@@ -705,17 +717,22 @@ sub _show_results {
 	my $scan_job = $q->param('scan');
 	$scan_job = $scan_job =~ /^(BIGSdb_[0-9_]+)$/x ? $1 : undef;
 	if ( !defined $scan_job ) {
-		say q(<div class="box" id="statusbad"><p>Invalid job id passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid job id passed.), navbar => 1 } );
 		return;
 	}
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_table.html";
 	my $status   = $self->_read_status($scan_job);
 	if ( $status->{'server_busy'} ) {
-		say q(<div class="box" id="statusbad"><p>The server is currently too busy to run your scan. )
-		  . q(Please wait a few minutes and then try again.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The server is currently too busy to run your scan. )
+				  . q(Please wait a few minutes and then try again.),
+				navbar => 1
+			}
+		);
 		return;
 	} elsif ( !$status->{'start_time'} ) {
-		say q(<div class="box" id="statusbad"><p>The requested job does not exist.</p></div>);
+		$self->print_bad_status( { message => q(The requested job does not exist.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);
@@ -723,9 +740,15 @@ sub _show_results {
 	if ( !-s $filename ) {
 		if ( $status->{'stop_time'} ) {
 			say q(<p>No matches found.</p>);
+			$self->print_navigation_bar(
+				{
+					reload_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
+					  . qq(parameters=$scan_job)
+				}
+			);
 		} else {
 			say q(<p>No results yet ... please wait.</p>);
-			say q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p>);
+			say q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		}
 	} else {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Isolate</th><th>Match</th>)

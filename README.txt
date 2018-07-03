@@ -1,3 +1,17 @@
+v1.18.4: *Improved navigation bars.
+         *New curator index page.
+         *Drag and drop batch genome uploads (make sure javascript directory is
+          updated).
+         *Export classification groups with isolate data.
+         *Update for FontAwesone 5.1 (make sure webfonts directory is updated).
+v1.18.3: *Update FontAwesome to version 5. Ensure you copy the contents of the
+          new webfonts directory (renamed from fonts) to the root of your web
+          site and update the css directory.
+         *Sequence/scheme query via RESTful API, e.g. extract MLST/cgMLST from
+          local genome file via command line.
+         *rMLST species identification plugin.
+         *Allow upload of local user genome files for Genome Comparator 
+          analysis.
 v1.18.2: *New Microreact and GrapeTree plugins (ensure new images/plugins 
           directory is copied, see new bigsdb.conf settings for configuring
           GrapeTree).

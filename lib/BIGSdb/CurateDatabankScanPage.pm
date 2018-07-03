@@ -31,8 +31,12 @@ sub print_content {
 	my $accession = $q->param('accession');
 	say q(<h1>Scan EMBL/Genbank record for loci</h1>);
 	if ( !$self->can_modify_table('loci') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
-		  . q(to add records to the loci table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to add records to the loci table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_print_interface;
@@ -71,7 +75,10 @@ sub _print_interface {
 
 sub _print_results {
 	my ( $self, $accession ) = @_;
-	my $seq_db = Bio::DB::GenBank->new;
+
+	#Setting retrievaltype prevents a fork which can result in error message being displayed twice
+	#when run under cgi-bin.
+	my $seq_db = Bio::DB::GenBank->new( -retrievaltype => 'tempfile' );
 	$seq_db->verbose(2);    #convert warn to exception
 	my $seq_obj;
 	try {
@@ -82,7 +89,7 @@ sub _print_results {
 		$logger->debug($err);
 	};
 	if ( !$seq_obj ) {
-		say q(<div class="box" id="statusbad"><p>No data returned.</p></div>);
+		$self->print_bad_status( { message => q(No data returned.), navbar => 1 } );
 		return;
 	}
 	my $prefix      = BIGSdb::Utils::get_random();
@@ -97,8 +104,7 @@ sub _print_results {
 	say q(</div>);
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Annotation information</h2>);
-	say q(<dl class="data">);
-	my $td = 1;
+	my $list = [];
 	my @cds;
 
 	foreach ( $seq_obj->get_SeqFeatures ) {
@@ -116,11 +122,10 @@ sub _print_results {
 	foreach my $field (qw (accession version type length description cds)) {
 		if ( $att{$field} ) {
 			my $field_name = $abb{$field} || $field;
-			say qq(<dt>$field_name</dt><dd>$att{$field}</dd>);
-			$td = $td == 1 ? 2 : 1;
+			push @$list, { title => $field_name, data => $att{$field} };
 		}
 	}
-	say q(</dl>);
+	say $self->get_list_block($list);
 	say q(<h2>Coding sequences</h2>);
 	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
 	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
@@ -129,6 +134,7 @@ sub _print_results {
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
+	my $td = 1;
 	my @locus_error;
 	my $table_buffer = q();
 
@@ -186,8 +192,7 @@ sub _print_results {
 		local $" = q (, );
 		my $plural       = @locus_error == 1 ? q()   : q(s);
 		my $locus_plural = @locus_error == 1 ? q(us) : q(i);
-		say qq(<p>Sequence$plural for the following loc$locus_plural could not be extracted: @locus_error.</p>)
-		  ;
+		say qq(<p>Sequence$plural for the following loc$locus_plural could not be extracted: @locus_error.</p>);
 	}
 	say $table_buffer if $table_buffer;
 	BIGSdb::Utils::text2excel( $table_file,  { max_width => 30 } );

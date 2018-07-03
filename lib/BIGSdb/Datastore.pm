@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -107,14 +107,15 @@ sub get_user_string {
 	  ( $options->{'email'} && $info->{'email'} =~ /@/x )
 	  ? 1
 	  : 0;    #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
-	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email;
-	$user .= "$info->{'first_name'} "               if $info->{'first_name'};
+	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email && !$options->{'text_email'};
+	$user .= qq($info->{'first_name'} )             if $info->{'first_name'};
 	$user .= $info->{'surname'}                     if $info->{'surname'};
-	$user .= '</a>'                                 if $use_email;
+	$user .= qq( ($info->{'email'}))                if $use_email && $options->{'text_email'};
+	$user .= q(</a>)                                if $use_email && !$options->{'text_email'};
 
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
 		$info->{'affiliation'} =~ s/^\s*//x;
-		$user .= ", $info->{'affiliation'}";
+		$user .= qq(, $info->{'affiliation'});
 	}
 	return $user;
 }
@@ -1001,25 +1002,16 @@ sub create_temp_isolate_scheme_fields_view {
 	#This view can instead be created as a persistent indexed table using the update_scheme_cache.pl script.
 	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
 	$options = {} if ref $options ne 'HASH';
-	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_${view}_scheme_fields_$scheme_id";
+	my $table = "temp_isolates_scheme_fields_$scheme_id";
 	if ( !$options->{'cache'} ) {
 		return $table
 		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
-
-		#Check if cache of whole isolate table exists
-		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates_scheme_fields_$scheme_id";
-			return $full_table
-			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-				$full_table );
-		}
 	}
 	local $| = 1;
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $temp_table = $options->{'cache'} ? 'false' : 'true';
 	my $method = $options->{'method'} // 'full';
-	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'$view',$temp_table,'$method')") };
+	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'isolates',$temp_table,'$method')") };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -1237,7 +1229,7 @@ sub create_temp_list_table {
 		return;
 	}
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
-	open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for reading");
+	open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->logcarp("Can't open $full_path for reading");
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
 		$self->{'db'}->do('COPY temp_list FROM STDIN');
@@ -1260,6 +1252,8 @@ sub create_temp_list_table_from_array {
 	my ( $self, $datatype, $list, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
+	return
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	eval {
 		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
 		$self->{'db'}->do("COPY $table FROM STDIN");
@@ -1275,6 +1269,37 @@ sub create_temp_list_table_from_array {
 		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
 	}
 	return $table;
+}
+
+sub create_temp_combinations_table_from_file {
+	my ( $self, $filename ) = @_;
+	return
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'count_table' );
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	my $pk_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
+	my $text;
+	my $error;
+	try {
+		$text = BIGSdb::Utils::slurp($full_path);
+	}
+	catch BIGSdb::CannotOpenFileException with {
+		$logger->error("Cannot open $full_path for reading");
+		$error = 1;
+	};
+	return if $error;
+	eval {
+		$self->{'db'}->do("CREATE TEMP TABLE count_table (id $pk_type,count int)");
+		$self->{'db'}->do('COPY count_table(id,count) FROM STDIN');
+		local $" = "\t";
+		foreach my $row ( split /\n/x, $$text ) {
+			my @values = split /\t/x, $row;
+			$self->{'db'}->pg_putcopydata("@values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do('CREATE INDEX ON count_table(count)');
+	};
+	$logger->error($@) if $@;
+	return;
 }
 
 sub get_scheme_group_info {
@@ -1782,9 +1807,9 @@ sub get_client_data_linked_to_allele {
 	);
 	my $field_values;
 	my $detailed_values;
-	my $dl_buffer       = q();
-	my $td_buffer       = q();
-	my $i               = 0;
+	my $dl_buffer = q();
+	my $td_buffer = q();
+	my $i         = 0;
 
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];

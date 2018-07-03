@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Schemes/alleles',
 		menutext    => 'Scheme and alleles',
 		module      => 'SchemeBreakdown',
-		version     => '1.1.8',
+		version     => '1.1.10',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#scheme-and-allele-breakdown",
 		input       => 'query',
@@ -89,7 +89,7 @@ sub run {
 	return if $self->has_set_changed;
 	my $loci = $self->{'datastore'}->run_query( 'SELECT id FROM loci ORDER BY id', undef, { fetch => 'col_arrayref' } );
 	if ( !scalar @$loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci are defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci are defined for this database.), navbar => 1 } );
 		return;
 	}
 	my $qry_ref = $self->get_query($query_file);
@@ -136,7 +136,7 @@ sub _do_analysis {
 			$scheme_id = $1;
 			$field     = $2;
 			if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-				say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
+				$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
 				$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
 				return;
 			}
@@ -150,15 +150,21 @@ sub _do_analysis {
 					  . "LEFT JOIN $temp_table ON $list_table.value=$temp_table.id GROUP BY $temp_table.$field";
 				}
 				catch BIGSdb::DatabaseConnectionException with {
-					say qq("<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not accessible. )
-					  . q(This may be a configuration problem.</p></div>);
+					$self->print_bad_status(
+						{
+							message => q(The database for scheme $scheme_id is not accessible. )
+							  . q(This may be a configuration problem.),
+							navbar => 1
+						}
+					);
 					$continue = 0;
 				};
 				return if !$continue;
 			}
 		} else {
-			say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
-			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
+			$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
+			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) )
+			  ;
 			return;
 		}
 	} elsif ( $q->param('type') eq 'locus' ) {
@@ -173,7 +179,7 @@ sub _do_analysis {
 		  . qq($list_table.value=allele_designations.isolate_id AND allele_designations.locus=E'$locus' )
 		  . q(GROUP BY allele_designations.allele_id);
 	} else {
-		say q(<div class="box" id="statusbad"><p>Invalid field passed for analysis!</p></div>);
+		$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
 		$logger->error( q(Invalid field passed for analysis. Field type is set as ') . $q->param('type') . q('.) );
 		return;
 	}
@@ -429,11 +435,12 @@ sub _print_field_cells {
 			say qq(<td>$value</td><td>);
 			if ($value) {
 				say $q->start_form;
-				say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
+				say q(<button type="submit" class="plugin fas fa-chart-pie smallbutton"></button>);
 				$q->param( field           => "${scheme_id}_$field" );
 				$q->param( type            => 'field' );
 				$q->param( field_breakdown => 1 );
-				say $q->hidden($_) foreach qw (page name db query_file type field field_breakdown list_file datatype);
+				say $q->hidden($_)
+				  foreach qw (page name db query_file type field field_breakdown list_file temp_table_file datatype);
 				say $q->end_form;
 			}
 			say q(</td>);
@@ -471,18 +478,19 @@ sub _print_locus_cells {
 		if ($value) {
 			say q(<td>);
 			say $q->start_form;
-			say q(<button type="submit" class="plugin fa fa-pie-chart smallbutton"></button>);
+			say q(<button type="submit" class="plugin fas fa-chart-pie smallbutton"></button>);
 			$q->param( field => $locus );
 			$q->param( type  => 'locus' );
 			say $q->hidden( field_breakdown => 1 );
-			say $q->hidden($_) foreach qw (page name db query_file field type list_file datatype);
+			say $q->hidden($_) foreach qw (page name db query_file field type list_file temp_table_file datatype);
 			say $q->end_form;
 			say q(</td><td>);
 			say $q->start_form;
-			say q(<button type="submit" class="main fa fa-download smallbutton"></button>);
+			say q(<button type="submit" class="main fas fa-download smallbutton"></button>);
 			say $q->hidden( download => 1 );
 			$q->param( format => 'text' );
-			say $q->hidden($_) foreach qw (page name db query_file field type format list_file datatype);
+			say $q->hidden($_)
+			  foreach qw (page name db query_file field type format list_file temp_table_file datatype);
 			say $q->end_form;
 			say q(</td>);
 		} else {
@@ -531,7 +539,7 @@ sub _print_tree {
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw(db page name query_file set_id list_file datatype);
+	say $q->hidden($_) foreach qw(db page name query_file set_id list_file temp_table_file datatype);
 	say $q->end_form;
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,33 +45,40 @@ sub print_content {
 	$locus =~ s/^cn_//x;
 	my $isolate_id = $q->param('isolate_id') // $q->param('allele_designations_isolate_id');
 	if ( !$isolate_id ) {
-		say q(<div class="box" id="statusbad"><p>No isolate id passed.</p></div>);
+		say q(<h1>Allele update</h1>);
+		$self->print_bad_status( { message => q(No isolate id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid locus passed.</p></div>);
+		say q(<h1>Allele update</h1>);
+		$self->print_bad_status( { message => q(Invalid locus passed.), navbar => 1 } );
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);
 	say qq(<h1>Update $cleaned_locus allele for isolate $isolate_id</h1>);
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid id - Isolate ids are integers.</p></div>);
+		$self->print_bad_status( { message => q(Invalid id - Isolate ids are integers.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->can_modify_table('allele_designations') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed )
-		  . q(to update allele designations.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Your user account is not allowed to update allele designations.), navbar => 1 } );
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to update )
-		  . q(allele designations for this isolate.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Either this isolate does not exist or your user account is not allowed )
+				  . q(to update allele designations for this isolate.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	my $data =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
-		say qq(<div class="box" id="statusbad"><p>No record with id = $isolate_id exists.</p></div>);
+		$self->print_bad_status( { message => qq(No record with id = $isolate_id exists.), navbar => 1 } );
 		return;
 	}
 	my $right_buffer = qq(<h2>Locus: $cleaned_locus</h2>\n);

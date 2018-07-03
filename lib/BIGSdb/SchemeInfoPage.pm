@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,13 +41,13 @@ sub print_content {
 	my $desc      = $self->get_db_description;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		say q(<h1>Scheme information</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme selected.), navbar => 1 } );
 		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	if ( !$scheme_info ) {
 		say q(<h1>Scheme information</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme selected.), navbar => 1 } );
 		return;
 	}
 	say qq(<h1>Scheme information - $scheme_info->{'name'}</h1>);

@@ -74,7 +74,7 @@ sub _print_jobs {
 	my $days_plural = $days == 1  ? '' : 's';
 	my $jobs_plural = @$jobs == 1 ? '' : 's';
 	say q(<div class="box" id="jobs">);
-	say q(<span class="job_icon fa fa-briefcase fa-3x pull-left"></span>);
+	say q(<span class="job_icon fas fa-briefcase fa-3x fa-pull-left"></span>);
 	say q(<h2>Jobs</h2>);
 	say q(<p>You have submitted or run )
 	  . @$jobs
@@ -144,7 +144,7 @@ sub _print_query_section {
 	my $cache_string = $self->get_cache_string;
 	my $set_id       = $self->get_set_id;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-search fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-search fa-3x fa-pull-left"></span>);
 	say q(<h2>Query database</h2><ul class="toplevel">);
 	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
 	if ( $system->{'dbtype'} eq 'isolates' ) {
@@ -203,7 +203,7 @@ sub _print_projects_section {
 	}
 	return if !@list;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>Projects</h2><ul class="toplevel">);
 	local $" = qq(</li>\n<li>);
 	say qq(<li>@list</li>);
@@ -225,14 +225,37 @@ sub _print_private_data_section {
 		$user_info->{'id'}
 	);
 	return if !$limit && !$is_member_of_no_quota_project;
+	my $total_private = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
+		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
+		$user_info->{'id'}
+	);
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	if ($total_private) {
+		my $label = $self->_get_label($total_private);
+		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
+		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
+		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#484"></span>);
+		say qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
+		say q(</span>);
+	} else {
+		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
+	}
 	say q(<h2>Private data</h2><ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
 	  . q(page=privateRecords">Upload/manage records</a></li>);
 	say q(</ul></div>);
 	return;
+}
+
+sub _get_label {
+	my ( $self, $number ) = @_;
+	return $number if $number < 100;
+	return qq(<span style="font-size:0.8em">$number</span>) if $number < 1000;
+	my $label = int( $number / 1000 );
+	$label = 9 if $label > 9;
+	return qq(<span style="font-size:0.8em">${label}K+</span>);
 }
 
 sub _print_download_section {
@@ -271,7 +294,7 @@ sub _print_download_section {
 	}
 	if ( $seq_download_buffer || $scheme_buffer ) {
 		say q(<div style="float:left; margin-right:1em" class="grid-item">);
-		say q(<span class="main_icon fa fa-download fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-download fa-3x fa-pull-left"></span>);
 		say q(<h2>Downloads</h2>);
 		say q(<ul class="toplevel">);
 		say $seq_download_buffer;
@@ -285,7 +308,7 @@ sub _print_options_section {
 	my ($self) = @_;
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-cogs fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-cogs fa-3x fa-pull-left"></span>);
 	say q(<h2>Option settings</h2>);
 	say q(<ul class="toplevel">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$cache_string">)
@@ -331,8 +354,18 @@ sub _print_submissions_section {
 		$logger->error('Submission directory is not configured in bigsdb.conf.');
 		return;
 	}
+	my $pending_submissions = $self->_get_pending_submission_count;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+	if ($pending_submissions) {
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
+		$pending_submissions = '99+' if $pending_submissions > 99;
+		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
+		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#d44"></span>);
+		say qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
+		say q(</span>);
+	} else {
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
+	}
 	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
 	my $set_string =
@@ -343,10 +376,53 @@ sub _print_submissions_section {
 	return;
 }
 
+sub _get_pending_submission_count {
+	my ($self) = @_;
+	return 0 if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return 0 if $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator';
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		return 0 if !$self->can_modify_table('isolates');
+		my $count = $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'isolates', 'pending' ] );
+		if ( $self->can_modify_table('sequence_bin') ) {
+			$count +=
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'genomes', 'pending' ] );
+		}
+		return $count;
+	} else {
+		my $count = 0;
+		my $allele_submissions =
+		  $self->{'datastore'}->run_query(
+			'SELECT a.locus FROM submissions s JOIN allele_submissions a ON s.id=a.submission_id WHERE s.status=?',
+			'pending', { fetch => 'col_arrayref' } );
+		foreach my $locus (@$allele_submissions) {
+			if (   $self->is_admin
+				|| $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $user_info->{'id'} ) )
+			{
+				$count++;
+			}
+		}
+		my $profile_submissions = $self->{'datastore'}->run_query(
+			'SELECT ps.scheme_id FROM submissions s JOIN profile_submissions ps '
+			  . 'ON s.id=ps.submission_id WHERE s.status=?',
+			'pending',
+			{ fetch => 'col_arrayref' }
+		);
+		foreach my $scheme_id (@$profile_submissions) {
+			if ( $self->is_admin || $self->{'datastore'}->is_scheme_curator( $scheme_id, $user_info->{'id'} ) ) {
+				$count++;
+			}
+		}
+		return $count;
+	}
+}
+
 sub _print_general_info_section {
 	my ( $self, $scheme_data ) = @_;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fa fa-info-circle fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-info-circle fa-3x fa-pull-left"></span>);
 	say q(<h2>General information</h2><ul class="toplevel">);
 	my $cache_string = $self->get_cache_string;
 	my $max_date;
@@ -422,11 +498,11 @@ sub _print_plugin_section {
 	if (@$plugins) {
 		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
 		my %icon = (
-			breakdown     => 'pie-chart',
-			export        => 'save',
-			analysis      => 'line-chart',
-			third_party   => 'external-link',
-			miscellaneous => 'file-text-o'
+			breakdown     => 'fas fa-chart-pie',
+			export        => 'far fa-save',
+			analysis      => 'fas fa-chart-line',
+			third_party   => 'fas fa-external-link-alt',
+			miscellaneous => 'far fa-file-alt'
 		);
 		foreach my $section (@sections) {
 			$q->param( 'page', 'index' );
@@ -435,7 +511,7 @@ sub _print_plugin_section {
 			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em" class="grid-item">);
-			say qq(<span class="plugin_icon fa fa-$icon{$section} fa-3x pull-left"></span>);
+			say qq(<span class="plugin_icon $icon{$section} fa-3x fa-pull-left"></span>);
 			say qq(<h2 style="margin-right:1em">$names{$section}</h2><ul class="toplevel">);
 			foreach my $plugin (@$plugins) {
 				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);

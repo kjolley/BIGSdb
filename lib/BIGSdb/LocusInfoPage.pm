@@ -39,7 +39,7 @@ sub print_content {
 	my $locus  = $q->param('locus');
 	if ( !defined $locus ) {
 		say q(<h1>Locus information</h1>);
-		say q(<div class="box" id="statusbad"><p>No locus selected.</p></div>);
+		$self->print_bad_status( { message => q(No locus selected.), navbar => 1 } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -47,11 +47,11 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	if ( !$locus_info || !$self->{'datastore'}->is_locus($locus) ) {
 		say q(<h1>Locus information</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
 		return;
 	} elsif ( $set_id && !$self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
 		say q(<h1>Locus information</h1>);
-		say q(<div class="box" id="statusbad"><p>The selected locus is unavailable.</p></div>);
+		$self->print_bad_status( { message => q(The selected locus is unavailable.), navbar => 1 } );
 		return;
 	}
 	my $cleaned_locus = $self->clean_locus($locus);

@@ -48,19 +48,20 @@ sub print_content {
 	say qq(<h1>Customize $record display</h1>);
 
 	if ( !$q->cookie('guid') ) {
-		say q(<div class="box" id="statusbad"><span class="warning_icon fa fa-thumbs-o-down fa-5x pull-left"></span>)
-		  . q(<h2>Unable to proceed</h2><p class="statusbad">In order to store options, a cookie needs to be saved )
+		say
+		  q(<div class="box" id="statusbad"><span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span>)
+		  . q(<h2>Unable to proceed</h2><p>In order to store options, a cookie needs to be saved )
 		  . q(on your computer. Cookies appear to be disabled, however. )
 		  . q(Please enable them in your browser settings to proceed.</p></div>);
 		return;
 	}
 	if ( !$filename ) {
-		say qq(<div class="box" id="statusbad"><p>No $record data passed.</p></div>);
+		$self->print_bad_status( { message => qq(No $record data passed.), navbar => 1 } );
 		return;
 	}
 	my %valid_table = map { $_ => 1 } qw (loci scheme_fields schemes);
 	if ( !$table || !$valid_table{$table} ) {
-		say qq(<div class="box" id="statusbad"><p>Table '$table' is not a valid table for customization.</p></div>);
+		$self->print_bad_status( { message => q(Selected table is not valid for customization.), navbar => 1 } );
 		return;
 	}
 	my $file = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
@@ -71,8 +72,8 @@ sub print_content {
 			close $fh;
 		}
 	} else {
-		say q(<div class="box" id="statusbad"><p>Can't open query.</p></div>);
-		$logger->error("Can't open query file $file");
+		$self->print_bad_status( { message => q(Cannot open query.), navbar => 1 } );
+		$logger->error("Cannot open query file $file");
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @display, @cleaned_headers );
@@ -93,7 +94,7 @@ sub print_content {
 	}
 	my $results = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$results ) {
-		say q(<div class="box" id="statusbad"><p>No matches found!</p></div>);
+		$self->print_bad_status( { message => q(No matches found!), navbar => 1 } );
 		return;
 	}
 	print $q->start_form;

@@ -37,8 +37,9 @@ sub run_script {
 	my $isolate_list = $self->filter_and_sort_isolates($isolates);
 	my $status_file  = $self->{'options'}->{'status_file'};
 	my $output_file  = $self->{'options'}->{'output_html'};
-	$self->_update_status_file($status_file,'running');
-	foreach my $isolate_id (@$isolate_list) {
+	$self->_update_status_file( $status_file, 'running' );
+  ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		my $error;
 		my $remote_contigs = $self->{'datastore'}->run_query(
 			'SELECT r.seqbin_id,r.uri FROM remote_contigs r INNER JOIN sequence_bin s ON r.seqbin_id=s.id AND '
 			  . 's.isolate_id=? WHERE length IS NULL OR checksum IS NULL ORDER BY r.seqbin_id',
@@ -47,7 +48,7 @@ sub run_script {
 		);
 		my $total_processed = 0;
 		my $total_length    = 0;
-		foreach my $contig (@$remote_contigs) {
+	  CONTIG: foreach my $contig (@$remote_contigs) {
 			say $contig->{'uri'} if !$self->{'options'}->{'quiet'};
 			my $contig_record = $self->{'contigManager'}->get_remote_contig( $contig->{'uri'} );
 			if ( $contig_record->{'sequence'} ) {
@@ -66,18 +67,22 @@ sub run_script {
 					);
 				};
 				if ($@) {
-					$self->{'db'}->rollback;
 					$self->{'logger'}->error($@);
-				} else {
-					$self->{'db'}->commit;
+					$error = 1;
+					last CONTIG;
 				}
 				$total_length += $length;
 				$total_processed++;
-				$self->_write_results($output_file,$total_processed,$total_length);
+				$self->_write_results( $output_file, $total_processed, $total_length );
 			}
 		}
+		if ($error) {
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+		}
 	}
-	$self->_update_status_file($status_file,'complete');
+	$self->_update_status_file( $status_file, 'complete' );
 	return;
 }
 
@@ -94,7 +99,7 @@ sub _update_status_file {
 sub _write_results {
 	my ( $self, $file, $contigs, $length ) = @_;
 	return if !$file;
-	my $buffer = qq(<dl class="data"><dt>Contigs processed</dt><dd>$contigs</dd>);
+	my $buffer         = qq(<dl class="data"><dt>Contigs processed</dt><dd>$contigs</dd>);
 	my $commify_length = BIGSdb::Utils::commify($length);
 	$buffer .= qq(<dt>Total length</dt><dd>$commify_length bp</dd></dl>);
 	$self->_write( $file, $buffer );

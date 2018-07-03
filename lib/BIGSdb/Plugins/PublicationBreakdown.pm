@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.5',
+		version     => '1.1.8',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
@@ -63,7 +63,7 @@ sub run {
 	say q(<h1>Publication breakdown of dataset</h1>);
 	return if $self->has_set_changed;
 	if ( !$self->{'config'}->{'ref_db'} ) {
-		say q(<div class="box" id="statusbad">No reference database has been defined.</p></div>);
+		$self->print_bad_status( { message => q(No reference database has been defined.), navbar => 1 } );
 		return;
 	}
 	my $query_file = $q->param('query_file');
@@ -87,7 +87,7 @@ sub run {
 		say q(<div class="box" id="queryform">);
 		say $q->start_form;
 		$q->param( all_records => 1 ) if !$query_file;
-		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype);
+		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype temp_table_file);
 		say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		my $author_list = $self->_get_author_list;
 		say q(<ul><li><label for="author_list" class="display">Author:</label>);
@@ -151,7 +151,7 @@ sub run {
 		#Make sure the following SQL ends with a ;
 		#Paging will break otherwise!
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list list_file datatype);
+		my @hidden_attributes = qw (name all_records author_list year_list list_file temp_table_file datatype);
 		$self->paged_display(
 			{
 				table             => 'refs',

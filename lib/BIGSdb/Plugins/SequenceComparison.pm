@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.6',
+		version          => '1.0.7',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -58,7 +58,7 @@ sub run {
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	if ( !@$display_loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -93,29 +93,29 @@ sub run {
 	my $allele2      = $q->param('allele2');
 
 	if ( !defined $allele1 || !defined $allele2 ) {
-		say q(<div class="box" id="statusbad"><p>Please enter two allele identifiers.</p></div>);
+		$self->print_bad_status( { message => q(Please enter two allele identifiers.) } );
 		return;
 	} elsif ( $allele1 eq $allele2 ) {
-		say q(<div class="box" id="statusbad"><p>Please enter two <em>different</em> allele numbers.</p></div>);
+		$self->print_bad_status( { message => q(Please enter two <em>different</em> allele numbers.) } );
 		return;
 	} elsif ( $allele1 eq '0' || $allele2 eq '0' ) {
-		say q(<div class="box" id="statusbad"><p>Allele 0 is not a valid identifier.</p></div>);
+		$self->print_bad_status( { message => q(Allele 0 is not a valid identifier.) } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer'
 		&& ( !BIGSdb::Utils::is_int($allele1) || !BIGSdb::Utils::is_int($allele2) ) )
 	{
-		say q(<div class="box" id="statusbad"><p>Both your allele identifiers should be integers.</p></div>);
+		$self->print_bad_status( { message => q(Both your allele identifiers should be integers.) } );
 		return;
 	}
 	my $seq1_ref = $self->{'datastore'}->get_sequence( $locus, $allele1 );
 	my $seq2_ref = $self->{'datastore'}->get_sequence( $locus, $allele2 );
 	if ( !defined $$seq1_ref ) {
-		say q(<div class="box" id="statusbad"><p>Allele #1 has not been defined.</p></div>);
+		$self->print_bad_status( { message => q(Allele #1 has not been defined.) } );
 		return;
 	} elsif ( !defined $$seq2_ref ) {
-		say q(<div class="box" id="statusbad"><p>Allele #2 has not been defined.</p></div>);
+		$self->print_bad_status( { message => q(Allele #2 has not been defined.) } );
 		return;
 	}
 	say q(<div class="box" id="resultspanel">);

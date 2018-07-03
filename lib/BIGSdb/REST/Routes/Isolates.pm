@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,11 +23,14 @@ use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
+use constant GENOME_SIZE => 500_000;
 
 #Isolate database routes
-get '/db/:db/isolates'         => sub { _get_isolates() };
-get '/db/:db/isolates/:id'     => sub { _get_isolate() };
-post '/db/:db/isolates/search' => sub { _query_isolates() };
+get '/db/:db/isolates'             => sub { _get_isolates() };
+get '/db/:db/genomes'              => sub { _get_genomes() };
+get '/db/:db/isolates/:id'         => sub { _get_isolate() };
+get '/db/:db/isolates/:id/history' => sub { _get_history() };
+post '/db/:db/isolates/search'     => sub { _query_isolates() };
 
 sub _get_isolates {
 	my $self = setting('self');
@@ -45,6 +48,39 @@ sub _get_isolates {
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
 	my $path = $self->get_full_path( "/db/$db/isolates", $allowed_filters );
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	$values->{'paging'} = $paging if %$paging;
+	my @links;
+	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	$values->{'isolates'} = \@links;
+	return $values;
+}
+
+sub _get_genomes {
+	my $self = setting('self');
+	$self->check_isolate_database;
+	my $params          = params;
+	my $db              = params->{'db'};
+	my $allowed_filters = [qw(added_after updated_after genome_size)];
+	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $qry             = $self->add_filters(
+		"SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
+		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size",
+		$allowed_filters
+	);
+	my $isolate_count = $self->{'datastore'}->run_query($qry);
+	my $page_values   = $self->get_page_values($isolate_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	$qry = $self->add_filters(
+		"SELECT id FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
+		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size",
+		$allowed_filters
+	);
+	$qry .= ' ORDER BY id';
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	my $values = { records => int($isolate_count) };
+	my $path = $self->get_full_path( "/db/$db/genomes", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
@@ -82,11 +118,15 @@ sub _get_isolate {
 	}
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
+	return $values if $params->{'provenance_only'};
+	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
+	$values->{'history'} = request->uri_for("/db/$db/isolates/$id/history") if $has_history;
 	my $publications = _get_publications($id);
 	$values->{'publications'} = $publications if @$publications;
 	my $seqbin_stats =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $id, { fetch => 'row_hashref' } );
+
 	if ($seqbin_stats) {
 		my $seqbin = {
 			contig_count  => $seqbin_stats->{'contigs'},
@@ -180,6 +220,24 @@ sub _get_publications {
 		  };
 	}
 	return $publications;
+}
+
+sub _get_history {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id ) = @{$params}{qw(db id)};
+	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM history WHERE isolate_id=? ORDER BY timestamp',
+		$id, { fetch => 'all_arrayref', slice => {} } );
+	my $history = [];
+	foreach my $record (@$data) {
+		my @actions = split /<br\ \/>/x, $record->{'action'};
+		push @$history, {
+			curator   => request->uri_for("/db/$db/users/$record->{'curator'}"),
+			actions   => \@actions,
+			timestamp => $record->{'timestamp'}
+		};
+	}
+	return { records => scalar @$history, updates => $history };
 }
 
 sub _get_similar {

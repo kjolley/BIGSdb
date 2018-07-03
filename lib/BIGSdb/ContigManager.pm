@@ -117,13 +117,12 @@ sub update_isolate_remote_contig_lengths {
 
 sub get_remote_contig {
 	my ( $self, $uri, $options ) = @_;
-
 	( my $base_uri = $uri ) =~ s/\/contigs\/\d+$//x;
 	if ( $uri !~ /\?/x ) {
 		$uri .= q(?no_loci=1);
 	}
-	if ($self->{'cache'}->{'remote_contig'}->{$uri}){
-		return $self->{'cache'}->{'remote_contig'}->{$uri}
+	if ( $self->{'cache'}->{'remote_contig'}->{$uri} ) {
+		return $self->{'cache'}->{'remote_contig'}->{$uri};
 	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
 	my $length = length $contig->{'sequence'};
@@ -313,6 +312,7 @@ sub _get_session_token {
 		$oauth_credentials->{'session_secret'} = $session_response->token_secret;
 		return $session_response;
 	} else {
+		$logger->error($res->as_string);
 		throw BIGSdb::AuthenticationException("Invalid access token for $base_uri");
 	}
 }
@@ -358,12 +358,22 @@ sub _get_remote_contig_fragment {
 		$logger->error($@);
 		return {};
 	}
+	if ( $args->{'start'} < 1 ) {
+		$logger->error('Seq start is <1!');
+	}
 	my $flanking       = $args->{'flanking'};
+	my $upstream_flanking=$flanking;
 	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
+	my $upstream_start = $args->{'start'} - 1 - $flanking;
+	if ($upstream_start < 0){
+		$upstream_flanking += $upstream_start;
+		$upstream_start=0;
+		$upstream_flanking = 0 if $upstream_flanking<0;
+	}
 	return {
-		seq        => substr( $contig->{'sequence'}, $args->{'start'} - 1,             $extract_length ),
-		upstream   => substr( $contig->{'sequence'}, $args->{'start'} - 1 - $flanking, $flanking ),
-		downstream => substr( $contig->{'sequence'}, $args->{'end'},                   $flanking )
+		seq => substr( $contig->{'sequence'}, $args->{'start'} - 1, $extract_length ),
+		upstream => substr( $contig->{'sequence'}, $upstream_start, $upstream_flanking ),
+		downstream => substr( $contig->{'sequence'}, $args->{'end'}, $flanking )
 	};
 }
 

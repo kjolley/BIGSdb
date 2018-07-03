@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,10 +32,10 @@ sub initiate {
 }
 
 sub _get_resource_desc {
-	my ($self, $username) = @_;
+	my ( $self, $username ) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
-	return $self->{'system'}->{'description'} if !$user_info->{'user_db'}; 
-	return $self->{'datastore'}->run_query('SELECT name FROM user_dbases WHERE id=?',$user_info->{'user_db'});
+	return $self->{'system'}->{'description'} if !$user_info->{'user_db'};
+	return $self->{'datastore'}->run_query( 'SELECT name FROM user_dbases WHERE id=?', $user_info->{'user_db'} );
 }
 
 sub print_content {
@@ -44,33 +44,42 @@ sub print_content {
 	my $token_id = $q->param('oauth_token');
 	say q(<h1>Authorize client software to access your account</h1>);
 	if ( $self->{'system'}->{'authentication'} ne 'builtin' ) {
-		say q(<div class="box" id="statusbad"><p>This database does not use built-in authentication.  You cannot )
-		  . q(currently authorize third-party applications.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This database does not use built-in authentication. You cannot )
+				  . q(currently authorize third-party applications.),
+				navbar => 1
+			}
+		);
 		return;
 	} elsif ( $q->param('modify') ) {
 		$self->_modify_authorization;
 		return;
 	} elsif ( !$token_id ) {
-		say q(<div class="box" id="statusbad"><p>No request token specified.</p></div>);
+		$self->print_bad_status( { message => q(No request token specified.), navbar => 1 } );
 		return;
 	}
 	my $token = $self->{'datastore'}->run_query( 'SELECT * FROM request_tokens WHERE token=?',
 		$token_id, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
 	if ( !$token ) {
-		say q(<div class="box" id="statusbad"><p>Invalid token submitted.  )
-		  . q(It is possible that the token has expired.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Invalid token submitted. ) . q(It is possible that the token has expired.),
+				navbar  => 1
+			}
+		);
 		return;
 	} elsif ( time - $token->{'start_time'} > REQUEST_TOKEN_EXPIRES ) {
-		say q(<div class="box" id="statusbad"><p>The request token has expired.</p></div>);
+		$self->print_bad_status( { message => q(The request token has expired.), navbar => 1 } );
 		return;
 	} elsif ( $token->{'verifier'} ) {
-		say q(<div class="box" id="statusbad"><p>The request token has already been redeemed.</p></div>);
+		$self->print_bad_status( { message => q(The request token has already been redeemed.), navbar => 1 } );
 		return;
 	}
 	my $client = $self->{'datastore'}->run_query( 'SELECT * FROM clients WHERE client_id=?',
 		$token->{'client_id'}, { db => $self->{'auth_db'}, fetch => 'row_hashref' } );
 	if ( !$client ) {
-		say q(<div class="box" id="statusbad"><p>The client is not recognized.</p></div>);
+		$self->print_bad_status( { message => q(The client is not recognized.), navbar => 1 } );
 		$logger->error("Client $token->{'client_id'} does not exist.  This should not be possible.")
 		  ;    #Token is linked to client
 		return;
@@ -82,8 +91,13 @@ sub print_content {
 		)
 	  )
 	{
-		say q(<div class="box" id="statusbad"><p>The client does not have permission to )
-		  . q(access this resource.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The client does not have permission to access this resource.),
+				navbar  => 1
+			}
+		);
+
 		return;
 	}
 	if ( $q->param('authorize') ) {
@@ -91,13 +105,14 @@ sub print_content {
 		return;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<span class="main_icon fa fa-handshake-o fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-handshake fa-3x fa-pull-left"></span>);
 	say q(<p>Do you wish for the following application to access data on your behalf?</p>);
 	say q(<fieldset style="float:left"><legend>Application</legend>);
 	say qq(<p><b>$client->{'application'} );
 	say qq(version $client->{'version'}) if $client->{'version'};
 	say q(</b></p></fieldset>);
-	my $desc = $self->_get_resource_desc($self->{'username'}) || 'BIGSdb';
+	my $desc = $self->_get_resource_desc( $self->{'username'} ) || 'BIGSdb';
+
 	if ($desc) {
 		say q(<fieldset style="float:left"><legend>Resource</legend>);
 		say qq(<b>$desc</b>);
@@ -125,14 +140,14 @@ sub _authorize_token {
 			undef, $self->{'username'}, $dbase, $verifier, time, $q->param('oauth_token') );
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Token could not be authorized.</p></div>);
+		$self->print_bad_status( { message => q(Token could not be authorized.)} );
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {
 		say q(<div class="box" id="resultspanel">);
-		say q(<span class="main_icon fa fa-handshake-o fa-3x pull-left"></span>);
+		say q(<span class="main_icon far fa-handshake fa-3x fa-pull-left"></span>);
 		my $version = $client->{'version'} ? " version $client->{'version'} " : '';
-		my $desc = $self->_get_resource_desc($self->{'username'}) || 'BIGSdb';
+		my $desc = $self->_get_resource_desc( $self->{'username'} ) || 'BIGSdb';
 		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> )
 		  . q(on your behalf.</p>);
 		say qq(<p>Enter the following verification code when asked by $client->{'application'}.</p>);
@@ -169,10 +184,13 @@ sub _modify_authorization {
 		my @revoked;
 		foreach my $client (@$known_clients) {
 			next if !$q->param( $client->{'client_id'} );
-			my $user_db_name = $self->get_user_db_name($self->{'username'});
+			my $user_db_name = $self->get_user_db_name( $self->{'username'} );
 			eval {
-				$self->{'auth_db'}->do( 'DELETE FROM access_tokens WHERE (username,client_id,dbase)=(?,?,?)',
-					undef, $self->{'username'}, $client->{'client_id'}, $user_db_name);
+				$self->{'auth_db'}->do(
+					'DELETE FROM access_tokens WHERE (username,client_id,dbase)=(?,?,?)',
+					undef, $self->{'username'}, $client->{'client_id'},
+					$user_db_name
+				);
 			};
 			if ($@) {
 				$logger->error($@);
@@ -186,8 +204,12 @@ sub _modify_authorization {
 		if (@revoked) {
 			my $plural = @revoked == 1 ? '' : 's';
 			local $" = '</li><li>';
-			say q(<div class="box" id="resultsheader"><p>You have revoked access to the following )
-			  . qq(application$plural:</p><ul><li>@revoked</li></ul></div>);
+			$self->print_good_status(
+				{
+					message => q(You have revoked access to the following )
+					  . qq(application$plural:</p><ul><li>@revoked</li></ul>)
+				}
+			);
 		}
 	}
 	my $dbase   = $self->{'datastore'}->get_dbname_with_user_details( $self->{'username'} );
@@ -203,7 +225,7 @@ sub _modify_authorization {
 		return;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
-	say q(<span class="warning_icon fa fa-ban fa-5x pull-left"></span>);
+	say q(<span class="warning_icon fas fa-ban fa-5x fa-pull-left"></span>);
 	say q(<p>You have authorized the following applications to access resources on your behalf.  )
 	  . q(Select any whose permissions you would like to revoke.</p>);
 	say $q->start_form;

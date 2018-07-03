@@ -45,21 +45,26 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
 		say q(<h1>Add new profile</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>You can only add profiles to a sequence/profile database - )
-		  . q(this is an isolate database.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You can only add profiles to a sequence/profile database - )
+				  . q(this is an isolate database.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add new profiles.</p></div>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.), navbar => 1 } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say q(<div class="box" id="statusbad"><p>The selected scheme is inaccessible.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
 			return;
 		}
 	}
@@ -68,12 +73,22 @@ sub print_content {
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  Profiles )
-		  . q(cannot be entered until this has been done.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This scheme doesn't have a primary key field defined. Profiles )
+				  . q(cannot be entered until this has been done.),
+				navbar => 1
+			}
+		);
 		return;
 	} elsif ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  Profiles cannot )
-		  . q(be entered until there is at least one locus defined.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This scheme doesn't have any loci belonging to it. Profiles cannot )
+				  . q(be entered until there is at least one locus defined.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	my %newdata;
@@ -193,10 +208,14 @@ sub _upload {
 		}
 	}
 	if (@$bad_field_buffer) {
-		say q(<div class="box" id="statusbad"><p>There are problems with your record submission.  Please address the )
-		  . q(following:</p>);
 		local $" = '<br />';
-		say qq(<p>@$bad_field_buffer</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(There are problems with your record submission. Please address the following:),
+				detail  => qq(@$bad_field_buffer),
+				navbar  => 1
+			}
+		);
 		$insert = 0;
 	}
 
@@ -205,7 +224,7 @@ sub _upload {
 		my %designations = map { $_ => $newdata->{"locus:$_"} } @$loci;
 		my $ret =
 		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
-		say qq(<div class="box" id="statusbad"><p>$ret->{'msg'}</p></div>) if $ret->{'msg'};
+		$self->print_bad_status( { message => $ret->{'msg'}, navbar => 1 } ) if $ret->{'msg'};
 		$insert = 0 if $ret->{'exists'};
 	}
 	if ($insert) {
@@ -213,15 +232,20 @@ sub _upload {
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
 			[ $scheme_id, $newdata->{"field:$primary_key"} ] );
 		if ($pk_exists) {
-			say qq(<div class="box" id="statusbad"><p>$primary_key-$newdata->{"field:$primary_key"} has already been )
-			  . qq(defined - please choose a different $primary_key.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq($primary_key-$newdata->{"field:$primary_key"} has already been )
+					  . qq(defined - please choose a different $primary_key.),
+					navbar => 1
+				}
+			);
 			$insert = 0;
 		}
 		my $sender_exists =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $newdata->{'field:sender'} );
 		if ( !$sender_exists ) {
-			say q(<div class="box" id="statusbad"><p>Invalid sender set.</p></div>);
+			$self->print_bad_status( { message => q(Invalid sender set.), navbar => 1 } );
 			$insert = 0;
 		}
 		if ($insert) {
@@ -274,32 +298,33 @@ sub _upload {
 				}
 			};
 			if ($@) {
-				say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
-				  . q(no records have been touched.</p>);
+				my $detail;
 				if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-					say q(<p>Data entry would have resulted in records with either duplicate ids or another )
-					  . q(unique field with duplicate values.</p>);
+					$detail = q(Data entry would have resulted in records with either duplicate ids or another )
+					  . q(unique field with duplicate values.);
 				} else {
 					$logger->error("Insert failed: $@");
 				}
-				say q(</div>);
+				$self->print_bad_status(
+					{
+						message => 'Insert failed - transaction cancelled - no records have been touched.',
+						detail  => $detail
+					}
+				);
 				$self->{'db'}->rollback;
 			} else {
-				$self->{'db'}->commit
-				  && say qq(<div class="box" id="resultsheader"><p>$primary_key-$newdata->{"field:$primary_key"} )
-				  . q(added!</p><p>);
-				my ( $back, $more ) = ( BACK, MORE );
-				if ( $q->param('submission_id') ) {
-					my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
-					if ($submission) {
-						say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-						  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
-						  . qq(submission" style="margin-right:1em">$back</a>);
+				$self->{'db'}->commit;
+				my $submission_id = $q->param('submission_id');
+				$self->print_good_status(
+					{
+						message       => qq($primary_key-$newdata->{"field:$primary_key"} added.),
+						navbar        => 1,
+						submission_id => $submission_id,
+						more_url =>
+						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
+						  . qq(scheme_id=$scheme_id)
 					}
-				}
-				$self->print_home_link;
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
-				  . qq(scheme_id=$scheme_id" title="Add another">$more</a></p></div>);
+				);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
 				return SUCCESS;
 			}

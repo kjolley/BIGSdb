@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,8 +36,12 @@ sub print_content {
 	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	say qq(<h1>Configuration repair - $desc</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is only for use on )
-		  . q(sequence definition databases.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This function is only for use on sequence definition databases.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -76,15 +80,13 @@ sub print_content {
 
 sub _rebuild {
 	my ( $self, $scheme_id ) = @_;
-	eval {
-		$self->{'datastore'}->run_query("SELECT initiate_scheme_warehouse($scheme_id)");
-	};
+	eval { $self->{'datastore'}->run_query("SELECT initiate_scheme_warehouse($scheme_id)"); };
 	if ($@) {
 		$logger->error($@);
-		say q(<div class="box" id="statusbad"><p>Scheme rebuild failed.</p></div>);
+		$self->print_bad_status( { message => q(Scheme rebuild failed.), navbar => 1 } );
 		$self->{'db'}->rollback;
 	} else {
-		say q(<div class="box" id="resultsheader"><p>Scheme rebuild completed.</p></div>);
+		$self->print_good_status( { message => q(Scheme rebuild completed.), navbar => 1 } );
 		$self->{'db'}->commit;
 	}
 	return;

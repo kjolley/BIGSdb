@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2016, University of Oxford
+#Copyright (c) 2012-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,17 +39,23 @@ sub print_content {
 	my $table  = $q->param('table');
 	my %valid_table = map { $_ => 1 } qw (user_group_members locus_curators scheme_curators);
 	if ( !$self->{'datastore'}->is_table($table) ) {
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		say q(<h1>Batch update</h1>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	} elsif ( !$valid_table{$table} ) {
-		say q(<div class="box" id="statusbad"><p>Invalid table selected!</p></div>);
+		say q(<h1>Batch update</h1>);
+		$self->print_bad_status( { message => q(Invalid table selected!), navbar => 1 } );
 		return;
 	}
 	my $type = $self->get_record_name($table) // 'record';
 	say qq(<h1>Batch update ${type}s </h1>);
 	if ( !$self->can_modify_table($table) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account does not have )
-		  . q(permission to modify this table.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account does not have permission to modify this table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_print_interface;
@@ -65,7 +71,7 @@ sub _print_interface {
 		$self->_perform_action($table);
 		my $user_info = $self->{'datastore'}->get_user_info($user_id);
 		if ( !$user_info ) {
-			say q(<div class="box" id="statusbad"><p>Invalid user selected.</p></div>);
+			$self->print_bad_status( { message => q(Invalid user selected.), navbar => 1 } );
 			return;
 		}
 		say q(<div class="box" id="queryform">);
@@ -154,7 +160,9 @@ sub _print_interface {
 		say $q->hidden($_) foreach qw(db page table users_list);
 		say $q->end_form;
 		say q(</fieldset>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main</a></p>);
+		say q(<div>);
+		$self->print_navigation_bar;
+		say q(</div>);
 	} else {
 		say q(<div class="box" id="queryform">);
 		say $self->_print_user_form;
@@ -177,8 +185,7 @@ sub _perform_action {
 		);
 		my $sql_add = $self->{'db'}->prepare( $qry{$table} );
 		eval {
-			foreach my $record ( $q->param('available') )
-			{
+			foreach my $record ( $q->param('available') ) {
 				next if $record eq '';
 				my %method = (
 					locus_curators =>
@@ -199,8 +206,7 @@ sub _perform_action {
 		my $qry        = "DELETE FROM $table WHERE $table_data->{'foreign'}=? AND  $table_data->{'user_field'}=?";
 		my $sql_remove = $self->{'db'}->prepare($qry);
 		eval {
-			foreach my $record ( $q->param('selected') )
-			{
+			foreach my $record ( $q->param('selected') ) {
 				next if $record eq '';
 				$sql_remove->execute( $record, $user_id );
 			}

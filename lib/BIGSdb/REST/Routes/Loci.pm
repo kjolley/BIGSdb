@@ -33,22 +33,26 @@ post '/db/:db/sequence'             => sub { _query_sequence() };
 sub _get_loci {
 	my $self   = setting('self');
 	my ($db)   = params->{'db'};
+	my $allowed_filters = $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
 	  ? ' WHERE (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	my $locus_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM loci$set_clause");
+	  my $count_qry = $self->add_filters("SELECT COUNT(*) FROM loci$set_clause",$allowed_filters);
+	my $locus_count = $self->{'datastore'}->run_query($count_qry);
 	my $page_values = $self->get_page_values($locus_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	my $qry = "SELECT id FROM loci$set_clause ORDER BY id";
-	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $qry = $self->add_filters( "SELECT id FROM loci$set_clause", $allowed_filters );
+	$qry .= ' ORDER BY id';
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !params->{'return_all'};
 	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($locus_count) };
 
 	if (@$loci) {
-		my $paging = $self->get_paging( "/db/$db/loci", $pages, $page, $offset );
+		my $path = $self->get_full_path( "/db/$db/loci", $allowed_filters );
+		my $paging = $self->get_paging( $path, $pages, $page, $offset );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		foreach my $locus (@$loci) {

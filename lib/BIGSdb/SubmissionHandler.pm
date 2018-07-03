@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:submissions SEQ_METHODS);
+use BIGSdb::Constants qw(:submissions SEQ_METHODS DEFAULT_DOMAIN);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
 my $logger = get_logger('BIGSdb.Submissions');
 
@@ -38,7 +38,7 @@ sub new {
 	my ( $class, @atr ) = @_;
 	my $self = {@atr};
 	bless( $self, $class );
-	$logger->info('Submission handler set up.');
+	$logger->debug('Submission handler set up.');
 	$self->_delete_expired_flood_protection_files;
 	return $self;
 }
@@ -871,7 +871,7 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	foreach my $option (@$options) {
 		return if $value eq $option;
 	}
-	if ( ($thisfield->{'required'} // q()) eq 'no' ) {
+	if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
 		return if $value eq q();
 	}
 	return qq("$value" is not on the list of allowed values for this field.);
@@ -1099,12 +1099,13 @@ sub _user_exists {
 sub email {
 	my ( $self, $submission_id, $params ) = @_;
 	my $submission = $self->get_submission($submission_id);
-	my $subject = $params->{'subject'} // "Submission#$submission_id";
 	foreach (qw(sender recipient message)) {
 		$logger->logdie("No $_") if !$params->{$_};
 	}
-	my $sender    = $self->{'datastore'}->get_user_info( $params->{'sender'} );
-	my $recipient = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
+	my $domain     = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $from_email = qq(no_reply\@$domain);
+	my $sender     = $self->{'datastore'}->get_user_info( $params->{'sender'} );
+	my $recipient  = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
 	foreach my $user ( $sender, $recipient ) {
 		my $address = Email::Valid->address( $user->{'email'} );
 		if ( !$address ) {
@@ -1112,6 +1113,7 @@ sub email {
 			return;
 		}
 	}
+	my $subject = qq([$sender->{'email'}] ) . ( $params->{'subject'} // "Submission#$submission_id" );
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
@@ -1121,7 +1123,7 @@ sub email {
 	  : undef;
 	my $header_params = [
 		To      => $recipient->{'email'},
-		From    => $sender->{'email'},
+		From    => $from_email,
 		Subject => $subject
 	];
 	push @$header_params, ( Cc => $cc ) if defined $cc;
@@ -1136,6 +1138,7 @@ sub email {
 	eval {
 		try_to_sendmail( $email, { transport => $transport } )
 		  || $logger->error("Cannot send E-mail to $recipient->{'email'}");
+		$logger->info("Email to $recipient->{'email'}: $subject");
 	};
 	$logger->error($@) if $@;
 	return;
@@ -1156,14 +1159,23 @@ sub get_text_summary {
 	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
 	}
-	my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { affiliation => 1 } );
+	my $submitter_string =
+	  $self->{'datastore'}
+	  ->get_user_string( $submission->{'submitter'}, { email => 1, text_email => 1, affiliation => 1 } )
+	  ;
 	$msg .= "Submitter: $submitter_string\n";
 	if ( $submission->{'curator'} ) {
-		my $curator_string = $self->{'datastore'}->get_user_string( $submission->{'curator'}, { affiliation => 1 } );
+		my $curator_string = $self->{'datastore'}
+		  ->get_user_string( $submission->{'curator'}, { email => 1, text_email => 1, affiliation => 1 } );
 		$msg .= "Curator: $curator_string\n";
 	}
 	$msg .= "Outcome: $outcome\n" if $outcome;
-	my %methods = ( alleles => '_get_allele_submission_summary', profiles => '_get_profile_submission_summary' );
+	my %methods = (
+		alleles  => '_get_allele_submission_summary',
+		profiles => '_get_profile_submission_summary',
+		isolates => '_get_isolate_submission_summary',
+		genomes  => '_get_isolate_submission_summary'
+	);
 	if ( $methods{ $submission->{'type'} } ) {
 		my $method  = $methods{ $submission->{'type'} };
 		my $summary = $self->$method($submission_id);
@@ -1356,6 +1368,14 @@ sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 		$return_buffer .= $self->_get_text_heading( 'Assignments', { blank_line_before => 1 } );
 		$return_buffer .= $buffer;
 	}
+	return $return_buffer;
+}
+
+sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
+	$return_buffer .= 'Isolate count: ' . scalar @{ $isolate_submission->{'isolates'} } . "\n";
 	return $return_buffer;
 }
 1;

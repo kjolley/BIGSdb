@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,34 +36,38 @@ sub print_content {
 	my $scheme_id  = $q->param('scheme_id');
 	my $profile_id = $q->param('profile_id');
 	if ( !$scheme_id ) {
-		say q(<div class="box" id="statusbad"><p>No scheme id passed.</p></div>);
+		$self->print_bad_status( { message => q(No scheme id passed.), navbar => 1 } );
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 		return;
 	} elsif ( !$profile_id ) {
-		say q(<div class="box" id="statusbad"><p>No profile id passed.</p></div>);
+		$self->print_bad_status( { message => q(No profile id passed.), navbar => 1 } );
 		return;
 	}
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say q(<div class="box" id="statusbad"><p>The selected scheme is unavailable.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is unavailable.), navbar => 1 } );
 			return;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info ) {
-		say qq(<div class="box" id="statusbad"><p>Scheme $scheme_id does not exist.</p></div>);
+		$self->print_bad_status( { message => qq(Scheme $scheme_id does not exist.), navbar => 1 } );
 		return;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available )
-		  . q(within an isolate database.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This function is not available within an isolate database.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>There is no primary key defined for this scheme.</p></div>);
+		$self->print_bad_status( { message => q(There is no primary key defined for this scheme.), navbar => 1 } );
 		return;
 	}
 	say qq(<h1>Profile information for $primary_key-$profile_id ($scheme_info->{'name'})</h1>);
@@ -77,9 +81,13 @@ sub print_content {
 	if ( $q->param('history') ) {
 		say q(<div class="box" id="resultstable">);
 		say q(<h2>Update history</h2>);
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
-		  . qq(scheme_id=$scheme_id&amp;profile_id=$profile_id\">Back to profile information</a></p>);
 		say $self->_get_update_history( $scheme_id, $profile_id ) // '';
+		$self->print_navigation_bar(
+			{
+				back_url => qq($self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
+				  . qq(scheme_id=$scheme_id&amp;profile_id=$profile_id)
+			}
+		);
 	} else {
 		say q(<div class="box" id="resultspanel">);
 		say q(<div class="scrollable">);
@@ -171,6 +179,7 @@ sub _print_client_db_links {
 	}
 	if ($buffer) {
 		my $plural = @$clients > 1 ? q(s) : q();
+		say q(<span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-0.2em"></span>);
 		say qq(<h2>Client database$plural</h2>);
 		say q(<dl class="data">);
 		say $buffer;
@@ -190,8 +199,7 @@ sub _print_profile {
 	say qq(<dl class="profile"><dt>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( $scheme_field_info->{'description'} ) {
-		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
-		  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say qq(</dt><dd>$profile_id</dd></dl>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -210,8 +218,8 @@ sub _print_profile {
 		$cleaned =~ tr/_/ /;
 		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
-			$cleaned .= qq( <a class="tooltip" title="$cleaned - $scheme_field_info->{'description'}">)
-			  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+			$cleaned .=
+			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		say qq(<dl class="profile"><dt>$cleaned</dt>);
 		$data->{ lc($field) } //= q(&nbsp;);

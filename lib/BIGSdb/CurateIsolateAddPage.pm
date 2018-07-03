@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,14 +50,23 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>Add new isolate</h1>);
 	if ( !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
-		  . q(to the isolates table.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(our user account is not allowed to add records ) . q(to the isolates table.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( $self->{'permissions'}->{'only_private'} ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add records )
-		  . q(to the isolates table using this interface. You can only upload private data using )
-		  . q(the batch upload page.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to add records )
+				  . q(to the isolates table using this interface. You can only upload private data using )
+				  . q(the batch upload page.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -139,10 +148,13 @@ sub _check {
 		}
 	}
 	if (@bad_field_buffer) {
-		say q(<div class="box" id="statusbad"><p>There are problems with your record submission. )
-		  . q(Please address the following:</p>);
 		local $" = '<br />';
-		say qq(<p>@bad_field_buffer</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(There are problems with your record submission. ) . q(Please address the following:),
+				detail  => qq(@bad_field_buffer)
+			}
+		);
 		$insert = 0;
 	}
 	foreach ( keys %$newdata ) {    #Strip any trailing spaces
@@ -153,12 +165,16 @@ sub _check {
 	}
 	if ($insert) {
 		if ( $self->id_exists( $newdata->{'id'} ) ) {
-			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has already been defined - )
-			  . q(please choose a different id number.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(id-$newdata->{'id'} has already been defined - )
+					  . q(please choose a different id number.)
+				}
+			);
 			$insert = 0;
 		} elsif ( $self->retired_id_exists( $newdata->{'id'} ) ) {
-			say qq(<div class="box" id="statusbad"><p>id-$newdata->{'id'} has been retired - )
-			  . q(please choose a different id number.</p></div>);
+			$self->print_bad_status(
+				{ message => qq(id-$newdata->{'id'} has been retired - please choose a different id number.) } );
 			$insert = 0;
 		}
 		return $self->_insert($newdata) if $insert;
@@ -264,7 +280,7 @@ sub _insert {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
-			say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
+			$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
 			$insert = 0;
 		}
 		push @inserts,
@@ -279,32 +295,38 @@ sub _insert {
 			$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 		}
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>Insert failed - transaction cancelled - )
-			  . q(no records have been touched.</p>);
+			my $detail;
 			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
-				  . q(unique field with duplicate values.</p>);
+				$detail = q(Data entry would have resulted in records with either duplicate ids or another )
+				  . q(unique field with duplicate values.);
 			} else {
-				say qq(<p>Error message: $@</p>);
 				$logger->error("Insert failed: $qry  $@");
 			}
-			say q(</div>);
+			$self->print_bad_status(
+				{
+					message => q(Insert failed - transaction cancelled - no records have been touched.),
+					detail  => $detail
+				}
+			);
 			$self->{'db'}->rollback;
 		} else {
-			$self->{'db'}->commit
-			  && say qq(<div class="box" id="resultsheader"><p>id-$newdata->{'id'} added!</p>);
-			my ( $more, $upload, $link ) = ( MORE, UPLOAD_CONTIGS, LINK_CONTIGS );
-			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd")
-			  . qq( title="Add another" style="margin-right:1em">$more</a>);
-			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$newdata->{'id'}"")
-			  . qq( title="Upload sequences" style="margin-right:1em">$upload</a>);
+			$self->{'db'}->commit;
+			my ( $upload_contigs_url, $link_contigs_url );
+			$upload_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=addSeqbin&amp;isolate_id=$newdata->{'id'});
 			if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
-				say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'}"")
-				  . qq( title="Link remote contigs" style="margin-right:1em">$link</a>);
+				$link_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'});
 			}
-			$self->print_home_link;
+			$self->print_good_status(
+				{
+					message  => qq(Isolate id-$newdata->{'id'} added.),
+					navbar   => 1,
+					more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd),
+					upload_contigs_url => $upload_contigs_url,
+					link_contigs_url   => $link_contigs_url
+				}
+			);
 			$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 			return SUCCESS;
 		}
@@ -487,7 +509,7 @@ sub print_provenance_form_elements {
 	return;
 }
 
-sub _print_id_no_update {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_id_no_update {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self,  $args )    = @_;
 	my ( $field, $newdata ) = @{$args}{qw(field newdata)};
 	my $q = $self->{'cgi'};
@@ -499,7 +521,7 @@ sub _print_id_no_update {            ## no critic (ProhibitUnusedPrivateSubrouti
 	return;
 }
 
-sub _print_optlist {                 ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
 	if ( $thisfield->{'optlist'} ) {

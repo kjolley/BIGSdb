@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,23 +59,28 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Update isolate</h1>);
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
-	my $sql = $self->{'db'}->prepare($qry);
-	if ( !$q->param('id') ) {
-		say q(<div class="box" id="statusbad"><p>No id passed.</p></div>);
+	my $isolate_id = $q->param('id');
+	my $qry        = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
+	my $sql        = $self->{'db'}->prepare($qry);
+	if ( !$isolate_id ) {
+		$self->print_bad_status( { message => q(No id passed.), navbar => 1 } );
 		return;
-	} elsif ( !BIGSdb::Utils::is_int( $q->param('id') ) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid id passed.</p></div>);
+	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
+		$self->print_bad_status( { message => q(Invalid id passed.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
 		&& !$self->can_modify_table('allele_designations')
 		&& !$self->can_modify_table('samples') )
 	{
-		say q(<div class="box" id="statusbad"><p>Your user account is not )
-		  . q(allowed to update isolate records.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to update isolate records.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
-	eval { $sql->execute( $q->param('id') ) };
+	eval { $sql->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
 	$self->add_existing_metadata_to_hashref($data);
@@ -83,11 +88,10 @@ sub print_content {
 		my $exists_in_isolates_table =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $q->param('id') );
 		if ($exists_in_isolates_table) {
-			say q(<div class="box" id="statusbad"><p>Isolate id-)
-			  . $q->param('id')
-			  . q( is not accessible from your account.</p></div>);
+			$self->print_bad_status(
+				{ message => qq(Isolate id-$isolate_id is not accessible from your account.), navbar => 1 } );
 		} else {
-			say q(<div class="box" id="statusbad"><p>No record with id-) . $q->param('id') . q( exists.</p></div>);
+			$self->print_bad_status( { message => qq(No record with id-$isolate_id exists.), navbar => 1 } );
 		}
 		return;
 	}
@@ -102,8 +106,12 @@ sub _check {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not )
-		  . q(allowed to update isolate fields.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to update isolate fields.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my %newdata;
@@ -138,10 +146,13 @@ sub _check {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
 	if (@bad_field_buffer) {
-		say q(<div class="box" id="statusbad"><p>There are problems with your record submission. )
-		  . q(Please address the following:</p>);
 		local $" = '<br />';
-		say qq(<p>@bad_field_buffer</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(There are problems with your record submission. ) . q(Please address the following:),
+				detail  => qq(@bad_field_buffer)
+			}
+		);
 	} else {
 		return $self->_update( $data, \%newdata );
 	}
@@ -164,6 +175,7 @@ sub _update {
 	foreach my $field (@$field_list) {
 		$data->{ lc($field) } //= '';
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ( $att->{'no_curate'} // q() ) eq 'yes';
 		if ( $att->{'type'} eq 'bool' ) {
 			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
@@ -225,7 +237,7 @@ sub _update {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				say q(<div class="box" id="statusbad"><p>PubMed ids must be integers.</p></div>);
+				$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
 				$update = 0;
 			}
 			push @pubmed_update,
@@ -255,31 +267,42 @@ sub _update {
 				}
 			};
 			if ($@) {
-				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-				  . q(no records have been touched.</p>);
+				my $detail;
 				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-					say q(<p>Data update would have resulted in records with either duplicate ids or )
-					  . q(another unique field with duplicate values.</p>);
+					$detail = q(Data update would have resulted in records with either duplicate ids or )
+					  . q(another unique field with duplicate values.);
 				} elsif ( $@ =~ /datestyle/ ) {
-					say q(<p>Date fields must be entered in yyyy-mm-dd format.</p>);
+					$detail = q(Date fields must be entered in yyyy-mm-dd format.);
 				} else {
 					$logger->error($@);
 				}
-				say q(</div>);
+				$self->print_bad_status(
+					{
+						message => q(Update failed - transaction cancelled - no records have been touched.),
+						detail  => $detail
+					}
+				);
 				$self->{'db'}->rollback;
 			} else {
-				$self->{'db'}->commit
-				  && say q(<div class="box" id="resultsheader"><p>Updated!</p>);
-				say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				$self->{'db'}->commit;
+				$self->print_good_status(
+					{
+						message        => q(Isolate updated.),
+						navbar         => 1,
+						query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query)
+					}
+				);
 				local $" = '<br />';
 				$self->update_history( $data->{'id'}, "@updated_field" );
 				return SUCCESS;
 			}
 		} else {
-			say q(<div class="box" id="resultsheader"><p>No field changes have been made.</p>);
-			say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			$self->print_bad_status(
+				{
+					message => q(No field changes have been made.),
+					navbar  => 1
+				}
+			);
 		}
 	}
 	return;

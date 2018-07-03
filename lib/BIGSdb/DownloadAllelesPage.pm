@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -147,9 +147,13 @@ sub print_content {
 	if ( defined $q->param('scheme_id') ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-			say q(<h1>Download allele sequences</h1>)
-			  . q(<div class="box" id="statusbad"><p>This function is only available for )
-			  . q(sequence definition databases</p></div>);
+			say q(<h1>Download allele sequences</h1>);
+			$self->print_bad_status(
+				{
+					message => q(This function is only available for sequence definition databases),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -204,17 +208,17 @@ sub print_content {
 	}
 	say q(<h1>Download allele sequences</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available for isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is not available for isolate databases.), navbar => 1 } );
 		return;
 	}
 	if ( $self->_downloads_disabled ) {
-		say q(<div class="box" id="statusbad"><p>Allele sequence downloads are )
-		  . q(disabled for this database.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Allele sequence downloads are disabled for this database.), navbar => 1 } );
 		return;
 	}
 	my $all_loci = $self->{'datastore'}->get_loci;
 	if ( !@$all_loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);
@@ -446,7 +450,7 @@ sub _print_locus_row {
 	print qq(<tr class="td$options->{'td'}"><td><a href="$self->{'system'}->{'script_name'}?)
 	  . qq(db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus">$display_name</a></td><td> );
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles&amp;)
-	  . qq(locus=$locus"> <span class="file_icon fa fa-download"></span></a>)
+	  . qq(locus=$locus"> <span class="file_icon fas fa-download"></span></a>)
 	  if $count;
 	print qq(</td><td>$locus_info->{'data_type'}</td><td>$count</td>);
 	if ( $locus_info->{'length_varies'} ) {
@@ -538,13 +542,13 @@ sub _print_locus_row {
 sub _print_alphabetical_list {
 	my ($self) = @_;
 	my $locus_pattern = LOCUS_PATTERN;
-	foreach my $letter ( 0 .. 9, 'A' .. 'Z', q(') ) {
+	foreach my $letter ( 0 .. 9, 'A' .. 'Z', q('), q(_) ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 			$self->{'mod_perl_request'}->rflush;
 		}
-		my $qry_letter = $letter =~ /\d/x ? '\\\_' . $letter : $letter;
-		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($qry_letter);
+#		my $qry_letter = $letter =~ /\d/x ? '\\\_' . $letter : $letter;
+		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
 		if ( @$main || @$common || @$aliases ) {
 			my %names;
 			$names{"l_$_"}                            = $self->clean_locus($_)             foreach @$main;
@@ -554,17 +558,17 @@ sub _print_alphabetical_list {
 				'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus IN '
 				  . '(SELECT id FROM loci WHERE UPPER(id) LIKE ? OR upper(common_name) LIKE ?) OR locus IN '
 				  . '(SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?))',
-				[ ("$qry_letter%") x 3 ],
+				[ ("$letter%") x 3 ],
 				{ cache => 'DownloadAllelesPage::print_alphabetical_list::descs_exists' }
 			);
 			my $aliases_exist =
 			  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_aliases WHERE alias LIKE ?)',
-				"$qry_letter%", { cache => 'DownloadAllelesPage::print_alphabetical_list::aliases_exists' } );
+				"$letter%", { cache => 'DownloadAllelesPage::print_alphabetical_list::aliases_exists' } );
 			my $curators_exist = $self->{'datastore'}->run_query(
 				'SELECT EXISTS(SELECT * FROM locus_curators WHERE (locus IN '
 				  . '(SELECT id FROM loci WHERE UPPER(id) LIKE ? OR UPPER(common_name) LIKE ?) OR '
 				  . 'locus IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) LIKE ?)) AND NOT hide_public)',
-				[ ("$qry_letter%") x 3 ],
+				[ ("$letter%") x 3 ],
 				{ cache => 'DownloadAllelesPage::print_alphabetical_list::curators_exists' }
 			);
 			say qq(<h2>$letter</h2>);
@@ -596,6 +600,7 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
+	$letter= q(\_) if $letter eq q(_);
 	my $set_id = $self->get_set_id;
 
 	#make sure 'id IN' has a space before it - used in the substitution a

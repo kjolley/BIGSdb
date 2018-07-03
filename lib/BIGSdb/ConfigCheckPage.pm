@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,7 +31,7 @@ sub print_content {
 	say qq(<h1>Configuration check - $desc</h1>);
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->{'permissions'}->{'modify_schemes'} || $self->is_admin ) )
 	{
-		say q(<div class="box" id="statusbad"><p>You do not have permission to view this page.</p></div>);
+		$self->print_bad_status( { message => q(You do not have permission to view this page.), navbar => 1 } );
 		return;
 	}
 	$self->_check_helpers;

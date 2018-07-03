@@ -3,7 +3,7 @@ select{margin:0}
 p {margin:0 0 1em 0;padding:0}
 
 body {
-	font:0.9em/110% Arial,Helvetica,sans-serif;
+	font:1em/110% Arial,Helvetica,sans-serif;
 	background:#fff;
 	color:#000;
 	margin-left:3px;
@@ -34,6 +34,7 @@ h3 {
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
 ul.toplevel {margin-left:8px}
+ul.infopanel {background:#f6f6f6;padding:1em 1em 0 2em;border:1px dashed #888}
 table {font-size: 1em;border-spacing:1px}
 
 a {color:#00b;text-decoration:none;z-index:9}
@@ -69,10 +70,9 @@ sub {bottom: -0.25em}
 a.no_link {color:black}
 a.no_link:hover {text-decoration:none;color:black}
 
-#tooltip,a.update_tooltip {
+a.update_tooltip {
 	background:#fafad2;
 	color:black;
-	opacity:0.9
 }
 
 a.sequence_tooltip {
@@ -200,6 +200,7 @@ a.update:hover {background:#d0f5d0}
 	border:1px solid #999;
 	box-shadow: 1px 1px 1px #999;
 	border-radius:3px;
+	white-space:nowrap
 }
 
 .button:hover,.smallbutton:hover,.fieldvaluebutton:hover {
@@ -393,10 +394,10 @@ td.private_record {background:#ebb}
 tr.total {background:green;color:white}
 tr.warning {background:#e0a0a0;color:black}
 
-span.link {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
-span.source {padding:0 0.5em;font-size:0.8em; background:green; color:white;}
-span.metaset {padding:0 0.5em;font-size:0.8em; background:blue; color:white;}
-span.highlightvalue {background:#ffffa0; border-bottom:1px solid #e0e000; color: #400000}
+span.link {padding:0 0.5em;font-size:0.8em;background:green;color:white;white-space:nowrap}
+span.source {padding:0 0.5em;font-size:0.8em;background:green;color:white}
+span.metaset {padding:0 0.5em;font-size:0.8em;background:blue;color:white}
+span.highlightvalue {background:#ffffa0;border-bottom:1px solid #e0e000;color:#400000}
 
 .A,.G,.T,.C {font-weight:600}
 .A {color:green}
@@ -430,6 +431,36 @@ div.box {
 	border-radius: 10px;
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
+div.navigation {
+	float:left;
+	border:2px solid #aaa;
+	padding:0 0 0 1em;
+	background:#ddf;
+	border-radius:5px;
+}
+div.curategroup {
+	text-align:center;
+	padding:1em;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	float:left;
+}
+div.curategroup h2 {font-size:1.2em;margin:0}
+div.curategroup_users {background:#fff}
+div.curategroup_locus_descriptions {background:#fef}
+div.curategroup_sequences {background:#eef}
+div.curategroup_profiles {background:#eff}
+div.curategroup_isolates {background:#eef}
+div.curategroup_projects {background:#ddf}
+div.curategroup_designations {background:#fee}
+div.curategroup_experiments {background:#eff}
+div.curategroup_samples {background:#fdd}
+div.curategroup_permissions {background:#fff}
+div.curategroup_remote_dbases {background:#eef}
+div.curategroup_maintenance {background:#ffe}
+div.curategroup_loci {background:#fdd}
+div.curategroup_schemes {background:#dcf}
+div.curategroup_sets {background:#cdf}
 
 div.queryform, div#queryform {background:#e0e0e0;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -439,20 +470,21 @@ div#queryform table.queryform td {padding:0}
 div#chart {background:#e0e0e0}
 div#sequence {background:#efefff}
 div#index {background:#d5e0d5}
-div#submissions {background:#d5d5e0}
-div#account_requests {background:#e0e0d5}
+div#curator {background:#e7e7e7}
+div#admin {background:#f0e7e7}
+div#submissions {background:#e7e7f0}
+div#account_requests {background:#f0f0e7}
 div#sets {background:#e0e0d5}
 div#schemes {background:#e0e0d5}
 div#projects,div#jobs {background:#f0f0e5}
-div#index img,#plugins img,#sets img, #restricted img {float:left;margin-right:10px;width:32px}
 div#restricted {background:#e0d5d5}
 div#statuswarn, div.statuswarn {background:#e0e0d5;color:#404000}
 div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
 div.statusbad_no_resize {background:#e0d5d5;color:#800000}
 div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
-div#resultsheader {background:#d5e0d5;padding:5px}
-div#resultsfooter {background:#d5e0d5;padding:5px}
+div#resultsheader, div.resultsheader {background:#d5e0d5;padding:5px}
+div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
 div#resultspanel, div.resultspanel {background:#f0f0f0}
 div#resultspanel li,p,dd {position:relative;z-index:3}
@@ -460,29 +492,30 @@ div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
-div.scrollable {overflow-x:auto}
+div.scrollable {overflow-x:auto;padding-top:0.2em}
 div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background:#d5d5e0}
 div#message {background:#e0d5d5}
-div#curatetools { background: #e5e5f0}
+
 
 div#menubutton {
 	float:right;
-	font-size:1.2em;
+	font-size:1.4em;
 	position:absolute;
-	top:4px;
+	top:1px;
 	right:5px;
-	z-index:3;		
+	z-index:3	
 }
 
 div#menubutton a  {
 	border:1px solid transparent;
 	border-radius: 3px;
 	box-shadow: 1px 1px 1px transparent;
-	padding:0 0.1em;
-	color:black
+	padding:0 0;
+	margin-left:0.2em;
+	color:#555;
 }
 div#menubutton a:hover {
 	border:1px solid #ccc;
@@ -518,6 +551,7 @@ div#pluginoptions, div#curatetools {
 	border-radius: 10px;
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
+div#curatetools {background: #e5e5f0}
 
 div#pluginoptions ul {list-style-type:none; margin-left:-2em}
 
@@ -583,6 +617,8 @@ span.flag {
 	border-bottom-style:solid;
 	padding:0 0.1em
 }
+p.outcome_message {font-size:1.2em}
+p.outcome_detail {font-size:1em}
 .flash_message {color:purple}
 
 .hiddenbydefault {display:none}
@@ -655,7 +691,7 @@ div.scheme_tree {
  .data dt { 
  	float: left; 
  	clear: left; 
- 	width: 10em; 
+ 	width: 12em; 
  	white-space: nowrap;
  	overflow: hidden;
  	text-overflow: ellipsis;
@@ -664,7 +700,7 @@ div.scheme_tree {
  	color: #404080; 
  } 
  .data dt:after {content:":"} 
- .data dd {margin: 0 0 0 11em;padding: 0 0 0.3em 0}
+ .data dd {margin: 0 0 0 13em;padding: 0 0 0.3em 0}
  
  dl.profile {
 	margin:0;
@@ -683,7 +719,7 @@ div.scheme_tree {
 }
 	
 .profile dd {
-	min-height:1.5em;
+	min-height:1.7em;
 	padding: 0 0.2em;
 	margin:0;
 	background:white;
@@ -734,7 +770,18 @@ h3.group4 {color:white;background:#60A060}
 h3.group5 {background:#80C080}
 h3.group6 {background:#A0E0A0}
 
+span.navigation_button {
+	display:inline-block;
+	border:2px solid #aaa;
+	padding:0 0.5em 0 0.5em;
+	background:#ddf;
+	border-radius:5px;
+}
+span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
+span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
+span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
+span.info_plugin_icon {color:#66a;text-shadow: 2px 2px 2px #999}
 span.nav_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.nav_icon:hover {color:#88c}
 span.job_icon {color:#a66;text-shadow: 3px 3px 3px #999}
@@ -744,22 +791,50 @@ span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.wait_message {color:#66a;font-size:3em}
 span.browse {color:#080}
-span.file_icon {color:#44d}
+span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
+span.success {color:#080;text-shadow: 5px 5px 5px #aaa}
+span.failure {color:#800;text-shadow: 5px 5px 5px #aaa}
+span.warn {color:#f94;text-shadow: 5px 5px 5px #aaa}
 button.main {color:#66a}
 button.main:hover {color:#88c}
 button.plugin {color:#a6a}
 button.plugin:hover {color:#c8c}
 
-.filetype-text {font-size:0.7em;font-weight:700;font-family:'Oswald'}
+.filetype-text {color:white;font-size:0.7em;font-weight:700;font-family:Sans-Serif}
 
 .form_icon {display:inline;position:absolute;right:0;margin: 0.5em 1em}
 .form_icon_main {color:#bbb;background:transparent;z-index:1}
 .form_icon_plus {color:#7a7;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_edit {color:#77a;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
 .form_icon_trash {color:#a77;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
+.form_icon_scan {color:#99c;top:-0.5em;text-shadow:0px 0px 10px #fff;z-index:2}
+.form_icon > .fa-stack > .fa-users {font-size:1.7em}
+
+
 @media (max-width: 600px){
 	.form_icon {display:none}
 }
+
+.curate_icon_highlight {position:absolute;font-size:2em;text-shadow:0px 0px 10px #fff;z-index:2}
+.curate_icon_link:hover .curate_icon_highlight{text-shadow:0px 0px 10px red}
+.curate_icon_plus {color:#080}
+.curate_icon_query {color:#44a}
+.curate_icon_edit {color:#22a}
+.curate_icon_delete {color:#a22}
+.curate_icon_import {color:#29f}
+.curate_icon_fasta {color:#77d}
+.curate_icon_info {color:#88c}
+.curate_icon_batch_edit {color:#44a}
+.curate_icon_link_remote {color:#f54}
+.curate_icon_scan_barcode {color:#000}
+.curate_icon_scan_query {color:#a22}
+.curate_icon_set {color:#848}
+.curate_icon_action {color:#484}
+
+.toggle_icon {color:#66a}
+
+.dropzone{border:dashed 3px #666;border-radius:25px;background-color:#f0f0ff;}
+.dz-message{font-size:2em;color:#aaa}
 
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}

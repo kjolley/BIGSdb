@@ -27,6 +27,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 #Scheme routes
 get '/db/:db/schemes'                       => sub { _get_schemes() };
 get '/db/:db/schemes/:scheme'               => sub { _get_scheme() };
+get '/db/:db/schemes/:scheme/loci'          => sub { _get_scheme_loci() };
 get '/db/:db/schemes/:scheme/fields/:field' => sub { _get_scheme_field() };
 post '/db/:db/schemes/:scheme/sequence'     => sub { _query_scheme_sequence() };
 
@@ -102,6 +103,27 @@ sub _get_scheme {
 		}
 		$values->{'classification_schemes'} = $c_schemes;
 	}
+	return $values;
+}
+
+sub _get_scheme_loci {
+	my $self = setting('self');
+	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
+	$self->check_scheme($scheme_id);
+	my $allowed_filters =
+	  $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
+	my $qry =
+	  $self->add_filters( 'SELECT locus FROM scheme_members WHERE scheme_id=?', $allowed_filters, { id => 'locus' } );
+	$qry .= ' ORDER BY field_order,locus';
+	my $loci = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
+	my $values = { records => int(@$loci) };
+	my $locus_links = [];
+
+	foreach my $locus (@$loci) {
+		my $cleaned_locus = $self->clean_locus($locus);
+		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus");
+	}
+	$values->{'loci'} = $locus_links;
 	return $values;
 }
 

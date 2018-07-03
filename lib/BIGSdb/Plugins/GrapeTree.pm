@@ -47,6 +47,7 @@ sub get_attributes {
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,js_tree,EnteroMSTree',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis.html#grapetree",
 		order               => 20,
 		min                 => 2,
 		max                 => $self->_get_limit,

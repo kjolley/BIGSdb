@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.1',
+		version       => '1.2.3',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -135,7 +135,7 @@ sub run {
 	if ( !( defined $q->param('function') && $q->param('function') eq 'summary_table' ) ) {
 		say q(<h1>Field breakdown of dataset</h1>);
 		say q(<div class="hideonload"><p><b>Please wait for charts to be generated ...</b></p>)
-		  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+		  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	}
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush;
@@ -147,7 +147,6 @@ sub run {
 	return if ref $qry_ref ne 'SCALAR';
 	my $qry = $$qry_ref;
 	$qry =~ s/ORDER\ BY.*$//gx;
-	$logger->debug("Breakdown query: $qry");
 	return if !$self->create_temp_tables($qry_ref);
 	$self->{'extended'} = $self->get_extended_attributes;
 
@@ -234,20 +233,22 @@ sub run {
 	say q(</p></div></div>);
 	say q(<noscript><p class="highlight">Please enable Javascript to view breakdown charts in place.</p></noscript>);
 	if ( !$field_count ) {
-		say q(<div class="box" id="statusbad"><p>There are no displayable fields defined.</p></div>);
+		$self->print_bad_status( { message => q(There are no displayable fields defined.) } );
 		return;
 	}
 	say qq(<div class="box" id="chart"><h2 id="field">$display_name</h2><div class="scrollable">)
 	  . qq(<img id="placeholder" src="$src" alt="breakdown chart" /></div></div>);
-	my $query_clause    = defined $query_file ? qq(&amp;query_file=$query_file) : q();
-	my $list_file       = $q->param('list_file');
-	my $datatype        = $q->param('datatype');
-	my $listfile_clause = defined $list_file ? qq(&amp;list_file=$list_file) : q();
-	my $datatype_clause = defined $datatype ? qq(&amp;datatype=$datatype) : q();
+	my $query_clause      = defined $query_file ? qq(&amp;query_file=$query_file) : q();
+	my $list_file         = $q->param('list_file');
+	my $datatype          = $q->param('datatype');
+	my $temp_table_file   = $q->param('temp_table_file');
+	my $listfile_clause   = defined $list_file ? qq(&amp;list_file=$list_file) : q();
+	my $datatype_clause   = defined $datatype ? qq(&amp;datatype=$datatype) : q();
+	my $temp_table_clause = defined $temp_table_file ? qq(&amp;temp_table_file=$temp_table_file) : q();
 	my $base_link =
 	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-	  . qq(name=FieldBreakdown&amp;function=summary_table$query_clause$listfile_clause$datatype_clause&amp;)
-	  . qq(field=$name);
+	  . qq(name=FieldBreakdown&amp;function=summary_table$query_clause$listfile_clause$datatype_clause)
+	  . qq($temp_table_clause&amp;field=$name);
 	say q(<div class="box" id="resultsfooter"><h2>Output format</h2><p id="links">Select: )
 	  . qq(<a href="$base_link&amp;format=html">Table</a> | )
 	  . qq(<a href="$base_link&amp;format=text">Tab-delimited text</a> | )
@@ -446,12 +447,16 @@ sub _get_value_frequency_hash {
 	$qry =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
-	$logger->error($@) if $@;
+
+	if ($@) {
+		$logger->error($@);
+		say q(<h1>Field breakdown</h1>);
+		$self->print_bad_status( { message => 'Analysis failed', navbar => 1 } );
+	}
 	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
 	my $use_composites = $self->_use_composites;
 	my $field_is_composite;
-
 	if ( $use_composites && $query_field ) {
 		$field_is_composite = $self->_is_composite_field($query_field);
 	}
@@ -520,10 +525,8 @@ sub _get_value_frequency_hash {
 	foreach my $field (@$field_list) {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		next if !defined $metaset;
-		my $meta_data = $self->{'datastore'}->run_query(
-			"SELECT isolate_id,$metafield FROM meta_$metaset",
-			undef, { fetch => 'all_hashref', key => 'isolate_id' }
-		);
+		my $meta_data = $self->{'datastore'}->run_query( "SELECT isolate_id,$metafield FROM meta_$metaset",
+			undef, { fetch => 'all_hashref', key => 'isolate_id' } );
 		foreach my $isolate_id ( keys %{ $value_frequency->{'id'} } ) {
 			my $value = $meta_data->{$isolate_id}->{$metafield};
 			$value = 'No value/unassigned' if !defined $value || $value eq '';

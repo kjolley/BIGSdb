@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(DATABANKS);
+use BIGSdb::Constants qw(DATABANKS :interface);
 
 sub print_content {
 	my ($self) = @_;
@@ -35,29 +35,37 @@ sub print_content {
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
-		say qq(<div class="box" id="statusbad"><p>Table $table does not exist!</p></div>);
+		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}
 	if ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say q(<div class="box" id="statusbad">Invalid scheme id.</p></div>);
+			$self->print_bad_status( { message => q(Invalid scheme id.), navbar => 1 } );
 			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( !$scheme_info ) {
-			say q(<div class="box" id="statusbad">Scheme does not exist.</p></div>);
+			$self->print_bad_status( { message => q(Scheme does not exist.), navbar => 1 } );
 			return;
 		}
 	}
 	if ( !$self->can_modify_table($table) ) {
 		if ( $table eq 'sequences' && $q->param('locus') ) {
 			my $locus = $q->param('locus');
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete )
-			  . qq($locus sequences from the database.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to delete $locus sequences from the database.),
+					navbar  => 1
+				}
+			);
 		} else {
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete )
-			  . qq(records from the $table table.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to delete records from the $table table.),
+					navbar  => 1
+				}
+			);
 		}
 		return;
 	} elsif ( ( $table eq 'sequence_refs' || $table eq 'accession' ) && $q->param('locus') ) {
@@ -65,9 +73,13 @@ sub print_content {
 		if (   !$self->is_admin
 			&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 		{
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to delete )
-			  . ( $table eq 'sequence_refs' ? 'references' : 'accession numbers' )
-			  . q( for this locus.</p></div>);
+			my $display_table = $table eq 'sequence_refs' ? 'references' : 'accession numbers';
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to delete $display_table for this locus.),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 	}
@@ -186,7 +198,7 @@ sub _display_record {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( $query_fields, $query_values, $err ) = $self->_get_fields_and_values($table);
 	if ($err) {
-		say qq(<div class="box" id="statusbad"><p>$err</p></div>);
+		$self->print_bad_status( { message => $err, navbar => 1 } );
 		return;
 	}
 	local $" = q(,);
@@ -194,7 +206,7 @@ sub _display_record {
 	my $qry          = qq(SELECT * FROM $table WHERE (@$query_fields)=(@placeholders));
 	my $data         = $self->{'datastore'}->run_query( $qry, $query_values, { fetch => 'row_hashref' } );
 	if ( !$data ) {
-		say q(<div class="box" id="statusbad"><p>Selected record does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Selected record does not exist.), navbar => 1 } );
 		return;
 	}
 	$buffer .= $q->start_form;
@@ -351,8 +363,7 @@ sub _delete {
 		$proceed = 0;
 	}
 	if ( !$proceed ) {
-		say qq(<div class="box" id="statusbad"><p>$nogo_buffer</p><p>)
-		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+		$self->print_bad_status( { message => $nogo_buffer, navbar => 1 } );
 		return;
 	}
 	$buffer .= "</p>\n";
@@ -459,27 +470,31 @@ sub _confirm {
 	if ($@) {
 		my $err = $@;
 		$logger->error($err);
-		say q(<div class="box" id="statusbad"><p>Delete failed - transaction cancelled - )
-		  . q(no records have been touched.</p>);
-		say qq(<p>Failed SQL: $qry</p>);
-		say qq(<p>Error message: $err</p></div>);
+		my $message = q(Delete failed - transaction cancelled - no records have been touched.);
+		$self->print_bad_status( { message => $message } );
 		$self->{'db'}->rollback;
 		return;
 	}
 	my $record_name = $self->get_record_name($table);
-	$self->{'db'}->commit && say qq(<div class="box" id="resultsheader"><p>$record_name deleted!</p>);
+	$self->{'db'}->commit;
+	my $query_more_url;
 	if ( $table eq 'composite_fields' ) {
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=compositeQuery">Query another</a>);
+		$query_more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery);
 	} elsif ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(scheme_id=$scheme_id">Query another</a>);
+		$query_more_url =
+		  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;) . qq(scheme_id=$scheme_id);
 	} else {
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=tableQuery&amp;table=$table">Query another</a>);
+		$query_more_url =
+		  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;) . qq(page=tableQuery&amp;table=$table);
 	}
-	say qq( | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a></p></div>);
+	$self->print_good_status(
+		{
+			message        => qq($record_name deleted.),
+			navbar         => 1,
+			query_more_url => $query_more_url
+		}
+	);
 	$logger->debug("Deleted record: $qry");
 	if ( $table eq 'allele_designations' ) {
 		my $deltags = $q->param('delete_tags') ? "<br />$data->{'locus'}: sequence tag(s) deleted" : '';
@@ -554,8 +569,8 @@ sub _get_extra_seqbin_fields {
 		( my $cleaned_field = $att->{'key'} ) =~ tr/_/ /;
 		$buffer .= qq(<dt>$cleaned_field</dt><dd>$att->{'value'}</dd>\n);
 	}
-	if ($data->{'remote_contig'}){
-		my $uri = $self->{'datastore'}->run_query('SELECT uri FROM remote_contigs WHERE seqbin_id=?', $data->{'id'});
+	if ( $data->{'remote_contig'} ) {
+		my $uri = $self->{'datastore'}->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $data->{'id'} );
 		$buffer .= qq(<dt>remote contig</dt><dd>$uri</dd>\n);
 	}
 	return $buffer;

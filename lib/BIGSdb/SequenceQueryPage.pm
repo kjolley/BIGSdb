@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,9 +55,9 @@ sub _get_text {
 		$buffer .=
 		    q(Query sequences will be checked first for an exact match against the chosen (or all) loci - )
 		  . q(they do not need to be trimmed. The nearest partial matches will be identified if an exact )
-		  . q(match is not found. You can query using either DNA or peptide sequences. )
-		  . q( <a class="tooltip" title="Query sequence - Your query sequence is assumed to be DNA if it contains )
-		  . q(90% or more G,A,T,C or N characters."><span class="fa fa-info-circle"></span></a>);
+		  . q(match is not found. You can query using either DNA or peptide sequences. );
+		$buffer .= $self->get_tooltip( q(Query sequence - Your query sequence is assumed to be DNA if it contains )
+			  . q(90% or more G,A,T,C or N characters.) );
 	}
 	return $buffer;
 }
@@ -206,7 +206,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is not available in isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is not available in isolate databases.), navbar => 1 } );
 		return;
 	}
 	my $sequence;
@@ -237,10 +237,10 @@ sub print_content {
 				my $err = shift;
 				$logger->debug($err);
 				if ( $err =~ /INVALID_ACCESSION/x ) {
-					say q(<div class="box" id="statusbad"><p>Accession is invalid.</p></div>);
+					$self->print_bad_status( { message => q(Accession is invalid.) } );
 				} elsif ( $err =~ /NO_DATA/x ) {
-					say q(<div class="box" id="statusbad"><p>The accession is valid but it )
-					  . q(contains no sequence data.</p></div>);
+					$self->print_bad_status(
+						{ message => q(The accession is valid but it contains no sequence data.) } );
 				}
 			};
 		}
@@ -307,7 +307,7 @@ sub _blast_now {
 		my $results_prefix    = BIGSdb::Utils::get_random();
 		my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 		$results->{'debug'} = 1 if $q->param('debug');
-		my $results_json      = encode_json($results);
+		my $results_json = encode_json($results);
 		$self->_write_results_file( $results_json_file, $results_json );
 		if ( -e $self->{'system'}->{'web_hook_seq_query'} ) {
 			my $script_out = `$self->{'system'}->{'web_hook_seq_query'} $results_json_file`;
@@ -332,7 +332,7 @@ sub _blast_fork {
 	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 	say $self->_get_polling_javascript($results_prefix);
 	say q(<div id="results"><div class="box" id="resultspanel">)
-	  . q(<span class="main_icon fa fa-refresh fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="main_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
 	  . q(<span class="wait_message">Scanning - Please wait.</span></div>)
 	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
 

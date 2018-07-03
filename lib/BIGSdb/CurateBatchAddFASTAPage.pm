@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2017, University of Oxford
+#Copyright (c) 2013-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,8 +48,12 @@ sub print_content {
 	} elsif ( $q->param('submit') ) {
 		if ( !$self->can_modify_table('sequences') ) {
 			my $locus = $q->param('locus');
-			say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
-			  . qq(add $locus alleles to the database.</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add $locus alleles to the database.),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 		my @missing;
@@ -58,8 +62,12 @@ sub print_content {
 		}
 		if (@missing) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>Please complete the form. )
-			  . qq(The following fields are missing: @missing</p></div>);
+			$self->print_bad_status(
+				{
+					message => qq(Please complete the form. The following fields are missing: @missing),
+					navbar  => 1
+				}
+			);
 			$self->_print_interface;
 			return;
 		}
@@ -148,7 +156,7 @@ sub _check {
 		|| !BIGSdb::Utils::is_int($sender)
 		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $sender ) )
 	{
-		say q(<div class="box" id="statusbad"><p>Sender is required and must exist in the users table.</p></div>);
+		$self->print_bad_status( { message => q(Sender is required and must exist in the users table.), navbar => 1 } );
 		return FAILURE;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -166,13 +174,15 @@ sub _check {
 		}
 	}
 	catch Bio::Root::Exception with {
-		say q(<div class="box" id="statusbad"><p>Sequence is not in valid FASTA format.</p></div>);
+		$self->print_bad_status( { message => q(Sequence is not in valid FASTA format.), navbar => 1 } );
 		$continue = 0;    #Can't return from inside catch block
 	};
 	return FAILURE if !$continue;
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Sequence check</h2>);
 	say q(<div class="scrollable">);
+	my $clean_locus = $self->clean_locus($locus);
+	say qq(<p><b>Locus: </b>$clean_locus</p>);
 	say q(<table class="resultstable" style="float:left;margin-right:1em">)
 	  . q(<tr><th>Original designation</th><th>Allele id</th><th>Status</th></tr>);
 	my $td      = 1;
@@ -384,7 +394,8 @@ sub _upload {
 	my ( $self, $upload_file ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !-e $upload_file || -z $upload_file ) {
-		say q(<div class="box" id="statusbad"><p>Temporary upload file is not available.  Cannot upload.</p></div>);
+		$self->print_bad_status(
+			{ message => q(Temporary upload file is not available. Cannot upload.), navbar => 1 } );
 		return;
 	}
 	my $seqin = Bio::SeqIO->new( -file => $upload_file, -format => 'fasta' );
@@ -412,17 +423,19 @@ sub _upload {
 		}
 	};
 	if ($@) {
-		say qq(<div class="box" id="statusbad"><p>Upload failed. $@</p></div>);
+		$self->print_bad_status( { message => 'Upload failed!' } );
+		$logger->error($@);
 		$self->{'db'}->rollback;
 		return;
 	}
-	say q(<div class="box" id="resultsheader"><p>Upload succeeded.</p><p>);
-	my $more = MORE;
-	$self->print_return_to_submission;
-	$self->print_home_link;
-	say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta" )
-	  . qq(title="Upload more" style="margin-right:1em">$more</a></p>);
-	say q(</div>);
+	$self->print_good_status(
+		{
+			message       => q(Sequences added.),
+			navbar        => 1,
+			submission_id => $submission_id,
+			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
+		}
+	);
 	$self->{'db'}->commit;
 	$self->mark_locus_caches_stale( [ $q->param('locus') ] );
 	$self->update_blast_caches;

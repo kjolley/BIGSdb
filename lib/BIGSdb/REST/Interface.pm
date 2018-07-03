@@ -44,6 +44,7 @@ use BIGSdb::REST::Routes::Profiles;
 use BIGSdb::REST::Routes::Projects;
 use BIGSdb::REST::Routes::Resources;
 use BIGSdb::REST::Routes::Schemes;
+use BIGSdb::REST::Routes::Sequences;
 use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
@@ -187,11 +188,8 @@ sub _check_kiosk {
 	}
 	my $db = params->{'db'};
 	if ( $self->{'system'}->{'rest_kiosk'} eq 'sequenceQuery' ) {
-		my @allowed_routes = (
-			"POST /db/$db/loci/{locus}/sequence",
-			"POST /db/$db/sequence",
-			"POST /db/$db/schemes/{scheme_id}/sequence"
-		);
+		my @allowed_routes = ( "POST /db/$db/loci/{locus}/sequence", "POST /db/$db/sequence",
+			"POST /db/$db/schemes/{scheme_id}/sequence" );
 		local $" = q(, );
 		if ( request->method ne 'POST' ) {
 			send_error(
@@ -569,16 +567,27 @@ sub get_user_id {
 }
 
 sub add_filters {
-	my ( $self, $qry, $allowed_args ) = @_;
+	my ( $self, $qry, $allowed_args, $options ) = @_;
 	my $params = params;
-	my ( $added_after, $updated_after ) = @{$params}{qw(added_after updated_after)};
+	my ( $added_after, $updated_after, $alleles_added_after, $alleles_updated_after ) =
+	  @{$params}{qw(added_after updated_after alleles_added_after alleles_updated_after)};
 	my @terms;
+	my $id = $options->{'id'} // 'id';
 	my %methods = (
 		added_after => sub {
 			push @terms, qq(date_entered>'$added_after') if BIGSdb::Utils::is_date($added_after);
 		},
 		updated_after => sub {
 			push @terms, qq(datestamp>'$updated_after') if BIGSdb::Utils::is_date($updated_after);
+		},
+		alleles_added_after => sub {
+			push @terms, qq($id IN (SELECT locus FROM sequences WHERE date_entered>'$alleles_added_after'))
+			  if BIGSdb::Utils::is_date($alleles_added_after);
+		},
+		alleles_updated_after => sub {
+			push @terms,
+			  qq($id IN (SELECT locus FROM locus_stats WHERE datestamp>'$alleles_updated_after'))
+			  if BIGSdb::Utils::is_date($alleles_updated_after);
 		}
 	);
 	foreach my $arg (@$allowed_args) {

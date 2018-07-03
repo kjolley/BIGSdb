@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -116,11 +116,13 @@ sub main {
 		if ($buffer) {
 			my $message = get_message('intro');
 			$message .= $buffer;
+
+			#Add tab to end of line to prevent Outlook from removing line endings
 			if ( $opts{'t'} ) {
-				say "E-mail to $email (TEST - NOT SENDING)";
+				say "E-mail to $email (TEST - NOT SENDING)\t";
 				say $summary;
 			} else {
-				say "Sending E-mail to $email" if !$opts{'q'};
+				say "Sending E-mail to $email\t" if !$opts{'q'};
 				email( $email, $message );
 			}
 

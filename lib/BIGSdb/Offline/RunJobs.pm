@@ -25,11 +25,11 @@ use Error qw(:try);
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Parser;
+use BIGSdb::Constants qw(DEFAULT_DOMAIN);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
-use constant DEFAULT_DOMAIN => 'pubmlst.org';
 
 sub initiate {
 	my ($self) = @_;

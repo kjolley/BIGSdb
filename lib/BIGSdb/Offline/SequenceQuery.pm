@@ -51,12 +51,14 @@ sub _data_linked_to_loci {
 
 sub _single_query {
 	my ( $self, $seq_ref, $data ) = @_;
+	my $q       = $self->{'cgi'};
 	my $options = $self->{'options'};
 	$self->blast($seq_ref);
 	my $exact_matches = $self->get_exact_matches( { details => 1 } );
 	my ( $buffer, $displayed );
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
 	my $return_buffer = q();
+	my $file          = $q->param('fasta_upload');
 	if ( keys %$exact_matches ) {
 
 		if ( $options->{'select_type'} eq 'locus' ) {
@@ -66,7 +68,8 @@ sub _single_query {
 			( $buffer, $displayed ) = $self->_get_scheme_exact_results( $exact_matches, $data );
 		}
 		if ($displayed) {
-			$return_buffer = q(<div class="box" id="resultsheader"><p>);
+			$return_buffer .= q(<div class="box" id="resultsheader"><p>);
+			$return_buffer .= qq(<p><b>Uploaded file:</b> $file</p>) if $file;
 			my $plural = $displayed == 1 ? q() : q(es);
 			$return_buffer .= qq($displayed exact match$plural found.</p>);
 			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
@@ -78,7 +81,8 @@ sub _single_query {
 	} else {
 		my $best_match = $self->_get_best_partial_match($seq_ref);
 		if ( keys %$best_match ) {
-			$return_buffer = q(<div class="box" id="resultsheader" style="padding-top:1em">);
+			$return_buffer .= q(<div class="box" id="resultsheader" style="padding-top:1em">);
+			$return_buffer .= qq(<p><b>Uploaded file:</b> $file</p>) if $file;
 			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
 			$return_buffer .= $self->_get_partial_match_results( $best_match, $data );
 			$return_buffer .= q(</div>);
@@ -87,7 +91,9 @@ sub _single_query {
 			$return_buffer .= $self->_get_partial_match_alignment( $seq_ref, $best_match, $contig_ref, $qry_type );
 			$return_buffer .= q(</div>);
 		} else {
-			$return_buffer = q(<div class="box" id="statusbad"><p>No matches found.</p>);
+			$return_buffer .= q(<div class="box" id="statusbad">);
+			$return_buffer .= qq(<p><b>Uploaded file:</b> $file</p>) if $file;
+			$return_buffer .= q(<p>No matches found.</p>);
 			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
 			$return_buffer .= q(</div>);
 		}
@@ -177,7 +183,14 @@ sub _batch_query {
 		}
 	}
 	$table .= q(</table>);
-	my $buffer = q(<div class="box" id="resultstable">);
+	my $buffer;
+	my $q = $self->{'cgi'};
+	if ( $q->param('fasta_upload') ) {
+		$buffer = q(<div class="box" id="resultsheader"><p>);
+		my $file = $q->param('fasta_upload');
+		$buffer .= qq(<p><b>Uploaded file:</b> $file</p></div>);
+	}
+	$buffer .= q(<div class="box" id="resultstable">);
 	$buffer .= qq(<div class="scrollable">\n$table</div>);
 	my $output_file = BIGSdb::Utils::get_random() . q(.txt);
 	my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
@@ -706,8 +719,7 @@ sub _get_differences_output {
 				  . q( of your query sequence.);
 				$buffer .= $self->get_tooltip(
 					q(start position - This may be approximate if there are gaps near the beginning of the alignment )
-					  . q(between your query and the reference sequence)
-				);
+					  . q(between your query and the reference sequence) );
 			}
 		} else {
 			$buffer .= qq(<p>Your query sequence only starts at position $match->{'sstart'} of sequence.);

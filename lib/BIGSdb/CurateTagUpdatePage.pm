@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,14 +32,15 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	say q(<h1>Update sequence tag</h1>);
+	say $self->get_form_icon( 'allele_sequences', 'edit' );
 	if ( !BIGSdb::Utils::is_int($id) ) {
-		say q(<div class="box" id="statusbad"><p>Tag id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Tag id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $existing_tag =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE id=?', $id, { fetch => 'row_hashref' } );
 	if ( !$existing_tag ) {
-		say q(<div class="box" id="statusbad"><p>Tag does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Tag does not exist.), navbar => 1 } );
 		return;
 	}
 	my ( $seqbin_id, $locus, $orig_start, $orig_end ) = @{$existing_tag}{qw(seqbin_id locus start_pos end_pos)};
@@ -102,23 +103,33 @@ sub print_content {
 		if ($@) {
 			my $error = $@;
 			if ( $error =~ /duplicate/ ) {
-				say q(<div class="box" id="statusbad"><p>Update failed - a tag already exists for this )
-				  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-				  . q(Back to main page</a></p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Update failed - a tag already exists for this )
+						  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id),
+						navbar => 1
+					}
+				);
 			} else {
-				say q(<div class="box" id="statusbad"><p>Update failed - transaction cancelled - )
-				  . q(no records have been touched.</p>)
-				  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">Back to main page</a>)
-				  . q(</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(Update failed - transaction cancelled - ) . q(no records have been touched.),
+						navbar  => 1
+					}
+				);
 				$logger->error($error);
 			}
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			say q(<div class="box" id="resultsheader"><p>Sequence tag updated!</p>)
-			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}">)
-			  . q(Back to main page</a></p></div>);
+			$self->print_good_status(
+				{
+					message        => q(Sequence tag updated.),
+					navbar         => 1,
+					query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					  . q(page=tableQuery&amp;table=allele_sequences)
+				}
+			);
 			local $" = q(<br />);
 			my $isolate_id =
 			  $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );
@@ -176,7 +187,7 @@ sub print_content {
 	my $length = abs( $end - $start + 1 );
 	say q(<p class="seq" style="text-align:left">);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $translate  = $locus_info->{'coding_sequence'} ? 1 : 0;
+	my $translate  = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
 	my $orf        = $locus_info->{'orf'} || 1;
 	my $display    = $self->format_seqbin_sequence(
 		{
@@ -191,6 +202,7 @@ sub print_content {
 	);
 	say $display->{'seq'};
 	say q(</p>);
+
 	if ($translate) {
 		my @stops = @{ $display->{'internal_stop'} };
 		if (@stops) {
@@ -212,18 +224,18 @@ sub _check_values {
 	my $q = $self->{'cgi'};
 	if ( $q->param('update') || $q->param('submit') ) {
 		if ( !defined $q->param('new_start') || !BIGSdb::Utils::is_int( $q->param('new_start') ) ) {
-			say q(<div class="box" id="statusbad"><p>The start position must be an integer. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The start position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( $q->param('new_end') ) ) {
-			say q(<div class="box" id="statusbad"><p>The end position must be an integer. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The end position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		} elsif ( $q->param('new_start') && $q->param('new_start') && $q->param('new_start') > $q->param('new_end') ) {
-			say q(<div class="box" id="statusbad"><p>The end position must be greater than the start. )
-			  . q(Resetting to initial values.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The end position must be greater than the start. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
 		}

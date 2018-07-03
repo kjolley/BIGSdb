@@ -34,6 +34,7 @@ sub get_attributes { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
 sub print_extra_fields        { }
+sub print_extra_scheme_fields { }
 sub print_options             { }
 sub print_extra_options       { }
 sub get_hidden_attributes     { return [] }
@@ -109,7 +110,7 @@ sub get_query {
 				if ( $self->{'cgi'}->param('format') eq 'text' ) {
 					say 'Cannot open temporary file.';
 				} else {
-					say q(<div class="box" id="statusbad"><p>Cannot open temporary file.</p></div>);
+					$self->print_bad_status( { message => q(Cannot open temporary file.) } );
 				}
 				$logger->error($@);
 				return;
@@ -118,8 +119,12 @@ sub get_query {
 			if ( $self->{'cgi'}->param('format') eq 'text' ) {
 				say 'The temporary file containing your query does not exist. Please repeat your query.';
 			} else {
-				say q(<div class="box" id="statusbad"><p>The temporary file containing your query does not exist. )
-				  . q(Please repeat your query.</p></div>);
+				$self->print_bad_status(
+					{
+						message => q(The temporary file containing your query does not exist. )
+						  . q(Please repeat your query.)
+					}
+				);
 			}
 			return;
 		}
@@ -129,52 +134,6 @@ sub get_query {
 		$qry =~ s/([\s\(])date_entered/$1$view.date_entered/gx;
 	}
 	return \$qry;
-}
-
-sub create_temp_tables {
-	my ( $self, $qry_ref ) = @_;
-	return 1 if $self->{'temp_tables_created'};
-	my $qry     = $$qry_ref;
-	my $q       = $self->{'cgi'};
-	my $format  = $q->param('format') || 'html';
-	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $cschemes =
-	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
-	my $continue = 1;
-
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
-		try {
-			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_$view\_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
-					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-				}
-				if ( $qry =~ /temp_$view\_scheme_completion_$scheme_id\s/x ) {
-					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-				}
-			}
-			foreach my $cscheme_id (@$cschemes) {
-				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
-					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
-				}
-			}
-		}
-		catch BIGSdb::DatabaseConnectionException with {
-			if ( $format ne 'text' ) {
-				say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
-				  . q(The query can not be performed.</p></div>);
-			} else {
-				say q(Cannot connect to remote database.  The query can not be performed.);
-			}
-			$logger->error('Cannot connect to remote database.');
-			$continue = 0;
-		};
-	}
-	if ( $q->param('list_file') && $q->param('datatype') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
-	}
-	$self->{'temp_tables_created'} = 1;
-	return $continue;
 }
 
 sub delete_temp_files {
@@ -191,7 +150,7 @@ sub print_content {
 	if ( !$self->{'pluginManager'}->is_plugin($plugin_name) ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		say qq(<h1>$desc</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid (or no) plugin called.</p></div>);
+		$self->print_bad_status( { message => q(Invalid (or no) plugin called.), navbar => 1 } );
 		return;
 	}
 	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
@@ -199,8 +158,13 @@ sub print_content {
 	$plugin->{'username'} = $self->{'username'};
 	my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
-		say q(<div class="box" id="statusbad"><p>This plugin is not compatible )
-		  . qq(with this type of database ($dbtype).</p></div>);
+		say q(<h1>Incompatible plugin</h1>);
+		$self->print_bad_status(
+			{
+				message => qq(This plugin is not compatible with this type of database ($dbtype).),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $option_list = $plugin->get_option_list;
@@ -349,12 +313,13 @@ sub print_field_export_form {
 	$self->print_extra_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_extra_scheme_fields;
 	$self->print_options;
 	$self->print_extra_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id list_file datatype);
+	say $q->hidden($_) foreach qw (db page name query_file set_id list_file temp_table_file datatype);
 	say $q->end_form;
 	return;
 }
@@ -526,6 +491,13 @@ sub get_selected_fields {
 	foreach my $locus (@$loci) {
 		push @fields_selected, "l_$locus" if any { $locus eq $_ } @$selected_loci;
 	}
+	if ($q->param('classification_schemes')){
+		my @cschemes = $q->param('classification_schemes');
+		foreach my $cs (@cschemes){
+			push @fields_selected, "cs_$cs";
+		}
+		
+	}
 	return \@fields_selected;
 }
 
@@ -674,8 +646,12 @@ sub has_set_changed {
 	my $set_id = $self->get_set_id;
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {
-			say q(<div class="box" id="statusbad"><p>The dataset has been changed since this )
-			  . q(plugin was started. Please repeat the query.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(The dataset has been changed since this )
+					  . q(plugin was started. Please repeat the query.)
+				}
+			);
 			return 1;
 		}
 	}
@@ -815,6 +791,15 @@ sub print_sequence_filter_fieldset {
 	}
 	say q(</ul></fieldset>);
 	return;
+}
+
+sub filter_list_to_ids {
+	my ( $self, $list ) = @_;
+	my $returned_list = [];
+	foreach my $value (@$list) {
+		push @$returned_list, $value if BIGSdb::Utils::is_int($value);
+	}
+	return $returned_list;
 }
 
 sub filter_ids_by_project {

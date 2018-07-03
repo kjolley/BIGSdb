@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
-		version          => '1.1.0',
+		version          => '1.1.1',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -64,7 +64,7 @@ sub run {
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 
 	if ( !@$display_loci ) {
-		say q(<div class="box" id="statusbad"><p>No loci have been defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -94,12 +94,12 @@ sub run {
 	return if !$locus || !defined $allele || $allele eq q();
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid locus entered.</p></div>);
+		$self->print_bad_status( { message => q(Invalid locus entered.) } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($allele) ) {
-		say q(<div class="box" id="statusbad"><p>Allele must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Allele must be an integer.) } );
 		return;
 	}
 	my ($valid) =
@@ -107,17 +107,18 @@ sub run {
 	  ->run_query( q(SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?) AND allele_id != '0')),
 		[ $locus, $allele ] );
 	if ( !$valid ) {
-		say qq(<div class="box" id="statusbad"><p>Allele $locus-$allele does not exist.</p></div>);
+		$self->print_bad_status( { message => qq(Allele $locus-$allele does not exist.) } );
 		return;
 	}
 	my $cleanlocus = $self->clean_locus($locus);
-	my $seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele );
-	my $blast_obj = $self->_get_blast_obj($locus);
+	my $seq_ref    = $self->{'datastore'}->get_sequence( $locus, $allele );
+	my $blast_obj  = $self->_get_blast_obj($locus);
 	$blast_obj->blast( $seq_ref, { num_results => $num_results + 1 } );
 	my $partial_matches = $blast_obj->get_partial_matches( { details => 1 } );
 	my $matches = ref $partial_matches->{$locus} eq 'ARRAY' ? $partial_matches->{$locus} : [];
 	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>$cleanlocus-$allele</h2>);
+
 	if ( @$matches > 1 ) {
 		say q(<table class="resultstable"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th>)
 		  . q(<th>Gaps</th><th>Alignment</th><th>Compare</th></tr>);

@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -53,7 +53,7 @@ sub run {
 	my $locus = $q->param('locus');
 	$locus =~ s/^cn_//x;
 	if ( !$locus ) {
-		say q(<div class="box" id="statusbad"><p>No locus passed.</p></div>);
+		$self->print_bad_status( { message => q(No locus selected.), navbar => 1 } );
 		$logger->error('No locus passed.');
 		return;
 	}
@@ -61,7 +61,7 @@ sub run {
 	my $list_file  = $q->param('list_file');
 	my $list       = $self->get_allele_id_list( $query_file, $list_file );
 	if ( !@$list ) {
-		say q(<div class="box" id="statusbad"><p>No sequences available from query.</p></div>);
+		$self->print_bad_status( { message => q(No sequences available from query.), navbar => 1 } );
 		$logger->error('No sequences available.');
 		return;
 	}

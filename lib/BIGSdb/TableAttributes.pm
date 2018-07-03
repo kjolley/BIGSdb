@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -203,8 +203,8 @@ sub get_permissions_table_attributes {
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users
 	  modify_site_users only_private disable_access)
-	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_schemes delete_all import_site_users
-	  modify_site_users disable_access );
+	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes 
+	  delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
 	my $attributes = [
 		{

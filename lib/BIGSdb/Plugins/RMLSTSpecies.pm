@@ -46,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.0.0',
+		version     => '1.1.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -125,6 +125,29 @@ sub run {
 	return;
 }
 
+sub _get_inline_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+<script type="text/Javascript">
+\$(function () {
+	\$("#hidden_matches").css('display', 'none');
+	\$("#show_matches").click(function() {
+		if (\$("span#show_matches_text").css('display') == 'none'){
+			\$("span#show_matches_text").css('display', 'inline');
+			\$("span#hide_matches_text").css('display', 'none');
+		} else {
+			\$("span#show_matches_text").css('display', 'none');
+			\$("span#hide_matches_text").css('display', 'inline');
+		}
+		\$("#hidden_matches").toggle( 'blind', {} , 500 );
+		return false;
+	});
+});
+</script>
+END
+	return $buffer;
+}
+
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
@@ -149,15 +172,23 @@ sub run_job {
 		$i++;
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
-		my ( $data, $values ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
+		my ( $data, $values, $response_code ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
 		$report->{$isolate_id} = {
 			$self->{'system'}->{'labelfield'} => $isolate_name,
 			analysis                          => $data
 		};
-		$row_buffer .= $self->_format_row_html( $td, $values );
+		$row_buffer .= $self->_format_row_html( $td, $values, $response_code );
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
+
+		if ( @$isolate_ids == 1 ) {
+			my $match_output = $self->_format_matches($data);
+			if ($match_output) {
+				$message_html .= $match_output;
+				$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+			}
+		}
 		last if $self->{'exit'};
 	}
 	if ($report) {
@@ -173,11 +204,70 @@ sub run_job {
 	return;
 }
 
+sub _format_matches {
+	my ( $self, $data ) = @_;
+	return if !$data->{'exact_matches'};
+	my $buffer       = q(<h2>Matches</h2>);
+	my $loci_matches = keys %{ $data->{'exact_matches'} };
+	my $plural       = $loci_matches == 1 ? q(us) : q(i);
+	$buffer .= qq(<p>$loci_matches loc$plural matched (rMLST uses 53 in total). );
+	$buffer .=
+	    q(<span style="margin-left:1em"><a id="show_matches" style="cursor:pointer">)
+	  . q(<span id="show_matches_text" title="Show matches" style="display:inline">)
+	  . q(<span class="nav_icon fas fa-2x fa-eye"></span>)
+	  . q(</span><span id="hide_matches_text" title="Hide matches" style="display:none">)
+	  . q(<span class="nav_icon fas fa-2x fa-eye-slash"></span></span></a></span></p>);
+	$buffer .= q(<div id="hidden_matches" style="display:none">);
+	my @headings = ( 'Locus', 'Allele', 'Length', 'Contig', 'Start position', 'End position', 'Linked data values' );
+	local $" = q(</th><th>);
+	$buffer .= qq(<table class="resultstable"><tr><th>@headings</th></tr>\n);
+	my $td = 1;
+
+	foreach my $locus ( sort keys %{ $data->{'exact_matches'} } ) {
+		my $matches = $data->{'exact_matches'}->{$locus};
+		foreach my $match (@$matches) {
+			my @values = (
+				$locus, $match->{'allele_id'}, $match->{'length'}, $match->{'contig'}, $match->{'start'},
+				$match->{'end'}
+			);
+			my $linked = q();
+			if ( $match->{'linked_data'} ) {
+				$linked = $self->_format_linked_data( $match->{'linked_data'} );
+			}
+			local $" = q(</td><td>);
+			$buffer .= qq(<tr class="td$td"><td>@values</td><td style="text-align:left">$linked</td></tr>\n);
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	$buffer .= q(</table></div>);
+	$buffer .= $self->_get_inline_javascript;
+	return $buffer;
+}
+
+sub _format_linked_data {
+	my ( $self, $linked_data ) = @_;
+	my @values;
+	my $s;
+	foreach my $resource ( sort keys %{$linked_data} ) {
+		$s = qq(<span class="source">$resource</span> );
+		foreach my $field ( sort keys %{ $linked_data->{$resource} } ) {
+			$s .= qq(<b>$field: </b>);
+			foreach my $value ( @{ $linked_data->{$resource}->{$field} } ) {
+				push @values, qq(<i>$value->{'value'}</i> [n=$value->{'frequency'}]);
+			}
+			local $" = q(; );
+			$s .= qq(@values);
+		}
+	}
+	return $s;
+}
+
 sub _format_row_html {
-	my ( $self, $td, $values ) = @_;
+	my ( $self, $td, $values, $response_code ) = @_;
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
 	my %italicised = map { $_ => 1 } ( 3, 4, 7 );
+	my %left_align = map { $_ => 1 } ( 4, 5 );
 	my $buffer;
 	foreach my $row ( 0 .. $rows - 1 ) {
 		$buffer .= qq(<tr class="td$td">);
@@ -185,16 +275,24 @@ sub _format_row_html {
 			$buffer .= qq(<td rowspan="$rows">$values->[$_]</td>) foreach ( 0, 1 );
 		}
 		if ( !$allele_predictions ) {
-			$buffer .= q(<td colspan="4" style="text-align:left">No exact matching alleles linked to genome found</td>);
+			my $message;
+			if ( $response_code == 413 ) {
+				$message = q(Genome size is too large for analysis);
+			} else {
+				$message = q(No exact matching alleles linked to genome found);
+			}
+			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
 			foreach my $col ( 2 .. 5 ) {
-				$buffer .= $col == 4 ? q(<td style="text-align:left">) : q(<td>);
+				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
 					my $colour = $self->_get_colour( $values->[$col]->[$row] );
 					$buffer .=
-					    qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
-					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></span>);
+					    q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
+					  . qq($values->[$col]->[$row]%</span>)
+					  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></div>);
 				} else {
 					$buffer .= $values->[$col]->[$row];
 				}
@@ -218,12 +316,39 @@ sub _format_row_html {
 
 sub _perform_rest_query {
 	my ( $self, $job_id, $i, $isolate_id ) = @_;
-	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
-		$isolate_id, { fetch => 'col_arrayref', cache => 'RMLSTSpecies::get_seqbin_ids' } );
+	my $qry = 'SELECT id,sequence FROM sequence_bin WHERE isolate_id=? AND NOT remote_contig';
+	my $contigs =
+	  $self->{'datastore'}
+	  ->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', cache => 'RMLSTSpecies::blast_create_fasta::local' } );
 	my $fasta;
-	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
-		$fasta .= qq(>$seqbin_id\n$$seq_ref\n);
+	foreach my $contig (@$contigs) {
+		$fasta .= qq(>$contig->[0]\n$contig->[1]\n);
+	}
+	my $remote_qry = 'SELECT s.id,r.uri,r.length,r.checksum FROM sequence_bin s LEFT JOIN remote_contigs r ON '
+	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
+	my $remote_contigs =
+	  $self->{'datastore'}->run_query( $remote_qry, $isolate_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'RMLSTSpecies::blast_create_fasta::remote' } );
+	my $remote_uris = [];
+	foreach my $contig_link (@$remote_contigs) {
+		push @$remote_uris, $contig_link->{'uri'};
+	}
+	my $remote_data;
+	eval { $remote_data = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uris); };
+	if ($@) {
+		$logger->error($@);
+	} else {
+		foreach my $contig_link (@$remote_contigs) {
+			$fasta .= qq(>$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}\n);
+			if ( !$contig_link->{'length'} ) {
+				$self->{'contigManager'}->update_remote_contig_length( $contig_link->{'uri'},
+					length( $remote_data->{ $contig_link->{'uri'} } ) );
+			} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
+				$logger->error("$contig_link->{'uri'} length has changed!");
+			}
+
+			#We won't set checksum because we're not extracting all metadata here
+		}
 	}
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $payload = encode_json(
@@ -237,6 +362,7 @@ sub _perform_rest_query {
 	my $delay        = INITIAL_BUSY_DELAY;
 	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
 	my $values       = [ $isolate_id, $isolate_name ];
+	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
 	do {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolate $i" } );
 		$unavailable = 0;
@@ -245,7 +371,7 @@ sub _perform_rest_query {
 			Content_Type => 'application/json; charset=UTF-8',
 			Content      => $payload
 		);
-		if ( $response->code == 503 ) {
+		if ( $server_error{ $response->code } ) {
 			$unavailable = 1;
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
@@ -277,7 +403,7 @@ sub _perform_rest_query {
 		$logger->error( $response->as_string );
 	}
 	push @$values, ( $rank, $taxon, $taxonomy, $support, $rST, $species );
-	return ( $data, $values );
+	return ( $data, $values, $response->code );
 }
 
 sub _print_interface {
@@ -288,17 +414,21 @@ sub _print_interface {
 	my $selected_ids;
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('single_isolate') ) {
 		if ( !BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+			$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 			return;
 		}
 		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
-			say q(<div class="box" id="statusbad"><p>Passed isolate id either does not exist )
-			  . q(or has no sequence bin data.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(Passed isolate id either does not exist or has no sequence bin data.),
+					navbar  => 1
+				}
+			);
 			return;
 		}
 	}
@@ -323,8 +453,9 @@ sub _print_interface {
 		my $isolate_id = $q->param('single_isolate');
 		my $name       = $self->get_isolate_name_from_id($isolate_id);
 		say q(<h2>Selected record</h2>);
-		say qq(<dl class="data"><dt>id</dt><dd>$isolate_id</dd></dt>);
-		say qq(<dt>$self->{'system'}->{'labelfield'}</dt><dd>$name</dd></dl>);
+		say $self->get_list_block(
+			[ { title => 'id', data => $isolate_id }, { title => $self->{'system'}->{'labelfield'}, data => $name } ],
+			{ width => 6 } );
 		say $q->hidden( isolate_id => $isolate_id );
 	} else {
 		$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );

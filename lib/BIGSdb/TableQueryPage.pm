@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -77,14 +77,15 @@ sub print_content {
 		|| ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) )
 	{
 		say q(<h1>Table query</h1>);
-		say q(<div class="box" id="statusbad"><p>You cannot use this function to query the isolate table.</p></div>);
+		$self->print_bad_status(
+			{ message => q(You cannot use this function to query the isolate table.), navbar => 1 } );
 		return;
 	}
 	if (   !$self->{'datastore'}->is_table($table)
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
 		say q(<h1>Table query</h1>);
-		say qq(<div class="box" id="statusbad"><p>Table '$table' is not defined.</p></div>);
+		$self->print_bad_status( { message => qq(Table '$table' is not defined.), navbar => 1 } );
 		return;
 	}
 	my $cleaned = $table;
@@ -96,8 +97,10 @@ sub print_content {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<noscript><div class="box statusbad"><p>This interface requires )
-		  . q(that you enable Javascript in your browser.</p></div></noscript>);
+		say q(<noscript>);
+		$self->print_bad_status(
+			{ message => q(This interface requires that you enable Javascript in your browser.) } );
+		say q(</noscript>);
 		$self->_print_interface;
 	}
 	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
@@ -195,8 +198,8 @@ sub _print_table_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1" )
-		  . q(data-rel="ajax" class="button">+</a> <a class="tooltip" id="field_tooltip" title="">)
-		  . q(<span class="fa fa-info-circle"></span></a>);
+		  . q(data-rel="ajax" class="button">+</a>);
+		say $self->get_tooltip( '', { id => 'field_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -504,13 +507,12 @@ sub _run_query {
 	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list);
 	if (@$errors) {
 		local $" = q(<br />);
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
-	} 
+	}
 	return;
 }
 
@@ -747,13 +749,13 @@ sub _check_invalid_fieldname {
 	my $additional = {
 		sequences => [ qw(sequence_length), @sender_fields ],
 		sequence_bin => [ @$extended, @sender_fields, $self->{'system'}->{'labelfield'} ],
-		allele_designations  => [ @sender_fields, $self->{'system'}->{'labelfield'} ],
+		allele_designations  => [ @sender_fields,                    $self->{'system'}->{'labelfield'} ],
 		allele_sequences     => [ $self->{'system'}->{'labelfield'} ],
 		project_members      => [ $self->{'system'}->{'labelfield'} ],
 		history              => [ $self->{'system'}->{'labelfield'} ],
 		isolate_aliases      => [ $self->{'system'}->{'labelfield'} ],
 		refs                 => [ $self->{'system'}->{'labelfield'} ],
-		experiment_sequences => [ 'isolate_id', $self->{'system'}->{'labelfield'} ],
+		experiment_sequences => [ 'isolate_id',                      $self->{'system'}->{'labelfield'} ],
 		user_group_members   => [@user_fields],
 		profile_history      => ['timestamp (date)'],
 		history              => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]

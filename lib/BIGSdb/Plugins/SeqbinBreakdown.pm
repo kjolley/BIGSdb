@@ -49,7 +49,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		order       => 80,
-		requires    => 'offline_jobs,js_tree',
+		requires    => 'offline_jobs,js_tree,seqbin',
 		system_flag => 'SeqbinBreakdown'
 	);
 	return \%att;
@@ -145,6 +145,7 @@ sub run_job {
 	my $row           = 0;
 	my $row_with_data = 0;
 	my $disabled_html = @$isolate_ids > MAX_HTML_OUTPUT ? 1 : 0;
+
 	if ($disabled_html) {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ message_html => 'HTML output disabled as more than ' . MAX_HTML_OUTPUT . ' records selected.' } );
@@ -238,7 +239,7 @@ sub _print_interface {
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	if ( ref $qry_ref ne 'SCALAR' ) {
-		say q(<div class="box" id="statusbad"><p>Error retrieving query.</p></div>);
+		$self->print_bad_status( { message => q(Error retrieving query.), navbar => 1 } );
 		return;
 	}
 	my $qry = $$qry_ref;
@@ -260,8 +261,12 @@ sub _print_interface {
 	my $seqbin_exists =
 	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
 	if ( !$seqbin_exists ) {
-		say q(<div class="box" id="statusbad"><p>There are no available sequences stored )
-		  . q(for any of the selected isolates.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(There are no available sequences stored for any of the selected isolates.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	say q(<div class="box" id="queryform">);
@@ -283,7 +288,7 @@ sub _print_interface {
 
 sub _print_options_fieldset {
 	my ($self) = @_;
-	return if ($self->{'system'}->{'remote_contigs'} // q()) eq 'yes';
+	return if ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes';
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul><li>);
 	say $q->checkbox( -name => 'contig_analysis', -label => 'Contig analysis (min, max, N50 etc.)' );

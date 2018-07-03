@@ -106,8 +106,7 @@ my $curator_exists =
 exit_cleanly("Curator id-$opts{'c'} does not exist (or user is not a curator).") if !$curator_exists;
 exit_cleanly("Method '$opts{'m'}' is invalid.") if $opts{'m'} && none { $opts{'m'} eq $_ } SEQ_METHODS;
 main();
-$script->db_disconnect;
-exit;
+undef $script;
 
 sub main {
 
@@ -130,7 +129,7 @@ sub main {
 
 sub exit_cleanly {
 	my ($msg) = @_;
-	$script->db_disconnect;
+	undef $script;
 	die "$msg\n";
 }
 

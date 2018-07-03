@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,8 +43,20 @@ sub initiate {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#batch-profile-queries";
+}
+
 sub print_content {
 	my ($self) = @_;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+	if ( !@$schemes ) {
+		say q(<h1>Batch profile query</h1>);
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+		  ;
+		return;
+	}
 	my $q = $self->{'cgi'};
 	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
@@ -57,19 +69,22 @@ sub print_content {
 	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		say qq(<h1>Batch profile query - $desc</h1>);
-		say q(<div class="box" id="statusbad"><p>This function is only available )
-		  . q(for sequence definition databases.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This function is only available for sequence definition databases.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	say qq(<h1>Batch profile query - $desc</h1>);
-	if ( !$q->param('profiles') ) {
-		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
-		$self->print_scheme_section( { with_pk => 1 } );
-		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
-	}
 	if ( $q->param('profiles') ) {
 		$self->_run_query($scheme_id);
 		return;
+	} else {
+		return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+		$self->print_scheme_section( { with_pk => 1 } );
+		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
 	say q(<div class="box" id="queryform">);
 	say $q->start_form;
@@ -98,7 +113,8 @@ sub _run_query {
 	my $q        = $self->{'cgi'};
 	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $profiles = $q->param('profiles');
-	my @rows     = split /\n/x, $profiles;
+	$profiles =~ s/[^A-z0-9\s\-\|\,\.]/_/gx;
+	my @rows = split /\n/x, $profiles;
 	my @cleaned_loci;
 	push @cleaned_loci, $self->clean_locus($_) foreach @$loci;
 	local $" = q(</th><th>);
@@ -146,7 +162,7 @@ sub _run_query {
 		say qq(<tr class="td$td"><td>$isolate</td>);
 		$text_buffer .= $isolate;
 		for my $i ( 0 .. @$loci - 1 ) {
-			if ( $profile[$i] ) {
+			if ( defined $profile[$i] ) {
 				$data->{$row_id}->{ $loci->[$i] } = $profile[$i];
 				print qq(<td>$profile[$i]</td>);
 				$text_buffer .= qq(\t$profile[$i]);
@@ -182,8 +198,7 @@ sub _run_query {
 			}
 			$i++;
 		}
-		say
-		  qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=profiles&amp;)
+		say qq(<td><a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=profiles&amp;)
 		  . qq(scheme_id=$scheme_id&amp;query_id=$query_id&amp;populate_profiles=1&amp;)
 		  . qq(index=$row_id" target="_blank">$query</a></td></tr>);
 		$text_buffer .= qq(\n);
@@ -202,15 +217,18 @@ sub _run_query {
 	say $fh $text_buffer;
 	close $fh;
 	$self->_write_query_file( $query_id, $data );
+	my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
 
 	if ( -e $full_path ) {
-		say qq(<p style="margin-top:1em">Download: <a href="/tmp/$out_file">tab-delimited text</a>);
+		say qq(<p style="margin-top:1em">Download: <a href="/tmp/$out_file" title="Tab-delimited text">)
+		  . qq($text_icon</a>);
 		my $excel = BIGSdb::Utils::text2excel($full_path);
 		if ( -e $excel ) {
-			say qq( | <a href="/tmp/$excel_file">Excel format</a>);
+			say qq( <a href="/tmp/$excel_file" title="Excel format">$excel_icon</a>);
 		}
 		say q(</p>);
 	}
+	$self->print_navigation_bar( { back_page => 'batchProfiles' } );
 	say q(</div></div>);
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,7 +28,7 @@ use constant ERROR => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache);
+	$self->{$_} = 1 foreach qw (jQuery noCache jQuery.columnizer);
 	return;
 }
 
@@ -38,37 +38,60 @@ sub print_content {
 	say q(<h1>Create new isolate record version</h1>);
 	my $existing_id = $q->param('id');
 	if ( $self->{'system'}->{'view'} ne 'isolates' && $self->{'system'}->{'view'} ne 'temp_view' ) {
-		say q(<div class="box" id="statusbad"><p>New record versions cannot be created when a filtered )
-		  . q(isolate view is used.  Any new version could be potentially inaccessible.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(New record versions cannot be created when a filtered )
+				  . q(isolate view is used. Any new version could be potentially inaccessible.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($existing_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid isolate id passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to )
-		  . q(create isolate records.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to create isolate records.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	if ( !$self->isolate_exists($existing_id) ) {
-		say qq(<div class="box" id="statusbad"><p>Isolate $existing_id does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Selected isolate does not exist.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->is_allowed_to_view_isolate($existing_id) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to access )
-		  . q(this isolate record.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account is not allowed to access this isolate record.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my $new_version = $self->{'datastore'}->run_query( 'SELECT new_version FROM isolates WHERE id=?', $existing_id );
 	if ($new_version) {
 		if ( $self->isolate_exists($new_version) ) {
-			say q(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. See )
-			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
-			  . qq(id=$new_version">isolate id-$new_version</a>.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(This isolate already has a newer version defined. See )
+					  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
+					  . qq(id=$new_version">isolate id-$new_version</a>.),
+					navbar => 1
+				}
+			);
 		} else {
-			say q(<div class="box" id="statusbad"><p>This isolate already has a newer version defined. )
-			  . q(It is not, however, accessible from the current database view.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(This isolate already has a newer version defined. )
+					  . q(It is not, however, accessible from the current database view.),
+					navbar => 1
+				}
+			);
 		}
 		return;
 	}
@@ -95,11 +118,16 @@ sub print_content {
 			$self->_print_interface;
 			return;
 		}
-		say q(<div class="box" id="resultsheader"><p>The new record shown below has been created.</p>);
-		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=batchAddSeqbin&amp;isolate_id=$new_id">Upload contigs</a></li>);
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=isolateUpdate&amp;id=$new_id">Update record</a></li></ul></div>);
+		$self->print_good_status(
+			{
+				message            => q(The new record shown below has been created.),
+				navbar             => 1,
+				upload_contigs_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=addSeqbin&amp;isolate_id=$new_id),
+				update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=isolateUpdate&amp;id=$new_id")
+			}
+		);
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		say $self->{'isolate_record'}->get_isolate_record($new_id);
 		say q(</div></div>);
@@ -121,8 +149,7 @@ sub _print_interface {
 	  . q(when needed, with links from the new record.  The update history will be reset for the new record.</p>);
 	if ( BIGSdb::Utils::is_int($existing_id) && $self->_is_private($existing_id) ) {
 		say q(<p>As this record is private, the new version will also be private with you set as the owner. If )
-		  . q(the original record forms part of a private quota, the new record will also take up quota space.</p>)
-		  ;
+		  . q(the original record forms part of a private quota, the new record will also take up quota space.</p>);
 	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter new record id</legend>);
@@ -155,14 +182,14 @@ sub _create_new_version {
 	my $existing_id = $q->param('id');
 	my $new_id      = $q->param('new_id');
 	if ( !BIGSdb::Utils::is_int($new_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid new record id.</p></div>);
+		$self->print_bad_status( { message => q(Invalid new record id.) } );
 		return ERROR;
 	}
 
 	#Don't use Page::isolate_exists as that only checks current view, but we need to check whole isolates table.
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $new_id );
 	if ($exists) {
-		say qq(<div class="box" id="statusbad"><p>An isolate record already exists with id-$new_id.</p></div>);
+		$self->print_bad_status( { message => qq(An isolate record already exists with id-$new_id.) } );
 		return ERROR;
 	}
 	my $is_private   = $self->_is_private($existing_id);
@@ -203,8 +230,12 @@ sub _create_new_version {
 		}
 	};
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>New record creation failed.  )
-		  . q(More details will be in the error log.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(New record creation failed. More details will be in the error log.),
+				navbar  => 1
+			}
+		);
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		return ERROR;

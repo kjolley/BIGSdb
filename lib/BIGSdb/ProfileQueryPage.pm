@@ -80,7 +80,13 @@ sub print_content {
 	  ? qq(<h1>Query/update profiles - $desc</h1>)
 	  : qq(<h1>Search or browse profiles - $desc</h1>);
 	my $qry;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 
+	if ( !@$schemes ) {
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+		  ;
+		return;
+	}
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);
@@ -300,8 +306,7 @@ sub _run_query {
 	}
 	if (@$errors) {
 		local $" = '<br />';
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say qq(<p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
 		my @hidden_attributes;
 		push @hidden_attributes, 'c0', 'c1';
@@ -433,7 +438,6 @@ sub _generate_query_from_locus_fields {
 			  lc($text) eq 'null'
 			  ? "$cleaned_field is null"
 			  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
-			$equals .= " OR $cleaned_field='N'" if $is_locus && $scheme_info->{'allow_missing_loci'};
 			my %modify = (
 				'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
 				'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
@@ -610,7 +614,7 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fa fa-lg fa-close"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}

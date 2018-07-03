@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -77,7 +77,7 @@ sub print_content {
 	return if !$q->param('field');
 	my ( $field, $field_type, $scheme_id ) = $self->_get_field_and_type( $q->param('field') );
 	if ( !defined $field_type ) {
-		say q(<div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid field selected.), navbar => 1 } );
 		return;
 	}
 	my %methods = (
@@ -111,7 +111,7 @@ sub _print_interface {
 sub _print_isolate_field {
 	my ( $self, $field ) = @_;
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid field selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid field selected.), navbar => 1 } );
 		return;
 	}
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
@@ -151,7 +151,7 @@ sub _print_isolate_field {
 	  defined $metaset
 	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN "
 	  . "(SELECT id FROM $self->{'system'}->{'view'}) AND $metafield IS NOT NULL"
-	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE " . "$field IS NOT NULL ORDER BY $field ";
+	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field ";
 	my $used_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
@@ -160,12 +160,16 @@ sub _print_isolate_field {
 		|| $field eq 'curator'
 		|| ( ( $attributes->{'userfield'} // q() ) eq 'yes' ) )
 	{
-		my $filter = $field eq 'curator' ? q( WHERE status IN ('curator','admin') AND id>0 ) : q( WHERE id>0 );
+		my $filter = $field eq 'curator' ? q(WHERE status IN ('curator','admin') AND id>0) : q(WHERE id>0);
 		my $users =
 		  $self->{'datastore'}->run_query(
-			"SELECT id FROM users$filter" . "AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
+			"SELECT id FROM users $filter AND id IN (SELECT $field FROM $self->{'system'}->{'view'}) ORDER BY id",
 			undef, { fetch => 'col_arrayref' } );
 		my $buffer;
+		if ( $field eq 'sender' && $self->{'username'} ) {
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			$buffer .= qq(<p>Your user id is: <b>$user_info->{'id'}</b></p>);
+		}
 		foreach my $id (@$users) {
 			next if !$used->{$id};
 			my $data = $self->{'datastore'}->get_user_info($id);
@@ -173,7 +177,7 @@ sub _print_isolate_field {
 			$buffer .= qq(<tr><td>$data->{'id'}</td><td>$data->{'surname'}</td><td>$data->{'first_name'}</td>)
 			  . qq(<td style="text-align:left">$data->{'affiliation'}</td></tr>\n);
 		}
-		if ($buffer) {
+		if (@$users) {
 			print q(<p>The integer stored in this field is the key to the following users);
 			print q( (only curators or administrators shown)) if $field eq 'curator';
 			say q(. Only users linked to an isolate record are shown.</p>);
@@ -221,7 +225,7 @@ sub _print_list {
 sub _print_scheme_field {
 	my ( $self, $scheme_id, $field ) = @_;
 	if ( !$self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid scheme field selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme field selected.), navbar => 1 } );
 		return;
 	}
 	my $set_id      = $self->get_set_id;
@@ -244,8 +248,13 @@ sub _print_scheme_field {
 		$temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	catch BIGSdb::DatabaseConnectionException with {
-		say qq(<div class="box" id="statusbad"><p>The database for scheme $scheme_id is not )
-		  . q(accessible. This may be a configuration problem.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(The database for scheme $scheme_id is not )
+				  . q(accessible. This may be a configuration problem.),
+				navbar => 1
+			}
+		);
 		$logger->error('Cannot copy data to temporary table.');
 	};
 	say q(<p>The field has a list of values retrieved from an external database. )
@@ -264,7 +273,7 @@ sub _print_scheme_field {
 sub _print_locus {
 	my ( $self, $locus ) = @_;
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
 		return;
 	}
 	my $cleaned = $self->clean_locus($locus);

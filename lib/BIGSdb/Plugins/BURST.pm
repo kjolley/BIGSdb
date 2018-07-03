@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.3',
+		version     => '1.1.6',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',
@@ -77,15 +77,15 @@ sub run {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 
 		if ( !$scheme_id ) {
-			say q(<div class="box" id="statusbad"><p>No scheme id passed.</p></div>);
+			$self->print_bad_status( { message => q(No scheme id passed.), navbar => 1 } );
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			say q(<div class="box" id="statusbad"><p>Scheme id must be an integer.</p></div>);
+			$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 			return;
 		} else {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 			if ( !$scheme_info ) {
-				say q(<div class="box" id="statusbad">Scheme does not exist.</p></div>);
+				$self->print_bad_status( { message => q(Scheme does not exist.), navbar => 1 } );
 				return;
 			}
 		}
@@ -95,8 +95,13 @@ sub run {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key', $scheme_id );
 		if ( !$pk ) {
-			say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
-			  . q(Profile concatenation cannot be done until this has been set.</p></div>);
+			$self->print_bad_status(
+				{
+					message => q(No primary key field has been set for this scheme. )
+					  . q(Profile concatenation cannot be done until this has been set.),
+					navbar => 1
+				}
+			);
 			return;
 		}
 	}
@@ -110,7 +115,7 @@ sub run {
 		}
 		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 	} else {
-		say q(<div class="box" id="statusbad"><p>No query has been passed.</p></div>);
+		$self->print_bad_status( { message => q(No query has been passed.), navbar => 1 } );
 	}
 	if ( $q->param('submit') ) {
 		$self->_run_burst( $scheme_id, $pk, $list );
@@ -130,7 +135,7 @@ sub run {
 	  . q(image format that can be manipulated and scaled in drawing packages, including the freely )
 	  . q(available <a href="http://www.inkscape.org">Inkscape</a>.</p>);
 	say $q->start_form;
-	say $q->hidden($_) foreach qw (db page name query_file list_file datatype);
+	say $q->hidden($_) foreach qw (db page name query_file list_file temp_table_file datatype);
 	my $locus_count;
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 
@@ -188,18 +193,17 @@ sub _run_burst {
 	my ( $self, $scheme_id, $pk, $list ) = @_;
 	local $| = 1;
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
-	  . q(<p><span class="main_icon fa fa-refresh fa-spin fa-4x"></span></p></div>);
+	  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) =
 	  $self->_get_profile_array( $scheme_id, $pk, $list );
 	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $locus_count, $num_profiles, $profiles_ref );
 	if ($error) {
-		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
+		$self->print_bad_status( { message => $error } );
 		return;
 	}
 	if ( !$num_profiles ) {
-		say q(<div class="box" id="statusbad"><p>No complete profiles were )
-		  . q(returned for the selected scheme.</p></div>);
+		$self->print_bad_status( { message => q(No complete profiles were returned for the selected scheme.) } );
 		return;
 	}
 	$self->_recursive_search(
@@ -324,7 +328,7 @@ sub _recursive_search {
 		|| $grpdef < 1
 		|| $grpdef > $locus_count - 1 )
 	{
-		say q(<div class="box" id="statusbad"><p>Invalid group definition selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid group definition selected.) } );
 		return;
 	}
 	my $g = 0;

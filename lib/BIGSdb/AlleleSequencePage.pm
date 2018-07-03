@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,18 +54,21 @@ sub print_content {
 	my $locus      = $q->param('locus');
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		say q(<h1>Allele sequence</h1>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $exists =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say q(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
+		say q(<h1>Allele sequence</h1>);
+		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid locus selected.</p></div>);
+		say q(<h1>Allele sequence</h1>);
+		$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
 		return;
 	}
 	$self->update_prefs if $q->param('reload');
@@ -93,20 +96,20 @@ sub print_content {
 		}
 		$buffer .= q(<div style="float:left">);
 		$buffer .= qq(<h2>Contig position$update_buffer</h2>\n);
-		$buffer .= q(<dl class="data">);
-		$buffer .= qq(<dt class="dontend">sequence bin id</dt><dd>$seqbin_id</dd>);
-		$buffer .= qq(<dt class="dontend">contig length</dt><dd>$seqlength</dd>);
+		my $list = [
+			{ title => 'sequence bin id', data => $seqbin_id },
+			{ title => 'contig length',   data => $seqlength },
+			{ title => 'start',           data => $start_pos },
+			{ title => 'end',             data => $end_pos },
+			{ title => 'length',          data => abs( $end_pos - $start_pos + 1 ) },
+			{ title => 'orientation',     data => $reverse ? 'reverse' : 'forward' },
+			{ title => 'complete',        data => $complete ? 'yes' : 'no' }
+		];
+		push @$list, { title => 'method', data => $method } if $method;
+		$buffer .= $self->get_list_block($list);
+		$buffer .= q(</div>);
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
-		$buffer .= qq(<dt class="dontend">start</dt><dd>$start_pos</dd>\n);
-		$buffer .= qq(<dt class="dontend">end</dt><dd>$end_pos</dd>\n);
-		my $length = abs( $end_pos - $start_pos + 1 );
-		$buffer .= qq(<dt class="dontend">length</dt><dd>$length</dd>\n);
-		my $orientation = $reverse ? 'reverse' : 'forward';
-		$buffer .= qq(<dt class="dontend">orientation</dt><dd>$orientation</dd>\n);
-		$buffer .= q(<dt class="dontend">complete</dt><dd>) . ( $complete ? 'yes' : 'no' ) . qq(</dd>\n);
-		$buffer .= qq(<dt class="dontend">method</dt><dd>$method</dd>\n) if $method;
-		$buffer .= q(</dl></div>);
 		my $display = $self->format_seqbin_sequence(
 			{
 				seqbin_id => $seqbin_id,
@@ -122,7 +125,6 @@ sub print_content {
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
 		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
-
 		if ($translate) {
 			$buffer .= qq(<h2>Translation</h2>\n);
 			my @stops = @{ $display->{'internal_stop'} };
@@ -142,8 +144,12 @@ sub print_content {
 		say $buffer;
 		say q(</div></div>);
 	} else {
-		say q(<div class="box" id="statusbad"><p>This isolate does not have a sequence defined for )
-		  . qq(locus $display_locus.</p></div>);
+		$self->print_bad_status(
+			{
+				message => qq(This isolate does not have a sequence defined for locus $display_locus.),
+				navbar  => 1
+			}
+		);
 	}
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,24 +34,29 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
 		say q(<h1>Batch insert profiles</h1>);
-		say q(<div class="box" id="statusbad"><p>Invalid scheme passed.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<h1>Batch insert profiles</h1>);
-		say q(<div class="box" id="statusbad"><p>You can only add profiles to a sequence/profile database - )
-		  . q(this is an isolate database.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(You can only add profiles to a sequence/profile database - )
+				  . q(this is an isolate database.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
 		say q(<h1>Batch insert profiles</h1>);
-		say q(<div class="box" id="statusbad"><p>Your user account is not allowed to add new profiles.</p></div>);
+		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.), navbar => 1 } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			say q(<h1>Batch insert profiles</h1>);
-			say q(<div class="box" id="statusbad"><p>The selected scheme is inaccessible.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
 			return;
 		}
 	}
@@ -61,12 +66,22 @@ sub print_content {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $primary_key   = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have a primary key field defined.  )
-		  . q(Profiles cannot be entered until this has been done.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This scheme doesn't have a primary key field defined.  )
+				  . q(Profiles cannot be entered until this has been done.),
+				navbar => 1
+			}
+		);
 		return;
 	} elsif ( !@$loci ) {
-		say q(<div class="box" id="statusbad"><p>This scheme doesn't have any loci belonging to it.  )
-		  . q(Profiles cannot be entered until there is at least one locus defined.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(This scheme doesn't have any loci belonging to it.  )
+				  . q(Profiles cannot be entered until there is at least one locus defined.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
@@ -157,7 +172,7 @@ sub _check {
 	my $sender = $q->param('sender');
 	my %problems;
 	if ( !$sender ) {
-		say q(<div class="box" id="statusbad"><p>Please enter a sender for this submission.</p></div>);
+		$self->print_bad_status( { message => q(Please enter a sender for this submission.) } );
 		$self->_print_interface($scheme_id);
 		return;
 	} elsif ( $sender == -1 ) {
@@ -165,7 +180,7 @@ sub _check {
 	} else {
 		my $sender_ref = $self->{'datastore'}->get_user_info($sender);
 		if ( !$sender_ref ) {
-			say q(<div class="box" id="statusbad"><p>Sender is unrecognized.</p></div>);
+			$self->print_bad_status( { message => q(Sender is unrecognized.) } );
 			$self->_print_interface($scheme_id);
 			return;
 		}
@@ -358,8 +373,14 @@ sub _check {
 	}
 	$table_buffer .= "</table>\n";
 	if ( !$record_count ) {
-		say q(<div class="box" id="statusbad"><p>No valid data entered. Make sure )
-		  . q(you've included the header line.</p></div>);
+		$self->print_bad_status(
+			{
+				message  => q(No valid data entered. Make sure ) . q(you've included the header line.),
+				navbar   => 1,
+				back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id)
+			}
+		);
 		return;
 	}
 	if (%problems) {
@@ -403,9 +424,17 @@ sub _upload {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $tmp_file      = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('checked_buffer');
 	if ( !-e $tmp_file ) {
-		say q(<div class="box" id="statusbad"><p>The temp file containing the checked profiles does not exist.</p>)
-		  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
-		  . q(re-upload already submitted data.  Please report this if the problem persists.<p></div>);
+		$self->print_bad_status(
+			{
+				message => q(The temp file containing the checked profiles does not exist.),
+				detail =>
+				  q(Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
+				  . q(re-upload already submitted data.  Please report this if the problem persists.),
+				navbar   => 1,
+				back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id)
+			}
+		);
 		$logger->error("Checked buffer file $tmp_file does not exist.");
 		return;
 	}
@@ -483,33 +512,34 @@ sub _upload {
 			}
 		};
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>Database update failed - transaction cancelled - )
-			  . q(no records have been touched.</p>);
+			my $detail;
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
 				  . q(unique field with duplicate values.</p>);
-			} else {
-				say qq(<p>Error message: $@</p>);
 			}
-			say q(</div>);
+			$self->print_bad_status(
+				{
+					message => q(Database update failed - transaction cancelled - ) . q(no records have been touched.),
+					detail  => $detail
+				}
+			);
 			$self->{'db'}->rollback;
-			$logger->error("Can't insert: $@");
+			$logger->error($@);
 			return;
 		}
 	}
-	$self->{'db'}->commit
-	  && say q(<div class="box" id="resultsheader"><p>Database updated ok</p><p>);
-	my $back = BACK;
-	if ( $q->param('submission_id') ) {
-		my $submission = $self->{'submissionHandler'}->get_submission( $q->param('submission_id') );
-		if ($submission) {
-			say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;)
-			  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1" title="Return to )
-			  . qq(submission" style="margin-right:1em">$back</a>);
+	$self->{'db'}->commit;
+	my $submission_id = $q->param('submission_id');
+	$self->print_good_status(
+		{
+			message       => q(Profiles added.),
+			navbar        => 1,
+			submission_id => $submission_id,
+			more_text     => q(Add more),
+			more_url      => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id)
 		}
-	}
-	$self->print_home_link;
-	say q(</p></div>);
+	);
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}
@@ -533,7 +563,7 @@ sub _print_interface {
 	}
 	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download tab-delimited header for your spreadsheet</a> - use )
-	  . q(Paste Special <span class="fa fa-arrow-circle-right"></span> Text to paste the data.</li><li>)
+	  . q(Paste Special <span class="fas fa-arrow-circle-right"></span> Text to paste the data.</li><li>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
 	say $q->start_form;
@@ -562,7 +592,7 @@ sub _print_interface {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	$self->print_home_link;
+	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

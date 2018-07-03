@@ -43,7 +43,7 @@ import base64
 from rauth import OAuth1Service,OAuth1Session
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-a','--arguments', help="Data to put in during POST e.g. 'type=alleles&software=Enterobase'")
+parser.add_argument('-a','--arguments', help="Data to put in during POST or additional GET arguments e.g. 'type=alleles&software=Enterobase'")
 parser.add_argument('-f','--file', help='Name of file to upload')
 parser.add_argument('-i','--isolates_file', help='Relative path of tab-delimited file of isolate data to upload')
 parser.add_argument('-m','--method', help='Set HTTP method (default GET)',choices=['GET','POST','PUT','DELETE'],default='GET')
@@ -128,7 +128,7 @@ def get_route(route,token,secret):
             ps = pa.split('=')
             extra_params[ps[0]] = ps[1]
     if args.method == 'GET':
-        r = session.get(url)
+        r = session.get(url, params = extra_params)
     elif args.method == 'POST':
         r = session.post(url, data = extra_params)
     elif args.method == 'DELETE':
@@ -145,7 +145,10 @@ def get_route(route,token,secret):
         if re.search('unauthorized',r.json()['message']):
             print ('Access denied - client is unauthorized')
             return
-        else:          
+        else:
+            if re.search('verification',r.json()['message']):
+                print (r.json())
+                return         
             print ('Invalid session token, requesting new one...\n')
             (token,secret) = get_session_token(None,None)
             get_route(route, token, secret)

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,21 +35,25 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>Private records</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		say q(<div class="box" id="statusbad"><p>This function is only available in isolate databases.</p></div>);
+		$self->print_bad_status( { message => q(This function is only available in isolate databases.), navbar => 1 } );
 		return;
 	}
 	if ( !$self->{'username'} ) {
-		say q(<div class="box" id="statusbad"><p>You are not logged in.</p></div>);
+		$self->print_bad_status( { message => q(You are not logged in.), navbar => 1 } );
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>You are not a recognized user.</p></div>);
+		$self->print_bad_status( { message => q(You are not a recognized user.), navbar => 1 } );
 		return;
 	}
 	if ( $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates') ) {
-		say q(<div class="box" id="statusbad"><p>Your account does not have )
-		  . q(permission to upload private records.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account does not have permission to upload private records.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	$self->_print_limits( $user_info->{'id'} );
@@ -60,7 +64,7 @@ sub print_content {
 sub _print_limits {
 	my ( $self, $user_id ) = @_;
 	say q(<div class="box" id="resultspanel">);
-	say q(<span class="main_icon fa fa-lock fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 	say q(<h2>Limits</h2>);
 	my $private       = $self->{'datastore'}->get_private_isolate_count($user_id);
 	my $total_private = $self->{'datastore'}->run_query(
@@ -71,26 +75,34 @@ sub _print_limits {
 	my $limit = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	say q(<p>Accounts have a quota for the number of private records that they can upload. )
 	  . q(Uploading of private data to some registered projects may not count against your quota.<p>);
-	say q(<dl class="data">);
-	say qq(<dt>Records (total)</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1">$total_private</a></dd>);
-	say qq(<dt>Records (quota)</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1">$private</a></dd>);
-	say qq(<dt>Quota</dt><dd>$limit</dd>);
 	my $available = $limit - $private;
 	$available = 0 if $available < 0;
-	say qq(<dt>You can upload</dt><dd>$available</dd>);
-	say q(</dl>);
-
+	my $list = [
+		{
+			title => 'Records (total)',
+			data  => $total_private,
+			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1)
+		},
+		{
+			title => 'Records (quota)',
+			data  => $private,
+			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
+		},
+		{ title => 'Quota',          data => $limit },
+		{ title => 'You can upload', data => $available }
+	];
+	say $self->get_list_block($list);
 	if ($available) {
-		say q(<span class="main_icon fa fa-upload fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);
 		my $link = $self->_get_upload_link;
 		say qq(<ul class="toplevel"><li><a href="$link">Upload private isolate records</a></li></ul>);
 	}
 	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	if ($user_id) {
-		say q(<span class="main_icon fa fa-edit fa-3x pull-left"></span>);
+		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say q(<h2>Curate</h2>);
 		say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
 		  . q(Update private records</a> <span class="link">Curator's interface</span></li></ul>);
@@ -117,7 +129,7 @@ sub _print_projects {
 	return if !@$projects;
 	my $available = $self->{'datastore'}->get_available_quota($user_id);
 	say q(<div class="box" id="resultstable">);
-	say q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	say q(<h2>Projects</h2>);
 	if ( $available > 0 ) {
 		say q(<p>You can upload private data to the following projects. Anything you upload will be )
@@ -145,7 +157,7 @@ sub _print_projects {
 		  . qq(<td>$users</td><td>$isolates</td><td>$quota_free</td>);
 		say $isolates
 		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fa fa-binoculars action browse">)
+		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a></td>)
 		  : q(<td></td>);
 		my $can_upload = $project->{'no_quota'} || $available > 0;

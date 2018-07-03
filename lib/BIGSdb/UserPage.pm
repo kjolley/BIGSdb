@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -89,7 +89,7 @@ sub _site_account {
 sub _show_registration_details {
 	my ($self) = @_;
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
-	say q(<span class="main_icon fa fa-id-card-o fa-3x pull-left"></span>);
+	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>User details</h2>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
 	  . q(appropriate capitalization etc. These details will be linked to any data you submit to the )
@@ -113,14 +113,14 @@ sub _edit_user {
 	my ( $self, $username ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->{'permissions'}->{'modify_users'} && $username ne $self->{'username'} ) {
-		say q(<div class="box" id="statusbad"><p>You do not have permission to edit other users' accounts.</p></div>);
+		$self->print_bad_status( { message => q(You do not have permission to edit other users' accounts.) } );
 		return;
 	}
 	if ( $q->param('update') ) {
 		$self->_update_user($username);
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	say q(<span class="config_icon fa fa-edit fa-3x pull-left"></span>);
+	say q(<span class="config_icon fas fa-edit fa-3x fa-pull-left"></span>);
 	say q(<h2>User account details</h2>);
 	if ( $username eq $self->{'username'} ) {
 		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
@@ -149,8 +149,7 @@ sub _edit_user {
 	$q->param( update => 1 );
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
+	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div></div>);
 	return;
 }
@@ -182,7 +181,7 @@ sub _update_user {
 		$error = q(Your E-mail address is not valid.);
 	}
 	if ($error) {
-		say qq(<div class="box" id="statusbad"><p>$error</p></div>);
+		$self->print_bad_status( { message => qq($error) } );
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
@@ -207,15 +206,15 @@ sub _update_user {
 			$logger->info("$self->{'username'} updated user details for $username.");
 		};
 		if ($@) {
-			say q(<div class="box" id="statusbad"><p>User detail update failed.</p></div>);
+			$self->print_bad_status( { message => q(User detail update failed.) } );
 			$logger->error($@);
 			$self->{'db'}->rollback;
 		} else {
-			say q(<div class="box" id="resultsheader"><p>Details successfully updated</p></div>);
+			$self->print_good_status( { message => q(Details successfully updated.) } );
 			$self->{'db'}->commit;
 		}
 	} else {
-		say q(<div class="box" id="resultsheader"><p>No changes made.</p></div>);
+		$self->print_bad_status( { message => q(No changes made.) } );
 	}
 	return;
 }
@@ -244,7 +243,7 @@ sub _registrations {
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
 	return $buffer if !@$configs;
-	$buffer .= q(<span class="main_icon fa fa-list-alt fa-3x pull-left"></span>);
+	$buffer .= q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
 	    q(<p>Use this page to register your account with specific databases. )
@@ -291,7 +290,7 @@ sub _registrations {
 			-id       => 'auto_reg',
 			-values   => $auto_reg,
 			-multiple => 'true',
-			-style    => 'min-width:10em; min-height:8em',
+			-style    => 'min-width:10em; min-height:10em',
 			-labels   => $labels
 		);
 		$buffer .= q(<div style='text-align:right'>);
@@ -405,10 +404,10 @@ sub _register {
 				  . q(site admin</a> for advice.);
 			}
 		}
-		say qq(<div class="box" id="statusbad"><p>User registration failed.$msg</p></div>);
+		$self->print_bad_status( { message => q(User registration failed.), detail => $msg } );
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>User registration succeeded.</p></div>);
+		$self->print_good_status( { message => q(User registration succeeded.) } );
 	}
 	return;
 }
@@ -438,10 +437,10 @@ sub _request {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>User request failed.</p></div>);
+		$self->print_bad_status( { message => q(User request failed.) } );
 	} else {
 		$self->{'db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>User request is now pending.</p></div>);
+		$self->print_bad_status( { message => q(User request is now pending.) } );
 	}
 	return;
 }
@@ -466,12 +465,12 @@ sub _show_admin_roles {
 	$buffer .= $self->_show_modify_users;
 	if ($buffer) {
 		say q(<div class="box" id="restricted">);
-		say q(<span class="config_icon fa fa-wrench fa-3x pull-left"></span>);
+		say q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 		say $buffer;
 		say q(</div>);
 	} else {
 		say q(<div class="box" id="statusbad" style="min-height:5em">);
-		say q(<span class="config_icon fa fa-thumbs-o-down fa-5x pull-left"></span>);
+		say q(<span class="config_icon far fa-thumbs-down fa-5x fa-pull-left"></span>);
 		say q(<p>Your account has no administrator privileges for this site.</p>);
 		say q(</div>);
 	}
@@ -635,11 +634,11 @@ sub _select_merge_users {
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
 	if ( !$user_info ) {
-		say q(<div class="box" id="statusbad"><p>No information available for user.</p></div>);
+		$self->print_bad_status( { message => q(No information available for user.) } );
 		return;
 	}
 	if ( !$self->{'permissions'}->{'merge_users'} ) {
-		say q(<div class="box" id="statusbad"><p>Your account does not have permission to merge accounts.</p></div>);
+		$self->print_bad_status( { message => q(Your account does not have permission to merge accounts.) } );
 		return;
 	}
 	if ( $q->param('merge') ) {
@@ -724,8 +723,7 @@ sub _select_merge_users {
 	say $q->hidden($_) foreach qw(merge merge_user user);
 	say $q->end_form;
 	say q(</div>);
-	my $back = BACK;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" title="Back">$back</a></p>);
+	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div>);
 	return;
 }
@@ -747,7 +745,7 @@ sub _merge {
 	  $self->{'datastore'}->run_query( 'SELECT id FROM users WHERE user_name=?', $user, { db => $db } );
 
 	if ( !$db_user_id ) {
-		say qq(<div class="box" id="statusbad"><p>User $remote_user is not found in $config.<p></div>);
+		$self->print_bad_status( { message => qq(User $remote_user is not found in $config.) } );
 		return;
 	}
 	my $site_db =
@@ -782,11 +780,11 @@ sub _merge {
 		$logger->error($@);
 		$db->rollback;
 		$self->{'auth_db'}->rollback;
-		say q(<div class="box" id="statusbad"><p>Account failed to merge</p></div>);
+		$self->print_bad_status( { message => q(Account failed to merge.) } );
 	} else {
 		$db->commit;
 		$self->{'auth_db'}->commit;
-		say q(<div class="box" id="resultsheader"><p>Account successfully merged</p></div>);
+		$self->print_good_status( { message => q(Account successfully merged.) } );
 	}
 	$self->_drop_connection($system);
 	return;
@@ -937,6 +935,22 @@ sub _read_config_xml {
 		return;
 	}
 	my $system = $self->{'xmlHandler'}->get_system_hash;
+
+	#Read system.override file
+	my $override_file = "$self->{'dbase_config_dir'}/$config/system.overrides";
+	if ( -e $override_file ) {
+		open( my $fh, '<', $override_file )
+		  || $logger->error("Cannot open $override_file for reading");
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^\#/x;
+			$line =~ s/^\s+//x;
+			$line =~ s/\s+$//x;
+			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
+				$system->{$1} = $2;
+			}
+		}
+		close $fh;
+	}
 	return $system;
 }
 

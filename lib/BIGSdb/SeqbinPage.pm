@@ -43,18 +43,18 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !defined $isolate_id ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id not specified.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id not specified.), navbar => 1 } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say q(<div class="box" id="statusbad"><p>Isolate id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
 	my $exists =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
-		say q(<div class="box" id="statusbad"><p>The database contains no record of this isolate.</p></div>);
+		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
 		return;
 	}
 	my $name = $self->get_name($isolate_id);
@@ -175,17 +175,25 @@ sub _print_contig_table_header {
 	my $att_headings = @cleaned_attributes ? qq(<th>@cleaned_attributes</th>) : q();
 	say q(<tr><th>Sequence</th><th>Sequencing method</th>)
 	  . qq(<th>Original designation</th><th>Length</th><th>Comments</th>$att_headings<th>Locus</th>)
-	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis )
-	  . q(<a class="tooltip" title="Artemis - This will launch Artemis using Java WebStart. )
-	  . q(The contig annotations should open within Artemis but this may depend on your operating system )
-	  . q(and version of Java.  If the annotations do not open within Artemis, download the EMBL file )
-	  . q(locally and load manually in to Artemis."><span class="fa fa-info-circle" style="color:white"></span>)
-	  . q(</a></th>);
+	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis);
+	say $self->get_tooltip(
+		q(Artemis - This will launch Artemis using Java WebStart. )
+		  . q(The contig annotations should open within Artemis but this may depend on your operating system )
+		  . q(and version of Java.  If the annotations do not open within Artemis, download the EMBL file )
+		  . q(locally and load manually in to Artemis.),
+		{ style => 'color:white' }
+	);
+	say q(</th>);
+
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		say q(<th>Renumber <a class="tooltip" title="Renumber - You can use the numbering of the )
-		  . q(sequence tags to automatically set the genome order position for each locus. This will )
-		  . q(be used to order the sequences when exporting FASTA or XMFA files.">)
-		  . q(<span class="fa fa-info-circle" style="color:white"></span></a></th>);
+		say q(<th>Renumber);
+		say $self->get_tooltip(
+			q(Renumber - You can use the numbering of the )
+			  . q(sequence tags to automatically set the genome order position for each locus. This will )
+			  . q(be used to order the sequences when exporting FASTA or XMFA files.),
+			{ style => 'color:white' }
+		);
+		say q(</th>);
 	}
 	say q(</tr>);
 	return;

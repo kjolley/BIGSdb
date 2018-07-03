@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,14 +52,18 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
-		say q(<div class="box" id="statusbad"><p>Your user account does not )
-		  . q(have permission to modify loci.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your user account does not have permission to modify loci.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	say q(<h1>Renumber locus genome positions based on tagged sequences</h1>);
 	my $seqbin_id = $q->param('seqbin_id');
 	if ( !$seqbin_id || !BIGSdb::Utils::is_int($seqbin_id) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid sequence bin id.</p></div>);
+		$self->print_bad_status( { message => q(Invalid sequence bin id.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('renumber') ) {

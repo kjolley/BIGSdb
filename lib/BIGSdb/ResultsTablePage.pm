@@ -46,13 +46,13 @@ sub _calculate_totals {
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
+		my $view =$self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_${view}_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_${view}_scheme_completion_$scheme_id\D/x ) {
+				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
 			}
@@ -63,14 +63,14 @@ sub _calculate_totals {
 			}
 		}
 		catch BIGSdb::DatabaseConnectionException with {
-			say q(<div class="box" id="statusbad"><p>Can not connect to remote database. )
-			  . q( The query can not be performed.</p></div>);
+			$self->print_bad_status(
+				{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
 			$logger->error('Cannot create temporary table');
 			return;
 		};
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
-		say q(<div class="box" id="statusbad"><p>Invalid query attempted.</p></div>);
+		$self->print_bad_status( { message => q(Invalid query attempted.) } );
 		$logger->warn("Malicious SQL injection attempt '$qry'");
 		return;
 	}
@@ -299,6 +299,9 @@ sub _print_curate_headerbar_functions {
 	my ( $self, $table, $qry_filename ) = @_;
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		$table = 'isolates';
+	}
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
 		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
@@ -310,7 +313,7 @@ sub _print_curate_headerbar_functions {
 			$self->_print_set_sequence_flags_function;
 		}
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 	}
@@ -346,7 +349,7 @@ sub _print_project_add_function {
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
-	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
@@ -367,7 +370,8 @@ sub _print_publish_function {
 		return if !@$matched && !$q->param('publish');
 	}
 	say q(<fieldset><legend>Private records</legend>);
-	my $label = $self->{'permissions'}->{'only_private'} ? 'Request publication' : 'Publish';
+	my $label = $self->{'permissions'}->{'only_private'}
+	  || !$self->can_modify_table('isolates') ? 'Request publication' : 'Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
@@ -556,8 +560,8 @@ sub _print_isolate_table {
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Invalid search performed</p></div>);
-		$logger->warn("Can't execute query $qry_limit  $@");
+		$self->print_bad_status( { message => q(Invalid search performed) } );
+		$logger->warn("Cannot execute query $qry_limit  $@");
 		return;
 	}
 	my %data = ();
@@ -646,7 +650,7 @@ sub _print_isolate_id_links {
 		  . q(</a></td>);
 		if ( $self->can_modify_table('sequence_bin') ) {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=batchAddSeqbin&amp;isolate_id=$id" class="action">)
+			  . qq(page=addSeqbin&amp;isolate_id=$id" class="action">)
 			  . UPLOAD
 			  . q(</a></td>);
 		}
@@ -807,7 +811,8 @@ sub _print_isolate_table_header {
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
 				if ( $self->{'prefs'}->{'maindisplayfields'}->{"$col\..$extended_attribute"} ) {
-					$header_buffer .= qq(<th>$extended_attribute</th>);
+					( my $display_field = $extended_attribute ) =~ tr/_/ /;
+					$header_buffer .= qq(<th>$display_field</th>);
 					$col_count++;
 				}
 			}
@@ -823,10 +828,11 @@ sub _print_isolate_table_header {
 		  if $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view';
 	}
 	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
-	$fieldtype_header .=
-	    q( <a class="tooltip" title="Isolate fields - You can select the isolate fields )
-	  . q(that are displayed here by going to the options page.">)
-	  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+	$fieldtype_header .= $self->get_tooltip(
+		q(Isolate fields - You can select the isolate fields )
+		  . q(that are displayed here by going to the options page.),
+		{ style => 'color:white' }
+	);
 	$fieldtype_header .= q(</th>);
 	my %pref_fields = (
 		display_seqbin_main  => 'Seqbin size (bp)',
@@ -901,9 +907,8 @@ sub _get_isolate_header_scheme_fields {
 				$field =~ tr/_/ /;
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_name );
 				if ( $scheme_field_info->{'description'} ) {
-					$field .=
-					    qq( <a class="tooltip" title="$field - $scheme_field_info->{'description'}">)
-					  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+					$field .= $self->get_tooltip( qq($field - $scheme_field_info->{'description'}),
+						{ style => 'color:white' } );
 				}
 				push @scheme_header, $field;
 			}
@@ -1065,15 +1070,20 @@ sub _print_profile_table {
 	$logger->debug("Limit qry: $qry_limit");
 	eval { $limit_sql->execute };
 	if ($@) {
-		say q(<div class="box" id="statusbad"><p>Invalid search performed</p></div>);
-		$logger->warn("Can't execute query $qry_limit  $@");
+		$self->print_bad_status( { message => q(Invalid search performed.) } );
+		$logger->warn("Cannot execute query $qry_limit  $@");
 		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
-		  . q(Profile browsing can not be done until this has been set.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(No primary key field has been set for this scheme. )
+				  . q(Profile browsing can not be done until this has been set.),
+				navbar => 1
+			}
+		);
 		return;
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable"><tr>);
@@ -1081,8 +1091,7 @@ sub _print_profile_table {
 	print qq(<th>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	if ( $scheme_field_info->{'description'} ) {
-		print qq( <a class="tooltip" title="$primary_key - $scheme_field_info->{'description'}">)
-		  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say q(</th>);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -1097,8 +1106,8 @@ sub _print_profile_table {
 		$cleaned =~ tr/_/ /;
 		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if ( $scheme_field_info->{'description'} ) {
-			$cleaned .= qq( <a class="tooltip" title="$cleaned - $scheme_field_info->{'description'}">)
-			  . q(<span class="fa fa-info-circle" style="color:white"></span></a>);
+			$cleaned .=
+			  $self->get_tooltip( qq($cleaned - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		say qq(<th>$cleaned</th>);
 	}
@@ -1157,11 +1166,11 @@ sub _print_plugin_buttons {
 	  ->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
 	if (@$plugin_categories) {
 		my %icon = (
-			Breakdown     => 'pie-chart',
-			Export        => 'save',
-			Analysis      => 'line-chart',
-			'Third party' => 'external-link',
-			Miscellaneous => 'file-text-o'
+			Breakdown     => 'fas fa-chart-pie',
+			Export        => 'far fa-save',
+			Analysis      => 'fas fa-chart-line',
+			'Third party' => 'fas fa-external-link-alt',
+			Miscellaneous => 'far fa-file-alt'
 		);
 		say q(<h2>Analysis tools:</h2>);
 		my $set_id = $self->get_set_id;
@@ -1186,7 +1195,11 @@ sub _print_plugin_buttons {
 					$q->param( set_id => $set_id );
 					$plugin_buffer .= $q->hidden($_)
 					  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
-					$plugin_buffer .= $q->hidden('query_file') if ( $att->{'input'} // '' ) eq 'query';
+
+					if ( ( $att->{'input'} // '' ) eq 'query' ) {
+						$plugin_buffer .= $q->hidden('query_file');
+						$plugin_buffer .= $q->hidden('temp_table_file');
+					}
 					$plugin_buffer .=
 					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 					$plugin_buffer .= $q->end_form;
@@ -1196,7 +1209,7 @@ sub _print_plugin_buttons {
 					$cat_buffer .=
 					    q(<div><span style="float:left;text-align:right;width:8em;)
 					  . q(white-space:nowrap;margin-right:0.5em">)
-					  . qq(<span class="fa fa-fw fa-lg fa-$icon{$category} main_icon" style="margin-right:0.2em">)
+					  . qq(<span class="fa-fw fa-lg $icon{$category} main_icon" style="margin-right:0.2em">)
 					  . qq(</span>$category:</span>)
 					  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 					$cat_buffer .= $plugin_buffer;
@@ -1566,7 +1579,7 @@ sub _print_fk_field_with_label {
 	my $value = $table_info->{'labels'}->{$field};
 	my $i     = 0;
 	foreach ( @{ $self->{'cache'}->{'fields_to_query'}->{$field} } ) {
-		$value =~ s/$_/$labels[$i]/x;
+		$value =~ s/\$$_/$labels[$i]/x;
 		$i++;
 	}
 	$value =~ s/[\|\$]//gx;
@@ -1816,7 +1829,7 @@ sub publish {
 		$matched = $self->_get_query_private_records( $user_info->{'id'} );
 	}
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
-	my $request_only = $self->{'permissions'}->{'only_private'} ? 1 : 0;
+	my $request_only = $self->{'permissions'}->{'only_private'} || !$self->can_modify_table('isolates') ? 1 : 0;
 	my $message;
 	my $count = @$matched;
 	my $plural = $count == 1 ? q() : q(s);
@@ -1853,6 +1866,8 @@ sub get_query_ids {
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/ORDER\ BY.*$//gx;
 	$qry =~ s/SELECT\ \*/SELECT $view.id/x;
+	$self->create_temp_tables( \$qry );
+
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
 	}

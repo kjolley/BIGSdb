@@ -21,12 +21,11 @@ $(function () {
 	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		
 		event.preventDefault();
+		$('.tooltip').toggle();
 	  	$(this).attr('href', function(){  		
 	  		$.ajax({
-	  			url : this.href,
-	  			success: function () {
-	  				$('.tooltip').toggle();
-	  			}
+	  			url: this.href,
+	  			cache: false,
 	  		});
 	   	});
 	});
@@ -51,7 +50,7 @@ $(function () {
 			var script_path = $(location).attr('href');
 			script_path = script_path.split('?')[0];
 			var url=script_path + '?db=' + $.urlParam('db') + '&page=ajaxMenu';
-			$('div#menupanel').html('<span class="fa fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
+			$('div#menupanel').html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
 		}
 	});
 });

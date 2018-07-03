@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2017, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,7 @@ sub print_content {
 		  ? $self->_isolate_curate_items
 		  : $self->_seqdef_curate_items;
 		my $base_url = $self->_get_base_url;
-		say q(<span class="main_icon fa fa-info-circle fa-lg pull-left"></span>);
+		say q(<span class="main_icon fas fa-info-circle fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say qq(<li><a href="$self->{'config'}->{'doclink'}/curator_guide.html" target="_blank">)
 		  . q(Curators' guide</a></li>);
@@ -51,7 +51,7 @@ sub print_content {
 	if ( $self->{'system'}->{'related_databases'} ) {
 		my @dbases = split /;/x, $self->{'system'}->{'related_databases'};
 		if (@dbases) {
-			say q(<span class="dataset_icon fa fa-database fa-lg pull-left"></span>);
+			say q(<span class="dataset_icon fas fa-database fa-lg fa-pull-left"></span>);
 			say q(<ul class="menu">);
 			foreach my $dbase (@dbases) {
 				my ( $config, $name ) = split /\|/x, $dbase;
@@ -85,7 +85,7 @@ sub _menu_header {
 
 sub _home {
 	my ($self) = @_;
-	say q(<span class="main_icon fa fa-home fa-lg pull-left" style="margin-top:0.8em"></span>);
+	say q(<span class="main_icon fas fa-home fa-lg fa-pull-left" style="margin-top:0.8em"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$self->{'system'}->{'webroot'}">Home</a></li>);
 	if ( $self->{'curate'} ) {
@@ -113,7 +113,7 @@ sub _submissions_link {
 	return if ( $self->{'system'}->{'submissions'} // '' ) ne 'yes';
 	my $set_id = $self->get_set_id // 0;
 	my $set_string = ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ? "&amp;choose_set=1&amp;sets_list=$set_id" : q();
-	say q(<span class="main_icon fa fa-upload fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-upload fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string">)
 	  . q(Submissions</a></li>);
@@ -124,7 +124,7 @@ sub _submissions_link {
 sub _options_link {
 	my ($self) = @_;
 	my $base_url = $self->_get_base_url;
-	say q(<span class="main_icon fa fa-cogs fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-cogs fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=options">General options</a></li>);
 	say q(</ul>);
@@ -134,7 +134,7 @@ sub _options_link {
 sub _isolate_items {
 	my ($self) = @_;
 	my $base_url = $self->_get_base_url;
-	say q(<span class="main_icon fa fa-search fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-search fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=query">Search or browse</a></li>);
 	say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
@@ -149,15 +149,15 @@ sub _isolate_items {
 	my $main_projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
 	my $user_projects = $self->show_user_projects;
 	if ( $main_projects || $user_projects ) {
-		say q(<span class="main_icon fa fa-list-alt fa-lg pull-left"></span>);
+		say q(<span class="main_icon fas fa-list-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
-		say qq(<li><a href="$base_url&amp;page=projects">Public projects</a></li>) if $main_projects;
+		say qq(<li><a href="$base_url&amp;page=projects">Public projects</a></li>)   if $main_projects;
 		say qq(<li><a href="$base_url&amp;page=userProjects">Your projects</a></li>) if $user_projects;
 		say q(</ul>);
 	}
 	$self->_options_link;
 	$self->_submissions_link;
-	say q(<span class="main_icon fa fa-info-circle fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-info-circle fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=version">About BIGSdb</a></li>);
 	say q(<li><a href="http://bigsdb.readthedocs.io" target="_blank">User guide</a></li>);
@@ -170,19 +170,23 @@ sub _isolate_items {
 sub _seqdef_items {
 	my ($self) = @_;
 	my $base_url = $self->_get_base_url;
-	say q(<span class="main_icon fa fa-search fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-search fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=sequenceQuery">Sequences</a></li>);
 	say qq(<li><a href="$base_url&amp;page=batchSequenceQuery">Batch sequences</a></li>);
 	say qq(<li><a href="$base_url&amp;page=tableQuery&amp;table=sequences">Sequence attributes</a></li>);
 	say qq(<li><a href="$base_url&amp;page=plugin&amp;name=SequenceComparison">Sequence comparison</a></li>);
-	say qq(<li><a href="$base_url&amp;page=query">Allelic profiles</a></li>);
-	say qq(<li><a href="$base_url&amp;page=batchProfiles">Batch profiles</a></li>);
-	say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+
+	if (@$schemes) {
+		say qq(<li><a href="$base_url&amp;page=query">Allelic profiles</a></li>);
+		say qq(<li><a href="$base_url&amp;page=batchProfiles">Batch profiles</a></li>);
+		say qq(<li><a href="$base_url&amp;page=profiles">Allelic combinations</a></li>);
+	}
 	say q(</ul>);
 	$self->_options_link;
 	$self->_submissions_link;
-	say q(<span class="main_icon fa fa-info-circle fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-info-circle fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=version">About BIGSdb</a></li>);
 	say q(<li><a href="http://bigsdb.readthedocs.io" target="_blank">User guide</a></li>);
@@ -195,7 +199,7 @@ sub _isolate_curate_items {
 	$self->_users_link;
 	my $buffer = $self->_isolates_link;
 	if ($buffer) {
-		say q(<span class="main_icon fa fa-file-text fa-lg pull-left"></span>);
+		say q(<span class="main_icon fas fa-file-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say $buffer;
 		say q(</ul>);
@@ -209,7 +213,7 @@ sub _seqdef_curate_items {
 	my $buffer = $self->_sequences_link;
 	$buffer .= $self->_profiles_link;
 	if ($buffer) {
-		say q(<span class="main_icon fa fa-file-text fa-lg pull-left"></span>);
+		say q(<span class="main_icon fas fa-file-alt fa-lg fa-pull-left"></span>);
 		say q(<ul class="menu">);
 		say $buffer;
 		say q(</ul>);
@@ -221,7 +225,7 @@ sub _users_link {
 	my ($self) = @_;
 	return if !$self->can_modify_table('users');
 	my $base_url = $self->_get_base_url;
-	say q(<span class="main_icon fa fa-user fa-lg pull-left"></span>);
+	say q(<span class="main_icon fas fa-user fa-lg fa-pull-left"></span>);
 	say q(<ul class="menu">);
 	say qq(<li><a href="$base_url&amp;page=add&amp;table=users">Add user</a></li>);
 	say qq(<li><a href="$base_url&amp;page=tableQuery&amp;table=users">Query users</a></li>);

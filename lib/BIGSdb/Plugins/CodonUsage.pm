@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2017, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
-		version     => '1.2.5',
+		version     => '1.2.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -162,10 +162,10 @@ sub run {
 		$self->add_scheme_loci($loci_selected);
 		if (@$invalid_loci) {
 			local $" = q(, );
-			say q(<div class="box" id="statusbad"><p>The following loci in your pasted )
-			  . qq(list are invalid: @$invalid_loci.</p></div>);
+			$self->print_bad_status(
+				{ message => q(The following loci in your pasted ) . qq(list are invalid: @$invalid_loci.) } );
 		} elsif ( !@$loci_selected ) {
-			say q(<div class="box" id="statusbad"><p>You must select one or more loci or schemes.</p></div>);
+			$self->print_bad_status( { message => q(You must select one or more loci or schemes.) } );
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;

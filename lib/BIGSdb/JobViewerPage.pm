@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2017, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -123,7 +123,7 @@ sub _print_status {
 	}
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	say q(<div style="float:left;margin-right:2em">);
-	say q(<span class="main_icon fa fa-flag fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-flag fa-3x fa-pull-left"></span>);
 	say q(<h2>Status</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
@@ -169,7 +169,7 @@ sub _print_notification_form {
 		$self->_update_notifications( $job->{'id'} );
 	}
 	say q(<div style="float:left">);
-	say q(<span class="main_icon fa fa-envelope fa-3x pull-left"></span>);
+	say q(<span class="main_icon fas fa-envelope fa-3x fa-pull-left"></span>);
 	say q(<h2>Notification</h2>);
 	say q(<p>Enter address for notification of job completion. You can also<br />)
 	  . q(add a title and/or description to remind you of what the job is.<br />)
@@ -244,16 +244,12 @@ sub print_content {
 	}
 	print q(<h1>Job status viewer</h1>);
 	if ( !defined $id || $id !~ /BIGSdb_\d+/x ) {
-		say q(<div class="box" id="statusbad">);
-		say q(<p>The submitted job id is invalid.</p>);
-		say q(</div>);
+		$self->print_bad_status( { message => q(The submitted job id is invalid.), navbar => 1 } );
 		return;
 	}
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( ref $job ne 'HASH' || !$job->{'id'} ) {
-		say q(<div class="box" id="statusbad">);
-		say q(<p>The submitted job does not exist.</p>);
-		say q(</div>);
+		$self->print_bad_status( { message => q(The submitted job does not exist.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('cancel') ) {
@@ -297,8 +293,8 @@ sub _print_output {
 		my ( $link_text, $comments ) = split /\|/x, $description;
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
 		my %icons = (
-			text  => q(<span class="fa fa-file-text-o" style="color:black"></span>),
-			Excel => q(<span class="fa fa-file-excel-o" style="color:green"></span>)
+			text  => q(<span class="far fa-file-alt" style="color:black"></span>),
+			Excel => q(<span class="far fa-file-excel" style="color:green"></span>)
 		);
 		my $icon = q();
 		if ( $link_text =~ s/\ \((text|Excel)\)//x ) {

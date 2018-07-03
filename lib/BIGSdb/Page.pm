@@ -120,7 +120,7 @@ JS
 sub _get_javascript_paths {
 	my ($self)  = @_;
 	my $page_js = $self->get_javascript;
-	my $date    = '20171116';
+	my $date    = '20180608';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
@@ -144,7 +144,8 @@ sub _get_javascript_paths {
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
 			'CryptoJS.MD5'        => [qw(md5.js)],
-			'packery'             => [qw(packery.js)]
+			'packery'             => [qw(packery.js)],
+			'dropzone'            => [qw(dropzone.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -195,6 +196,55 @@ sub clean_value {
 	$value =~ s/^\s*//x;
 	$value =~ s/\s*$//x;
 	return $value;
+}
+
+sub create_temp_tables {
+	my ( $self, $qry_ref ) = @_;
+	return 1 if $self->{'temp_tables_created'};
+	my $qry     = $$qry_ref;
+	my $q       = $self->{'cgi'};
+	my $format  = $q->param('format') || 'html';
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $cschemes =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
+	my $continue = 1;
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $view = $self->{'system'}->{'view'};
+		try {
+			foreach my $scheme_id (@$schemes) {
+				if ( $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+				}
+				if ( $qry =~ /temp_(?:isolates|view)_scheme_completion_$scheme_id\s/x ) {
+					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+				}
+			}
+			foreach my $cscheme_id (@$cschemes) {
+				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
+					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
+				}
+			}
+		}
+		catch BIGSdb::DatabaseConnectionException with {
+			if ( $format ne 'text' ) {
+				$self->print_bad_status(
+					{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+			} else {
+				say q(Cannot connect to remote database. The query cannot be performed.);
+			}
+			$logger->error('Cannot connect to remote database.');
+			$continue = 0;
+		};
+	}
+	if ( $q->param('list_file') && $q->param('datatype') ) {
+		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+	}
+	if ( defined $q->param('temp_table_file') ) {
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+	}
+	$self->{'temp_tables_created'} = 1;
+	return $continue;
 }
 
 sub print_banner {
@@ -258,9 +308,9 @@ sub _initiate_plugin {
 
 sub get_file_icon {
 	my ( $self, $type ) = @_;
-	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em;top">);
+	my $buffer = q(<span class="file_icon fa-stack" style="padding-left:0.5em">);
+	$buffer .= q(<span class="fas fa-file fa-stack-2x"></span>);
 	$buffer .= qq(<span class="fa-stack-1x filetype-text" style="top:0.25em">$type</span>);
-	$buffer .= q(<span class="fa fa-file-o fa-stack-2x"></span>);
 	$buffer .= q(</span>);
 	return $buffer;
 }
@@ -402,10 +452,13 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
-	my $system    = $self->{'system'};
-	my $version   = '20171201';
-	my @filenames = qw(bigsdb.css jquery-ui.css font-awesome.css);
+	my $system  = $self->{'system'};
+	my $version = '20180625';
+	my @filenames;
+	push @filenames, q(dropzone.css) if $self->{'dropzone'};
+	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
+
 	foreach my $filename (@filenames) {
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
@@ -419,7 +472,12 @@ sub get_stylesheets {
 				}
 			}
 		}
-		push @paths, $stylesheet;
+		my %added = map { $_ => 1 } @paths;
+		if ( !$added{$stylesheet} ) {
+			push @paths, $stylesheet;
+		} else {
+			$logger->error("Stylesheet $filename not found!");
+		}
 	}
 	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";
@@ -444,7 +502,7 @@ sub print_set_section {
 	say q(<div class="box" id="sets">);
 	say q(<div class="scrollable">);
 	say q(<div style="float:left; margin-right:1em">);
-	say q(<span class="dataset_icon fa fa-database fa-3x pull-left"></span>);
+	say q(<span class="dataset_icon fas fa-database fa-3x fa-pull-left"></span>);
 	say q(<h2>Datasets</h2>);
 	say q(<p>This database contains multiple datasets.);
 	print(
@@ -483,22 +541,27 @@ sub is_scheme_invalid {
 	$options = {} if ref $options ne 'HASH';
 	my $set_id = $self->get_set_id;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		say q(<div class="box" id="statusbad"><p>Scheme id must be an integer.</p></div>);
+		$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 		return 1;
 	} elsif ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			say q(<div class="box" id="statusbad"><p>The selected scheme is unavailable.</p></div>);
+			$self->print_bad_status( { message => q(The selected scheme is unavailable.), navbar => 1 } );
 			return 1;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info && !( $scheme_id == 0 && $options->{'all_loci'} ) ) {
-		say q(<div class="box" id="statusbad">Scheme does not exist.</p></div>);
+		$self->print_bad_status( { message => q(Scheme does not exist.), navbar => 1 } );
 		return 1;
 	}
 	if ( $options->{'with_pk'} && !$scheme_info->{'primary_key'} ) {
-		say q(<div class="box" id="statusbad"><p>No primary key field has been set for this scheme. )
-		  . q(This function is unavailable until this has been set.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(No primary key field has been set for this scheme. )
+				  . q(This function is unavailable until this has been set.),
+				navbar => 1
+			}
+		);
 		return 1;
 	}
 	return;
@@ -508,7 +571,7 @@ sub print_scheme_section {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
-	my $schemes = $self->get_scheme_data( { with_pk => 1 } );
+	my $schemes = $self->get_scheme_data( { with_pk => $options->{'with_pk'} } );
 	$q->param( scheme_id => $schemes->[0]->{'id'} ) if !defined $q->param('scheme_id') && @$schemes;
 	return if @$schemes < 2;
 	say q(<div class="box" id="schemes">);
@@ -649,9 +712,8 @@ sub _print_login_details {
 	if ( !$user_info ) {
 		if ( !$self->{'username'} ) {
 			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
-				say q(<span class="fa fa-sign-in"></span> )
-				  . qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
-				  . q(Log in</a>);
+				say qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
+				  . q(<span class="fas fa-sign-in-alt" style="margin-right:0.3em"></span>Log in</a>);
 			} else {
 				say q(<i>Not logged in.</i>);
 			}
@@ -664,7 +726,7 @@ sub _print_login_details {
 	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' ) {
 		if ( $self->{'username'} ) {
 			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=logout">)
-			  . q(<span class="fa fa-sign-out"></span>Log out</a> | );
+			  . q(<span class="fas fa-sign-out-alt"></span>Log out</a> | );
 			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword">)
 			  . q(Change password</a>);
 		}
@@ -699,7 +761,7 @@ sub _print_help_panel {
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
-				  . q(title="Open help in new window">Help <span class="fa fa-external-link"></span></a></span>);
+				  . q(title="Open help in new window">Help <span class="fas fa-external-link-alt"></span></a></span>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
@@ -709,14 +771,14 @@ sub _print_help_panel {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			say qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
-			  . q(<span class="fa fa-external-link"></span></a></span>);
+			  . q(<span class="fas fa-external-link-alt"></span></a></span>);
 		}
 	}
 	if ( $self->{'tooltips'} ) {
 		say q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
-		  . q(<span class="fa fa-info-circle fa-lg"></span></a>);
+		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);
 	}
 	say q(</div>);
 	return;
@@ -730,7 +792,7 @@ sub _print_menu {
 	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
 	return if !$self->{'system'}->{'db'};
 	say q(<div id="menubutton">);
-	say q(<a style="cursor:pointer"><span class="fa fa-bars"></span></a>);
+	say q(<a style="cursor:pointer"><span class="fas fa-bars"></span></a>);
 	say q(</div>);
 	say q(<div id="menupanel"></div>);
 	return;
@@ -1437,7 +1499,7 @@ sub get_link_button_to_ref {
 	my $count = $self->{'datastore'}->run_query( $qry, $ref, { cache => 'Page::link_ref' } );
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};
-	$buffer .= $q->start_form( -style => 'display:inline' );
+	$buffer .= $q->start_form( -style => 'display:inline;margin-left:0.5em' );
 	$q->param( curate => 1 ) if $self->{'curate'};
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );
@@ -1450,14 +1512,10 @@ sub get_link_button_to_ref {
 
 sub get_isolate_name_from_id {
 	my ( $self, $isolate_id ) = @_;
-	if ( !$self->{'sql'}->{'isolate_id'} ) {
-		my $view        = $self->{'system'}->{'view'};
-		my $label_field = $self->{'system'}->{'labelfield'};
-		$self->{'sql'}->{'isolate_id'} = $self->{'db'}->prepare("SELECT $view.$label_field FROM $view WHERE id=?");
-	}
-	eval { $self->{'sql'}->{'isolate_id'}->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my ($isolate) = $self->{'sql'}->{'isolate_id'}->fetchrow_array;
+	my $isolate =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+		$isolate_id, { cache => 'Page::get_isolate_name_from_id' } );
 	return $isolate // '';
 }
 
@@ -1878,9 +1936,14 @@ sub can_modify_table {
 		  if $table eq 'samples'
 		  && $self->{'permissions'}->{'sample_management'}
 		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
-	} else {
+	} else {    #Sequence definition database only tables
 
-		#Sequence definition database only tables
+		#Locus descriptions/links. Checks for specific loci are in next section
+		my %desc_tables = map { $_ => 1 } qw (locus_descriptions locus_links);
+		if ( $desc_tables{$table} ) {
+			return if !$self->{'permissions'}->{'modify_locus_descriptions'};
+		}
+
 		#Alleles and locus descriptions
 		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids);
 		if ( $seq_tables{$table} ) {
@@ -2718,33 +2781,154 @@ sub get_user_db_name {
 	return $db_name;
 }
 
-sub print_return_to_submission {
-	my ($self) = @_;
-	my $back   = BACK;
-	my $q      = $self->{'cgi'};
-	if ( $q->param('submission_id') ) {
-		my $submission_id = $q->param('submission_id');
-		say qq(<a href="$self->{'system'}->{'query_script'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$submission_id&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
-	}
-	return;
-}
-
-sub print_home_link {
-	my ( $self, $options ) = @_;
-	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my $home = HOME;
-	say qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
-	return;
-}
-
 sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
 	return qq(<a class="tooltip"$id style="margin-left:0.2em" title="$text">)
-	  . qq(<span class="fa fa-info-circle"$style></span></a>);
+	  . qq(<span class="fas fa-info-circle"$style></span></a>);
+}
+
+sub print_navigation_bar {
+	my ( $self, $options ) = @_;
+	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
+	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit ) =
+	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE );
+	my $buffer = q(<div class="navigation">);
+	if ( $options->{'submission_id'} ) {
+		$buffer .=
+		    qq(<a href="$script?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" title="Return to submission" )
+		  . qq(style="margin-right:1em">$back</a>);
+	} elsif ( $options->{'back_url'} || $options->{'back_page'} ) {
+		my $page = $options->{'back_page'} // 'index';
+		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
+		$buffer .= qq(<a href="$url" title="Back" style="margin-right:1em">$back</a>);
+	}
+	if ( !$options->{'no_home'} ) {
+		$buffer .=
+		  qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
+	}
+	if ( $options->{'change_password'} ) {
+		$buffer .= qq(<a href="$options->{'change_password'}" title="Set password" style="margin-right:1em">$key</a>);
+	}
+	if ( $options->{'closed_submissions'} ) {
+		$buffer .=
+		    q(<a id="show_closed" style="cursor:pointer;margin-right:1em">)
+		  . q(<span id="show_closed_text" title="Show closed submissions" )
+		  . qq(style="display:inline">$show</span>)
+		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
+		  . qq(style="display:none">$hide</span></a>);
+	}
+	if ( $options->{'more_url'} ) {
+		$options->{'more_text'} //= 'Add another';
+		$buffer .=
+		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>);
+	}
+	if ( $options->{'query_more_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'query_more_url'}" title="Query another" style="margin-right:1em">)
+		  . qq($query_more</a>);
+	}
+	if ( $options->{'upload_contigs_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'upload_contigs_url'}" title="Upload contigs" style="margin-right:1em">)
+		  . qq($upload_contigs</a>);
+	}
+	if ( $options->{'link_contigs_url'} ) {
+		$buffer .=
+		    qq(<a href="$options->{'link_contigs_url'}" title="Link remote contigs" style="margin-right:1em">)
+		  . qq($link_contigs</a>);
+	}
+	if ( $options->{'reload_url'} ) {
+		$options->{'reload_text'} //= 'Reload scan form';
+		$buffer .= qq(<a href="$options->{'reload_url'}" title="$options->{'reload_text'}" )
+		  . qq(style="margin-right:1em">$reload</a>);
+	}
+	if ( $options->{'update_url'} ) {
+		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
+	}
+	$buffer .= q(</div><div style="clear:both"></div>);
+	return $buffer if $options->{'get_only'};
+	say $buffer;
+	return;
+}
+
+sub print_bad_status {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Failed!';
+	say q(<div class="box statusbad" style="min-height:5em">);
+	say q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	if ( $options->{'navbar'} ) {
+		$self->print_navigation_bar($options);
+	}
+	say q(</div>);
+	return;
+}
+
+sub print_good_status {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Success!';
+	say q(<div class="box resultsheader" style="min-height:5em");
+	say q(<p><a><span class="success fas fa-check fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	if ( $options->{'navbar'} ) {
+		$self->print_navigation_bar($options);
+	}
+	say q(</div>);
+	return;
+}
+
+sub print_warning {
+	my ( $self, $options ) = @_;
+	$options->{'message'} //= 'Warning!';
+	say q(<div class="box statuswarn" style="min-height:5em");
+	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
+	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	if ( $options->{'detail'} ) {
+		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+	}
+	say q(</div>);
+	return;
+}
+
+sub get_list_block {
+	my ( $self, $list, $options ) = @_;
+
+	#It is not semantically correct to enclose a <dt>, <dd> pair within a span. If we don't, however, the
+	#columnizer plugin can result in the title and data item appearing in different columns. All browsers
+	#seem to handle this way ok.
+	my ( $dt_width_clause, $dd_left_margin_clause, $id_clause );
+	if ( $options->{'width'} ) {
+		$dt_width_clause = qq( style="width:$options->{'width'}em");
+		my $margin_width = $options->{'width'} + 1;
+		$dd_left_margin_clause = qq( style="margin-left:${margin_width}em");
+	}
+	if ( $options->{'id'} ) {
+		$id_clause = qq( id="$options->{'id'}");
+	}
+	$_ //= q() foreach ( $dt_width_clause, $dd_left_margin_clause, $id_clause );
+	my $buffer = qq(<dl class="data"$id_clause>\n);
+	foreach my $item (@$list) {
+		my $class = $item->{'class'};
+		$buffer .= q(<span class="dontsplit">) if $options->{'columnize'};
+		$buffer .= qq(<dt$dt_width_clause>$item->{'title'}</dt>);
+		$buffer .= $class ? qq(<dd class="$class"$dd_left_margin_clause>) : qq(<dd$dd_left_margin_clause>);
+		$buffer .= qq(<a href="$item->{'href'}">) if $item->{'href'};
+		$buffer .= $item->{'data'};
+		$buffer .= q(</a>)                        if $item->{'href'};
+		$buffer .= qq(</dd>\n);
+		$buffer .= q(</span>)                     if $options->{'columnize'};
+	}
+	$buffer .= qq(</dl>\n);
+	return $buffer;
 }
 
 sub is_page_allowed {

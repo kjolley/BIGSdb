@@ -38,7 +38,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -63,12 +63,12 @@ sub run {
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
 	if ( !defined $scheme_id ) {
-		say q(<div class="box" id="statusbad"><p>Invalid scheme selected.</p></div>);
+		$self->print_bad_status( { message => q(Invalid scheme selected.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('submit') ) {
 		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
-			say q(<div class="box" id="statusbad"><p>Invalid data detected in list.</p></div>);
+			$self->print_bad_status( { message => q(Invalid data detected in list.), navbar => 1 } );
 		} else {
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;

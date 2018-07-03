@@ -51,12 +51,12 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.0',
+		version     => '2.3.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
 		order       => 31,
-		requires    => 'aligner,offline_jobs,js_tree',
+		requires    => 'aligner,offline_jobs,js_tree,seqbin',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator',
@@ -71,15 +71,15 @@ sub run {
 	say qq(<h1>Genome Comparator - $desc</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my @ids = $q->param('isolate_id');
+		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
-		push @ids, @$pasted_cleaned_ids;
-		@ids = uniq @ids;
+		push @$ids, @$pasted_cleaned_ids;
+		@$ids = uniq @$ids;
 		my $continue = 1;
-		my $error;
+		my @errors;
 		if (@$invalid_ids) {
 			local $" = ', ';
-			$error    = "<p>The following isolates in your pasted list are invalid: @$invalid_ids.</p>\n";
+			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 			$continue = 0;
 		}
 		$q->param( upload_filename      => $q->param('ref_upload') );
@@ -91,10 +91,10 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
 		if ( !@$filtered_ids && !$q->param('user_upload') ) {
-			$error .= '<p>You must include one or more isolates. Make sure your selected isolates '
-			  . "haven't been filtered to none by selecting a project.</p>\n";
+			push @errors, q(You must include one or more isolates. Make sure your selected isolates )
+			  . q(haven't been filtered to none by selecting a project.);
 			$continue = 0;
 		}
 		my $max_genomes =
@@ -104,8 +104,8 @@ sub run {
 		if ( @$filtered_ids > $max_genomes ) {
 			my $nice_max = BIGSdb::Utils::commify($max_genomes);
 			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
-			$error .= qq(<p>Genome Comparator analysis is limited to $nice_max isolates. )
-			  . qq(You have selected $selected.</p>);
+			push @errors,
+			  qq(Genome Comparator analysis is limited to $nice_max isolates. ) . qq(You have selected $selected.);
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -115,18 +115,25 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			$error .= "<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n";
+			push @errors, qq(<p>The following loci in your pasted list are invalid: @$invalid_loci.);
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
+		$self->_add_recommended_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
-			$error .= q[<p>You must either select one or more loci or schemes (make sure these haven't been filtered ]
-			  . qq[by your options), provide a genome accession number, or upload an annotated genome.</p>\n];
+			push @errors,
+			  q[You must either select one or more loci or schemes (make sure these haven't been filtered ]
+			  . q[by your options), provide a genome accession number, or upload an annotated genome.];
 			$continue = 0;
 		}
-		if ($error) {
-			say qq(<div class="box statusbad">$error</div>);
+		if (@errors) {
+			if ( @errors == 1 ) {
+				$self->print_bad_status( { message => qq(@errors) } );
+			} else {
+				local $" = q(</p><p>);
+				$self->print_bad_status( { message => q(Please address the following:), detail => qq(@errors) } );
+			}
 		}
 		$q->param( ref_upload  => $ref_upload )  if $ref_upload;
 		$q->param( user_upload => $user_upload ) if $user_upload;
@@ -167,6 +174,23 @@ sub run {
 	return;
 }
 
+sub _add_recommended_scheme_loci {
+	my ( $self, $loci ) = @_;
+	my $q              = $self->{'cgi'};
+	my @schemes        = $q->param('recommended_schemes');
+	my %locus_selected = map { $_ => 1 } @$loci;
+	foreach my $scheme_id (@schemes) {
+		next if !BIGSdb::Utils::is_int($scheme_id);
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach my $locus (@$scheme_loci) {
+			next if $locus_selected{$locus};
+			push @$loci, $locus;
+			$locus_selected{$locus} = 1;
+		}
+	}
+	return;
+}
+
 sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -193,7 +217,7 @@ sub _print_interface {
 	};
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		say q(<div class="box" id="statusbad"><p>There are no sequences in the sequence bin.</p></div>);
+		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
 		return;
 	}
 	$self->print_set_section if $q->param('select_sets');
@@ -215,6 +239,7 @@ sub _print_interface {
 			include_scheme_fields => 1
 		}
 	);
+	$self->_print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -236,9 +261,10 @@ sub print_user_genome_upload_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
 	say q(<p>Optionally include data not in the<br />database.</p>);
-	say q(<p>Upload FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
+	say q(<p>Upload assembly FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
+	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
 	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
-		  . q(used as the name of the isolate(s) in the output.) );
+		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
 	say q(</p>);
 	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
 	say q(</fieldset>);
@@ -270,8 +296,7 @@ sub _print_reference_genome_fieldset {
 	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
 	say q(Enter accession number:<br />);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.))
-	  ;
+	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.));
 	say q(<br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
@@ -309,6 +334,39 @@ sub _print_reference_genome_fieldset {
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
 	say $self->get_tooltip( q(Reference upload - File format is recognised by the extension in the )
 		  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.) );
+	say q(</fieldset>);
+	return;
+}
+
+sub _print_recommended_scheme_fieldset {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'genome_comparator_recommended_schemes'};
+	my @schemes = split /,/x, $self->{'system'}->{'genome_comparator_recommended_schemes'};
+	my $buffer;
+	foreach my $scheme_id (@schemes) {
+		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
+				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
+			return;
+		}
+	}
+	return if !@schemes;
+	my $scheme_labels =
+	  $self->{'datastore'}->run_query( 'SELECT id,name FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+	my %labels = map { $_->{'id'} => $_->{'name'} } @$scheme_labels;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
+	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
+	say $self->popup_menu(
+		-name     => 'recommended_schemes',
+		-id       => 'recommended_schemes',
+		-values   => [@schemes],
+		-labels   => \%labels,
+		-size     => 5,
+		-multiple => 'true'
+	);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
+	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
 	say q(</fieldset>);
 	return;
 }
@@ -395,7 +453,7 @@ sub _print_core_genome_fieldset {
 		-onChange => 'enable_seqs()'
 	);
 	say $self->get_tooltip(
-		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.) );
+		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.));
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -577,8 +635,14 @@ sub _create_temp_tables {
 	$self->{'db'}->do("CREATE TEMP table $isolate_table AS (SELECT * FROM $self->{'system'}->{'view'} LIMIT 0)");
 
 	foreach my $genome_name ( reverse sort keys %$user_genomes ) {
-		$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
-			undef, $id, $genome_name );
+		eval {
+			$self->{'db'}->do( "INSERT INTO $isolate_table (id, $self->{'system'}->{'labelfield'}) VALUES (?,?)",
+				undef, $id, $genome_name );
+		};
+		if ($@) {
+			$logger->error('Invalid characters in user genome zip file.');
+			throw BIGSdb::PluginException('Invalid characters in uploaded zip file.');
+		}
 		unshift @$isolate_ids, $id;
 		$name_map->{$id} = "u$map_id";
 		$reverse_name_map->{"u$map_id"} = $id;
@@ -787,7 +851,7 @@ sub _output_file_buffer {
 	say $job_fh $buffer;
 	close $job_fh;
 	$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file (text)' } );
 	return;
 }
 
@@ -1365,7 +1429,8 @@ sub align {
 				core_xmfa_out    => $core_xmfa_file,
 				xmfa_start_ref   => \$xmfa_start,
 				xmfa_end_ref     => \$xmfa_end,
-				names            => $names
+				names            => $names,
+				infoalign        => $no_output ? 0 : 1
 			}
 		);
 		unlink $fasta_file;
@@ -1445,12 +1510,13 @@ sub align {
 sub _run_alignment {
 	my ( $self, $args ) = @_;
 	my (
-		$ids,        $names,    $locus,          $seq_count,    $aligned_out, $fasta_file,
-		$align_file, $xmfa_out, $xmfa_start_ref, $xmfa_end_ref, $core_locus,  $core_xmfa_out
+		$ids,        $names,         $locus,    $seq_count,      $aligned_out,
+		$fasta_file, $align_file,    $xmfa_out, $xmfa_start_ref, $xmfa_end_ref,
+		$core_locus, $core_xmfa_out, $infoalign
 	  )
 	  = @{$args}{
 		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out
-		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out )
+		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out infoalign)
 	  };
 	return if $seq_count <= 1;
 	my $params = $self->{'params'};
@@ -1513,7 +1579,7 @@ sub _run_alignment {
 		close $align_fh;
 		BIGSdb::Utils::append( $aligned_out, $align_file, { blank_after => 1 } );
 		$args->{'alignment'} = $aligned_out;
-		$distance = $self->_run_infoalign($args);
+		$distance = $self->_run_infoalign($args) if $infoalign;
 		unlink $aligned_out;
 	}
 	return $distance;
@@ -1632,7 +1698,7 @@ sub _generate_excel_file {
 
 	if ( -e $excel_file ) {
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } );
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format (Excel)' } );
 	}
 	return;
 }
@@ -2436,7 +2502,7 @@ sub _core_analysis {
 
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
-			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency' } );
+			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency (text)' } );
 	}
 	if ( $self->{'config'}->{'chartdirector'} ) {
 		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.png";
@@ -2556,6 +2622,7 @@ sub get_plugin_javascript {
 function enable_seqs(){
 	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
 		\$("#scheme_fieldset").hide(500);
+		\$("#recommended_scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").prop("disabled", false);
 		\$("#use_tagged").prop("disabled", true);
@@ -2563,6 +2630,7 @@ function enable_seqs(){
 		\$("#paralogous_options").prop("disabled", false);
 	} else {
 		\$("#scheme_fieldset").show(500);
+		\$("#recommended_scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
 		\$("#use_tagged").prop("disabled", false);

@@ -229,6 +229,22 @@ sub read_config_xml {
 		return;
 	}
 	my $system = $script->{'xmlHandler'}->get_system_hash;
+
+	#Read system.override file
+	my $override_file = "$script->{'dbase_config_dir'}/$config/system.overrides";
+	if ( -e $override_file ) {
+		open( my $fh, '<', $override_file )
+		  || $logger->error("Can't open $override_file for reading");
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^\#/x;
+			$line =~ s/^\s+//x;
+			$line =~ s/\s+$//x;
+			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
+				$system->{$1} = $2;
+			}
+		}
+		close $fh;
+	}
 	return $system;
 }
 
@@ -465,8 +481,7 @@ sub check_invalid_users {
 	@usernames_from_databases = uniq sort @usernames_from_databases;
 	my @filtered_list;
 	eval {
-		foreach my $user_name (@usernames_from_databases)
-		{
+		foreach my $user_name (@usernames_from_databases) {
 			next if $users_in_this_db{$user_name};
 			next if $current_invalid{$user_name};
 			push @filtered_list, $user_name;
@@ -489,8 +504,7 @@ sub check_invalid_users {
 	my %usernames_in_dbases = map { $_ => 1 } @usernames_from_databases;
 	my @to_remove;
 	eval {
-		foreach my $user_name (@$current_invalid)
-		{
+		foreach my $user_name (@$current_invalid) {
 			next if $usernames_in_dbases{$user_name};
 			push @to_remove, $user_name;
 			$script->{'db'}->do( 'DELETE FROM invalid_usernames WHERE user_name=?', undef, $user_name );
@@ -522,8 +536,7 @@ sub remove_deleted_users {
 		  $script->{'datastore'}->run_query( q(SELECT user_name FROM users WHERE user_name LIKE 'REMOVED_USER%'),
 			undef, { db => $db, fetch => 'col_arrayref' } );
 		eval {
-			foreach my $user (@$users)
-			{
+			foreach my $user (@$users) {
 				$db->do( 'DELETE FROM users WHERE user_name=?', undef, $user );
 				push @deleted_users, { config => $config, username => $user };
 			}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,24 +40,25 @@ sub print_content {
 	$self->update_prefs if $q->param('reload');
 
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
-		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
-		  . q(<p>Sequence bin id must be an integer.</p></div>);
+		say q(<h1>Extracted sequence</h1>);
+		$self->print_bad_status( { message => q(Sequence bin id must be an integer.), navbar => 1 } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($start) || !BIGSdb::Utils::is_int($end) ) {
-		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
-		  . q(<p>Start and end values must be integers.</p></div>);
+		say q(<h1>Extracted sequence</h1>);
+		$self->print_bad_status( { message => q(Start and end values must be integers.), navbar => 1 } );
 		return;
 	}
 	if ( $orf && ( !BIGSdb::Utils::is_int($orf) || $orf < 1 || $orf > 6 ) ) {
-		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
-		  . q(<p>Orf must be an integer between 1-6.</p></div>);
+		say q(<h1>Extracted sequence</h1>);
+		$self->print_bad_status( { message => q(Orf must be an integer between 1-6.), navbar => 1 } );
 		return;
 	}
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_bin WHERE id=?)', $seqbin_id );
 	if ( !$exists ) {
-		say q(<h1>Extracted sequence</h1><div class="box" id="statusbad">)
-		  . qq(<p>There is no sequence with sequence bin id#$seqbin_id.</p></div>);
+		say q(<h1>Extracted sequence</h1>);
+		$self->print_bad_status(
+			{ message => qq(There is no sequence with sequence bin id#$seqbin_id.), navbar => 1 } );
 		return;
 	}
 	say qq(<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>);

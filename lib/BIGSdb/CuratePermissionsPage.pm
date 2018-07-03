@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,14 +35,18 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Set curator permissions</h1>);
 	if ( !$self->can_modify_table('permissions') ) {
-		say q(<div class="box" id="statusbad"><p>Your account has insufficient )
-		  . q(privileges to modify curator permissions.</p></div>);
+		$self->print_bad_status(
+			{
+				message => q(Your account has insufficient privileges to modify curator permissions.),
+				navbar  => 1
+			}
+		);
 		return;
 	}
 	my ( $curators, $labels ) = $self->{'datastore'}->get_users( { curators => 1 } );
 	my %submitter_allowed = map { $_ => 1 } SUBMITTER_ALLOWED_PERMISSIONS;
 	if ( !@$curators ) {
-		say q(<div class="box" id="statusbad"><p>There are no curator defined for this database.</p></div>);
+		$self->print_bad_status( { message => q(There are no curator defined for this database.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -96,7 +100,7 @@ sub print_content {
 		say q(</tr>);
 		my $td            = 1;
 		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-		my %prohibit = map {$_ => 1} qw(disable_access only_private);
+		my %prohibit      = map { $_ => 1 } qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
 			next if $permission eq 'sample_management' && !@$sample_fields;
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
@@ -184,8 +188,7 @@ sub _update {
 	}
 	if ( @additions || @deletions ) {
 		eval {
-			if (@additions)
-			{
+			if (@additions) {
 				my $sql =
 				  $self->{'db'}
 				  ->prepare('INSERT INTO permissions (user_id,permission,curator,datestamp) VALUES (?,?,?,?)');
@@ -199,15 +202,15 @@ sub _update {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			say q(<div class="box" id="statusbad"><p>Update failed.</p></div>);
+			$self->print_bad_status( { message => q(Update failed.), navbar => 1 } );
 		} else {
 			$self->{'db'}->commit;
 			my $total = @additions + @deletions;
 			my $plural = $total == 1 ? q() : q(s);
-			say qq(<div class="box" id="resultsheader"><p>$total update$plural made.</p></div>);
+			$self->print_good_status( { message => qq($total update$plural made.), navbar => 1 } );
 		}
 	} else {
-		say q(<div class="box" id="statusbad"><p>No changes made.</p></div>);
+		$self->print_bad_status( { message => q(No changes made.), navbar => 1 } );
 	}
 	return;
 }

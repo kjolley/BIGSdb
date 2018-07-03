@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,7 +59,16 @@ sub print_content {
 			$self->publish;
 		}
 	}
-	say "<h1>Search $desc database by combinations of loci</h1>";
+	say qq(<h1>Search $desc database by combinations of loci</h1>);
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+		if ( !@$schemes ) {
+			$self->print_bad_status(
+				{ message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
+			  ;
+			return;
+		}
+	}
 	if ( !defined $q->param('currentpage')
 		|| $q->param('First') )
 	{
@@ -72,6 +81,18 @@ sub print_content {
 		$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
 		$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
 		$self->_print_query_interface($scheme_id);
+	}
+	if ( defined $q->param('temp_table_file') ) {
+		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('temp_table_file');
+		if ( !-e $full_path ) {
+			$logger->error("Temporary file $full_path does not exist");
+			$self->print_bad_status( { message => q(Temporary file does not exist. Please repeat query.) } );
+			$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
+			$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
+			$self->_print_query_interface($scheme_id);
+			return;
+		}
+		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
 	}
 	if (   defined $q->param('query_file')
 		or defined $q->param('submit') )
@@ -218,7 +239,7 @@ sub _print_query_interface {
 
 	if (@$errors) {
 		local $" = q(<br />);
-		say qq(<div class="box" id="statusbad"><p>Problem with search criteria:</p><p>@$errors</p></div>);
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	}
 	return;
 }
@@ -331,52 +352,80 @@ sub _generate_query {
 			next;
 		}
 		next if $values{$locus} eq '';
-		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'allele_designations' : 'profile_members';
+		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'ad' : 'pm';
 		my $locus_qry;
 		if ( $values{$locus} eq 'N' ) {
 			$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
 		} else {
-			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? " OR $table.allele_id = 'N'" : '';
+			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? q(,'N') : q();
 			$locus_qry =
 			  $locus_info->{'allele_id_format'} eq 'text'
-			  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) = upper(E'$values{$locus}')$arbitrary_clause)"
-			  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id = E'$values{$locus}'$arbitrary_clause)";
+			  ? "($table.locus=E'$cleaned_locus' AND (upper($table.allele_id) IN (upper(E'$values{$locus}')$arbitrary_clause))"
+			  : "($table.locus=E'$cleaned_locus' AND ($table.allele_id IN (E'$values{$locus}'$arbitrary_clause))";
 		}
-		$locus_qry .= $self->{'system'}->{'dbtype'} eq 'isolates' ? ')' : " AND profile_members.scheme_id=$scheme_id)";
+		$locus_qry .= ')';
 		push @lqry, $locus_qry;
 	}
 	my $view = $self->{'system'}->{'view'};
+	my $create_temp_table;
 	if (@lqry) {
 		local $" = ' OR ';
 		my $required_matches = $q->param('matches_list') // 0;
 		$required_matches = @lqry if $required_matches == @loci;
-		my $lqry;
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$lqry = "(SELECT DISTINCT($view.id) FROM $view LEFT JOIN allele_designations ON "
-			  . "$view.id=allele_designations.isolate_id WHERE @lqry";
+
+			#Account for paralogous hits - only count each locus once. It is, however, much quicker
+			#not using DISTINCT if we don't need it.
+			my $count_item = $scheme_info->{'allow_missing_loci'} ? 'DISTINCT(ad.locus)' : '*';
+			$create_temp_table =
+			    "CREATE TEMP TABLE count_table AS SELECT $view.id,COUNT($count_item) AS count FROM $view "
+			  . "JOIN allele_designations ad ON $view.id=ad.isolate_id WHERE @lqry GROUP BY $view.id";
 		} else {
-			$lqry = '(SELECT profile_members.profile_id FROM profile_members WHERE '
-			  . "profile_members.scheme_id=$scheme_id AND (@lqry)";
+			$create_temp_table =
+			    'CREATE TEMP TABLE count_table AS SELECT pm.profile_id AS id,COUNT(*) AS count FROM profile_members pm '
+			  . "WHERE pm.scheme_id=$scheme_id AND (@lqry) GROUP BY pm.profile_id";
 		}
+		$create_temp_table .= ';CREATE INDEX ON count_table(count)';
+		eval { $self->{'db'}->do($create_temp_table); };
 		if ( $required_matches == 0 ) {    #Find out the greatest number of matches
-			my $match = $self->_find_best_match_count( $scheme_id, \@lqry );
+			my $match = $self->{'datastore'}->run_query('SELECT MAX(count) FROM count_table');
 			if ($match) {
 				$required_matches = $match;
 				$msg = $self->_get_match_msg( $match, scalar @lqry );
 			}
 		}
-		$lqry .=
-		  $self->{'system'}->{'dbtype'} eq 'isolates'
-		  ? " GROUP BY $view.id HAVING count($view.id)>=$required_matches)"
-		  : " GROUP BY profile_members.profile_id HAVING count(profile_members.profile_id)>=$required_matches)";
-		$qry =
-		  $self->{'system'}->{'dbtype'} eq 'isolates'
-		  ? "SELECT * FROM $view WHERE $view.id IN $lqry"
-		  : "SELECT * FROM $scheme_warehouse WHERE $scheme_warehouse.$scheme_info->{'primary_key'} IN $lqry";
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT id FROM count_table WHERE count>=$required_matches)";
+		} else {
+			$qry =
+			    "SELECT * FROM $scheme_warehouse WHERE $scheme_warehouse.$scheme_info->{'primary_key'} IN "
+			  . "(SELECT id FROM count_table WHERE count>=$required_matches)";
+		}
+	}
+	if ($create_temp_table) {
+		my $temp_table_sql_file = $self->_make_temp_table_file;
+		$q->param( temp_table_file => $temp_table_sql_file );
 	}
 	$self->_modify_qry_by_filters( \$qry );
 	$self->_add_query_ordering( \$qry, $scheme_id );
 	return ( $qry, $msg, \@errors );
+}
+
+sub _make_temp_table_file {
+	my ($self) = @_;
+	my ( $filename, $full_file_path );
+	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM count_table', undef, { fetch => 'all_arrayref' } );
+	do {
+		$filename       = BIGSdb::Utils::get_random() . '.txt';
+		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	} while ( -e $full_file_path );
+	my $buffer;
+	local $" = qq(\t);
+	$buffer .= qq(@$_\n) foreach @$data;
+	open( my $fh, '>:encoding(utf8)', $full_file_path ) || $logger->error("Cannot open $full_file_path for writing");
+	print $fh $buffer if $buffer;
+	close $fh;
+	return $filename;
 }
 
 sub _add_query_ordering {
@@ -439,32 +488,6 @@ sub _add_query_ordering {
 	return;
 }
 
-sub _find_best_match_count {
-	my ( $self, $scheme_id, $lqry ) = @_;
-	my $q = $self->{'cgi'};
-	local $" = ' OR ';
-	my $match_qry;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
-		$match_qry =
-		  "SELECT COUNT($view.id) FROM $view LEFT JOIN allele_designations ON $view.id=isolate_id WHERE (@$lqry) ";
-		my $project_id = $q->param('project_list');
-		if ( BIGSdb::Utils::is_int($project_id) ) {
-			$match_qry .= " AND $view.id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id) ";
-		}
-		$match_qry .= "GROUP BY $view.id ORDER BY count($view.id) desc LIMIT 1";
-	} else {
-		$match_qry =
-		    'SELECT COUNT(profiles.profile_id) FROM profiles LEFT JOIN profile_members '
-		  . 'ON profiles.profile_id=profile_members.profile_id AND '
-		  . 'profiles.scheme_id=profile_members.scheme_id AND profile_members.scheme_id='
-		  . "$scheme_id WHERE @$lqry GROUP BY profiles.profile_id ORDER BY COUNT(profiles.profile_id) "
-		  . 'desc LIMIT 1';
-	}
-	my $match = $self->{'datastore'}->run_query($match_qry);
-	return $match;
-}
-
 sub _get_match_msg {
 	my ( $self, $match, $total_loci ) = @_;
 	my $term   = $match > 1  ? 'loci' : 'locus';
@@ -487,8 +510,7 @@ sub _run_query {
 	}
 	if (@$errors) {
 		local $" = '<br />';
-		say q(<div class="box" id="statusbad"><p>Problem with search criteria:</p>);
-		say "<p>@$errors</p></div>";
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} elsif ( $qry !~ /^\ ORDER\ BY/x ) {
 		my @hidden_attributes;
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
@@ -500,13 +522,13 @@ sub _run_query {
 		foreach my $locus (@$loci) {
 			push @hidden_attributes, "l_$locus" if $q->param("l_$locus");
 		}
-		push @hidden_attributes, qw(scheme_id matches_list);
+		push @hidden_attributes, qw(scheme_id matches_list temp_table_file);
 		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
 		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {
-		say q(<div class="box" id="statusbad">Invalid search performed.</div>);
+		$self->print_bad_status( { message => q(Invalid search performed.) } );
 	}
 	return;
 }

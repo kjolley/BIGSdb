@@ -49,22 +49,23 @@ sub initiate {
 			$logger->warn("$plugin_name plugin not installed properly!  $@");
 		} else {
 			my $plugin = "BIGSdb::Plugins::$plugin_name"->new(
-				system           => $self->{'system'},
-				dbase_config_dir => $self->{'dbase_config_dir'},
-				config_dir       => $self->{'config_dir'},
-				lib_dir          => $self->{'lib_dir'},
-				cgi              => $self->{'cgi'},
-				instance         => $self->{'instance'},
-				prefs            => $self->{'prefs'},
-				prefstore        => $self->{'prefstore'},
-				config           => $self->{'config'},
-				datastore        => $self->{'datastore'},
-				db               => $self->{'db'},
-				xmlHandler       => $self->{'xmlHandler'},
-				dataConnector    => $self->{'dataConnector'},
-				jobManager       => $self->{'jobManager'},
-				mod_perl_request => $self->{'mod_perl_request'},
-				contigManager    => $self->{'contigManager'}
+				system             => $self->{'system'},
+				dbase_config_dir   => $self->{'dbase_config_dir'},
+				config_dir         => $self->{'config_dir'},
+				lib_dir            => $self->{'lib_dir'},
+				cgi                => $self->{'cgi'},
+				instance           => $self->{'instance'},
+				prefs              => $self->{'prefs'},
+				prefstore          => $self->{'prefstore'},
+				config             => $self->{'config'},
+				datastore          => $self->{'datastore'},
+				db                 => $self->{'db'},
+				xmlHandler         => $self->{'xmlHandler'},
+				dataConnector      => $self->{'dataConnector'},
+				jobManager         => $self->{'jobManager'},
+				mod_perl_request   => $self->{'mod_perl_request'},
+				contigManager      => $self->{'contigManager'},
+				max_upload_size_mb => $self->{'config'}->{'max_upload_size'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
 			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;
@@ -213,8 +214,7 @@ sub _has_required_genome {
 	if ( $options->{'single_isolate'} ) {
 		return 1
 		  if $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $options->{'single_isolate'} )
-		  ;
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $options->{'single_isolate'} );
 	} else {
 		return 1 if $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
 	}
