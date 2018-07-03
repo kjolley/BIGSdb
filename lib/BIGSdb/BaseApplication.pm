@@ -20,7 +20,7 @@ package BIGSdb::BaseApplication;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.18.3');
+use version; our $VERSION = version->declare('v1.18.4');
 use BIGSdb::BIGSException;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::Constants qw(:login_requirements);

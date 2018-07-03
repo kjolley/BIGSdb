@@ -1,3 +1,9 @@
+v1.18.4: *Improved navigation bars.
+         *New curator index page.
+         *Drag and drop batch genome uploads (make sure javascript directory is
+          updated).
+         *Export classification groups with isolate data.
+         *Update for FontAwesone 5.1 (make sure webfonts directory is updated).
 v1.18.3: *Update FontAwesome to version 5. Ensure you copy the contents of the
           new webfonts directory (renamed from fonts) to the root of your web
           site and update the css directory.
