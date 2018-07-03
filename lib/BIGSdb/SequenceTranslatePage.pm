@@ -45,7 +45,7 @@ sub print_content {
 	}
 	my $seq = $q->param('sequence') // '';
 	$seq = $self->_strip_headers( \$seq );
-	$seq =~ s/[^acgtunACGTUN]//x;
+	$seq =~ s/[^GATCBDHVRYKMSWNUNgatcbdhvrykmswnun]//gx;
 	if ( !$seq ) {
 		$self->print_bad_status( { message => q(No valid nucleotide sequence passed.), navbar => 1 } );
 		return;
