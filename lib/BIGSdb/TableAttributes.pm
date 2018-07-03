@@ -203,7 +203,7 @@ sub get_permissions_table_attributes {
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users
 	  modify_site_users only_private disable_access)
-	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes 
+	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes
 	  delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
 	my $attributes = [
@@ -1703,7 +1703,9 @@ sub get_scheme_curators_table_attributes {
 			is_curator_only => 1,
 			user_field      => 1,
 			dropdown_query  => 1
-		}
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1734,6 +1736,8 @@ sub get_locus_curators_table_attributes {
 			comments => 'set to true to not list curator in lists',
 			default  => 'false'
 		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1792,12 +1796,12 @@ sub get_sequence_bin_table_attributes {
 sub get_oauth_credentials_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'base_uri',        type => 'text', required => 1, primary_key      => 1 },
+		{ name => 'base_uri',        type => 'text', required => 1, primary_key    => 1 },
 		{ name => 'consumer_key',    type => 'text', required => 1 },
 		{ name => 'consumer_secret', type => 'text', required => 1 },
 		{ name => 'access_token',    type => 'text', required => 1 },
 		{ name => 'access_secret',   type => 'text', required => 1 },
-		{ name => 'curator',         type => 'int',  required => 1, dropdown_query   => 1 },
+		{ name => 'curator',         type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'date_entered',    type => 'date', required => 1 },
 		{ name => 'datestamp',       type => 'date', required => 1 }
 	];
