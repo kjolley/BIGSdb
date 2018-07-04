@@ -110,8 +110,8 @@ sub check_post_payload {
 #Read database configs and connect before entering route.
 sub _before {
 	my $self        = setting('self');
-	my $request_uri = request->uri();
-	$self->{'instance'} = $request_uri =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
+	my $request_path = request->path();
+	$self->{'instance'} = $request_path =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	if ( !$self->{'instance'} ) {
 		undef $self->{'system'};
