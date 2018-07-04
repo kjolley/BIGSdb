@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(:interface);
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
 use JSON;
@@ -46,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.1.1',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -152,17 +153,21 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
-	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $job         = $self->{'jobManager'}->get_job($job_id);
-	my $html        = $job->{'message_html'} // q();
-	my $i           = 0;
-	my $progress    = 0;
+	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $job          = $self->{'jobManager'}->get_job($job_id);
+	my $html         = $job->{'message_html'} // q();
+	my $i            = 0;
+	my $progress     = 0;
+	my $include_json = @$isolate_ids == 1 ? 0 : 1;
+	my $colspan      = 4 + $include_json;
 	my $table_header =
 	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
 	  . qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
-	  . q(<th colspan="4">Prediction from identified rMLST alleles linked to genomes</th>)
+	  . qq(<th colspan="$colspan">Prediction from identified rMLST alleles linked to genomes</th>)
 	  . q(<th colspan="2">Identified rSTs</th></tr>)
-	  . q(<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th><th>rST</th><th>Species</th></tr>);
+	  . q(<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th>);
+	$table_header .= q(<th>JSON</th>) if $include_json;
+	$table_header .= q(<th>rST</th><th>Species</th></tr>);
 	my $td = 1;
 	my $row_buffer;
 	my $report = {};
@@ -177,7 +182,8 @@ sub run_job {
 			$self->{'system'}->{'labelfield'} => $isolate_name,
 			analysis                          => $data
 		};
-		$row_buffer .= $self->_format_row_html( $td, $values, $response_code );
+		$row_buffer .= $self->_format_row_html(
+			{ td => $td, values => $values, response_code => $response_code, include_json => $include_json } );
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
@@ -263,12 +269,15 @@ sub _format_linked_data {
 }
 
 sub _format_row_html {
-	my ( $self, $td, $values, $response_code ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $td, $values, $response_code, $include_json ) = @{$args}{qw(td values response_code include_json )};
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
-	my %italicised = map { $_ => 1 } ( 3, 4, 7 );
-	my %left_align = map { $_ => 1 } ( 4, 5 );
+	my %italicised = map { $_ => 1 } ( 3, 4, 8 );
+	my %left_align = map { $_ => 1 } ( 4, 5  );
 	my $buffer;
+	my $download = DOWNLOAD;
+
 	foreach my $row ( 0 .. $rows - 1 ) {
 		$buffer .= qq(<tr class="td$td">);
 		if ( $row == 0 ) {
@@ -283,7 +292,7 @@ sub _format_row_html {
 			}
 			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
-			foreach my $col ( 2 .. 5 ) {
+			foreach my $col ( 2 .. 5  ) {
 				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
@@ -301,10 +310,17 @@ sub _format_row_html {
 			}
 		}
 		if ( $row == 0 ) {
-			foreach my $col ( 6 .. 7 ) {
+			foreach my $col ( 6 .. 8 ) {
+				next if $col == 6 && !$include_json;
 				$buffer .= qq(<td rowspan="$rows">);
 				$buffer .= q(<i>) if $italicised{$col};
-				$buffer .= $values->[$col] // q();
+				if ( $col == 6  && $include_json) {
+					my $filename = $values->[$col];
+					$buffer .= qq(<a href="/tmp/$filename">$download</a>);
+	
+				} else {
+					$buffer .= $values->[$col] // q();
+				}
 				$buffer .= q(</i>) if $italicised{$col};
 				$buffer .= q(</td>);
 			}
@@ -384,7 +400,7 @@ sub _perform_rest_query {
 	my $taxon    = [];
 	my $taxonomy = [];
 	my $support  = [];
-	my ( $rST, $species );
+	my ( $json_link, $rST, $species );
 	if ( $response->is_success ) {
 		$data = decode_json( $response->content );
 		if ( $data->{'taxon_prediction'} ) {
@@ -399,11 +415,22 @@ sub _perform_rest_query {
 			$rST = $data->{'fields'}->{'rST'};
 			$species = $data->{'fields'}->{'species'} // q();
 		}
+		$json_link = $self->_write_row_json_file( $job_id, $i, $response );
 	} else {
 		$logger->error( $response->as_string );
 	}
-	push @$values, ( $rank, $taxon, $taxonomy, $support, $rST, $species );
+	push @$values, ( $rank, $taxon, $taxonomy, $support, $json_link, $rST, $species );
 	return ( $data, $values, $response->code );
+}
+
+sub _write_row_json_file {
+	my ( $self, $job_id, $row, $response ) = @_;
+	my $filename  = "${job_id}_$row.json";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh $response->content;
+	close $fh;
+	return $filename;
 }
 
 sub _print_interface {
