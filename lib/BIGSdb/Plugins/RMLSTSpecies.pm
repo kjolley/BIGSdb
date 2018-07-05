@@ -105,6 +105,7 @@ sub run {
 		$q->delete('isolate_paste_list');
 		$q->delete('isolate_id');
 		my $params = $q->Vars;
+		$params->{'script_name'} = $self->{'system'}->{'script_name'};
 		my $att    = $self->get_attributes;
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
@@ -126,29 +127,6 @@ sub run {
 	return;
 }
 
-sub _get_inline_javascript {
-	my ($self) = @_;
-	my $buffer = << "END";
-<script type="text/Javascript">
-\$(function () {
-	\$("#hidden_matches").css('display', 'none');
-	\$("#show_matches").click(function() {
-		if (\$("span#show_matches_text").css('display') == 'none'){
-			\$("span#show_matches_text").css('display', 'inline');
-			\$("span#hide_matches_text").css('display', 'none');
-		} else {
-			\$("span#show_matches_text").css('display', 'none');
-			\$("span#hide_matches_text").css('display', 'inline');
-		}
-		\$("#hidden_matches").toggle( 'blind', {} , 500 );
-		return false;
-	});
-});
-</script>
-END
-	return $buffer;
-}
-
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
@@ -158,16 +136,15 @@ sub run_job {
 	my $html         = $job->{'message_html'} // q();
 	my $i            = 0;
 	my $progress     = 0;
-	my $include_json = @$isolate_ids == 1 ? 0 : 1;
-	my $colspan      = 4 + $include_json;
-	my $table_header =
+	my $table_header = $self->_get_javascript;
+	my $colspan      = 5;
+	$table_header .=
 	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
 	  . qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
 	  . qq(<th colspan="$colspan">Prediction from identified rMLST alleles linked to genomes</th>)
-	  . q(<th colspan="2">Identified rSTs</th></tr>)
-	  . q(<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th>);
-	$table_header .= q(<th>JSON</th>) if $include_json;
-	$table_header .= q(<th>rST</th><th>Species</th></tr>);
+	  . qq(<th colspan="2">Identified rSTs</th></tr>\n)
+	  . q(<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th><th>Matches</th>)
+	  . qq(<th>rST</th><th>Species</th></tr>\n);
 	my $td = 1;
 	my $row_buffer;
 	my $report = {};
@@ -182,19 +159,11 @@ sub run_job {
 			$self->{'system'}->{'labelfield'} => $isolate_name,
 			analysis                          => $data
 		};
-		$row_buffer .= $self->_format_row_html(
-			{ td => $td, values => $values, response_code => $response_code, include_json => $include_json } );
+		$row_buffer .= $self->_format_row_html( $params,
+			{ td => $td, values => $values, response_code => $response_code, row_no => $i } );
 		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 		$td = $td == 1 ? 2 : 1;
-
-		if ( @$isolate_ids == 1 ) {
-			my $match_output = $self->_format_matches($data);
-			if ($match_output) {
-				$message_html .= $match_output;
-				$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
-			}
-		}
 		last if $self->{'exit'};
 	}
 	if ($report) {
@@ -210,76 +179,20 @@ sub run_job {
 	return;
 }
 
-sub _format_matches {
-	my ( $self, $data ) = @_;
-	return if !$data->{'exact_matches'};
-	my $buffer       = q(<h2>Matches</h2>);
-	my $loci_matches = keys %{ $data->{'exact_matches'} };
-	my $plural       = $loci_matches == 1 ? q(us) : q(i);
-	$buffer .= qq(<p>$loci_matches loc$plural matched (rMLST uses 53 in total). );
-	$buffer .=
-	    q(<span style="margin-left:1em"><a id="show_matches" style="cursor:pointer">)
-	  . q(<span id="show_matches_text" title="Show matches" style="display:inline">)
-	  . q(<span class="nav_icon fas fa-2x fa-eye"></span>)
-	  . q(</span><span id="hide_matches_text" title="Hide matches" style="display:none">)
-	  . q(<span class="nav_icon fas fa-2x fa-eye-slash"></span></span></a></span></p>);
-	$buffer .= q(<div id="hidden_matches" style="display:none">);
-	my @headings = ( 'Locus', 'Allele', 'Length', 'Contig', 'Start position', 'End position', 'Linked data values' );
-	local $" = q(</th><th>);
-	$buffer .= qq(<table class="resultstable"><tr><th>@headings</th></tr>\n);
-	my $td = 1;
-
-	foreach my $locus ( sort keys %{ $data->{'exact_matches'} } ) {
-		my $matches = $data->{'exact_matches'}->{$locus};
-		foreach my $match (@$matches) {
-			my @values = (
-				$locus, $match->{'allele_id'}, $match->{'length'}, $match->{'contig'}, $match->{'start'},
-				$match->{'end'}
-			);
-			my $linked = q();
-			if ( $match->{'linked_data'} ) {
-				$linked = $self->_format_linked_data( $match->{'linked_data'} );
-			}
-			local $" = q(</td><td>);
-			$buffer .= qq(<tr class="td$td"><td>@values</td><td style="text-align:left">$linked</td></tr>\n);
-			$td = $td == 1 ? 2 : 1;
-		}
-	}
-	$buffer .= q(</table></div>);
-	$buffer .= $self->_get_inline_javascript;
-	return $buffer;
-}
-
-sub _format_linked_data {
-	my ( $self, $linked_data ) = @_;
-	my @values;
-	my $s;
-	foreach my $resource ( sort keys %{$linked_data} ) {
-		$s = qq(<span class="source">$resource</span> );
-		foreach my $field ( sort keys %{ $linked_data->{$resource} } ) {
-			$s .= qq(<b>$field: </b>);
-			foreach my $value ( @{ $linked_data->{$resource}->{$field} } ) {
-				push @values, qq(<i>$value->{'value'}</i> [n=$value->{'frequency'}]);
-			}
-			local $" = q(; );
-			$s .= qq(@values);
-		}
-	}
-	return $s;
-}
-
 sub _format_row_html {
-	my ( $self, $args ) = @_;
-	my ( $td, $values, $response_code, $include_json ) = @{$args}{qw(td values response_code include_json )};
+	my ( $self, $params, $args ) = @_;
+	my ( $td, $values, $response_code, $row_no ) = @{$args}{qw(td values response_code row_no)};
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
 	my %italicised = map { $_ => 1 } ( 3, 4, 8 );
-	my %left_align = map { $_ => 1 } ( 4, 5  );
+	my %left_align = map { $_ => 1 } ( 4, 5 );
 	my $buffer;
-	my $download = DOWNLOAD;
+	my ( $show, $hide ) = ( SHOW, HIDE );
 
 	foreach my $row ( 0 .. $rows - 1 ) {
-		$buffer .= qq(<tr class="td$td">);
+		my $no_matches;
+		my $class = $row == $rows-1 ? q( last_row) : q();
+		$buffer .= qq(<tr class="td$td$class">);
 		if ( $row == 0 ) {
 			$buffer .= qq(<td rowspan="$rows">$values->[$_]</td>) foreach ( 0, 1 );
 		}
@@ -290,9 +203,10 @@ sub _format_row_html {
 			} else {
 				$message = q(No exact matching alleles linked to genome found);
 			}
+			$no_matches = 1;
 			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
-			foreach my $col ( 2 .. 5  ) {
+			foreach my $col ( 2 .. 5 ) {
 				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
@@ -311,13 +225,17 @@ sub _format_row_html {
 		}
 		if ( $row == 0 ) {
 			foreach my $col ( 6 .. 8 ) {
-				next if $col == 6 && !$include_json;
 				$buffer .= qq(<td rowspan="$rows">);
 				$buffer .= q(<i>) if $italicised{$col};
-				if ( $col == 6  && $include_json) {
-					my $filename = $values->[$col];
-					$buffer .= qq(<a href="/tmp/$filename">$download</a>);
-	
+				if ( $col == 6 ) {
+					if ( !$no_matches ) {
+						my $filename = $values->[$col];
+						$buffer .= qq(<a class="ajax_link" id="row_$row_no" href="$params->{'script_name'}?)
+						  . qq(db=$self->{'instance'}&amp;)
+						  . qq(page=plugin&amp;name=RMLSTSpecies&amp;filename=$filename&amp;no_header=1">$show</a>);
+						$buffer .=
+						  qq(<a id="row_${row_no}_hide" class="row_hide" style="display:none;cursor:pointer">$hide</a>);
+					}
 				} else {
 					$buffer .= $values->[$col] // q();
 				}
@@ -325,8 +243,9 @@ sub _format_row_html {
 				$buffer .= q(</td>);
 			}
 		}
+		$buffer .= qq(</tr>\n);
 	}
-	$buffer .= q(</tr>);
+	
 	return $buffer;
 }
 
@@ -506,5 +425,116 @@ sub _get_colour {
 	} else {
 		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
 	}
+}
+
+sub _get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+<script type="text/Javascript">
+\$(function () {
+	\$(".ajax_link").click(function(event){	
+		event.preventDefault();
+		var added_id = \$(this).attr("id") + '_added';
+		var row_show_button_id = \$(this).attr("id");
+		var row_hide_button_id = \$(this).attr("id") + '_hide';
+		if (\$("#" + added_id).length){
+			return false;
+		} 
+		var inserted_row = jQuery('<tr id="'+added_id+'"><td colspan="9"><div id="'+added_id+'_div"></div></td></tr>');
+		var row_to_insert_after = \$("#" + \$(this).attr("id")).closest("tr.last_row");
+		if (!(row_to_insert_after.length)){
+			row_to_insert_after = \$("#" + \$(this).attr("id")).closest("tr").nextAll("tr.last_row:first");
+		}
+		row_to_insert_after.after(inserted_row);
+		var regex = /filename=(BIGSdb_[\\d_]*\.json)/;
+		var matches = regex.exec(\$(this).attr("href"));
+		var filename = matches[1];
+		var full_path = "/tmp/" + filename;
+		\$.ajax({
+   			contentType: 'application/json',
+    		dataType: "json",
+    		url: full_path,
+    		success: function (data) {
+              	var formatted = format_data(data);          	
+             	\$("#" + added_id + "_div").hide().html(formatted).slideDown("slow");
+             	\$("#" + row_hide_button_id).show();
+             	\$("#" + row_show_button_id).hide();
+            },
+    		error: function(data, errorThrown){
+            	alert('request failed :'+errorThrown);
+          	}
+	    });	
+		return false;
+	});
+	\$(".row_hide").click(function(event){	
+		event.preventDefault();
+		var row_id = \$(this).attr("id").replace("hide","added");
+		var content_div = row_id + "_div";
+		var hide_button = \$(this).attr("id");
+		var show_button = \$(this).attr("id").replace("_hide","");
+		\$("#" + content_div).slideUp("slow", function(){
+			\$("#" + row_id).remove();	
+			\$("#" + hide_button).hide();
+			\$("#" + show_button).show();
+		});		
+		return false;
+	});
+});
+
+function format_data(data){
+	if (!('exact_matches' in data)){
+		return;
+	}
+	var loci = [];
+	console.log(data['exact_matches']);
+	var loci_matched = 0;
+	
+	for(var key in data['exact_matches']) {
+  		if(data['exact_matches'].hasOwnProperty(key)) { //to be safe
+    		loci.push(key);
+    		loci_matched++;
+ 		}
+	}
+	loci.sort();
+	var plural = loci_matched == 1 ? "us" : "i";
+	var table = '<p style="text-align:left"><b>' + loci_matched + ' loc' + plural 
+	  + ' matched (rMLST uses 53 in total)</b></p>\\n'
+	  + '<table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th><th>Length</th><th>Contig</th>'
+	  + '<th>Start position</th><th>End position</th><th style="text-align:left">Linked data values</th></tr>\\n';
+	var td = 1 ;
+	\$.each(loci, function( locus_index, locus ) {
+		\$.each(data['exact_matches'][locus], function(match_index, match){
+			table += '<tr class="td' + td + '"><td>' + locus + '</td>';
+			table += '<td>' + match['allele_id'] + '</td>';
+			table += '<td>' + match['length'] + '</td>';
+			table += '<td>' + match['contig'] + '</td>';
+			table += '<td>' + match['start'] + '</td>';
+			table += '<td>' + match['end'] + '</td>';
+			if (match.hasOwnProperty('linked_data')){
+				var list = '<b>species:</b> ';
+				var first = 1;
+				\$.each(match['linked_data']['rMLST genome database']['species'], function (species_index,sp_obj){
+					if (!first){
+						list += '; ';
+					};
+					list += sp_obj['value'] + " [n=" + sp_obj['frequency'] + "]";
+					first = 0;
+				});
+				table += '<td style="text-align:left">' + list + '</td>';
+			} else {
+				table += '<td></td>';
+			}
+			table += '</tr>\\n';
+			td = td == 1 ? 2 : 1;
+		});
+	});
+	
+	table += '</table>';
+	return table;
+}
+
+</script>
+END
+	return $buffer;
 }
 1;
