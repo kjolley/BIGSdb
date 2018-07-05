@@ -2318,6 +2318,9 @@ sub initiate_view {
 		$qry .= PUBLIC_ISOLATES;
 	} else {
 		my @user_terms;
+		my $has_user_project =
+			  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)',
+				$user_info->{'id'} );
 		if ($curate) {
 			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
 			my $method = {
@@ -2327,6 +2330,7 @@ sub initiate_view {
 				},
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
+					push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 				  }
 			};
 			if ( $method->{ $user_info->{'status'} } ) {
@@ -2341,9 +2345,7 @@ sub initiate_view {
 			my $has_private_isolates =
 			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
 			push @user_terms, OWN_PRIVATE_ISOLATES if $has_private_isolates;
-			my $has_user_project =
-			  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)',
-				$user_info->{'id'} );
+			
 			push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 		}
 		local $" = q( OR );
