@@ -117,6 +117,9 @@ sub get_javascript {
 	\$("#provenance").columnize({width:400});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
+	if (!(\$("span").hasClass('aliases'))){
+		\$("span#aliases_button").css('display', 'none');
+	}
 });
 
 END
@@ -341,6 +344,7 @@ sub _print_separate_scheme_data {
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
 		say q(<div class="box" id="resultspanel">);
+		say $self->_get_show_aliases_button('block');
 		$self->_print_scheme_data( $isolate_id, $q->param('scheme_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
@@ -432,15 +436,7 @@ sub print_content {
 		  . q(<a id="show_tree" class="button" style="cursor:pointer">)
 		  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> show</span>)
 		  . q(<span id="hide_tree_text" style="display:inline"><span class="fa fas fa-eye-slash"></span> hide</span> tree</a></span>);
-		my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
-		my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
-		my $aliases_button =
-		    q( <span id="aliases_button" style="margin-left:1em;display:none">)
-		  . q(<a id="show_aliases" class="button" style="cursor:pointer">)
-		  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
-		  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
-		  . q(<span class="fa fas fa-eye-slash"></span> hide</span> )
-		  . q(locus aliases</a></span>);
+		my $aliases_button = $self->_get_show_aliases_button;
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 		if (@$loci) {
@@ -473,6 +469,19 @@ sub print_content {
 		say q(</div>);
 	}
 	return;
+}
+
+sub _get_show_aliases_button {
+	my ($self, $display) = @_;
+	$display //= 'none';
+	my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
+	my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
+	return qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
+	  . q(<a id="show_aliases" class="button" style="cursor:pointer">)
+	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
+	  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
+	  . q(<span class="fa fas fa-eye-slash"></span> hide</span> )
+	  . q(locus aliases</a></span>);
 }
 
 sub _print_plugin_buttons {
@@ -709,13 +718,14 @@ sub _print_action_panel {
 	my $private =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE isolate_id=?)', $isolate_id );
+
 	foreach my $action (qw (isolateDelete isolateUpdate addSeqbin newVersion tagScan publish)) {
 		next
 		  if $action eq 'tagScan'
 		  && ( !$seqbin_exists
 			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
 		next if $action eq 'addSeqbin' && !$self->can_modify_table('sequences');
-		next if $action eq 'publish' && !$private;
+		next if $action eq 'publish'   && !$private;
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
 		$q->param( page => $action );
