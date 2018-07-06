@@ -190,10 +190,11 @@ sub _check_scheme_databases {
 			  . q(</td><td>)
 			  . ( $scheme_info->{'dbase_id'} // q() )
 			  . q(</td><td>);
-			if ( $self->{'datastore'}->get_scheme($scheme_id)->get_db ) {
-				print GOOD;
-			} else {
+			eval { $self->{'datastore'}->get_scheme($scheme_id)->get_db };
+			if ($@) {
 				print BAD;
+			} else {
+				print GOOD;
 			}
 			print q(</td><td>);
 			eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };

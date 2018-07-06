@@ -600,6 +600,10 @@ div.flags a {text-decoration:none}
 
 table.resultstable {text-align:center;padding:0.1em}
 table.resultstable td,th {padding:0 0.2em}
+table.ajaxtable {border:1px dashed black}
+table.ajaxtable th {background:#eee;color:black}
+table.ajaxtable tr.td1 {background:white}
+table.ajaxtable tr.td2 {background:#eef}
 table.profile {background:#e0e0e0;text-align:center}
 
 span.field { color: blue }
