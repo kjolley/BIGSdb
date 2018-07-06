@@ -496,6 +496,7 @@ div.scrollable {overflow-x:auto;padding-top:0.2em}
 div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
+div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background:#d5d5e0}
 div#message {background:#e0d5d5}
 
