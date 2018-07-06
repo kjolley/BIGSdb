@@ -125,7 +125,7 @@ sub print_content {
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
 		my %return_after = map { $_ => 1 } qw (tar view curate);
-		foreach my $action (qw (abort finalize close remove tar view curate)) {
+		foreach my $action (qw (abort finalize close remove tar view curate cancel)) {
 			if ( $q->param($action) ) {
 				my $method = "_$action\_submission";
 				$self->$method($submission_id);
@@ -2041,6 +2041,29 @@ sub _print_archive_fieldset {
 	return;
 }
 
+sub _print_cancel_fieldset {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	return if $submission->{'submitter'} != $user_info->{'id'};
+	return if $submission->{'status'} ne 'pending';
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$self->print_action_fieldset(
+		{
+			legend       => 'Cancel submission',
+			submit_label => 'Cancel',
+			no_reset     => 1,
+			text         => '<p>You can cancel the submission<br />if you have made a mistake.</p>'
+		}
+	);
+	$q->param( cancel => 1 );
+	say $q->hidden($_) foreach qw( db page submission_id cancel );
+	say $q->end_form;
+	return;
+}
+
 sub _print_close_submission_fieldset {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'all_assigned_or_rejected'};    #Set in _print_sequence_table_fieldset.
@@ -2275,6 +2298,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
+	$self->_print_cancel_fieldset($submission_id);
 	say q(</div></div>);
 	return;
 }
@@ -2315,6 +2339,32 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 sub _remove_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
+	$self->{'submissionHandler'}->delete_submission($submission_id);
+	return;
+}
+
+sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id ) = @_;
+	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if $submission->{'status'} ne 'pending';
+	my $curators   = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my $desc       = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $subject    = "CANCELLED $submission->{'type'} submission ($desc) - $submission_id";
+	my $message    = "This submission has been CANCELLED by the submitter.\n\n";
+	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
+
+	foreach my $curator_id (@$curators) {
+		$self->{'submissionHandler'}->email(
+			$submission_id,
+			{
+				recipient => $curator_id,
+				sender    => $submission->{'submitter'},
+				subject   => $subject,
+				message   => $message,
+			}
+		);
+	}
 	$self->{'submissionHandler'}->delete_submission($submission_id);
 	return;
 }

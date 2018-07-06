@@ -213,7 +213,9 @@ sub create_temp_tables {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
+				if (   $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x
+					|| $qry =~ /ORDER\ BY\ s_$scheme_id\_/x )
+				{
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				if ( $qry =~ /temp_(?:isolates|view)_scheme_completion_$scheme_id\s/x ) {
@@ -299,7 +301,7 @@ sub _initiate_plugin {
 			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
 		}
 		if ( $q->param('no_header') ) {
-			$self->{'type'}    = 'no_header';
+			$self->{'type'} = 'no_header';
 		}
 	}
 	catch BIGSdb::InvalidPluginException with {
@@ -611,6 +613,7 @@ sub print_action_fieldset {
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $legend       = $options->{'legend'}       // 'Action';
 	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
+	$buffer .= $options->{'text'} = $options->{'text'};
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
 	my @fields = qw (isolate_id id scheme_id table name ruleset locus
 	  profile_id simple set_id modify project_id edit);
