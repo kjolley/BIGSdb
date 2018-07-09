@@ -339,6 +339,7 @@ sub _print_separate_scheme_data {
 	my $q = $self->{'cgi'};
 	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
 		say q(<div class="box" id="resultspanel">);
+		say $self->_get_show_aliases_button('block');
 		$self->_print_group_data( $isolate_id, $q->param('group_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
