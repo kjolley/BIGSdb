@@ -613,7 +613,7 @@ sub print_action_fieldset {
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $legend       = $options->{'legend'}       // 'Action';
 	my $buffer       = qq(<fieldset style="float:left"><legend>$legend</legend>\n);
-	$buffer .= $options->{'text'} = $options->{'text'};
+	$buffer .= $options->{'text'} if $options->{'text'};
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
 	my @fields = qw (isolate_id id scheme_id table name ruleset locus
 	  profile_id simple set_id modify project_id edit);
