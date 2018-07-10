@@ -1623,7 +1623,8 @@ sub get_record_name {
 		classification_group_fields       => 'classification group field',
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
-		oauth_credentials                 => 'OAuth credentials'
+		oauth_credentials                 => 'OAuth credentials',
+		eav_fields                        => 'sparsely populated field'
 	);
 	return $names{$table};
 }
@@ -1922,7 +1923,8 @@ sub can_modify_table {
 			sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
 			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
 			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
-			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'}
+			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'},
+			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates retired_isolates isolate_aliases refs);
@@ -1933,6 +1935,7 @@ sub can_modify_table {
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_probes'}
 		  foreach qw(pcr pcr_locus probes probe_locus);
+
 		if ( $isolate_permissions{$table} ) {
 			return $isolate_permissions{$table};
 		}

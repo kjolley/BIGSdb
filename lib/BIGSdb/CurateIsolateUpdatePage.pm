@@ -358,6 +358,8 @@ sub _print_interface {
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
 		$self->print_provenance_form_elements( $data, { update => 1 } );
+		$self->print_sparse_field_form_elements($data, { update => 1 });
+		$self->print_action_fieldset( { submit_label => 'Update', id => $data->{'id'} } );
 		say $q->end_form;
 		say q(</div></div>);
 	}
@@ -370,7 +372,7 @@ sub _print_interface {
 sub _print_allele_designations {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box" id="alleles" style="overflow:auto">);
+	say q(<div class="box" id="alleles" style="float:left"><div class="scrollable">);
 	say q(<fieldset style="float:left"><legend>Loci</legend>);
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
@@ -400,7 +402,7 @@ sub _print_allele_designations {
 	$q->param( isolate_id => $q->param('id') );
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
-	say q(</fieldset></div>);
+	say q(</fieldset></div></div>);
 	return;
 }
 

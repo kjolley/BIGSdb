@@ -219,16 +219,13 @@ sub _insert {
 	my ( $self, $newdata ) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	my $loci   = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	@$loci = uniq @$loci;
-	my $insert = 1;
 	my @fields_with_values;
 	my %meta_fields;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
-
 	foreach my $field (@$field_list) {
-		if ( $newdata->{$field} ne '' ) {
+
+		if ( ( $newdata->{$field} // q() ) ne q() ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
 				push @{ $meta_fields{$metaset} }, $metafield;
@@ -237,7 +234,7 @@ sub _insert {
 			}
 		}
 	}
-	my @inserts;
+	my $inserts      = [];
 	my @placeholders = ('?') x @fields_with_values;
 	local $" = ',';
 	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
@@ -246,12 +243,66 @@ sub _insert {
 		my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } );
 		push @values, $cleaned;
 	}
-	push @inserts, { statement => $qry, arguments => \@values };
+	push @$inserts, { statement => $qry, arguments => \@values };
 	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
-	push @inserts, @$metadata_inserts;
+	push @$inserts, @$metadata_inserts;
+	$self->_prepare_locus_inserts( $inserts, $newdata );
+	$self->_prepare_alias_inserts( $inserts, $newdata );
+	return if $self->_prepare_pubmed_inserts( $inserts, $newdata );
+	return if $self->_prepare_sparse_field_inserts( $inserts, $newdata );
+	local $" = ';';
+
+	foreach (@$inserts) {
+		$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
+	}
+	if ($@) {
+		my $detail;
+		if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+			$detail = q(Data entry would have resulted in records with either duplicate ids or another )
+			  . q(unique field with duplicate values.);
+		} else {
+			$logger->error("Insert failed: $qry  $@");
+		}
+		$self->print_bad_status(
+			{
+				message => q(Insert failed - transaction cancelled - no records have been touched.),
+				detail  => $detail
+			}
+		);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		my ( $upload_contigs_url, $link_contigs_url );
+		$upload_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=addSeqbin&amp;isolate_id=$newdata->{'id'});
+		if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
+			$link_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'});
+		}
+		$self->print_good_status(
+			{
+				message            => qq(Isolate id-$newdata->{'id'} added.),
+				navbar             => 1,
+				more_url           => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd),
+				upload_contigs_url => $upload_contigs_url,
+				link_contigs_url   => $link_contigs_url
+			}
+		);
+		$self->update_history( $newdata->{'id'}, 'Isolate record added' );
+		return SUCCESS;
+	}
+	return;
+}
+
+sub _prepare_locus_inserts {
+	my ( $self, $inserts, $newdata ) = @_;
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	@$loci = uniq @$loci;
+	my $q = $self->{'cgi'};
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
-			push @inserts,
+			push @$inserts,
 			  {
 				statement => 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,'
 				  . 'curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -265,72 +316,107 @@ sub _insert {
 			  };
 		}
 	}
+	return;
+}
+
+sub _prepare_alias_inserts {
+	my ( $self, $inserts, $newdata ) = @_;
+	my $q = $self->{'cgi'};
 	my @new_aliases = split /\r?\n/x, $q->param('aliases');
 	foreach my $new (@new_aliases) {
 		$new = $self->clean_value( $new, { no_escape => 1 } );
 		next if $new eq '';
-		push @inserts,
+		push @$inserts,
 		  {
 			statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
 			arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
 		  };
 	}
+	return;
+}
+
+sub _prepare_pubmed_inserts {
+	my ( $self, $inserts, $newdata ) = @_;
+	my $q = $self->{'cgi'};
 	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	my $error;
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
 		if ( !BIGSdb::Utils::is_int($new) ) {
 			$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
-			$insert = 0;
+			$error = 1;
 		}
-		push @inserts,
+		push @$inserts,
 		  {
 			statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
 			arguments => [ $newdata->{'id'}, $new, $newdata->{'curator'}, 'now' ]
 		  };
 	}
-	if ($insert) {
-		local $" = ';';
-		foreach (@inserts) {
-			$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
-		}
+	return $error;
+}
+
+sub _prepare_sparse_field_inserts {
+	my ( $self, $inserts, $newdata ) = @_;
+	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $error = 0;
+	foreach my $field (@$fields) {
+		my $method = "_prepare_eav_$field->{'value_format'}_inserts";
+		eval { $error = $self->$method( $field, $inserts, $newdata ); };
 		if ($@) {
-			my $detail;
-			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-				$detail = q(Data entry would have resulted in records with either duplicate ids or another )
-				  . q(unique field with duplicate values.);
-			} else {
-				$logger->error("Insert failed: $qry  $@");
-			}
-			$self->print_bad_status(
-				{
-					message => q(Insert failed - transaction cancelled - no records have been touched.),
-					detail  => $detail
-				}
-			);
-			$self->{'db'}->rollback;
-		} else {
-			$self->{'db'}->commit;
-			my ( $upload_contigs_url, $link_contigs_url );
-			$upload_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=addSeqbin&amp;isolate_id=$newdata->{'id'});
-			if ( ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ) {
-				$link_contigs_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=batchAddRemoteContigs&amp;isolate_id=$newdata->{'id'});
-			}
-			$self->print_good_status(
-				{
-					message  => qq(Isolate id-$newdata->{'id'} added.),
-					navbar   => 1,
-					more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd),
-					upload_contigs_url => $upload_contigs_url,
-					link_contigs_url   => $link_contigs_url
-				}
-			);
-			$self->update_history( $newdata->{'id'}, 'Isolate record added' );
-			return SUCCESS;
+			$logger->error($@);
+			last;
 		}
+		last if $error;
 	}
+	return $error;
+}
+
+sub _prepare_eav_integer_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $inserts, $newdata ) = @_;
+	my $field_name = $field->{'field'};
+	my $q          = $self->{'cgi'};
+	my $value      = $q->param($field_name);
+	return if !defined $value || $value eq q();
+	if ( !BIGSdb::Utils::is_int($value) ) {
+		$self->print_bad_status( { message => qq($field_name values must be integers.) } );
+		return 1;
+	}
+	if ( defined $field->{'min_value'} && $value < $field->{'min_value'} ) {
+		$self->print_bad_status(
+			{ message => qq($field_name values must be greater than or equal $field->{'min_value'}.) } );
+		return 1;
+	}
+	if ( defined $field->{'max_value'} && $value > $field->{'max_value'} ) {
+		$self->print_bad_status(
+			{ message => qq($field_name values must be smaller than or equal $field->{'max_value'}.) } );
+		return 1;
+	}
+	push @$inserts, {
+		statement => 'INSERT INTO eav_int (isolate_id,field,value) VALUES (?,?,?)',
+		arguments => [ $newdata->{'id'}, $field_name, $value ]
+	};
+	return;
+}
+
+sub _prepare_eav_float_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $inserts, $newdata ) = @_;
+	return;
+}
+
+sub _prepare_eav_text_inserts {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $inserts, $newdata ) = @_;
+	return;
+}
+
+sub _prepare_eav_date_inserts {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $inserts, $newdata ) = @_;
+	return;
+}
+
+sub _prepare_eav_boolean_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $inserts, $newdata ) = @_;
 	return;
 }
 
@@ -344,6 +430,7 @@ sub _print_interface {
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw(page db sent);
 	$self->print_provenance_form_elements($newdata);
+	$self->print_sparse_field_form_elements($newdata);
 	$self->_print_allele_designation_form_elements($newdata);
 	$self->print_action_fieldset;
 	say $q->end_form;
@@ -366,15 +453,15 @@ sub _get_html5_args {
 	my $html5_args = {};
 	$html5_args->{'required'} = 'required' if $required_field;
 	$html5_args->{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
-	if ( $field ne 'sender' && $thisfield->{'type'} eq 'int' && !$thisfield->{'optlist'} ) {
+	if ( $field ne 'sender' && $thisfield->{'type'} =~ /^int/x && !$thisfield->{'optlist'} ) {
 		$html5_args->{'type'} = 'number';
 		$html5_args->{'min'}  = '1';
 		$html5_args->{'step'} = '1';
 	}
-	$html5_args->{'min'} = $thisfield->{'min'}
-	  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
-	$html5_args->{'max'} = $thisfield->{'max'}
-	  if $thisfield->{'type'} eq 'int' && defined $thisfield->{'min'};
+	if ( $thisfield->{'type'} =~ /^int/x ) {
+		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};
+		$html5_args->{'max'} = $thisfield->{'max'} if defined $thisfield->{'max'};
+	}
 	$html5_args->{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 	return $html5_args;
 }
@@ -502,9 +589,6 @@ sub print_provenance_form_elements {
 	say $self->get_tooltip( q(List of PubMed ids of publications associated with this isolate. )
 		  . q(Put each identifier on a separate line.) );
 	say q(</li></ul>);
-	if ( $options->{'update'} ) {
-		$self->print_action_fieldset( { submit_label => 'Update', id => $newdata->{'id'} } );
-	}
 	say q(</div></fieldset>);
 	return;
 }
@@ -525,8 +609,8 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
 	if ( $thisfield->{'optlist'} ) {
-		my $q       = $self->{'cgi'};
-		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		my $q = $self->{'cgi'};
+		my $optlist = $thisfield->{'option_list_values'} // $self->{'xmlHandler'}->get_field_option_list($field);
 		say $q->popup_menu(
 			-name    => $field,
 			-id      => "field_$field",
@@ -543,18 +627,24 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
-	if ( $thisfield->{'type'} eq 'bool' ) {
-		my $q = $self->{'cgi'};
-		my %bool_convert = ( 1 => 'true', 0 => 'false' );
-		say $q->popup_menu(
-			-name    => $field,
-			-id      => "field_$field",
-			-values  => [ '', 'true', 'false' ],
-			-default => ( $bool_convert{ $newdata->{ lc($field) } // q() } // $thisfield->{'default'} )
-		);
-		return 1;
+	return if $thisfield->{'type'} !~ /^bool/x;
+	my $default = $newdata->{ lc($field) } // $thisfield->{'default'};
+	my $q = $self->{'cgi'};
+	if ( defined $default ) {
+		$default = 'true'  if $default eq '1';
+		$default = 'false' if $default eq '0';
+	} elsif ( !defined $q->param($field) ) {
+
+		#Without this, the first option is selected if form is reloaded due to failed validation
+		$q->delete($field);
 	}
-	return;
+	say $q->radio_group(
+		-name    => $field,
+		-id      => "field_$field",
+		-values  => [qw(true false)],
+		-default => $default // q()
+	);
+	return 1;
 }
 
 sub _print_datestamp {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -670,6 +760,73 @@ sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
 		%$html5_args
 	);
+	return;
+}
+
+sub print_sparse_field_form_elements {
+	my ( $self, $newdata, $options ) = @_;
+	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$fields;
+	my @fieldnames = map { $_->{'field'} } @$fields;
+	my $width = $self->_get_field_width( \@fieldnames );
+	say q(<fieldset style="float:left"><legend>Sparsely-populated fields</legend>);
+	say q(<div style="white-space:nowrap">);
+	say
+	  q(<p class="comment">These fields are listed and stored separately<br />as they are infrequently populated.</p>);
+	say q(<ul>);
+
+	foreach my $field (@$fields) {
+		my $thisfield = {
+			type  => $field->{'value_format'},
+			min   => $field->{'min_value'},
+			max   => $field->{'max_value'},
+			regex => $field->{'value_regex'}
+		};
+		if ( defined $field->{'option_list'} ) {
+			$thisfield->{'optlist'} = 1;
+			$thisfield->{'option_list_values'} = [ split /;/x, $field->{'option_list'} ];
+		}
+		my $html5_args = $self->_get_html5_args(
+			{
+				field     => $field->{'field'},
+				thisfield => $thisfield
+			}
+		);
+		$field->{'length'} = $field->{'length'} // ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
+		( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
+		my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
+		my $title_attribute = $title ? qq( title="$title") : q();
+		my $for = qq( for="field_$field->{'field'}");
+		print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
+		print $label;
+		print ':';
+		say q(</label>);
+		my $methods = {
+			optlist         => '_print_optlist',
+			bool            => '_print_bool',
+			long_text_field => '_print_long_text_field',
+			default_field   => '_print_default_field'
+		};
+
+		foreach my $condition (qw( optlist bool long_text_field default_field)) {
+			my $method = $methods->{$condition};
+			my $args   = {
+				newdata    => $newdata,
+				field      => $field->{'field'},
+				thisfield  => $thisfield,
+				html5_args => $html5_args,
+			};
+			if ( $self->$method($args) ) {
+				last;
+			}
+		}
+		say $self->get_tooltip( $field->{'description'} ) if $field->{'description'};
+		say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>)
+		  if $field->{'value_format'} eq 'date';
+	}
+	say q(</ul>);
+	say q(</div></fieldset>);
 	return;
 }
 
