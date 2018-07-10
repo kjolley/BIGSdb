@@ -848,6 +848,10 @@ sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
 		return 'must be a floating point number';
+	} elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
+		return "must be equal to or larger than $thisfield->{'min'}.";
+	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
+		return "must be equal to or smaller than $thisfield->{'max'}.";
 	}
 	return;
 }
@@ -1161,8 +1165,7 @@ sub get_text_summary {
 	}
 	my $submitter_string =
 	  $self->{'datastore'}
-	  ->get_user_string( $submission->{'submitter'}, { email => 1, text_email => 1, affiliation => 1 } )
-	  ;
+	  ->get_user_string( $submission->{'submitter'}, { email => 1, text_email => 1, affiliation => 1 } );
 	$msg .= "Submitter: $submitter_string\n";
 	if ( $submission->{'curator'} ) {
 		my $curator_string = $self->{'datastore'}
