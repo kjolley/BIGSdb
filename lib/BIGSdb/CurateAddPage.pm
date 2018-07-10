@@ -245,7 +245,7 @@ sub _insert {
 		$self->$method( $newdata, \@problems, $extra_inserts, $extra_transactions );
 	}
 	if (@problems) {
-		local $" = "<br />\n";
+		local $" = qq(<br />\n);
 		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
 	} else {
 		my ( @table_fields, @placeholders, @values );

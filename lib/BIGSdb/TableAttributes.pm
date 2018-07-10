@@ -201,8 +201,8 @@ sub get_permissions_table_attributes {
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
-	  modify_value_attributes modify_probes modify_experiments delete_all sample_management import_site_users
-	  modify_site_users only_private disable_access)
+	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all sample_management
+	  import_site_users modify_site_users only_private disable_access)
 	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes
 	  delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
@@ -2220,6 +2220,22 @@ sub get_samples_table_attributes {
 			}
 		  );
 	}
+	return $attributes;
+}
+
+sub get_eav_fields_table_attributes {
+	my $attributes = [
+		{ name => 'field',        type => 'text', required => 1, primary_key => 1 },
+		{ name => 'value_format', type => 'text', required => 1, optlist     => 'integer;float;text;date' },
+		{ name => 'description',  type => 'text' },
+		{ name => 'length',      type => 'int', tooltip => 'length - Valid for text fields only' },
+		{ name => 'option_list', type => 'text' },
+		{ name => 'min_value',   type => 'int', tooltip => 'min_value - Valid for number fields only' },
+		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
+		{ name => 'field_order', type => 'int' },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
 	return $attributes;
 }
 1;

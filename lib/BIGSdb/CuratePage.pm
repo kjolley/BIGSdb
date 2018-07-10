@@ -995,7 +995,6 @@ sub check_record {
 	my ( $self, $table, $newdata, $update, $allowed_values ) = @_;
 
 	#TODO prevent scheme group belonging to a child
-	#TODO check optlist values
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
 	my ( @problems, @missing );
@@ -1014,6 +1013,12 @@ sub check_record {
 		if ( $self->_check_is_missing( $att, $newdata ) ) {
 			push @missing, $att->{'name'};
 			next ATT;
+		}
+		if ( $att->{'optlist'} ) {
+			my %allowed = map { $_ => 1 } split /;/x, $att->{'optlist'};
+			if ( !$allowed{ $newdata->{ $att->{'name'} } } ) {
+				push @problems, qq(Invalid value for $att->{'name'}.);
+			}
 		}
 		my @checks = qw(integer float date regex foreign_key);
 		foreach my $check (@checks) {

@@ -252,6 +252,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_cache_refresh;
 	$buffer .= $self->_get_user_dbases;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$buffer .= $self->_get_eav_fields;
 		$buffer .= $self->_get_isolate_field_extended_attributes;
 		$buffer .= $self->_get_composite_fields;
 		$buffer .= $self->_get_oauth_credentials;
@@ -261,8 +262,6 @@ sub _get_admin_links {
 	my $set_id = $self->get_set_id;
 	return $buffer if $set_id;
 	$buffer .= $self->_get_loci;
-
-	#locus_aliases
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_genome_filtering;
 		$buffer .= $self->_get_sequence_attributes;
@@ -1227,6 +1226,29 @@ sub _get_isolate_field_extended_attributes {
 	return $buffer;
 }
 
+sub _get_eav_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('eav_fields');
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
+	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sparse fields</h2>);
+	$buffer .= $self->_get_icon_group(
+		'eav_fields',
+		'ellipsis-v',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Sparse fields - Define fields that are likely to contain sparsely populated '
+			  . 'values, i.e. fields that only a minority of records will have values for. It is '
+			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
+			  . 'appropriate if you have 10s-100s of phenotypic fields to define.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
 sub _get_composite_fields {
 	my ($self) = @_;
 	my $buffer = q();
@@ -1240,7 +1262,7 @@ sub _get_composite_fields {
 			add       => 1,
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
-			info      => 'Composite fields - ' . 'Consist of a combination of different isolate, loci or scheme fields.'
+			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
 		}
 	);
 	$buffer .= qq(</div>\n);
