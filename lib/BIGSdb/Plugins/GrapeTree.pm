@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.0.1',
+		version             => '1.0.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -388,7 +388,7 @@ sub _generate_tsv_file {
 	foreach my $record (@$data) {
 		my @record_values;
 		foreach my $field (@$prov_fields) {
-			push @record_values, $record->{$field} // q() if $include_fields{"f_$field"};
+			push @record_values, $record->{ lc($field) } // q() if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
@@ -396,7 +396,7 @@ sub _generate_tsv_file {
 					my $value = $self->{'datastore'}->run_query(
 						'SELECT value FROM isolate_value_extended_attributes WHERE '
 						  . '(isolate_field,attribute,field_value)=(?,?,?)',
-						[ $field, $extended_attribute, $record->{$field} ],
+						[ $field, $extended_attribute, $record->{ lc($field) } ],
 						{ cache => 'GrapeTree::extended_attribute_value' }
 					);
 					push @record_values, $value // q();
