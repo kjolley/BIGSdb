@@ -453,12 +453,12 @@ sub _get_html5_args {
 	my $html5_args = {};
 	$html5_args->{'required'} = 'required' if $required_field;
 	$html5_args->{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
-	if ( $field ne 'sender' && $thisfield->{'type'} =~ /^int/x && !$thisfield->{'optlist'} ) {
-		$html5_args->{'type'} = 'number';
-		$html5_args->{'min'}  = '1';
-		$html5_args->{'step'} = '1';
-	}
-	if ( $thisfield->{'type'} =~ /^int/x ) {
+	if ( $thisfield->{'type'} =~ /^int/x || $thisfield->{'type'} eq 'float' ) {
+		if ( $field ne 'sender' && !$thisfield->{'optlist'} ) {
+			$html5_args->{'type'} = 'number';
+			$html5_args->{'min'}  = '0';
+		}
+		$html5_args->{'step'} = $thisfield->{'type'} =~ /^int/x ? 1 : 'any';
 		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};
 		$html5_args->{'max'} = $thisfield->{'max'} if defined $thisfield->{'max'};
 	}
