@@ -215,6 +215,7 @@ sub _update {
 		push @values, $data->{'id'};
 	}
 	my $metadata_updates = $self->_prepare_metaset_updates( $meta_fields, $data, $newdata, $updated_field );
+	my $eav_updates = $self->_prepare_eav_updates( $data->{'id'}, $newdata, $updated_field );
 	my $alias_updates = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
 	return if $error;
@@ -222,7 +223,7 @@ sub _update {
 		if (@$updated_field) {
 			eval {
 				$self->{'db'}->do( $qry, undef, @values );
-				foreach my $extra_update ( @$alias_updates, @$pubmed_updates, @$metadata_updates ) {
+				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates, @$metadata_updates ) {
 					$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
 				}
 			};
@@ -305,6 +306,49 @@ sub _prepare_metaset_updates {
 		push @updates, { statement => $qry, arguments => \@values };
 	}
 	return \@updates;
+}
+
+sub _prepare_eav_updates {
+	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
+	my $q          = $self->{'cgi'};
+	my $eav_update = [];
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $eav_field (@$eav_fields) {
+		my $field          = $eav_field->{'field'};
+		my $table          = $self->{'datastore'}->get_eav_field_table($field);
+		my $value          = $q->param($field);
+		my $existing_value = $self->{'datastore'}->get_eav_field_value( $isolate_id, $field );
+		if ( defined $value && $value ne q() ) {
+			if ( $eav_field->{'value_format'} eq 'boolean' ) {
+				$value = $value eq 'true' ? 1 : 0;
+			}
+			if ( defined $existing_value ) {
+				if ( $existing_value ne $value ) {
+					push @$eav_update,
+					  {
+						statement => "UPDATE $table SET value=? WHERE (isolate_id,field) = (?,?)",
+						arguments => [ $value, $isolate_id, $field ]
+					  };
+					push @$updated_field, "$field: '$existing_value' -> '$value'";
+				}
+			} else {
+				push @$eav_update,
+				  {
+					statement => "INSERT INTO $table (isolate_id,field,value) VALUES (?,?,?)",
+					arguments => [ $isolate_id, $field, $value ]
+				  };
+				push @$updated_field, "$field: '' -> '$value'";
+			}
+		} elsif ( defined $existing_value ) {
+			push @$eav_update,
+			  {
+				statement => "DELETE FROM $table WHERE (isolate_id,field) = (?,?)",
+				arguments => [ $isolate_id, $field ]
+			  };
+			push @$updated_field, "$field: '$existing_value' -> ''";
+		}
+	}
+	return $eav_update;
 }
 
 sub _prepare_alias_updates {

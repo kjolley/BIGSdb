@@ -2241,12 +2241,48 @@ sub get_eav_fields {
 sub get_eav_field {
 	my ( $self, $field ) = @_;
 	return $self->run_query( 'SELECT * FROM eav_fields WHERE field=?',
-		$field, { fetch => 'row_hashref', cache => 'Datastore::get_eav_field' } );
+		$field, { fetch => 'row_hashref', cache => 'get_eav_field' } );
 }
 
 sub is_eav_field {
 	my ( $self, $field ) = @_;
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $field );
+}
+
+sub get_eav_field_table {
+	my ( $self, $field ) = @_;
+	if ( !$self->{'cache'}->{'eav_field_table'}->{$field} ) {
+		my $eav_field = $self->get_eav_field($field);
+		if ( !$eav_field ) {
+			$logger->error("EAV field $field does not exist");
+			return;
+		}
+		my $type  = $eav_field->{'value_format'};
+		my %table = (
+			integer => 'eav_int',
+			float   => 'eav_float',
+			text    => 'eav_text',
+			date    => 'eav_date',
+			boolean => 'eav_boolean'
+		);
+		if ( $table{$type} ) {
+			$self->{'cache'}->{'eav_field_table'}->{$field} = $table{$type};
+		} else {
+			$logger->error("EAV field $field has invalid field type");
+			return;
+		}
+	}
+	return $self->{'cache'}->{'eav_field_table'}->{$field};
+}
+
+sub get_eav_field_value {
+	my ( $self, $isolate_id, $field ) = @_;
+	my $table = $self->get_eav_field_table($field);
+	return $self->run_query(
+		"SELECT value FROM $table WHERE (isolate_id,field)=(?,?)",
+		[ $isolate_id, $field ],
+		{ cache => "get_eav_field_value::$table" }
+	);
 }
 
 sub get_metadata_value {
