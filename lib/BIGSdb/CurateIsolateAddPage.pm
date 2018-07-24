@@ -393,30 +393,106 @@ sub _prepare_eav_integer_inserts {    ## no critic (ProhibitUnusedPrivateSubrout
 			{ message => qq($field_name values must be smaller than or equal $field->{'max_value'}.) } );
 		return 1;
 	}
-	push @$inserts, {
+	push @$inserts,
+	  {
 		statement => 'INSERT INTO eav_int (isolate_id,field,value) VALUES (?,?,?)',
 		arguments => [ $newdata->{'id'}, $field_name, $value ]
-	};
+	  };
 	return;
 }
 
 sub _prepare_eav_float_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $inserts, $newdata ) = @_;
+	my $field_name = $field->{'field'};
+	my $q          = $self->{'cgi'};
+	my $value      = $q->param($field_name);
+	return if !defined $value || $value eq q();
+	if ( !BIGSdb::Utils::is_float($value) ) {
+		$self->print_bad_status( { message => qq($field_name values must be floating point numbers.) } );
+		return 1;
+	}
+	if ( defined $field->{'min_value'} && $value < $field->{'min_value'} ) {
+		$self->print_bad_status(
+			{ message => qq($field_name values must be greater than or equal $field->{'min_value'}.) } );
+		return 1;
+	}
+	if ( defined $field->{'max_value'} && $value > $field->{'max_value'} ) {
+		$self->print_bad_status(
+			{ message => qq($field_name values must be smaller than or equal $field->{'max_value'}.) } );
+		return 1;
+	}
+	push @$inserts,
+	  {
+		statement => 'INSERT INTO eav_float (isolate_id,field,value) VALUES (?,?,?)',
+		arguments => [ $newdata->{'id'}, $field_name, $value ]
+	  };
 	return;
 }
 
-sub _prepare_eav_text_inserts {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _prepare_eav_text_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $inserts, $newdata ) = @_;
+	my $field_name = $field->{'field'};
+	my $q          = $self->{'cgi'};
+	my $value      = $q->param($field_name);
+	return if !defined $value || $value eq q();
+	if ( defined $field->{'value_regex'} && $value !~ /$field->{'value_regex'}/x ) {
+		$self->print_bad_status(
+			{
+				message => qq($field_name values must conform to a specified format )
+				  . qq((Regular expression: $field->{'value_regex'}).)
+			}
+		);
+		return 1;
+	}
+	if ( defined $field->{'length'} && length($value) > $field->{'length'} ) {
+		$self->print_bad_status(
+			{
+				message => qq($field_name values have a maximum of length of $field->{'length'} characters.)
+			}
+		);
+		return 1;
+	}
+	push @$inserts,
+	  {
+		statement => 'INSERT INTO eav_text (isolate_id,field,value) VALUES (?,?,?)',
+		arguments => [ $newdata->{'id'}, $field_name, $value ]
+	  };
 	return;
 }
 
-sub _prepare_eav_date_inserts {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _prepare_eav_date_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $inserts, $newdata ) = @_;
+	my $field_name = $field->{'field'};
+	my $q          = $self->{'cgi'};
+	my $value      = $q->param($field_name);
+	return if !defined $value || $value eq q();
+	if ( !BIGSdb::Utils::is_date($value) ) {
+		$self->print_bad_status( { message => qq($field_name values must be valid dates.) } );
+		return 1;
+	}
+	push @$inserts,
+	  {
+		statement => 'INSERT INTO eav_date (isolate_id,field,value) VALUES (?,?,?)',
+		arguments => [ $newdata->{'id'}, $field_name, $value ]
+	  };
 	return;
 }
 
 sub _prepare_eav_boolean_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $inserts, $newdata ) = @_;
+		my $field_name = $field->{'field'};
+	my $q          = $self->{'cgi'};
+	my $value      = $q->param($field_name);
+	return if !defined $value || $value eq q();
+	if ( !BIGSdb::Utils::is_bool($value) ) {
+		$self->print_bad_status( { message => qq($field_name values must be valid boolean values (true/false or 1/0).) } );
+		return 1;
+	}
+	push @$inserts,
+	  {
+		statement => 'INSERT INTO eav_boolean (isolate_id,field,value) VALUES (?,?,?)',
+		arguments => [ $newdata->{'id'}, $field_name, $value ]
+	  };
 	return;
 }
 
@@ -778,10 +854,11 @@ sub print_sparse_field_form_elements {
 
 	foreach my $field (@$fields) {
 		my $thisfield = {
-			type  => $field->{'value_format'},
-			min   => $field->{'min_value'},
-			max   => $field->{'max_value'},
-			regex => $field->{'value_regex'}
+			type   => $field->{'value_format'},
+			length => $field->{'length'},
+			min    => $field->{'min_value'},
+			max    => $field->{'max_value'},
+			regex  => $field->{'value_regex'}
 		};
 		if ( defined $field->{'option_list'} ) {
 			$thisfield->{'optlist'} = 1;
