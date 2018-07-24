@@ -83,6 +83,13 @@ sub print_content {
 			}
 		}
 	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $eav_field (@$eav_fields) {
+		my $field = $eav_field->{'field'};
+		if ( $q->param($field) ) {
+			$newdata{$field} = $q->param($field);
+		}
+	}
 	if ( $q->param('sent') ) {
 		return if ( $self->_check( \%newdata ) // 0 ) == SUCCESS;
 	}
@@ -125,6 +132,16 @@ sub _check {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field);
 				}
 			}
+		}
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $eav_field (@$eav_fields) {
+		my $field_name = $eav_field->{'field'};
+		my $bad_field =
+		  $self->{'submissionHandler'}
+		  ->is_field_bad( 'isolates', $field_name, $newdata->{$field_name}, undef, $set_id );
+		if ($bad_field) {
+			push @bad_field_buffer, qq(Field '$field_name': $bad_field);
 		}
 	}
 	if ( $self->alias_duplicates_name ) {
@@ -358,9 +375,8 @@ sub _prepare_pubmed_inserts {
 
 sub _prepare_sparse_field_inserts {
 	my ( $self, $inserts, $newdata ) = @_;
-	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my $error = 0;
+	my $fields = $self->{'datastore'}->get_eav_fields;
+	my $error  = 0;
 	foreach my $field (@$fields) {
 		my $method = "_prepare_eav_$field->{'value_format'}_inserts";
 		eval { $error = $self->$method( $field, $inserts, $newdata ); };
@@ -379,20 +395,6 @@ sub _prepare_eav_integer_inserts {    ## no critic (ProhibitUnusedPrivateSubrout
 	my $q          = $self->{'cgi'};
 	my $value      = $q->param($field_name);
 	return if !defined $value || $value eq q();
-	if ( !BIGSdb::Utils::is_int($value) ) {
-		$self->print_bad_status( { message => qq($field_name values must be integers.) } );
-		return 1;
-	}
-	if ( defined $field->{'min_value'} && $value < $field->{'min_value'} ) {
-		$self->print_bad_status(
-			{ message => qq($field_name values must be greater than or equal $field->{'min_value'}.) } );
-		return 1;
-	}
-	if ( defined $field->{'max_value'} && $value > $field->{'max_value'} ) {
-		$self->print_bad_status(
-			{ message => qq($field_name values must be smaller than or equal $field->{'max_value'}.) } );
-		return 1;
-	}
 	push @$inserts,
 	  {
 		statement => 'INSERT INTO eav_int (isolate_id,field,value) VALUES (?,?,?)',
@@ -407,20 +409,6 @@ sub _prepare_eav_float_inserts {    ## no critic (ProhibitUnusedPrivateSubroutin
 	my $q          = $self->{'cgi'};
 	my $value      = $q->param($field_name);
 	return if !defined $value || $value eq q();
-	if ( !BIGSdb::Utils::is_float($value) ) {
-		$self->print_bad_status( { message => qq($field_name values must be floating point numbers.) } );
-		return 1;
-	}
-	if ( defined $field->{'min_value'} && $value < $field->{'min_value'} ) {
-		$self->print_bad_status(
-			{ message => qq($field_name values must be greater than or equal $field->{'min_value'}.) } );
-		return 1;
-	}
-	if ( defined $field->{'max_value'} && $value > $field->{'max_value'} ) {
-		$self->print_bad_status(
-			{ message => qq($field_name values must be smaller than or equal $field->{'max_value'}.) } );
-		return 1;
-	}
 	push @$inserts,
 	  {
 		statement => 'INSERT INTO eav_float (isolate_id,field,value) VALUES (?,?,?)',
@@ -435,23 +423,6 @@ sub _prepare_eav_text_inserts {    ## no critic (ProhibitUnusedPrivateSubroutine
 	my $q          = $self->{'cgi'};
 	my $value      = $q->param($field_name);
 	return if !defined $value || $value eq q();
-	if ( defined $field->{'value_regex'} && $value !~ /$field->{'value_regex'}/x ) {
-		$self->print_bad_status(
-			{
-				message => qq($field_name values must conform to a specified format )
-				  . qq((Regular expression: $field->{'value_regex'}).)
-			}
-		);
-		return 1;
-	}
-	if ( defined $field->{'length'} && length($value) > $field->{'length'} ) {
-		$self->print_bad_status(
-			{
-				message => qq($field_name values have a maximum of length of $field->{'length'} characters.)
-			}
-		);
-		return 1;
-	}
 	push @$inserts,
 	  {
 		statement => 'INSERT INTO eav_text (isolate_id,field,value) VALUES (?,?,?)',
@@ -466,10 +437,6 @@ sub _prepare_eav_date_inserts {    ## no critic (ProhibitUnusedPrivateSubroutine
 	my $q          = $self->{'cgi'};
 	my $value      = $q->param($field_name);
 	return if !defined $value || $value eq q();
-	if ( !BIGSdb::Utils::is_date($value) ) {
-		$self->print_bad_status( { message => qq($field_name values must be valid dates.) } );
-		return 1;
-	}
 	push @$inserts,
 	  {
 		statement => 'INSERT INTO eav_date (isolate_id,field,value) VALUES (?,?,?)',
@@ -480,14 +447,10 @@ sub _prepare_eav_date_inserts {    ## no critic (ProhibitUnusedPrivateSubroutine
 
 sub _prepare_eav_boolean_inserts {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $inserts, $newdata ) = @_;
-		my $field_name = $field->{'field'};
+	my $field_name = $field->{'field'};
 	my $q          = $self->{'cgi'};
 	my $value      = $q->param($field_name);
 	return if !defined $value || $value eq q();
-	if ( !BIGSdb::Utils::is_bool($value) ) {
-		$self->print_bad_status( { message => qq($field_name values must be valid boolean values (true/false or 1/0).) } );
-		return 1;
-	}
 	push @$inserts,
 	  {
 		statement => 'INSERT INTO eav_boolean (isolate_id,field,value) VALUES (?,?,?)',

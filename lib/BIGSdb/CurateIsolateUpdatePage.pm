@@ -51,7 +51,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer jQuery.multiselect);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer jQuery.multiselect tooltips);
 	return;
 }
 
@@ -115,7 +115,7 @@ sub _check {
 		);
 		return;
 	}
-	my %newdata;
+	my $newdata = {};
 	my @bad_field_buffer;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
@@ -129,18 +129,28 @@ sub _check {
 			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
-					$newdata{$field} = $self->get_curator_id;
+					$newdata->{$field} = $self->get_curator_id;
 				} elsif ( $field eq 'datestamp' ) {
-					$newdata{$field} = BIGSdb::Utils::get_datestamp();
+					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
-					$newdata{$field} = $q->param($field);
+					$newdata->{$field} = $q->param($field);
 				}
 				my $bad_field =
-				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata{$field}, undef, $set_id );
+				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
 				if ($bad_field) {
 					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field.);
 				}
 			}
+		}
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $eav_field (@$eav_fields) {
+		my $field = $eav_field->{'field'};
+		$newdata->{$field} = $q->param($field);
+		my $bad_field =
+		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
+		if ($bad_field) {
+			push @bad_field_buffer, qq(Field '$field': $bad_field.);
 		}
 	}
 	if ( $self->alias_duplicates_name ) {
@@ -150,12 +160,12 @@ sub _check {
 		local $" = '<br />';
 		$self->print_bad_status(
 			{
-				message => q(There are problems with your record submission. ) . q(Please address the following:),
+				message => q(There are problems with your record submission. Please address the following:),
 				detail  => qq(@bad_field_buffer)
 			}
 		);
 	} else {
-		return $self->_update( $data, \%newdata );
+		return $self->_update( $data, $newdata );
 	}
 	return;
 }
@@ -359,7 +369,7 @@ sub _print_interface {
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
 		$self->print_provenance_form_elements( $data, { update => 1 } );
-		$self->print_sparse_field_form_elements($data, { update => 1 });
+		$self->print_sparse_field_form_elements( $data, { update => 1 } );
 		$self->print_action_fieldset( { submit_label => 'Update', id => $data->{'id'} } );
 		say $q->end_form;
 		say q(</div></div>);

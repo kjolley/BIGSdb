@@ -643,7 +643,8 @@ sub print_action_fieldset {
 			-style => 'margin-left:0.2em'
 		);
 	}
-	$buffer .= q(</fieldset><div style="clear:both"></div>);
+	$buffer .= q(</fieldset>);
+	$buffer .= q(<div style="clear:both"></div>) if !$options->{'no_clear'};
 	return $buffer if $options->{'get_only'};
 	say $buffer;
 	return;

@@ -2232,6 +2232,23 @@ sub get_set_metadata {
 	}
 }
 
+sub get_eav_fields {
+	my ($self) = @_;
+	return $self->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+}
+
+sub get_eav_field {
+	my ( $self, $field ) = @_;
+	return $self->run_query( 'SELECT * FROM eav_fields WHERE field=?',
+		$field, { fetch => 'row_hashref', cache => 'Datastore::get_eav_field' } );
+}
+
+sub is_eav_field {
+	my ( $self, $field ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $field );
+}
+
 sub get_metadata_value {
 	my ( $self, $isolate_id, $metaset, $metafield ) = @_;
 	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
@@ -2319,8 +2336,7 @@ sub initiate_view {
 	} else {
 		my @user_terms;
 		my $has_user_project =
-			  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)',
-				$user_info->{'id'} );
+		  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)', $user_info->{'id'} );
 		if ($curate) {
 			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
 			my $method = {
@@ -2344,8 +2360,7 @@ sub initiate_view {
 			#Simplify view definition by only looking for private/project isolates if the user has any.
 			my $has_private_isolates =
 			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-			push @user_terms, OWN_PRIVATE_ISOLATES if $has_private_isolates;
-			
+			push @user_terms, OWN_PRIVATE_ISOLATES       if $has_private_isolates;
 			push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 		}
 		local $" = q( OR );

@@ -723,7 +723,29 @@ sub _is_field_bad_isolates {
 		$value =~ s/<blank>//x;
 		$value =~ s/null//;
 	}
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($fieldname);
+	if ( !$self->{'cache'}->{'field_attributes'}->{$fieldname} ) {
+		if ( $self->{'datastore'}->is_eav_field($fieldname) ) {
+			my $data = $self->{'datastore'}->get_eav_field($fieldname);
+			$self->{'cache'}->{'field_attributes'}->{$fieldname} = {
+				type     => $data->{'value_format'},
+				regex    => $data->{'value_regex'},
+				min      => $data->{'min_value'},
+				max      => $data->{'max_value'},
+				length   => $data->{'length'},
+				optlist  => $data->{'option_list'} ? 'yes' : 'no',
+				comments => $data->{'description'},
+				required => 'no'
+			};
+			if ( $data->{'option_list'} ) {
+				$self->{'cache'}->{'field_attributes'}->{$fieldname}->{'option_list_values'} =
+				  [ split /;/x, $data->{'option_list'} ];
+			}
+		} else {
+			$self->{'cache'}->{'field_attributes'}->{$fieldname} =
+			  $self->{'xmlHandler'}->get_field_attributes($fieldname);
+		}
+	}
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$fieldname};
 	$thisfield->{'type'} ||= 'text';
 
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
@@ -766,7 +788,8 @@ sub _check_isolate_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 
 sub _check_isolate_regex {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
 	return if !$thisfield->{'regex'};
 	if ( $value !~ /^$thisfield->{'regex'}$/x ) {
 		if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
@@ -817,8 +840,9 @@ sub _check_isolate_id_exists {       ## no critic (ProhibitUnusedPrivateSubrouti
 
 sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-	return if $thisfield->{'type'} ne 'int';
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
+	return if $thisfield->{'type'} !~ /^int/x;
 	if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer.' }
 	elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
 		return "must be equal to or larger than $thisfield->{'min'}.";
@@ -830,24 +854,28 @@ sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 
 sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
+	return if $thisfield->{'type'} ne 'date';
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
-		return 'must be a valid date in yyyy-mm-dd format';
+		return 'must be a valid date in yyyy-mm-dd format.';
 	}
 	if ( $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be $thisfield->{'min'} or later";
+		return "must be $thisfield->{'min'} or later.";
 	}
 	if ( $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be $thisfield->{'max'} or earlier";
+		return "must be $thisfield->{'max'} or earlier.";
 	}
 	return;
 }
 
 sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
+	return if $thisfield->{'type'} ne 'float';
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
+		return 'must be a floating point number.';
 	} elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
 		return "must be equal to or larger than $thisfield->{'min'}.";
 	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
@@ -858,7 +886,9 @@ sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 
 sub _check_isolate_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
+	return if $thisfield->{'type'} !~ /^bool/x;
 	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
 		return 'must be a valid boolean value - true, false, 1, or 0.';
 	}
@@ -867,23 +897,30 @@ sub _check_isolate_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 
 sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
 	$thisfield->{'optlist'} = 'yes' if $field eq 'sequence_method';
 	return if ( $thisfield->{'optlist'} // q() ) ne 'yes';
-	my $options = $self->{'xmlHandler'}->get_field_option_list($field);
-	$options = [SEQ_METHODS] if $field eq 'sequence_method';
+	my $options;
+	if ( $self->{'cache'}->{'field_attributes'}->{$field}->{'option_list_values'} ) {
+		$options = $self->{'cache'}->{'field_attributes'}->{$field}->{'option_list_values'};
+	} else {
+		$options = $self->{'xmlHandler'}->get_field_option_list($field);
+		$options = [SEQ_METHODS] if $field eq 'sequence_method';
+	}
 	foreach my $option (@$options) {
 		return if $value eq $option;
 	}
 	if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
 		return if $value eq q();
 	}
-	return qq("$value" is not on the list of allowed values for this field.);
+	return q(value is not on the list of allowed values for this field.);
 }
 
-sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_isolate_length {             ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	$logger->error("$field attributes not cached") if !$thisfield;
 
 	#Ignore max length if we have a list of allowed values.
 	return if ( $thisfield->{'optlist'} // q() ) eq 'yes';
