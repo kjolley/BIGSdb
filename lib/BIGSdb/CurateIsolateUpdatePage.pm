@@ -84,6 +84,7 @@ sub print_content {
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
 	$self->add_existing_metadata_to_hashref($data);
+	$self->add_existing_eav_data_to_hashref($data);
 	if ( !$data->{'id'} ) {
 		my $exists_in_isolates_table =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $q->param('id') );

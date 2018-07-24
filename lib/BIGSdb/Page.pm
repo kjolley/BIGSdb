@@ -826,6 +826,20 @@ sub add_existing_metadata_to_hashref {
 	return;
 }
 
+sub add_existing_eav_data_to_hashref {
+	my ( $self, $data ) = @_;
+	return if !defined $data->{'id'};
+	my @types = qw(int float text date boolean);
+	foreach my $type (@types) {
+		my $eav_data = $self->{'datastore'}->run_query( "SELECT * FROM eav_$type WHERE isolate_id=?",
+			$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$eav_data) {
+			$data->{ $record->{'field'} } = $record->{'value'};
+		}
+	}
+	return;
+}
+
 sub get_extended_attributes {
 	my ($self) = @_;
 	my $data =
@@ -1935,7 +1949,6 @@ sub can_modify_table {
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_probes'}
 		  foreach qw(pcr pcr_locus probes probe_locus);
-
 		if ( $isolate_permissions{$table} ) {
 			return $isolate_permissions{$table};
 		}
