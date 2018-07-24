@@ -115,6 +115,7 @@ sub get_javascript {
 		return false;
 	});
 	\$("#provenance").columnize({width:400});
+	\$("#sparse").columnize({width:400});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
 	if (!(\$("span").hasClass('aliases'))){
@@ -439,7 +440,6 @@ sub print_content {
 		  . q(<span id="hide_tree_text" style="display:inline"><span class="fa fas fa-eye-slash"></span> hide</span> tree</a></span>);
 		my $aliases_button = $self->_get_show_aliases_button;
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-
 		if (@$loci) {
 			say $self->_get_classification_group_data($isolate_id);
 			say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
@@ -473,11 +473,12 @@ sub print_content {
 }
 
 sub _get_show_aliases_button {
-	my ($self, $display) = @_;
+	my ( $self, $display ) = @_;
 	$display //= 'none';
 	my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
 	my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
-	return qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
+	return
+	    qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
 	  . q(<a id="show_aliases" class="button" style="cursor:pointer">)
 	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
 	  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
@@ -795,6 +796,7 @@ sub get_isolate_record {
 	} else {
 		$buffer .= $self->_get_provenance_fields( $id, $data, $summary_view );
 		if ( !$summary_view ) {
+			$buffer .= $self->_get_sparse_fields($id);
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
@@ -822,8 +824,7 @@ sub _get_provenance_fields {
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
 
-	#We need to enclose description lists in <li> tags to prevent title and data from being split
-	#by the columnizer plugin.
+
 	$buffer .= q(<div id="provenance">);
 	my $list          = [];
 	my $q             = $self->{'cgi'};
@@ -907,6 +908,36 @@ sub _get_provenance_fields {
 	}
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
+	return $buffer;
+}
+
+sub _get_sparse_fields {
+	my ( $self, $isolate_id ) = @_;
+	my $buffer     = q();
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	return $buffer if !@$eav_fields;
+	my $data = {};
+	foreach my $table (qw(eav_int eav_float eav_text eav_date eav_boolean)) {
+		my $table_values = $self->{'datastore'}->run_query( "SELECT field,value FROM $table WHERE isolate_id=?",
+			$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+		$data->{$_->{'field'}} = $_->{'value'} foreach @$table_values;
+	}
+	return $buffer if !keys %$data;
+	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-ellipsis-v fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>Sparsely-populated fields</h2>\n);
+	my $list = [];
+	foreach my $field (@$eav_fields){
+		my $fieldname = $field->{'field'};
+		(my $cleaned = $fieldname) =~ tr/_/ /;
+		next if !defined $data->{$fieldname};
+		push @$list, {
+			title => $cleaned,
+			data => $data->{$fieldname}
+		}
+	}
+	$buffer .= q(<div id="sparse">);
+	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
+	$buffer .=q(</div>);
 	return $buffer;
 }
 
