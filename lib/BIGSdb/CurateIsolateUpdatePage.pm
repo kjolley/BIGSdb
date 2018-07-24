@@ -177,9 +177,9 @@ sub _update {
 	my $qry    = '';
 	my @values;
 	local $" = ',';
-	my @updated_field;
-	my $set_id = $self->get_set_id;
-	my %meta_fields;
+	my $updated_field = [];
+	my $set_id        = $self->get_set_id;
+	my $meta_fields;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
@@ -195,7 +195,7 @@ sub _update {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
-				push @{ $meta_fields{$metaset} }, $metafield;
+				push @{ $meta_fields->{$metaset} }, $metafield;
 			} else {
 				if ( $cleaned ne '' ) {
 					$qry .= "$field=?,";
@@ -204,7 +204,7 @@ sub _update {
 					$qry .= "$field=null,";
 				}
 				if ( $field ne 'datestamp' && $field ne 'curator' ) {
-					push @updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
+					push @$updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
 				}
 			}
 		}
@@ -214,66 +214,15 @@ sub _update {
 		$qry = "UPDATE isolates SET $qry WHERE id=?";
 		push @values, $data->{'id'};
 	}
-	my $metadata_updates = $self->_prepare_metaset_updates( \%meta_fields, $data, $newdata, \@updated_field );
-	my @alias_update;
-	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
-	my @new_aliases = split /\r?\n/x, $q->param('aliases');
-	foreach my $new (@new_aliases) {
-		$new = $self->clean_value( $new, { no_escape => 1 } );
-		next if $new eq '';
-		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
-			push @alias_update,
-			  {
-				statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
-				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
-			  };
-			push @updated_field, "new alias: '$new'";
-		}
-	}
-	foreach my $existing (@$existing_aliases) {
-		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
-			push @alias_update,
-			  {
-				statement => 'DELETE FROM isolate_aliases WHERE (isolate_id,alias)=(?,?)',
-				arguments => [ $data->{'id'}, $existing ]
-			  };
-			push @updated_field, "deleted alias: '$existing'";
-		}
-	}
-	my @pubmed_update;
-	my $existing_pubmeds = $self->{'datastore'}->get_isolate_refs( $data->{'id'} );
-	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
-	foreach my $new (@new_pubmeds) {
-		chomp $new;
-		next if $new eq '';
-		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
-			if ( !BIGSdb::Utils::is_int($new) ) {
-				$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
-				$update = 0;
-			}
-			push @pubmed_update,
-			  {
-				statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
-				arguments => [ $data->{'id'}, $new, $newdata->{'curator'}, 'now' ]
-			  };
-			push @updated_field, "new reference: 'Pubmed#$new'";
-		}
-	}
-	foreach my $existing (@$existing_pubmeds) {
-		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
-			push @pubmed_update,
-			  {
-				statement => 'DELETE FROM refs WHERE (isolate_id,pubmed_id)=(?,?)',
-				arguments => [ $data->{'id'}, $existing ]
-			  };
-			push @updated_field, "deleted reference: 'Pubmed#$existing'";
-		}
-	}
+	my $metadata_updates = $self->_prepare_metaset_updates( $meta_fields, $data, $newdata, $updated_field );
+	my $alias_updates = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
+	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
+	return if $error;
 	if ($update) {
-		if (@updated_field) {
+		if (@$updated_field) {
 			eval {
 				$self->{'db'}->do( $qry, undef, @values );
-				foreach my $extra_update ( @alias_update, @pubmed_update, @$metadata_updates ) {
+				foreach my $extra_update ( @$alias_updates, @$pubmed_updates, @$metadata_updates ) {
 					$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
 				}
 			};
@@ -304,7 +253,7 @@ sub _update {
 					}
 				);
 				local $" = '<br />';
-				$self->update_history( $data->{'id'}, "@updated_field" );
+				$self->update_history( $data->{'id'}, "@$updated_field" );
 				return SUCCESS;
 			}
 		} else {
@@ -356,6 +305,72 @@ sub _prepare_metaset_updates {
 		push @updates, { statement => $qry, arguments => \@values };
 	}
 	return \@updates;
+}
+
+sub _prepare_alias_updates {
+	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
+	my $alias_update     = [];
+	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
+	my $q                = $self->{'cgi'};
+	my @new_aliases      = split /\r?\n/x, $q->param('aliases');
+	foreach my $new (@new_aliases) {
+		$new = $self->clean_value( $new, { no_escape => 1 } );
+		next if $new eq '';
+		if ( !@$existing_aliases || none { $new eq $_ } @$existing_aliases ) {
+			push @$alias_update,
+			  {
+				statement => 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $isolate_id, $new, $newdata->{'curator'}, 'now' ]
+			  };
+			push @$updated_field, "new alias: '$new'";
+		}
+	}
+	foreach my $existing (@$existing_aliases) {
+		if ( !@new_aliases || none { $existing eq $_ } @new_aliases ) {
+			push @$alias_update,
+			  {
+				statement => 'DELETE FROM isolate_aliases WHERE (isolate_id,alias)=(?,?)',
+				arguments => [ $isolate_id, $existing ]
+			  };
+			push @$updated_field, "deleted alias: '$existing'";
+		}
+	}
+	return $alias_update;
+}
+
+sub _prepare_pubmed_updates {
+	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
+	my $existing_pubmeds = $self->{'datastore'}->get_isolate_refs($isolate_id);
+	my $q                = $self->{'cgi'};
+	my $pubmed_update    = [];
+	my @new_pubmeds      = split /\r?\n/x, $q->param('pubmed');
+	foreach my $new (@new_pubmeds) {
+		chomp $new;
+		next if $new eq '';
+		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
+			if ( !BIGSdb::Utils::is_int($new) ) {
+				$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
+				return ( undef, 1 );
+			}
+			push @$pubmed_update,
+			  {
+				statement => 'INSERT INTO refs (isolate_id,pubmed_id,curator,datestamp) VALUES (?,?,?,?)',
+				arguments => [ $isolate_id, $new, $newdata->{'curator'}, 'now' ]
+			  };
+			push @$updated_field, "new reference: 'Pubmed#$new'";
+		}
+	}
+	foreach my $existing (@$existing_pubmeds) {
+		if ( !@new_pubmeds || none { $existing eq $_ } @new_pubmeds ) {
+			push @$pubmed_update,
+			  {
+				statement => 'DELETE FROM refs WHERE (isolate_id,pubmed_id)=(?,?)',
+				arguments => [ $isolate_id, $existing ]
+			  };
+			push @$updated_field, "deleted reference: 'Pubmed#$existing'";
+		}
+	}
+	return $pubmed_update;
 }
 
 sub _print_interface {
