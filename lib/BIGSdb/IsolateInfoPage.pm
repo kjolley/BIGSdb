@@ -924,7 +924,7 @@ sub _get_sparse_fields {
 	}
 	return $buffer if !keys %$data;
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-ellipsis-v fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Sparsely-populated fields</h2>\n);
+	$buffer .= qq(<h2>Phenotypic data</h2>\n);
 	my $list = [];
 	foreach my $field (@$eav_fields){
 		my $fieldname = $field->{'field'};

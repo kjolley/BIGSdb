@@ -513,7 +513,7 @@ sub print_provenance_form_elements {
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
+	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
 	say q(<div style="white-space:nowrap">);
 	say q(<p><span class="metaset">Metadata</span><span class="comment">: These fields are )
 	  . q(available in the specified dataset only.</span></p>)
@@ -809,10 +809,10 @@ sub print_sparse_field_form_elements {
 	return if !@$fields;
 	my @fieldnames = map { $_->{'field'} } @$fields;
 	my $width = $self->_get_field_width( \@fieldnames );
-	say q(<fieldset style="float:left"><legend>Sparsely-populated fields</legend>);
+	say q(<fieldset style="float:left"><legend>Phenotypic fields</legend>);
 	say q(<div style="white-space:nowrap">);
-	say
-	  q(<p class="comment">These fields are listed and stored separately<br />as they are infrequently populated.</p>);
+	say q(<p class="comment">These fields are listed and stored separately<br />)
+	  . q(as they may be infrequently populated.</p>);
 	say q(<ul>);
 
 	foreach my $field (@$fields) {

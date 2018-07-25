@@ -2238,6 +2238,12 @@ sub get_eav_fields {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 }
 
+sub get_eav_fieldnames {
+	my ($self) = @_;
+	return $self->run_query( 'SELECT field FROM eav_fields ORDER BY field_order,field', undef,
+		{ fetch => 'col_arrayref' } );
+}
+
 sub get_eav_field {
 	my ( $self, $field ) = @_;
 	return $self->run_query( 'SELECT * FROM eav_fields WHERE field=?',

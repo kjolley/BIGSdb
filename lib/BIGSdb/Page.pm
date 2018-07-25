@@ -2130,10 +2130,12 @@ sub _initiate_isolatedb_prefs {
 	my $set_id           = $self->get_set_id;
 	my $metadata_list    = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list       = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $eav_field_list   = $self->{'datastore'}->get_eav_fieldnames;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended         = $self->get_extended_attributes;
 	my $args             = {
 		field_list       => $field_list,
+		eav_field_list   => $eav_field_list,
 		field_prefs      => $field_prefs,
 		extended         => $extended,
 		field_attributes => $field_attributes
@@ -2178,7 +2180,7 @@ sub _initiate_seqdefdb_prefs {
 
 sub _set_isolatedb_options {
 	my ( $self,       $args )     = @_;
-	my ( $field_list, $extended ) = @{$args}{qw(field_list extended)};
+	my ( $field_list, $eav_field_list, $extended ) = @{$args}{qw(field_list eav_field_list extended)};
 	my $q      = $self->{'cgi'};
 	my $params = $q->Vars;
 
@@ -2205,6 +2207,9 @@ sub _set_isolatedb_options {
 				}
 			}
 		}
+	}
+	foreach my $field (@$eav_field_list) {
+		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"}     ? 1 : 0;
 	}
 	$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{'field_aliases'} ? 1 : 0;
 	my $composites =
@@ -2282,8 +2287,8 @@ sub _initiate_isolatedb_query_field_prefs {
 
 sub _initiate_isolatedb_main_display_prefs {
 	my ( $self, $args ) = @_;
-	my ( $field_list, $field_prefs, $field_attributes, $extended ) =
-	  @{$args}{qw(field_list field_prefs field_attributes extended)};
+	my ( $field_list, $eav_field_list, $field_prefs, $field_attributes, $extended ) =
+	  @{$args}{qw(field_list eav_field_list field_prefs field_attributes extended)};
 	if ( defined $field_prefs->{'aliases'}->{'maindisplay'} ) {
 		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $field_prefs->{'aliases'}->{'maindisplay'};
 	} else {
@@ -2311,6 +2316,11 @@ sub _initiate_isolatedb_main_display_prefs {
 				}
 			}
 		}
+	}
+	foreach my $field (@$eav_field_list){
+		if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
+			$self->{'prefs'}->{'maindisplayfields'}->{$field} = $field_prefs->{$field}->{'maindisplay'};
+		} 
 	}
 	my $qry = 'SELECT id,main_display FROM composite_fields';
 	my $sql = $self->{'db'}->prepare($qry);
