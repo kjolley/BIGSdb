@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -76,7 +76,7 @@ sub print_content {
 	say $q->start_form;
 	$q->param( page => 'options' );
 	say $q->hidden($_) foreach qw(page db);
-	say q(<div class="box queryform">);
+	say q(<div class="box queryform" style="visibility:hidden">);
 	say q(<div id="accordion">);
 	$self->_print_general_options;
 
@@ -87,7 +87,7 @@ sub print_content {
 		$self->_print_isolate_query_fields_options;
 	}
 	say q(</div></div>);
-	say q(<div class="box reset">);
+	say q(<div class="box reset" style="visibility:hidden">);
 	say q(<h2>Reset</h2>);
 	say q(<p>Click the reset button to remove all user settings for this database - )
 	  . q(this includes locus and scheme field preferences.</p>);
@@ -183,6 +183,7 @@ sub get_javascript {
 	\$("#dropdown_query_filters").columnize({width:400,buildOnce:true});
 	\$( "#accordion").accordion({heightStyle:"content"});
 	\$(".batch").css('display','inline');
+	\$("div.box").css("visibility","visible");
 });
 END
 	return $buffer;
