@@ -507,6 +507,18 @@ sub get_plugin_attribute {
 	return $value;
 }
 
+sub delete_all_field_settings {
+	my ( $self, $guid, $dbase ) = @_;
+	eval { $self->{'db'}->do( 'DELETE FROM field WHERE (guid,dbase)=(?,?)', undef, $guid, $dbase ); };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete locus');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
 sub delete_locus {
 	my ( $self, $guid, $dbase, $locus, $action ) = @_;
 	if ( !$self->_guid_exists($guid) ) {

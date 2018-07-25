@@ -124,61 +124,87 @@ sub set_options {
 			$prefstore->set_general( $guid, $dbname, $action, $prefs->{$action} ? 'on' : 'off' );
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			foreach my $action(
-				qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
-				display_contig_count locus_alias update_details sequence_details allele_flags
-				sample_details display_publications)
-			  )
-			{
-				$prefstore->set_general( $guid, $dbname, $action, $prefs->{$action} ? 'on' : 'off' );
-			}
-			my $set_id        = $self->get_set_id;
-			my $extended      = $self->get_extended_attributes;
-			my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-			my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-			my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
-			
-			foreach my $field (@$field_list) {
-				$prefstore->set_field( $guid, $dbname, $field, 'maindisplay',
-					$prefs->{'maindisplayfields'}->{$field} ? 'true' : 'false' );
-				$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
-					$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
-				my $extatt = $extended->{$field};
-				if ( ref $extatt eq 'ARRAY' ) {
-					foreach my $extended_attribute (@$extatt) {
-						$prefstore->set_field( $guid, $dbname, "${field}..$extended_attribute", 'maindisplay',
-							$prefs->{'maindisplayfields'}->{"${field}..$extended_attribute"} ? 'true' : 'false' );
-						$prefstore->set_field( $guid, $dbname, "${field}..$extended_attribute", 'dropdown',
-							$prefs->{'dropdownfields'}->{"${field}..$extended_attribute"} ? 'true' : 'false' );
-					}
-				}
-			}
-			foreach my $field (@$eav_field_list) {
-				$prefstore->set_field( $guid, $dbname, $field, 'maindisplay',
-					$prefs->{'maindisplayfields'}->{$field} ? 'true' : 'false' );
-			}
-			$prefstore->set_field( $guid, $dbname, 'aliases', 'maindisplay',
-				$prefs->{'maindisplayfields'}->{'aliases'} ? 'true' : 'false' );
-			my $composites =
-			  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
-			foreach my $field (@$composites) {
-				$prefstore->set_field( $guid, $dbname, $field, 'maindisplay',
-					$prefs->{'maindisplayfields'}->{$field} ? 'true' : 'false' );
-			}
-			my $schemes =
-			  $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-			foreach my $scheme_id (@$schemes) {
-				my $field = "scheme_${scheme_id}_profile_status";
-				$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
-					$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
-			}
-			$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown',
-				$prefs->{'dropdownfields'}->{'Publications'} ? 'true' : 'false' );
+			$self->_set_isolate_options( $guid, $dbname );
 		}
 		$prefstore->update_datestamp($guid);
 	} elsif ( $q->param('reset') ) {
 		my $guid = $self->get_guid;
 		$prefstore->delete_guid($guid) if $guid;
+	}
+	return;
+}
+
+sub _set_isolate_options {
+	my ( $self, $guid, $dbname ) = @_;
+	my $prefstore        = $self->{'prefstore'};
+	my $prefs            = $self->{'prefs'};
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	$prefstore->delete_all_field_settings( $guid, $dbname );
+	foreach my $action (
+		qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
+		display_contig_count locus_alias update_details sequence_details allele_flags
+		sample_details display_publications)
+	  )
+	{
+		$prefstore->set_general( $guid, $dbname, $action, $prefs->{$action} ? 'on' : 'off' );
+	}
+	my $set_id         = $self->get_set_id;
+	my $extended       = $self->get_extended_attributes;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list     = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
+	foreach my $field (@$field_list) {
+		next if $field eq 'id';
+		my $display_default = $field_attributes->{$field}->{'maindisplay'} eq 'no' ? 0 : 1;
+		if ( $prefs->{'maindisplayfields'}->{$field} != $display_default ) {
+			$prefstore->set_field( $guid, $dbname, $field, 'maindisplay',
+				$prefs->{'maindisplayfields'}->{$field} ? 'true' : 'false' );
+		}
+		my $dropdown_default = ( $field_attributes->{$field}->{'dropdown'} // q() ) eq 'yes' ? 1 : 0;
+		if ( $prefs->{'dropdownfields'}->{$field} != $dropdown_default ) {
+			$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
+				$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
+		}
+		my $extatt = $extended->{$field} // [];
+		foreach my $extended_attribute (@$extatt) {
+			if ( $prefs->{'maindisplayfields'}->{"${field}..$extended_attribute"} ) {
+				$prefstore->set_field( $guid, $dbname, "${field}..$extended_attribute", 'maindisplay', 'true' );
+			}
+			if ( $prefs->{'dropdownfields'}->{"${field}..$extended_attribute"} ) {
+				$prefstore->set_field( $guid, $dbname, "${field}..$extended_attribute", 'dropdown', 'true' );
+			}
+		}
+	}
+	foreach my $field (@$eav_field_list) {
+		if ( $prefs->{'maindisplayfields'}->{$field} ) {
+			$prefstore->set_field( $guid, $dbname, $field, 'maindisplay', 'true' );
+		}
+	}
+	if ( !$prefs->{'maindisplayfields'}->{'aliases'} ) {
+		$prefstore->set_field( $guid, $dbname, 'aliases', 'maindisplay', 'false' );
+	}
+	my $composites = $self->{'datastore'}
+	  ->run_query( 'SELECT id,main_display FROM composite_fields', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $field (@$composites) {
+		my $display_default = $field->{'main_display'};
+		if ( $prefs->{'maindisplayfields'}->{ $field->{'id'} } != $display_default ) {
+			$prefstore->set_field( $guid, $dbname, $field->{'id'}, 'maindisplay',
+				$prefs->{'maindisplayfields'}->{ $field->{'id'} } ? 'true' : 'false' );
+		}
+	}
+	my $schemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,query_status FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $scheme (@$schemes) {
+		my $field   = "scheme_$scheme->{'id'}_profile_status";
+		my $default = $scheme->{'query_status'};
+		if ( $prefs->{'dropdownfields'}->{$field} != $default ) {
+			$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
+				$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
+		}
+	}
+	if ( !$prefs->{'dropdownfields'}->{'Publications'} ) {
+		$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown', 'false' );
 	}
 	return;
 }
@@ -537,47 +563,47 @@ sub _print_isolate_query_fields_options {
 	my ( @js, @js2, @js3 );
 	say q(<div><ul>);
 	foreach my $field (@checkfields) {
-		if ( $field ne 'id' ) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			( my $id = "dropfield_$field" ) =~ tr/:/_/;
+		next if $field eq 'id';
+		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+		( my $id = "dropfield_$field" ) =~ tr/:/_/;
+		say q(<li>);
+		say $q->checkbox(
+			-name    => "dropfield_$field",
+			-id      => $id,
+			-checked => $prefs->{'dropdownfields'}->{$field},
+			-value   => 'checked',
+			-label   => $labels{$field} || ( $metafield // $field )
+		);
+		say q(</li>);
+		push @js,  qq(\$("#$id").prop("checked",true));
+		push @js2, qq(\$("#$id").prop("checked",false));
+		my $value;
+
+		if ( $field =~ /^scheme_(\d+)_profile_status/x ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
+			$value = $scheme_info->{'query_status'} ? 'true' : 'false';
+		} elsif ( $field eq 'Publications' ) {
+			$value =
+			  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 'false' : 'true';
+		} else {
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			$value = ( ( $thisfield->{'dropdown'} // '' ) eq 'yes' ) ? 'true' : 'false';
+		}
+		push @js3, qq(\$("#$id").prop("checked",$value));
+		my $extatt = $self->{'extended'}->{$field} // [];
+		foreach my $extended_attribute (@$extatt) {
 			say q(<li>);
 			say $q->checkbox(
-				-name    => "dropfield_$field",
-				-id      => $id,
-				-checked => $prefs->{'dropdownfields'}->{$field},
+				-name    => "dropfield_e_$field\..$extended_attribute",
+				-id      => "dropfield_e_$field\___$extended_attribute",
+				-checked => $prefs->{'dropdownfields'}->{"$field\..$extended_attribute"},
 				-value   => 'checked',
-				-label   => $labels{$field} || ( $metafield // $field )
+				-label   => $extended_attribute
 			);
 			say q(</li>);
-			push @js,  qq(\$("#$id").prop("checked",true));
-			push @js2, qq(\$("#$id").prop("checked",false));
-			my $value;
-
-			if ( $field =~ /^scheme_(\d+)_profile_status/x ) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
-				$value = $scheme_info->{'query_status'} ? 'true' : 'false';
-			} else {
-				my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-				$value = ( ( $thisfield->{'dropdown'} // '' ) eq 'yes' ) ? 'true' : 'false';
-			}
-			push @js3, qq(\$("#$id").prop("checked",$value));
-		}
-		my $extatt = $self->{'extended'}->{$field};
-		if ( ref $extatt eq 'ARRAY' ) {
-			foreach my $extended_attribute (@$extatt) {
-				say q(<li>);
-				say $q->checkbox(
-					-name    => "dropfield_e_$field\..$extended_attribute",
-					-id      => "dropfield_e_$field\___$extended_attribute",
-					-checked => $prefs->{'dropdownfields'}->{"$field\..$extended_attribute"},
-					-value   => 'checked',
-					-label   => $extended_attribute
-				);
-				say q(</li>);
-				push @js,  qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",true));
-				push @js2, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
-				push @js3, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
-			}
+			push @js,  qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",true));
+			push @js2, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
+			push @js3, qq(\$("#dropfield_e_$field\___$extended_attribute").prop("checked",false));
 		}
 	}
 	say q(</ul></div>);

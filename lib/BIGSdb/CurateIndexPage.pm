@@ -1231,7 +1231,7 @@ sub _get_eav_fields {
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('eav_fields');
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sparse fields</h2>);
+	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Phenotypic fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'eav_fields',
 		'ellipsis-v',
@@ -1239,7 +1239,7 @@ sub _get_eav_fields {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Sparse fields - Define fields that are likely to contain sparsely populated '
+			info      => 'Phenotypic fields - Define fields that are likely to contain sparsely populated '
 			  . 'values, i.e. fields that only a minority of records will have values for. It is '
 			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
 			  . 'appropriate if you have 10s-100s of phenotypic fields to define.'
