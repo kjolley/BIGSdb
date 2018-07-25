@@ -858,6 +858,7 @@ sub get_field_selection_list {
 
 	#options passed as hashref:
 	#isolate_fields: include isolate fields, prefix with f_
+	#eav_fields: include EAV fields, prefix with eav_
 	#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 	#loci: include loci, prefix with either l_ or cn_ (common name)
 	#locus_limit: don't include loci if there are more than the set value
@@ -874,6 +875,10 @@ sub get_field_selection_list {
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
 		push @$values, @$isolate_fields;
+	}
+	if ( $options->{'eav_fields'} ) {
+		my $eav_fields = $self->_get_eav_fields($options);
+		push @$values, @$eav_fields;
 	}
 	if ( $options->{'loci'} ) {
 		my $loci = $self->_get_loci_list($options);
@@ -1008,6 +1013,18 @@ sub _get_provenance_fields {
 		}
 	}
 	return \@isolate_list;
+}
+
+sub _get_eav_fields {
+	my ( $self, $options ) = @_;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $list       = [];
+	foreach my $fieldname (@$eav_fields) {
+		push @$list, qq(eav_$fieldname);
+		(my $cleaned = $fieldname) =~ tr/_/ /;
+		$self->{'cache'}->{'labels'}->{qq(eav_$fieldname)} = $cleaned;
+	}
+	return $list;
 }
 
 sub _get_scheme_fields {
@@ -2179,7 +2196,7 @@ sub _initiate_seqdefdb_prefs {
 }
 
 sub _set_isolatedb_options {
-	my ( $self,       $args )     = @_;
+	my ( $self, $args ) = @_;
 	my ( $field_list, $eav_field_list, $extended ) = @{$args}{qw(field_list eav_field_list extended)};
 	my $q      = $self->{'cgi'};
 	my $params = $q->Vars;
@@ -2209,7 +2226,7 @@ sub _set_isolatedb_options {
 		}
 	}
 	foreach my $field (@$eav_field_list) {
-		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"}     ? 1 : 0;
+		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"} ? 1 : 0;
 	}
 	$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{'field_aliases'} ? 1 : 0;
 	my $composites =
@@ -2317,10 +2334,10 @@ sub _initiate_isolatedb_main_display_prefs {
 			}
 		}
 	}
-	foreach my $field (@$eav_field_list){
+	foreach my $field (@$eav_field_list) {
 		if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
 			$self->{'prefs'}->{'maindisplayfields'}->{$field} = $field_prefs->{$field}->{'maindisplay'};
-		} 
+		}
 	}
 	my $qry = 'SELECT id,main_display FROM composite_fields';
 	my $sql = $self->{'db'}->prepare($qry);

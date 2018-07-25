@@ -54,6 +54,7 @@ sub get_javascript_panel {
 		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
 		  . q[          $('[id$="_list"]').val('')],
 		provenance          => q[$('[id^="prov_value"]').val('')],
+		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
 		allele              => q[$('[id^="value"]').val('')],
 		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
