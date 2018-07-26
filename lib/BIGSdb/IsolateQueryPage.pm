@@ -52,7 +52,8 @@ sub _ajax_content {
 			$self->_print_provenance_fields( $row, 0, $select_items, $labels );
 		},
 		phenotypic => sub {
-			my ( $phenotypic_items, $phenotypic_labels ) = $self->get_field_selection_list({eav_fields=>1, sort_labels=>1});
+			my ( $phenotypic_items, $phenotypic_labels ) =
+			  $self->get_field_selection_list( { eav_fields => 1, sort_labels => 1 } );
 			$self->_print_phenotypic_fields( $row, 0, $phenotypic_items, $phenotypic_labels );
 		},
 		loci => sub {
@@ -877,7 +878,7 @@ sub _print_phenotypic_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_phenotypic_fields" href="$self->{'system'}->{'script_name'}?)
-		. qq(db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(fields=phenotypic&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
 		say $self->get_tooltip( '', { id => 'phenotypic_tooltip' } );
 	}
@@ -1089,18 +1090,19 @@ sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $qry;
-	my @errors;
+	my $errors     = [];
 	my $extended   = $self->get_extended_attributes;
 	my $start_time = time;
 	if ( !defined $q->param('query_file') ) {
-		$qry = $self->_generate_query_for_provenance_fields( \@errors );
+		$qry = $self->_generate_query_for_provenance_fields($errors);
+		$qry = $self->_modify_query_for_eav_fields( $qry, $errors );
 		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
-		$qry = $self->_modify_query_for_designations( $qry, \@errors );
-		$qry = $self->_modify_query_for_designation_counts( $qry, \@errors );
-		$qry = $self->_modify_query_for_tags( $qry, \@errors );
-		$qry = $self->_modify_query_for_tag_counts( $qry, \@errors );
-		$qry = $self->_modify_query_for_designation_status( $qry, \@errors );
+		$qry = $self->_modify_query_for_designations( $qry, $errors );
+		$qry = $self->_modify_query_for_designation_counts( $qry, $errors );
+		$qry = $self->_modify_query_for_tags( $qry, $errors );
+		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
+		$qry = $self->_modify_query_for_designation_status( $qry, $errors );
 		$qry .= ' ORDER BY ';
 
 		if ( defined $q->param('order')
@@ -1129,9 +1131,9 @@ sub _run_query {
 		$qry =~ s/\ WHERE\ \(\)//x;
 		$browse = 1;
 	}
-	if (@errors) {
+	if (@$errors) {
 		local $" = '<br />';
-		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@errors) } );
+		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
 		my $view              = $self->{'system'}->{'view'};
 		my $hidden_attributes = $self->get_hidden_attributes;
@@ -1161,7 +1163,8 @@ sub get_hidden_attributes {
 	my @hidden_attributes;
 	push @hidden_attributes, qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
-		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "designation_field$row",
+		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
+		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
 		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
 		  "allele_status_field$row",
 		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
@@ -1451,10 +1454,10 @@ sub _provenance_equals_type_operator {
 				$buffer .= (
 					lc($text) eq 'null'
 					? "$field IS $not null"
-					: "($not UPPER($field) = UPPER(E'$text') $null_clause)"
+					: "($not UPPER($field) = UPPER(E'$text')) $null_clause"
 				);
 			} else {
-				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text' $null_clause)" );
+				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text') $null_clause" );
 			}
 		}
 	}
@@ -1740,6 +1743,114 @@ sub _modify_query_by_membership {
 		}
 	}
 	return;
+}
+
+sub _modify_query_for_eav_fields {
+	my ( $self, $qry, $errors ) = @_;
+	my $q     = $self->{'cgi'};
+	my $view  = $self->{'system'}->{'view'};
+	my $andor = ( $q->param('phenotypic_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+	my %combo;
+	my @sub_qry;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		next if !defined $q->param("phenotypic_value$i") || $q->param("phenotypic_value$i") eq q();
+		( my $field = $q->param("phenotypic_field$i") ) =~ s/^eav_//x;
+		my $field_info = $self->{'datastore'}->get_eav_field($field);
+		if ( !$field_info ) {
+			push @$errors, 'Invalid phenotypic field name selected.';
+			next;
+		}
+		my $eav_table = $self->{'datastore'}->get_eav_table( $field_info->{'value_format'} );
+		( my $cleaned_field = $field ) =~ s/'/\\'/gx;
+		my $operator = $q->param("phenotypic_operator$i") // '=';
+		my $text = $q->param("phenotypic_value$i");
+		next if $combo{"${field}_${operator}_$text"};    #prevent duplicates
+		$combo{"${field}_${operator}_$text"} = 1;
+		$self->process_value( \$text );
+		next
+		  if $self->check_format(
+			{ field => $field, text => $text, type => $field_info->{'value_format'}, operator => $operator }, $errors );
+		my %methods = (
+			'NOT' => sub {
+
+				if ( lc($text) eq 'null' ) {
+					push @sub_qry, "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field'))";
+				} else {
+					push @sub_qry,
+					  $field_info->{'value_format'} eq 'text'
+					  ? "($view.id NOT IN (SELECT isolate_id FROM $eav_table WHERE "
+					  . "(field,UPPER(value))=(E'$cleaned_field',UPPER(E'$text'))))"
+					  : "($view.id NOT IN (SELECT isolate_id FROM $eav_table WHERE "
+					  . "(field,CAST (value AS text))=(E'$cleaned_field',E'$text')))";
+				}
+			},
+			'contains' => sub {
+				push @sub_qry,
+				  $field_info->{'value_format'} eq 'text'
+				  ? "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND UPPER(value) LIKE upper(E'\%$text\%')))"
+				  : "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND CAST(value AS text) LIKE (E'\%$text\%')))";
+			},
+			'starts with' => sub {
+				push @sub_qry,
+				  $field_info->{'value_format'} eq 'text'
+				  ? "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND UPPER(value) LIKE upper(E'$text\%')))"
+				  : "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND CAST(value AS text) LIKE (E'$text\%')))";
+			},
+			'ends with' => sub {
+				push @sub_qry,
+				  $field_info->{'value_format'} eq 'text'
+				  ? "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND UPPER(value) LIKE upper(E'\%$text')))"
+				  : "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND CAST(value AS text) LIKE (E'\%$text')))";
+			},
+			'NOT contain' => sub {
+				push @sub_qry,
+				  $field_info->{'value_format'} eq 'text'
+				  ? "($view.id NOT IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND UPPER(value) LIKE upper(E'\%$text\%')))"
+				  : "($view.id NOT IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field' "
+				  . " AND CAST(value AS text) LIKE (E'\%$text\%')))";
+			},
+			'=' => sub {
+				if ( lc($text) eq 'null' ) {
+					push @sub_qry,
+					  "($view.id NOT IN (SELECT isolate_id FROM $eav_table WHERE field=E'$cleaned_field'))";
+				} else {
+					push @sub_qry,
+					  $field_info->{'value_format'} eq 'text'
+					  ? "($view.id IN (SELECT isolate_id FROM $eav_table WHERE "
+					  . "(field,UPPER(value))=(E'$cleaned_field',UPPER(E'$text'))))"
+					  : "($view.id IN (SELECT isolate_id FROM $eav_table WHERE "
+					  . "(field,CAST(value AS text))=(E'$cleaned_field',E'$text')))";
+				}
+			}
+		);
+		if ( $methods{$operator} ) {
+			$methods{$operator}->();
+		} else {
+			if ( lc($text) eq 'null' ) {
+				push @$errors, "$operator is not a valid operator for comparing null values.";
+				next;
+			}
+			push @sub_qry,
+			  "($view.id IN (SELECT isolate_id FROM $eav_table WHERE field = E'$cleaned_field' "
+			  . "AND value $operator E'$text'))";
+		}
+	}
+	if (@sub_qry) {
+		local $" = $andor;
+		if ( $qry =~ /\(\)$/x ) {
+			$qry = "SELECT * FROM $view WHERE (@sub_qry)";
+		} else {
+			$qry .= " AND (@sub_qry)";
+		}
+	}
+	return $qry;
 }
 
 sub _modify_query_for_designations {
@@ -2579,7 +2690,7 @@ sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
 	my %param_name = (
 		provenance    => 'prov_value',
-		phenotypic    => 'phenotypic',
+		phenotypic    => 'phenotypic_value',
 		loci          => 'designation_value',
 		allele_count  => 'allele_count_value',
 		allele_status => 'allele_status_value',

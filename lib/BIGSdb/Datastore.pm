@@ -2238,6 +2238,22 @@ sub get_eav_fields {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 }
 
+sub get_eav_table {
+	my ( $self, $type ) = @_;
+	my %table = (
+		integer => 'eav_int',
+		float   => 'eav_float',
+		text    => 'eav_text',
+		date    => 'eav_date',
+		boolean => 'eav_boolean'
+	);
+	if ( !$table{$type} ) {
+		$logger->error('Invalid EAV type');
+		return;
+	}
+	return $table{$type};
+}
+
 sub get_eav_fieldnames {
 	my ($self) = @_;
 	return $self->run_query( 'SELECT field FROM eav_fields ORDER BY field_order,field', undef,
@@ -2264,15 +2280,9 @@ sub get_eav_field_table {
 			return;
 		}
 		my $type  = $eav_field->{'value_format'};
-		my %table = (
-			integer => 'eav_int',
-			float   => 'eav_float',
-			text    => 'eav_text',
-			date    => 'eav_date',
-			boolean => 'eav_boolean'
-		);
-		if ( $table{$type} ) {
-			$self->{'cache'}->{'eav_field_table'}->{$field} = $table{$type};
+		my $table = $self->get_eav_table($type);
+		if ($table) {
+			$self->{'cache'}->{'eav_field_table'}->{$field} = $table;
 		} else {
 			$logger->error("EAV field $field has invalid field type");
 			return;

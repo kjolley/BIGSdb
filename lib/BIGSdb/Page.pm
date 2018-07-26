@@ -1656,7 +1656,7 @@ sub get_record_name {
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
 		oauth_credentials                 => 'OAuth credentials',
-		eav_fields                        => 'sparsely populated field'
+		eav_fields                        => 'phenotypic field'
 	);
 	return $names{$table};
 }
