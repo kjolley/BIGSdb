@@ -441,7 +441,15 @@ sub _print_list_fieldset_contents {
 	my $q = $self->{'cgi'};
 	my @grouped_fields;
 	my ( $field_list, $labels ) = $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, scheme_fields => 1, sender_attributes => 0, extended_attributes => 1 } );
+		{
+			isolate_fields      => 1,
+			eav_fields          => 1,
+			loci                => 1,
+			scheme_fields       => 1,
+			sender_attributes   => 0,
+			extended_attributes => 1
+		}
+	);
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
 	foreach (@$grouped) {
 		push @grouped_fields, "f_$_";
@@ -465,8 +473,8 @@ sub _modify_query_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field ) =
-	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field)};
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field, $eav_table ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field eav_table)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
@@ -491,6 +499,9 @@ sub _modify_query_by_list {
 		  . 'WHERE UPPER(alias) IN (SELECT value FROM temp_list))',
 		provenance => ( $data_type eq 'text' ? "UPPER($view.$field)" : "$view.$field" )
 		  . ' IN (SELECT value FROM temp_list)',
+		phenotypic => "$view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$field' AND "
+		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
+		  . ' IN (SELECT value FROM temp_list))',
 		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
 		  . ( $data_type eq 'text' ? "UPPER($meta_field)" : $meta_field )
 		  . ' IN (SELECT value FROM temp_list))',
@@ -516,7 +527,7 @@ sub _modify_query_by_list {
 sub _get_list_attribute_data {
 	my ( $self, $attribute ) = @_;
 	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field, $eav_table );
 	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
 		$scheme_id  = $1;
 		$field      = $2;
@@ -539,20 +550,29 @@ sub _get_list_attribute_data {
 		return if !$self->{'xmlHandler'}->is_field($field);
 		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
 		$data_type = $field_info->{'type'};
+	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
+		$field      = $1;
+		$field_type = 'phenotypic';
+		my $field_info = $self->{'datastore'}->get_eav_field($field);
+		return if !$field_info;
+		$data_type = $field_info->{'value_format'};
+		$eav_table = $self->{'datastore'}->get_eav_table($data_type);
 	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
 		$extended_field = $1;
 		$field          = $2;
 		$data_type      = 'text';
 		$field_type     = 'extended_isolate';
 	}
+	$_ //= q() foreach ( $eav_table, $extended_field, $meta_set, $meta_field );
 	return {
 		field          => $field,
-		extended_field => $extended_field // q(),
+		eav_table      => $eav_table,
+		extended_field => $extended_field,
 		scheme_id      => $scheme_id,
 		field_type     => $field_type,
 		data_type      => $data_type,
-		meta_set       => $meta_set // q(),
-		meta_field     => $meta_field // q()
+		meta_set       => $meta_set,
+		meta_field     => $meta_field
 	};
 }
 
