@@ -889,7 +889,7 @@ sub _check_isolate_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} !~ /^bool/x;
-	if ( $thisfield->{'type'} eq 'bool' && !BIGSdb::Utils::is_bool($value) ) {
+	if ( $thisfield->{'type'} =~ /^bool/x && !BIGSdb::Utils::is_bool($value) ) {
 		return 'must be a valid boolean value - true, false, 1, or 0.';
 	}
 	return;

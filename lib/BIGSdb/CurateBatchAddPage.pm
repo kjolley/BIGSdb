@@ -148,7 +148,7 @@ sub _print_interface {
 		say q[<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non-integer ]
 		  . q[ids will be ignored).</li>];
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
-		if (@$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST){
+		if ( @$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST ) {
 			say q[<li>You can add new columns for phenotypic fields - there are too many to include by default ]
 			  . q[(see the 'phenotypic_fields' tab in the Excel template for allowed field names).];
 		}
@@ -2091,21 +2091,33 @@ sub _prepare_isolate_extra_inserts {
 	my $locus_list = $self->_get_locus_list;
 	foreach (@$locus_list) {
 		next if !$field_order->{$_};
+		next if !defined $field_order->{$_};
 		my $value = $data->[ $field_order->{$_} ];
 		$value //= q();
-		$value =~ s/^\s*//gx;
-		$value =~ s/\s*$//gx;
+		$value =~ s/^\s+|\s+$//gx;
 		next if $value eq q();
-		if ( defined $field_order->{$_} ) {
-			my $qry =
-			    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
-			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
-			push @inserts,
-			  {
-				statement => $qry,
-				arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
-			  };
-		}
+		my $qry =
+		    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
+		  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
+		push @inserts,
+		  {
+			statement => $qry,
+			arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
+		  };
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $field (@$eav_fields) {
+		my $fieldname = $field->{'field'};
+		next if !$field_order->{$fieldname};
+		next if !defined $field_order->{$fieldname};
+		my $value = $data->[ $field_order->{$fieldname} ];
+		$value =~ s/^\s+|\s+$//gx;
+		next if $value eq q();
+		my $table = $self->{'datastore'}->get_eav_table( $field->{'value_format'} );
+		push @inserts, {
+			statement => "INSERT INTO $table (isolate_id,field,value) VALUES (?,?,?)",
+			arguments => [ $id, $fieldname, $value ]
+		};
 	}
 	foreach (@$extras) {
 		next if !defined $_;
@@ -2464,6 +2476,8 @@ sub _get_fields_in_order {
 				push @fields, 'references';
 			}
 		}
+		my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+		push @fields, @$eav_fields           if @$eav_fields;
 		push @fields, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -2511,6 +2525,8 @@ sub _get_field_table_header {
 				push @headers, 'references';
 			}
 		}
+		my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+		push @headers, @$eav_fields           if @$eav_fields;
 		push @headers, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 		push @headers, 'loci';
 	} else {
