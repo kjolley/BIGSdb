@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface :limits);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -147,6 +147,11 @@ sub _print_interface {
 		say q[<li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>];
 		say q[<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non-integer ]
 		  . q[ids will be ignored).</li>];
+		my $eav_fields = $self->{'datastore'}->get_eav_fields;
+		if (@$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST){
+			say q[<li>You can add new columns for phenotypic fields - there are too many to include by default ]
+			  . q[(see the 'phenotypic_fields' tab in the Excel template for allowed field names).];
+		}
 		say q[<li>You can also upload allele fields along with the other isolate data - simply create a new column ]
 		  . q[with the locus name (see the 'allowed_loci' tab in the Excel template for locus names). These will be ]
 		  . q[added with a confirmed status and method set as 'manual'.</li>];
