@@ -31,6 +31,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_eavi1 ON eav_int(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_int TO apache;
 
 CREATE TABLE eav_float (
@@ -46,6 +47,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_eavf1 ON eav_float(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_float TO apache;
 
 CREATE TABLE eav_text (
@@ -61,6 +63,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_eavt1 ON eav_text(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_text TO apache;
 
 CREATE TABLE eav_date (
@@ -76,6 +79,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_eavd1 ON eav_date(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_date TO apache;
 
 CREATE TABLE eav_boolean (
@@ -91,5 +95,6 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_eavb1 ON eav_boolean(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_boolean TO apache;
 
