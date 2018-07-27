@@ -796,7 +796,7 @@ sub get_isolate_record {
 	} else {
 		$buffer .= $self->_get_provenance_fields( $id, $data, $summary_view );
 		if ( !$summary_view ) {
-			$buffer .= $self->_get_sparse_fields($id);
+			$buffer .= $self->_get_phenotypic_fields($id);
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
@@ -911,7 +911,7 @@ sub _get_provenance_fields {
 	return $buffer;
 }
 
-sub _get_sparse_fields {
+sub _get_phenotypic_fields {
 	my ( $self, $isolate_id ) = @_;
 	my $buffer     = q();
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
@@ -923,7 +923,7 @@ sub _get_sparse_fields {
 		$data->{$_->{'field'}} = $_->{'value'} foreach @$table_values;
 	}
 	return $buffer if !keys %$data;
-	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-ellipsis-v fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-microscope fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>Phenotypic data</h2>\n);
 	my $list = [];
 	foreach my $field (@$eav_fields){

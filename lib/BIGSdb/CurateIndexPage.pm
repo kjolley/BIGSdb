@@ -1234,7 +1234,7 @@ sub _get_eav_fields {
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Phenotypic fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'eav_fields',
-		'ellipsis-v',
+		'microscope',
 		{
 			add       => 1,
 			batch_add => 1,
