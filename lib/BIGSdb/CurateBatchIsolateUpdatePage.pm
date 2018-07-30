@@ -58,7 +58,15 @@ sub print_content {
 		}
 		$self->_check;
 	} else {
-		print <<"HTML";
+		$self->_print_interface;
+	}
+	return;
+}
+
+sub _print_interface {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	print <<"HTML";
 <div class="box" id="queryform">
 <p>This page allows you to batch update provenance fields or allele designations for multiple isolates.</p>
 <ul><li>  The first line, containing column headings, will be ignored.</li>
@@ -78,36 +86,35 @@ id	field	value
 <p>Please enter the field(s) that you are selecting isolates on.  Values used must be unique within this field or 
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		say $q->start_form;
-		say $q->hidden($_) foreach qw (db page);
-		say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
-		say $q->textarea( -name => 'data', -rows => 15, -columns => 40, -override => 1 );
-		say q(</fieldset>);
-		say q(<fieldset style="float:left"><legend>Options</legend>);
-		say q(<ul><li><label for="idfield1" class="filter">Primary selection field: </label>);
-		say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
-		say q(</li><li><label for="idfield2" class="filter">Optional selection field: </label>);
-		unshift @$fields, '<none>';
-		say $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
-		say q(</li><li>);
-		say $q->checkbox( -name => 'overwrite', -label => 'Update existing values', -checked => 0 );
-		say q(</li></ul></fieldset>);
-		say q(<fieldset style="float:left"><legend>Allele designations</legend>);
-		say $q->radio_group(
-			-name      => 'designations',
-			-values    => [qw(add replace)],
-			-labels    => { add => 'Add additional new designation', replace => 'Replace existing designations' },
-			-linebreak => 'true'
-		);
-		say q(</fieldset>);
-		$self->print_action_fieldset;
-		say $q->end_form;
-		$self->print_navigation_bar;
-		say q(</div>);
-	}
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
+	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db page);
+	say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
+	say $q->textarea( -name => 'data', -rows => 15, -columns => 40);
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li><label for="idfield1" class="filter">Primary selection field: </label>);
+	say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
+	say q(</li><li><label for="idfield2" class="filter">Optional selection field: </label>);
+	unshift @$fields, '<none>';
+	say $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'overwrite', -label => 'Update existing values', -checked => 0 );
+	say q(</li></ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Allele designations</legend>);
+	say $q->radio_group(
+		-name      => 'designations',
+		-values    => [qw(add replace)],
+		-labels    => { add => 'Add additional new designation', replace => 'Replace existing designations' },
+		-linebreak => 'true'
+	);
+	say q(</fieldset>);
+	$self->print_action_fieldset;
+	say $q->end_form;
+	$self->print_navigation_bar;
+	say q(</div>);
 	return;
 }
 
@@ -188,16 +195,16 @@ sub _failed_basic_checks {
 }
 
 sub _is_locus {
-	my ( $self, $field, $i ) = @_;
+	my ( $self, $field ) = @_;
 	my $set_id = $self->get_set_id;
 	if ($set_id) {
-		my $locus = $self->{'datastore'}->get_set_locus_real_id( $field->[$i], $set_id );
+		my $locus = $self->{'datastore'}->get_set_locus_real_id( $field, $set_id );
 		if ( $self->{'datastore'}->is_locus_in_set( $locus, $set_id ) ) {
-			$field->[$i] = $locus;    #Map to real locus name if it is renamed in set.
+			$field = $locus;    #Map to real locus name if it is renamed in set.
 			return 1;
 		}
 	} else {
-		return $self->{'datastore'}->is_locus( $field->[$i] );
+		return $self->{'datastore'}->is_locus($field);
 	}
 	return;
 }
@@ -207,8 +214,14 @@ sub _check_field_status {
 	my $set_id = $self->get_set_id;
 	my ( $bad_field, $not_allowed_field );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ( !( $self->{'xmlHandler'}->is_field( $field->[$i] ) || $is_locus ) ) {
-
+	if (
+		!(
+			   $self->{'xmlHandler'}->is_field( $field->[$i] )
+			|| $self->{'datastore'}->is_eav_field( $field->[$i] )
+			|| $is_locus
+		)
+	  )
+	{
 		#Check if there is an extended metadata field
 		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
@@ -252,17 +265,16 @@ sub _check {
 	  . qq(browser's back button.</p>\n);
 	$buffer .= $self->_get_html_header;
 	my $i = 0;
-	my ( @id, @id2, @field, @value, @update );
+	my ( @id, @id2, @field, @value );
 	my $td          = 1;
 	my $match_table = $self->_get_match_joined_table;
 	my $match       = $self->_get_match_criteria;
 	my $qry         = "SELECT COUNT(*) FROM $match_table WHERE $match";
 	my $sql         = $self->{'db'}->prepare($qry);
 	$qry =~ s/COUNT\(\*\)/id/x;
-	my $sql_id     = $self->{'db'}->prepare($qry);
-	my $prefix     = BIGSdb::Utils::get_random();
-	my $file       = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
-	my $table_rows = 0;
+	my $sql_id      = $self->{'db'}->prepare($qry);
+	my $table_rows  = 0;
+	my $update_rows = [];
 
 	foreach my $row (@rows) {
 		my @cols = split /\t/x, $row;
@@ -278,9 +290,9 @@ sub _check {
 		$value[$i] =~ s/\s*$//gx if defined $value[$i];
 		my $display_value = $value[$i];
 		my $display_field = $field[$i];
-		my $is_locus      = $self->_is_locus( \@field, $i );
+		my $is_locus      = $self->_is_locus( $field[$i], $i );
+		my $is_eav_field  = $self->{'datastore'}->is_eav_field( $field[$i] );
 		my ( $bad_field, $not_allowed_field ) = $self->_check_field_status( \@field, $i, $is_locus );
-		$update[$i] = 0;
 		my ( $old_value, $action );
 
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
@@ -313,19 +325,20 @@ sub _check {
 					$old_value .= q(</span>);
 					$action = q(<span class="statusbad">no action</span>);
 				} else {
-					( $old_value, $action ) = $self->_check_field(
+					( $old_value, $action, my $update ) = $self->_check_field(
 						{
-							field     => \@field,
-							i         => $i,
-							is_locus  => $is_locus,
-							match     => $match,
-							id        => \@id,
-							id2       => \@id2,
-							id_fields => $id_fields,
-							value     => \@value,
-							update    => \@update
+							field        => \@field,
+							i            => $i,
+							is_locus     => $is_locus,
+							is_eav_field => $is_eav_field,
+							match        => $match,
+							id           => \@id,
+							id2          => \@id2,
+							id_fields    => $id_fields,
+							value        => \@value,
 						}
 					);
+					push @$update_rows, qq($id[$i]\t$id2[$i]\t$field[$i]\t$value[$i]) if $update;
 				}
 			} else {
 				$old_value =
@@ -350,15 +363,28 @@ sub _check {
 		$value[$i] =~ s/(<blank>|null)//x if defined $value[$i];
 		$i++;
 	}
+	$buffer .= q(</table>);
 	if ($table_rows) {
 		say $buffer;
-		say q(</table>);
-		open( my $fh, '>:encoding(utf8)', $file ) or $logger->error("Can't open temp file $file for writing");
-		foreach my $i ( 0 .. @rows - 1 ) {
-			if ( $update[$i] ) {
-				say $fh "$id[$i]\t$id2[$i]\t$field[$i]\t$value[$i]";
-			}
-		}
+		$self->_display_update_form( $update_rows, $id_fields );
+		say q(</div>);
+	} else {
+		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
+		return;
+	}
+	return;
+}
+
+sub _display_update_form {
+	my ( $self, $update_rows, $id_fields ) = @_;
+	my $q = $self->{'cgi'};
+	if (@$update_rows) {
+		my $prefix = BIGSdb::Utils::get_random();
+		my $file   = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.txt";
+		open( my $fh, '>:encoding(utf8)', $file )
+		  or $logger->error("Can't open temp file $file for writing");
+		local $" = qq(\n);
+		say $fh qq(@$update_rows);
 		close $fh;
 		say $q->start_form;
 		$q->param( idfield1 => $id_fields->{'field1'} );
@@ -368,12 +394,8 @@ sub _check {
 		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 		say $q->end_form;
-		$self->print_navigation_bar;
-		say q(</div>);
-	} else {
-		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
-		return;
 	}
+	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
 }
 
@@ -385,10 +407,9 @@ sub _display_error {
 				{
 					message => q(Your id field(s) contain text characters but the )
 					  . qq(field can only contain ${type}s.),
-					navbar    => 1,
-					back_page => 'batchIsolateUpdate'
 				}
 			);
+			$self->_print_interface;
 			return;
 		}
 	}
@@ -397,18 +418,24 @@ sub _display_error {
 
 sub _check_field {
 	my ( $self, $args ) = @_;
-	my ( $field, $i, $is_locus, $match, $id, $id2, $id_fields, $value, $update ) =
-	  @{$args}{qw(field i is_locus match id id2 id_fields value update)};
+	my ( $field, $i, $is_locus, $is_eav_field, $match, $id, $id2, $id_fields, $value ) =
+	  @{$args}{qw(field i is_locus is_eav_field match id id2 id_fields value)};
 	my ( $old_value, $action );
 	my $q = $self->{'cgi'};
 	my @args;
 	my $table = $self->_get_field_and_match_joined_table( $field->[$i] );
 	my $qry;
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
+	my $will_update = 0;
 
 	if ($is_locus) {
-		$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $table ON "
+		$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $self->{'system'}->{'view'} ON "
 		  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
+		push @args, $field->[$i];
+	} elsif ($is_eav_field) {
+		my $eav_table = $self->{'datastore'}->get_eav_field_table( $field->[$i] );
+		$qry = "SELECT value FROM $eav_table JOIN $table ON $eav_table.isolate_id=$self->{'system'}->{'view'}.id "
+		  . "WHERE field=? AND $match";
 		push @args, $field->[$i];
 	} else {
 		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field->[$i] );
@@ -451,7 +478,6 @@ sub _check_field {
 				} else {
 					$action = q(<span class="statusbad">no action - new value unchanged</span>);
 				}
-				$update->[$i] = 0;
 			} else {
 				if ($is_locus) {
 					if ( $q->param('designations') eq 'add' ) {
@@ -462,13 +488,13 @@ sub _check_field {
 				} else {
 					$action = q(<span class="statusgood">update field with new value</span>);
 				}
-				$update->[$i] = 1;
+				$will_update = 1;
 			}
 		}
 	} else {
 		$action = q(<span class="statusbad">no action - value already in db</span>);
 	}
-	return ( $old_value, $action );
+	return ( $old_value, $action, $will_update );
 }
 
 sub _update {
@@ -501,50 +527,39 @@ sub _update {
 
 	foreach my $record (@records) {
 		my ( $id1, $id2, $field, $value ) = @$record;
-		my ( $isolate_id, $old_value );
+		my $old_value;
 		$nochange = 0;
 		my ( $qry, $delete_qry );
-		my $is_locus = $self->{'datastore'}->is_locus($field);
-		my ( @args, @delete_args, @deleted_designations );
-		my @id_args = ($id1);
+		my $is_locus             = $self->{'datastore'}->is_locus($field);
+		my $is_eav_field         = $self->{'datastore'}->is_eav_field($field);
+		my $deleted_designations = [];
+		my $args                 = [];
+		my $delete_args          = [];
+		my @id_args              = ($id1);
 		push @id_args, $id2 if $id->{'field2'} ne '<none>';
+		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
 
 		if ($is_locus) {
-			$isolate_id =
-			  $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
-			my $sender = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
-			$qry = 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
-			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
-			push @args, ( $isolate_id, $field, $value, $sender, 'confirmed', 'manual', $curator_id, 'now', 'now' );
-			if ( $q->param('designations') eq 'replace' ) {
-
-				#Prepare allele deletion query
-				$delete_qry = 'DELETE FROM allele_designations WHERE (isolate_id,locus)=(?,?)';
-				push @delete_args, ( $isolate_id, $field );
-
-				#Determine which alleles will be deleted for reporting in history
-				my $existing_designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $field );
-				foreach my $designation (@$existing_designations) {
-					push @deleted_designations, $designation->{'allele_id'} if $designation->{'allele_id'} ne $value;
-				}
-			}
+			my $data = $self->prepare_allele_designation_update( $isolate_id, $field, $value, $deleted_designations );
+			( $args, $qry, $delete_qry, $delete_args ) = @{$data}{qw(args qry delete_qry delete_args)};
+		} elsif ($is_eav_field) {
+			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
+			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			push @args, ( ( $value // '' ) eq '' ? undef : $value );
+			push @$args, ( ( $value // '' ) eq '' ? undef : $value );
 			if ( defined $metaset ) {
 				my $record_exists = $self->{'datastore'}->run_query(
 					"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN "
 					  . "(SELECT $view.id FROM $match_table WHERE $match))",
-					@id_args
+					\@id_args
 				);
-				$isolate_id =
-				  $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", @id_args );
 				if ($record_exists) {
 					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
 				} else {
 					$qry = "INSERT INTO meta_$metaset ($metafield, isolate_id) VALUES (?,?)";
 				}
-				push @args, $isolate_id;
+				push @$args, $isolate_id;
 				$old_value =
 				  $self->{'datastore'}
 				  ->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
@@ -552,7 +567,7 @@ sub _update {
 				$qry =
 				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
 				  . "(SELECT $view.id FROM $match_table WHERE $match)";
-				push @args, ( 'now', $curator_id, @id_args );
+				push @$args, ( 'now', $curator_id, @id_args );
 				my $id_qry = $qry;
 				$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
 				( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
@@ -563,13 +578,11 @@ sub _update {
 		$value //= q(&lt;blank&gt;);
 		( my $display_field = $field ) =~ s/^meta_.*://x;
 		$tablebuffer .= qq(</td><td>$display_field</td><td>$value</td>);
-		my $update_sql = $self->{'db'}->prepare($qry);
 		eval {
 			if ($delete_qry) {
-				my $delete_sql = $self->{'db'}->prepare($delete_qry);
-				$delete_sql->execute(@delete_args);
+				$self->{'db'}->do( $delete_qry, undef, @$delete_args );
 			}
-			$update_sql->execute(@args);
+			$self->{'db'}->do( $qry, undef, @$args );
 		};
 		if ($@) {
 			$logger->error($@) if $@ !~ /duplicate/;    #Designation submitted twice in update - ignore if so
@@ -583,11 +596,11 @@ sub _update {
 			( my $display_field = $field ) =~ s/^meta_.*://x;
 			if ($is_locus) {
 				if ( $q->param('designations') eq 'replace' ) {
-					my $plural = @deleted_designations == 1 ? '' : 's';
+					my $plural = @$deleted_designations == 1 ? '' : 's';
 					local $" = ',';
 					$self->update_history( $isolate_id,
-						"$display_field: designation$plural '@deleted_designations' deleted" )
-					  if @deleted_designations;
+						"$display_field: designation$plural '@$deleted_designations' deleted" )
+					  if @$deleted_designations;
 				}
 				$self->update_history( $isolate_id, "$display_field: new designation '$value'" );
 			} else {
@@ -608,6 +621,54 @@ sub _update {
 	}
 	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
+}
+
+sub prepare_allele_designation_update {
+	my ( $self, $isolate_id, $field, $value, $deleted_designations ) = @_;
+	my $view       = $self->{'system'}->{'view'};
+	my $q          = $self->{'cgi'};
+	my $curator_id = $self->get_curator_id;
+	my $sender     = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
+	my $qry        = 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
+	  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
+	my $args = [ $isolate_id, $field, $value, $sender, 'confirmed', 'manual', $curator_id, 'now', 'now' ];
+	my $delete_args = [];
+	my $delete_qry;
+
+	if ( $q->param('designations') eq 'replace' ) {
+
+		#Prepare allele deletion query
+		$delete_qry = 'DELETE FROM allele_designations WHERE (isolate_id,locus)=(?,?)';
+		$delete_args = [ $isolate_id, $field ];
+
+		#Determine which alleles will be deleted for reporting in history
+		my $existing_designations = $self->{'datastore'}->get_allele_designations( $isolate_id, $field );
+		foreach my $designation (@$existing_designations) {
+			push @$deleted_designations, $designation->{'allele_id'} if $designation->{'allele_id'} ne $value;
+		}
+	}
+	return { qry => $qry, args => $args, delete_qry => $delete_qry, delete_args => $delete_args };
+}
+
+sub _prepare_eav_update {
+	my ( $self, $isolate_id, $field, $value ) = @_;
+	my ( $qry, $old_value );
+	my $args      = [];
+	my $view      = $self->{'system'}->{'view'};
+	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
+	my $record_exists =
+	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE isolate_id=?)", $isolate_id );
+	if ($record_exists) {
+		$qry = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
+		@$args = ( $value, $isolate_id, $field );
+	} else {
+		$qry = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
+		@$args = ( $isolate_id, $field, $value );
+	}
+	$old_value =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT value FROM $eav_table WHERE (isolate_id,field)=(?,?)", [ $isolate_id, $field ] );
+	return { qry => $qry, args => $args, old_value => $old_value };
 }
 
 sub get_title {
