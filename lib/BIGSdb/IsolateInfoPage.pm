@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface :limits);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 use List::MoreUtils qw(none uniq);
@@ -80,6 +80,17 @@ sub get_javascript {
 		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
+	\$( "#show_eav" ).click(function() {
+		if (\$("span#show_eav_text").css('display') == 'none'){
+			\$("span#show_eav_text").css('display', 'inline');
+			\$("span#hide_eav_text").css('display', 'none');
+		} else {
+			\$("span#show_eav_text").css('display', 'none');
+			\$("span#hide_eav_text").css('display', 'inline');
+		}
+		\$( "#hidden_eav" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
 	\$( "#sample_table" ).css('display', 'none');
 	\$( "#show_samples" ).click(function() {
 		if (\$("span#show_samples_text").css('display') == 'none'){
@@ -115,7 +126,9 @@ sub get_javascript {
 		return false;
 	});
 	\$("#provenance").columnize({width:400});
-	\$("#sparse").columnize({width:400});
+	\$("#sparse").columnize({width:300});
+	\$("#hidden_eav").css("display","none");
+	\$("#hidden_eav").css("visibility","visible");
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
 	if (!(\$("span").hasClass('aliases'))){
@@ -823,8 +836,6 @@ sub _get_provenance_fields {
 	}
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
-
-
 	$buffer .= q(<div id="provenance">);
 	my $list          = [];
 	my $q             = $self->{'cgi'};
@@ -920,24 +931,43 @@ sub _get_phenotypic_fields {
 	foreach my $table (qw(eav_int eav_float eav_text eav_date eav_boolean)) {
 		my $table_values = $self->{'datastore'}->run_query( "SELECT field,value FROM $table WHERE isolate_id=?",
 			$isolate_id, { fetch => 'all_arrayref', slice => {} } );
-		$data->{$_->{'field'}} = $_->{'value'} foreach @$table_values;
+		$data->{ $_->{'field'} } = $_->{'value'} foreach @$table_values;
 	}
 	return $buffer if !keys %$data;
-	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-microscope fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Phenotypic data</h2>\n);
-	my $list = [];
-	foreach my $field (@$eav_fields){
-		my $fieldname = $field->{'field'};
-		(my $cleaned = $fieldname) =~ tr/_/ /;
-		next if !defined $data->{$fieldname};
-		push @$list, {
-			title => $cleaned,
-			data => $data->{$fieldname}
-		}
+	$buffer .=
+	  q(<div><span class="info_icon fas fa-2x fa-fw fa-microscope fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2 style="display:inline">Phenotypic data</h2>\n);
+	my ( $visibility, $class );
+	my $hide_panel = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
+	if ( $hide_panel ) {
+		$visibility = q(hidden);
+		$class      = q(infopanel);
+	} else {
+		$visibility = q(visible);
+		$class      = q(listpanel);
 	}
+	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+	$buffer .=
+	    q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;vertical-align:middle"><a id="show_eav" )
+	  . qq(style="cursor:pointer"><span id="show_eav_text" title="Show phenotypic fields" style="display:inline">$show</span>)
+	  . qq(<span id="hide_eav_text" title="Hide phenotypic fields" style="display:none">$hide</span></a></span>)
+	  if $class eq 'infopanel';
+	my $id = $class eq 'infopanel' ? 'hidden_eav' : 'eav';
+	my $list = [];
+	foreach my $field (@$eav_fields) {
+		my $fieldname = $field->{'field'};
+		( my $cleaned = $fieldname ) =~ tr/_/ /;
+		next if !defined $data->{$fieldname};
+		push @$list,
+		  {
+			title => $cleaned,
+			data  => $data->{$fieldname}
+		  };
+	}
+	$buffer .= qq(<div id="$id" class="$class" style="visibility:$visibility">);
 	$buffer .= q(<div id="sparse">);
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
-	$buffer .=q(</div>);
+	$buffer .= q(</div></div>);
 	return $buffer;
 }
 

@@ -458,7 +458,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system  = $self->{'system'};
-	my $version = '20180727';
+	my $version = '20180728';
 	my @filenames;
 	push @filenames, q(dropzone.css) if $self->{'dropzone'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
