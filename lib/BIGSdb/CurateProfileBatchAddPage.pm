@@ -26,6 +26,8 @@ use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
+use constant DUPLICATE_IN_SUBMISSION           => 1;
+use constant MATCHES_PROFILE_WITH_MISSING_DATA => 2;
 
 sub print_content {
 	my ($self)    = @_;
@@ -133,48 +135,53 @@ sub _process_fields {
 	return;
 }
 
-sub _check {
-	my ( $self, $scheme_id ) = @_;
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+sub _get_field_data {
+	my ( $self, $scheme_id, $options ) = @_;
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key   = $scheme_info->{'primary_key'};
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my @mapped_loci;
+	my $is_field          = {};
+	my $is_locus          = {};
+	my $scheme_field_info = {};
 	foreach my $locus (@$loci) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		push @mapped_loci, $mapped;
+		$is_locus->{$locus} = 1;
 	}
-	my $q = $self->{'cgi'};
-	my @checked_buffer;
-	my @fieldorder = ( $primary_key, @$loci );
-	my %is_field;
-	my %is_locus;
-	my $scheme_field_info;
-	my %pks_so_far;
-	my %profiles_so_far;
-	local $" = '</th><th>';
-	my $table_buffer = qq(<table class="resultstable"><tr><th>$primary_key</th><th>@mapped_loci</th>);
-
+	my $field_order   = [ $primary_key, @$loci ];
+	my $cleaned_order = [ $primary_key, @mapped_loci ];
 	foreach my $field (@$scheme_fields) {
-		$is_field{$field} = 1;
+		$is_field->{$field} = 1;
 		$scheme_field_info->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		if ( $field ne $primary_key ) {
-			push @fieldorder, $field;
-			$table_buffer .= "<th>$field</th>";
-		}
+		next if $field eq $primary_key;
+		push @$field_order,   $field;
+		push @$cleaned_order, $field;
 	}
 	foreach my $field (qw (sender curator date_entered datestamp)) {
-		$table_buffer .= "<th>$field</th>";
-		push @fieldorder, $field;
+		push @$field_order,   $field;
+		push @$cleaned_order, $field;
 	}
-	$table_buffer .= "</tr>\n";
+	return {
+		field_order       => $field_order,
+		cleaned_order     => $cleaned_order,
+		is_locus          => $is_locus,
+		is_field          => $is_field,
+		scheme_field_info => $scheme_field_info
+	};
+}
+
+sub _get_sender {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
 	my $sender_message;
 	my $sender = $q->param('sender');
-	my %problems;
 	if ( !$sender ) {
 		$self->print_bad_status( { message => q(Please enter a sender for this submission.) } );
 		$self->_print_interface($scheme_id);
-		return;
+		return 1;
 	} elsif ( $sender == -1 ) {
 		$sender_message = qq(<p>Using sender field in pasted data.</p>\n);
 	} else {
@@ -182,10 +189,31 @@ sub _check {
 		if ( !$sender_ref ) {
 			$self->print_bad_status( { message => q(Sender is unrecognized.) } );
 			$self->_print_interface($scheme_id);
-			return;
+			return 1;
 		}
 		$sender_message = qq(<p>Sender: $sender_ref->{'first_name'} $sender_ref->{'surname'}</p>\n);
 	}
+	return ( 0, $sender, $sender_message );
+}
+
+sub _check {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key   = $scheme_info->{'primary_key'};
+	my $q             = $self->{'cgi'};
+	my @checked_buffer;
+	my $field_data = $self->_get_field_data($scheme_id);
+	my ( $field_order, $cleaned_order, $is_locus, $is_field, $scheme_field_info ) =
+	  @{$field_data}{qw(field_order cleaned_order is_locus is_field scheme_field_info)};
+	my %pks_so_far;
+	my %profiles_so_far;
+	local $" = q(</th><th>);
+	my $table_buffer = qq(<table class="resultstable"><tr><th>@$cleaned_order</th></tr>);
+	my ( $error, $sender, $sender_message ) = $self->_get_sender($scheme_id);
+	return if $error;
+	my %problems;
 	my @records   = split /\n/x, $q->param('data');
 	my $td        = 1;
 	my $headerRow = shift @records;
@@ -205,12 +233,6 @@ sub _check {
 	my $pk;
 	my $integer_pk = $self->_is_integer_primary_key($scheme_id);
 	$pk = $self->next_id( 'profiles', $scheme_id ) if $integer_pk;
-	my %locus_format;
-	foreach my $locus (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		$locus_format{$locus} = $locus_info->{'allele_id_format'};
-		$is_locus{$locus}     = 1;
-	}
 	my $first_record = 1;
 	my $header_row;
 	my $record_count;
@@ -234,7 +256,7 @@ sub _check {
 		$record_count++;
 		$row_buffer .= qq(<tr class="td$td">);
 		$i = 0;
-		foreach my $field (@fieldorder) {
+		foreach my $field (@$field_order) {
 			my $value;
 			my $problem;
 			if ( $field eq $primary_key ) {
@@ -252,17 +274,10 @@ sub _check {
 				if ( defined $fileheaderPos{$field} ) {
 					$value = $data[ $fileheaderPos{$field} ];
 					$header_row .= "$field\t" if $first_record;
-					if ( !BIGSdb::Utils::is_int($value) ) {
-						$problems{$pk} .= 'Sender must be an integer.<br />';
+					my $invalid_sender = $self->_is_sender_invalid($value);
+					if ($invalid_sender) {
+						$problems{$pk} .= $invalid_sender;
 						$problem = 1;
-					} else {
-						my $sender_exists =
-						  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=? AND id>0)',
-							$value, { cache => 'CurateProfileBatchAddPage::check:sender_exists' } );
-						if ( !$sender_exists ) {
-							$problems{$pk} .= "Sender '$value' does not exist.<br />";
-							$problem = 1;
-						}
 					}
 				} elsif ( BIGSdb::Utils::is_int( $q->param('sender') ) && $q->param('sender') != -1 ) {
 					$value = $q->param('sender');
@@ -279,7 +294,7 @@ sub _check {
 				}
 			}
 			$value = defined $value ? $value : '';
-			if ( $is_locus{$field} ) {
+			if ( $is_locus->{$field} ) {
 				push @profile, $value;
 				$newdata{"locus:$field"} = $value;
 				my $field_bad = $self->is_locus_field_bad( $scheme_id, $field, $value );
@@ -287,7 +302,7 @@ sub _check {
 					$problems{$pk} .= "$field_bad<br />";
 					$problem = 1;
 				}
-			} elsif ( $is_field{$field} && defined $value ) {
+			} elsif ( $is_field->{$field} && defined $value ) {
 				if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq '' ) {
 					$problems{ $pk // '' } .= "Field $field is required and must not be left blank.<br />";
 					$problem = 1;
@@ -333,39 +348,20 @@ sub _check {
 		if ( $pks_so_far{ $pk // q() } ) {
 			$problems{$pk} .= 'This primary key has been included more than once in this submission.<br />';
 		}
-		{
-			no warnings 'uninitialized';
+		my $dupe_check = $self->_check_duplicate_profile( $scheme_info, \@profile );
+		if ($dupe_check) {
 			local $" = ',';
-			if ( $profiles_so_far{"@profile"} && none { $_ eq '' } @profile ) {
-				next RECORD if $q->param('ignore_duplicates');
-				$problems{$pk} .= "The profile '@profile' has been included more than once in this submission.<br />";
-			} elsif ( $scheme_info->{'allow_missing_loci'} ) {
-
-				#Need to check if profile matches another in this submission using arbitrary matches against allele 'N'.
-				foreach my $profile_string ( keys %profiles_so_far ) {
-					my $it_matches = 1;
-					my @existing_profile = split /,/x, $profile_string;
-					foreach my $i ( 0 .. @profile - 1 ) {
-						if (   $profile[$i] ne $existing_profile[$i]
-							&& $profile[$i] ne 'N'
-							&& $existing_profile[$i] ne 'N' )
-						{
-							$it_matches = 0;
-							last;
-						}
-					}
-					if ($it_matches) {
-						$problems{$pk} .=
-						    qq(The profile '@profile' matches another profile in this submission when considering that )
-						  . q(arbitrary allele 'N' can match any other allele.);
-						last;
-					}
-				}
-			}
-			$profiles_so_far{"@profile"} = 1;
+			my %msg = (
+				&DUPLICATE_IN_SUBMISSION =>
+				  qq(The profile '@profile' has been included more than once in this submission.<br />),
+				&MATCHES_PROFILE_WITH_MISSING_DATA =>
+				  qq(The profile '@profile' matches another profile in this submission when considering that )
+				  . q(arbitrary allele 'N' can match any other allele.<br />)
+			);
+			$problems{$pk} .= $msg{$dupe_check};
 		}
-		$pks_so_far{ $pk // '' } = 1;
-		$row_buffer   .= "</tr>\n";
+		$pks_so_far{ $pk // q() } = 1;
+		$row_buffer   .= qq(</tr>\n);
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		$checked_record =~ s/\t$//x;
@@ -384,19 +380,7 @@ sub _check {
 		return;
 	}
 	if (%problems) {
-		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say q(<div class="scrollable">);
-		say q(<table class="resultstable">);
-		say qq(<tr><th>$primary_key</th><th>Problem(s)</th></tr>);
-		$td = 1;
-		{
-			no warnings 'numeric';
-			foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %problems ) {
-				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems{$id}</td></tr>);
-				$td = $td == 1 ? 2 : 1;
-			}
-		}
-		say q(</table></div></div>);
+		$self->_print_bad_import_status( \%problems, $primary_key );
 	} else {
 		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious )
 		  . q(problems identified so far.</p>);
@@ -413,6 +397,68 @@ sub _check {
 	say q(<div class="scrollable">);
 	say $table_buffer;
 	say q(</div></div>);
+	return;
+}
+
+sub _print_bad_import_status {
+	my ( $self, $problems, $primary_key ) = @_;
+	say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+	say q(<div class="scrollable">);
+	say q(<table class="resultstable">);
+	say qq(<tr><th>$primary_key</th><th>Problem(s)</th></tr>);
+	my $td = 1;
+	{
+		no warnings 'numeric';
+		foreach my $id ( sort { $a <=> $b || $a cmp $b } keys %$problems ) {
+			say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	say q(</table></div></div>);
+	return;
+}
+
+sub _is_sender_invalid {
+	my ( $self, $sender ) = @_;
+	if ( !BIGSdb::Utils::is_int($sender) ) {
+		return q(Sender must be an integer.<br />);
+	} else {
+		my $sender_exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=? AND id>0)',
+			$sender, { cache => 'CurateProfileBatchAddPage::check:sender_exists' } );
+		if ( !$sender_exists ) {
+			return qq("Sender '$sender' does not exist.<br />);
+		}
+	}
+	return;
+}
+
+#Checks if profile matches another in this submission using arbitrary matches against allele 'N'.
+sub _check_duplicate_profile {
+	my ( $self, $scheme_info, $profile ) = @_;
+	my $q = $self->{'cgi'};
+	state %profiles_so_far;
+	no warnings 'uninitialized';
+	local $" = ',';
+	if ( $profiles_so_far{"@$profile"} && none { $_ eq '' } @$profile ) {
+		return if $q->param('ignore_duplicates');
+		return DUPLICATE_IN_SUBMISSION;
+	} elsif ( $scheme_info->{'allow_missing_loci'} ) {
+		foreach my $profile_string ( keys %profiles_so_far ) {
+			my $it_matches = 1;
+			my @existing_profile = split /,/x, $profile_string;
+			foreach my $i ( 0 .. @$profile - 1 ) {
+				if (   $profile->[$i] ne $existing_profile[$i]
+					&& $profile->[$i] ne 'N'
+					&& $existing_profile[$i] ne 'N' )
+				{
+					$it_matches = 0;
+					last;
+				}
+			}
+			return MATCHES_PROFILE_WITH_MISSING_DATA if $it_matches;
+		}
+	}
+	$profiles_so_far{"@$profile"} = 1;
 	return;
 }
 
