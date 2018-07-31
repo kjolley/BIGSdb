@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
 #Copyright (c) 2016-2018, University of Oxford

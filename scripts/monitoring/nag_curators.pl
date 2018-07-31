@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
 #Copyright (c) 2016-2018, University of Oxford

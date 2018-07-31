@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.3',
+		version       => '1.2.4',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -126,6 +126,23 @@ sub _use_composites {
 	return $use;
 }
 
+sub _get_field_list {
+	my ($self)        = @_;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $expanded_list = [];
+	foreach my $field (@$field_list) {
+		push @$expanded_list, $field;
+		if ( ref $self->{'extended'}->{$field} eq 'ARRAY' ) {
+			foreach my $attribute ( @{ $self->{'extended'}->{$field} } ) {
+				push @$expanded_list, "${field}..$attribute";
+			}
+		}
+	}
+	return $expanded_list;
+}
+
 sub run {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -173,20 +190,9 @@ sub run {
 		}
 	}
 	my $display_name;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my @expanded_list;
-	foreach my $field (@$field_list) {
-		push @expanded_list, $field;
-		if ( ref $self->{'extended'}->{$field} eq 'ARRAY' ) {
-			foreach my $attribute ( @{ $self->{'extended'}->{$field} } ) {
-				push @expanded_list, "$field\.\.$attribute";
-			}
-		}
-	}
+	my $field_list  = $self->_get_field_list;
 	my $field_count = 0;
-	foreach my $field (@expanded_list) {
+	foreach my $field (@$field_list) {
 		if ( !$noshow{$field} ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $display = $metafield // $field;

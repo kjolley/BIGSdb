@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@
 #
 #The test databases can be reached at https://pubmlst.org/test/.
 #To use these, sign up for a PubMLST account (https://pubmlst.org/site_accounts.shtml)
-#and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates 
+#and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates
 #databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
 #
 use strict;
@@ -37,9 +37,8 @@ use Term::Cap;
 use POSIX;
 use MIME::Base64;
 
-
-#Please note that the consumer key below will only work for access to the 
-#PubMLST test databases. Please contact keith.jolley@zoo.ox.ac.uk to obtain your 
+#Please note that the consumer key below will only work for access to the
+#PubMLST test databases. Please contact keith.jolley@zoo.ox.ac.uk to obtain your
 #own consumer key for use in your own projects.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
 use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
@@ -339,7 +338,7 @@ sub _prompt {
 sub _slurp {
 	my ($file_path) = @_;
 	open( my $fh, '<:encoding(utf8)', $file_path )
-	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
+	  || die("Cannot open $file_path for reading.\n");
 	my $contents = do { local $/ = undef; <$fh> };
 	return \$contents;
 }

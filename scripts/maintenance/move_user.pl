@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Move user account to remote user database
 #Written by Keith Jolley
-#Copyright (c) 2016, University of Oxford
+#Copyright (c) 2016-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
