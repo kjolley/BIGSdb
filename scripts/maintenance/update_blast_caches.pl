@@ -1,7 +1,7 @@
-#!/usr/bin/perl -T
+#!/usr/bin/env perl
 #Update cached BLAST databases for a seqdef database
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,11 @@ use strict;
 use warnings;
 use 5.010;
 ###########Local configuration################################
-use constant { CONFIG_DIR => '/etc/bigsdb', LIB_DIR => '/usr/local/lib', DBASE_CONFIG_DIR => '/etc/bigsdb/dbases' };
+use constant {
+	CONFIG_DIR       => '/etc/bigsdb',
+	LIB_DIR          => '/usr/local/lib',
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
+};
 #######End Local configuration################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;

@@ -1,8 +1,6 @@
-#!/usr/bin/perl -T
-#
-#bigsdb_getrefs.pl
+#!/usr/bin/env perl
 #Written by Keith Jolley
-#Copyright (c) 2003, 2009, 2012, 2014-2015 University of Oxford
+#Copyright (c) 2003-2018 University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #Find out which references are cited in the databases

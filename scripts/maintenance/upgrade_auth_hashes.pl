@@ -1,8 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Upgrade password hashes in authentication database to use bcrypt algorithm.
 #Use to update md5 hashes.
 #Written by Keith Jolley
-#Copyright (c) 2015, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).

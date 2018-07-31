@@ -1,4 +1,4 @@
-#!/usr/bin/perl -T
+#!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
 #Copyright (c) 2013-2018, University of Oxford

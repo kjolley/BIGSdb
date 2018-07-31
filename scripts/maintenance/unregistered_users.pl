@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #List site-wide users not registered to any database and optionally remove
 #them from users and authentication databases.
 #Written by Keith Jolley

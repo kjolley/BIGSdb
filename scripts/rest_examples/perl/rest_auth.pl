@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).

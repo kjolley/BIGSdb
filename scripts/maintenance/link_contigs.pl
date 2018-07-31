@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #Link remote contigs to isolate records
 #Written by Keith Jolley
 #Copyright (c) 2017-2018, University of Oxford
