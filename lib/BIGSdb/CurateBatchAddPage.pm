@@ -1806,6 +1806,24 @@ sub _check_isolate_id_not_retired {
 	return;
 }
 
+sub _is_not_allowed_to_upload_public_data {
+	my ( $self, $table ) = @_;
+	my $private   = $self->_is_private_record;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $table eq 'isolates' && !$private && $self->{'permissions'}->{'only_private'} ) {
+		$self->print_bad_status(
+			{
+				message =>
+				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
+			}
+		);
+		my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'} );
+		$logger->error("Attempt to upload public data by user ($user_string) who does not have permission.");
+		return 1;
+	}
+	return;
+}
+
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
 	my $table   = $arg_ref->{'table'};
@@ -1819,20 +1837,10 @@ sub _upload_data {
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $project_id = $self->_get_private_project_id;
 	my $private    = $self->_is_private_record;
-
-	if ( $table eq 'isolates' && !$private && $self->{'permissions'}->{'only_private'} ) {
-		$self->print_bad_status(
-			{
-				message =>
-				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
-			}
-		);
-		my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'} );
-		$logger->error("Attempt to upload public data by user ($user_string) who not have permission.");
-		return;
-	}
+	return if $self->_is_not_allowed_to_upload_public_data($table);
 	my %loci;
 	$loci{$locus} = 1 if $locus;
+
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
 		if ($record) {
@@ -1964,8 +1972,26 @@ sub _upload_data {
 		}
 	}
 	$self->{'db'}->commit;
+	$self->_report_successful_upload( $table, $project_id );
+	foreach (@history) {
+		my ( $isolate_id, $action ) = split /\|/x, $_;
+		$self->update_history( $isolate_id, $action );
+	}
+	if ( $table eq 'sequences' ) {
+		my @loci = keys %loci;
+		$self->mark_locus_caches_stale( \@loci );
+		$self->update_blast_caches;
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _report_successful_upload {
+	my ( $self, $table, $project_id ) = @_;
+	my $q        = $self->{'cgi'};
 	my $nav_data = $self->_get_nav_data($table);
-	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	my $script   = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	my ( $more_url, $back_url, $upload_contigs_url );
 	if ( $script eq $self->{'system'}->{'script_name'} ) {
 		$more_url = qq($script?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
@@ -1995,17 +2021,6 @@ sub _upload_data {
 			upload_contigs_url => $upload_contigs_url,
 		}
 	);
-	foreach (@history) {
-		my ( $isolate_id, $action ) = split /\|/x, $_;
-		$self->update_history( $isolate_id, $action );
-	}
-	if ( $table eq 'sequences' ) {
-		my @loci = keys %loci;
-		$self->mark_locus_caches_stale( \@loci );
-		$self->update_blast_caches;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
-	}
 	return;
 }
 
@@ -2114,10 +2129,11 @@ sub _prepare_isolate_extra_inserts {
 		$value =~ s/^\s+|\s+$//gx;
 		next if $value eq q();
 		my $table = $self->{'datastore'}->get_eav_table( $field->{'value_format'} );
-		push @inserts, {
+		push @inserts,
+		  {
 			statement => "INSERT INTO $table (isolate_id,field,value) VALUES (?,?,?)",
 			arguments => [ $id, $fieldname, $value ]
-		};
+		  };
 	}
 	foreach (@$extras) {
 		next if !defined $_;
