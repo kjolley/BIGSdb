@@ -1554,6 +1554,7 @@ sub get_isolates_with_seqbin {
 	my %labels;
 	foreach (@$data) {
 		my ( $id, $isolate, $new_version ) = @$_;
+		$isolate //= ''; #One database on PubMLST uses a restricted view that hides some isolate names.
 		push @ids, $id;
 		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
 	}
