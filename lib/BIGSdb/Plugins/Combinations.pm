@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_FIELDS => 100;
@@ -46,7 +47,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#unique-combinations",
-		version     => '1.1.3',
+		version     => '1.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -79,20 +80,26 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $query_file = $q->param('query_file');
-	my $qry_ref    = $self->get_query($query_file);
-	return if ref $qry_ref ne 'SCALAR';
-	my $view = $self->{'system'}->{'view'};
-	return if !$self->create_temp_tables($qry_ref);
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	local $" = ",$view.";
-	my $field_string = "$view.@$fields";
-	$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
-	$self->rewrite_query_ref_order_by($qry_ref);
+	my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+	push @$ids, @$pasted_cleaned_ids;
+	@$ids = uniq @$ids;
+	if ( !@$ids ) {
+		$self->print_bad_status( { message => q(No valid ids have been selected!) } );
+		$self->_print_interface;
+		return;
+	}
+	if (@$invalid_ids) {
+		local $" = ', ';
+		$self->print_bad_status(
+			{ message => qq(The following isolates in your pasted list are invalid: @$invalid_ids.) } );
+		$self->_print_interface;
+		return;
+	}
+	$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
 	local $| = 1;
 	my @header;
 	my %schemes;
-
 	foreach (@$selected_fields) {
 		my $field = $_;
 		if ( $field =~ /^s_(\d+)_f/x ) {
@@ -117,7 +124,8 @@ sub run {
 			$i++;
 		}
 	}
-	my $dataset = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $qry     = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list)";
+	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $i       = 1;
 	my $j       = 0;
 	my %combs;
@@ -258,7 +266,29 @@ sub _print_interface {
 	  . q(combinations in the dataset. Please select your combination of fields. Select loci either )
 	  . q(from the locus list or by selecting one or more schemes to include all loci (and/or fields) )
 	  . q(from a scheme.</p>);
-	$self->print_field_export_form( 0, { include_composites => 1, extended_attributes => 1 } );
+	my $q          = $self->{'cgi'};
+	my $query_file = $q->param('query_file');
+	my $selected_ids;
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query_file ) {
+		my $qry_ref = $self->get_query($query_file);
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
+	}
+	my $set_id = $self->get_set_id;
+	say $q->start_form;
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_isolates_fieldset( 0, { include_composites => 1, extended_attributes => 1 } );
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name set_id);
+	say $q->end_form;
 	say q(</div>);
 	return;
 }

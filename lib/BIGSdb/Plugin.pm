@@ -33,10 +33,6 @@ our @EXPORT_OK = qw(SEQ_SOURCE);
 sub get_attributes { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
-sub print_extra_fields        { }
-sub print_extra_scheme_fields { }
-sub print_options             { }
-sub print_extra_options       { }
 sub get_hidden_attributes     { return [] }
 sub get_plugin_javascript     { return q() }
 sub run                       { }
@@ -301,26 +297,6 @@ sub _print_fields {
 	}
 	say q(</ul></div>);
 	say q(<div style="clear:both"></div>);
-	return;
-}
-
-sub print_field_export_form {
-	my ( $self, $default_select, $options ) = @_;
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	say $q->start_form;
-	$self->print_isolates_fieldset( $default_select, $options );
-	$self->print_extra_fields;
-	$self->print_isolates_locus_fieldset;
-	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_extra_scheme_fields;
-	$self->print_options;
-	$self->print_extra_options;
-	$self->print_action_fieldset( { no_reset => 1 } );
-	say q(<div style="clear:both"></div>);
-	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file set_id list_file temp_table_file datatype);
-	say $q->end_form;
 	return;
 }
 
