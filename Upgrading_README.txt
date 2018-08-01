@@ -24,6 +24,7 @@ Version 1.16: Change of authentication, seqdef and isolate database
               structures.
 Version 1.17: Change of seqdef and isolate database structures.
 Version 1.18: Change of seqdef and isolate database structures.
+Version 1.19: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -381,3 +382,15 @@ Additionally, you need to update the contents of the javascript directory.
 jQuery; jQuery UI; and the jsTree and columnizer plugins have been updated to 
 the latest versions. Ensure that the javascript/themes directory is also 
 updated.
+
+Version 1.19
+------------
+There are changes to the sequence definition and isolate databases to support
+accessing remote contigs.
+
+Please run the seqdefdb_v1.19.sql script against sequence definition databases
+and isolatedb_v1.19.sql against isolate databases.
+
+Additionally, if updating from a version <1.18.3 you need to rename the fonts 
+directory to webfonts. You need to update the contents of this to support 
+FontAwesome 5.2. You also need to update the css directory.
