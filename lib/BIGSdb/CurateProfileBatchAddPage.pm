@@ -26,8 +26,6 @@ use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(none);
 my $logger = get_logger('BIGSdb.Page');
-use constant DUPLICATE_IN_SUBMISSION           => 1;
-use constant MATCHES_PROFILE_WITH_MISSING_DATA => 2;
 
 sub print_content {
 	my ($self)    = @_;
@@ -198,40 +196,26 @@ sub _get_sender {
 
 sub _check {
 	my ( $self, $scheme_id ) = @_;
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $primary_key   = $scheme_info->{'primary_key'};
-	my $q             = $self->{'cgi'};
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $q           = $self->{'cgi'};
 	my @checked_buffer;
 	my $field_data = $self->_get_field_data($scheme_id);
 	my ( $field_order, $cleaned_order, $is_locus, $is_field, $scheme_field_info ) =
 	  @{$field_data}{qw(field_order cleaned_order is_locus is_field scheme_field_info)};
-	my %pks_so_far;
 	my %profiles_so_far;
 	local $" = q(</th><th>);
 	my $table_buffer = qq(<table class="resultstable"><tr><th>@$cleaned_order</th></tr>);
 	my ( $error, $sender, $sender_message ) = $self->_get_sender($scheme_id);
 	return if $error;
-	my %problems;
-	my @records   = split /\n/x, $q->param('data');
-	my $td        = 1;
-	my $headerRow = shift @records;
-	$headerRow =~ s/\r//gx;
-	my @fileheaderFields = split /\t/x, $headerRow;
-	my %fileheaderPos;
-	my $i = 0;
-	my $pk_included;
-	my $set_id = $self->get_set_id;
-
-	foreach my $field (@fileheaderFields) {
-		my $mapped = $self->{'submissionHandler'}->map_locus_name( $field, $set_id );
-		$fileheaderPos{$mapped} = $i;
-		$i++;
-		$pk_included = 1 if $field eq $primary_key;
-	}
-	my $pk;
+	my $problems             = {};
+	my @records              = split /\n/x, $q->param('data');
+	my $td                   = 1;
+	my $submitted_header_row = shift @records;
+	my ( $file_header_pos, $pk_included ) = $self->_get_file_header_positions( $submitted_header_row, $primary_key );
 	my $integer_pk = $self->_is_integer_primary_key($scheme_id);
+	my $pk;
 	$pk = $self->next_id( 'profiles', $scheme_id ) if $integer_pk;
 	my $first_record = 1;
 	my $header_row;
@@ -251,11 +235,10 @@ sub _check {
 				$pk++;
 			} while ( $self->_is_pk_used( $scheme_id, $pk ) );
 		} elsif ($pk_included) {
-			$pk = $data[ $fileheaderPos{$primary_key} ];
+			$pk = $data[ $file_header_pos->{$primary_key} ];
 		}
 		$record_count++;
 		$row_buffer .= qq(<tr class="td$td">);
-		$i = 0;
 		foreach my $field (@$field_order) {
 			my $value;
 			my $problem;
@@ -264,33 +247,33 @@ sub _check {
 				  if $first_record && !$pk_included;
 				$value = $pk;
 				if ( $self->{'datastore'}->is_profile_retired( $scheme_id, $pk ) ) {
-					$problems{$pk} .= "$primary_key-$value has been retired.<br />";
+					$problems->{$pk} .= "$primary_key-$value has been retired.<br />";
 					$problem = 1;
 				}
 			}
 			if ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 				$value = BIGSdb::Utils::get_datestamp();
 			} elsif ( $field eq 'sender' ) {
-				if ( defined $fileheaderPos{$field} ) {
-					$value = $data[ $fileheaderPos{$field} ];
+				if ( defined $file_header_pos->{$field} ) {
+					$value = $data[ $file_header_pos->{$field} ];
 					$header_row .= "$field\t" if $first_record;
 					my $invalid_sender = $self->_is_sender_invalid($value);
 					if ($invalid_sender) {
-						$problems{$pk} .= $invalid_sender;
+						$problems->{$pk} .= $invalid_sender;
 						$problem = 1;
 					}
 				} elsif ( BIGSdb::Utils::is_int( $q->param('sender') ) && $q->param('sender') != -1 ) {
 					$value = $q->param('sender');
 				} else {
-					$problems{$pk} .= 'Sender not set.<br />';
+					$problems->{$pk} .= 'Sender not set.<br />';
 					$problem = 1;
 				}
 			} elsif ( $field eq 'curator' ) {
 				$value = $self->get_curator_id;
 			} else {
-				if ( defined $fileheaderPos{$field} ) {
+				if ( defined $file_header_pos->{$field} ) {
 					$header_row .= "$field\t" if $first_record;
-					$value = $data[ $fileheaderPos{$field} ];
+					$value = $data[ $file_header_pos->{$field} ];
 				}
 			}
 			$value = defined $value ? $value : '';
@@ -299,18 +282,18 @@ sub _check {
 				$newdata{"locus:$field"} = $value;
 				my $field_bad = $self->is_locus_field_bad( $scheme_id, $field, $value );
 				if ($field_bad) {
-					$problems{$pk} .= "$field_bad<br />";
+					$problems->{$pk} .= "$field_bad<br />";
 					$problem = 1;
 				}
 			} elsif ( $is_field->{$field} && defined $value ) {
 				if ( $scheme_field_info->{$field}->{'primary_key'} && $value eq '' ) {
-					$problems{ $pk // '' } .= "Field $field is required and must not be left blank.<br />";
+					$problems->{ $pk // '' } .= "Field $field is required and must not be left blank.<br />";
 					$problem = 1;
 				} elsif ( $scheme_field_info->{$field}->{'type'} eq 'integer'
 					&& $value ne ''
 					&& !BIGSdb::Utils::is_int($value) )
 				{
-					$problems{$pk} .= "Field $field must be an integer.<br />";
+					$problems->{$pk} .= "Field $field must be an integer.<br />";
 					$problem = 1;
 				}
 			}
@@ -320,58 +303,37 @@ sub _check {
 			} else {
 				$row_buffer .= qq(<td><font color="red">$display_value</font></td>);
 			}
-			$checked_record .= "$value\t"
-			  if defined $fileheaderPos{$field}
+			$checked_record .= qq($value\t)
+			  if defined $file_header_pos->{$field}
 			  or ( $field eq $primary_key );
 		}
 		push @checked_buffer, $header_row if $first_record;
 		$first_record = 0;
-
-		#check if profile exists
-		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
-		my $ret =
-		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
-		if ( $ret->{'exists'} ) {
-			next RECORD if $q->param('ignore_existing');
-			$problems{$pk} .= "$ret->{'msg'}<br />";
-		}
-
-		#check if primary key already exists
-		my $pk_exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
-			[ $scheme_id, $pk ],
-			{ cache => 'CurateProfileBatchAddPage::check::pk_check' }
-		);
-		if ($pk_exists) {
-			$problems{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
-		}
-		if ( $pks_so_far{ $pk // q() } ) {
-			$problems{$pk} .= 'This primary key has been included more than once in this submission.<br />';
-		}
-		my $dupe_check = $self->_check_duplicate_profile( $scheme_info, \@profile );
-		if ($dupe_check) {
-			local $" = ',';
-			my %msg = (
-				&DUPLICATE_IN_SUBMISSION =>
-				  qq(The profile '@profile' has been included more than once in this submission.<br />),
-				&MATCHES_PROFILE_WITH_MISSING_DATA =>
-				  qq(The profile '@profile' matches another profile in this submission when considering that )
-				  . q(arbitrary allele 'N' can match any other allele.<br />)
-			);
-			$problems{$pk} .= $msg{$dupe_check};
-		}
-		$pks_so_far{ $pk // q() } = 1;
+		my $args = {
+			scheme_id   => $scheme_id,
+			scheme_info => $scheme_info,
+			primary_key => $primary_key,
+			loci        => $loci,
+			newdata     => \%newdata,
+			pk          => $pk,
+			problems    => $problems,
+			profile     => \@profile
+		};
+		next RECORD if $self->_check_profile_exists($args);
+		$self->_check_pk_exists($args);
+		$self->_check_pk_used_already($args);
+		next RECORD if $self->_check_duplicate_profile($args);
 		$row_buffer   .= qq(</tr>\n);
 		$table_buffer .= $row_buffer;
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		$checked_record =~ s/\t$//x;
 		push @checked_buffer, $checked_record;
 	}
-	$table_buffer .= "</table>\n";
+	$table_buffer .= qq(</table>\n);
 	if ( !$record_count ) {
 		$self->print_bad_status(
 			{
-				message  => q(No valid data entered. Make sure ) . q(you've included the header line.),
+				message  => q(No valid data entered. Make sure you have included the header line.),
 				navbar   => 1,
 				back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id)
@@ -379,8 +341,8 @@ sub _check {
 		);
 		return;
 	}
-	if (%problems) {
-		$self->_print_bad_import_status( \%problems, $primary_key );
+	if (%$problems) {
+		$self->_print_bad_import_status( $problems, $primary_key );
 	} else {
 		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message<p>No obvious )
 		  . q(problems identified so far.</p>);
@@ -397,6 +359,63 @@ sub _check {
 	say q(<div class="scrollable">);
 	say $table_buffer;
 	say q(</div></div>);
+	return;
+}
+
+sub _get_file_header_positions {
+	my ( $self, $headerRow, $primary_key ) = @_;
+	$headerRow =~ s/\r//gx;
+	my @fileheaderFields = split /\t/x, $headerRow;
+	my $pos              = {};
+	my $i                = 0;
+	my $pk_included;
+	my $set_id = $self->get_set_id;
+	foreach my $field (@fileheaderFields) {
+		my $mapped = $self->{'submissionHandler'}->map_locus_name( $field, $set_id );
+		$pos->{$mapped} = $i;
+		$i++;
+		$pk_included = 1 if $field eq $primary_key;
+	}
+	return ( $pos, $pk_included );
+}
+
+sub _check_profile_exists {
+	my ( $self, $args ) = @_;
+	my ( $scheme_id, $primary_key, $loci, $newdata, $pk, $problems ) =
+	  @{$args}{qw(scheme_id primary_key loci newdata pk problems)};
+	my $q = $self->{'cgi'};
+	my %designations = map { $_ => $newdata->{"locus:$_"} } @$loci;
+	my $ret =
+	  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
+	if ( $ret->{'exists'} ) {
+		return 1 if $q->param('ignore_existing');
+		$problems->{$pk} .= "$ret->{'msg'}<br />";
+	}
+	return;
+}
+
+sub _check_pk_exists {
+	my ( $self, $args ) = @_;
+	my ( $scheme_id, $primary_key, $pk, $problems ) = @{$args}{qw(scheme_id primary_key pk problems)};
+	my $pk_exists = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM profiles WHERE (scheme_id,profile_id)=(?,?))',
+		[ $scheme_id, $pk ],
+		{ cache => 'CurateProfileBatchAddPage::check::pk_check' }
+	);
+	if ($pk_exists) {
+		$problems->{$pk} .= "The primary key '$primary_key-$pk' already exists in the database.<br />";
+	}
+	return;
+}
+
+sub _check_pk_used_already {
+	my ( $self, $args )     = @_;
+	my ( $pk,   $problems ) = @{$args}{qw( pk problems)};
+	state $pks_so_far = {};
+	if ( $pks_so_far->{ $pk // q() } ) {
+		$problems->{$pk} .= 'This primary key has been included more than once in this submission.<br />';
+	}
+	$pks_so_far->{ $pk // q() } = 1;
 	return;
 }
 
@@ -434,14 +453,16 @@ sub _is_sender_invalid {
 
 #Checks if profile matches another in this submission using arbitrary matches against allele 'N'.
 sub _check_duplicate_profile {
-	my ( $self, $scheme_info, $profile ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $scheme_info, $profile, $pk, $problems ) =
+	  @{$args}{qw(scheme_info profile pk problems)};
 	my $q = $self->{'cgi'};
 	state %profiles_so_far;
 	no warnings 'uninitialized';
 	local $" = ',';
 	if ( $profiles_so_far{"@$profile"} && none { $_ eq '' } @$profile ) {
-		return if $q->param('ignore_duplicates');
-		return DUPLICATE_IN_SUBMISSION;
+		return 1 if $q->param('ignore_duplicates');
+		$problems->{$pk} .= qq(The profile '@$profile' has been included more than once in this submission.<br />);
 	} elsif ( $scheme_info->{'allow_missing_loci'} ) {
 		foreach my $profile_string ( keys %profiles_so_far ) {
 			my $it_matches = 1;
@@ -455,7 +476,10 @@ sub _check_duplicate_profile {
 					last;
 				}
 			}
-			return MATCHES_PROFILE_WITH_MISSING_DATA if $it_matches;
+			$problems->{$pk} .=
+			    qq(The profile '@$profile' matches another profile in this submission when considering that )
+			  . q(arbitrary allele 'N' can match any other allele.<br />)
+			  if $it_matches;
 		}
 	}
 	$profiles_so_far{"@$profile"} = 1;
@@ -560,12 +584,13 @@ sub _upload {
 		if ($@) {
 			my $detail;
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
-				say q(<p>Data entry would have resulted in records with either duplicate ids or another )
+				$detail =
+				  q(<p>Data entry would have resulted in records with either duplicate ids or another )
 				  . q(unique field with duplicate values.</p>);
 			}
 			$self->print_bad_status(
 				{
-					message => q(Database update failed - transaction cancelled - ) . q(no records have been touched.),
+					message => q(Database update failed - transaction cancelled - no records have been touched.),
 					detail  => $detail
 				}
 			);
