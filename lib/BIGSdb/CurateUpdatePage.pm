@@ -206,6 +206,9 @@ sub _upload {
 			scheme_fields => sub {
 				$status = $self->_check_scheme_fields($newdata);
 			},
+			eav_fields => sub {
+				$status = $self->_check_eav_fields($newdata);
+			},
 			sequences => sub {
 				$status = $self->_check_allele_data( $newdata, $extra_inserts );
 			},
@@ -290,10 +293,9 @@ sub _upload {
 				}
 				$self->print_good_status(
 					{
-						message => qq($record_name updated.),
-						navbar  => 1,
-						query_more_url =>
-						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+						message        => qq($record_name updated.),
+						navbar         => 1,
+						query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 						  . qq(page=tableQuery&amp;table=$table)
 					}
 				);
@@ -352,6 +354,71 @@ sub _check_scheme_fields {
 			return FAILURE;
 		}
 	}
+}
+
+sub _check_eav_fields {
+	my ( $self, $newdata ) = @_;
+	my $existing = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM eav_fields WHERE field=?', $newdata->{'field'}, { fetch => 'row_hashref' } );
+	if ( $newdata->{'value_format'} ne $existing->{'value_format'} ) {
+		$self->print_bad_status( { message => q(You cannot change the data type of a field.), navbar => 1 } );
+		return FAILURE;
+	}
+	my $eav_table = {
+		integer => 'eav_int',
+		float   => 'eav_float',
+		text    => 'eav_text',
+		date    => 'eav_date'
+	};
+	if ( defined $newdata->{'length'} && $newdata->{'value_format'} eq 'text' ) {
+		my $bad_length =
+		  $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM $eav_table->{$newdata->{'value_format'}} WHERE field=? AND length(value)>?)",
+			[ $newdata->{'field'}, $newdata->{'length'} ] );
+		if ($bad_length) {
+			$self->print_bad_status(
+				{
+					message => q(There is already data defined with a length longer than you have selected.),
+					navbar  => 1
+				}
+			);
+			return FAILURE;
+		}
+	}
+	return if $newdata->{'value_format'} ne 'integer' && $newdata->{'value_format'} ne 'float';
+	if ( defined $newdata->{'min_value'} ) {
+		my $bad_length =
+		  $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM $eav_table->{$newdata->{'value_format'}} WHERE field=? AND value<?)",
+			[ $newdata->{'field'}, $newdata->{'min_value'} ] );
+		if ($bad_length) {
+			$self->print_bad_status(
+				{
+					message =>
+					  q(There is already data defined with a value smaller than the minimum you have selected.),
+					navbar => 1
+				}
+			);
+			return FAILURE;
+		}
+	}
+	if ( defined $newdata->{'max_value'} ) {
+		my $bad_length =
+		  $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM $eav_table->{$newdata->{'value_format'}} WHERE field=? AND value>?)",
+			[ $newdata->{'field'}, $newdata->{'max_value'} ] );
+		if ($bad_length) {
+			$self->print_bad_status(
+				{
+					message =>
+					  q(There is already data defined with a value greater than the maximum you have selected.),
+					navbar => 1
+				}
+			);
+			return FAILURE;
+		}
+	}
+	return;
 }
 
 sub _check_loci {

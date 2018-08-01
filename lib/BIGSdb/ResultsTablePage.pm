@@ -46,10 +46,12 @@ sub _calculate_totals {
 	my $cschemes =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view =$self->{'system'}->{'view'};
+		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if ( $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x || $qry =~ /ORDER\ BY\ s_$scheme_id\D/x ) {
+				if (   $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x
+					|| $qry =~ /ORDER\ BY\ s_$scheme_id\D/x )
+				{
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
 				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
@@ -350,7 +352,9 @@ sub _print_project_add_function {
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
-	say $q->hidden($_) foreach @$hidden_attributes;
+
+	#Using print instead of say prevents blank line if attribute not set.
+	print $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -615,6 +619,7 @@ sub _print_isolate_table {
 			$self->_print_isolate_composite_fields( $id, \%data, $thisfieldname );
 			$self->_print_isolate_aliases($id) if $thisfieldname eq $self->{'system'}->{'labelfield'};
 		}
+		$self->_print_isolate_eav_values($id);
 		$self->_print_isolate_seqbin_values($id);
 		$self->_print_isolate_publications($id);
 		$self->_print_isolate_scheme_values( $schemes, $id );
@@ -726,12 +731,44 @@ sub _print_isolate_aliases {
 	return;
 }
 
+sub _print_isolate_eav_values {
+	my ( $self, $id ) = @_;
+	if ( !defined $self->{'cache'}->{'eav_fields'} ) {
+		$self->{'cache'}->{'eav_fields'} = [];
+		my $all_eav_fields = $self->{'datastore'}->get_eav_fields;
+		foreach my $eav_field (@$all_eav_fields) {
+			push @{ $self->{'cache'}->{'eav_fields'} }, $eav_field
+			  if $self->{'prefs'}->{'maindisplayfields'}->{ $eav_field->{'field'} };
+		}
+	}
+	my $eav_fields = $self->{'cache'}->{'eav_fields'};
+	return if !@$eav_fields;
+	my %table = (
+		integer => 'eav_int',
+		float   => 'eav_float',
+		text    => 'eav_text',
+		date    => 'eav_date',
+		boolean => 'eav_boolean'
+	);
+	foreach my $eav_field (@$eav_fields) {
+		my $table = $table{ $eav_field->{'value_format'} };
+		my $value = $self->{'datastore'}->run_query(
+			"SELECT value FROM $table WHERE (isolate_id,field)=(?,?)",
+			[ $id, $eav_field->{'field'} ],
+			{ cache => "ResutsTable::print_isolate_eav_values::$table" }
+		);
+		$value //= q();
+		print qq(<td>$value</td>);
+	}
+	return;
+}
+
 sub _print_isolate_seqbin_values {
 	my ( $self, $id ) = @_;
 	if ( $self->{'prefs'}->{'display_seqbin_main'} || $self->{'prefs'}->{'display_contig_count'} ) {
 		my $stats = $self->_get_seqbin_stats($id);
-		print "<td>$stats->{'total_length'}</td>" if $self->{'prefs'}->{'display_seqbin_main'};
-		print "<td>$stats->{'contigs'}</td>"      if $self->{'prefs'}->{'display_contig_count'};
+		print qq(<td>$stats->{'total_length'}</td>) if $self->{'prefs'}->{'display_seqbin_main'};
+		print qq(<td>$stats->{'contigs'}</td>)      if $self->{'prefs'}->{'display_contig_count'};
 	}
 	return;
 }
@@ -784,8 +821,9 @@ sub _print_isolate_table_header {
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
 	my ( $composites, $composite_display_pos ) = $self->_get_composite_positions;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 
-	foreach my $col (@$select_items) {
+	foreach my $col ( @$select_items, @$eav_fields ) {
 		if ( $self->{'prefs'}->{'maindisplayfields'}->{$col} || $col eq 'id' ) {
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($col);
 			( my $display_col = $metafield // $col ) =~ tr/_/ /;

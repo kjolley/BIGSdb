@@ -156,12 +156,17 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON locus_extended_attributes TO apache;
 CREATE TABLE locus_curators (
 locus text NOT NULL,
 curator_id int NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
 hide_public bool,
 PRIMARY KEY(locus,curator_id),
 CONSTRAINT lc_locus FOREIGN KEY (locus) REFERENCES loci
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT lc_curator_id FOREIGN KEY (curator_id) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT lc_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
@@ -438,11 +443,16 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON scheme_fields TO apache;
 CREATE TABLE scheme_curators (
 scheme_id int NOT NULL,
 curator_id int NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
 PRIMARY KEY(scheme_id,curator_id),
-CONSTRAINT pc_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
+CONSTRAINT sc_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT pc_curator_id FOREIGN KEY (curator_id) REFERENCES users
+CONSTRAINT sc_curator_id FOREIGN KEY (curator_id) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sc_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
@@ -1225,7 +1235,7 @@ CREATE OR REPLACE FUNCTION modify_scheme() RETURNS TRIGGER AS $modify_scheme$
 	END;
 $modify_scheme$ LANGUAGE plpgsql;
 
-CREATE TRIGGER modify_scheme AFTER INSERT OR UPDATE OR DELETE ON scheme_fields
+CREATE TRIGGER modify_scheme AFTER INSERT OR DELETE ON scheme_fields
 	FOR EACH ROW
 	EXECUTE PROCEDURE modify_scheme();
 	

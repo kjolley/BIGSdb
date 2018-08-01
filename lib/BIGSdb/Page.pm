@@ -458,7 +458,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system  = $self->{'system'};
-	my $version = '20180727';
+	my $version = '20180728';
 	my @filenames;
 	push @filenames, q(dropzone.css) if $self->{'dropzone'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
@@ -643,7 +643,8 @@ sub print_action_fieldset {
 			-style => 'margin-left:0.2em'
 		);
 	}
-	$buffer .= q(</fieldset><div style="clear:both"></div>);
+	$buffer .= q(</fieldset>);
+	$buffer .= q(<div style="clear:both"></div>) if !$options->{'no_clear'};
 	return $buffer if $options->{'get_only'};
 	say $buffer;
 	return;
@@ -826,6 +827,20 @@ sub add_existing_metadata_to_hashref {
 	return;
 }
 
+sub add_existing_eav_data_to_hashref {
+	my ( $self, $data ) = @_;
+	return if !defined $data->{'id'};
+	my @types = qw(int float text date boolean);
+	foreach my $type (@types) {
+		my $eav_data = $self->{'datastore'}->run_query( "SELECT * FROM eav_$type WHERE isolate_id=?",
+			$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$eav_data) {
+			$data->{ $record->{'field'} } = $record->{'value'};
+		}
+	}
+	return;
+}
+
 sub get_extended_attributes {
 	my ($self) = @_;
 	my $data =
@@ -843,6 +858,7 @@ sub get_field_selection_list {
 
 	#options passed as hashref:
 	#isolate_fields: include isolate fields, prefix with f_
+	#eav_fields: include EAV fields, prefix with eav_
 	#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 	#loci: include loci, prefix with either l_ or cn_ (common name)
 	#locus_limit: don't include loci if there are more than the set value
@@ -859,6 +875,10 @@ sub get_field_selection_list {
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
 		push @$values, @$isolate_fields;
+	}
+	if ( $options->{'eav_fields'} ) {
+		my $eav_fields = $self->_get_eav_fields($options);
+		push @$values, @$eav_fields;
 	}
 	if ( $options->{'loci'} ) {
 		my $loci = $self->_get_loci_list($options);
@@ -993,6 +1013,18 @@ sub _get_provenance_fields {
 		}
 	}
 	return \@isolate_list;
+}
+
+sub _get_eav_fields {
+	my ( $self, $options ) = @_;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $list       = [];
+	foreach my $fieldname (@$eav_fields) {
+		push @$list, qq(eav_$fieldname);
+		(my $cleaned = $fieldname) =~ tr/_/ /;
+		$self->{'cache'}->{'labels'}->{qq(eav_$fieldname)} = $cleaned;
+	}
+	return $list;
 }
 
 sub _get_scheme_fields {
@@ -1624,7 +1656,8 @@ sub get_record_name {
 		classification_group_fields       => 'classification group field',
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
-		oauth_credentials                 => 'OAuth credentials'
+		oauth_credentials                 => 'OAuth credentials',
+		eav_fields                        => 'phenotypic field'
 	);
 	return $names{$table};
 }
@@ -1923,7 +1956,8 @@ sub can_modify_table {
 			sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
 			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
 			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
-			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'}
+			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'},
+			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates retired_isolates isolate_aliases refs);
@@ -2114,10 +2148,12 @@ sub _initiate_isolatedb_prefs {
 	my $set_id           = $self->get_set_id;
 	my $metadata_list    = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list       = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $eav_field_list   = $self->{'datastore'}->get_eav_fieldnames;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended         = $self->get_extended_attributes;
 	my $args             = {
 		field_list       => $field_list,
+		eav_field_list   => $eav_field_list,
 		field_prefs      => $field_prefs,
 		extended         => $extended,
 		field_attributes => $field_attributes
@@ -2161,8 +2197,8 @@ sub _initiate_seqdefdb_prefs {
 }
 
 sub _set_isolatedb_options {
-	my ( $self,       $args )     = @_;
-	my ( $field_list, $extended ) = @{$args}{qw(field_list extended)};
+	my ( $self, $args ) = @_;
+	my ( $field_list, $eav_field_list, $extended ) = @{$args}{qw(field_list eav_field_list extended)};
 	my $q      = $self->{'cgi'};
 	my $params = $q->Vars;
 
@@ -2189,6 +2225,9 @@ sub _set_isolatedb_options {
 				}
 			}
 		}
+	}
+	foreach my $field (@$eav_field_list) {
+		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"} ? 1 : 0;
 	}
 	$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $params->{'field_aliases'} ? 1 : 0;
 	my $composites =
@@ -2266,8 +2305,8 @@ sub _initiate_isolatedb_query_field_prefs {
 
 sub _initiate_isolatedb_main_display_prefs {
 	my ( $self, $args ) = @_;
-	my ( $field_list, $field_prefs, $field_attributes, $extended ) =
-	  @{$args}{qw(field_list field_prefs field_attributes extended)};
+	my ( $field_list, $eav_field_list, $field_prefs, $field_attributes, $extended ) =
+	  @{$args}{qw(field_list eav_field_list field_prefs field_attributes extended)};
 	if ( defined $field_prefs->{'aliases'}->{'maindisplay'} ) {
 		$self->{'prefs'}->{'maindisplayfields'}->{'aliases'} = $field_prefs->{'aliases'}->{'maindisplay'};
 	} else {
@@ -2294,6 +2333,11 @@ sub _initiate_isolatedb_main_display_prefs {
 					$self->{'prefs'}->{'maindisplayfields'}->{"${field}..$extended_attribute"} = 0;
 				}
 			}
+		}
+	}
+	foreach my $field (@$eav_field_list) {
+		if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
+			$self->{'prefs'}->{'maindisplayfields'}->{$field} = $field_prefs->{$field}->{'maindisplay'};
 		}
 	}
 	my $qry = 'SELECT id,main_display FROM composite_fields';

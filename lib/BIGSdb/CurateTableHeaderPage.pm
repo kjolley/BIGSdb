@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(none);
 use Log::Log4perl qw(get_logger);
+use BIGSdb::Constants qw(:limits);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
@@ -51,73 +52,99 @@ sub print_content {
 	return;
 }
 
-sub get_headers {
-	my ( $self, $table, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my @headers;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-		foreach my $field (@$field_list) {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			next if ($att->{'no_curate'} // '') eq 'yes';
-			push @headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
-			if ( $field eq $self->{'system'}->{'labelfield'} ) {
-				push @headers, qw(aliases references);
-			}
-		}
-		my $isolate_loci = $self->get_isolate_loci;
-		push @headers, @$isolate_loci;
-	} elsif ( $table eq 'profiles' ) {
-		my $scheme_id = $self->{'cgi'}->param('scheme_id') || 0;
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		my $set_id = $self->get_set_id;
-		push @headers, 'id' if $options->{'id_field'};
-		push @headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
-		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach my $locus (@$loci) {
-			my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-			push @headers, $label // $locus;
-		}
-		if ( !$options->{'no_fields'} ) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-			foreach my $field (@$scheme_fields) {
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-				push @headers, $field if !$scheme_field_info->{'primary_key'};
-			}
-		}
-	} else {
-		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		foreach my $att (@$attributes) {
-			if ( !( $att->{'name'} eq 'id' && $att->{'type'} eq 'int' ) ) {
-				push @headers, $att->{'name'}
-				  if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
-			}
-			if ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
-				push @headers, 'aliases';
-			}
-		}
-		if ( $table eq 'sequences' ) {
-			if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-				push @headers, 'flags';
-			}
-			if ( $self->{'cgi'}->param('locus') ) {
-				shift @headers;    #don't include 'locus'
-				my $extended_attributes = $self->{'datastore'}->run_query(
-					'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
-					$self->{'cgi'}->param('locus'),
-					{ fetch => 'col_arrayref' }
-				);
-				if ( ref $extended_attributes eq 'ARRAY' ) {
-					push @headers, @$extended_attributes;
-				}
-			}
-		} elsif ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-			push @headers, qw(full_name product description);
+sub _get_isolate_table_headers {
+	my ($self)  = @_;
+	my $headers = [];
+	my $set_id  = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	foreach my $field (@$field_list) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ( $att->{'no_curate'} // '' ) eq 'yes';
+		push @$headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
+		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+			push @$headers, qw(aliases references);
 		}
 	}
-	return \@headers;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	if ( @$eav_fields && @$eav_fields <= MAX_EAV_FIELD_LIST ) {
+		push @$headers, @$eav_fields;
+	}
+	my $isolate_loci = $self->get_isolate_loci;
+	push @$headers, @$isolate_loci;
+	return $headers;
+}
+
+sub _get_profile_table_headers {
+	my ( $self, $options ) = @_;
+	my $q           = $self->{'cgi'};
+	my $headers     = [];
+	my $scheme_id   = $self->{'cgi'}->param('scheme_id') || 0;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $set_id      = $self->get_set_id;
+	push @$headers, 'id' if $options->{'id_field'};
+	push @$headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+
+	foreach my $locus (@$loci) {
+		my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		push @$headers, $label // $locus;
+	}
+	if ( !$options->{'no_fields'} ) {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		foreach my $field (@$scheme_fields) {
+			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+			push @$headers, $field if !$scheme_field_info->{'primary_key'};
+		}
+	}
+	return $headers;
+}
+
+sub _get_other_table_headers {
+	my ( $self, $table ) = @_;
+	my $headers    = [];
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	foreach my $att (@$attributes) {
+		if ( !( $att->{'name'} eq 'id' && $att->{'type'} eq 'int' ) ) {
+			push @$headers, $att->{'name'}
+			  if none { $att->{'name'} eq $_ } qw (curator sender date_entered datestamp);
+		}
+		if ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
+			push @$headers, 'aliases';
+		}
+	}
+	if ( $table eq 'sequences' ) {
+		if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+			push @$headers, 'flags';
+		}
+		if ( $self->{'cgi'}->param('locus') ) {
+			shift @$headers;    #don't include 'locus'
+			my $extended_attributes = $self->{'datastore'}->run_query(
+				'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
+				$self->{'cgi'}->param('locus'),
+				{ fetch => 'col_arrayref' }
+			);
+			if ( ref $extended_attributes eq 'ARRAY' ) {
+				push @$headers, @$extended_attributes;
+			}
+		}
+	} elsif ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$headers, qw(full_name product description);
+	}
+	return $headers;
+}
+
+sub get_headers {
+	my ( $self, $table, $options ) = @_;
+	my $headers = [];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		$headers = $self->_get_isolate_table_headers;
+	} elsif ( $table eq 'profiles' ) {
+		$headers = $self->_get_profile_table_headers($options);
+	} else {
+		$headers = $self->_get_other_table_headers($table);
+	}
+	return $headers;
 }
 
 sub get_isolate_loci {
@@ -126,9 +153,7 @@ sub get_isolate_loci {
 	my @headers;
 	my $q = $self->{'cgi'};
 	my $order = $q->param('order') // 'alphabetical';
-	my $loci =
-	  $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } )
-	  ;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } );
 	my $loci_with_flag =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );

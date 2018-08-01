@@ -54,6 +54,7 @@ sub get_javascript_panel {
 		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
 		  . q[          $('[id$="_list"]').val('')],
 		provenance          => q[$('[id^="prov_value"]').val('')],
+		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
 		allele              => q[$('[id^="value"]').val('')],
 		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
@@ -98,6 +99,7 @@ sub get_javascript_panel {
 	  				\$("a#save_options").hide();
 	  				\$("span#saving").text('');
 	  				\$("a#save_options").html('$save');
+	  				\$(".panel").toggle("slide",{direction:"right"},"fast");
 	  			}
 	  		});
 	   	});
@@ -173,7 +175,8 @@ sub search_users {
 	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text\%')" : "CAST($suffix AS text) LIKE (E'\%$text\%')";
 	my $starts_with =
 	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'$text\%')" : "CAST($suffix AS text) LIKE (E'$text\%')";
-	my $ends_with = $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text')" : "CAST($suffix AS text) LIKE (E'\%$text')";
+	my $ends_with =
+	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text')" : "CAST($suffix AS text) LIKE (E'\%$text')";
 	my %modify = (
 		'NOT'         => "NOT $equals",
 		'contains'    => $contains,
@@ -231,6 +234,11 @@ sub check_format {
 			bool => sub {
 				if ( !BIGSdb::Utils::is_bool( $data->{'text'} ) ) {
 					$error = qq($display_field is a boolean (true/false) field.);
+				}
+				my %valid_operator = map { $_ => 1 } (qw(= NOT));
+				if ( !$valid_operator{ $data->{'operator'} } ) {
+					$error = qq($display_field is a boolean (true/false) field - )
+					  . q(these can only be searched with '=' or 'NOT' operators.);
 				}
 			},
 			float => sub {

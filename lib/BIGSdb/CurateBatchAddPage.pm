@@ -24,7 +24,7 @@ use Digest::MD5 qw(md5);
 use List::MoreUtils qw(any none uniq);
 use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface);
+use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface :limits);
 use BIGSdb::Utils;
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
@@ -147,6 +147,11 @@ sub _print_interface {
 		say q[<li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>];
 		say q[<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non-integer ]
 		  . q[ids will be ignored).</li>];
+		my $eav_fields = $self->{'datastore'}->get_eav_fields;
+		if ( @$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST ) {
+			say q[<li>You can add new columns for phenotypic fields - there are too many to include by default ]
+			  . q[(see the 'phenotypic_fields' tab in the Excel template for allowed field names).];
+		}
 		say q[<li>You can also upload allele fields along with the other isolate data - simply create a new column ]
 		  . q[with the locus name (see the 'allowed_loci' tab in the Excel template for locus names). These will be ]
 		  . q[added with a confirmed status and method set as 'manual'.</li>];
@@ -1801,6 +1806,24 @@ sub _check_isolate_id_not_retired {
 	return;
 }
 
+sub _is_not_allowed_to_upload_public_data {
+	my ( $self, $table ) = @_;
+	my $private   = $self->_is_private_record;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $table eq 'isolates' && !$private && $self->{'permissions'}->{'only_private'} ) {
+		$self->print_bad_status(
+			{
+				message =>
+				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
+			}
+		);
+		my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'} );
+		$logger->error("Attempt to upload public data by user ($user_string) who does not have permission.");
+		return 1;
+	}
+	return;
+}
+
 sub _upload_data {
 	my ( $self, $arg_ref ) = @_;
 	my $table   = $arg_ref->{'table'};
@@ -1814,20 +1837,10 @@ sub _upload_data {
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $project_id = $self->_get_private_project_id;
 	my $private    = $self->_is_private_record;
-
-	if ( $table eq 'isolates' && !$private && $self->{'permissions'}->{'only_private'} ) {
-		$self->print_bad_status(
-			{
-				message =>
-				  'You are attempting to upload public data but you do not have sufficient privileges to do so.'
-			}
-		);
-		my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'} );
-		$logger->error("Attempt to upload public data by user ($user_string) who not have permission.");
-		return;
-	}
+	return if $self->_is_not_allowed_to_upload_public_data($table);
 	my %loci;
 	$loci{$locus} = 1 if $locus;
+
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
 		if ($record) {
@@ -1959,8 +1972,26 @@ sub _upload_data {
 		}
 	}
 	$self->{'db'}->commit;
+	$self->_report_successful_upload( $table, $project_id );
+	foreach (@history) {
+		my ( $isolate_id, $action ) = split /\|/x, $_;
+		$self->update_history( $isolate_id, $action );
+	}
+	if ( $table eq 'sequences' ) {
+		my @loci = keys %loci;
+		$self->mark_locus_caches_stale( \@loci );
+		$self->update_blast_caches;
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _report_successful_upload {
+	my ( $self, $table, $project_id ) = @_;
+	my $q        = $self->{'cgi'};
 	my $nav_data = $self->_get_nav_data($table);
-	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	my $script   = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	my ( $more_url, $back_url, $upload_contigs_url );
 	if ( $script eq $self->{'system'}->{'script_name'} ) {
 		$more_url = qq($script?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
@@ -1990,17 +2021,6 @@ sub _upload_data {
 			upload_contigs_url => $upload_contigs_url,
 		}
 	);
-	foreach (@history) {
-		my ( $isolate_id, $action ) = split /\|/x, $_;
-		$self->update_history( $isolate_id, $action );
-	}
-	if ( $table eq 'sequences' ) {
-		my @loci = keys %loci;
-		$self->mark_locus_caches_stale( \@loci );
-		$self->update_blast_caches;
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
-	}
 	return;
 }
 
@@ -2086,21 +2106,34 @@ sub _prepare_isolate_extra_inserts {
 	my $locus_list = $self->_get_locus_list;
 	foreach (@$locus_list) {
 		next if !$field_order->{$_};
+		next if !defined $field_order->{$_};
 		my $value = $data->[ $field_order->{$_} ];
 		$value //= q();
-		$value =~ s/^\s*//gx;
-		$value =~ s/\s*$//gx;
+		$value =~ s/^\s+|\s+$//gx;
 		next if $value eq q();
-		if ( defined $field_order->{$_} ) {
-			my $qry =
-			    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
-			  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
-			push @inserts,
-			  {
-				statement => $qry,
-				arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
-			  };
-		}
+		my $qry =
+		    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
+		  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
+		push @inserts,
+		  {
+			statement => $qry,
+			arguments => [ $id, $_, $value, $sender, 'confirmed', 'manual', $curator, 'now', 'now' ]
+		  };
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $field (@$eav_fields) {
+		my $fieldname = $field->{'field'};
+		next if !$field_order->{$fieldname};
+		next if !defined $field_order->{$fieldname};
+		my $value = $data->[ $field_order->{$fieldname} ];
+		$value =~ s/^\s+|\s+$//gx;
+		next if $value eq q();
+		my $table = $self->{'datastore'}->get_eav_table( $field->{'value_format'} );
+		push @inserts,
+		  {
+			statement => "INSERT INTO $table (isolate_id,field,value) VALUES (?,?,?)",
+			arguments => [ $id, $fieldname, $value ]
+		  };
 	}
 	foreach (@$extras) {
 		next if !defined $_;
@@ -2459,6 +2492,8 @@ sub _get_fields_in_order {
 				push @fields, 'references';
 			}
 		}
+		my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+		push @fields, @$eav_fields           if @$eav_fields;
 		push @fields, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -2506,6 +2541,8 @@ sub _get_field_table_header {
 				push @headers, 'references';
 			}
 		}
+		my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+		push @headers, @$eav_fields           if @$eav_fields;
 		push @headers, REQUIRED_GENOME_FIELDS if $self->_in_genome_submission;
 		push @headers, 'loci';
 	} else {

@@ -178,20 +178,28 @@ sub _perform_action {
 	my $table_data = $self->_get_table_data($table);
 	if ( $q->param('add') ) {
 		my %qry = (
-			locus_curators  => 'INSERT INTO locus_curators(locus,curator_id,hide_public) VALUES (?,?,?)',
-			scheme_curators => 'INSERT INTO scheme_curators(scheme_id,curator_id) VALUES (?,?)',
+			locus_curators =>
+			  'INSERT INTO locus_curators(locus,curator_id,hide_public,curator,datestamp) VALUES (?,?,?,?,?)',
+			scheme_curators => 'INSERT INTO scheme_curators(scheme_id,curator_id,curator,datestamp) VALUES (?,?,?,?)',
 			user_group_members =>
 			  'INSERT INTO user_group_members(user_group,user_id,curator,datestamp) VALUES (?,?,?,?)'
 		);
-		my $sql_add = $self->{'db'}->prepare( $qry{$table} );
+		my $sql_add    = $self->{'db'}->prepare( $qry{$table} );
+		my $curator_id = $self->get_curator_id;
 		eval {
 			foreach my $record ( $q->param('available') ) {
 				next if $record eq '';
 				my %method = (
-					locus_curators =>
-					  sub { $sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ) ) },
-					scheme_curators    => sub { $sql_add->execute( $record, $user_id ) },
-					user_group_members => sub { $sql_add->execute( $record, $user_id, $self->get_curator_id, 'now' ) }
+					locus_curators => sub {
+						$sql_add->execute( $record, $user_id, ( $q->param('hide_public') ? 'true' : 'false' ),
+							$curator_id, 'now' );
+					},
+					scheme_curators => sub {
+						$sql_add->execute( $record, $user_id, $curator_id, 'now' );
+					},
+					user_group_members => sub {
+						$sql_add->execute( $record, $user_id, $curator_id, 'now' );
+					  }
 				);
 				$method{$table}->();
 			}

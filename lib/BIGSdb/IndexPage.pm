@@ -311,7 +311,7 @@ sub _print_options_section {
 	say q(<span class="main_icon fas fa-cogs fa-3x fa-pull-left"></span>);
 	say q(<h2>Option settings</h2>);
 	say q(<ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?page=options&amp;db=$self->{'instance'}$cache_string">)
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options$cache_string">)
 	  . q(Set general options</a>);
 	say q( - including isolate table field handling.) if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(</li>);

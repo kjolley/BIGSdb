@@ -229,7 +229,7 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users);
+	  retired_isolates schemes users eav_fields);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -245,7 +245,7 @@ sub _insert {
 		$self->$method( $newdata, \@problems, $extra_inserts, $extra_transactions );
 	}
 	if (@problems) {
-		local $" = "<br />\n";
+		local $" = qq(<br />\n);
 		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
 	} else {
 		my ( @table_fields, @placeholders, @values );
@@ -793,7 +793,17 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	return;
 }
 
-sub _check_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_eav_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
+	my %prov_fields = map { lc($_) => 1 } @$prov_fields;
+	if ( $prov_fields{ lc( $newdata->{'field'} ) } ) {
+		push @$problems, 'A provenance field already exists with this name.';
+	}
+	return;
+}
+
+sub _check_loci {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$newdata->{'locus'} = $newdata->{'id'};

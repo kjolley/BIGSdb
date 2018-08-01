@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateTableHeaderPage);
-use BIGSdb::Constants qw(SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS :limits);
 use Excel::Writer::XLSX;
 use Excel::Writer::XLSX::Utility;
 use Log::Log4perl qw(get_logger);
@@ -88,12 +88,14 @@ sub print_content {
 	if ( $table eq 'isolates' ) {
 		$allowed_values_worksheet = $workbook->add_worksheet('allowed_values');
 		$self->_print_isolate_allowed_loci( $workbook->add_worksheet('allowed_loci') );
+		$self->_print_isolate_eav_fields ($workbook);
 	}
 	foreach my $field (@$headers) {
 		push @{ $self->{'values'}->{$field} }, $field;
 		$worksheet->write( 0, $col, $field, $self->{'header_format'} );
 		if ( $table eq 'isolates' ) {
 			$self->_print_isolate_allowed_values( $allowed_values_worksheet, $field );
+			
 			$self->_set_isolate_validation( $worksheet, $field, $col );
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( $att->{'comments'} ) {
@@ -195,6 +197,20 @@ sub _print_isolate_allowed_loci {
 	foreach my $col ( 0 .. 2 ) {
 		my $length = int( 0.9 * ( $col_max_length[$col] ) + 2 );
 		$worksheet->set_column( $col, $col, $length );
+	}
+	return;
+}
+
+sub _print_isolate_eav_fields {
+	my ($self, $workbook) = @_;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	return if @$eav_fields <= MAX_EAV_FIELD_LIST;
+	my $worksheet = $workbook->add_worksheet('phenotypic_fields');
+	$worksheet->write( 0, 0, 'field', $self->{'header_format'} );
+	my $row = 1;
+	foreach my $field (@$eav_fields){
+		$worksheet->write( $row, 0, $field );
+		$row++;
 	}
 	return;
 }

@@ -2171,7 +2171,7 @@ sub get_tables {
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  samples isolates history sequence_attributes classification_schemes classification_group_fields
-		  retired_isolates user_dbases oauth_credentials);
+		  retired_isolates user_dbases oauth_credentials eav_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2197,7 +2197,7 @@ sub get_tables_with_curator {
 		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
-		  isolates);
+		  isolates eav_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  if $self->{'system'}->{'view'} && $self->{'system'}->{'view'} ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {
@@ -2230,6 +2230,75 @@ sub get_set_metadata {
 	} elsif ( $options->{'curate'} ) {
 		return $self->{'xmlHandler'}->get_metadata_list;
 	}
+}
+
+sub get_eav_fields {
+	my ($self) = @_;
+	return $self->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+}
+
+sub get_eav_table {
+	my ( $self, $type ) = @_;
+	my %table = (
+		integer => 'eav_int',
+		float   => 'eav_float',
+		text    => 'eav_text',
+		date    => 'eav_date',
+		boolean => 'eav_boolean'
+	);
+	if ( !$table{$type} ) {
+		$logger->error('Invalid EAV type');
+		return;
+	}
+	return $table{$type};
+}
+
+sub get_eav_fieldnames {
+	my ($self) = @_;
+	return $self->run_query( 'SELECT field FROM eav_fields ORDER BY field_order,field', undef,
+		{ fetch => 'col_arrayref' } );
+}
+
+sub get_eav_field {
+	my ( $self, $field ) = @_;
+	return $self->run_query( 'SELECT * FROM eav_fields WHERE field=?',
+		$field, { fetch => 'row_hashref', cache => 'get_eav_field' } );
+}
+
+sub is_eav_field {
+	my ( $self, $field ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $field );
+}
+
+sub get_eav_field_table {
+	my ( $self, $field ) = @_;
+	if ( !$self->{'cache'}->{'eav_field_table'}->{$field} ) {
+		my $eav_field = $self->get_eav_field($field);
+		if ( !$eav_field ) {
+			$logger->error("EAV field $field does not exist");
+			return;
+		}
+		my $type  = $eav_field->{'value_format'};
+		my $table = $self->get_eav_table($type);
+		if ($table) {
+			$self->{'cache'}->{'eav_field_table'}->{$field} = $table;
+		} else {
+			$logger->error("EAV field $field has invalid field type");
+			return;
+		}
+	}
+	return $self->{'cache'}->{'eav_field_table'}->{$field};
+}
+
+sub get_eav_field_value {
+	my ( $self, $isolate_id, $field ) = @_;
+	my $table = $self->get_eav_field_table($field);
+	return $self->run_query(
+		"SELECT value FROM $table WHERE (isolate_id,field)=(?,?)",
+		[ $isolate_id, $field ],
+		{ cache => "get_eav_field_value::$table" }
+	);
 }
 
 sub get_metadata_value {
@@ -2319,8 +2388,7 @@ sub initiate_view {
 	} else {
 		my @user_terms;
 		my $has_user_project =
-			  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)',
-				$user_info->{'id'} );
+		  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)', $user_info->{'id'} );
 		if ($curate) {
 			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
 			my $method = {
@@ -2344,8 +2412,7 @@ sub initiate_view {
 			#Simplify view definition by only looking for private/project isolates if the user has any.
 			my $has_private_isolates =
 			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-			push @user_terms, OWN_PRIVATE_ISOLATES if $has_private_isolates;
-			
+			push @user_terms, OWN_PRIVATE_ISOLATES       if $has_private_isolates;
 			push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 		}
 		local $" = q( OR );
