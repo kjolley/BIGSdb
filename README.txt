@@ -1,3 +1,9 @@
+v1.19.0: *Support for sparsely-populated fields - useful for storing large
+          numbers of phenotypic data category values that are only available
+          for a minority of isolates.
+         *rMLST plugin - provide match results for each row of results.
+         *Curators now allowed to curate private isolates that are part of a
+          user project that they have been invited to.
 v1.18.4: *Improved navigation bars.
          *New curator index page.
          *Drag and drop batch genome uploads (make sure javascript directory is
