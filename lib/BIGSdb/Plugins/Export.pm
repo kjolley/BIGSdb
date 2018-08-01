@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.5.0',
+		version     => '1.6.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -72,7 +72,7 @@ END
 	return $js;
 }
 
-sub print_extra_fields {
+sub _print_ref_fields {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>References</legend><ul><li>);
@@ -94,7 +94,7 @@ sub print_extra_fields {
 	return;
 }
 
-sub print_options {
+sub _print_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
@@ -128,7 +128,7 @@ sub print_options {
 	return;
 }
 
-sub print_extra_scheme_fields {
+sub _print_classification_scheme_fields {
 	my ($self) = @_;
 	my $classification_schemes =
 	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,name',
@@ -159,7 +159,7 @@ sub print_extra_scheme_fields {
 	return;
 }
 
-sub print_extra_options {
+sub _print_molwt_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
@@ -186,80 +186,98 @@ sub run {
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
 			$self->print_bad_status( { message => q(No fields have been selected!) } );
-		} else {
-			my $prefix     = BIGSdb::Utils::get_random();
-			my $filename   = "$prefix.txt";
-			my $query_file = $q->param('query_file');
-			my $qry_ref    = $self->get_query($query_file);
-			return if ref $qry_ref ne 'SCALAR';
-			my $fields = $self->{'xmlHandler'}->get_field_list;
-			my $view   = $self->{'system'}->{'view'};
-			local $" = ",$view.";
-			my $field_string = "$view.@$fields";
-			$$qry_ref =~ s/SELECT\ ($view\.\*|\*)/SELECT $field_string/x;
-			my $set_id = $self->get_set_id;
-			$self->rewrite_query_ref_order_by($qry_ref);
-			my $ids    = $self->get_ids_from_query($qry_ref);
-			my $params = $q->Vars;
-			$params->{'set_id'}      = $set_id if $set_id;
-			$params->{'script_name'} = $self->{'system'}->{'script_name'};
-			$params->{'qry'}         = $$qry_ref;
-			local $" = '||';
-			$params->{'selected_fields'} = "@$selected_fields";
-
-			#We only need the isolate count to calculate the %progress.  The isolate list is not uploaded
-			#to the job database because we have included the query as a parameter.  The query has ordering
-			#information so the output will be in the same order as requested, which it wouldn't be if we
-			#used the isolate id list from the job database.
-			#If we did a list query though, we should upload the list.
-			$params->{'isolate_count'} = scalar @$ids;
-			if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
-				my $att       = $self->get_attributes;
-				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-				my $job_id    = $self->{'jobManager'}->add_job(
-					{
-						dbase_config => $self->{'instance'},
-						ip_address   => $q->remote_host,
-						module       => $att->{'module'},
-						priority     => $att->{'priority'},
-						parameters   => $params,
-						username     => $self->{'username'},
-						email        => $user_info->{'email'},
-						isolates     => $$qry_ref =~ /(temp_list|count_table)/x ? $ids : undef
-					}
-				);
-				say $self->get_job_redirect($job_id);
-				return;
-			}
-			say q(<div class="box" id="resultstable">);
-			say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-			say q(<p class="hideonload"><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
-			print q(<p>Output files being generated ...);
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			$self->_write_tab_text(
-				{
-					qry_ref  => $qry_ref,
-					fields   => $selected_fields,
-					filename => $full_path,
-					set_id   => $set_id,
-					params   => $params
-				}
-			);
-			say q( done</p>);
-			say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
-			my $excel = BIGSdb::Utils::text2excel(
-				$full_path,
-				{
-					worksheet   => 'Export',
-					tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
-					text_fields => $self->{'system'}->{'labelfield'}
-				}
-			);
-			say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
-			say q( (right-click to save)</p>);
-			say q(</div>);
+			$self->_print_interface;
 			return;
 		}
+		my $prefix   = BIGSdb::Utils::get_random();
+		my $filename = "$prefix.txt";
+		my $ids      = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
+		push @$ids, @$pasted_cleaned_ids;
+		@$ids = uniq @$ids;
+		if ( !@$ids ) {
+			$self->print_bad_status( { message => q(No valid ids have been selected!) } );
+			$self->_print_interface;
+			return;
+		}
+		if (@$invalid_ids) {
+			local $" = ', ';
+			$self->print_bad_status(
+				{ message => qq(The following isolates in your pasted list are invalid: @$invalid_ids.) } );
+			$self->_print_interface;
+			return;
+		}
+		my $set_id = $self->get_set_id;
+		my $params = $q->Vars;
+		$params->{'set_id'} = $set_id if $set_id;
+		$params->{'script_name'} = $self->{'system'}->{'script_name'};
+		local $" = '||';
+		$params->{'selected_fields'} = "@$selected_fields";
+		if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
+			my $att       = $self->get_attributes;
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $job_id    = $self->{'jobManager'}->add_job(
+				{
+					dbase_config => $self->{'instance'},
+					ip_address   => $q->remote_host,
+					module       => $att->{'module'},
+					priority     => $att->{'priority'},
+					parameters   => $params,
+					username     => $self->{'username'},
+					email        => $user_info->{'email'},
+					isolates     => $ids
+				}
+			);
+			say $self->get_job_redirect($job_id);
+			return;
+		}
+		say q(<div class="box" id="resultstable">);
+		say q(<p>Please wait for processing to finish (do not refresh page).</p>);
+		say q(<p class="hideonload"><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
+		print q(<p>Output files being generated ...);
+		my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+		$self->_write_tab_text(
+			{
+				ids      => $ids,
+				fields   => $selected_fields,
+				filename => $full_path,
+				set_id   => $set_id,
+				params   => $params
+			}
+		);
+		say q( done</p>);
+		say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
+		my $excel = BIGSdb::Utils::text2excel(
+			$full_path,
+			{
+				worksheet   => 'Export',
+				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields => $self->{'system'}->{'labelfield'}
+			}
+		);
+		say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
+		say q( (right-click to save)</p>);
+		say q(</div>);
+		return;
+	}
+	$self->_print_interface;
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $default_select ) = @_;
+	my $q          = $self->{'cgi'};
+	my $set_id     = $self->get_set_id;
+	my $query_file = $q->param('query_file');
+	my $qry_ref    = $self->get_query($query_file);
+	my $selected_ids;
+	if ( $q->param('isolate_id') ) {
+		my @ids = $q->param('isolate_id');
+		$selected_ids = \@ids;
+	} elsif ( defined $query_file ) {
+		$selected_ids = $self->get_ids_from_query($qry_ref);
+	} else {
+		$selected_ids = [];
 	}
 	say q(<div class="box" id="queryform">);
 	say q(<p>This script will export the dataset in tab-delimited text and Excel formats. )
@@ -273,7 +291,20 @@ sub run {
 			last;
 		}
 	}
-	$self->print_field_export_form( 1, { include_composites => 1, extended_attributes => 1 } );
+	say $q->start_form;
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_isolates_fieldset( 1, { include_composites => 1, extended_attributes => 1 } );
+	$self->_print_ref_fields;
+	$self->print_isolates_locus_fieldset;
+	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->_print_classification_scheme_fields;
+	$self->_print_options;
+	$self->_print_molwt_options;
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name set_id);
+	say $q->end_form;
 	say q(</div>);
 	return;
 }
@@ -288,20 +319,13 @@ sub run_job {
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	my @fields = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
-	if ( $params->{'qry'} =~ /(temp_list|count_table)/x ) {
-		my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
-		$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
-
-		#Convert list attribute field to ids.
-		my $view  = $self->{'system'}->{'view'};
-		my $BY_ID = "($view.id IN (SELECT value FROM temp_list)) ORDER BY";
-		$params->{'qry'} =~ s/(FROM\ $view.*?)WHERE.*ORDER\ BY/$1 WHERE $BY_ID/x;
-	}
+	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $limit =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
 	  ? $self->{'system'}->{'export_limit'}
 	  : MAX_DEFAULT_DATA_POINTS;
-	my $data_points = $params->{'isolate_count'} * @fields;
+	my $data_points = @$ids * @fields;
+
 	if ( $data_points > $limit ) {
 		my $nice_data_points = BIGSdb::Utils::commify($data_points);
 		my $nice_limit       = BIGSdb::Utils::commify($limit);
@@ -312,7 +336,7 @@ sub run_job {
 	}
 	$self->_write_tab_text(
 		{
-			qry_ref  => \$params->{'qry'},
+			ids      => $ids,
 			fields   => \@fields,
 			filename => $filename,
 			set_id   => $params->{'set_id'},
@@ -352,19 +376,23 @@ sub run_job {
 
 sub _write_tab_text {
 	my ( $self, $args ) = @_;
-	my ( $qry_ref, $fields, $filename, $set_id, $offline, $params ) =
-	  @{$args}{qw(qry_ref fields filename set_id offline params)};
-	$self->create_temp_tables($qry_ref);
+	my ( $ids, $fields, $filename, $set_id, $offline, $params ) =
+	  @{$args}{qw(ids fields filename set_id offline params)};
+	$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  || $logger->error("Can't open temp file $filename for writing");
 	my ( $header, $error ) = $self->_get_header( $fields, $set_id, $params );
 	say $fh $header;
 	return if $error;
-	my $sql = $self->{'db'}->prepare($$qry_ref);
+	my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
+	local $" = q(,);
+	my $sql =
+	  $self->{'db'}->prepare(
+		"SELECT @$fields_to_bind FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list) ORDER BY id"
+	  );
 	eval { $sql->execute };
 	$logger->error($@) if $@;
-	my %data           = ();
-	my $fields_to_bind = $self->{'xmlHandler'}->get_field_list;
+	my %data = ();
 	$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
 	my $i = 0;
 	my $j = 0;
@@ -442,8 +470,8 @@ sub _write_tab_text {
 		}
 		$j = 0 if $j == 10;
 		$total++;
-		if ( $offline && $params->{'job_id'} && $params->{'isolate_count'} ) {
-			my $new_progress = int( $total / $params->{'isolate_count'} * 100 );
+		if ( $offline && $params->{'job_id'} ) {
+			my $new_progress = int( $total / @$ids * 100 );
 
 			#Only update when progress percentage changes when rounded to nearest 1 percent
 			if ( $new_progress > $progress ) {
