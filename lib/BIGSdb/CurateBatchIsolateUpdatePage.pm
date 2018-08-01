@@ -92,7 +92,7 @@ HTML
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page);
 	say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
-	say $q->textarea( -name => 'data', -rows => 15, -columns => 40);
+	say $q->textarea( -name => 'data', -rows => 15, -columns => 40 );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li><label for="idfield1" class="filter">Primary selection field: </label>);
@@ -338,6 +338,7 @@ sub _check {
 							value        => \@value,
 						}
 					);
+					$value[$i] =~ s/(<blank>|null)//x if defined $value[$i];
 					push @$update_rows, qq($id[$i]\t$id2[$i]\t$field[$i]\t$value[$i]) if $update;
 				}
 			} else {
@@ -360,7 +361,6 @@ sub _check {
 			$table_rows++;
 			$td = $td == 1 ? 2 : 1;
 		}
-		$value[$i] =~ s/(<blank>|null)//x if defined $value[$i];
 		$i++;
 	}
 	$buffer .= q(</table>);
