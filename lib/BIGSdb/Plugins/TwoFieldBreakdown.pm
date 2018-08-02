@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.4',
+		version     => '1.4.5',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -713,20 +713,6 @@ sub _print_charts {
 			say q(<div class="box" id="chart"><h2>Charts</h2>);
 			say q(<p>Click to enlarge.</p>);
 		}
-
-		#		my $guid = $self->get_guid;
-		#		my %prefs;
-		#		foreach my $att (qw (threeD transparent)) {
-		#			try {
-		#				$prefs{$att} =
-		#				  $self->{'prefstore'}
-		#				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
-		#				$prefs{$att} = $prefs{$att} eq 'true' ? 1 : 0;
-		#			}
-		#			catch BIGSdb::DatabaseNoRecordException with {
-		#				$prefs{$att} = 0;
-		#			};
-		#		}
 		for my $i ( 0 .. 1 ) {
 			my $chart = XYChart->new( 1000, 500 );
 			$chart->setPlotArea( 100, 40, 580, 300 );
@@ -747,33 +733,31 @@ sub _print_charts {
 				$chart->setColors($perlchartdir::transparentPalette) if $transparent;
 			}
 			for my $field1value ( sort { $field1_total->{$b} <=> $field1_total->{$a} || $a cmp $b } keys %$data ) {
-				if ( $field1value ne 'No value' ) {
-					my @dataset;
-					foreach my $field2value (@$field2_values) {
-						if ( !$data->{$field1value}->{$field2value} ) {
-							push @dataset, 0;
-						} else {
-							push @dataset, $data->{$field1value}->{$field2value};
-						}
+				next if $field1value eq 'No value';
+				my @dataset;
+				foreach my $field2value (@$field2_values) {
+					if ( !$data->{$field1value}->{$field2value} ) {
+						push @dataset, 0;
+					} else {
+						push @dataset, $data->{$field1value}->{$field2value};
 					}
-					$layer->addDataSet( \@dataset, -1, $field1value );
 				}
+				$layer->addDataSet( \@dataset, -1, $field1value );
 			}
 
 			#Put unassigned or no value at end
 			my @specials = ( 'Unassigned', 'No value', 'unspecified' );
 			foreach my $specialvalue (@specials) {
-				if ( $data->{$specialvalue} ) {
-					my @dataset;
-					foreach my $field2value (@$field2_values) {
-						if ( !$data->{$specialvalue}->{$field2value} ) {
-							push @dataset, 0;
-						} else {
-							push @dataset, $data->{$specialvalue}->{$field2value};
-						}
+				next if !$data->{$specialvalue};
+				my @dataset;
+				foreach my $field2value (@$field2_values) {
+					if ( !$data->{$specialvalue}->{$field2value} ) {
+						push @dataset, 0;
+					} else {
+						push @dataset, $data->{$specialvalue}->{$field2value};
 					}
-					$layer->addDataSet( \@dataset, -1, $specialvalue );
 				}
+				$layer->addDataSet( \@dataset, -1, $specialvalue );
 			}
 			if ( !$i ) {
 				$chart->addTitle( 'Values', 'arial.ttf', 14 );
@@ -896,7 +880,6 @@ sub _get_values {
 	$options = {} if ref $options ne 'HASH';
 	my @values;
 	foreach my $field (@$fields) {
-		my $values;
 		my $sub_args = {
 			isolate_id   => $isolate_id,
 			field        => $field,
@@ -904,15 +887,23 @@ sub _get_values {
 			scheme_id    => $scheme_id,
 			options      => $options
 		};
-		if    ( $field_type->{$field} eq 'field' ) { $values = [ $self->_get_field_value($sub_args) ] }
-		elsif ( $field_type->{$field} eq 'locus' ) { $values = $self->_get_locus_values($sub_args) }
-		elsif ( $field_type->{$field} eq 'scheme_field' ) {
-			$values = $self->get_scheme_field_values(
-				{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} } );
-		} elsif ( $field_type->{$field} eq 'metafield' ) {
-			$values = [ $self->_get_metafield_value($sub_args) ];
+		my $method = {
+			field => sub { return [ $self->_get_field_value($sub_args) ] },
+			locus => sub { return $self->_get_locus_values($sub_args) },
+			scheme_field => sub {
+				return $self->get_scheme_field_values(
+					{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} }
+				);
+			},
+			metafield => sub {
+				return [ $self->_get_metafield_value($sub_args) ];
+			  }
+		};
+		if ( $method->{ $field_type->{$field} } ) {
+			push @values, $method->{ $field_type->{$field} }->();
+		} else {
+			$logger->error('Invalid field type');
 		}
-		push @values, $values;
 	}
 	return @values;
 }

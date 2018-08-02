@@ -172,7 +172,9 @@ sub print_content {
 			say $q->start_form;
 			$q->param( update_options => 1 );
 			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
-			say $q->hidden($_) foreach qw(page db name query_file temp_table_file update_options);
+			say $q->hidden($_)
+			  foreach qw(page db name query_file temp_table_file update_options isolate_id isolate_paste_list)
+			  ;
 			say q(<div id="hidefromnonJS" class="hiddenbydefault">);
 			say q(<div class="floatmenu"><a id="toggle1" class="showhide">Show options</a>);
 			say q(<a id="toggle2" class="hideshow">Hide options</a></div>);
@@ -467,12 +469,11 @@ sub get_selected_fields {
 	foreach my $locus (@$loci) {
 		push @fields_selected, "l_$locus" if any { $locus eq $_ } @$selected_loci;
 	}
-	if ($q->param('classification_schemes')){
+	if ( $q->param('classification_schemes') ) {
 		my @cschemes = $q->param('classification_schemes');
-		foreach my $cs (@cschemes){
+		foreach my $cs (@cschemes) {
 			push @fields_selected, "cs_$cs";
 		}
-		
 	}
 	return \@fields_selected;
 }
