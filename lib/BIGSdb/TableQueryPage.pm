@@ -295,69 +295,20 @@ sub _print_interface {
 			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
 		}
 	}
-	my %table_with_scheme_filter = map { $_ => 1 } qw (loci allele_designations schemes);
-	if ( $table_with_scheme_filter{$table} ) {
-		push @filters, $self->get_scheme_filter;
-	} elsif ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' && $table eq 'sequences' ) {
-		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		push @filters, $self->get_filter( 'allele_flag', \@flag_values );
-	} elsif ( $table eq 'sequence_bin' ) {
-		my %labels;
-		my @experiments;
-		my $qry = 'SELECT id,description FROM experiments ORDER BY description';
-		my $sql = $self->{'db'}->prepare($qry);
-		eval { $sql->execute };
-		$logger->error($@) if $@;
-		while ( my @data = $sql->fetchrow_array ) {
-			push @experiments, $data[0];
-			$labels{ $data[0] } = $data[1];
+	my $filter_method = {
+		loci                => sub { return $self->get_scheme_filter },
+		allele_designations => sub { return $self->get_scheme_filter },
+		schemes             => sub { return $self->get_scheme_filter },
+		sequences           => sub { return $self->_get_sequence_filter },
+		sequence_bin        => sub { return $self->_get_sequence_bin_filter },
+		locus_descriptions  => sub { return $self->_get_locus_description_filter },
+		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
+	};
+	if ( $filter_method->{$table} ) {
+		my $table_filters = $filter_method->{$table}->();
+		if ($table_filters) {
+			push @filters, ref $table_filters ? @$table_filters : $table_filters;
 		}
-		if (@experiments) {
-			push @filters, $self->get_filter( 'experiment', \@experiments, { labels => \%labels } );
-		}
-	} elsif ( $table eq 'locus_descriptions' ) {
-		my %labels;
-		my $common_names =
-		  $self->{'datastore'}->run_query( 'SELECT DISTINCT common_name FROM loci ORDER BY common_name',
-			undef, { fetch => 'col_arrayref' } );
-		push @filters,
-		  $self->get_filter(
-			'common_name',
-			$common_names,
-			{
-				tooltip => 'common names filter - Select a name to filter your search '
-				  . 'to only those loci with the selected common name.'
-			}
-		  );
-	} elsif ( $table eq 'allele_sequences' ) {
-		push @filters, $self->get_scheme_filter;
-		push @filters,
-		  $self->get_filter(
-			'sequence_flag',
-			[ 'any flag', 'no flag', SEQ_FLAGS ],
-			{
-				tooltip => 'sequence flag filter - Select the appropriate value to '
-				  . 'filter tags to only those flagged accordingly.'
-			}
-		  );
-		push @filters,
-		  $self->get_filter(
-			'duplicates',
-			[qw (1 2 5 10 25 50)],
-			{
-				text   => 'tags per isolate/locus',
-				labels => {
-					1  => 'no duplicates',
-					2  => '2 or more',
-					5  => '5 or more',
-					10 => '10 or more',
-					25 => '25 or more',
-					50 => '50 or more'
-				},
-				tooltip => 'Duplicates filter - Filter search to only those loci that have '
-				  . 'been tagged a specified number of times per isolate.'
-			}
-		  );
 	}
 	if (@filters) {
 		if ( @filters > 2 ) {
@@ -374,6 +325,83 @@ sub _print_interface {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+sub _get_sequence_filter {
+	my ($self) = @_;
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
+		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
+		return $self->get_filter( 'allele_flag', \@flag_values );
+	}
+	return;
+}
+
+sub _get_sequence_bin_filter {
+	my ($self) = @_;
+	my %labels;
+	my @experiments;
+	my $qry = 'SELECT id,description FROM experiments ORDER BY description';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
+	$logger->error($@) if $@;
+	while ( my @data = $sql->fetchrow_array ) {
+		push @experiments, $data[0];
+		$labels{ $data[0] } = $data[1];
+	}
+	if (@experiments) {
+		return $self->get_filter( 'experiment', \@experiments, { labels => \%labels } );
+	}
+	return;
+}
+
+sub _get_locus_description_filter {
+	my ($self) = @_;
+	my %labels;
+	my $common_names =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT common_name FROM loci ORDER BY common_name', undef, { fetch => 'col_arrayref' } );
+	return $self->get_filter(
+		'common_name',
+		$common_names,
+		{
+			tooltip => 'common names filter - Select a name to filter your search '
+			  . 'to only those loci with the selected common name.'
+		}
+	);
+}
+
+sub _get_allele_sequences_filters {
+	my ($self) = @_;
+	my $filters = [];
+	push @$filters, $self->get_scheme_filter;
+	push @$filters,
+	  $self->get_filter(
+		'sequence_flag',
+		[ 'any flag', 'no flag', SEQ_FLAGS ],
+		{
+			tooltip => 'sequence flag filter - Select the appropriate value to '
+			  . 'filter tags to only those flagged accordingly.'
+		}
+	  );
+	push @$filters,
+	  $self->get_filter(
+		'duplicates',
+		[qw (1 2 5 10 25 50)],
+		{
+			text   => 'tags per isolate/locus',
+			labels => {
+				1  => 'no duplicates',
+				2  => '2 or more',
+				5  => '5 or more',
+				10 => '10 or more',
+				25 => '25 or more',
+				50 => '50 or more'
+			},
+			tooltip => 'Duplicates filter - Filter search to only those loci that have '
+			  . 'been tagged a specified number of times per isolate.'
+		}
+	  );
+	return $filters;
 }
 
 sub _get_dropdown_filter {
