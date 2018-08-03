@@ -307,11 +307,9 @@ sub _modify_users {
 	my $project_id = $q->param('project_id');
 	return if $self->_fails_project_check($project_id);
 	return if $self->_fails_admin_check($project_id);
-	my $user_info   = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $user_groups = $self->{'datastore'}->run_query(
-		'SELECT ug.id,ug.description FROM user_group_members AS ugm JOIN user_groups ug ON '
-		  . 'ugm.user_group=ug.id WHERE user_id=? ORDER BY UPPER(ug.description)',
-		$user_info->{'id'},
+		'SELECT id,description FROM user_groups ug ORDER BY UPPER(ug.description)',
+		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	$self->_update_user_groups($project_id) if $q->param('update_user_groups');
@@ -344,8 +342,7 @@ sub _print_user_group_form {
 		$labels->{ $ug->{'id'} } = $ug->{'description'};
 	}
 	say q(<h2>User groups</h2>);
-	say q(<p>All members of selected user groups can view this project )
-	  . q((only user groups that you are a member of are shown).</p>);
+	say q(<p>All members of selected user groups can view this project.</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Select user groups</legend>);
 	say q(<p>Select user groups able to access project</p>);
