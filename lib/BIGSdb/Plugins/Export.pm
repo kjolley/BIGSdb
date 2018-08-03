@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.6.0',
+		version     => '1.6.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -778,7 +778,7 @@ sub _write_classification_scheme {
 					{ fetch => 'col_arrayref', cache => "Export::write_cscheme::get_group::$cscheme_table" } );
 				push @groups, @$groups;
 			}
-			@groups = sort uniq @groups;
+			@groups = uniq sort @groups;
 			local $" = q(;);
 			$value = qq(@groups);
 		}
