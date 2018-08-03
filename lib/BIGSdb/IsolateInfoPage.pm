@@ -453,7 +453,7 @@ sub print_content {
 		  . q(<span id="hide_tree_text" style="display:inline"><span class="fa fas fa-eye-slash"></span> hide</span> tree</a></span>);
 		my $aliases_button = $self->_get_show_aliases_button;
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-		if (@$loci) {
+		if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 			say $self->_get_classification_group_data($isolate_id);
 			say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
 			say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
@@ -482,6 +482,17 @@ sub print_content {
 		$self->_print_plugin_buttons($isolate_id);
 		say q(</div>);
 	}
+	return;
+}
+
+sub _should_show_schemes {
+	my ( $self, $isolate_id ) = @_;
+	return 1
+	  if $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM allele_designations WHERE isolate_id=?)', $isolate_id );
+	return 1
+	  if $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=?)', $isolate_id );
 	return;
 }
 
@@ -939,7 +950,7 @@ sub _get_phenotypic_fields {
 	$buffer .= qq(<h2 style="display:inline">Phenotypic data</h2>\n);
 	my ( $visibility, $class );
 	my $hide_panel = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
-	if ( $hide_panel ) {
+	if ($hide_panel) {
 		$visibility = q(hidden);
 		$class      = q(infopanel);
 	} else {
@@ -948,7 +959,7 @@ sub _get_phenotypic_fields {
 	}
 	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	$buffer .=
-	    q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;vertical-align:middle"><a id="show_eav" )
+q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;vertical-align:middle"><a id="show_eav" )
 	  . qq(style="cursor:pointer"><span id="show_eav_text" title="Show phenotypic fields" style="display:inline">$show</span>)
 	  . qq(<span id="hide_eav_text" title="Hide phenotypic fields" style="display:none">$hide</span></a></span>)
 	  if $class eq 'infopanel';
