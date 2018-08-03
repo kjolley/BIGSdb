@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateIsolateAddPage BIGSdb::TreeViewPage);
 use BIGSdb::Utils;
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
@@ -357,6 +357,7 @@ sub _prepare_alias_updates {
 	my $existing_aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 	my $q                = $self->{'cgi'};
 	my @new_aliases      = split /\r?\n/x, $q->param('aliases');
+	@new_aliases = uniq(@new_aliases);
 	foreach my $new (@new_aliases) {
 		$new = $self->clean_value( $new, { no_escape => 1 } );
 		next if $new eq '';
@@ -388,6 +389,7 @@ sub _prepare_pubmed_updates {
 	my $q                = $self->{'cgi'};
 	my $pubmed_update    = [];
 	my @new_pubmeds      = split /\r?\n/x, $q->param('pubmed');
+	@new_pubmeds = uniq(@new_pubmeds);
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';

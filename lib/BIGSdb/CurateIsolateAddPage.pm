@@ -340,6 +340,7 @@ sub _prepare_alias_inserts {
 	my ( $self, $inserts, $newdata ) = @_;
 	my $q = $self->{'cgi'};
 	my @new_aliases = split /\r?\n/x, $q->param('aliases');
+	@new_aliases = uniq(@new_aliases);
 	foreach my $new (@new_aliases) {
 		$new = $self->clean_value( $new, { no_escape => 1 } );
 		next if $new eq '';
@@ -356,6 +357,7 @@ sub _prepare_pubmed_inserts {
 	my ( $self, $inserts, $newdata ) = @_;
 	my $q = $self->{'cgi'};
 	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	@new_pubmeds = uniq(@new_pubmeds);
 	my $error;
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
