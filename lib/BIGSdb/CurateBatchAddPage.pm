@@ -1474,7 +1474,7 @@ sub _check_sequence_allele_id {
 					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)) OR '
 					  . 'EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
 					[ $locus, ${ $args->{'value'} }, $locus, ${ $args->{'value'} } ],
-					{ cache => 'CurateBatchAddPage::allele_id_exists' }
+					{ cache => 'CurateBatchAddPage::allele_id_exists_or_retired' }
 				);
 			} while $exists;
 			$args->{'last_id'}->{$locus} = ${ $args->{'value'} };
