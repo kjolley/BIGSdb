@@ -309,7 +309,6 @@ sub _print_login_form {
 		-name      => 'password_field',
 		-id        => 'password_field',
 		-size      => 20,
-		-maxlength => 20,
 		-style     => 'width:12em'
 	);
 	say q(</li></ul></fieldset>);
