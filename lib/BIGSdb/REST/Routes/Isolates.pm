@@ -119,6 +119,8 @@ sub _get_isolate {
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
 	return $values if $params->{'provenance_only'};
+	my $phenotypic = _get_phenotypic_values($id);
+	$values->{'phenotypic'} = $phenotypic if %$phenotypic;
 	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
 	$values->{'history'} = request->uri_for("/db/$db/isolates/$id/history") if $has_history;
 	my $publications = _get_publications($id);
@@ -151,47 +153,7 @@ sub _get_isolate {
 			allele_ids        => request->uri_for("/db/$db/isolates/$id/allele_ids")
 		};
 	}
-	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $scheme_links = [];
-	foreach my $scheme (@$scheme_list) {
-		my $allele_designations =
-		  $self->{'datastore'}->get_scheme_allele_designations( $id, $scheme->{'id'}, { set_id => $set_id } );
-		next if !$allele_designations;
-		my $scheme_object = {
-			description           => $scheme->{'name'},
-			loci_designated_count => scalar keys %$allele_designations,
-			full_designations => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_designations"),
-			allele_ids        => request->uri_for("/db/$db/isolates/$id/schemes/$scheme->{'id'}/allele_ids")
-		};
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
-		if ( defined $scheme_info->{'primary_key'} ) {
-			my $scheme_field_values =
-			  $self->{'datastore'}->get_scheme_field_values_by_designations( $scheme->{'id'}, $allele_designations );
-			$field_values = {};
-			foreach my $field (@$scheme_fields) {
-				next if !defined $scheme_field_values->{ lc $field };
-				my @field_values = keys %{ $scheme_field_values->{ lc $field } };
-				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
-				if ( $scheme_field_info->{'type'} eq 'integer' ) {
-					foreach my $value (@field_values) {
-						$value = int($value) if BIGSdb::Utils::is_int($value);    #Force unquoted integers in output.
-					}
-				}
-				if ( @field_values == 1 ) {
-					$field_values->{$field} = $field_values[0] if $field_values[0];
-				} else {
-					$field_values->{$field} = \@field_values;
-				}
-			}
-			$scheme_object->{'fields'} = $field_values if keys %$field_values;
-			my $similar_isolates = _get_similar( $scheme->{'id'}, $id );
-			if ( keys %$similar_isolates ) {
-				$scheme_object->{'classification_schemes'} = $similar_isolates;
-			}
-		}
-		push @$scheme_links, $scheme_object;
-	}
+	my $scheme_links = _get_scheme_data($id);
 	$values->{'schemes'} = $scheme_links if @$scheme_links;
 	_get_isolate_projects( $values, $id );
 	if ( BIGSdb::Utils::is_int( $field_values->{'new_version'} ) ) {
@@ -231,11 +193,12 @@ sub _get_history {
 	my $history = [];
 	foreach my $record (@$data) {
 		my @actions = split /<br\ \/>/x, $record->{'action'};
-		push @$history, {
+		push @$history,
+		  {
 			curator   => request->uri_for("/db/$db/users/$record->{'curator'}"),
 			actions   => \@actions,
 			timestamp => $record->{'timestamp'}
-		};
+		  };
 	}
 	return { records => scalar @$history, updates => $history };
 }
@@ -304,6 +267,56 @@ sub _get_similar {
 	return $values;
 }
 
+sub _get_scheme_data {
+	my ($isolate_id) = @_;
+	my $self         = setting('self');
+	my $db           = params->{'db'};
+	my $set_id       = $self->get_set_id;
+	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_links = [];
+	foreach my $scheme (@$scheme_list) {
+		my $allele_designations =
+		  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme->{'id'}, { set_id => $set_id } );
+		next if !$allele_designations;
+		my $scheme_object = {
+			description           => $scheme->{'name'},
+			loci_designated_count => scalar keys %$allele_designations,
+			full_designations =>
+			  request->uri_for("/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_designations"),
+			allele_ids => request->uri_for("/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_ids")
+		};
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+		if ( defined $scheme_info->{'primary_key'} ) {
+			my $scheme_field_values =
+			  $self->{'datastore'}->get_scheme_field_values_by_designations( $scheme->{'id'}, $allele_designations );
+			my $field_values = {};
+			foreach my $field (@$scheme_fields) {
+				next if !defined $scheme_field_values->{ lc $field };
+				my @field_values = keys %{ $scheme_field_values->{ lc $field } };
+				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
+				if ( $scheme_field_info->{'type'} eq 'integer' ) {
+					foreach my $value (@field_values) {
+						$value = int($value) if BIGSdb::Utils::is_int($value);    #Force unquoted integers in output.
+					}
+				}
+				if ( @field_values == 1 ) {
+					$field_values->{$field} = $field_values[0] if $field_values[0];
+				} else {
+					$field_values->{$field} = \@field_values;
+				}
+			}
+			$scheme_object->{'fields'} = $field_values if keys %$field_values;
+			my $similar_isolates = _get_similar( $scheme->{'id'}, $isolate_id );
+			if ( keys %$similar_isolates ) {
+				$scheme_object->{'classification_schemes'} = $similar_isolates;
+			}
+		}
+		push @$scheme_links, $scheme_object;
+	}
+	return $scheme_links;
+}
+
 sub _get_extended_attributes {
 	my ( $provenance, $isolate_id ) = @_;
 	my $self = setting('self');
@@ -323,6 +336,18 @@ sub _get_extended_attributes {
 		}
 	}
 	return;
+}
+
+sub _get_phenotypic_values {
+	my ($isolate_id) = @_;
+	my $self         = setting('self');
+	my $values       = {};
+	foreach my $table (qw(eav_int eav_float eav_text eav_date eav_boolean)) {
+		my $table_values = $self->{'datastore'}->run_query( "SELECT field,value FROM $table WHERE isolate_id=?",
+			$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+		$values->{ $_->{'field'} } = $_->{'value'} foreach @$table_values;
+	}
+	return $values;
 }
 
 sub _get_isolate_projects {
