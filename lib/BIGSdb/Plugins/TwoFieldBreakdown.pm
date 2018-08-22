@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.5',
+		version     => '1.4.6',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -386,7 +386,7 @@ sub _print_controls {
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Axes</legend>);
-	say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc list_file datatype);
+	say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc isolate_id isolate_paste_list);
 	say $q->submit(
 		-name  => 'reverse',
 		-value => 'Reverse',
@@ -396,7 +396,7 @@ sub _print_controls {
 	say $q->end_form;
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Show</legend>);
-	say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc list_file datatype);
+	say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc isolate_id isolate_paste_list);
 	my %display_toggle = (
 		'values only'            => 'Values and percentages',
 		'values and percentages' => 'Percentages only',
@@ -413,7 +413,7 @@ sub _print_controls {
 	if ( $q->param('display') ne 'values only' ) {
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Calculate percentages</legend>);
-		say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc list_file datatype);
+		say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc isolate_id isolate_paste_list);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
 		say q(<span style="text-align:center; display:block">);
 		say $q->submit(
@@ -918,7 +918,7 @@ sub _get_field_value {
 			  $self->{'datastore'}->run_query( "SELECT id,$clean_fields->{$field} FROM $self->{'system'}->{'view'}",
 				undef, { fetch => 'all_hashref', key => 'id' } );
 		}
-		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ $clean_fields->{$field} };
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc($clean_fields->{$field} )};
 	} else {
 		$value =
 		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",
