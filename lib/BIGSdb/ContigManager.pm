@@ -325,7 +325,7 @@ sub get_contig_fragment {
 		"SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM $seqbin s LEFT JOIN "
 		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
 		$args->{'seqbin_id'},
-		{ fetch => 'row_hashref' }
+		{ fetch => 'row_hashref', cache => "ContigManager::get_contig_fragment::$seqbin" }
 	);
 	$args->{'contig_length'} = $contig_info->{'length'};
 	$args->{'end'} = $args->{'contig_length'} if $args->{'end'} > $args->{'contig_length'};
