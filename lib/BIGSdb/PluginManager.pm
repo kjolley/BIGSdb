@@ -144,13 +144,12 @@ sub get_appropriate_plugin_names {
 		  if $self->{'system'}->{'dbtype'} eq 'sequences'
 		  && !@$pk_scheme_list
 		  && ( $attr->{'seqdb_type'} // q() ) eq 'schemes';
-		next
-		  if (
-			   !( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
-			&& $attr->{'system_flag'}
-			&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
-				|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
-		  );
+		if ( $attr->{'system_flag'} ) {
+			next if ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) eq 'no';
+			next
+			  if (!( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
+				&& ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' );
+		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			if ( !$self->_is_isolate_count_ok($attr) ) {
 				if ( $section eq 'postquery' ) {
