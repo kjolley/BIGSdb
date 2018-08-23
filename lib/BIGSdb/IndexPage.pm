@@ -232,6 +232,7 @@ sub _print_private_data_section {
 	);
 	my $cache_string = $self->get_cache_string;
 	say q(<div style="float:left;margin-right:1em" class="grid-item">);
+
 	if ($total_private) {
 		my $label = $self->_get_label($total_private);
 		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
@@ -493,7 +494,7 @@ sub _print_plugin_section {
 	);
 	local $" = q(|);
 	my $plugins = $self->{'pluginManager'}
-	  ->get_appropriate_plugin_names( "@sections", $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
+	  ->get_appropriate_plugin_names( "@sections", $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
 
 	if (@$plugins) {
 		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
@@ -508,7 +509,8 @@ sub _print_plugin_section {
 			$q->param( 'page', 'index' );
 			$plugins =
 			  $self->{'pluginManager'}
-			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, { set_id => $set_id } );
+			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } )
+			  ;
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em" class="grid-item">);
 			say qq(<span class="plugin_icon $icon{$section} fa-3x fa-pull-left"></span>);

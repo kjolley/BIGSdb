@@ -123,7 +123,6 @@ sub get_plugin_categories {
 
 sub get_appropriate_plugin_names {
 	my ( $self, $section, $dbtype, $category, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	return if none { $section =~ /$_/x } qw (info postquery breakdown analysis third_party export miscellaneous);
 	my @plugins;
