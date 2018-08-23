@@ -49,7 +49,8 @@ sub get_submission_days {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1 } );
+	my $tree_js =
+	  $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $buffer = << "END";
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
@@ -2348,10 +2349,10 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if $submission->{'status'} ne 'pending';
-	my $curators   = $self->{'submissionHandler'}->_get_curators($submission_id);
-	my $desc       = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $subject    = "CANCELLED $submission->{'type'} submission ($desc) - $submission_id";
-	my $message    = "This submission has been CANCELLED by the submitter.\n\n";
+	my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my $desc     = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $subject  = "CANCELLED $submission->{'type'} submission ($desc) - $submission_id";
+	my $message  = "This submission has been CANCELLED by the submitter.\n\n";
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 
 	foreach my $curator_id (@$curators) {

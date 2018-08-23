@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub get_tree_javascript {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
+	$options->{'submit_name'} //= 'submit';
 	my $q         = $self->{'cgi'};
 	my $plugin_js = q();
 	if ( $options->{'checkboxes'} ) {
@@ -67,7 +68,7 @@ sub get_tree_javascript {
     		loadContent(data.node.a_attr.href+"&no_header=1");
   		}
 	});
-	\$("input[name='submit']").click( function( e ) {
+	\$("input[name='$options->{'submit_name'}']").click( function( e ) {
 		var scheme_ids = \$("#tree").jstree('get_selected');
 		\$.each( scheme_ids, function( index, value ){
 			var regex = /^s_\\d+\$/;
