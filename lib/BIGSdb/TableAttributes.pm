@@ -2230,7 +2230,7 @@ sub get_eav_fields_table_attributes {
 		{ name => 'value_format', type => 'text', required => 1, optlist => 'integer;float;text;date;boolean' },
 		{ name => 'description',  type => 'text' },
 		{ name => 'length',      type => 'int',  tooltip => 'length - Valid for text fields only' },
-		{ name => 'option_list', type => 'text', tooltip => 'option_list - Comma separated list of allowed values' },
+		{ name => 'option_list', type => 'text', tooltip => 'option_list - Semi-colon (;) separated list of allowed values' },
 		{
 			name    => 'value_regex',
 			type    => 'text',

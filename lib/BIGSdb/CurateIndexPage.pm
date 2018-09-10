@@ -1488,10 +1488,15 @@ sub _get_sets {
 
 sub _get_icon_group {
 	my ( $self, $table, $icon, $options ) = @_;
-	my $fa_class      = $options->{'fa_class'} // 'fas';
-	my $set_string    = $self->_get_set_string;
-	my $links         = 0;
-	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $table)") : 1;
+	my $fa_class   = $options->{'fa_class'} // 'fas';
+	my $set_string = $self->_get_set_string;
+	my $links      = 0;
+
+	#Checking a large seqdef db sequences table can be slow on PostgreSQL 9.3.
+	#We can instead use the locus_stats table.
+	my $check_table = $table;
+	$check_table = 'locus_stats' if ($table // q()) eq 'sequences';
+	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
 	foreach my $value (qw(add batch_add link query import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
 	}
