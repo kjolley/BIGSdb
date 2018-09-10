@@ -1016,7 +1016,7 @@ sub check_record {
 		}
 		if ( $att->{'optlist'} ) {
 			my %allowed = map { $_ => 1 } split /;/x, $att->{'optlist'};
-			if ( !$allowed{ $newdata->{ $att->{'name'} } } ) {
+			if ( defined $newdata->{ $att->{'name'} } && !$allowed{ $newdata->{ $att->{'name'} } } ) {
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
 		}
