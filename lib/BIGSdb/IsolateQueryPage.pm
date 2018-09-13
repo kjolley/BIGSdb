@@ -2576,6 +2576,7 @@ $panel_js
 	$ajax_load
 	\$(document).ajaxComplete(function() {
         setTooltips();
+        initiate_autocomplete();
 	});
  });
  
@@ -2651,6 +2652,22 @@ END
 				$first = 0;
 			}
 		}
+		my $eav_fields = $self->{'datastore'}->get_eav_fields;
+		foreach my $eav_field (@$eav_fields){
+			if ($eav_field->{'option_list'}) {
+				$autocomplete_js .= ",\n" if !$first;
+				$autocomplete_js .= "       eav_$eav_field->{'field'}: [\n";
+				my @options = split/\s*;\s*/x, $eav_field->{'option_list'};
+				foreach my $value (@options) {
+					$value =~ s/"/\\"/gx;
+					$autocomplete_js .= qq(       "$value");
+					$autocomplete_js .= ',' if $value ne $options[-1];
+					$autocomplete_js .= "\n";
+				}
+				$autocomplete_js .= '       ]';
+				$first = 0;
+			}
+		}
 	}
 	if ($autocomplete_js) {
 		$buffer .= << "END";
@@ -2658,13 +2675,23 @@ var fieldLists = {
   	$autocomplete_js
 };		
 \$(function() {	
+	initiate_autocomplete();
+});
+function initiate_autocomplete() {
 	\$("#provenance").on("change", "[name^='prov_field']", function () {
 		set_autocomplete_values(\$(this));
 	});
 	\$("[name^='prov_field']").each(function (i){
 		set_autocomplete_values(\$(this));
 	});
-});
+	\$("#phenotypic").on("change", "[name^='phenotypic_field']", function () {
+		set_autocomplete_values(\$(this));
+	});
+	\$("[name^='phenotypic_field']").each(function (i){
+		set_autocomplete_values(\$(this));
+	});	
+}
+
 function set_autocomplete_values(element){
 	var valueField = element.attr('name').replace("field","value");		
 	if (!fieldLists[element.val()]){
