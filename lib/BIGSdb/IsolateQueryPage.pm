@@ -2654,33 +2654,28 @@ END
 	}
 	if ($autocomplete_js) {
 		$buffer .= << "END";
-\$(function() {
-	var fieldLists = {
+var fieldLists = {
   	$autocomplete_js
-	};
+};		
+\$(function() {	
 	\$("#provenance").on("change", "[name^='prov_field']", function () {
-		var valueField = \$(this).attr('name').replace("field","value");		
-		if (!fieldLists[\$(this).val()]){
-			\$('#' + valueField).autocomplete({ disabled: true });
-		} else {
-			\$('#' + valueField).autocomplete({
-				disabled: false,
- 				source: fieldLists[\$(this).val()]
-			});
-		}		
+		set_autocomplete_values(\$(this));
 	});
 	\$("[name^='prov_field']").each(function (i){
-		var valueField = \$(this).attr('name').replace("field","value");		
-		if (!fieldLists[\$(this).val()]){
-			\$('#' + valueField).autocomplete({ disabled: true });
-		} else {
-			\$('#' + valueField).autocomplete({
-				disabled: false,
- 				source: fieldLists[\$(this).val()]
-			});
-		}	
+		set_autocomplete_values(\$(this));
 	});
 });
+function set_autocomplete_values(element){
+	var valueField = element.attr('name').replace("field","value");		
+	if (!fieldLists[element.val()]){
+		\$('#' + valueField).autocomplete({ disabled: true });
+	} else {
+		\$('#' + valueField).autocomplete({
+			disabled: false,
+ 			source: fieldLists[element.val()]
+		});
+	}		
+}
 END
 	}
 	return $buffer;
