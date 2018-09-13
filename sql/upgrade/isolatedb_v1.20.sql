@@ -1,0 +1,1 @@
+ALTER TABLE eav_fields ADD conditional_formatting text;

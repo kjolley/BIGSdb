@@ -969,10 +969,20 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 		my $fieldname = $field->{'field'};
 		( my $cleaned = $fieldname ) =~ tr/_/ /;
 		next if !defined $data->{$fieldname};
+		my $value = $data->{$fieldname};
+		if ( $field->{'conditional_formatting'} ) {
+			my @terms = split /\s*;\s*/x, $field->{'conditional_formatting'};
+			foreach my $term (@terms) {
+				my ( $check_value, $format ) = split /\s*\|\s*/x, $term;
+				if ( $value eq $check_value ) {
+					$value = $format;
+				}
+			}
+		}
 		push @$list,
 		  {
 			title => $cleaned,
-			data  => $data->{$fieldname}
+			data  => $value
 		  };
 	}
 	$buffer .= qq(<div id="$id" class="$class" style="visibility:$visibility">);
