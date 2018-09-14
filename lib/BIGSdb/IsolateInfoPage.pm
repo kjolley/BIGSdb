@@ -971,13 +971,18 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 		next if !defined $data->{$fieldname};
 		my $value = $data->{$fieldname};
 		if ( $field->{'conditional_formatting'} ) {
+			$field->{'conditional_formatting'} =~ s/;;/__SEMICOLON__/gx;
 			my @terms = split /\s*;\s*/x, $field->{'conditional_formatting'};
 			foreach my $term (@terms) {
 				my ( $check_value, $format ) = split /\s*\|\s*/x, $term;
+				$format =~ s/__SEMICOLON__/;/gx;
 				if ( $value eq $check_value ) {
 					$value = $format;
 				}
 			}
+		}
+		if ($field->{'html_message'}){
+			$value .= $self->get_tooltip($field->{'html_message'});
 		}
 		push @$list,
 		  {
