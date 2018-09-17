@@ -1474,10 +1474,10 @@ sub _provenance_equals_type_operator {
 				$buffer .= (
 					lc($text) eq 'null'
 					? "$field IS $not null"
-					: "($not UPPER($field) = UPPER(E'$text')) $null_clause"
+					: "(($not UPPER($field) = UPPER(E'$text')) $null_clause)"
 				);
 			} else {
-				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "$not ($field = E'$text') $null_clause" );
+				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "($not ($field = E'$text') $null_clause)" );
 			}
 		}
 	}
