@@ -982,6 +982,7 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 			}
 		}
 		if ($field->{'html_message'}){
+			#TODO Need to change how this is displayed - a normal tooltip may not be the best option.
 			$value .= $self->get_tooltip($field->{'html_message'});
 		}
 		push @$list,
