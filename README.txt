@@ -1,3 +1,5 @@
+v1.19.1: *Include EAV field in RESTful API isolate record.
+         *Minor bug fixes.
 v1.19.0: *Support for sparsely-populated fields - useful for storing large
           numbers of phenotypic data category values that are only available
           for a minority of isolates.
