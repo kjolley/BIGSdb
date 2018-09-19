@@ -458,7 +458,7 @@ sub get_stylesheets {
 	my ($self) = @_;
 	my $stylesheet;
 	my $system  = $self->{'system'};
-	my $version = '20180728';
+	my $version = '20180919';
 	my @filenames;
 	push @filenames, q(dropzone.css) if $self->{'dropzone'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
@@ -2975,8 +2975,8 @@ sub get_list_block {
 		$buffer .= qq(<a href="$item->{'href'}">) if $item->{'href'};
 		$buffer .= $item->{'data'};
 		$buffer .= q(</a>)                        if $item->{'href'};
-		$buffer .= qq(</dd>\n);
-		$buffer .= q(</span>)                     if $options->{'columnize'};
+		$buffer .= q(</dd>);
+		$buffer .= qq(</span>\n)                     if $options->{'columnize'};
 	}
 	$buffer .= qq(</dl>\n);
 	return $buffer;

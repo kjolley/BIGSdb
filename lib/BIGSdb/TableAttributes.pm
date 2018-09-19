@@ -2249,11 +2249,19 @@ sub get_eav_fields_table_attributes {
 			  . 'as the list separator.'
 		},
 		{
+			name    => 'html_link_text',
+			type    => 'text',
+			length  => 20,
+			defualt => 'info',
+			tooltip => 'HTML_link_text - This defines the text that will appear on an information link that '
+			  . 'will trigger the slide-in message (if defined below)'
+		},
+		{
 			name    => 'html_message',
 			type    => 'text',
 			length  => 1000,
-			tooltip => 'HTML_message - This message will be displayed as a pop-up within the isolate information '
-			  . 'page when the field value is populated.'
+			tooltip => 'HTML_message - This message will slide-in on the isolate information '
+			  . 'page when the field value is populated and the information link is clicked.'
 		},
 		{ name => 'min_value',   type => 'int', tooltip => 'min_value - Valid for number fields only' },
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },

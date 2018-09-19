@@ -849,6 +849,34 @@ button.plugin:hover {color:#c8c}
 	div#isolate_update {width:95%}
 }
 
+a.slide_trigger {
+	background:#f0fff0;
+	color:black;
+	border:1px solid #c0c0c0;	
+	font-size:1em;
+	text-decoration:none;
+	padding:0 0.5em;
+	white-space:nowrap;
+	cursor:pointer
+}
+.slide_panel {
+	display:none;
+	position:fixed;
+	top:10%;
+	right:0.5em;
+	max-width:70%;
+	max-height:80%;
+	padding:1em;
+	background:#f0fff0;
+	z-index:99999;
+	border-radius:10px;
+	border:1px solid #ccc;
+	box-shadow:3px 3px 3px #dfdfdf;
+	overflow-y:auto;
+	cursor:pointer
+}
+.feint{color:#aaa}
+
 .coolfieldset, .coolfieldset.expanded{min-width:15em}
 .coolfieldset.collapsed{}
 .coolfieldset legend{padding-left:13px;cursor:pointer}
