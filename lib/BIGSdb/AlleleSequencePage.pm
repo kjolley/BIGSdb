@@ -52,6 +52,11 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
 	my $locus      = $q->param('locus');
+	if ( !defined $locus ) {
+		say q(<h1>Allele sequence</h1>);
+		$self->print_bad_status( { message => q(No locus passed.), navbar => 1 } );
+		return;
+	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
 		say q(<h1>Allele sequence</h1>);
@@ -125,6 +130,7 @@ sub print_content {
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
 		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
+
 		if ($translate) {
 			$buffer .= qq(<h2>Translation</h2>\n);
 			my @stops = @{ $display->{'internal_stop'} };
