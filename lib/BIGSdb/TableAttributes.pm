@@ -2267,11 +2267,11 @@ sub get_eav_fields_table_attributes {
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
 		{ name => 'field_order', type => 'int' },
 		{
-			name     => 'user_update',
+			name     => 'no_curate',
 			type     => 'bool',
 			required => 1,
-			default  => 'true',
-			tooltip  => 'user_update - Set to false if field should not be directly modified'
+			default  => 'false',
+			tooltip  => 'no_curate - Set to true if field should not be directly modified'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

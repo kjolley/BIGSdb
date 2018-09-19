@@ -806,7 +806,8 @@ sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 
 sub print_sparse_field_form_elements {
 	my ( $self, $newdata, $options ) = @_;
-	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM eav_fields ORDER BY field_order,field',
+	my $fields =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM eav_fields WHERE NOT no_curate ORDER BY field_order,field',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$fields;
 	my @fieldnames = map { $_->{'field'} } @$fields;

@@ -145,7 +145,6 @@ sub _set_isolate_validation {
 			$options = [SEQ_METHODS] if $field eq 'sequence_method';
 		}
 		if (@$options) {
-			$logger->error("$field @$options $self->{'allowed'}->{$field}->{'col'}");
 			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
 			my $range_bottom =
 			  xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
@@ -162,7 +161,7 @@ sub _print_isolate_allowed_values {
 	my $option_list = [];
 	if ( $options->{'eav_field'} ) {
 		my $eav_field = $self->{'datastore'}->get_eav_field($field);
-		return if !$eav_field->{'option_list'} || !$eav_field->{'user_update'};
+		return if !$eav_field->{'option_list'} || $eav_field->{'no_curate'};
 		@$option_list = split /\s*;\s*/x, $eav_field->{'option_list'};
 	} else {
 		$option_list = $self->{'xmlHandler'}->get_field_option_list($field);

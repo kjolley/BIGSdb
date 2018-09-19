@@ -236,6 +236,9 @@ sub _check_field_status {
 		$bad_field = 1 if !$field_is_metafield;
 	} elsif ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
+	} elsif ( $self->{'datastore'}->is_eav_field( $field->[$i] ) ) {
+		my $eav_field = $self->{'datastore'}->get_eav_field( $field->[$i] );
+		$not_allowed_field = 1 if $eav_field->{'no_curate'};
 	} else {
 		my $att = $self->{'xmlHandler'}->get_field_attributes( $field->[$i] );
 		$not_allowed_field = 1 if ( $att->{'no_curate'} // '' ) eq 'yes';
