@@ -88,14 +88,14 @@ sub print_content {
 	if ( $table eq 'isolates' ) {
 		$allowed_values_worksheet = $workbook->add_worksheet('allowed_values');
 		$self->_print_isolate_allowed_loci( $workbook->add_worksheet('allowed_loci') );
-		$self->_print_isolate_eav_fields ($workbook);
+		$self->_print_isolate_eav_fields($workbook);
 	}
 	foreach my $field (@$headers) {
 		push @{ $self->{'values'}->{$field} }, $field;
 		$worksheet->write( 0, $col, $field, $self->{'header_format'} );
 		if ( $table eq 'isolates' ) {
-			$self->_print_isolate_allowed_values( $allowed_values_worksheet, $field );
-			
+			$self->_print_isolate_allowed_values( $allowed_values_worksheet, $field,
+				{ eav_field => $self->{'datastore'}->is_eav_field($field) } );
 			$self->_set_isolate_validation( $worksheet, $field, $col );
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( $att->{'comments'} ) {
@@ -131,10 +131,21 @@ sub _get_col_width {
 
 sub _set_isolate_validation {
 	my ( $self, $worksheet, $field, $col ) = @_;
-	if ( $self->{'xmlHandler'}->is_field($field) || $field eq 'sequence_method' ) {
-		my $options = $self->{'xmlHandler'}->get_field_option_list($field);
-		$options = [SEQ_METHODS] if $field eq 'sequence_method';
+	if (   $self->{'xmlHandler'}->is_field($field)
+		|| $field eq 'sequence_method'
+		|| $self->{'datastore'}->is_eav_field($field) )
+	{
+		my $options;
+		if ( $self->{'datastore'}->is_eav_field($field) ) {
+			my $eav_field = $self->{'datastore'}->get_eav_field($field);
+			return if !$eav_field->{'option_list'};
+			@$options = split /\s*;\s*/x, $eav_field->{'option_list'};
+		} else {
+			$options = $self->{'xmlHandler'}->get_field_option_list($field);
+			$options = [SEQ_METHODS] if $field eq 'sequence_method';
+		}
 		if (@$options) {
+			$logger->error("$field @$options $self->{'allowed'}->{$field}->{'col'}");
 			my $range_top = xl_rowcol_to_cell( 1, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
 			my $range_bottom =
 			  xl_rowcol_to_cell( $self->{'allowed'}->{$field}->{'row'}, $self->{'allowed'}->{$field}->{'col'}, 1, 1 );
@@ -146,17 +157,24 @@ sub _set_isolate_validation {
 }
 
 sub _print_isolate_allowed_values {
-	my ( $self, $worksheet, $field ) = @_;
+	my ( $self, $worksheet, $field, $options ) = @_;
 	state $col = 0;
-	my $options      = $self->{'xmlHandler'}->get_field_option_list($field);
-	$options = [SEQ_METHODS] if $field eq 'sequence_method';
-	my $col_width    = 5;
+	my $option_list = [];
+	if ( $options->{'eav_field'} ) {
+		my $eav_field = $self->{'datastore'}->get_eav_field($field);
+		return if !$eav_field->{'option_list'} || !$eav_field->{'user_update'};
+		@$option_list = split /\s*;\s*/x, $eav_field->{'option_list'};
+	} else {
+		$option_list = $self->{'xmlHandler'}->get_field_option_list($field);
+		$options = [SEQ_METHODS] if $field eq 'sequence_method';
+	}
+	my $col_width = 5;
 	my $field_length = int( 0.9 * ( length $field ) + 2 );
 	$col_width = $field_length if $field_length > $col_width;
-	if (@$options) {
+	if (@$option_list) {
 		$worksheet->write( 0, $col, $field, $self->{'header_format'} );
 		my $row = 1;
-		foreach my $value (@$options) {
+		foreach my $value (@$option_list) {
 			$worksheet->write( $row, $col, $value );
 			push @{ $self->{'values'}->{$field} }, $value;    #used for calculating column width
 			my $length = int( 0.9 * ( length $value ) + 2 );
@@ -202,13 +220,13 @@ sub _print_isolate_allowed_loci {
 }
 
 sub _print_isolate_eav_fields {
-	my ($self, $workbook) = @_;
+	my ( $self, $workbook ) = @_;
 	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 	return if @$eav_fields <= MAX_EAV_FIELD_LIST;
 	my $worksheet = $workbook->add_worksheet('phenotypic_fields');
 	$worksheet->write( 0, 0, 'field', $self->{'header_format'} );
 	my $row = 1;
-	foreach my $field (@$eav_fields){
+	foreach my $field (@$eav_fields) {
 		$worksheet->write( $row, 0, $field );
 		$row++;
 	}

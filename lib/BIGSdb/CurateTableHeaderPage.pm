@@ -66,9 +66,11 @@ sub _get_isolate_table_headers {
 			push @$headers, qw(aliases references);
 		}
 	}
-	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	if ( @$eav_fields && @$eav_fields <= MAX_EAV_FIELD_LIST ) {
-		push @$headers, @$eav_fields;
+		foreach my $eav_field (@$eav_fields){
+			push @$headers, $eav_field->{'field'} if $eav_field->{'user_update'};
+		}
 	}
 	my $isolate_loci = $self->get_isolate_loci;
 	push @$headers, @$isolate_loci;

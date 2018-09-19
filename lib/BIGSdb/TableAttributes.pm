@@ -2266,6 +2266,13 @@ sub get_eav_fields_table_attributes {
 		{ name => 'min_value',   type => 'int', tooltip => 'min_value - Valid for number fields only' },
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
 		{ name => 'field_order', type => 'int' },
+		{
+			name     => 'user_update',
+			type     => 'bool',
+			required => 1,
+			default  => 'true',
+			tooltip  => 'user_update - Set to false if field should not be directly modified'
+		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
