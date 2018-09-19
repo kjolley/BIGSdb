@@ -125,8 +125,8 @@ sub get_javascript {
 		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
-	\$("#provenance").columnize({width:400});
-	\$("#sparse").columnize({width:300});
+	\$("#provenance").columnize({width:450});
+	\$("#sparse").columnize({width:450,doneFunc:function(){enable_slide_triggers();}});
 	\$("#hidden_eav").css("display","none");
 	\$("#hidden_eav").css("visibility","visible");
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
@@ -134,7 +134,19 @@ sub get_javascript {
 	if (!(\$("span").hasClass('aliases'))){
 		\$("span#aliases_button").css('display', 'none');
 	}
+	\$(".slide_panel").click(function() {		
+		\$(this).toggle("slide",{direction:"right"},"fast");
+	});		
 });
+
+function enable_slide_triggers(){
+	\$(".slide_trigger").click(function() {
+		var id = \$(this).attr('id');
+		var panel = id.replace('expand','slide');
+		\$(".slide_panel:not(#" + panel +")").hide("slide",{direction:"right"},"fast");
+		\$("#" + panel).toggle("slide",{direction:"right"},"fast");
+	});
+}
 
 END
 	$buffer .= $self->get_tree_javascript;
@@ -936,6 +948,7 @@ sub _get_provenance_fields {
 sub _get_phenotypic_fields {
 	my ( $self, $isolate_id ) = @_;
 	my $buffer     = q();
+	my @slide_panel;
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	return $buffer if !@$eav_fields;
 	my $data = {};
@@ -969,16 +982,41 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 		my $fieldname = $field->{'field'};
 		( my $cleaned = $fieldname ) =~ tr/_/ /;
 		next if !defined $data->{$fieldname};
+		my $value = $data->{$fieldname};
+		if ( $field->{'conditional_formatting'} ) {
+			$field->{'conditional_formatting'} =~ s/;;/__SEMICOLON__/gx;
+			my @terms = split /\s*;\s*/x, $field->{'conditional_formatting'};
+			foreach my $term (@terms) {
+				my ( $check_value, $format ) = split /\s*\|\s*/x, $term;
+				$format =~ s/__SEMICOLON__/;/gx;
+				if ( $value eq $check_value ) {
+					$value = $format;
+				}
+			}
+		}
+		if ($field->{'html_message'}){
+			my $link_text = $field->{'html_link_text'} // 'info';
+			$value .= qq(&nbsp;<a id="expand_$field->{'field'}" class="slide_trigger"><span class="fas fa-caret-left"></span> $link_text</a>);
+			push @slide_panel, {
+				field => $field,
+				data => $field->{'html_message'}
+			};
+		}
 		push @$list,
 		  {
 			title => $cleaned,
-			data  => $data->{$fieldname}
+			data  => $value
 		  };
 	}
 	$buffer .= qq(<div id="$id" class="$class" style="visibility:$visibility">);
 	$buffer .= q(<div id="sparse">);
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
-	$buffer .= q(</div></div>);
+	$buffer .= q(</div></div></div>);
+	foreach my $spanel (@slide_panel){
+		$buffer.=qq(<div class="slide_panel" id="slide_$spanel->{'field'}->{'field'}">$spanel->{'data'});
+		$buffer.=q(<p class="feint">Click to close</p>);
+		$buffer .=qq(</div>\n);
+	}
 	return $buffer;
 }
 

@@ -2225,16 +2225,43 @@ sub get_samples_table_attributes {
 
 sub get_eav_fields_table_attributes {
 	my $attributes = [
-		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' }
-		,
+		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' },
 		{ name => 'value_format', type => 'text', required => 1, optlist => 'integer;float;text;date;boolean' },
-		{ name => 'description',  type => 'text', length => 100 },
-		{ name => 'length',      type => 'int',  tooltip => 'length - Valid for text fields only' },
-		{ name => 'option_list', type => 'text', tooltip => 'option_list - Semi-colon (;) separated list of allowed values' },
+		{ name => 'description',  type => 'text', length   => 128 },
+		{ name => 'length', type => 'int', tooltip => 'length - Valid for text fields only' },
+		{
+			name    => 'option_list',
+			type    => 'text',
+			tooltip => 'option_list - Semi-colon (;)-separated list of allowed values'
+		},
 		{
 			name    => 'value_regex',
 			type    => 'text',
 			tooltip => 'value_regex - Regular expression to constrain values - valid for text fields only'
+		},
+		{
+			name    => 'conditional_formatting',
+			type    => 'text',
+			length  => 120,
+			tooltip => 'conditional_formatting - Semi-colon (;)-separated list of values - each consisting of '
+			  . 'the value, followed by a pipe character (|) and HTML to display instead of the value. If you need '
+			  . 'to include a semi-colon within the HTML, use two semi-colons (;;) otherwise it will be treated '
+			  . 'as the list separator.'
+		},
+		{
+			name    => 'html_link_text',
+			type    => 'text',
+			length  => 20,
+			defualt => 'info',
+			tooltip => 'HTML_link_text - This defines the text that will appear on an information link that '
+			  . 'will trigger the slide-in message (if defined below)'
+		},
+		{
+			name    => 'html_message',
+			type    => 'text',
+			length  => 1000,
+			tooltip => 'HTML_message - This message will slide-in on the isolate information '
+			  . 'page when the field value is populated and the information link is clicked.'
 		},
 		{ name => 'min_value',   type => 'int', tooltip => 'min_value - Valid for number fields only' },
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
