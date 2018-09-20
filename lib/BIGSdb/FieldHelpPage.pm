@@ -24,8 +24,7 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Error qw(:try);
-use BIGSdb::Constants qw(LOCUS_PATTERN);
-use constant LOCUS_LIMIT => 2000;
+use BIGSdb::Constants qw(LOCUS_PATTERN :limits);
 
 sub initiate {
 	my ($self) = @_;
@@ -98,7 +97,7 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Select field</legend>);
 	my ( $values, $labels ) =
 	  $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, locus_limit => LOCUS_LIMIT, scheme_fields => 1 } );
+		{ isolate_fields => 1, loci => 1, locus_limit => MAX_LOCUS_ORDER_BY, scheme_fields => 1 } );
 	say $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );

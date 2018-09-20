@@ -24,7 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
-use BIGSdb::Constants qw(:interface SEQ_FLAGS LOCUS_PATTERN OPERATORS);
+use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 
 sub _ajax_content {
@@ -222,7 +222,7 @@ sub _print_display_fieldset {
 	my $prefs  = $self->{'prefs'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1 } );
+	  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $self->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
