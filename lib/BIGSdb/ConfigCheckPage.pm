@@ -63,7 +63,8 @@ sub _check_helpers {
 		muscle             => $self->{'config'}->{'muscle_path'},
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
-		mogrify            => $self->{'config'}->{'mogrify_path'}
+		mogrify            => $self->{'config'}->{'mogrify_path'},
+		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py'
 	);
 	my $td = 1;
 	say q(<div class="box resultstable">);
@@ -73,9 +74,11 @@ sub _check_helpers {
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
 		  . ( -e ( $helpers{$program} ) ? GOOD : BAD )
-		  . q(</td><td>)
-		  . ( -x ( $helpers{$program} ) ? GOOD : BAD )
-		  . q(</td></tr>);
+		  . q(</td><td>);
+		if ( $program ne 'GrapeTree' ) {    #Python script doesn't need to be executable
+			say -x ( $helpers{$program} ) ? GOOD : BAD;
+		}
+		say q(</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div></div>);

@@ -243,8 +243,8 @@ sub _has_required_item {
 		clustalw_path          => 'clustalw',
 		aligner                => 'aligner',
 		mogrify_path           => 'mogrify',
-		EnteroMSTree_path      => 'EnteroMSTree',
-		MSTree_holder_rel_path => 'EnteroMSTree',
+		grapetree_path         => 'GrapeTree',
+		MSTree_holder_rel_path => 'GrapeTree',
 		jobs_db                => 'offline_jobs'
 	);
 	return 1 if !$required_attr;

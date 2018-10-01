@@ -41,12 +41,12 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.0.2',
+		version             => '1.0.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
 		help                => 'tooltips',
-		requires            => 'offline_jobs,js_tree,EnteroMSTree',
+		requires            => 'offline_jobs,js_tree,GrapeTree',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis.html#grapetree",
 		order               => 20,
 		min                 => 2,
@@ -95,8 +95,9 @@ sub print_info_panel {
 	say q(<li>ADEETC, Instituto Superior de Engenharia de Lisboa, Instituto Polit&eacute;cnico de Lisboa, )
 	  . q(Lisboa, Portugal</li>);
 	say q(</ol>);
-	say q(<p>Publication: Zhou <i>at al.</i> (2017) GrapeTree: Visualization of core genomic relationships among )
-	  . q(100,000 bacterial pathogens. <a href="https://doi.org/10.1101/216788">bioRxiv 216788</a>.</p>);
+	say q(<p>Publication: Zhou <i>at al.</i> (2018) GrapeTree: Visualization of core genomic relationships among )
+	  . q(100,000 bacterial pathogens. <a href="https://www.ncbi.nlm.nih.gov/pubmed/30049790"><i>Genome Res</i> )
+	  . q(<b>28:</b>1395-1404</a>.</p>);
 	say q(</div><div style="clear:both"></div></div>);
 	return;
 }
@@ -327,7 +328,7 @@ sub _generate_mstree {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
-	my $cmd = "python $self->{'config'}->{'EnteroMSTree_path'}/MSTrees.py profile=$profiles_file > $tree_file";
+	my $cmd = "python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
 	eval { system($cmd); };
 	if ($?) {
 		throw BIGSdb::PluginException('Tree generation failed.');
