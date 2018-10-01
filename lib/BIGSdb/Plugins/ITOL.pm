@@ -32,9 +32,9 @@ use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
 use constant MAX_RECORDS     => 2000;
 use constant MAX_SEQS        => 100_000;
-use constant ITOL_UPLOAD_URL => 'http://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_UPLOAD_URL => 'https://itol.embl.de/batch_uploader.cgi';
 use constant ITOL_DOMAIN     => 'itol.embl.de';
-use constant ITOL_TREE_URL   => 'http://itol.embl.de/tree';
+use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.3',
+		version             => '1.3.4',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
