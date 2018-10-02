@@ -314,6 +314,7 @@ sub _prepare_eav_updates {
 	my $eav_update = [];
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	foreach my $eav_field (@$eav_fields) {
+		next if $eav_field->{'no_curate'};
 		my $field          = $eav_field->{'field'};
 		my $table          = $self->{'datastore'}->get_eav_field_table($field);
 		my $value          = $q->param($field);
