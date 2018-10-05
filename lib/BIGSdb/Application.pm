@@ -37,6 +37,7 @@ use BIGSdb::DownloadProfilesPage;
 use BIGSdb::DownloadSeqbinPage;
 use BIGSdb::ErrorPage;
 use BIGSdb::FieldHelpPage;
+use BIGSdb::DownloadFilePage;
 use BIGSdb::IDList;
 use BIGSdb::IndexPage;
 use BIGSdb::IsolateInfoPage;
@@ -91,6 +92,7 @@ sub print_page {
 		changePassword     => 'ChangePasswordPage',
 		customize          => 'CustomizePage',
 		downloadAlleles    => 'DownloadAllelesPage',
+		downloadFiles      => 'DownloadFilePage',
 		downloadProfiles   => 'DownloadProfilesPage',
 		downloadSeqbin     => 'DownloadSeqbinPage',
 		embl               => 'SeqbinToEMBL',

@@ -355,6 +355,8 @@ sub print_page_content {
 			tar       => 'application/x-tar',
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
+			text      => 'text/plain',
+			html => 'text/html'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
@@ -1021,7 +1023,7 @@ sub _get_eav_fields {
 	my $list       = [];
 	foreach my $fieldname (@$eav_fields) {
 		push @$list, qq(eav_$fieldname);
-		(my $cleaned = $fieldname) =~ tr/_/ /;
+		( my $cleaned = $fieldname ) =~ tr/_/ /;
 		$self->{'cache'}->{'labels'}->{qq(eav_$fieldname)} = $cleaned;
 	}
 	return $list;
@@ -1586,7 +1588,7 @@ sub get_isolates_with_seqbin {
 	my %labels;
 	foreach (@$data) {
 		my ( $id, $isolate, $new_version ) = @$_;
-		$isolate //= ''; #One database on PubMLST uses a restricted view that hides some isolate names.
+		$isolate //= '';    #One database on PubMLST uses a restricted view that hides some isolate names.
 		push @ids, $id;
 		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
 	}
@@ -2976,7 +2978,7 @@ sub get_list_block {
 		$buffer .= $item->{'data'};
 		$buffer .= q(</a>)                        if $item->{'href'};
 		$buffer .= q(</dd>);
-		$buffer .= qq(</span>\n)                     if $options->{'columnize'};
+		$buffer .= qq(</span>\n)                  if $options->{'columnize'};
 	}
 	$buffer .= qq(</dl>\n);
 	return $buffer;
