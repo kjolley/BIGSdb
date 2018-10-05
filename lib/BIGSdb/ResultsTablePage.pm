@@ -379,6 +379,8 @@ sub _print_publish_function {
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
+	say q(<a class="tooltip" title="Only click this if you intend to make these records public.">)
+	  . q(<span class="fas fa-exclamation-triangle warn"></span></a>);
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
