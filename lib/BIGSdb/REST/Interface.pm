@@ -153,11 +153,12 @@ sub _before {
 	$self->setup_datastore;
 	$self->setup_remote_contig_manager;
 	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
-	$self->_initiate_view;
-	$self->_set_page_options;
+	
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	_check_kiosk();
 	_check_authorization();
+	$self->_initiate_view;
+	$self->_set_page_options;
 	return;
 }
 
