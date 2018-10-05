@@ -37,7 +37,7 @@ sub print_content {
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your account doesn't have permission ) . q(to modify isolate records.),
+				message => q(Your account doesn't have permission to modify isolate records.),
 				navbar  => 1
 			}
 		);
@@ -57,7 +57,7 @@ sub print_content {
 	} elsif ( $q->param('request') && $is_owner ) {
 		if ( $self->_request($isolate_id) ) {
 			$self->print_good_status(
-				{ message => q(Publication has been requested. ) . q(Isolate is now viewable by curators.) } );
+				{ message => q(Publication has been requested. Isolate is now viewable by curators.) } );
 		} else {
 			$self->print_bad_status( { message => q(Publication request could not be made.) } );
 		}
