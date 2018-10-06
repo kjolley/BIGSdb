@@ -21,9 +21,11 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
+use constant MAX_LOCI_SHOW => 100;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -205,10 +207,20 @@ sub _print_profile {
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
+	my $count         = 0;
 	foreach my $locus (@$loci) {
+		$count++;
 		my $cleaned = $self->clean_locus($locus);
 		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
-		say qq(<dl class="profile"><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
+		my ( $style, $class );
+		if ( $count > MAX_LOCI_SHOW ) {
+			$style = q( style="display:none");
+			$class = q( extra_locus);
+		} else {
+			$style = q();
+			$class = q();
+		}
+		say qq(<dl class="profile$class"$style><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
 		  . qq($value</a></dd></dl>);
 	}
@@ -224,6 +236,12 @@ sub _print_profile {
 		say qq(<dl class="profile"><dt>$cleaned</dt>);
 		$data->{ lc($field) } //= q(&nbsp;);
 		say qq(<dd>$data->{lc($field)}</dd></dl>);
+	}
+	if ( $count > MAX_LOCI_SHOW ) {
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_more" )
+		  . qq(style="cursor:pointer"><span id="show_extra_loci" title="Show extra loci" style="display:inline">$show</span>)
+		  . qq(<span id="hide_extra_loci" title="Hide extra loci" style="display:none">$hide</span></a></span>);
 	}
 	say q(<dl class="data">);
 	foreach my $field (qw (sender curator date_entered datestamp)) {
@@ -324,6 +342,27 @@ sub _get_update_history {
 		}
 		$buffer .= "</table>\n";
 	}
+	return $buffer;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$( "#show_more" ).click(function() {
+		if (\$("span#show_extra_loci").css('display') == 'none'){
+			\$("span#show_extra_loci").css('display', 'inline');
+			\$("span#hide_extra_loci").css('display', 'none');
+		} else {
+			\$("span#show_extra_loci").css('display', 'none');
+			\$("span#hide_extra_loci").css('display', 'inline');
+		}
+		\$( ".extra_locus" ).toggle();
+		return false;
+	});
+});
+
+END
 	return $buffer;
 }
 
