@@ -187,6 +187,7 @@ sub get_user_group_members_table_attributes {
 			type           => 'int',
 			required       => 1,
 			foreign_key    => 'user_groups',
+			primary_key    => 1,
 			dropdown_query => 1,
 			labels         => '|$description|'
 		},

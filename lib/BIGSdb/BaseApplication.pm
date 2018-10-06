@@ -623,8 +623,10 @@ sub is_user_allowed_access {
 	}
 	return 1 if !$self->{'system'}->{'default_access'};
 	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
-		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
-		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
+		my $users_allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
+		return 1 if -e $users_allow_file && $self->_is_name_in_file( $username, $users_allow_file );
+		my $group_allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/usergroups.allow";
+		return 1 if -e $group_allow_file && $self->_is_user_in_group_file( $username, $group_allow_file );
 		return;
 	} elsif ( $self->{'system'}->{'default_access'} eq 'allow' ) {
 		my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
@@ -648,7 +650,28 @@ sub _is_name_in_file {
 		}
 	}
 	close $fh;
-	return 0;
+	return;
+}
+
+sub _is_user_in_group_file {
+	my ( $self, $name, $filename ) = @_;
+	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
+	my $group_names = [];
+	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^\#/x;
+		$line =~ s/^\s+//x;
+		$line =~ s/\s+$//x;
+		push @$group_names, $line;
+	}
+	close $fh;
+	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $group_names );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($name);
+	return if !$user_info;
+	return $self->{'datastore'}->run_query(
+		    'SELECT EXISTS(SELECT * FROM user_groups g JOIN user_group_members m ON g.id=m.user_group WHERE '
+		  . "g.description IN (SELECT value FROM $list_table) AND m.user_id=?)", $user_info->{'id'}
+	);
 }
 
 sub initiate_plugins {
