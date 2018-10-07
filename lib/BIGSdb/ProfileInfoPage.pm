@@ -96,6 +96,7 @@ sub print_content {
 		$self->_print_profile( $scheme_id, $profile_id );
 		say $self->_get_ref_links( $scheme_id, $profile_id );
 		$self->_print_client_db_links( $scheme_id, $profile_id );
+		$self->_print_classification_groups( $scheme_id, $profile_id );
 		say q(</div>);
 	}
 	say q(</div>);
@@ -186,6 +187,53 @@ sub _print_client_db_links {
 		say q(<dl class="data">);
 		say $buffer;
 		say q(</dl>);
+	}
+	return;
+}
+
+sub _print_classification_groups {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $buffer = q();
+	my $cschemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $td = 1;
+	foreach my $cscheme (@$cschemes) {
+		my $cgroup = $self->{'datastore'}->run_query(
+			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
+			[ $cscheme->{'id'}, $profile_id ],
+			{ cache => 'ProfileInfoPage::print_classification_groups::groups' }
+		);
+		next if !defined $cgroup;
+		my $desc = $cscheme->{'description'};
+		my $tooltip =
+		    $desc
+		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
+		  : q();
+		my $profile_count =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+			[ $cscheme->{'id'}, $cgroup ] );
+		my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id&amp;s1=$cscheme->{'name'}&amp;y1==&amp;t1=$cgroup&amp;submit=1);
+		$buffer .=
+		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
+		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
+		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($buffer) {
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span>)
+		  . q(<h2>Similar profiles (determined by classification schemes)</h2>)
+		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
+		  . q(<div class="scrollable">)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<th>Classification scheme</th><th>Clustering method</th>)
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th></tr>);
+		say $buffer;
+		say q(</table></div></div></div>);
 	}
 	return;
 }

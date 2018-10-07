@@ -83,8 +83,7 @@ sub print_content {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 
 	if ( !@$schemes ) {
-		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
-		  ;
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
 		return;
 	}
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
@@ -273,6 +272,13 @@ sub _get_select_items {
 		push @selectitems, $field;
 		push @orderitems,  $field;
 	}
+	my $cschemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	foreach my $cscheme (@$cschemes) {
+		push @selectitems, $cscheme;
+	}
 	foreach (qw (sender curator)) {
 		push @selectitems, "$_ (id)", "$_ (surname)", "$_ (first_name)", "$_ (affiliation)";
 		push @orderitems, $_;
@@ -381,7 +387,10 @@ sub _generate_query_from_locus_fields {
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $andor            = $q->param('c0');
 	my $first_value      = 1;
-	my %standard_fields  = map { $_ => 1 } (
+	my $cschemes         = $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE scheme_id=?',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	my %cscheme_fields  = map { $_ => 1 } @$cschemes;
+	my %standard_fields = map { $_ => 1 } (
 		'sender (id)',
 		'sender (surname)',
 		'sender (first_name)',
@@ -398,10 +407,10 @@ sub _generate_query_from_locus_fields {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
 		my $type = $self->_get_data_type( $scheme_id, $field );
-		if ( !defined $type && !$standard_fields{$field} ) {
+		if ( !defined $type && !$standard_fields{$field} && !$cscheme_fields{$field} ) {
 
 			#Prevent cross-site scripting vulnerability
-			( my $cleaned_field = $field ) =~ s/[^A-z].*$//x;
+			( my $cleaned_field = $field ) =~ s/[^A-z0-9].*$//x;
 			push @$errors, "Field $cleaned_field is not recognized.";
 			$logger->error("Attempt to modify fieldname: $field");
 			next;
@@ -433,6 +442,12 @@ sub _generate_query_from_locus_fields {
 		}
 		if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
 			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
+		} elsif ( $cscheme_fields{$field} ) {
+			if ( lc($text) ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+				push @$errors, "$field is an integer field.";
+				next;
+			}
+			$qry .= $self->_modify_query_by_classification_group( $scheme_id, $field, $operator, $text, $errors );
 		} else {
 			my $equals =
 			  lc($text) eq 'null'
@@ -502,6 +517,44 @@ sub _modify_query_for_filters {
 		}
 	}
 	return $qry;
+}
+
+sub _modify_query_by_classification_group {
+	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $cscheme_id  = $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM classification_schemes WHERE (scheme_id,name)=(?,?)', [ $scheme_id, $field ] );
+	my %modify = (
+		  'NOT' => lc($text) eq 'null'
+		? "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE cg_scheme_id=$cscheme_id))"
+		: "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE (cg_scheme_id,group_id)="
+		  . "($cscheme_id,$text)))",
+		'contains' => "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '\%$text\%'))",
+		'starts with' => "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '$text\%'))",
+		'ends with' => "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '\%$text'))",
+		'NOT contain' =>
+		  "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '\%$text\%'))",
+		'=' => lc($text) eq 'null'
+		? "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE cg_scheme_id=$cscheme_id))"
+		: "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE (cg_scheme_id,group_id)="
+		  . "($cscheme_id,$text)))"
+	);
+	if ( $modify{$operator} ) {
+		return $modify{$operator};
+	} else {
+		if ( lc($text) eq 'null' ) {
+			my $clean_operator = $operator;
+			$clean_operator =~ s/>/&gt;/x;
+			$clean_operator =~ s/</&lt;/x;
+			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+		}
+	}
+	return;
 }
 
 sub _modify_by_list {
