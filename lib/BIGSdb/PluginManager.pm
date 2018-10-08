@@ -214,7 +214,9 @@ sub _has_required_genome {
 		  if $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $options->{'single_isolate'} );
 	} else {
-		return 1 if $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
+		return 1
+		  if $self->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id)");
 	}
 	return;
 }
