@@ -1043,6 +1043,22 @@ sub _get_client_dbases {
 		);
 		$buffer .= qq(</div>\n);
 	}
+	if ( $self->_classification_schemes_exist ) {
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
+		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database classification schemes</h2>);
+		$buffer .= $self->_get_icon_group(
+			'client_dbase_cschemes',
+			'object-group',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database classification scheme - Define classification schemes that are used in '
+				  . 'client databases.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
 	return $buffer;
 }
 
@@ -1495,7 +1511,7 @@ sub _get_icon_group {
 	#Checking a large seqdef db sequences table can be slow on PostgreSQL 9.3.
 	#We can instead use the locus_stats table.
 	my $check_table = $table;
-	$check_table = 'locus_stats' if ($table // q()) eq 'sequences';
+	$check_table = 'locus_stats' if ( $table // q() ) eq 'sequences';
 	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
 	foreach my $value (qw(add batch_add link query import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
@@ -1949,6 +1965,12 @@ sub _schemes_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM schemes)', undef, { cache => 'CurateIndexPage::schemes_exist' } );
+}
+
+sub _classification_schemes_exist {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes)',
+		undef, { cache => 'CurateIndexPage::cschemes_exist' } );
 }
 
 sub _loci_exist {

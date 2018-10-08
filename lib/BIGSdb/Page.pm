@@ -356,7 +356,7 @@ sub print_page_content {
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
 			text      => 'text/plain',
-			html => 'text/html'
+			html      => 'text/html'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
@@ -1659,7 +1659,8 @@ sub get_record_name {
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
 		oauth_credentials                 => 'OAuth credentials',
-		eav_fields                        => 'phenotypic field'
+		eav_fields                        => 'phenotypic field',
+		client_dbase_cschemes             => 'classification scheme to client database definition '
 	);
 	return $names{$table};
 }

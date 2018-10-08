@@ -1027,6 +1027,37 @@ sub get_client_dbase_schemes_table_attributes {
 	return $attributes;
 }
 
+sub get_client_dbase_cschemes_table_attributes {
+	my $attributes = [
+		{
+			name           => 'client_dbase_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'client_dbases',
+			labels         => '|$id|) |$name|',
+			dropdown_query => 1
+		},
+		{
+			name           => 'cscheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'classification_schemes',
+			labels         => '|$name|',
+			dropdown_query => 1
+		},
+		{
+			name     => 'client_cscheme_id',
+			type     => 'int',
+			comments => 'id number of the classification scheme in the client database (if different)'
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
+	return $attributes;
+}
+
 sub get_refs_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'isolates' },
