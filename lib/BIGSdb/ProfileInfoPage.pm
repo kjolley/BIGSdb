@@ -198,6 +198,13 @@ sub _print_classification_groups {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
 		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$cschemes;
+	my $client_dbs = $self->{'datastore'}->run_query(
+		'SELECT * FROM client_dbase_cschemes cdc JOIN classification_schemes c ON cdc.cscheme_id=c.id JOIN '
+		  . 'client_dbases cd ON cdc.client_dbase_id=cd.id WHERE c.scheme_id=? ORDER BY cd.name',
+		$scheme_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 	my $td = 1;
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
@@ -220,7 +227,34 @@ sub _print_classification_groups {
 		$buffer .=
 		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
-		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td></tr>);
+		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+		if (@$client_dbs) {
+			my @client_links = ();
+			foreach my $client_db (@$client_dbs) {
+				next if $client_db->{'cscheme_id'} != $cscheme->{'id'};
+				my $client = $self->{'datastore'}->get_client_db( $client_db->{'id'} );
+				my $client_cscheme = $client_db->{'client_cscheme_id'} // $cscheme->{'id'};
+				try {
+					my $isolates =
+					  $client->count_isolates_belonging_to_classification_group( $client_cscheme, $cgroup );
+					my $client_db_url = $client_db->{'url'} // $self->{'system'}->{'script_name'};
+					if ($isolates) {
+						push @client_links,
+						    qq(<span class="source">$client_db->{'name'}</span> )
+						  . qq(<a href="$client_db_url?db=$client_db->{'dbase_config_name'}&amp;page=query&amp;)
+						  . qq(designation_field1=cg_${client_cscheme}_group&amp;designation_value1=$cgroup&amp;submit=1">)
+						  . qq($isolates</a>);
+					}
+				}
+				catch BIGSdb::DatabaseConfigurationException with {
+					$logger->error( "Client database for classification scheme $cscheme->{'name'} "
+						  . 'is not configured correctly.' );
+				};
+			}
+			local $" = q(<br />);
+			$buffer .= qq(<td style="text-align:left">@client_links</td>);
+		}
+		$buffer .= q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	if ($buffer) {
@@ -231,7 +265,9 @@ sub _print_classification_groups {
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Clustering method</th>)
-		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th></tr>);
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th>);
+		say q(<th>Isolates</th>) if @$client_dbs;
+		say q(</tr>);
 		say $buffer;
 		say q(</table></div></div></div>);
 	}

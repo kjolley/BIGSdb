@@ -1044,7 +1044,7 @@ sub get_client_dbase_cschemes_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'classification_schemes',
-			labels         => '|$name|',
+			labels         => '|$id|) |$name|',
 			dropdown_query => 1
 		},
 		{
