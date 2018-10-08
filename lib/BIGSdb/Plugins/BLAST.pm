@@ -109,7 +109,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.4',
+		version     => '1.4.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -117,7 +117,7 @@ sub get_attributes {
 		help        => 'tooltips',
 		system_flag => 'BLAST',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#blast",
-		requires    => 'offline_jobs',
+		requires    => 'offline_jobs,seqbin',
 	);
 	return \%att;
 }
