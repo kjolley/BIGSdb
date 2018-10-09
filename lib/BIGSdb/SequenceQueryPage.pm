@@ -74,8 +74,10 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		initiate();
+		
 	});
 	initiate();
+
 });
 
 function initiate() {
@@ -87,6 +89,19 @@ function initiate() {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
+  	\$( "#show_more" ).click(function() {
+		if (\$("span#show_extra_matches").css('display') == 'none'){
+			\$("span#show_extra_matches").css('display', 'inline');
+			\$("span#hide_extra_matches").css('display', 'none');
+		} else {
+			\$("span#show_extra_matches").css('display', 'none');
+			\$("span#hide_extra_matches").css('display', 'inline');
+		}
+		\$( ".extra_match" ).toggle();
+		return false;
+	});
+	\$('#show_extra_matches').tooltip({ content: "Show extra matches"});
+	\$('#hide_extra_matches').tooltip({ content: "Hide extra matches"});
 }
 
 function loadContent(url) {

@@ -24,6 +24,7 @@ use parent qw(BIGSdb::Offline::Blast BIGSdb::Page);
 use List::MoreUtils qw(any uniq none);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
+use constant MAX_RESULTS_SHOW => 20;
 
 sub run {
 	my ( $self, $seq ) = @_;
@@ -309,6 +310,15 @@ sub _get_scheme_exact_results {
 			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 			close $fh;
+
+			if ( $match_count > MAX_RESULTS_SHOW ) {
+				my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+				$buffer .= q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle">)
+				  . q(<a id="show_more" style="cursor:pointer"><span id="show_extra_matches" )
+				  . qq(title="Show extra matches" style="display:inline">$show</span>)
+				  . q(<span id="hide_extra_matches" title="Hide extra matches" )
+				  . qq(style="display:none">$hide</span></a></span>);
+			}
 			$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
 		}
 		$buffer .= $self->_get_scheme_fields( $scheme_id, $designations );
@@ -346,6 +356,8 @@ sub _get_locus_matches {
 	my $buffer      = q();
 	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_count = 0;
+	my $class       = q();
+	my $style       = q();
 	foreach my $match ( @{ $exact_matches->{$locus} } ) {
 		my ( $field_values, $attributes, $allele_info, $flags );
 		$$match_count_ref++;
@@ -355,7 +367,12 @@ sub _get_locus_matches {
 		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
 		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
-		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
+
+		if ( $$match_count_ref > MAX_RESULTS_SHOW ) {
+			$style = q( style="display:none");
+			$class = q( extra_match);
+		}
+		$buffer .= qq(<tr class="td$$td_ref$class"$style><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
