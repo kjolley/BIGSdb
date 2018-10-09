@@ -17,3 +17,5 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON client_dbase_cschemes TO apache;
+
+ALTER TABLE schemes ADD max_missing int;

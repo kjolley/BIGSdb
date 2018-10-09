@@ -1274,8 +1274,14 @@ sub get_schemes_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes,
-		  (
+		push @$attributes, (
+			{
+				name => 'max_missing',
+				type => 'int',
+				comments =>q(Number of loci that are allowed to be missing for a profile to be defined. ),
+				tooltip => q(max_missing - The allow_missing_loci attribute must be set for this to take effect. )
+				  . q(If left blank then any number of missing loci will be allowed.)
+			},
 			{
 				name     => 'disable',
 				type     => 'bool',
@@ -1288,7 +1294,7 @@ sub get_schemes_table_attributes {
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (

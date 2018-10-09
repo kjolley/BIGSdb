@@ -390,7 +390,10 @@ sub _check_profile_exists {
 	if ( $ret->{'exists'} ) {
 		return 1 if $q->param('ignore_existing');
 		$problems->{$pk} .= "$ret->{'msg'}<br />";
+	} elsif ($ret->{'err'}){
+		$problems->{$pk} .= "$ret->{'msg'}<br />";
 	}
+	
 	return;
 }
 

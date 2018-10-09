@@ -451,16 +451,29 @@ sub check_new_profile {
 		$scheme_id, { fetch => 'col_arrayref' } );
 	my @profile;
 	my $empty_profile = 1;
+	my $missing_loci  = 0;
 
 	foreach my $locus (@$loci) {
 		push @profile, $designations->{$locus};
-		$empty_profile = 0 if !( ( $designations->{$locus} // 'N' ) eq 'N' );
+		if ( ( $designations->{$locus} // 'N' ) eq 'N' ) {
+			$missing_loci++;
+		} else {
+			$empty_profile = 0;
+		}
 	}
 	if ($empty_profile) {
 		return {
 			exists => 1,
 			msg    => q(You cannot define a profile with every locus set to be an arbitrary value (N).)
 		};
+	}
+	if (   $scheme_info->{'allow_missing_loci'}
+		&& defined $scheme_info->{'max_missing'}
+		&& $missing_loci > $scheme_info->{'max_missing'}  )
+	{
+		
+		my $plural = $scheme_info->{'max_missing'} == 1 ? 'us' : 'i';
+		return { err=>1, msg => qq(This scheme can only have $scheme_info->{'max_missing'} loc$plural missing.) };
 	}
 	my $pg_array = BIGSdb::Utils::get_pg_array( \@profile );
 	if ( !$scheme_info->{'allow_missing_loci'} ) {
