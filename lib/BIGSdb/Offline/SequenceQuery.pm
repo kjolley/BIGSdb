@@ -467,7 +467,7 @@ sub _get_classification_groups {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer       = q();
 	my $matched_loci = keys %$designations;
-	return
+	return $buffer
 	  if !$self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes WHERE scheme_id=?)', $scheme_id );
 	my $must_match = $self->_how_many_loci_must_match($scheme_id);
@@ -477,7 +477,7 @@ sub _get_classification_groups {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $largest_threshold = $self->{'datastore'}
 	  ->run_query( 'SELECT MAX(inclusion_threshold) FROM classification_schemes WHERE scheme_id=?', $scheme_id );
-	return if $ret_val->{'mismatches'} > $largest_threshold;
+	return $buffer if $ret_val->{'mismatches'} > $largest_threshold;
 	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= q(<h3>Matching profiles</h3>);
 	$buffer .= q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
