@@ -25,6 +25,7 @@ use List::MoreUtils qw(any uniq none);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
 use Error qw(:try);
+use Storable qw(dclone);
 use constant MAX_RESULTS_SHOW => 20;
 
 sub run {
@@ -297,15 +298,10 @@ sub _get_scheme_exact_results {
 			);
 		}
 		if ($scheme_buffer) {
-			if ($scheme_id) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
-			}
 			my $table = $self->_get_table_header($data);
 			$table  .= $scheme_buffer;
 			$table  .= q(</table>);
 			$buffer .= qq(<div class="scrollable">\n$table</div>\n);
-			my $text        = BIGSdb::Utils::convert_html_table_to_text($table);
 			my $output_file = BIGSdb::Utils::get_random() . q(.txt);
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
 			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
@@ -323,11 +319,7 @@ sub _get_scheme_exact_results {
 			}
 			$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
 		}
-
-		#Do this first as _get_scheme_fields clobbers $designations
-		my $cbuffer = $self->_get_classification_groups( $scheme_id, $designations );
 		$buffer .= $self->_get_scheme_fields( $scheme_id, $designations );
-		$buffer .= $cbuffer;
 	}
 	if ( !@schemes ) {
 		$buffer .= $self->_get_scheme_fields( 0, $designations );
@@ -442,14 +434,30 @@ sub _get_scheme_fields {
 		foreach my $scheme (@$schemes) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
-				$buffer .= $self->_get_scheme_table( $scheme->{'id'}, $designations );
+				my $scheme_buffer = $self->_get_scheme_table( $scheme->{'id'}, $designations );
+				if ( !$scheme_buffer ) {
+					$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations );
+				}
+				if ($scheme_buffer) {
+					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
+					$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
+					$buffer .= $scheme_buffer;
+				}
 			}
 		}
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
-			$buffer .= $self->_get_scheme_table( $scheme_id, $designations );
+			my $scheme_buffer = $self->_get_scheme_table( $scheme_id, $designations );
+			if ( !$scheme_buffer ) {
+				$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations );
+			}
+			if ($scheme_buffer) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
+				$buffer .= $scheme_buffer;
+			}
 		}
 	}
 	return $buffer;
@@ -459,17 +467,23 @@ sub _get_classification_groups {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer       = q();
 	my $matched_loci = keys %$designations;
-	my $must_match   = $self->_how_many_loci_must_match($scheme_id);
+	return
+	  if !$self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes WHERE scheme_id=?)', $scheme_id );
+	my $must_match = $self->_how_many_loci_must_match($scheme_id);
 	return $buffer if $matched_loci < $must_match;
 	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
 	return $buffer if !$ret_val;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" )
-	  . q(style="margin-top:-0.2em"></span>);
-	$buffer .= q(<h2>Matching profiles</h2>);
+	my $largest_threshold = $self->{'datastore'}
+	  ->run_query( 'SELECT MAX(inclusion_threshold) FROM classification_schemes WHERE scheme_id=?', $scheme_id );
+	return if $ret_val->{'mismatches'} > $largest_threshold;
+	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= q(<h3>Matching profiles</h3>);
+	$buffer .= q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
+	  . qq(<dd style="margin: 0 0 0 9em">$scheme_info->{'primary_key'}-$ret_val->{'profile'}</dd>);
 	$buffer .=
-	  qq(<dl class="data"><dt>Closest profile</dt><dd>$scheme_info->{'primary_key'}-$ret_val->{'profile'}</dd>);
-	$buffer .= qq(<dt>Mismatches</dt><dd>$ret_val->{'mismatches'}</dd></dl>);
+	  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
 	my $cschemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
@@ -541,7 +555,7 @@ sub _get_classification_groups {
 		$buffer .=
 		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 		  . q(style="margin-top:-0.2em"></span>)
-		  . q(<h2>Similar profiles (determined by classification schemes)</h2>)
+		  . q(<h3>Similar profiles (determined by classification schemes)</h3>)
 		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
@@ -558,9 +572,10 @@ sub _get_classification_groups {
 sub _get_closest_matching_profile {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $pk_field    = $scheme_info->{'primary_key'};
-	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $profiles    = $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id",
+	my $pk_field = $scheme_info->{'primary_key'};
+	return if !$pk_field;
+	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $profiles = $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id",
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $least_mismatches = @$loci;
 	my $best_match;
@@ -587,8 +602,6 @@ sub _get_closest_matching_profile {
 			$best_match       = $profile->{'pk'};
 		}
 	}
-
-	#	$self->{'logger'}->error("cgST: $best_match; $least_mismatches");
 	return if !$best_match;
 	return { profile => $best_match, mismatches => $least_mismatches };
 }
@@ -609,7 +622,7 @@ sub _how_many_loci_must_match {
 }
 
 sub _get_scheme_table {
-	my ( $self, $scheme_id, $designations ) = @_;
+	my ( $self, $scheme_id, $designations_no_clobber ) = @_;
 	my ( @profile, @temp_qry );
 	my $set_id = $self->{'options'}->{'set_id'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
@@ -618,6 +631,8 @@ sub _get_scheme_table {
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $missing_loci;
 
+	#Do a deep copy so that we don't clobber hashref.
+	state $designations = dclone $designations_no_clobber;
 	foreach my $locus (@$scheme_loci) {
 		$missing_loci = 1 if !defined $designations->{$locus};
 		my $alleles = $designations->{$locus};
@@ -641,7 +656,6 @@ sub _get_scheme_table {
 			undef, { fetch => 'all_arrayref', slice => {} } );
 		return q() if !@$all_values;
 		my $buffer;
-		$buffer .= qq(<h2>$scheme_info->{'name'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
 		$buffer .= q(<dl class="data">);
 		my $td           = 1;
 		my $field_values = {};
