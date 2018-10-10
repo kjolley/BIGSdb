@@ -481,7 +481,9 @@ sub _get_classification_groups {
 	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= q(<h3>Matching profiles</h3>);
 	$buffer .= q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
-	  . qq(<dd style="margin: 0 0 0 9em">$scheme_info->{'primary_key'}-$ret_val->{'profile'}</dd>);
+	  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
+	  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
 	$buffer .=
 	  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
 	my $cschemes =
