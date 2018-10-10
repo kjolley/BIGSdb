@@ -102,6 +102,11 @@ function initiate() {
 	});
 	\$('#show_extra_matches').tooltip({ content: "Show extra matches"});
 	\$('#hide_extra_matches').tooltip({ content: "Hide extra matches"});
+	\$("div#results a.tooltip").each(function( index ) {
+		var value = \$(this).attr('title');
+		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");
+		\$(this).tooltip({content: value});
+	});
 }
 
 function loadContent(url) {
