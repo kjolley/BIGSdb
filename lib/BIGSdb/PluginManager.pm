@@ -210,13 +210,16 @@ sub _has_required_genome {
 	my %require_items = map { $_ => 1 } split /,/x, ( $requires // q() );
 	return 1 if !$require_items{'seqbin'};
 	if ( $options->{'single_isolate'} ) {
-		return 1
-		  if $self->{'datastore'}
+		return $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $options->{'single_isolate'} );
 	} else {
-		return 1
-		  if $self->{'datastore'}->run_query(
-			"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id)");
+
+		#This will be called for each plugin, so cache the result
+		if ( !defined $self->{'cache'}->{'has_required_genome_all'} ) {
+			$self->{'cache'}->{'has_required_genome_all'} = $self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id)");
+		}
+		return $self->{'cache'}->{'has_required_genome_all'};
 	}
 	return;
 }
