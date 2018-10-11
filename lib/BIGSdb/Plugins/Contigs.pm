@@ -303,7 +303,7 @@ sub _print_interface {
 	}
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids from which contigs are )
