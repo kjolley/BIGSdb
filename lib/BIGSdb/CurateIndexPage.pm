@@ -551,7 +551,7 @@ sub _get_isolate_fields {
 		{
 			add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			add_url          => $add_url,
-			batch_add        => 1,
+			batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			batch_add_url    => $batch_add_url,
 			query            => $exists,
 			query_url        => $query_url,
@@ -560,7 +560,6 @@ sub _get_isolate_fields {
 		}
 	);
 	$buffer .= qq(</div>\n);
-
 	if ($exists) {
 		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Isolate aliases</h2>);
