@@ -264,8 +264,9 @@ sub _cannot_upload_private_data {
 		if ( !$is_project_user ) {
 			$self->print_bad_status(
 				{
-					message => qq(You are not a registered user for the $project->{'short_description'} project.),
-					navbar  => 1
+					message => q(Your account has insufficient privileges to upload to the )
+					  . qq($project->{'short_description'} project.),
+					navbar => 1
 				}
 			);
 			return 1;
