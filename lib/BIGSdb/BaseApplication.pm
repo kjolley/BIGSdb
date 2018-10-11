@@ -271,17 +271,13 @@ sub set_system_overrides {
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
-		open( my $fh, '<', $override_file )
-		  || $logger->error("Can't open $override_file for reading");
-		while ( my $line = <$fh> ) {
-			next if $line =~ /^\#/x;
-			$line =~ s/^\s+//x;
-			$line =~ s/\s+$//x;
-			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
-				$self->{'system'}->{$1} = $2;
-			}
+		my $config = Config::Tiny->new();
+		$config = Config::Tiny->read($override_file);
+		foreach my $param ( keys %{ $config->{_} } ) {
+			my $value = $config->{_}->{$param};
+			$value =~ s/^"|"$//gx;                 #Remove quotes around value
+			$self->{'system'}->{$param} = $value;
 		}
-		close $fh;
 	}
 	return;
 }
@@ -669,8 +665,9 @@ sub _is_user_in_group_file {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($name);
 	return if !$user_info;
 	return $self->{'datastore'}->run_query(
-		    'SELECT EXISTS(SELECT * FROM user_groups g JOIN user_group_members m ON g.id=m.user_group WHERE '
-		  . "g.description IN (SELECT value FROM $list_table) AND m.user_id=?)", $user_info->{'id'}
+		'SELECT EXISTS(SELECT * FROM user_groups g JOIN user_group_members m ON g.id=m.user_group WHERE '
+		  . "g.description IN (SELECT value FROM $list_table) AND m.user_id=?)",
+		$user_info->{'id'}
 	);
 }
 
