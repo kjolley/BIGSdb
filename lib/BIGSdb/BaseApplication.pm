@@ -275,8 +275,35 @@ sub set_system_overrides {
 		$config = Config::Tiny->read($override_file);
 		foreach my $param ( keys %{ $config->{_} } ) {
 			my $value = $config->{_}->{$param};
-			$value =~ s/^"|"$//gx;                 #Remove quotes around value
+			$value =~ s/^"|"$//gx;    #Remove quotes around value
 			$self->{'system'}->{$param} = $value;
+		}
+	}
+	$self->_set_field_overrides;
+	return;
+}
+
+sub _set_field_overrides {
+	my ($self) = @_;
+	return if !$self->{'instance'};
+	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
+	my %allowed_att = map { $_ => 1 } qw(required maindisplay);
+	if ( -e $override_file ) {
+		my $config = Config::Tiny->new();
+		$config = Config::Tiny->read($override_file);
+		foreach my $param ( keys %{ $config->{_} } ) {
+			my ( $field, $attribute ) = split /:/x, $param;
+			if ( !$self->{'xmlHandler'}->is_field($field) ) {
+				$logger->error("Error in field.overrides file. Invalid field $field");
+				next;
+			}
+			if ( !$allowed_att{$attribute} ) {
+				$logger->error("Error in field.overrides file. Invalud attribute $attribute");
+				next;
+			}
+			my $value = $config->{_}->{$param};
+			$value =~ s/^"|"$//gx;    #Remove quotes around value
+			$self->{'xmlHandler'}->{'attributes'}->{$field}->{$attribute} = $value;
 		}
 	}
 	return;
