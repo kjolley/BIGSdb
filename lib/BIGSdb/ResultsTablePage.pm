@@ -379,8 +379,6 @@ sub _print_publish_function {
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
-	say q(<a class="tooltip" title="Only click this if you intend to make these records public.">)
-	  . q(<span class="fas fa-exclamation-triangle warn"></span></a>);
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
@@ -1854,6 +1852,31 @@ sub add_to_project {
 		$self->{'db'}->commit;
 		$self->{'project_add_message'} = $message;
 	}
+	return;
+}
+
+sub confirm_publication {
+	my ($self) = @_;
+	say q(<h1>Confirm publication</h1>);
+	say q(<div class="box" id="statusbad">);
+	say q(<fieldset style="float:left"><legend>Warning</legend>);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
+	say q(<p>Please confirm that you wish to make these isolates public.</p>);
+	say q(</fieldset>);
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Confirm' } );
+	say $q->hidden( confirm_publish => 1 );
+	say $q->hidden($_) foreach qw(db page query_file);
+	say $q->end_form;
+	my $query_file = $q->param('query_file');
+	$self->print_navigation_bar(
+		{
+			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;query_file=$query_file)
+		}
+	);
+	say q(</div>);
 	return;
 }
 

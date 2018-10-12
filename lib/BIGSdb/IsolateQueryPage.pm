@@ -135,6 +135,10 @@ sub print_content {
 		$self->add_to_project;
 	}
 	if ( $q->param('publish') ) {
+		$self->confirm_publication;
+		return;
+	}
+	if ($q->param('confirm_publish')){
 		$self->publish;
 	}
 	my $desc = $self->get_db_description;

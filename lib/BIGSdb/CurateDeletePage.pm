@@ -279,10 +279,8 @@ sub _display_record {
 	$buffer .= q(</div>);
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
-		$buffer .=
-		  $self->_delete( $table, $data, $query_fields, $query_values,
-			{ retire => $q->param('delete_and_retire') ? 1 : 0 } )
-		  || '';
+		$self->_delete( $table, $data, $query_fields, $query_values,
+			{ retire => $q->param('delete_and_retire') ? 1 : 0 } );
 		return if $q->param('submit') || $q->param('delete_and_retire');
 	}
 	say $buffer;
@@ -300,8 +298,7 @@ sub _get_delete_message {
 
 sub _delete {
 	my ( $self, $table, $data, $query_fields, $query_values, $options ) = @_;
-	my $q = $self->{'cgi'};
-	my $buffer;
+	my $q       = $self->{'cgi'};
 	my $proceed = 1;
 	my $nogo_buffer;
 	if ( $table eq 'users' ) {
@@ -366,12 +363,11 @@ sub _delete {
 		$self->print_bad_status( { message => $nogo_buffer, navbar => 1 } );
 		return;
 	}
-	$buffer .= "</p>\n";
 	if ( ( $q->param('submit') || $q->param('delete_and_retire') ) && $proceed ) {
 		$self->_confirm( $table, $data, $query_fields, $query_values, $options );
 		return;
 	}
-	return $buffer;
+	return;
 }
 
 sub _delete_user {
