@@ -1822,10 +1822,27 @@ sub add_to_project {
 	}
 	my $ids = $self->get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my @restrict_clauses;
+	my $project = $self->{'datastore'}->run_query( 'SELECT restrict_user,restrict_usergroup FROM projects WHERE id=?',
+		$project_id, { fetch => 'row_hashref' } );
+	if ( $project->{'restrict_user'} ) {
+		push @restrict_clauses,
+		  qq($temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender=$user_info->{'id'}));
+	}
+	if ( $project->{'restrict_usergroup'} ) {
+		push @restrict_clauses, qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
+		  . q[(SELECT user_id FROM user_group_members WHERE user_group IN ]
+		  . qq[(SELECT user_group FROM user_group_members WHERE user_id=$user_info->{'id'})))];
+	}
+	local $" = ' OR ';
+	my $restrict_clause =
+	  @restrict_clauses
+	  ? qq( AND (@restrict_clauses))
+	  : q();
 	my @msg;
 	my $to_add = $self->{'datastore'}->run_query(
 		"SELECT COUNT(value) FROM $temp_table WHERE value NOT IN(SELECT isolate_id "
-		  . 'FROM project_members WHERE project_id=?)',
+		  . "FROM project_members WHERE project_id=?)$restrict_clause",
 		$project_id
 	);
 	my $plural = $to_add == 1 ? q() : q(s);
@@ -1842,7 +1859,7 @@ sub add_to_project {
 	eval {
 		$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) '
 			  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table WHERE value NOT IN "
-			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)" );
+			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)$restrict_clause" );
 	};
 
 	if ($@) {

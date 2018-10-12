@@ -13,3 +13,10 @@ FROM project_user_groups AS pug JOIN user_group_members ugm ON pug.user_group=ug
 GROUP BY project_id,user_id;
 
 GRANT SELECT ON merged_project_users TO apache;
+
+ALTER TABLE projects ADD restrict_user boolean;
+ALTER TABLE projects ADD restrict_usergroup boolean;
+UPDATE projects SET restrict_user = FALSE;
+ALTER TABLE projects ALTER COLUMN restrict_user SET NOT NULL;
+UPDATE projects SET restrict_usergroup = FALSE;
+ALTER TABLE projects ALTER COLUMN restrict_usergroup SET NOT NULL;

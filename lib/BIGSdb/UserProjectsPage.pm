@@ -307,11 +307,9 @@ sub _modify_users {
 	my $project_id = $q->param('project_id');
 	return if $self->_fails_project_check($project_id);
 	return if $self->_fails_admin_check($project_id);
-	my $user_groups = $self->{'datastore'}->run_query(
-		'SELECT id,description FROM user_groups ug ORDER BY UPPER(ug.description)',
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my $user_groups =
+	  $self->{'datastore'}->run_query( 'SELECT id,description FROM user_groups ug ORDER BY UPPER(ug.description)',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	$self->_update_user_groups($project_id) if $q->param('update_user_groups');
 	say q(<div class="box" id="resultstable">);
 	my $project = $self->_get_project($project_id);
@@ -670,8 +668,10 @@ sub _add_new_project {
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO projects (id,short_description,full_description,isolate_display,'
-			  . 'list,private,no_quota,curator,datestamp) VALUES (?,?,?,?,?,?,?,?,?)',
-			undef, $id, $short_desc, $full_desc, 'false', 'false', 'true', 'false', $user_info->{'id'}, 'now'
+			  . 'list,private,no_quota,restrict_user,restrict_usergroup,curator,datestamp) VALUES '
+			  . '(?,?,?,?,?,?,?,?,?,?,?)',
+			undef, $id, $short_desc, $full_desc, 'false', 'false', 'true', 'false', 'false', 'false',
+			$user_info->{'id'}, 'now'
 		);
 		$self->{'db'}
 		  ->do( 'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',

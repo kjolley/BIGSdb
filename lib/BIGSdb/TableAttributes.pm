@@ -1274,12 +1274,13 @@ sub get_schemes_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
-				name => 'max_missing',
-				type => 'int',
-				comments =>q(Number of loci that are allowed to be missing for a profile to be defined. ),
-				tooltip => q(max_missing - The allow_missing_loci attribute must be set for this to take effect. )
+				name     => 'max_missing',
+				type     => 'int',
+				comments => q(Number of loci that are allowed to be missing for a profile to be defined. ),
+				tooltip  => q(max_missing - The allow_missing_loci attribute must be set for this to take effect. )
 				  . q(If left blank then any number of missing loci will be allowed.)
 			},
 			{
@@ -1294,7 +1295,7 @@ sub get_schemes_table_attributes {
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
@@ -1971,6 +1972,26 @@ sub get_projects_table_attributes {
 			  . q(private records (only relevant to private projects)),
 			required => 1,
 			default  => 'true'
+		},
+		{
+			name    => 'restrict_user',
+			type    => 'bool',
+			tooltip => q(restrict_user - Only allow isolates submitted by sender to be added to the project. )
+			  . q(This can be used in combination with restrict_usergroup. This is only relevant for private )
+			  . q(projects and only affects adding records following a query - where it is easy to accidentally )
+			  . q(add more than intended.),
+			required => 1,
+			default  => 'false'
+		},
+		{
+			name    => 'restrict_usergroup',
+			type    => 'bool',
+			tooltip => q(restrict_usergroup - Only allow isolates submitted by sender's usergroup to be added )
+			  . q(to the project. This can be used in combination with restrict_user. This is only relevant for )
+			  . q(private projects and only affects adding records following a query - where it is easy to )
+			  . q(accidentally add more than intended.),
+			required => 1,
+			default  => 'false'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
