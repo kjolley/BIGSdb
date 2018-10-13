@@ -493,7 +493,11 @@ sub _get_html5_args {
 	my ( $required_field, $field, $thisfield ) = @{$args}{qw(required_field field thisfield)};
 	my $html5_args = {};
 	$html5_args->{'required'} = 'required' if $required_field;
-	$html5_args->{'type'} = 'date' if $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'};
+	if ($thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'}){
+		$html5_args->{'type'} = 'date';
+		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};
+		$html5_args->{'max'} = $thisfield->{'max'} if defined $thisfield->{'max'};
+	}
 	if ( $thisfield->{'type'} =~ /^int/x || $thisfield->{'type'} eq 'float' ) {
 		if ( $field ne 'sender' && !$thisfield->{'optlist'} ) {
 			$html5_args->{'type'} = 'number';
