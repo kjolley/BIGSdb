@@ -135,7 +135,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my %display_in_browser = map { $_ => 1 } qw(xhtml html text);
-	$self->{'no_cache'} = 1;
+	$self->{'noCache'} = 1;
 	if ( $q->param('file') ) {
 		my $label = $q->param('file');
 		my $file  = $self->_get_file_info($label);
