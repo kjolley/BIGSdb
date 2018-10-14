@@ -349,6 +349,14 @@ sub print_page_content {
 		$self->initiate_view( $self->{'username'} );
 	}
 	$q->charset('UTF-8');
+	if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
+		my $guid = $self->{'prefstore'}->get_new_guid;
+		push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
+		$self->{'setOptions'} = 1;
+	}
+	my %header_options;
+	$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
+	$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
 			embl      => 'chemical/x-embl-dl-nucleotide',
@@ -360,30 +368,19 @@ sub print_page_content {
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
-		my %atts;
-		$atts{'type'} = $mime_type{ $self->{'type'} } // 'text/plain';
-		$atts{'attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
+		$header_options{'-type'} = $mime_type{ $self->{'type'} } // 'text/plain';
+		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
 		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header' || $self->{'type'} eq 'text';
-		$atts{'expires'} = '+1h' if !$self->{'noCache'};
-		print $q->header( \%atts );
+		print $q->header( \%header_options );
 		$self->print_content;
 	} else {
 		binmode STDOUT, ':encoding(utf8)';
-		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
-			my $guid = $self->{'prefstore'}->get_new_guid;
-			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
-			$self->{'setOptions'} = 1;
-		}
-		my %header_options;
-		$header_options{'-cookie'}  = $self->{'cookies'} if $self->{'cookies'};
-		$header_options{'-expires'} = '+1h'              if !$self->{'noCache'};
-		$header_options{'-status'}  = $self->{'status'}  if $self->{'status'};
+		$header_options{'-status'} = $self->{'status'} if $self->{'status'};
 		print $q->header(%header_options);
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
 		my ( $meta_content, $shortcut_icon ) = $self->_get_meta_data;
 		my $http_equiv = q(<meta name="viewport" content="width=device-width" />);
-
 		if ( $self->{'refresh'} ) {
 			my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
 			$http_equiv .= qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
