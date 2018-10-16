@@ -110,11 +110,13 @@ sub main {
 	  PROFILE: foreach my $profile_id (@$profiles) {
 			next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
 			my $pg_method =
-			  $cg_info->{'use_relative_threshold'} ? 'matching_profiles_with_relative_threshold' : 'matching_profiles';
+			  $cg_info->{'use_relative_threshold'}
+			  ? 'matching_profiles_with_relative_threshold_cg'
+			  : 'matching_profiles_cg';
 			my $possible_groups = $script->{'datastore'}->run_query(
 				'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
 				  . "(SELECT $pg_method(?,?,?)) ORDER BY group_id",
-				[ $opts{'cscheme_id'}, $cg_info->{'scheme_id'}, $profile_id, $cg_info->{'inclusion_threshold'} ],
+				[ $opts{'cscheme_id'}, $opts{'cscheme_id'}, $profile_id, $cg_info->{'inclusion_threshold'} ],
 				{ fetch => 'col_arrayref', cache => 'matching_profiles' }
 			);
 			if (@$possible_groups) {
