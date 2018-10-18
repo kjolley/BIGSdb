@@ -364,7 +364,10 @@ sub print_page_content {
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
 			text      => 'text/plain',
-			html      => 'text/html'
+			html      => 'text/html',
+			png       => 'image/png',
+			jpg       => 'image/jpeg',
+			gif       => 'image/gif'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
