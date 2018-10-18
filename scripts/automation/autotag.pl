@@ -100,6 +100,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	  if !defined $script->{'db'};
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
+	$script->{'logger'}->info("$opts{'d'}:Running Autotagger on ".scalar(@$isolates)." isolates");
 	$script->{'db'}->commit;    #Prevent idle in transaction table locks
 	my $lists = [];
 	my $i     = 0;
@@ -111,10 +112,11 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
-	$script->{'logger'}->info("$opts{'d'}:Running Autotagger (up to $opts{'threads'} threads)");
+	$script->{'logger'}->info("$opts{'d'}:Running Autotagger (up to $opts{'threads'} threads) for ".scalar(@$lists)." sublists");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	foreach my $list (@$lists) {
-		$pm->start and next;                     #Forks
+		my $pid = $pm->start and next;                     #Forks
+		$script->{'logger'}->info("$opts{'d'}: Autotag child pid $pid");
 		local $" = ',';
 		BIGSdb::Offline::AutoTag->new(
 			{
