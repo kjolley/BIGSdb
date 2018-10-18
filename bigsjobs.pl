@@ -33,10 +33,10 @@ use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'bigsdb',
-	PASSWORD         => 'bigsdb'
+	HOST             => undef,
+	PORT             => undef,
+	USER             => undef,
+	PASSWORD         => undef
 };
 #######End Local configuration################################
 use lib (LIB_DIR);
