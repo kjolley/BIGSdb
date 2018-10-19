@@ -118,8 +118,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	foreach my $list (@$lists) {
-		my $pid = $pm->start and next;                     #Forks
-		$script->{'logger'}->info("$opts{'d'}: Autotag child pid $pid");
+		$pm->start and next;                     #Forks
 		local $" = ',';
 		BIGSdb::Offline::AutoTag->new(
 			{
