@@ -111,7 +111,11 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
-	$script->{'logger'}->info("$opts{'d'}:Running Autotagger (up to $opts{'threads'} threads)");
+	my $isolate_count = @$isolates;
+	my $threads       = @$lists;
+	my $plural        = $isolate_count == 1 ? q() : q(s);
+	$script->{'logger'}
+	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	foreach my $list (@$lists) {
 		$pm->start and next;                     #Forks
