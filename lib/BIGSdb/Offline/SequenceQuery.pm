@@ -466,6 +466,7 @@ sub _get_scheme_fields {
 sub _get_classification_groups {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer       = q();
+	return $buffer if !$self->is_page_allowed('profileInfo');
 	my $matched_loci = keys %$designations;
 	return $buffer
 	  if !$self->{'datastore'}
