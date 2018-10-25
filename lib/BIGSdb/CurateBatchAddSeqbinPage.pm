@@ -235,18 +235,24 @@ sub _validate {
 		  . q(Upload may take a short while.</em></strong>);
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
-		my $sender;
-		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-		say q(</li><li><label for="sender" class="parameter">sender: !</label>);
-		say $self->popup_menu(
-			-name     => 'sender',
-			-id       => 'sender',
-			-values   => [ '', @$users ],
-			-labels   => $user_names,
-			-required => 'required',
-			-default  => $sender
-		);
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		say q(<li><label for="sender" class="parameter">sender: !</label>);
+		if ( $user_info->{'status'} eq 'submitter' ) {
+			say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
+			say $q->hidden( sender => $user_info->{'id'} );
+		} else {
+			my $sender;
+			my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+			my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
+			say $self->popup_menu(
+				-name     => 'sender',
+				-id       => 'sender',
+				-values   => [ '', @$users ],
+				-labels   => $user_names,
+				-required => 'required',
+				-default  => $sender
+			);
+		}
 		say q(</li><li><label for="method" class="parameter">method: </label>);
 		my $method_labels = { '' => ' ' };
 		say $q->popup_menu(
@@ -258,7 +264,6 @@ sub _validate {
 		my $seq_attributes =
 		  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
 			undef, { fetch => 'all_arrayref', slice => {} } );
-
 		if (@$seq_attributes) {
 			foreach my $attribute (@$seq_attributes) {
 				( my $label = $attribute->{'key'} ) =~ s/_/ /;
@@ -349,8 +354,7 @@ sub _upload {
 				message => 'Please do not refresh!',
 				detail  => 'Your contigs are already uploading. Check the database to see if '
 				  . 'they have finished uploading. If you click Restart below and they have not '
-				  . 'finished uploading, the process will be terminated.'
-				,
+				  . 'finished uploading, the process will be terminated.',
 				navbar      => 1,
 				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
 				reload_text => 'Restart'
@@ -367,7 +371,11 @@ sub _upload {
 	my $insert_sql = $self->{'db'}->prepare($qry);
 	my $curator    = $self->get_curator_id;
 	my $sender     = $q->param('sender');
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 
+	if ( $user_info->{'status'} eq 'submitter' ) {
+		$sender = $user_info->{'id'};    #Don't allow sender to modify hidden value on form
+	}
 	if ( !$sender ) {
 		$self->print_bad_status(
 			{
@@ -405,7 +413,7 @@ sub _upload {
 		catch BIGSdb::DataException with {
 			$failed_validation = 1;
 		};
-		if ($failed_validation){
+		if ($failed_validation) {
 			$failure++;
 			last;
 		}
