@@ -1571,7 +1571,7 @@ sub _check_sequence_length {
 			}
 		}
 		my $exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,sequence)=(?,?))',
+			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,md5(sequence))=(?,md5(?)))',
 			[ $locus, ${ $args->{'value'} } ],
 			{ cache => 'CurateBatchAddPage::sequence_exists' }
 		);

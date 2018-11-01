@@ -337,7 +337,7 @@ sub _check_sequence_exists {
 	#Check seq doesn't already exist
 	my $exists =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)', [ $locus, $$seq_ref ] );
+	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $$seq_ref ] );
 	if ( defined $exists ) {
 		return "Sequence has already been defined as $locus-$exists.";
 	}
