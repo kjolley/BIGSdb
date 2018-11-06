@@ -24,7 +24,6 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Apache2::Connection ();
 use Bio::SeqIO;
 use constant MAX_INSTANT_RUN => 100;
 use constant MAX_SEQUENCES   => 2000;

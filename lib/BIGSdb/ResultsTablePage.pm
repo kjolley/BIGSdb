@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(any);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
@@ -64,11 +64,15 @@ sub _calculate_totals {
 				}
 			}
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$self->print_bad_status(
-				{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
-			$logger->error('Cannot create temporary table');
-			return;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				$self->print_bad_status(
+					{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
+				$logger->error('Cannot create temporary table');
+				return;
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
@@ -1830,7 +1834,8 @@ sub add_to_project {
 		  qq($temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender=$user_info->{'id'}));
 	}
 	if ( $project->{'restrict_usergroup'} ) {
-		push @restrict_clauses, qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
+		push @restrict_clauses,
+		    qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
 		  . q[(SELECT user_id FROM user_group_members WHERE user_group IN ]
 		  . qq[(SELECT user_group FROM user_group_members WHERE user_id=$user_info->{'id'})))];
 	}

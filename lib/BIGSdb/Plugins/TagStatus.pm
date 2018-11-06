@@ -25,8 +25,6 @@ use 5.010;
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
-use Apache2::Connection ();
 use constant COLOURS => qw(eee c22 22c c4c 000);    #none; designations only; tags only; both; flags
 
 sub get_attributes {
@@ -42,7 +40,7 @@ sub get_attributes {
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#tag-status",
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',

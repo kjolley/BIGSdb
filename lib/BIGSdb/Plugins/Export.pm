@@ -24,8 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
-use Apache2::Connection ();
+use Try::Tiny;
 use List::MoreUtils qw(uniq);
 use Bio::Tools::SeqStats;
 use constant MAX_INSTANT_RUN         => 2000;
@@ -831,9 +830,7 @@ sub _get_molwt {
 		try {
 			$seq_ref = $locus->get_allele_sequence($allele);
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-
-			#do nothing
+		catch {    #do nothing
 		};
 		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
 		if ($met) {
@@ -851,7 +848,7 @@ sub _get_molwt {
 		my $stats     = $seq_stats->get_mol_wt;
 		$weight = $stats->[0];
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		$weight = q(-);
 	};
 	return $weight;

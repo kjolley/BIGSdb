@@ -26,7 +26,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface :limits);
 use BIGSdb::Utils;
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -652,18 +652,19 @@ sub _check_data {
 
 			#Check for various invalid combinations of fields
 			if ( !$problems{$pk_combination} && $table ne 'sequences' ) {
-				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
 				}
-				catch BIGSdb::DataException with {
-					$continue = 0;
-				}
-				catch BIGSdb::DataWarning with {
-					$skip_record = 1;
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Data::Warning') ) {
+						next;
+					}
+					if ( $_->isa('BIGSdb::Exception::Data') ) {
+						$continue = 0;
+						last;
+					}
 				};
 				last if !$continue;
-				next if $skip_record;
 			}
 			my %record_checks = (
 				accession => sub {
@@ -1279,7 +1280,7 @@ sub _check_data_primary_key {
 						  . qq((@primary_keys) data.)
 					}
 				);
-				throw BIGSdb::DataException('Invalid primary key');
+				BIGSdb::Exception::Data->throw('Invalid primary key');
 			}
 			$self->print_bad_status(
 				{
@@ -1287,7 +1288,7 @@ sub _check_data_primary_key {
 					  . qq(key field$plural (@primary_keys) required for this table.)
 				}
 			);
-			throw BIGSdb::DataException("no primary key field$plural (@primary_keys)");
+			BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
@@ -1298,7 +1299,7 @@ sub _check_data_primary_key {
 					|| $arg_ref->{'advisories'}->{$pk_combination} !~ /$warning_text/x )
 				{
 					$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
-					throw BIGSdb::DataWarning('Primary key already exists.');
+					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 				}
 			} else {
 				my $problem_text = 'Primary key already exists in the database.<br />';
@@ -1915,9 +1916,13 @@ sub _upload_data {
 					);
 					push @inserts, @$contigs_extra_inserts;
 				}
-				catch BIGSdb::DataException with {
-					$upload_err  = 'Invalid FASTA file';
-					$failed_file = $data[ $field_order->{'assembly_filename'} ];
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Data') ) {
+						$upload_err  = 'Invalid FASTA file';
+						$failed_file = $data[ $field_order->{'assembly_filename'} ];
+					} else {
+						$logger->logdie($_);
+					}
 				};
 				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";

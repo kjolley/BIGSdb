@@ -20,15 +20,16 @@ package BIGSdb::Page;
 use strict;
 use warnings;
 use 5.010;
+use BIGSdb::Exceptions;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
-sub new {    ## no critic (RequireArgUnpacking)
+sub new {                             ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -228,15 +229,19 @@ sub create_temp_tables {
 				}
 			}
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			if ( $format ne 'text' ) {
-				$self->print_bad_status(
-					{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				if ( $format ne 'text' ) {
+					$self->print_bad_status(
+						{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+				} else {
+					say q(Cannot connect to remote database. The query cannot be performed.);
+				}
+				$logger->error('Cannot connect to remote database.');
+				$continue = 0;
 			} else {
-				say q(Cannot connect to remote database. The query cannot be performed.);
+				$logger->logdie($_);
 			}
-			$logger->error('Cannot connect to remote database.');
-			$continue = 0;
 		};
 	}
 	if ( $q->param('list_file') && $q->param('datatype') ) {
@@ -271,8 +276,12 @@ sub choose_set {
 				$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $q->param('sets_list') );
 				$self->{'prefs'}->{'set_id'} = $q->param('sets_list');
 			}
-			catch BIGSdb::PrefstoreConfigurationException with {
-				$logger->error(q(Can't set set_id in prefs));
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
+					$logger->error(q(Cannot set set_id in prefs));
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		} else {
 			$self->{'system'}->{'sets'} = 'no';
@@ -304,8 +313,7 @@ sub _initiate_plugin {
 			$self->{'type'} = 'no_header';
 		}
 	}
-	catch BIGSdb::InvalidPluginException with {
-
+	catch {
 		#ignore
 	};
 	return;
@@ -339,8 +347,12 @@ sub print_page_content {
 				$self->{'prefs'}->{'set_id'} =
 				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 			}
-			catch BIGSdb::DatabaseNoRecordException with {
-				$self->{'prefs'}->{'tooltips'} = 1;
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+					$self->{'prefs'}->{'tooltips'} = 1;
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			$self->choose_set;
 		}
@@ -2064,9 +2076,13 @@ sub initiate_prefs {
 	try {
 		$self->{'prefstore'}->update_datestamp($guid);
 	}
-	catch BIGSdb::PrefstoreConfigurationException with {
-		undef $self->{'prefstore'};
-		$self->{'fatal'} = 'prefstoreConfig';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
+			undef $self->{'prefstore'};
+			$self->{'fatal'} = 'prefstoreConfig';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ( ( $q->param('page') // '' ) eq 'options' && $q->param('set') ) {
 		foreach (qw(displayrecs pagebar alignwidth flanking)) {
@@ -2805,8 +2821,12 @@ sub use_correct_user_database {
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'datastore'}->change_db( $self->{'db'} );
 	foreach my $config ( @{ $self->{'config'}->{'site_user_dbs'} } ) {

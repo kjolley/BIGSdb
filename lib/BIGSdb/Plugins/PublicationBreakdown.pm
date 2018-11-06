@@ -25,7 +25,6 @@ use parent qw(BIGSdb::Plugin BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -39,7 +38,7 @@ sub get_attributes {
 		buttontext  => 'Publications',
 		menutext    => 'Publications',
 		module      => 'PublicationBreakdown',
-		version     => '1.1.8',
+		version     => '1.1.9',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",

@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(any none);
 use IO::String;
 use Bio::SeqIO;
@@ -173,7 +173,7 @@ sub _check {
 			push @seq_data, { id => $seq_object->id, seq => $seq };
 		}
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		$self->print_bad_status( { message => q(Sequence is not in valid FASTA format.), navbar => 1 } );
 		$continue = 0;    #Can't return from inside catch block
 	};

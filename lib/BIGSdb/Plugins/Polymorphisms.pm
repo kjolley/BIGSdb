@@ -24,9 +24,8 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(none);
-use Apache2::Connection ();
 use Bio::SeqIO;
 use File::Copy;
 use constant MAX_INSTANT_RUN => 100;    #Number of sequences before we start an offline job
@@ -228,7 +227,7 @@ sub _get_seqs {
 	try {
 		$locus = $self->{'datastore'}->get_locus($locus_name);
 	}
-	catch BIGSdb::BIGSException with {
+	catch {
 		$logger->error("Invalid locus '$locus_name'");
 		return;
 	};
@@ -250,7 +249,7 @@ sub _get_seqs {
 				try {
 					$allele_seq{$allele_id} = $locus->get_allele_sequence($allele_id);
 				}
-				catch BIGSdb::DatabaseConnectionException with {
+				catch {
 
 					#do nothing
 				};

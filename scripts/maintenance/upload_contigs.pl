@@ -34,9 +34,10 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS);
-use Error qw(:try);
+use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
@@ -119,9 +120,13 @@ sub main {
 	try {
 		$seqs = BIGSdb::Utils::read_fasta($fasta_ref);
 	}
-	catch BIGSdb::DataException with {
-		my $err = shift;
-		exit_cleanly($err);
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			my $err = shift;
+			exit_cleanly($err);
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	upload( $opts{'i'}, $seqs );
 	return;

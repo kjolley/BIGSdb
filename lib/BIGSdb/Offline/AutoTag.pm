@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2016, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,8 +22,8 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
-use BIGSdb::BIGSException;
-use Error qw(:try);
+use BIGSdb::Exceptions;
+use Try::Tiny;
 use constant TAG_USER          => -1;             #User id for tagger (there needs to be a record in the users table)
 use constant TAG_USERNAME      => 'autotagger';
 use constant DEFAULT_WORD_SIZE => 60;             #Only looking for exact matches
@@ -132,10 +132,9 @@ sub _scan_loci_together {
 
 		#Delete isolate seqbin FASTA
 		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
-
-  		if (!$self->{'options'}->{'reuse_blast'}){
-	  		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
-  		}
+		if ( !$self->{'options'}->{'reuse_blast'} ) {
+			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+		}
 		last ISOLATE if $EXIT || $self->_is_time_up;
 	}
 
@@ -262,10 +261,14 @@ sub _handle_match {
 				);
 			}
 		}
-		catch BIGSdb::DatabaseException with {
-			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
-			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
-			$problem = PROBLEM;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database') ) {
+				$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+				$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+				$problem = PROBLEM;
+			} else {
+				$self->{'logger'}->logdie($_);
+			}
 		};
 		if ($problem) {
 			$self->_update_isolate_history( $isolate_id, $self->{'history'} );
@@ -300,10 +303,14 @@ sub _handle_no_match {
 			}
 		);
 	}
-	catch BIGSdb::DatabaseException with {
-		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
-		$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
-		$problem = PROBLEM;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database') ) {
+			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
+			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
+			$problem = PROBLEM;
+		} else {
+			$self->{'logger'}->logdie($_);
+		}
 	};
 	if ($problem) {
 		$self->_update_isolate_history( $isolate_id, $self->{'history'} );
@@ -352,7 +359,7 @@ sub _tag_allele {
 		$self->{'logger'}->error($@) if $@;
 		$self->{'db'}->rollback;
 		say 'Cannot insert allele designation.';
-		throw BIGSdb::DatabaseException('Cannot insert allele designation.');
+		BIGSdb::Exception::Database->throw('Cannot insert allele designation.');
 	}
 	$self->{'db'}->commit;
 	push @{ $self->{'history'} }, "$values->{'locus'}: new designation '$values->{'allele_id'}' (sequence bin scan)";
@@ -401,7 +408,7 @@ sub _tag_sequence {
 		$self->{'logger'}->error($@) if $@;
 		$self->{'db'}->rollback;
 		say 'Cannot insert allele sequence.';
-		throw BIGSdb::DatabaseException('Cannot insert allele sequence.');
+		BIGSdb::Exception::Database->throw('Cannot insert allele sequence.');
 	}
 	$self->{'db'}->commit;
 	push @{ $self->{'history'} }, "$values->{'locus'}: sequence tagged. Seqbin id: $values->{'seqbin_id'}; "

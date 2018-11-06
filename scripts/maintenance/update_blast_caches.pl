@@ -30,9 +30,10 @@ use constant {
 #######End Local configuration################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;
+use BIGSdb::Exceptions;
 use Term::Cap;
 use POSIX;
-use Error qw(:try);
+use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
@@ -80,9 +81,13 @@ try {
 		}
 	);
 }
-catch BIGSdb::ServerBusyException with {
-	say q(Server too busy. Aborting.);
-	exit;
+catch {
+	if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
+		say q(Server too busy. Aborting.);
+		exit;
+	} else {
+		$logger->logdie($_);
+	}
 };
 my $method = {
 	all_loci            => sub { $blast_obj->create_scheme_cache(0) },

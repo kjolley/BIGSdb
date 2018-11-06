@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.0.2',
+		version             => '1.0.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -330,7 +330,7 @@ sub _generate_mstree {
 	my $cmd = "python $self->{'config'}->{'EnteroMSTree_path'}/MSTrees.py profile=$profiles_file > $tree_file";
 	eval { system($cmd); };
 	if ($?) {
-		throw BIGSdb::PluginException('Tree generation failed.');
+		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
 	}
 	$self->{'jobManager'}->update_job_output(
 		$job_id,

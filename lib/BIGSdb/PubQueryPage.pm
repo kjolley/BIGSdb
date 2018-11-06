@@ -20,8 +20,9 @@ package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use Error qw(:try);
+
 use parent qw(BIGSdb::ResultsTablePage);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -43,9 +44,13 @@ sub print_content {
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 		$self->print_bad_status( { message => q(No connection to reference database.), navbar => 1 } );
 		$continue = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if !$continue;
 	if ( $system->{'dbtype'} eq 'isolates' ) {

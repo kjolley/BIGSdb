@@ -35,8 +35,9 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Offline::ProcessRemoteContigs;
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
-use Error qw(:try);
+use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
@@ -177,14 +178,16 @@ sub get_isolate_data {
 	try {
 		$isolate_data = $script->{'contigManager'}->get_remote_isolate($isolate_uri);
 	}
-	catch BIGSdb::AuthenticationException with {
-		$err = q(Failed - check OAuth authentication settings.);
-	}
-	catch BIGSdb::FileException with {
-		$err = q(Failed - URI is inaccesible.);
-	}
-	catch BIGSdb::DataException with {
-		$err = q(Failed - Returned data is not in valid format.);
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			$err = q(Failed - check OAuth authentication settings.);
+		}
+		if ( $_->isa('BIGSdb::Exception::File') ) {
+			$err = q(Failed - URI is inaccesible.);
+		}
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			$err = q(Failed - Returned data is not in valid format.);
+		}
 	};
 	if ($err) {
 		exit_cleanly($err);
@@ -201,14 +204,16 @@ sub get_contigs {
 		try {
 			$data = $script->{'contigManager'}->get_remote_contig_list($contigs_list);
 		}
-		catch BIGSdb::AuthenticationException with {
-			$err = q(OAuth authentication failed.);
-		}
-		catch BIGSdb::FileException with {
-			$err = q(URI is inaccessible.);
-		}
-		catch BIGSdb::DataException with {
-			$err = q(Contigs list is not valid JSON.);
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+				$err = q(OAuth authentication failed.);
+			}
+			if ( $_->isa('BIGSdb::Exception::File') ) {
+				$err = q(URI is inaccessible.);
+			}
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$err = q(Contigs list is not valid JSON.);
+			}
 		};
 		if ( $data->{'paging'} ) {
 			$contigs_list = $data->{'paging'}->{'return_all'};

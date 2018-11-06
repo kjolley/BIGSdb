@@ -21,7 +21,8 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage Exporter);
-use Error qw(:try);
+use BIGSdb::Exceptions;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
@@ -54,10 +55,14 @@ sub get_javascript {
 			$tree_js = q();
 		}
 	}
-	catch BIGSdb::InvalidPluginException with {
-		my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
-		$tree_js = q();
-		$logger->warn($message);
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Plugin::Invalid') ) {
+			my $message = $plugin_name ? "Plugin $plugin_name does not exist." : 'Plugin name not called.';
+			$tree_js = q();
+			$logger->warn($message);
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$js .= $self->get_list_javascript;
 	$js .= <<"JS";
@@ -173,8 +178,7 @@ sub print_content {
 			$q->param( update_options => 1 );
 			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
 			say $q->hidden($_)
-			  foreach qw(page db name query_file temp_table_file update_options isolate_id isolate_paste_list)
-			  ;
+			  foreach qw(page db name query_file temp_table_file update_options isolate_id isolate_paste_list);
 			say q(<div id="hidefromnonJS" class="hiddenbydefault">);
 			say q(<div class="floatmenu"><a id="toggle1" class="showhide">Show options</a>);
 			say q(<a id="toggle2" class="hideshow">Hide options</a></div>);
@@ -182,26 +186,30 @@ sub print_content {
 			say q(<div id="pluginoptions"><h2>Options</h2><ul>);
 			my $guid = $self->get_guid;
 
-			foreach (@$option_list) {
+			foreach my $arg (@$option_list) {
 				say q(<li>);
 				my $default;
 				try {
 					$default =
 					  $self->{'prefstore'}
-					  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $_->{'name'} );
+					  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $arg->{'name'} );
 					if ( $default eq 'true' || $default eq 'false' ) {
 						$default = $default eq 'true' ? 1 : 0;
 					}
 				}
-				catch BIGSdb::DatabaseNoRecordException with {
-					$default = $_->{'default'};
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+						$default = $arg->{'default'};
+					} else {
+						$logger->logdie($_);
+					}
 				};
-				if ( $_->{'optlist'} ) {
-					print $_->{'description'} . ': ';
-					my @values = split /;/x, $_->{'optlist'};
-					say $q->popup_menu( -name => $_->{'name'}, -values => [@values], -default => $default );
+				if ( $arg->{'optlist'} ) {
+					print $arg->{'description'} . ': ';
+					my @values = split /;/x, $arg->{'optlist'};
+					say $q->popup_menu( -name => $arg->{'name'}, -values => [@values], -default => $default );
 				} else {
-					say $q->checkbox( -name => $_->{'name'}, -label => $_->{'description'}, selected => $default );
+					say $q->checkbox( -name => $arg->{'name'}, -label => $arg->{'description'}, selected => $default );
 				}
 				say q(</li>);
 			}
@@ -959,15 +967,19 @@ sub get_scheme_field_values {
 			$self->{'scheme_field_table'}->{$scheme_id} =
 			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$logger->error('Cannot copy data to temporary table.');
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				$logger->error('Cannot copy data to temporary table.');
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	my $values =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
 		$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::${scheme_id}::$field" } );
-	no warnings 'uninitialized';    #Values most probably include undef
+	no warnings 'uninitialized';                                           #Values most probably include undef
 	@$values = uniq @$values;
 	return $values;
 }
@@ -975,7 +987,7 @@ sub get_scheme_field_values {
 sub attempted_spam {
 	my ( $self, $str ) = @_;
 	return if !$str || !ref $str;
-	return 1 if $$str =~ /<\s*a\s*href/ix;    #Test for HTML links in submitted data
+	return 1 if $$str =~ /<\s*a\s*href/ix;                                 #Test for HTML links in submitted data
 	return;
 }
 

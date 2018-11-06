@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(none uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 use constant DEFAULT_LIMIT => 500;
 my %codons_per_aa = (
 	A   => 4,
@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#codon-usage-plugin",
-		version     => '1.2.6',
+		version     => '1.2.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -378,8 +378,12 @@ sub _calculate {
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}
-		catch BIGSdb::DataException with {
-			$logger->warn("Invalid locus '$locus_name' passed.");
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$logger->warn("Invalid locus '$locus_name' passed.");
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		my $temp      = BIGSdb::Utils::get_random();
 		my $temp_file = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
@@ -423,8 +427,9 @@ sub _calculate {
 						my $seq = $locus->get_allele_sequence($allele_id);
 						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} // 1 );
 					}
-					catch BIGSdb::DatabaseConnectionException with {    #do nothing
-					};
+					catch {
+						#do nothing
+					}; 
 				}
 			}
 			my $seqbin_seq;

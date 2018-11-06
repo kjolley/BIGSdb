@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,11 +20,12 @@ package BIGSdb::Dataconnector;
 use strict;
 use warnings;
 use feature 'state';
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Dataconnector');
 
 sub new {
-	my ($class) = @_;
+	my ( $class, $options ) = @_;
 	my $self = {};
 	$self->{'db'} = {};
 	bless( $self, $class );
@@ -34,6 +35,17 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	$self->drop_all_connections;
+	foreach my $db ( keys %{ $self->{'db'} } ) {
+		$logger->info("pid:$$ disconnected from database $self->{'db'}->{$db}->{'Name'}");
+	}
+	return;
+}
+
+#Set this to 1 prevent the disconnection of parent handles when main process forks.
+#Set back to 0 after returning from the fork.
+sub set_forks {
+	my ( $self, $value ) = @_;
+	$self->{'forks'} = $value;
 	return;
 }
 
@@ -64,7 +76,8 @@ sub drop_connection {
 	return if !$attributes->{'dbase_name'};
 	if ( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
 		$self->_finish_active_statement_handles( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"}, 1 );
-		$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->disconnect;
+		$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->disconnect
+		  and $logger->info("pid:$$ disconnected from database $attributes->{'dbase_name'}");
 	}
 	delete $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 	return;
@@ -73,10 +86,11 @@ sub drop_connection {
 sub drop_all_connections {
 	my ($self) = @_;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
+		next if $self->{'forks'} && $self->{'db'}->{$db}->{'InactiveDestroy'};
 		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval {
 			      $self->{'db'}->{$db}->disconnect
-			  and $logger->info("Disconnected from database $self->{'db'}->{$db}->{'Name'}");
+			  and $logger->info("pid:$$ disconnected from database $self->{'db'}->{$db}->{'Name'}");
 		};
 		delete $self->{'db'}->{$db};
 	}
@@ -90,8 +104,9 @@ sub get_connection {
 	my $user     = $attributes->{'user'}     || $self->{'system'}->{'user'};
 	my $password = $attributes->{'password'} || $self->{'system'}->{'password'};
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
-	throw BIGSdb::DatabaseConnectionException('No database name passed') if !$attributes->{'dbase_name'};
+	BIGSdb::Exception::Database::Connection->throw('No database name passed') if !$attributes->{'dbase_name'};
 	state $pid = $$;
+
 	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
 		my $db;
 		eval {
@@ -101,10 +116,10 @@ sub get_connection {
 		};
 		if ($@) {
 			$logger->error("Cannot connect to database '$attributes->{'dbase_name'}' ($host). $@");
-			throw BIGSdb::DatabaseConnectionException(
-				"Can not connect to database '$attributes->{'dbase_name'}' ($host)");
+			BIGSdb::Exception::Database::Connection->throw(
+				"Cannot connect to database '$attributes->{'dbase_name'}' ($host)");
 		} else {
-			$logger->info("Connected to database $attributes->{'dbase_name'} ($host)");
+			$logger->info("pid:$$ connected to database $attributes->{'dbase_name'} ($host)");
 			$logger->debug(
 				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
 		}

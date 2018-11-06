@@ -22,9 +22,10 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Blast BIGSdb::Page);
 use List::MoreUtils qw(any uniq none);
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use Error qw(:try);
+use Try::Tiny;
 use Storable qw(dclone);
 use constant MAX_RESULTS_SHOW => 20;
 
@@ -465,7 +466,7 @@ sub _get_scheme_fields {
 
 sub _get_classification_groups {
 	my ( $self, $scheme_id, $designations ) = @_;
-	my $buffer       = q();
+	my $buffer = q();
 	return $buffer if !$self->is_page_allowed('profileInfo');
 	my $matched_loci = keys %$designations;
 	return $buffer
@@ -481,7 +482,8 @@ sub _get_classification_groups {
 	return $buffer if $ret_val->{'mismatches'} > $largest_threshold;
 	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= q(<h3>Matching profiles</h3>);
-	$buffer .= q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
+	$buffer .=
+	    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
 	  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
 	  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
@@ -543,9 +545,13 @@ sub _get_classification_groups {
 						  . qq($isolates</a>);
 					}
 				}
-				catch BIGSdb::DatabaseConfigurationException with {
-					$self->{'logger'}->error( "Client database for classification scheme $cscheme->{'name'} "
-						  . 'is not configured correctly.' );
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+						$self->{'logger'}->error( "Client database for classification scheme $cscheme->{'name'} "
+							  . 'is not configured correctly.' );
+					} else {
+						$self->{'logger'}->logdie($_);
+					}
 				};
 			}
 			local $" = q(<br />);

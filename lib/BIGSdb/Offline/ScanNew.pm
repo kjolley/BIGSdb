@@ -21,9 +21,9 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Scan);
+use BIGSdb::Exceptions;
 use Digest::MD5;
-use BIGSdb::BIGSException;
-use Error qw(:try);
+use Try::Tiny;
 use constant DEFAULT_ALIGNMENT => 100;
 use constant DEFAULT_IDENTITY  => 99;
 use constant DEFAULT_WORD_SIZE => 30;
@@ -289,10 +289,14 @@ sub _define_allele {
 			$self->{'logger'}->info("New allele defined: $locus-$allele_id");
 		}
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$self->{'logger'}->error("Can not connect to database for locus $locus");
-		say "Can not connect to database for locus $locus";
-		$can_define = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$self->{'logger'}->error("Cannot connect to database for locus $locus");
+			say "Can not connect to database for locus $locus";
+			$can_define = 0;
+		} else {
+			$self->{'logger'}->logdie($_);
+		}
 	};
 	exit(1) if !$can_define;
 	return $allele_id;
@@ -369,10 +373,14 @@ sub _can_define_alleles {
 				$can_define = 0;
 			}
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$self->{'logger'}->error("Can not connect to database for locus $locus");
-			say "Cannot connect to database for locus $locus";
-			$can_define = 0;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				$self->{'logger'}->error("Cannot connect to database for locus $locus");
+				say "Cannot connect to database for locus $locus";
+				$can_define = 0;
+			} else {
+				$self->{'logger'}->logdie($_);
+			}
 		};
 		last if !$can_define;
 	}

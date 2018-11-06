@@ -24,7 +24,7 @@ use parent qw(BIGSdb::Plugin);
 use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(any none uniq);
 use Bio::Perl;
 use Bio::SeqIO;
@@ -279,8 +279,12 @@ sub _run_job_profiles {
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}
-		catch BIGSdb::DataException with {
-			$logger->warn("Invalid locus '$locus_name' passed.");
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$logger->warn("Invalid locus '$locus_name' passed.");
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		my $temp         = BIGSdb::Utils::get_random();
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
@@ -406,8 +410,12 @@ sub make_isolate_seq_file {
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
 		}
-		catch BIGSdb::DataException with {
-			$logger->warn("Invalid locus '$locus_name' passed.");
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$logger->warn("Invalid locus '$locus_name' passed.");
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		my $temp         = BIGSdb::Utils::get_random();
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
@@ -436,7 +444,7 @@ sub make_isolate_seq_file {
 						$allele_seq .= ${ $locus->get_allele_sequence($allele_id) };
 					}
 				}
-				catch BIGSdb::DatabaseConnectionException with {};    #do nothing
+				catch {};    #do nothing
 			}
 			my $seqbin_seq;
 			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
@@ -573,8 +581,12 @@ sub _output {
 				);
 			}
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			$logger->error('Cannot create FASTA file from XMFA.');
+		catch {
+			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+				$logger->error('Cannot create FASTA file from XMFA.');
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		unlink $filename if -e "$filename.gz";
 	}

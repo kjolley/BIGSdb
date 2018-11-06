@@ -23,7 +23,6 @@ use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 use POSIX qw(ceil);
 

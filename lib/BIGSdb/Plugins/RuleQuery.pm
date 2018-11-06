@@ -23,7 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
-use Error qw(:try);
+use Try::Tiny;
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -40,7 +40,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.1.2',
+		version          => '1.1.3',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
@@ -92,7 +92,7 @@ sub run {
 		if ( !defined $ruleset_id ) {
 			say q(<div class="box statusbad"><p>Please select a ruleset</p></div>);
 		} else {
-			my $merged_seq = $self->_strip_headers(\$sequence);
+			my $merged_seq = $self->_strip_headers( \$sequence );
 			if ( !BIGSdb::Utils::is_valid_DNA( $merged_seq, { allow_ambiguous => 1 } ) ) {
 				say q(<div class="box statusbad"><p>The sequence is not valid DNA.</p></div>);
 				$valid_DNA = 0;
@@ -130,12 +130,12 @@ sub run {
 }
 
 sub _strip_headers {
-	my ($self, $seq_ref) = @_;
-	my @lines = split/\r?\n/x, $$seq_ref;
+	my ( $self, $seq_ref ) = @_;
+	my @lines = split /\r?\n/x, $$seq_ref;
 	my $seq;
-	foreach my $line (@lines){
+	foreach my $line (@lines) {
 		next if $line =~ /^>/x;
-		$seq.=$line;
+		$seq .= $line;
 	}
 	return \$seq;
 }
@@ -214,8 +214,8 @@ sub run_job {
 		$sequence = $$seq_ref;
 	}
 	$self->{'sequence'} = \$sequence;
-	my $merged_seq = $self->_strip_headers(\$sequence);
-	my $length = BIGSdb::Utils::commify( length $$merged_seq );
+	my $merged_seq = $self->_strip_headers( \$sequence );
+	my $length     = BIGSdb::Utils::commify( length $$merged_seq );
 	push @input, "Sequence length: $length bp";
 	my $input_text = q(<h3 style="border-bottom:none">Sample</h3><ul>);
 	$input_text .= qq(<li>$_</li>) foreach @input;
@@ -462,10 +462,14 @@ sub _get_client_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Can 
 	try {
 		$field_data = $client->get_fields( $field, $locus, $self->{'results'}->{'locus'}->{$locus} );
 	}
-	catch BIGSdb::DatabaseConfigurationException with {
-		my $ex = shift;
-		$logger->error($ex);
-		$proceed = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+			my $ex = shift;
+			$logger->error($ex);
+			$proceed = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if !$proceed;
 	my $total = 0;

@@ -21,10 +21,10 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Script);
+use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
 use Digest::MD5;
 use File::Path qw(make_path remove_tree);
-use Error qw(:try);
 use Fcntl qw(:flock);
 use constant INF => 9**99;
 
@@ -38,7 +38,7 @@ sub blast {
 	undef $self->{'exact_matches'};
 	undef $self->{'partial_matches'};
 	my $loci = $self->get_selected_loci;
-	throw BIGSdb::DataException('Invalid loci') if !@$loci;
+	BIGSdb::Exception::Data->throw('Invalid loci') if !@$loci;
 	my $seq = $$seq_ref;    #Don't modify scalar ref as it may be needed by calling method
 	$self->ensure_seq_has_identifer( \$seq );
 	$seq_ref = $self->_strip_invalid_chars( \$seq );

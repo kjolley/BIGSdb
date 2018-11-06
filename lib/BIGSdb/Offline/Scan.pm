@@ -22,12 +22,13 @@ use warnings;
 use 5.010;
 no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
-use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Scan');
+use BIGSdb::Exceptions;
 use List::MoreUtils qw(any);
-use Error qw(:try);
+use Try::Tiny;
 use Fcntl qw(:flock);
 use Bio::Seq;
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Scan');
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use constant INF => 9**99;
 
@@ -81,8 +82,12 @@ sub blast_multiple_loci {
 				$pcr_products->{$locus} = $self->_get_pcr_products( $locus, $temp_infile, $params );
 				$probe_matches->{$locus} = $self->_get_probe_matches( $locus, $temp_infile, $params );
 			}
-			catch BIGSdb::DataException with {
-				$continue = 0;
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Data') ) {
+					$continue = 0;
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			next LOCUS if !$continue;
 			$pcr_filter->{$locus}   = !$params->{'pcr_filter'}   ? 0 : $locus_info->{'pcr_filter'};
@@ -186,8 +191,12 @@ sub blast {
 		$pcr_products = $self->_get_pcr_products( $locus, $temp_infile, $params );
 		$probe_matches = $self->_get_probe_matches( $locus, $temp_infile, $params );
 	}
-	catch BIGSdb::DataException with {
-		$continue = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			$continue = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if !$continue;
 	$self->{'db'}->commit;    #prevent idle in transaction table locks
@@ -391,8 +400,12 @@ sub _create_fasta_index {
 					}
 				}
 			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				$ok = 0;
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+					$ok = 0;
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			return if !$ok;
 		} else {
@@ -490,7 +503,7 @@ sub _get_pcr_products {
 	return if !$locus_info->{'pcr_filter'} || !$params->{'pcr_filter'};
 	if ( !$self->{'config'}->{'ipcress_path'} ) {
 		$logger->error('Ipcress path is not set in bigsdb.conf. ');
-		throw BIGSdb::DataException;
+		BIGSdb::Exception::Data->throw();
 	}
 	my $pcr_products = $self->_simulate_PCR( $temp_infile, $locus );
 	if ( ref $pcr_products ne 'ARRAY' ) {
@@ -503,7 +516,7 @@ sub _get_pcr_products {
 			$self->{'db'}->commit;
 			$self->{'datastore'}->clear_locus_info_cache;
 		}
-		throw BIGSdb::DataException;
+		BIGSdb::Exception::Data->throw();
 	}
 	return $pcr_products;
 }
@@ -523,7 +536,7 @@ sub _get_probe_matches {
 			$self->{'db'}->commit;
 			$self->{'datastore'}->clear_locus_info_cache;
 		}
-		throw BIGSdb::DataException;
+		BIGSdb::Exception::Data->throw();
 	}
 	return $probe_matches;
 }
@@ -572,10 +585,10 @@ sub run_script {
 	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
 	my @isolate_list = split( "\0", $params->{'isolate_id'} );
-	throw BIGSdb::DataException('Invalid isolate_ids passed') if !@isolate_list;
+	BIGSdb::Exception::Data->throw('Invalid isolate_ids passed') if !@isolate_list;
 	my $filtered_list = $self->_filter_ids_by_project( \@isolate_list, $options->{'project_id'} );
 	my $loci = $self->{'options'}->{'loci'};
-	throw BIGSdb::DataException('Invalid loci passed') if ref $loci ne 'ARRAY';
+	BIGSdb::Exception::Data->throw('Invalid loci passed') if ref $loci ne 'ARRAY';
 	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
 	my ( @js, @js2, @js3, @js4 );
 	my $show_key;

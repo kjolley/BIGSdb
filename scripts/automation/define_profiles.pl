@@ -35,9 +35,10 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Exceptions;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
-use Error qw(:try);
+use Try::Tiny;
 
 #User id for definer (there needs to be a record in the users table of the seqdef database)
 use constant DEFINER_USER     => -1;
@@ -399,9 +400,13 @@ sub get_seqdef_db {
 			}
 		);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$script->{'logger'}->error('Cannot connect to seqdef database');
-		say 'Cannot connect to seqdef database';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$script->{'logger'}->error('Cannot connect to seqdef database');
+			say 'Cannot connect to seqdef database';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	exit(1) if !$seqdef_db;
 	return $seqdef_db;

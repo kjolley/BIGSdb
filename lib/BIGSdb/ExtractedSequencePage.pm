@@ -24,7 +24,6 @@ use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(BUTTON_CLASS FLANKING);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {

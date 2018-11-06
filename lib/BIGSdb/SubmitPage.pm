@@ -24,7 +24,6 @@ use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
-use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;

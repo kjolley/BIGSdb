@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(uniq none);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
@@ -48,9 +48,13 @@ sub initiate {
 		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_admin_methods' ) // '' ) eq
 		  'on' ? 1 : 0;
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$self->{'prefs'}->{'all_curator_methods'} = 0;
-		$self->{'prefs'}->{'all_admin_methods'}   = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$self->{'prefs'}->{'all_curator_methods'} = 0;
+			$self->{'prefs'}->{'all_admin_methods'}   = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 	$self->{'optional_admin_display'}   = $self->{'prefs'}->{'all_admin_methods'}   ? 'inline' : 'none';
@@ -162,8 +166,12 @@ sub _toggle_all_curator_methods {
 	try {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_curator_methods', $new_value );
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$logger->error('Cannot toggle show all curator methods');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$logger->error('Cannot toggle show all curator methods');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -175,8 +183,12 @@ sub _toggle_all_admin_methods {
 	try {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_admin_methods', $new_value );
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$logger->error('Cannot toggle show all admin methods');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$logger->error('Cannot toggle show all admin methods');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -560,6 +572,7 @@ sub _get_isolate_fields {
 		}
 	);
 	$buffer .= qq(</div>\n);
+
 	if ($exists) {
 		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Isolate aliases</h2>);

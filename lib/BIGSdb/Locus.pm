@@ -19,6 +19,7 @@
 package BIGSdb::Locus;
 use strict;
 use warnings;
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Locus');
 
@@ -27,7 +28,7 @@ sub new {    ## no critic (RequireArgUnpacking)
 	my $self  = {@_};
 	$self->{'sql'} = {};
 	if ( !$self->{'id'} ) {
-		throw BIGSdb::DataException('Invalid locus');
+		BIGSdb::Exception::Data->throw('Invalid locus');
 	}
 	bless( $self, $class );
 	$logger->info("Locus $self->{'id'} set up.");
@@ -51,7 +52,7 @@ sub DESTROY {
 sub get_allele_id_from_sequence {
 	my ( $self, $seq_ref ) = @_;
 	if ( !$self->{'db'} ) {
-		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
+		BIGSdb::Exception::Database::Connection->throw("No connection to locus $self->{'id'} database");
 	}
 	if ( !$self->{'sql'}->{'lookup_sequence'} ) {
 		my $qry = 'SELECT allele_id FROM sequences WHERE (md5(sequence),locus)=(md5(?),?)';
@@ -63,7 +64,7 @@ sub get_allele_id_from_sequence {
 			  . qq (locus table for locus '$self->{'id'}'! Statement was )
 			  . qq('$self->{'sql'}->{lookup_sequence}->{Statement}'. $@ )
 			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	} else {
 		my ($allele_id) = $self->{'sql'}->{'lookup_sequence'}->fetchrow_array;
 
@@ -71,12 +72,13 @@ sub get_allele_id_from_sequence {
 		$self->{'db'}->commit;
 		return $allele_id;
 	}
+	return;
 }
 
 sub get_allele_sequence {
 	my ( $self, $id ) = @_;
 	if ( !$self->{'db'} ) {
-		throw BIGSdb::DatabaseConnectionException("No connection to locus $self->{'id'} database");
+		BIGSdb::Exception::Database::Connection->throw("No connection to locus $self->{'id'} database");
 	}
 	if ( !$self->{'sql'}->{'sequence'} ) {
 		my $qry = 'SELECT sequence FROM sequences WHERE (locus,allele_id)=(?,?)';
@@ -88,12 +90,14 @@ sub get_allele_sequence {
 		$logger->error( q(Cannot execute 'sequence' query handle. Check database attributes in the locus table for )
 			  . qq(locus '$self->{'id'}'! Statement was '$self->{'sql'}->{sequence}->{Statement}'. id='$id'  $@ )
 			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	} else {
 		my ($sequence) = $self->{'sql'}->{'sequence'}->fetchrow_array;
 		$self->{'db'}->commit;    #Prevent table lock on long offline jobs
 		return \$sequence;
 	}
+	return;
 }
 
 sub get_all_sequences {
@@ -127,7 +131,7 @@ sub get_all_sequences {
 		$logger->error( q(Cannot query all sequence temporary table. Check database attributes in the )
 			  . qq(locus table for locus '$self->{'id'}'!. $@)
 			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	}
 	my $data = $sql->fetchall_arrayref;
 	if ( !$options->{'no_temp_table'} ) {
@@ -155,7 +159,7 @@ sub get_sequence_count {
 	eval { $sql->execute( $self->{'dbase_id'} ) };
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	}
 	return $sql->fetchrow_array;
 }
@@ -176,7 +180,7 @@ sub get_flags {
 	};
 	if ($@) {
 		$logger->error($@) if $@;
-		throw BIGSdb::DatabaseConfigurationException('Locus configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	}
 	$self->{'db'}->commit;    #Stop idle in transaction table lock.
 	return $flags;
@@ -216,8 +220,7 @@ sub is_seq_a_supersequence_of_allele {
 	if ( !$self->{'sql'}->{'superseq'} ) {
 		$self->{'sql'}->{'superseq'} =
 		  $self->{'db'}
-		  ->prepare(q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND (? LIKE '%' || sequence || '%'))))
-		  ;
+		  ->prepare(q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND (? LIKE '%' || sequence || '%'))));
 	}
 	eval { $self->{'sql'}->{'superseq'}->execute( $self->{'id'}, $$seq_ref ) };
 	if ($@) {

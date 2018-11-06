@@ -19,6 +19,7 @@
 package BIGSdb::PluginManager;
 use strict;
 use warnings;
+use BIGSdb::Exceptions;
 use List::MoreUtils qw(any none);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -79,7 +80,8 @@ sub get_plugin {
 	if ( $plugin_name && $self->{'plugins'}->{$plugin_name} ) {
 		return $self->{'plugins'}->{$plugin_name};
 	}
-	throw BIGSdb::InvalidPluginException('Plugin does not exist');
+	BIGSdb::Exception::Plugin::Invalid->throw('Plugin does not exist');
+	return;
 }
 
 sub get_plugin_attributes {

@@ -26,8 +26,6 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
-use Apache2::Connection ();
 
 sub get_attributes {
 	my ($self) = @_;
@@ -42,7 +40,7 @@ sub get_attributes {
 		menutext         => 'Sequence similarity',
 		module           => 'SequenceSimilarity',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
-		version          => '1.1.1',
+		version          => '1.1.2',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',

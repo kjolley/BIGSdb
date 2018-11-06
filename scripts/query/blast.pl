@@ -34,8 +34,9 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Blast;
+use BIGSdb::Exceptions;
 use Data::Dumper;
-use Error qw(:try);
+use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 
@@ -81,7 +82,7 @@ if ( $opts{'sequence_file'} && !-e $opts{'sequence_file'} ) {
 	say "File $opts{'sequence_file'} does not exist.\n";
 	exit;
 }
-my $start  = time;
+my $start     = time;
 my $blast_obj = BIGSdb::Offline::Blast->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -113,8 +114,12 @@ sub main {
 			my $seq_ref = BIGSdb::Utils::slurp( $opts{'sequence_file'} );
 			$seq = $$seq_ref;
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			$logger->error("Cannot open file $opts{'sequence_file'} for reading");
+		catch {
+			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+				$logger->error("Cannot open file $opts{'sequence_file'} for reading");
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	} else {
 		$seq = $opts{'sequence'};
@@ -129,7 +134,7 @@ sub main {
 			say qq($locus: $alleles);
 		}
 	}
-	if (!keys %$exact_matches){
+	if ( !keys %$exact_matches ) {
 		say q(Best match:);
 		my $best_match = $blast_obj->get_best_partial_match;
 		say Dumper $best_match;

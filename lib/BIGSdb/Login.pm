@@ -39,7 +39,7 @@
 # Gisle Aas <gisle@ActiveState.com>
 #
 package BIGSdb::Login;
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use Digest::MD5;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use strict;
@@ -141,15 +141,15 @@ sub secure_login {
 
 sub login_from_cookie {
 	my ( $self, $options ) = @_;
-	throw BIGSdb::AuthenticationException('No valid session') if $self->{'logged_out'};
+	BIGSdb::Exception::Authentication->throw('No valid session') if $self->{'logged_out'};
 	$self->_timout_sessions;
 	my %cookies = $self->_get_cookies( $self->{'session_cookie'}, $self->{'pass_cookie'}, $self->{'user_cookie'} );
 	foreach ( keys %cookies ) {
 		$logger->debug("cookie $_ = $cookies{$_}") if defined $cookies{$_};
 	}
 	my $stored_hash = $self->get_password_hash( $cookies{ $self->{'user_cookie'} }, $options ) || '';
-	throw BIGSdb::AuthenticationException('No valid session') if !$stored_hash;
-	throw BIGSdb::AuthenticationException('User not registered')
+	BIGSdb::Exception::Authentication->throw('No valid session') if !$stored_hash;
+	BIGSdb::Exception::Authentication->throw('User not registered')
 	  if !$self->{'datastore'}->user_name_exists( $cookies{ $self->{'user_cookie'} } );
 	my $saved_IP_address = $self->_get_IP_address( $cookies{ $self->{'user_cookie'} } );
 	my $cookie_string    = Digest::MD5::md5_hex( $stored_hash->{'password'} . UNIQUE_STRING );
@@ -179,7 +179,8 @@ sub login_from_cookie {
 	}
 	$cookies{ $self->{'pass_cookie'} } ||= '';
 	$logger->debug("Cookie not validated. cookie:$cookies{$self->{'pass_cookie'}} string:$cookie_string");
-	throw BIGSdb::AuthenticationException('No valid session');
+	BIGSdb::Exception::Authentication->throw('No valid session');
+	return;
 }
 
 sub _MD5_login {
@@ -196,7 +197,8 @@ sub _MD5_login {
 
 	# This sessionID will be valid for only LOGIN_TIMEOUT seconds
 	$self->print_page_content if !$options->{'no_output'};
-	throw BIGSdb::AuthenticationException;
+	BIGSdb::Exception::Authentication->throw('No valid session');
+	return;
 }
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
@@ -306,10 +308,10 @@ sub _print_login_form {
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
 	say q(</li><li><label for="password_field" class="display">Password: </label>);
 	say $q->password_field(
-		-name      => 'password_field',
-		-id        => 'password_field',
-		-size      => 20,
-		-style     => 'width:12em'
+		-name  => 'password_field',
+		-id    => 'password_field',
+		-size  => 20,
+		-style => 'width:12em'
 	);
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Log in' } );
@@ -358,7 +360,8 @@ sub _error_exit {
 	$self->{'cgi'}->param( password => '' );
 	$self->{'authenticate_error'} = $msg;
 	$self->print_page_content if !$options->{'no_output'};
-	throw BIGSdb::AuthenticationException($msg);
+	BIGSdb::Exception::Authentication->throw($msg);
+	return;
 }
 #############################################################################
 # Authentication Database Code

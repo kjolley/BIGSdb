@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use Error qw(:try);
+use Try::Tiny;
 use BIGSdb::Constants qw(LOCUS_PATTERN :limits);
 
 sub initiate {
@@ -246,15 +246,19 @@ sub _print_scheme_field {
 	try {
 		$temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$self->print_bad_status(
-			{
-				message => qq(The database for scheme $scheme_id is not )
-				  . q(accessible. This may be a configuration problem.),
-				navbar => 1
-			}
-		);
-		$logger->error('Cannot copy data to temporary table.');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$self->print_bad_status(
+				{
+					message => qq(The database for scheme $scheme_id is not )
+					  . q(accessible. This may be a configuration problem.),
+					navbar => 1
+				}
+			);
+			$logger->error('Cannot copy data to temporary table.');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	say q(<p>The field has a list of values retrieved from an external database. )
 	  . q(Values present in this database are shown.);

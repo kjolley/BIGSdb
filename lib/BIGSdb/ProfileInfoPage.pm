@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_LOCI_SHOW => 100;
 
@@ -246,9 +246,13 @@ sub _print_classification_groups {
 						  . qq($isolates</a>);
 					}
 				}
-				catch BIGSdb::DatabaseConfigurationException with {
-					$logger->error( "Client database for classification scheme $cscheme->{'name'} "
-						  . 'is not configured correctly.' );
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+						$logger->error( "Client database for classification scheme $cscheme->{'name'} "
+							  . 'is not configured correctly.' );
+					} else {
+						$logger->logdie($_);
+					}
 				};
 			}
 			local $" = q(<br />);

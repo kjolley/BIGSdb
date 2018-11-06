@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {

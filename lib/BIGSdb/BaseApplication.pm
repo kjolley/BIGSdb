@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use version; our $VERSION = version->declare('v1.20.0');
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::Dataconnector;
@@ -36,7 +36,7 @@ use BIGSdb::SubmissionHandler;
 use BIGSdb::CGI::as_utf8;
 use DBI;
 use Carp;
-use Error qw(:try);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
@@ -322,9 +322,13 @@ sub initiate_authdb {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
 		$logger->info("Connected to authentication database '$self->{'config'}->{'auth_db'}'");
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
-		$self->{'error'} = 'noAuth';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
+			$self->{'error'} = 'noAuth';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -457,8 +461,12 @@ sub _setup_prefstore {
 	try {
 		$pref_db = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
 	return;
@@ -521,9 +529,13 @@ sub db_connect {
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
-		$self->{'error'} = 'noConnect';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+			$self->{'error'} = 'noConnect';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -577,33 +589,35 @@ sub authenticate {
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
 			try {
-				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
+				BIGSdb::Exception::Authentication->throw('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
 				$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
 			}
-			catch BIGSdb::AuthenticationException with {
-				$logger->debug('No cookie set - asking for log in');
-				if (   $login_requirement == REQUIRED
-					|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
-				{
-					if ( $q->param('no_header') ) {
-						$page_attributes->{'error'} = 'ajaxLoggedOut';
-						$page = BIGSdb::ErrorPage->new(%$page_attributes);
-						$page->print_page_content;
-						$authenticated = 0;
-					} else {
-						my $args = {};
-						$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
-						try {
-							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
-							  $page->secure_login($args);
-						}
-						catch BIGSdb::AuthenticationException with {
-
-							#failed again
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+					$logger->debug('No cookie set - asking for log in');
+					if (   $login_requirement == REQUIRED
+						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+					{
+						if ( $q->param('no_header') ) {
+							$page_attributes->{'error'} = 'ajaxLoggedOut';
+							$page = BIGSdb::ErrorPage->new(%$page_attributes);
+							$page->print_page_content;
 							$authenticated = 0;
-						};
+						} else {
+							my $args = {};
+							$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
+							try {
+								( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
+								  $page->secure_login($args);
+							}
+							catch {    #failed again
+								$authenticated = 0;
+							};
+						}
 					}
+				} else {
+					$logger->logdie($_);
 				}
 			};
 		}
@@ -661,7 +675,7 @@ sub is_user_allowed_access {
 
 sub _is_name_in_file {
 	my ( $self, $name, $filename ) = @_;
-	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
+	BIGSdb::Exception::File::NotExist->throw("File $filename does not exist") if !-e $filename;
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^\#/x;
@@ -678,7 +692,7 @@ sub _is_name_in_file {
 
 sub _is_user_in_group_file {
 	my ( $self, $name, $filename ) = @_;
-	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
+	BIGSdb::Exception::File::NotExist->throw("File $filename does not exist") if !-e $filename;
 	my $group_names = [];
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
@@ -735,6 +749,7 @@ sub get_load_average {
 	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
 		return $1;
 	}
-	throw BIGSdb::DataException('Cannot determine load average');
+	BIGSdb::Exception::Data->throw('Cannot determine load average');
+	return;
 }
 1;

@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
 use BIGSdb::GCForkScan;
 use Bio::AlignIO;
@@ -32,7 +33,7 @@ use IO::String;
 use Excel::Writer::XLSX;
 use Digest::MD5;
 use List::MoreUtils qw(uniq);
-use Error qw(:try);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_DISPLAY_CELLS => 100_000;
@@ -51,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.6',
+		version     => '2.3.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -212,8 +213,12 @@ sub _print_interface {
 		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
 		$use_all = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$use_all = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$use_all = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
@@ -516,8 +521,8 @@ sub run_job {
 					my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
 					$seq_obj = $seqio_obj->next_seq;
 				}
-				catch Bio::Root::Exception with {
-					throw BIGSdb::PluginException("Invalid data in local annotation $local_annotations[0].");
+				catch {
+					BIGSdb::Exception::Plugin->throw("Invalid data in local annotation $local_annotations[0].");
 				};
 			} else {
 				my $seq_db = Bio::DB::GenBank->new;
@@ -525,10 +530,9 @@ sub run_job {
 				try {
 					$seq_obj = $seq_db->get_Seq_by_acc($accession);
 				}
-				catch Bio::Root::Exception with {
-					my $err = shift;
-					$logger->debug($err);
-					throw BIGSdb::PluginException("No data returned for accession number $accession.");
+				catch {
+					$logger->debug($_);
+					BIGSdb::Exception::Plugin->throw("No data returned for accession number $accession.");
 				};
 			}
 		} else {
@@ -536,8 +540,8 @@ sub run_job {
 				try {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
 				}
-				catch Bio::Root::Exception with {
-					throw BIGSdb::PluginException('Invalid data in uploaded reference file.');
+				catch {
+					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
 				};
 				$ref_upload =~ s/\.(fas|fasta)$/\.gb/x;
 			}
@@ -546,7 +550,7 @@ sub run_job {
 				$seq_obj = $seqio_object->next_seq;
 			};
 			if ($@) {
-				throw BIGSdb::PluginException('Invalid data in uploaded reference file.');
+				BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
 			}
 		}
 		return if !$seq_obj;
@@ -585,11 +589,11 @@ sub process_uploaded_genomes {
 	return if !$params->{'user_upload'};
 	my $filename = "$self->{'config'}->{'tmp_dir'}/" . $params->{'user_upload'};
 	if ( !-e $filename ) {
-		throw BIGSdb::PluginException('Uploaded data file not found.');
+		BIGSdb::Exception::Plugin->throw('Uploaded data file not found.');
 	}
 	my $user_genomes = {};
 	if ( $filename =~ /\.zip$/x ) {
-		my $u = IO::Uncompress::Unzip->new($filename) or throw BIGSdb::PluginException('Cannot open zip file.');
+		my $u = IO::Uncompress::Unzip->new($filename) or BIGSdb::Exception::Plugin->throw('Cannot open zip file.');
 		my $status;
 		for ( $status = 1 ; $status > 0 ; $status = $u->nextStream ) {
 			my $fasta_file = $u->getHeaderInfo->{'Name'};
@@ -609,12 +613,12 @@ sub process_uploaded_genomes {
 					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 				}
 			}
-			catch Bio::Root::Exception with {
-				throw BIGSdb::PluginException("File $fasta_file in uploaded zip is not valid FASTA format.");
+			catch {
+				BIGSdb::Exception::Plugin->throw("File $fasta_file in uploaded zip is not valid FASTA format.");
 			};
 			last if $status < 0;
 		}
-		throw BIGSdb::PluginException("Error processing $filename: $!") if $status < 0;
+		BIGSdb::Exception::Plugin->throw("Error processing $filename: $!") if $status < 0;
 	} else {
 		try {
 			( my $genome_name = $params->{'user_genome_filename'} ) =~ s/\.(?:fas|fasta)$//x;
@@ -626,8 +630,8 @@ sub process_uploaded_genomes {
 				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 			}
 		}
-		catch Bio::Root::Exception with {
-			throw BIGSdb::PluginException('User genome file is not valid FASTA format.');
+		catch {
+			BIGSdb::Exception::Plugin->throw('User genome file is not valid FASTA format.');
 		};
 	}
 	$self->_create_temp_tables( $job_id, $isolate_ids, $user_genomes );
@@ -652,7 +656,7 @@ sub _create_temp_tables {
 		};
 		if ($@) {
 			$logger->error('Invalid characters in user genome zip file.');
-			throw BIGSdb::PluginException('Invalid characters in uploaded zip file.');
+			BIGSdb::Exception::Plugin->throw('Invalid characters in uploaded zip file.');
 		}
 		unshift @$isolate_ids, $id;
 		$name_map->{$id} = "u$map_id";
@@ -741,10 +745,10 @@ sub _analyse_by_reference {
 		);
 	};
 	if ($@) {
-		throw BIGSdb::PluginException('Invalid data in reference genome.');
+		BIGSdb::Exception::Plugin->throw('Invalid data in reference genome.');
 	}
 	if ( !@cds ) {
-		throw BIGSdb::PluginException('No loci defined in reference genome.');
+		BIGSdb::Exception::Plugin->throw('No loci defined in reference genome.');
 	}
 	my %abb = ( cds => 'coding regions' );
 	my $html_buffer = q(<h3>Analysis by reference genome</h3>);
@@ -768,7 +772,7 @@ sub _analyse_by_reference {
 	if ( @cds > $max_ref_loci ) {
 		my $nice_limit = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
 		my $cds_count  = @cds;
-		throw BIGSdb::PluginException( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
+		BIGSdb::Exception::Plugin->throw( qq(Too many loci in reference genome - limit is set at $max_ref_loci. )
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
@@ -1481,8 +1485,12 @@ sub align {
 				);
 			}
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			$logger->error('Cannot create FASTA file from XMFA.');
+		catch {
+			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+				$logger->error('Cannot create FASTA file from XMFA.');
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
@@ -1511,8 +1519,12 @@ sub align {
 				);
 			}
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			$logger->error('Cannot create core FASTA file from XMFA.');
+		catch {
+			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+				$logger->error('Cannot create core FASTA file from XMFA.');
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	return;
@@ -2238,6 +2250,7 @@ sub _assemble_data_for_reference_genome {
 
 sub _run_helper {
 	my ( $self, $params ) = @_;
+	$self->{'dataConnector'}->set_forks(1);
 	my $scanner = BIGSdb::GCForkScan->new(
 		{
 			config_dir       => $self->{'params'}->{'config_dir'},
@@ -2251,6 +2264,7 @@ sub _run_helper {
 	);
 	return {} if $self->{'exit'};
 	my $data             = $scanner->run($params);
+	$self->{'dataConnector'}->set_forks(0);
 	my $by_ref           = $params->{'reference_file'} ? 1 : 0;
 	my $locus_attributes = $self->_get_locus_attributes( $by_ref, $data );
 	my $unique_strains   = $self->_get_unique_strains($data);
@@ -2396,13 +2410,12 @@ sub _extract_cds_details {
 	try {
 		$seq = $cds->seq->seq;
 	}
-	catch Bio::Root::Exception with {
-		my $err = shift;
-		if ( $err =~ /MSG:([^\.]*\.)/x ) {
-			throw BIGSdb::PluginException("Invalid data in annotation: $1");
+	catch {
+		if ( $_ =~ /MSG:([^\.]*\.)/x ) {
+			BIGSdb::Exception::Plugin->throw("Invalid data in annotation: $1");
 		} else {
-			$logger->error($err);
-			throw BIGSdb::PluginException('Invalid data in annotation.');
+			$logger->error($_);
+			BIGSdb::Exception::Plugin->throw('Invalid data in annotation.');
 		}
 	};
 	return if !$seq;
@@ -2410,7 +2423,7 @@ sub _extract_cds_details {
 	try {
 		push @tags, $_ foreach ( $cds->each_tag_value('product') );
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		push @tags, 'no product';
 	};
 	$start = $cds->start;

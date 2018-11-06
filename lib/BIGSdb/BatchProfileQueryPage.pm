@@ -24,7 +24,6 @@ use parent qw(BIGSdb::Page);
 use BIGSdb::Constants qw(:interface);
 use JSON;
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {

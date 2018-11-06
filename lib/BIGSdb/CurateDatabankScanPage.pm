@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -84,7 +84,7 @@ sub _print_results {
 	try {
 		$seq_obj = $seq_db->get_Seq_by_acc($accession);
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		my $err = shift;
 		$logger->debug($err);
 	};
@@ -174,7 +174,7 @@ sub _print_results {
 			  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
 			say $fh_allele qq($locus\t1\t$sequence\tunchecked);
 		}
-		catch Bio::Root::Exception with {
+		catch {
 			my $err = shift;
 			$logger->debug($err);
 			push @locus_error, $locus;

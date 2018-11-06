@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugins::GenomeComparator);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(uniq);
 use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.4',
+		version             => '1.3.5',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -367,9 +367,13 @@ sub generate_tree_files {
 			$failed = 1;
 		}
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$logger->error('Cannot create FASTA file from XMFA.');
-		$failed = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$logger->error('Cannot create FASTA file from XMFA.');
+			$failed = 1;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	unlink $filename if -e "$filename.gz";
 	return {
@@ -492,9 +496,9 @@ sub _create_itol_dataset {
 	}
 	return if !$type;
 	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
-	my $filename      = "${job_id}_$field";
+	my $filename = "${job_id}_$field";
 	$filename .= qq(_$scheme_id) if $scheme_id;
-	my $full_path     = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	my $dataset_type = {
 		text_label    => 'TEXT',

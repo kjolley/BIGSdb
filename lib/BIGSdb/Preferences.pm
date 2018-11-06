@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,7 @@ package BIGSdb::Preferences;
 use strict;
 use warnings;
 use 5.010;
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 use Data::UUID;
 my $logger = get_logger('BIGSdb.Prefs');
@@ -59,7 +60,7 @@ sub _guid_exists {
 		$exists = $self->{'sql'}->{'guid_exists'}->fetchrow_array;
 	};
 	if ($@) {
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute guid check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute guid check');
 		$logger->error($@);
 	}
 	return $exists;
@@ -71,7 +72,7 @@ sub _add_existing_guid {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		throw BIGSdb::PrefstoreConfigurationException('Cannot insert guid');
+		BIGSdb::Exception::Prefstore->throw('Cannot insert guid');
 	}
 	$self->{'db'}->commit;
 	return;
@@ -98,7 +99,7 @@ sub _general_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
 	}
 	return $exists;
 }
@@ -116,7 +117,7 @@ sub _field_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
 	}
 	return $exists;
 }
@@ -134,7 +135,7 @@ sub _locus_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
 	}
 	return $exists;
 }
@@ -153,7 +154,7 @@ sub _scheme_field_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
 	}
 	return $exists;
 }
@@ -171,7 +172,7 @@ sub _scheme_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
 	}
 	return $exists;
 }
@@ -189,7 +190,7 @@ sub _plugin_attribute_exists {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute plugin attribute check');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute plugin attribute check');
 	}
 	return $exists;
 }
@@ -208,7 +209,7 @@ sub set_general {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -220,7 +221,7 @@ sub set_general {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -229,13 +230,13 @@ sub set_general {
 
 sub get_all_general_prefs {
 	my ( $self, $guid, $dbase ) = @_;
-	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $sql = $self->{'db'}->prepare('SELECT attribute,value FROM general WHERE (guid,dbase)=(?,?)');
 	my $values;
 	eval { $sql->execute( $guid, $dbase ) };
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::DatabaseNoRecordException('Cannot execute get_all_general attribute query');
+		BIGSdb::Exception::Database::NoRecord->throw('Cannot execute get_all_general attribute query');
 	}
 	my $data = $sql->fetchall_arrayref( {} );
 	foreach my $prefs (@$data) {
@@ -246,7 +247,7 @@ sub get_all_general_prefs {
 
 sub get_general_pref {
 	my ( $self, $guid, $dbase, $attribute ) = @_;
-	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $sql = $self->{'db'}->prepare('SELECT value FROM general WHERE (guid,dbase,attribute)=(?,?,?)');
 	eval { $sql->execute( $guid, $dbase, $attribute ) };
 	$logger->error($@) if $@;
@@ -256,13 +257,13 @@ sub get_general_pref {
 
 sub get_all_field_prefs {
 	my ( $self, $guid, $dbase ) = @_;
-	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $sql = $self->{'db'}->prepare('SELECT field,action,value FROM field WHERE (guid,dbase)=(?,?)');
 	my $values;
 	eval { $sql->execute( $guid, $dbase ) };
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::DatabaseNoRecordException('Cannot execute get_all_field attribute query');
+		BIGSdb::Exception::Database::NoRecord->throw('Cannot execute get_all_field attribute query');
 	}
 	my $data = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
@@ -273,7 +274,7 @@ sub get_all_field_prefs {
 
 sub get_all_locus_prefs {
 	my ( $self, $guid, $dbname ) = @_;
-	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $prefs;
 	my $sql = $self->{'db'}->prepare('SELECT locus,action,value FROM locus WHERE (guid,dbase)=(?,?)');
 	eval { $sql->execute( $guid, $dbname ) };
@@ -299,7 +300,7 @@ sub set_field {
 		eval { $self->{'sql'}->{'update_field'}->execute( $value, $guid, $dbase, $field, $action ) };
 		if ($@) {
 			$logger->error($@);
-			throw BIGSdb::PrefstoreConfigurationException('Cannot execute set field attribute query');
+			BIGSdb::Exception::Prefstore->throw('Cannot execute set field attribute query');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -310,7 +311,7 @@ sub set_field {
 		eval { $self->{'sql'}->{'set_field'}->execute( $guid, $dbase, $field, $action, $value ) };
 		if ($@) {
 			$logger->error($@);
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -331,7 +332,7 @@ sub set_locus {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Cannot insert prefs values');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -343,7 +344,7 @@ sub set_locus {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -365,7 +366,7 @@ sub set_scheme {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Cannot insert prefs values');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -377,7 +378,7 @@ sub set_scheme {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -401,7 +402,7 @@ sub set_scheme_field {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Cannot insert prefs values');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -414,7 +415,7 @@ sub set_scheme_field {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -436,7 +437,7 @@ sub set_plugin_attribute {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Cannot insert prefs values');
 		}
 		$self->{'db'}->commit;
 	} else {
@@ -448,7 +449,7 @@ sub set_plugin_attribute {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Could not insert prefs values');
+			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 		}
 		$self->{'db'}->commit;
 	}
@@ -461,7 +462,7 @@ sub get_all_scheme_prefs {
 	eval { $sql->execute( $guid, $dbase ) };
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute get scheme all attribute query');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute get scheme all attribute query');
 	}
 	my $values;
 	my $data = $sql->fetchall_arrayref( {} );
@@ -477,7 +478,7 @@ sub get_all_scheme_field_prefs {
 	eval { $sql->execute( $guid, $dbase ) };
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute get all scheme fields attribute query');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute get all scheme fields attribute query');
 	}
 	my $values;
 	my $data = $sql->fetchall_arrayref( {} );
@@ -489,7 +490,7 @@ sub get_all_scheme_field_prefs {
 
 sub get_plugin_attribute {
 	my ( $self, $guid, $dbase, $plugin, $attribute ) = @_;
-	throw BIGSdb::DatabaseNoRecordException('No guid passed') if !$guid;
+	BIGSdb::Exception::Prefstore->throw('No guid passed') if !$guid;
 	if ( !$self->{'sql'}->{'get_plugin_attribute'} ) {
 		$self->{'sql'}->{'get_plugin_attribute'} =
 		  $self->{'db'}->prepare('SELECT value FROM plugin WHERE (guid,dbase,plugin,attribute)=(?,?,?,?)');
@@ -501,9 +502,9 @@ sub get_plugin_attribute {
 	};
 	if ($@) {
 		$logger->error($@);
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute get scheme field attribute query');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute get scheme field attribute query');
 	}
-	throw BIGSdb::DatabaseNoRecordException("No value for plugin $plugin attribute $attribute") if !defined $value;
+	BIGSdb::Exception::Database::NoRecord->throw("No value for plugin $plugin attribute $attribute") if !defined $value;
 	return $value;
 }
 
@@ -513,7 +514,7 @@ sub delete_all_field_settings {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete locus');
+		BIGSdb::Exception::Prefstore->throw('Cannot execute delete locus');
 	}
 	$self->{'db'}->commit;
 	return;
@@ -533,7 +534,7 @@ sub delete_locus {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete locus');
+			BIGSdb::Exception::Prefstore->throw('Cannot execute delete locus');
 		}
 		$self->{'db'}->commit;
 	}
@@ -554,7 +555,7 @@ sub delete_scheme_field {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete scheme_field');
+			BIGSdb::Exception::Prefstore->throw('Cannot execute delete scheme_field');
 		}
 		$self->{'db'}->commit;
 	}
@@ -575,7 +576,7 @@ sub delete_plugin_attribute {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete scheme_field');
+			BIGSdb::Exception::Prefstore->throw('Cannot execute delete scheme_field');
 		}
 		$self->{'db'}->commit;
 	}
@@ -596,7 +597,7 @@ sub delete_scheme {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			throw BIGSdb::PrefstoreConfigurationException('Cannot execute delete scheme');
+			BIGSdb::Exception::Prefstore->throw('Cannot execute delete scheme');
 		}
 		$self->{'db'}->commit;
 	}
@@ -612,7 +613,7 @@ sub update_datestamp {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		throw BIGSdb::PrefstoreConfigurationException('Could not update datestamp');
+		BIGSdb::Exception::Prefstore->throw('Could not update datestamp');
 	}
 	$self->{'db'}->commit;
 	return;
@@ -624,7 +625,7 @@ sub delete_guid {
 	if ($@) {
 		$logger->error('Could not delete guid');
 		$self->{'db'}->rollback;
-		throw BIGSdb::PrefstoreConfigurationException('Could not delete guid');
+		BIGSdb::Exception::Prefstore->throw('Could not delete guid');
 	}
 	$self->{'db'}->commit;
 	return;

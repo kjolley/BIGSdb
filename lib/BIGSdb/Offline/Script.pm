@@ -23,14 +23,14 @@ use 5.010;
 use parent qw(BIGSdb::BaseApplication);
 use CGI;
 use DBI;
-use Error qw(:try);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use List::Util qw(shuffle);
 use Carp;
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use BIGSdb::Parser;
 use BIGSdb::Utils;
 $ENV{'PATH'} = '/bin:/usr/bin';             ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
@@ -134,14 +134,18 @@ sub _go {
 		try {
 			$load_average = $self->get_load_average;
 		}
-		catch BIGSdb::DataException with {
-			$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
-			exit;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
+				exit;
+			} else {
+				$self->{'logger'}->logdie($_);
+			}
 		};
 		if ( $load_average > $max_load ) {
 			$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
 			if ( $self->{'options'}->{'throw_busy_exception'} ) {
-				throw BIGSdb::ServerBusyException("Exception: Load average = $load_average");
+				BIGSdb::Exception::Server::Busy->throw("Exception: Load average = $load_average");
 			}
 			return;
 		}
@@ -319,7 +323,8 @@ sub get_selected_loci {
 	$loci_qry .= ' WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL' if $options->{'with_ref_db'};
 	if ( $self->{'options'}->{'datatype'} ) {
 		my %allowed = map { $_ => 1 } qw(DNA peptide);
-		die "Invalid data type selected: $self->{'options'}->{'datatype'}.\n" if !$allowed{ $self->{'options'}->{'datatype'} };
+		die "Invalid data type selected: $self->{'options'}->{'datatype'}.\n"
+		  if !$allowed{ $self->{'options'}->{'datatype'} };
 		$loci_qry .= $loci_qry =~ /WHERE/ ? ' AND ' : ' WHERE ';
 		$loci_qry .= "data_type='$self->{'options'}->{'datatype'}'";
 	}

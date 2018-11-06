@@ -40,7 +40,6 @@ sub new {
 sub run {
 	my ( $self, $params ) = @_;
 	
-	
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;

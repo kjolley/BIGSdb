@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::ContigManager;
 use strict;
 use warnings;
 use 5.010;
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use LWP::UserAgent;
 use HTTP::Request::Common;
 use Net::OAuth 0.20;
@@ -203,7 +203,7 @@ sub _get_remote_record {
 			}
 			my $data;
 			eval { $data = decode_json( $response->decoded_content ); };
-			throw BIGSdb::DataException('Data is not JSON') if $@;
+			BIGSdb::Exception::Data->throw('Data is not JSON') if $@;
 			return $data;
 		} else {
 			if ( $response->code == 401 ) {
@@ -216,11 +216,11 @@ sub _get_remote_record {
 	}
 	if ($requires_authorization) {
 		if ( !$oauth_credentials ) {
-			throw BIGSdb::AuthenticationException("$uri requires authorization - no credentials set");
+			BIGSdb::Exception::Authentication->throw("$uri requires authorization - no credentials set");
 		}
 		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri, $options );
 	}
-	throw BIGSdb::FileException("Cannot retrieve $uri");
+	BIGSdb::Exception::File->throw("Cannot retrieve $uri");
 }
 
 sub _get_protected_route {
@@ -240,7 +240,7 @@ sub _get_protected_route {
 		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) ),
 	);
 	$request->sign;
-	throw BIGSdb::AuthenticationException('Cannot verify signature') unless $request->verify;
+	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
 	my $res = $self->{'ua'}->get( $request->to_url );
 	if ( $options->{'non_json'} ) {
 		return $res->content;
@@ -251,9 +251,9 @@ sub _get_protected_route {
 		$logger->error( $res->content );
 		return;
 	}
-	throw BIGSdb::DataException('Invalid JSON') if ref $decoded_json ne 'HASH';
+	BIGSdb::Exception::Data->throw('Invalid JSON') if ref $decoded_json ne 'HASH';
 	if ( ( $decoded_json->{'message'} // q() ) =~ /Client\ is\ unauthorized/x ) {
-		throw BIGSdb::AuthenticationException('Access denied - client is unauthorized.');
+		BIGSdb::Exception::Authentication->throw('Access denied - client is unauthorized.');
 	}
 	if ( ( $decoded_json->{'status'} // q() ) eq '401' ) {
 		$logger->info('Invalid session token, requesting new one.');
@@ -293,7 +293,7 @@ sub _get_session_token {
 		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) ),
 	);
 	$request->sign;
-	throw BIGSdb::AuthenticationException('Cannot verify signature') unless $request->verify;
+	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
 	my $res = $self->{'ua'}->request( GET $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	if ( $res->is_success ) {
@@ -313,7 +313,7 @@ sub _get_session_token {
 		return $session_response;
 	} else {
 		$logger->error($res->as_string);
-		throw BIGSdb::AuthenticationException("Invalid access token for $base_uri");
+		BIGSdb::Exception::Authentication->throw("Invalid access token for $base_uri");
 	}
 }
 

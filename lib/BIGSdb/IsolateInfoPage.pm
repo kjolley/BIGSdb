@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface :limits);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(none uniq);
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY => 1;
@@ -823,7 +823,7 @@ sub get_isolate_record {
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		$logger->error("Record $id does not exist");
-		throw BIGSdb::DatabaseNoRecordException("Record $id does not exist");
+		BIGSdb::Exception::Database::NoRecord->throw("Record $id does not exist");
 	}
 	$self->add_existing_metadata_to_hashref($data);
 	$buffer .= q(<div class="scrollable">);
@@ -947,7 +947,7 @@ sub _get_provenance_fields {
 
 sub _get_phenotypic_fields {
 	my ( $self, $isolate_id ) = @_;
-	my $buffer     = q();
+	my $buffer = q();
 	my @slide_panel;
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	return $buffer if !@$eav_fields;
@@ -994,13 +994,15 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 				}
 			}
 		}
-		if ($field->{'html_message'}){
+		if ( $field->{'html_message'} ) {
 			my $link_text = $field->{'html_link_text'} // 'info';
-			$value .= qq(&nbsp;<a id="expand_$field->{'field'}" class="slide_trigger"><span class="fas fa-caret-left"></span> $link_text</a>);
-			push @slide_panel, {
+			$value .=
+qq(&nbsp;<a id="expand_$field->{'field'}" class="slide_trigger"><span class="fas fa-caret-left"></span> $link_text</a>);
+			push @slide_panel,
+			  {
 				field => $field,
-				data => $field->{'html_message'}
-			};
+				data  => $field->{'html_message'}
+			  };
 		}
 		push @$list,
 		  {
@@ -1012,10 +1014,10 @@ q(<span class="navigation_button" style="margin-left:1em;margin-bottom:0.5em;ver
 	$buffer .= q(<div id="sparse">);
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div></div>);
-	foreach my $spanel (@slide_panel){
-		$buffer.=qq(<div class="slide_panel" id="slide_$spanel->{'field'}->{'field'}">$spanel->{'data'});
-		$buffer.=q(<p class="feint">Click to close</p>);
-		$buffer .=qq(</div>\n);
+	foreach my $spanel (@slide_panel) {
+		$buffer .= qq(<div class="slide_panel" id="slide_$spanel->{'field'}->{'field'}">$spanel->{'data'});
+		$buffer .= q(<p class="feint">Click to close</p>);
+		$buffer .= qq(</div>\n);
 	}
 	return $buffer;
 }
@@ -1502,12 +1504,13 @@ sub _get_locus_value {
 				  $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $designation->{'allele_id'} );
 				$sequence = BIGSdb::Utils::split_line($$sequence_ref);
 			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$sequence = 'Cannot connect to database';
-			}
-			catch BIGSdb::DatabaseConfigurationException with {
-				my $ex = shift;
-				$sequence = $ex->{-text};
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+					$sequence = 'Cannot connect to database';
+				}
+				if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+					$sequence = $_;
+				}
 			};
 			$buffer .= qq(<dd class="seq" style="text-align:left">$seq_name$sequence</dd>\n) if defined $sequence;
 		}

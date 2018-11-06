@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
@@ -31,7 +30,6 @@ use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.User');
 
 sub print_content {

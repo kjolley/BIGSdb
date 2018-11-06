@@ -24,8 +24,6 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
-use Apache2::Connection ();
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
@@ -109,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.5',
+		version     => '1.4.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
