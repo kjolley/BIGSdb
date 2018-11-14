@@ -216,6 +216,9 @@ sub _print_interface {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$use_all = 0;
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
 		} else {
 			$logger->logdie($_);
 		}
@@ -2263,9 +2266,9 @@ sub _run_helper {
 		}
 	);
 	return {} if $self->{'exit'};
-	my $data             = $scanner->run($params);
+	my $data = $scanner->run($params);
 	$self->{'dataConnector'}->set_forks(0);
-	my $by_ref           = $params->{'reference_file'} ? 1 : 0;
+	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	my $locus_attributes = $self->_get_locus_attributes( $by_ref, $data );
 	my $unique_strains   = $self->_get_unique_strains($data);
 	my $paralogous       = $self->_get_potentially_paralogous_loci($data);

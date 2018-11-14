@@ -210,6 +210,9 @@ sub _do_analysis {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$order = "COUNT($temp_fieldname) desc, $field_order";
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
 		} else {
 			$logger->logdie($_);
 		}

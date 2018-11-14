@@ -123,8 +123,7 @@ sub _use_composites {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$use = 0;
-		}
-		elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
 
 			#Ignore
 		} else {
@@ -284,6 +283,9 @@ sub _create_chartdirector_chart {
 		catch {
 			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 				$prefs{$arg} = 1;
+			} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+				#Ignore
 			} else {
 				$logger->logdie($_);
 			}
@@ -296,6 +298,9 @@ sub _create_chartdirector_chart {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$prefs{'style'} = 'doughnut';
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
 		} else {
 			$logger->logdie($_);
 		}

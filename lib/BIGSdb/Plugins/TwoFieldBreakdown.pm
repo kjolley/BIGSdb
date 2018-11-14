@@ -140,6 +140,9 @@ sub run {
 		catch {
 			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 				$options{$att} = 0;
+			} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+				#Ignore
 			} else {
 				$logger->logdie($_);
 			}
