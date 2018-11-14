@@ -39,6 +39,10 @@ use Exception::Class (
 	'BIGSdb::Exception::Prefstore' => {
 		description => 'Prefstore-related exception'
 	},
+	'BIGSdb::Exception::Prefstore::NoGUID' => {
+		isa         => 'BIGSdb::Exception::Prefstore',
+		description => 'No GUID passed'
+	},
 	'BIGSdb::Exception::Plugin' => {
 		description => 'Plugin-related exception'
 	},
@@ -73,6 +77,6 @@ use Exception::Class (
 	'BIGSdb::Exception::Server::Busy' => {
 		isa         => 'BIGSdb::Exception::Server',
 		description => 'Server is too busy'
-	  }
+	}
 );
 1;

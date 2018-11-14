@@ -490,7 +490,7 @@ sub get_all_scheme_field_prefs {
 
 sub get_plugin_attribute {
 	my ( $self, $guid, $dbase, $plugin, $attribute ) = @_;
-	BIGSdb::Exception::Prefstore->throw('No guid passed') if !$guid;
+	BIGSdb::Exception::Prefstore::NoGUID->throw('No guid passed') if !$guid;
 	if ( !$self->{'sql'}->{'get_plugin_attribute'} ) {
 		$self->{'sql'}->{'get_plugin_attribute'} =
 		  $self->{'db'}->prepare('SELECT value FROM plugin WHERE (guid,dbase,plugin,attribute)=(?,?,?,?)');

@@ -200,6 +200,9 @@ sub print_content {
 				catch {
 					if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 						$default = $arg->{'default'};
+					} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+						#Ignore
 					} else {
 						$logger->logdie($_);
 					}
@@ -979,7 +982,7 @@ sub get_scheme_field_values {
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
 		$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::${scheme_id}::$field" } );
-	no warnings 'uninitialized';                                           #Values most probably include undef
+	no warnings 'uninitialized';    #Values most probably include undef
 	@$values = uniq @$values;
 	return $values;
 }
@@ -987,7 +990,7 @@ sub get_scheme_field_values {
 sub attempted_spam {
 	my ( $self, $str ) = @_;
 	return if !$str || !ref $str;
-	return 1 if $$str =~ /<\s*a\s*href/ix;                                 #Test for HTML links in submitted data
+	return 1 if $$str =~ /<\s*a\s*href/ix;    #Test for HTML links in submitted data
 	return;
 }
 

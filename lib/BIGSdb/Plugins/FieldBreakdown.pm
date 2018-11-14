@@ -123,10 +123,14 @@ sub _use_composites {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$use = 0;
+		}
+		elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
 		} else {
 			$logger->logdie($_);
 		}
-	};
+	}
 	return $use;
 }
 
