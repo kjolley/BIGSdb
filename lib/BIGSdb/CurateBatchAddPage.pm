@@ -652,19 +652,19 @@ sub _check_data {
 
 			#Check for various invalid combinations of fields
 			if ( !$problems{$pk_combination} && $table ne 'sequences' ) {
+				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
 				}
 				catch {
 					if ( $_->isa('BIGSdb::Exception::Data::Warning') ) {
-						next;
-					}
-					if ( $_->isa('BIGSdb::Exception::Data') ) {
+						$skip_record = 1;
+					} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
 						$continue = 0;
-						last;
 					}
 				};
 				last if !$continue;
+				next if $skip_record;
 			}
 			my %record_checks = (
 				accession => sub {
