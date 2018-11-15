@@ -183,7 +183,7 @@ sub print_content {
 			say q(<div class="floatmenu"><a id="toggle1" class="showhide">Show options</a>);
 			say q(<a id="toggle2" class="hideshow">Hide options</a></div>);
 			say q(<div class="hideshow">);
-			say q(<div id="pluginoptions"><h2>Options</h2><ul>);
+			say q(<div id="pluginoptions" style="z-index:999"><h2>Options</h2><ul>);
 			my $guid = $self->get_guid;
 
 			foreach my $arg (@$option_list) {
