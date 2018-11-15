@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,14 +27,26 @@ use 5.010;
 sub new {
 	my ( $class, $params ) = @_;
 	my $self = {};
-	$self->{'jobManager'}       = $params->{'jobManager'};
 	$self->{'config_dir'}       = $params->{'config_dir'};
 	$self->{'lib_dir'}          = $params->{'lib_dir'};
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
 	$self->{'config'}           = $params->{'config'};
+	$self->{'jm_params'}        = $params->{'job_manager_params'};
 	bless( $self, $class );
 	return $self;
+}
+
+sub _get_job_manager {
+	my ($self) = @_;
+	return BIGSdb::OfflineJobManager->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			system           => $self->{'system'},
+			%{ $self->{'jm_params'} }
+		}
+	);
 }
 
 sub run {
@@ -53,7 +65,8 @@ sub run {
 				params           => $params->{'user_params'}
 			}
 		);
-		my $isolates        = $script->get_isolates;
+		my $isolates = $script->get_isolates;
+		undef $script;
 		my $data            = {};
 		my $new_seqs        = {};
 		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
@@ -76,8 +89,9 @@ sub run {
 				if ( $params->{'job_id'} ) {
 					my $percent_complete = int( ( $isolate_count * $finish_progress ) / @$isolates );
 					if ( $isolate_count < @$isolates ) {
-						my $next_id = $isolate_count + 1;
-						$self->{'jobManager'}->update_job_status( $params->{'job_id'},
+						my $next_id     = $isolate_count + 1;
+						my $job_manager = $self->_get_job_manager;
+						$job_manager->update_job_status( $params->{'job_id'},
 							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } );
 					}
 				}
@@ -100,7 +114,6 @@ sub run {
 			);
 			my $isolate_data   = $helper->get_results;
 			my $local_new_seqs = $helper->get_new_sequences;
-			undef $helper;
 			$pm->finish( 0,
 				{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } );
 		}

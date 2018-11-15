@@ -2256,13 +2256,18 @@ sub _run_helper {
 	$self->{'dataConnector'}->set_forks(1);
 	my $scanner = BIGSdb::GCForkScan->new(
 		{
-			config_dir       => $self->{'params'}->{'config_dir'},
-			lib_dir          => $self->{'params'}->{'lib_dir'},
-			dbase_config_dir => $self->{'params'}->{'dbase_config_dir'},
-			jobManager       => $self->{'jobManager'},
-			job_id           => $params->{'job_id'},
-			logger           => $logger,
-			config           => $self->{'config'}
+			config_dir         => $self->{'params'}->{'config_dir'},
+			lib_dir            => $self->{'params'}->{'lib_dir'},
+			dbase_config_dir   => $self->{'params'}->{'dbase_config_dir'},
+			job_id             => $params->{'job_id'},
+			logger             => $logger,
+			config             => $self->{'config'},
+			job_manager_params => {
+				host     => $self->{'jobManager'}->{'host'},
+				port     => $self->{'jobManager'}->{'port'},
+				user     => $self->{'jobManager'}->{'user'},
+				password => $self->{'jobManager'}->{'password'}
+			}
 		}
 	);
 	return {} if $self->{'exit'};
