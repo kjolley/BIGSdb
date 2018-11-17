@@ -62,14 +62,13 @@ GetOptions(
 	'y|max=i'              => \$opts{'y'},
 	'a|assign'             => \$opts{'a'},
 	'allow_frameshift'     => \$opts{'allow_frameshift'},
-	'allow_subsequences'                  => \$opts{'allow_subsequences'},
+	'allow_subsequences'   => \$opts{'allow_subsequences'},
 	'c|coding_sequences'   => \$opts{'c'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
-	
 	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
@@ -116,11 +115,16 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
+	my $uses_remote_contigs =
+	  $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 	foreach my $list (@$lists) {
-		$pm->start and next;                          #Forks
+
+		#Prevent race condition where threads all try to get new OAuth session token
+		sleep 5 if $uses_remote_contigs;
+		$pm->start and next;                                                                  #Forks
 		local $" = ',';
 		BIGSdb::Offline::ScanNew->new(
 			{
