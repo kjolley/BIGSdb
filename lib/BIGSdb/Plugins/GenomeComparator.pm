@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.7',
+		version     => '2.3.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1705,6 +1705,7 @@ sub _generate_excel_file {
 	};
 
 	foreach my $tab ( 'all', 'variable', 'missing in all', 'same in all', 'same except ref', 'incomplete' ) {
+		next if $tab eq 'same except ref' && !$by_ref;
 		$args->{'loci'} = $locus_set->{$tab};
 		$args->{'tab'}  = $tab;
 		$self->_write_excel_table_worksheet($args);
