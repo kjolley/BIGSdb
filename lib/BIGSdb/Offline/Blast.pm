@@ -723,7 +723,7 @@ sub _cache_exists {
 sub _delete_cache_if_stale {
 	my ( $self, $cache_name ) = @_;
 	my $path           = $self->_get_cache_dir($cache_name);
-	my $cache_is_stale = -e "$path/stale";
+	my $cache_is_stale = -e "$path/stale" || !-s "$path/sequences.fas";
 	my $cache_age      = $self->_get_cache_age($cache_name);
 	if ( $cache_age > $self->{'config'}->{'cache_days'} || $cache_is_stale ) {
 		$self->_delete_cache($cache_name);
