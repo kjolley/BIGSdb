@@ -81,6 +81,7 @@ die "The autodefiner user does not exist in the users table.\n" if !user_exists(
 $script->setup_submission_handler;
 $opts{'identity'} //= DEFAULT_IDENTITY;
 main();
+undef $script;
 
 sub main {
 	my $loci           = $script->get_selected_loci;
@@ -110,7 +111,7 @@ sub main {
 				}
 			}
 			my $seq_exists = $script->{'datastore'}->run_query(
-				'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
+				'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
 				[ $allele_submission->{'locus'}, $seq->{'sequence'} ]
 			);
 			if ($seq_exists) {
