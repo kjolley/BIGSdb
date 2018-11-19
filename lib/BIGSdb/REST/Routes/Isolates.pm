@@ -38,15 +38,18 @@ sub _get_isolates {
 	my $params          = params;
 	my $db              = params->{'db'};
 	my $allowed_filters = [qw(added_after updated_after)];
-	my $qry             = $self->add_filters( "SELECT COUNT(*) FROM $self->{'system'}->{'view'}", $allowed_filters );
-	my $isolate_count   = $self->{'datastore'}->run_query($qry);
-	my $page_values     = $self->get_page_values($isolate_count);
+	my $qry = $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}",
+		$allowed_filters );
+	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
+	my $page_values = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry = $self->add_filters( "SELECT id FROM $self->{'system'}->{'view'}", $allowed_filters );
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
+	$values->{'last_added'}   = $last_added   if $last_added;
+	$values->{'last_updated'} = $last_updated if $last_updated;
 	my $path = $self->get_full_path( "/db/$db/isolates", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
@@ -64,12 +67,12 @@ sub _get_genomes {
 	my $allowed_filters = [qw(added_after updated_after genome_size)];
 	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
 	my $qry             = $self->add_filters(
-		"SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
+		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
 		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size",
 		$allowed_filters
 	);
-	my $isolate_count = $self->{'datastore'}->run_query($qry);
-	my $page_values   = $self->get_page_values($isolate_count);
+	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
+	my $page_values = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry = $self->add_filters(
 		"SELECT id FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
@@ -80,6 +83,8 @@ sub _get_genomes {
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
+	$values->{'last_added'}   = $last_added   if $last_added;
+	$values->{'last_updated'} = $last_updated if $last_updated;
 	my $path = $self->get_full_path( "/db/$db/genomes", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
