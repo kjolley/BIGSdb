@@ -37,7 +37,7 @@ sub _get_isolates {
 	$self->check_isolate_database;
 	my $params          = params;
 	my $db              = params->{'db'};
-	my $allowed_filters = [qw(added_after updated_after)];
+	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $qry = $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}",
 		$allowed_filters );
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);

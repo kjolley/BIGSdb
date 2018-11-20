@@ -573,16 +573,23 @@ sub get_user_id {
 sub add_filters {
 	my ( $self, $qry, $allowed_args, $options ) = @_;
 	my $params = params;
-	my ( $added_after, $updated_after, $alleles_added_after, $alleles_updated_after ) =
-	  @{$params}{qw(added_after updated_after alleles_added_after alleles_updated_after)};
+	my ( $added_after, $added_on, $updated_after, $updated_on, $alleles_added_after, $alleles_updated_after ) =
+	  @{$params}{qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after)}
+	  ;
 	my @terms;
 	my $id = $options->{'id'} // 'id';
 	my %methods = (
 		added_after => sub {
 			push @terms, qq(date_entered>'$added_after') if BIGSdb::Utils::is_date($added_after);
 		},
+		added_on => sub {
+			push @terms, qq(date_entered='$added_on') if BIGSdb::Utils::is_date($added_on);
+		},
 		updated_after => sub {
 			push @terms, qq(datestamp>'$updated_after') if BIGSdb::Utils::is_date($updated_after);
+		},
+		updated_on => sub {
+			push @terms, qq(datestamp='$updated_on') if BIGSdb::Utils::is_date($updated_on);
 		},
 		alleles_added_after => sub {
 			push @terms, qq($id IN (SELECT locus FROM sequences WHERE date_entered>'$alleles_added_after'))

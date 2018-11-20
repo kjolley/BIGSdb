@@ -29,10 +29,16 @@ sub _get_sequences {
 	my ($db) = params->{'db'};
 	$self->check_seqdef_database;
 	my $values = { loci => request->uri_for("/db/$db/loci") };
-	if ( params->{'added_after'} || params->{'updated_after'} ) {
-		my $allowed_filters = [qw(added_after updated_after)];
-		my $qry =
-		  $self->add_filters( 'SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM sequences', $allowed_filters );
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? ' WHERE (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
+	if ( params->{'added_after'} || params->{'updated_after'} || params->{'added_on'} || params->{'updated_on'} ) {
+		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+		my $qry = $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM sequences$set_clause",
+			$allowed_filters );
 		my ( $count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
 		$values->{'records'}      = int($count);
 		$values->{'last_added'}   = $last_added if $last_added;
@@ -41,7 +47,7 @@ sub _get_sequences {
 
 		#This is more efficient if we don't need to filter.
 		my ( $count, $last_updated ) =
-		  $self->{'datastore'}->run_query('SELECT SUM(allele_count),MAX(datestamp) FROM locus_stats');
+		  $self->{'datastore'}->run_query("SELECT SUM(allele_count),MAX(datestamp) FROM locus_stats$set_clause");
 		$values->{'records'} = int($count);
 		$values->{'last_updated'} = $last_updated if $last_updated;
 	}
