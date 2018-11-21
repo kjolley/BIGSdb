@@ -385,6 +385,36 @@ sub get_title {
 	return 'User registration';
 }
 
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	var textboxes = ["first_name","surname","affiliation"];
+	\$.each(textboxes, function (i, val){
+		\$("#" + val).bind("keyup", function(e) {
+			capitalize(val,\$("#" + val).val());
+			var code = e.keyCode || e.which;
+			if (code != '9') {  //Tab not pressed
+				\$("#" + val).unbind("keyup");
+	    	}
+		});
+	});
+});	
+function capitalize(textboxid, str) {
+      // string with alteast one character
+      if (str && str.length >= 1)
+      {       
+          var firstChar = str.charAt(0);
+          var remainingStr = str.slice(1);
+          str = firstChar.toUpperCase() + remainingStr;
+      }
+      document.getElementById(textboxid).value = str;
+  }
+
+END
+	return $buffer;
+}
+
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
