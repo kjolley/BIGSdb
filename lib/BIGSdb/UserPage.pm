@@ -36,6 +36,15 @@ sub print_content {
 	my ($self) = @_;
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		if ( $self->{'config'}->{'disable_updates'} ) {
+			$self->print_bad_status(
+				{
+					message => q(The registration pages are currently disabled.),
+					detail  => $self->{'config'}->{'disable_update_message'}
+				}
+			);
+			return;
+		}
 		my $q = $self->{'cgi'};
 		if ( $self->{'curate'} && $q->param('user') ) {
 			if ( $q->param('merge_user') ) {

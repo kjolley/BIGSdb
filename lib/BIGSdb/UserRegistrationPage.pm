@@ -33,6 +33,15 @@ my $logger = get_logger('BIGSdb.User');
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Account registration</h1>);
+	if ( $self->{'config'}->{'disable_updates'} ) {
+		$self->print_bad_status(
+			{
+				message => q(The registration pages are currently disabled.),
+				detail  => $self->{'config'}->{'disable_update_message'}
+			}
+		);
+		return;
+	}
 	if ( !$self->{'config'}->{'auto_registration'} ) {
 		$self->print_bad_status( { message => q(This site does not allow automated registrations.) } );
 		return;
