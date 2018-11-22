@@ -337,6 +337,7 @@ ON UPDATE CASCADE
 
 CREATE UNIQUE INDEX i_s1 ON sequences(locus,md5(sequence));
 CREATE INDEX i_s2 ON sequences(exemplar) WHERE exemplar;
+CREATE INDEX i_s3 ON sequences USING brin(datestamp); 
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequences TO apache;
 
 CREATE TABLE sequence_extended_attributes (
