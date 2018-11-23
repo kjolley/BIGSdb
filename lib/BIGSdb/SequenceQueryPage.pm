@@ -399,7 +399,7 @@ sub _blast_fork {
 					$logger->error('Server too busy to run sequence query.');
 				} else {
 					$self->_update_status_file( $status_file, 'failed' );
-					$logger->error($@);
+					$logger->error($_);
 				}
 			}
 		}
