@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.0.3',
+		version             => '1.1.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -298,6 +298,7 @@ sub _generate_profile_file {
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Cannot open temp file $filename for writing");
 	local $" = qq(\t);
+	say $fh qq(#isolate\t@$loci);
 	foreach my $isolate_id (@$isolates) {
 		my @profile;
 		push @profile, $isolate_id;
@@ -328,7 +329,8 @@ sub _generate_mstree {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
-	my $cmd = "python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
+	my $python = $self->{'config'}->{'python3_path'};
+	my $cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
 	eval { system($cmd); };
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
