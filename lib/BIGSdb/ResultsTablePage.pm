@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(any);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
@@ -64,11 +64,15 @@ sub _calculate_totals {
 				}
 			}
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$self->print_bad_status(
-				{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
-			$logger->error('Cannot create temporary table');
-			return;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				$self->print_bad_status(
+					{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
+				$logger->error('Cannot create temporary table');
+				return;
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
@@ -1822,10 +1826,28 @@ sub add_to_project {
 	}
 	my $ids = $self->get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my @restrict_clauses;
+	my $project = $self->{'datastore'}->run_query( 'SELECT restrict_user,restrict_usergroup FROM projects WHERE id=?',
+		$project_id, { fetch => 'row_hashref' } );
+	if ( $project->{'restrict_user'} ) {
+		push @restrict_clauses,
+		  qq($temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender=$user_info->{'id'}));
+	}
+	if ( $project->{'restrict_usergroup'} ) {
+		push @restrict_clauses,
+		    qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
+		  . q[(SELECT user_id FROM user_group_members WHERE user_group IN ]
+		  . qq[(SELECT user_group FROM user_group_members WHERE user_id=$user_info->{'id'})))];
+	}
+	local $" = ' OR ';
+	my $restrict_clause =
+	  @restrict_clauses
+	  ? qq( AND (@restrict_clauses))
+	  : q();
 	my @msg;
 	my $to_add = $self->{'datastore'}->run_query(
 		"SELECT COUNT(value) FROM $temp_table WHERE value NOT IN(SELECT isolate_id "
-		  . 'FROM project_members WHERE project_id=?)',
+		  . "FROM project_members WHERE project_id=?)$restrict_clause",
 		$project_id
 	);
 	my $plural = $to_add == 1 ? q() : q(s);
@@ -1842,7 +1864,7 @@ sub add_to_project {
 	eval {
 		$self->{'db'}->do( 'INSERT INTO project_members (project_id,isolate_id,curator,datestamp) '
 			  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table WHERE value NOT IN "
-			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)" );
+			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)$restrict_clause" );
 	};
 
 	if ($@) {
@@ -1852,6 +1874,31 @@ sub add_to_project {
 		$self->{'db'}->commit;
 		$self->{'project_add_message'} = $message;
 	}
+	return;
+}
+
+sub confirm_publication {
+	my ($self) = @_;
+	say q(<h1>Confirm publication</h1>);
+	say q(<div class="box" id="statusbad">);
+	say q(<fieldset style="float:left"><legend>Warning</legend>);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
+	say q(<p>Please confirm that you wish to make these isolates public.</p>);
+	say q(</fieldset>);
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Confirm' } );
+	say $q->hidden( confirm_publish => 1 );
+	say $q->hidden($_) foreach qw(db page query_file);
+	say $q->end_form;
+	my $query_file = $q->param('query_file');
+	$self->print_navigation_bar(
+		{
+			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;query_file=$query_file)
+		}
+	);
+	say q(</div>);
 	return;
 }
 

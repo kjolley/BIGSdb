@@ -24,8 +24,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::TreeViewPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
-use Apache2::Connection ();
-use Error qw(:try);
+use Try::Tiny;
 use BIGSdb::Constants qw(:interface SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
@@ -168,7 +167,7 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	if ( !@$ids ) {
-		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
 		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
@@ -545,11 +544,15 @@ sub _scan {
 				);
 				$scan->db_disconnect;
 			}
-			catch BIGSdb::ServerBusyException with {
-				my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
-				open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
-				say $fh 'server_busy:1';
-				close $fh;
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
+					my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
+					open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
+					say $fh 'server_busy:1';
+					close $fh;
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			CORE::exit(0);
 		}
@@ -893,9 +896,13 @@ sub _create_temp_tables {
 			}
 		}
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error('Cannot connect to remote database.');
-		$continue = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error('Cannot connect to remote database.');
+			$continue = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return $continue;
 }

@@ -1,3 +1,7 @@
+v1.20.1: *Improved exception handling - please note new Perl module 
+          dependencies: Try::Tiny and Exception::Class.
+v1.20.0: *Conditional formatting for EAV fields.
+         *Query classification schemes from genome sequence query.
 v1.19.1: *Include EAV field in RESTful API isolate record.
          *Minor bug fixes.
 v1.19.0: *Support for sparsely-populated fields - useful for storing large

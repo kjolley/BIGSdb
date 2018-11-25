@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2017, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,8 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Application);
-use Error qw(:try);
+use BIGSdb::Exceptions;
+use Try::Tiny;
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
@@ -75,9 +76,12 @@ sub _db_connect {
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$initiate_logger->error("Can not connect to database '$self->{'config'}->{'jobs_db'}'");
-		return;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$initiate_logger->error("Cannot connect to database '$self->{'config'}->{'jobs_db'}'");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -98,7 +102,7 @@ sub add_job {
 	foreach (qw (dbase_config ip_address module)) {
 		if ( !$params->{$_} ) {
 			$logger->error("Parameter $_ not passed");
-			throw BIGSdb::DataException("Parameter $_ not passed");
+			BIGSdb::Exception::Data->throw("Parameter $_ not passed");
 		}
 	}
 	my $priority =
@@ -270,7 +274,7 @@ sub update_job_output {
 	my ( $self, $job_id, $output_hash ) = @_;
 	if ( ref $output_hash ne 'HASH' ) {
 		$logger->error('status hash not passed as a ref');
-		throw BIGSdb::DataException('status hash not passed as a ref');
+		BIGSdb::Exception::Data->throw('status hash not passed as a ref');
 	}
 	if ( !$self->{'db'}->ping ) {
 		$self->_db_connect( { reconnect => 1 } );
@@ -313,7 +317,7 @@ sub update_job_status {
 	my ( $self, $job_id, $status_hash ) = @_;
 	if ( ref $status_hash ne 'HASH' ) {
 		$logger->error('status hash not passed as a ref');
-		throw BIGSdb::DataException('status hash not passed as a ref');
+		BIGSdb::Exception::Data->throw('status hash not passed as a ref');
 	}
 	if ( !$self->{'db'}->ping ) {
 		$self->_db_connect( { reconnect => 1 } );
@@ -355,8 +359,7 @@ sub update_notifications {
 		  $self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM params WHERE (job_id,key)=(?,?))');
 	}
 	eval {
-		foreach my $param (qw(email title description enable_notifications job_url))
-		{
+		foreach my $param (qw(email title description enable_notifications job_url)) {
 			my ($exists) = $self->{'db'}->selectrow_array( $self->{'sql'}->{'param_exists'}, undef, $job_id, $param );
 			if ($exists) {
 				$self->{'db'}->do( 'UPDATE params SET value=? WHERE (job_id,key)=(?,?)',

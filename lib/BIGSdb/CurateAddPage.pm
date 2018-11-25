@@ -536,8 +536,10 @@ sub _check_sequence_allele_id {
 		push @$problems, 'Allele id must not contain spaces - try substituting with underscores (_).';
 	} else {
 		$newdata->{'sequence'} =~ s/\s//gx;
-		my $exists = $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
-			[ $newdata->{'locus'}, $newdata->{'sequence'} ] );
+		my $exists = $self->{'datastore'}->run_query(
+			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+			[ $newdata->{'locus'}, $newdata->{'sequence'} ]
+		);
 		if ($exists) {
 			my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).";

@@ -20,8 +20,8 @@ package BIGSdb::BaseApplication;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.19.1');
-use BIGSdb::BIGSException;
+use version; our $VERSION = version->declare('v1.20.0');
+use BIGSdb::Exceptions;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::Dataconnector;
@@ -36,7 +36,7 @@ use BIGSdb::SubmissionHandler;
 use BIGSdb::CGI::as_utf8;
 use DBI;
 use Carp;
-use Error qw(:try);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
@@ -271,17 +271,40 @@ sub set_system_overrides {
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
-		open( my $fh, '<', $override_file )
-		  || $logger->error("Can't open $override_file for reading");
-		while ( my $line = <$fh> ) {
-			next if $line =~ /^\#/x;
-			$line =~ s/^\s+//x;
-			$line =~ s/\s+$//x;
-			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
-				$self->{'system'}->{$1} = $2;
-			}
+		my $config = Config::Tiny->new();
+		$config = Config::Tiny->read($override_file);
+		foreach my $param ( keys %{ $config->{_} } ) {
+			my $value = $config->{_}->{$param};
+			$value =~ s/^"|"$//gx;    #Remove quotes around value
+			$self->{'system'}->{$param} = $value;
 		}
-		close $fh;
+	}
+	$self->_set_field_overrides;
+	return;
+}
+
+sub _set_field_overrides {
+	my ($self) = @_;
+	return if !$self->{'instance'};
+	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
+	my %allowed_att = map { $_ => 1 } qw(required maindisplay);
+	if ( -e $override_file ) {
+		my $config = Config::Tiny->new();
+		$config = Config::Tiny->read($override_file);
+		foreach my $param ( keys %{ $config->{_} } ) {
+			my ( $field, $attribute ) = split /:/x, $param;
+			if ( !$self->{'xmlHandler'}->is_field($field) ) {
+				$logger->error("Error in field.overrides file. Invalid field $field");
+				next;
+			}
+			if ( !$allowed_att{$attribute} ) {
+				$logger->error("Error in field.overrides file. Invalud attribute $attribute");
+				next;
+			}
+			my $value = $config->{_}->{$param};
+			$value =~ s/^"|"$//gx;    #Remove quotes around value
+			$self->{'xmlHandler'}->{'attributes'}->{$field}->{$attribute} = $value;
+		}
 	}
 	return;
 }
@@ -299,9 +322,13 @@ sub initiate_authdb {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
 		$logger->info("Connected to authentication database '$self->{'config'}->{'auth_db'}'");
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
-		$self->{'error'} = 'noAuth';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
+			$self->{'error'} = 'noAuth';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -434,8 +461,12 @@ sub _setup_prefstore {
 	try {
 		$pref_db = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
 	return;
@@ -498,9 +529,13 @@ sub db_connect {
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
-		$self->{'error'} = 'noConnect';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+			$self->{'error'} = 'noConnect';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -554,33 +589,35 @@ sub authenticate {
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{
 			try {
-				throw BIGSdb::AuthenticationException('logging out') if $logging_out;
+				BIGSdb::Exception::Authentication->throw('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
 				$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
 			}
-			catch BIGSdb::AuthenticationException with {
-				$logger->debug('No cookie set - asking for log in');
-				if (   $login_requirement == REQUIRED
-					|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
-				{
-					if ( $q->param('no_header') ) {
-						$page_attributes->{'error'} = 'ajaxLoggedOut';
-						$page = BIGSdb::ErrorPage->new(%$page_attributes);
-						$page->print_page_content;
-						$authenticated = 0;
-					} else {
-						my $args = {};
-						$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
-						try {
-							( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
-							  $page->secure_login($args);
-						}
-						catch BIGSdb::AuthenticationException with {
-
-							#failed again
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+					$logger->debug('No cookie set - asking for log in');
+					if (   $login_requirement == REQUIRED
+						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+					{
+						if ( $q->param('no_header') ) {
+							$page_attributes->{'error'} = 'ajaxLoggedOut';
+							$page = BIGSdb::ErrorPage->new(%$page_attributes);
+							$page->print_page_content;
 							$authenticated = 0;
-						};
+						} else {
+							my $args = {};
+							$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
+							try {
+								( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
+								  $page->secure_login($args);
+							}
+							catch {    #failed again
+								$authenticated = 0;
+							};
+						}
 					}
+				} else {
+					$logger->logdie($_);
 				}
 			};
 		}
@@ -623,8 +660,10 @@ sub is_user_allowed_access {
 	}
 	return 1 if !$self->{'system'}->{'default_access'};
 	if ( $self->{'system'}->{'default_access'} eq 'deny' ) {
-		my $allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
-		return 1 if -e $allow_file && $self->_is_name_in_file( $username, $allow_file );
+		my $users_allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.allow";
+		return 1 if -e $users_allow_file && $self->_is_name_in_file( $username, $users_allow_file );
+		my $group_allow_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/usergroups.allow";
+		return 1 if -e $group_allow_file && $self->_is_user_in_group_file( $username, $group_allow_file );
 		return;
 	} elsif ( $self->{'system'}->{'default_access'} eq 'allow' ) {
 		my $deny_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/users.deny";
@@ -636,7 +675,7 @@ sub is_user_allowed_access {
 
 sub _is_name_in_file {
 	my ( $self, $name, $filename ) = @_;
-	throw BIGSdb::FileException("File $filename does not exist") if !-e $filename;
+	BIGSdb::Exception::File::NotExist->throw("File $filename does not exist") if !-e $filename;
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^\#/x;
@@ -648,7 +687,29 @@ sub _is_name_in_file {
 		}
 	}
 	close $fh;
-	return 0;
+	return;
+}
+
+sub _is_user_in_group_file {
+	my ( $self, $name, $filename ) = @_;
+	BIGSdb::Exception::File::NotExist->throw("File $filename does not exist") if !-e $filename;
+	my $group_names = [];
+	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^\#/x;
+		$line =~ s/^\s+//x;
+		$line =~ s/\s+$//x;
+		push @$group_names, $line;
+	}
+	close $fh;
+	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $group_names );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($name);
+	return if !$user_info;
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM user_groups g JOIN user_group_members m ON g.id=m.user_group WHERE '
+		  . "g.description IN (SELECT value FROM $list_table) AND m.user_id=?)",
+		$user_info->{'id'}
+	);
 }
 
 sub initiate_plugins {
@@ -688,6 +749,7 @@ sub get_load_average {
 	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
 		return $1;
 	}
-	throw BIGSdb::DataException('Cannot determine load average');
+	BIGSdb::Exception::Data->throw('Cannot determine load average');
+	return;
 }
 1;

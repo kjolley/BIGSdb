@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -149,22 +149,25 @@ sub _do_analysis {
 					$qry        = "SELECT DISTINCT(${temp_table}.$field),COUNT(${temp_table}.$field) FROM $list_table "
 					  . "LEFT JOIN $temp_table ON $list_table.value=$temp_table.id GROUP BY $temp_table.$field";
 				}
-				catch BIGSdb::DatabaseConnectionException with {
-					$self->print_bad_status(
-						{
-							message => q(The database for scheme $scheme_id is not accessible. )
-							  . q(This may be a configuration problem.),
-							navbar => 1
-						}
-					);
-					$continue = 0;
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+						$self->print_bad_status(
+							{
+								message => q(The database for scheme $scheme_id is not accessible. )
+								  . q(This may be a configuration problem.),
+								navbar => 1
+							}
+						);
+						$continue = 0;
+					} else {
+						$logger->logdie($_);
+					}
 				};
 				return if !$continue;
 			}
 		} else {
 			$self->print_bad_status( { message => q(Invalid field passed for analysis!), navbar => 1 } );
-			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) )
-			  ;
+			$logger->error( q(Invalid field passed for analysis. Field is set as ') . $q->param('field') . q('.) );
 			return;
 		}
 	} elsif ( $q->param('type') eq 'locus' ) {
@@ -204,8 +207,15 @@ sub _do_analysis {
 			$order = $field_order;
 		}
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$order = "COUNT($temp_fieldname) desc, $field_order";
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$order = "COUNT($temp_fieldname) desc, $field_order";
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$qry .= " ORDER BY $order";
 	my $total = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $list_table");
@@ -294,8 +304,12 @@ sub _breakdown_field {
 					  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', $_ );
 					$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
 				}
-				catch BIGSdb::DatabaseNoRecordException with {
-					$prefs{$_} = 1;
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+						$prefs{$_} = 1;
+					} else {
+						$logger->logdie($_);
+					}
 				};
 			}
 			try {
@@ -303,8 +317,12 @@ sub _breakdown_field {
 				  $self->{'prefstore'}
 				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'SchemeBreakdown', 'style' );
 			}
-			catch BIGSdb::DatabaseNoRecordException with {
-				$prefs{'style'} = 'doughnut';
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+					$prefs{'style'} = 'doughnut';
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			my $temp = BIGSdb::Utils::get_random();
 			BIGSdb::Charts::piechart(
@@ -371,10 +389,14 @@ sub _print_scheme_table {
 			$temp_table        = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 			$scheme_fields_qry = "SELECT * FROM $list_table INNER JOIN $temp_table ON $list_table.value=$temp_table.id";
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			say qq(<p class="statusbad">The database for scheme $scheme_id is not accessible. )
-			  . q(This may be a configuration problem.</p>);
-			$continue = 0;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				say qq(<p class="statusbad">The database for scheme $scheme_id is not accessible. )
+				  . q(This may be a configuration problem.</p>);
+				$continue = 0;
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		return if !$continue;
 	}
@@ -517,7 +539,7 @@ sub _download_alleles {
 			$$formatted_seq_ref = q(-) if length $$formatted_seq_ref == 0;
 			say $$formatted_seq_ref;
 		}
-		catch BIGSdb::BIGSException with {
+		catch {
 			$logger->error("Locus $locus is misconfigured.");
 		};
 	}

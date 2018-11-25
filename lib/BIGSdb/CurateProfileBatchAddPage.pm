@@ -390,6 +390,8 @@ sub _check_profile_exists {
 	if ( $ret->{'exists'} ) {
 		return 1 if $q->param('ignore_existing');
 		$problems->{$pk} .= "$ret->{'msg'}<br />";
+	} elsif ( $ret->{'err'} ) {
+		$problems->{$pk} .= "$ret->{'msg'}<br />";
 	}
 	return;
 }
@@ -411,11 +413,10 @@ sub _check_pk_exists {
 sub _check_pk_used_already {
 	my ( $self, $args )     = @_;
 	my ( $pk,   $problems ) = @{$args}{qw( pk problems)};
-	state $pks_so_far = {};
-	if ( $pks_so_far->{ $pk // q() } ) {
+	if ( $self->{'pks_so_far'}->{ $pk // q() } ) {
 		$problems->{$pk} .= 'This primary key has been included more than once in this submission.<br />';
 	}
-	$pks_so_far->{ $pk // q() } = 1;
+	$self->{'pks_so_far'}->{ $pk // q() } = 1;
 	return;
 }
 
@@ -457,14 +458,13 @@ sub _check_duplicate_profile {
 	my ( $scheme_info, $profile, $pk, $problems ) =
 	  @{$args}{qw(scheme_info profile pk problems)};
 	my $q = $self->{'cgi'};
-	state %profiles_so_far;
 	no warnings 'uninitialized';
 	local $" = ',';
-	if ( $profiles_so_far{"@$profile"} && none { $_ eq '' } @$profile ) {
+	if ( $self->{'profiles_so_far'}->{"@$profile"} && none { $_ eq '' } @$profile ) {
 		return 1 if $q->param('ignore_duplicates');
 		$problems->{$pk} .= qq(The profile '@$profile' has been included more than once in this submission.<br />);
 	} elsif ( $scheme_info->{'allow_missing_loci'} ) {
-		foreach my $profile_string ( keys %profiles_so_far ) {
+		foreach my $profile_string ( keys %{ $self->{'profiles_so_far'}->{"@$profile"} } ) {
 			my $it_matches = 1;
 			my @existing_profile = split /,/x, $profile_string;
 			foreach my $i ( 0 .. @$profile - 1 ) {
@@ -482,7 +482,7 @@ sub _check_duplicate_profile {
 			  if $it_matches;
 		}
 	}
-	$profiles_so_far{"@$profile"} = 1;
+	$self->{'profiles_so_far'}->{"@$profile"} = 1;
 	return;
 }
 
@@ -585,7 +585,7 @@ sub _upload {
 			my $detail;
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				$detail =
-				  q(<p>Data entry would have resulted in records with either duplicate ids or another )
+				    q(<p>Data entry would have resulted in records with either duplicate ids or another )
 				  . q(unique field with duplicate values.</p>);
 			}
 			$self->print_bad_status(

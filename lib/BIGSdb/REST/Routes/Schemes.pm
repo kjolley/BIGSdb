@@ -64,6 +64,16 @@ sub _get_scheme {
 	foreach my $field (@$scheme_fields) {
 		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field");
 	}
+	if ( $scheme_info->{'primary_key'} ) {
+		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+		my $table           = "mv_scheme_$scheme_id";
+		my $qry =
+		  $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $table", $allowed_filters );
+		my ( $profile_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
+		$values->{'records'}      = $profile_count;
+		$values->{'last_updated'} = $last_updated if $last_updated;
+		$values->{'last_added'}   = $last_added;
+	}
 	$values->{'fields'} = $scheme_field_links if @$scheme_field_links;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	$values->{'locus_count'} = scalar @$loci;

@@ -28,17 +28,17 @@
 #a symlink and call that from CRON.
 use strict;
 use warnings;
-###########Local configuration################################
+###########Local configuration#############################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'bigsdb',
-	PASSWORD         => 'bigsdb'
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
+	PASSWORD         => undef
 };
-#######End Local configuration################################
+#######End Local configuration#############################################
 use lib (LIB_DIR);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Offline::RunJobs;

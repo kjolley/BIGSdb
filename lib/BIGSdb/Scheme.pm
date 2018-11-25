@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2016, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::Scheme;
 use strict;
 use warnings;
+use BIGSdb::Exceptions;
 use 5.010;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scheme');
@@ -80,11 +81,12 @@ sub get_profile_by_primary_keys {
 			  . qq(tables for scheme#$self->{'id'} ($self->{'name'})! Statement was )
 			  . qq('$self->{'sql'}->{scheme_fields}->{Statement}'. $@)
 			  . $self->{'db'}->errstr );
-		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Scheme configuration error');
 	} else {
 		my $profile = $self->{'sql'}->{'scheme_profiles'}->fetchrow_array;
 		return $profile;
 	}
+	return;
 }
 
 sub get_field_values_by_designations {
@@ -107,8 +109,8 @@ sub get_field_values_by_designations {
 		} else {
 			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
 			push @allele_count,
-			  scalar
-			  @{ $designations->{$locus} };    #We need a different query depending on number of designations at loci.
+			  scalar @{ $designations->{$locus} }
+			  ;    #We need a different query depending on number of designations at loci.
 			foreach my $designation ( @{ $designations->{$locus} } ) {
 				push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
 			}
@@ -140,7 +142,7 @@ sub get_field_values_by_designations {
 	if ($@) {
 		$logger->warn( q(Check database attributes in the scheme_fields table for )
 			  . qq(scheme#$self->{'id'} ($self->{'name'})! $@ ) );
-		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Scheme configuration error');
 	}
 	my $field_data = $sql->fetchall_arrayref( {} );
 	$self->{'db'}->commit;    #Prevent IDLE in transaction locks in long-running REST process.
@@ -157,7 +159,7 @@ sub get_distinct_fields {
 	if ($@) {
 		$logger->warn( q(Can't execute query handle. Check database attributes in the scheme_fields table )
 			  . qq(for scheme#$self->{'id'} $@) );
-		throw BIGSdb::DatabaseConfigurationException('Scheme configuration error');
+		BIGSdb::Exception::Database::Configuration->throw('Scheme configuration error');
 	}
 	return $values;
 }

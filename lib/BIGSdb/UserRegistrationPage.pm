@@ -33,6 +33,15 @@ my $logger = get_logger('BIGSdb.User');
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Account registration</h1>);
+	if ( $self->{'config'}->{'disable_updates'} ) {
+		$self->print_bad_status(
+			{
+				message => q(The registration pages are currently disabled.),
+				detail  => $self->{'config'}->{'disable_update_message'}
+			}
+		);
+		return;
+	}
 	if ( !$self->{'config'}->{'auto_registration'} ) {
 		$self->print_bad_status( { message => q(This site does not allow automated registrations.) } );
 		return;
@@ -383,6 +392,36 @@ sub _create_password {
 
 sub get_title {
 	return 'User registration';
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	var textboxes = ["first_name","surname","affiliation"];
+	\$.each(textboxes, function (i, val){
+		\$("#" + val).bind("keyup", function(e) {
+			capitalize(val,\$("#" + val).val());
+			var code = e.keyCode || e.which;
+			if (code != '9') {  //Tab not pressed
+				\$("#" + val).unbind("keyup");
+	    	}
+		});
+	});
+});	
+function capitalize(textboxid, str) {
+      // string with alteast one character
+      if (str && str.length >= 1)
+      {       
+          var firstChar = str.charAt(0);
+          var remainingStr = str.slice(1);
+          str = firstChar.toUpperCase() + remainingStr;
+      }
+      document.getElementById(textboxid).value = str;
+  }
+
+END
+	return $buffer;
 }
 
 sub initiate {

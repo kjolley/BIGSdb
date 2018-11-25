@@ -24,7 +24,6 @@ use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Utils;
-use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
@@ -49,8 +48,7 @@ sub get_submission_days {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $tree_js =
-	  $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
+	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $buffer = << "END";
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
@@ -1522,10 +1520,8 @@ sub _print_sequence_table {
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
 	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
-	my $td              = 1;
-	my $pending_seqs    = [];
-	my $locus_seq_table = $self->{'datastore'}->create_temp_allele_table( $allele_submission->{'locus'} );
-
+	my $td           = 1;
+	my $pending_seqs = [];
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
 		my $length   = length $seq->{'sequence'};
@@ -1538,8 +1534,8 @@ sub _print_sequence_table {
 		say qq(<td class="seq">$sequence</td>$cds);
 		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(
-			"SELECT allele_id FROM $locus_seq_table WHERE md5(sequence)=md5(?)",
-			uc( $seq->{'sequence'} ),
+			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+			[ $allele_submission->{'locus'}, uc( $seq->{'sequence'} ) ],
 			{ cache => 'SubmitPage::print_sequence_table_fieldset' }
 		);
 		if ( !defined $assigned ) {

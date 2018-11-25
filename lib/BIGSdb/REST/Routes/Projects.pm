@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,10 +30,17 @@ sub _get_projects {
 	my $self = setting('self');
 	my ($db) = params->{'db'};
 	$self->check_isolate_database;
-	my $projects = $self->{'datastore'}->run_query(
-		'SELECT id,short_description FROM projects WHERE NOT private ORDER BY id',
-		undef, { fetch => 'all_arrayref', slice => {} }
-	);
+	my $qry = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
+	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $user_id   = $user_info->{'id'};
+		if ( BIGSdb::Utils::is_int($user_id) ) {
+			$qry .= " OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=$user_id)";
+		}
+	}
+	$qry .= ') ORDER BY id';
+	my $projects = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my @project_list;
 	foreach my $project (@$projects) {
 		my $isolate_count = $self->{'datastore'}->run_query(

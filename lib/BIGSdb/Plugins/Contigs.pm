@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
-		version      => '1.1.4',
+		version      => '1.1.5',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -66,21 +66,22 @@ sub set_pref_requirements {
 
 sub _get_contigs {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $pc_untagged, $match ) = @{$args}{qw (isolate_id pc_untagged match  )};
-	my $buffer;
+	my ( $isolate_id, $pc_untagged, $match, $single ) = @{$args}{qw (isolate_id pc_untagged match single)};
+	my $buffer = q();
 	if ( !defined $isolate_id || !BIGSdb::Utils::is_int($isolate_id) ) {
-		say q(Invalid isolate id passed.);
+		say q(Invalid isolate id passed.) if $single;
+		return \$buffer;
 	}
 	$pc_untagged //= 0;
 	if ( !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged) ) {
-		say q(Invalid percentage tagged threshold value passed.);
-		return;
+		say q(Invalid percentage tagged threshold value passed.) if $single;
+		return \$buffer;
 	}
 	my $data = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged, get_contigs => 1 } );
 	my $export_seq = $match ? $data->{'match_seq'} : $data->{'non_match_seq'};
 	if ( !@$export_seq ) {
-		say q(No sequences matching selected criteria.);
-		return;
+		say q(No sequences matching selected criteria.) if $single;
+		return \$buffer;
 	}
 	foreach (@$export_seq) {
 		$buffer .= qq(>$_->{'seqbin_id'}\n);
@@ -94,7 +95,7 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('format') eq 'text' ) {
-		my $contigs = $self->_get_contigs( { $q->Vars } );
+		my $contigs = $self->_get_contigs( { $q->Vars, single => 1 } );
 		say $$contigs;
 		return;
 	} elsif ( $q->param('batchDownload') && ( $q->param('format') // '' ) eq 'tar' && !$self->{'no_archive'} ) {
@@ -303,7 +304,7 @@ sub _print_interface {
 	}
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	}
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids from which contigs are )
@@ -356,7 +357,7 @@ sub _batchDownload {
 		$logger->error("File $filename does not exist");
 		my $error_file = 'error.txt';
 		my $tar        = Archive::Tar->new;
-		$tar->add_data( $error_file, 'No record list passed.  Please repeat query.' );
+		$tar->add_data( $error_file, 'No record list passed. Please repeat query.' );
 		if ( $ENV{'MOD_PERL'} ) {
 			my $tf = $tar->write;
 			$self->{'mod_perl_request'}->print($tf);
@@ -365,7 +366,7 @@ sub _batchDownload {
 			$tar->write( \*STDOUT );
 		}
 	} else {
-		open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
+		open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
 		while (<$fh>) {
 			chomp;
 			push @list, $_ if BIGSdb::Utils::is_int($_);
@@ -379,9 +380,8 @@ sub _batchDownload {
 			}
 			my $isolate_name = $self->get_isolate_name_from_id($id);
 			$isolate_name =~ s/\W/_/gx;
-			my $contig_file = "$id\_$isolate_name.fas";
+			my $contig_file = "${id}_$isolate_name.fas";
 			my $data = $self->_get_contigs( { isolate_id => $id, pc_untagged => 0, match => 1 } );
-
 			#Modified from Archive::Tar::Streamed to allow mod_perl support.
 			my $tar = Archive::Tar->new;
 			$tar->add_data( $contig_file, $$data );

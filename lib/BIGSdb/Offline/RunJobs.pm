@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2017, University of Oxford
+#Copyright (c) 2011-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Script BIGSdb::Page);
-use Error qw(:try);
+use BIGSdb::Exceptions;
 use BIGSdb::OfflineJobManager;
 use BIGSdb::PluginManager;
 use BIGSdb::Parser;
@@ -30,6 +30,7 @@ use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
+use Try::Tiny;
 
 sub initiate {
 	my ($self) = @_;
@@ -110,19 +111,22 @@ sub run_script {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ status => $status, stage => undef, stop_time => 'now', percent_complete => 100, pid => undef } );
 	}
-	catch BIGSdb::PluginException with {
-		my $msg = shift;
-		$self->{'logger'}->debug($msg);
-		$self->{'jobManager'}->update_job_status(
-			$job_id,
-			{
-				status           => 'failed',
-				stop_time        => 'now',
-				percent_complete => 100,
-				message_html     => qq(<p class="statusbad">$msg</p>),
-				pid              => undef
-			}
-		);
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Plugin') ) {
+			$self->{'logger'}->debug($_);
+			$self->{'jobManager'}->update_job_status(
+				$job_id,
+				{
+					status           => 'failed',
+					stop_time        => 'now',
+					percent_complete => 100,
+					message_html     => qq(<p class="statusbad">$_</p>),
+					pid              => undef
+				}
+			);
+		} else {
+			$self->{'logger'}->logdie($_);
+		}
 	};
 	$self->_notify_user($job_id);
 	return;

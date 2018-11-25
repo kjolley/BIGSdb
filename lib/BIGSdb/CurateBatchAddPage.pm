@@ -26,7 +26,7 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(SEQ_STATUS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD :submissions :interface :limits);
 use BIGSdb::Utils;
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -264,8 +264,9 @@ sub _cannot_upload_private_data {
 		if ( !$is_project_user ) {
 			$self->print_bad_status(
 				{
-					message => qq(You are not a registered user for the $project->{'short_description'} project.),
-					navbar  => 1
+					message => q(Your account has insufficient privileges to upload to the )
+					  . qq($project->{'short_description'} project.),
+					navbar => 1
 				}
 			);
 			return 1;
@@ -655,11 +656,12 @@ sub _check_data {
 				try {
 					$self->_check_data_primary_key($new_args);
 				}
-				catch BIGSdb::DataException with {
-					$continue = 0;
-				}
-				catch BIGSdb::DataWarning with {
-					$skip_record = 1;
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Data::Warning') ) {
+						$skip_record = 1;
+					} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
+						$continue = 0;
+					}
 				};
 				last if !$continue;
 				next if $skip_record;
@@ -1278,7 +1280,7 @@ sub _check_data_primary_key {
 						  . qq((@primary_keys) data.)
 					}
 				);
-				throw BIGSdb::DataException('Invalid primary key');
+				BIGSdb::Exception::Data->throw('Invalid primary key');
 			}
 			$self->print_bad_status(
 				{
@@ -1286,7 +1288,7 @@ sub _check_data_primary_key {
 					  . qq(key field$plural (@primary_keys) required for this table.)
 				}
 			);
-			throw BIGSdb::DataException("no primary key field$plural (@primary_keys)");
+			BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
@@ -1297,7 +1299,7 @@ sub _check_data_primary_key {
 					|| $arg_ref->{'advisories'}->{$pk_combination} !~ /$warning_text/x )
 				{
 					$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
-					throw BIGSdb::DataWarning('Primary key already exists.');
+					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 				}
 			} else {
 				my $problem_text = 'Primary key already exists in the database.<br />';
@@ -1570,7 +1572,7 @@ sub _check_sequence_length {
 			}
 		}
 		my $exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,sequence)=(?,?))',
+			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,md5(sequence))=(?,md5(?)))',
 			[ $locus, ${ $args->{'value'} } ],
 			{ cache => 'CurateBatchAddPage::sequence_exists' }
 		);
@@ -1914,9 +1916,13 @@ sub _upload_data {
 					);
 					push @inserts, @$contigs_extra_inserts;
 				}
-				catch BIGSdb::DataException with {
-					$upload_err  = 'Invalid FASTA file';
-					$failed_file = $data[ $field_order->{'assembly_filename'} ];
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Data') ) {
+						$upload_err  = 'Invalid FASTA file';
+						$failed_file = $data[ $field_order->{'assembly_filename'} ];
+					} else {
+						$logger->logdie($_);
+					}
 				};
 				$self->{'submission_message'} .= "\n";
 				push @history, "$id|Isolate record added";

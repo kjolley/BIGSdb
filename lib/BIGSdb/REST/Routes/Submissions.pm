@@ -53,6 +53,15 @@ sub _check_db_type {
 	return;
 }
 
+sub _check_updates_disabled {
+	my $self = setting('self');
+	if ($self->{'config'}->{'disable_updates'}){
+		my $msg = $self->{'config'}->{'disable_update_message'} // q();
+		send_error("Submissions are currently disabled. $msg", 403)
+	}
+	return;
+}
+
 sub _get_submissions {
 	my $self   = setting('self');
 	my $params = params;
@@ -226,6 +235,7 @@ sub _create_submission {
 	my ( $db, $type, $message, $email ) = @{$params}{qw(db type message email)};
 	_check_db_type($type);
 	_check_if_over_limit();
+	_check_updates_disabled();
 	my $submitter     = $self->get_user_id;
 	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
 	my %method        = (
@@ -508,6 +518,7 @@ sub _get_messages {
 sub _add_message {
 	my $self   = setting('self');
 	my $params = params;
+	_check_updates_disabled();
 	my ( $db, $submission_id, $message ) = @{$params}{qw(db submission message)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
@@ -531,6 +542,7 @@ sub _add_message {
 
 sub _upload_file {
 	my $self   = setting('self');
+	_check_updates_disabled();
 	my $params = params;
 	my ( $db, $submission_id, $filename, $upload ) = @{$params}{qw(db submission filename upload)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);

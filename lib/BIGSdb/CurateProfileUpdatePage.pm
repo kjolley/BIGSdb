@@ -140,7 +140,7 @@ sub _prepare_update {
 		$newdata{"field:$primary_key"} = $profile_id;
 		my %designations = map { $_ => $newdata{"locus:$_"} } @$loci;
 		my $ret = $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata{"field:$primary_key"} );
-		push @bad_field_buffer, $ret->{'msg'} if $ret->{'exists'};
+		push @bad_field_buffer, $ret->{'msg'} if $ret->{'exists'} || $ret->{'err'};
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;

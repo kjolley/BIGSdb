@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Bio::DB::GenBank;
-use Error qw(:try);
+use Try::Tiny;
 use BIGSdb::Constants qw(SEQ_METHODS :interface :limits);
 
 sub print_content {
@@ -66,15 +66,19 @@ sub print_content {
 				$self->_check_data($acc_seq_ref);
 			}
 		}
-		catch BIGSdb::DataException with {
-			my $err = shift;
-			$logger->debug($err);
-			if ( $err eq 'INVALID_ACCESSION' ) {
-				$self->print_bad_status( { message => q(Accession is invalid.) } );
-			} elsif ( $err eq 'NO_DATA' ) {
-				$self->print_bad_status( { message => q(The accession is valid but it contains no sequence data.) } );
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$logger->debug($_);
+				if ( $_ eq 'INVALID_ACCESSION' ) {
+					$self->print_bad_status( { message => q(Accession is invalid.) } );
+				} elsif ( $_ eq 'NO_DATA' ) {
+					$self->print_bad_status(
+						{ message => q(The accession is valid but it contains no sequence data.) } );
+				}
+				$self->_print_interface;
+			} else {
+				$logger->logdie($_);
 			}
-			$self->_print_interface;
 		};
 	} else {
 		my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
@@ -149,7 +153,7 @@ sub _print_interface {
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} elsif ( $isolate_count > MAX_ISOLATES_DROPDOWN ) {
 		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
-		say $self->textfield( -name => 'isolate_id', id => 'isolate_id', required => 'required', type=>'number' );
+		say $self->textfield( -name => 'isolate_id', id => 'isolate_id', required => 'required', type => 'number' );
 	} else {
 		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
 		my $id_arrayref =
@@ -292,19 +296,22 @@ sub _check_data {
 		try {
 			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$q->param('data'), { keep_comments => 1 } );
 		}
-		catch BIGSdb::DataException with {
-			my $ex = shift;
-			if ( $ex =~ /DNA/x ) {
-				my $header;
-				if ( $ex =~ /DNA\ -\ (.*)$/x ) {
-					$header = $1;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				if ( $_ =~ /DNA/x ) {
+					my $header;
+					if ( $_ =~ /DNA\ -\ (.*)$/x ) {
+						$header = $1;
+					}
+					$self->print_bad_status(
+						{ message => qq(FASTA data '$header' contains non-valid nucleotide characters.) } );
+					$continue = 0;
+				} else {
+					$self->print_bad_status( { message => q(Sequence data is not in valid FASTA format.) } );
+					$continue = 0;
 				}
-				$self->print_bad_status(
-					{ message => qq(FASTA data '$header' contains non-valid nucleotide characters.) } );
-				$continue = 0;
 			} else {
-				$self->print_bad_status( { message => q(Sequence data is not in valid FASTA format.) } );
-				$continue = 0;
+				$logger->logdie($_);
 			}
 		};
 	}
@@ -509,9 +516,13 @@ sub _upload {
 	try {
 		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
 	}
-	catch BIGSdb::DataException with {
-		$logger->error('Invalid FASTA file');
-		$continue = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			$logger->error('Invalid FASTA file');
+			$continue = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");
@@ -629,13 +640,13 @@ sub _upload_accession {
 		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
 		$sequence = $seq_obj->seq;
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		my $err = shift;
 		$logger->debug($err);
-		throw BIGSdb::DataException('INVALID_ACCESSION');
+		BIGSdb::Exception::Data->throw('INVALID_ACCESSION');
 	};
 	if ( !length($sequence) ) {
-		throw BIGSdb::DataException('NO_DATA');
+		BIGSdb::Exception::Data->throw('NO_DATA');
 	}
 	return \">$accession\n$sequence";
 }

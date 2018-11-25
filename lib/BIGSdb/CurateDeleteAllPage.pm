@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -100,15 +100,19 @@ sub print_content {
 				try {
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				catch BIGSdb::DatabaseConnectionException with {
-					$self->print_bad_status(
-						{
-							message => q(Cannot copy data into temporary table - please )
-							  . q(check scheme configuration (more details will be in the log file).),
-							navbar => 1
-						}
-					);
-					$logger->error('Cannot copy data to temporary table.');
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+						$self->print_bad_status(
+							{
+								message => q(Cannot copy data into temporary table - please )
+								  . q(check scheme configuration (more details will be in the log file).),
+								navbar => 1
+							}
+						);
+						$logger->error('Cannot copy data to temporary table.');
+					} else {
+						$logger->logdie($_);
+					}
 				};
 			}
 		}

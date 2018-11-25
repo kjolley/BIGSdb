@@ -21,22 +21,23 @@
 use strict;
 use warnings;
 use 5.010;
-###########Local configuration################################
+###########Local configuration#############################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'apache',
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
 	PASSWORD         => undef
 };
-#######End Local configuration################################
+#######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS);
-use Error qw(:try);
+use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
@@ -119,9 +120,13 @@ sub main {
 	try {
 		$seqs = BIGSdb::Utils::read_fasta($fasta_ref);
 	}
-	catch BIGSdb::DataException with {
-		my $err = shift;
-		exit_cleanly($err);
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			my $err = shift;
+			exit_cleanly($err);
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	upload( $opts{'i'}, $seqs );
 	return;
@@ -142,8 +147,7 @@ sub upload {
 	  ->prepare( 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,sender,curator,'
 		  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?)' );
 	eval {
-		foreach my $key ( keys %$seqs )
-		{
+		foreach my $key ( keys %$seqs ) {
 			next if $opts{'min_length'} && length $seqs->{$key} < $opts{'min_length'};
 			$sql->execute( $isolate_id, $seqs->{$key}, $opts{'m'}, $key, $opts{'s'}, $opts{'c'}, 'now', 'now' );
 			$total_length += length( $seqs->{$key} );

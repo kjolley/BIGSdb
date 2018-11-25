@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,6 +19,7 @@
 package BIGSdb::ClientDB;
 use strict;
 use warnings;
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.ClientDB');
 
@@ -72,7 +73,7 @@ sub count_matching_profiles {
 		}
 		$temp .= ' OR ' if !$first;
 		$temp .= '((locus,allele_id)=(?,?))';
-		push @args, ($locus, $alleles_hashref->{$locus});
+		push @args, ( $locus, $alleles_hashref->{$locus} );
 		$first = 0;
 	}
 	my $view = $self->{'dbase_view'} // 'isolates';
@@ -103,10 +104,41 @@ sub get_fields {
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
-		throw BIGSdb::DatabaseConfigurationException($@);
+		BIGSdb::Exception::Database::Configuration->throw($@);
 	}
 	my $data = $self->{'sql'}->{$field}->fetchall_arrayref( {} );
 	return $data;
+}
+
+sub count_isolates_belonging_to_classification_group {
+	my ( $self, $cscheme, $group ) = @_;
+	my $view = $self->{'dbase_view'} // 'isolates';
+	if ( !$self->{'sql'}->{'scheme_from_cg'} ) {
+		$self->{'sql'}->{'scheme_from_cg'} =
+		  $self->{'db'}->prepare('SELECT scheme_id FROM classification_schemes WHERE id=?');
+	}
+	eval { $self->{'sql'}->{'scheme_from_cg'}->execute($cscheme) };
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	my $scheme_id = $self->{'sql'}->{'scheme_from_cg'}->fetchrow_array;
+	BIGSdb::Exception::Database::Configuration->throw("No scheme_id set for classification scheme $cscheme")
+	  if !defined $scheme_id;
+	if ( !$self->{'sql'}->{'scheme_pk'} ) {
+		$self->{'sql'}->{'scheme_pk'} =
+		  $self->{'db'}->prepare('SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key');
+	}
+	eval { $self->{'sql'}->{'scheme_pk'}->execute($scheme_id) };
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	my $pk = $self->{'sql'}->{'scheme_pk'}->fetchrow_array;
+	BIGSdb::Exception::Database::Configuration->throw("No primary key set for scheme $scheme_id")
+	  if !$pk;
+	my $qry =
+	    "SELECT COUNT(DISTINCT id) FROM temp_isolates_scheme_fields_$scheme_id t JOIN temp_cscheme_$cscheme c "
+	  . "ON t.$pk=c.profile_id WHERE c.group_id=? AND t.id IN (SELECT id FROM $view WHERE new_version IS NULL) "
+	  . 'AND t.id NOT IN (SELECT isolate_id FROM private_isolates)';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute($group) };
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	return $sql->fetchrow_array;
 }
 
 sub get_db {

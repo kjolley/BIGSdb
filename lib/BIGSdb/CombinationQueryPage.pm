@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(LOCUS_PATTERN);
 
@@ -124,8 +124,12 @@ sub _autofill {
 					$q->param( "l_$locus" => $loci_values->[ $indices->{$locus} ] );
 				}
 			}
-			catch BIGSdb::DatabaseConfigurationException with {
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 				push @errors, 'Error retrieving information from remote database - check configuration.';
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		} else {
 			my $scheme_warehouse = "mv_scheme_$scheme_id";

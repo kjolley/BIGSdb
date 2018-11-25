@@ -81,6 +81,7 @@ die "The autodefiner user does not exist in the users table.\n" if !user_exists(
 $script->setup_submission_handler;
 $opts{'identity'} //= DEFAULT_IDENTITY;
 main();
+undef $script;
 
 sub main {
 	my $loci           = $script->get_selected_loci;
@@ -101,7 +102,7 @@ sub main {
 		say "Submission: $submission_id";
 		my $seqs = $allele_submission->{'seqs'};
 	  SEQS: foreach my $seq (@$seqs) {
-
+			$seq->{'sequence'} =~ s/[\-\.\s]//gx;
 			if ( $locus_info->{'complete_cds'} ) {
 				my $complete_cds = BIGSdb::Utils::is_complete_cds( $seq->{'sequence'} );
 				if ( !$complete_cds->{'cds'} ) {
@@ -110,7 +111,7 @@ sub main {
 				}
 			}
 			my $seq_exists = $script->{'datastore'}->run_query(
-				'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)',
+				'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
 				[ $allele_submission->{'locus'}, $seq->{'sequence'} ]
 			);
 			if ($seq_exists) {
@@ -123,7 +124,7 @@ sub main {
 				{ fetch => 'col_arrayref' }
 			);
 		  COMPARE_SEQS: foreach my $ref_seq (@$ref_seqs) {
-				if ( are_sequences_similar( uc($seq->{'sequence'}), $ref_seq, $opts{'identity'} ) ) {
+				if ( are_sequences_similar( uc( $seq->{'sequence'} ), $ref_seq, $opts{'identity'} ) ) {
 					my $assigned_id = assign_allele( $allele_submission->{'locus'}, $seq->{'sequence'} );
 					say "$seq->{'seq_id'}: Assigned: $allele_submission->{'locus'}-$assigned_id";
 					eval {
@@ -133,7 +134,7 @@ sub main {
 							undef,
 							$allele_submission->{'locus'},
 							$assigned_id,
-							uc($seq->{'sequence'}),
+							uc( $seq->{'sequence'} ),
 							$submission->{'submitter'},
 							DEFINER_USER,
 							'now',

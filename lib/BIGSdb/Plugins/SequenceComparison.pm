@@ -24,8 +24,6 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
-use Apache2::Connection ();
 
 sub get_attributes {
 	my ($self) = @_;
@@ -40,7 +38,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.7',
+		version          => '1.0.8',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',

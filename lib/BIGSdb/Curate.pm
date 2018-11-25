@@ -63,7 +63,6 @@ use BIGSdb::IDList;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_page {

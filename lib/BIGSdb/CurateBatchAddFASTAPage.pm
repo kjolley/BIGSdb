@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(any none);
 use IO::String;
 use Bio::SeqIO;
@@ -173,7 +173,7 @@ sub _check {
 			push @seq_data, { id => $seq_object->id, seq => $seq };
 		}
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		$self->print_bad_status( { message => q(Sequence is not in valid FASTA format.), navbar => 1 } );
 		$continue = 0;    #Can't return from inside catch block
 	};
@@ -337,7 +337,7 @@ sub _check_sequence_exists {
 	#Check seq doesn't already exist
 	my $exists =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,sequence)=(?,?)', [ $locus, $$seq_ref ] );
+	  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $$seq_ref ] );
 	if ( defined $exists ) {
 		return "Sequence has already been defined as $locus-$exists.";
 	}

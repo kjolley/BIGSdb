@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.4',
+		version       => '1.2.5',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -120,9 +120,16 @@ sub _use_composites {
 		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'breakdown_composites' );
 		$use = $use eq 'true' ? 1 : 0;
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$use = 0;
-	};
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$use = 0;
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
+		} else {
+			$logger->logdie($_);
+		}
+	}
 	return $use;
 }
 
@@ -267,22 +274,36 @@ sub _create_chartdirector_chart {
 	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
 	my %prefs;
-	foreach (qw (threeD transparent small)) {
+	foreach my $arg (qw (threeD transparent small)) {
 		try {
-			$prefs{$_} =
-			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', $_ );
-			$prefs{$_} = $prefs{$_} eq 'true' ? 1 : 0;
+			$prefs{$arg} =
+			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', $arg );
+			$prefs{$arg} = $prefs{$arg} eq 'true' ? 1 : 0;
 		}
-		catch BIGSdb::DatabaseNoRecordException with {
-			$prefs{$_} = 1;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+				$prefs{$arg} = 1;
+			} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+				#Ignore
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	try {
 		$prefs{'style'} =
 		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'style' );
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$prefs{'style'} = 'doughnut';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$prefs{'style'} = 'doughnut';
+		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+			#Ignore
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	my %value_frequency = %{$value_frequency_ref};
 	my ( @labels, @values );

@@ -25,7 +25,6 @@ use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 use BIGSdb::Constants qw(SEQ_METHODS);
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN => 100;
@@ -44,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.4.1',
+		version     => '1.4.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',

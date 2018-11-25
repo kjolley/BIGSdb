@@ -36,7 +36,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS    => 2000;
 use constant MAX_SEQS       => 100_000;
-use constant MICROREACT_URL => 'https://microreact.org/api/1.0/project/';
+use constant MICROREACT_URL => 'https://microreact.org/api/project/';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext       => 'Microreact',
 		menutext         => 'Microreact',
 		module           => 'Microreact',
-		version          => '1.0.4',
+		version          => '1.0.5',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',

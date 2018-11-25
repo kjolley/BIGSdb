@@ -331,7 +331,7 @@ sub _generate_mstree {
 	my $cmd = "python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
 	eval { system($cmd); };
 	if ($?) {
-		throw BIGSdb::PluginException('Tree generation failed.');
+		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
 	}
 	$self->{'jobManager'}->update_job_output(
 		$job_id,

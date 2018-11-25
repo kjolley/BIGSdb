@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(uniq none);
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
@@ -48,9 +48,13 @@ sub initiate {
 		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_admin_methods' ) // '' ) eq
 		  'on' ? 1 : 0;
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$self->{'prefs'}->{'all_curator_methods'} = 0;
-		$self->{'prefs'}->{'all_admin_methods'}   = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$self->{'prefs'}->{'all_curator_methods'} = 0;
+			$self->{'prefs'}->{'all_admin_methods'}   = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 	$self->{'optional_admin_display'}   = $self->{'prefs'}->{'all_admin_methods'}   ? 'inline' : 'none';
@@ -162,8 +166,12 @@ sub _toggle_all_curator_methods {
 	try {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_curator_methods', $new_value );
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$logger->error('Cannot toggle show all curator methods');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$logger->error('Cannot toggle show all curator methods');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -175,8 +183,12 @@ sub _toggle_all_admin_methods {
 	try {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_admin_methods', $new_value );
 	}
-	catch BIGSdb::DatabaseNoRecordException with {
-		$logger->error('Cannot toggle show all admin methods');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+			$logger->error('Cannot toggle show all admin methods');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return;
 }
@@ -551,7 +563,7 @@ sub _get_isolate_fields {
 		{
 			add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			add_url          => $add_url,
-			batch_add        => 1,
+			batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			batch_add_url    => $batch_add_url,
 			query            => $exists,
 			query_url        => $query_url,
@@ -1043,6 +1055,22 @@ sub _get_client_dbases {
 		);
 		$buffer .= qq(</div>\n);
 	}
+	if ( $self->_classification_schemes_exist ) {
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
+		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database classification schemes</h2>);
+		$buffer .= $self->_get_icon_group(
+			'client_dbase_cschemes',
+			'object-group',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database classification scheme - Define classification schemes that are used in '
+				  . 'client databases.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
 	return $buffer;
 }
 
@@ -1495,7 +1523,7 @@ sub _get_icon_group {
 	#Checking a large seqdef db sequences table can be slow on PostgreSQL 9.3.
 	#We can instead use the locus_stats table.
 	my $check_table = $table;
-	$check_table = 'locus_stats' if ($table // q()) eq 'sequences';
+	$check_table = 'locus_stats' if ( $table // q() ) eq 'sequences';
 	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
 	foreach my $value (qw(add batch_add link query import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
@@ -1949,6 +1977,12 @@ sub _schemes_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM schemes)', undef, { cache => 'CurateIndexPage::schemes_exist' } );
+}
+
+sub _classification_schemes_exist {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes)',
+		undef, { cache => 'CurateIndexPage::cschemes_exist' } );
 }
 
 sub _loci_exist {

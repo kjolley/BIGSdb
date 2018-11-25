@@ -20,11 +20,10 @@ package BIGSdb::CurateBatchAddRemoteContigsPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CurateBatchAddSeqbinPage);
-use BIGSdb::BIGSException;
+use parent qw(BIGSdb::CurateAddSeqbinPage);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::ProcessRemoteContigs;
-use Error qw(:try);
+use Try::Tiny;
 use LWP::Simple;
 use JSON;
 use Log::Log4perl qw(get_logger);
@@ -188,17 +187,19 @@ sub _upload {
 		try {
 			$data = $self->{'contigManager'}->get_remote_contig_list($contigs_list);
 		}
-		catch BIGSdb::AuthenticationException with {
-			$self->print_bad_status( { message => q(OAuth authentication failed.), navbar => 1 } );
-			$error = 1;
-		}
-		catch BIGSdb::FileException with {
-			$self->print_bad_status( { message => q(URI is inaccessible.), navbar => 1 } );
-			$error = 1;
-		}
-		catch BIGSdb::DataException with {
-			$self->print_bad_status( { message => q(Contigs list is not valid JSON.), navbar => 1 } );
-			$error = 1;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+				$self->print_bad_status( { message => q(OAuth authentication failed.), navbar => 1 } );
+				$error = 1;
+			}
+			if ( $_->isa('BIGSdb::Exception::File') ) {
+				$self->print_bad_status( { message => q(URI is inaccessible.), navbar => 1 } );
+				$error = 1;
+			}
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				$self->print_bad_status( { message => q(Contigs list is not valid JSON.), navbar => 1 } );
+				$error = 1;
+			}
 		};
 		if ( $data->{'paging'} ) {
 			$contigs_list = $data->{'paging'}->{'return_all'};
@@ -306,17 +307,19 @@ sub _check {
 	try {
 		$isolate_data = $self->{'contigManager'}->get_remote_isolate($isolate_uri);
 	}
-	catch BIGSdb::AuthenticationException with {
-		say q(failed! - check OAuth authentication settings</p>);
-		$error = 1;
-	}
-	catch BIGSdb::FileException with {
-		say q(failed! - URI is inaccesible</p>);
-		$error = 1;
-	}
-	catch BIGSdb::DataException with {
-		say q(failed! - Returned data is not in valid format</p>);
-		$error = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			say q(failed! - check OAuth authentication settings</p>);
+			$error = 1;
+		}
+		if ( $_->isa('BIGSdb::Exception::File') ) {
+			say q(failed! - URI is inaccesible</p>);
+			$error = 1;
+		}
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			say q(failed! - Returned data is not in valid format</p>);
+			$error = 1;
+		}
 	};
 	if ($error) {
 		$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );

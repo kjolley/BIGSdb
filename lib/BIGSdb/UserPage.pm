@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::BIGSException;
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
@@ -31,13 +30,21 @@ use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
 	my ($self) = @_;
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		if ( $self->{'config'}->{'disable_updates'} ) {
+			$self->print_bad_status(
+				{
+					message => q(The registration pages are currently disabled.),
+					detail  => $self->{'config'}->{'disable_update_message'}
+				}
+			);
+			return;
+		}
 		my $q = $self->{'cgi'};
 		if ( $self->{'curate'} && $q->param('user') ) {
 			if ( $q->param('merge_user') ) {

@@ -32,7 +32,7 @@ sub _get_alleles {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
-	my $allowed_filters = [qw(added_after updated_after)];
+	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	if ($set_id) {
@@ -124,7 +124,7 @@ sub _get_alleles_fasta {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
-	my $allowed_filters = [qw(added_after updated_after)];
+	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	if ($set_id) {

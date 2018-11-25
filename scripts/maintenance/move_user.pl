@@ -34,10 +34,10 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
-use Error qw(:try);
+use Try::Tiny;
 binmode( STDOUT, ':encoding(UTF-8)' );
 
 #Direct all library logging calls to screen
@@ -84,8 +84,12 @@ try {
 		}
 	);
 }
-catch BIGSdb::ServerBusyException with {
-	$busy = 1;
+catch {
+	if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
+		$busy = 1;
+	} else {
+		$logger->logdie($_);
+	}
 };
 die "Script initialization failed - server is too busy.\n" if $busy;
 if (

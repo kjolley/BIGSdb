@@ -187,6 +187,7 @@ sub get_user_group_members_table_attributes {
 			type           => 'int',
 			required       => 1,
 			foreign_key    => 'user_groups',
+			primary_key    => 1,
 			dropdown_query => 1,
 			labels         => '|$description|'
 		},
@@ -1026,6 +1027,37 @@ sub get_client_dbase_schemes_table_attributes {
 	return $attributes;
 }
 
+sub get_client_dbase_cschemes_table_attributes {
+	my $attributes = [
+		{
+			name           => 'client_dbase_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'client_dbases',
+			labels         => '|$id|) |$name|',
+			dropdown_query => 1
+		},
+		{
+			name           => 'cscheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'classification_schemes',
+			labels         => '|$id|) |$name|',
+			dropdown_query => 1
+		},
+		{
+			name     => 'client_cscheme_id',
+			type     => 'int',
+			comments => 'id number of the classification scheme in the client database (if different)'
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
+	return $attributes;
+}
+
 sub get_refs_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'isolates' },
@@ -1244,6 +1276,13 @@ sub get_schemes_table_attributes {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
 		  (
+			{
+				name     => 'max_missing',
+				type     => 'int',
+				comments => q(Number of loci that are allowed to be missing for a profile to be defined. ),
+				tooltip  => q(max_missing - The allow_missing_loci attribute must be set for this to take effect. )
+				  . q(If left blank then any number of missing loci will be allowed.)
+			},
 			{
 				name     => 'disable',
 				type     => 'bool',
@@ -1933,6 +1972,26 @@ sub get_projects_table_attributes {
 			  . q(private records (only relevant to private projects)),
 			required => 1,
 			default  => 'true'
+		},
+		{
+			name    => 'restrict_user',
+			type    => 'bool',
+			tooltip => q(restrict_user - Only allow isolates submitted by sender to be added to the project. )
+			  . q(This can be used in combination with restrict_usergroup. This is only relevant for private )
+			  . q(projects and only affects adding records following a query - where it is easy to accidentally )
+			  . q(add more than intended.),
+			required => 1,
+			default  => 'false'
+		},
+		{
+			name    => 'restrict_usergroup',
+			type    => 'bool',
+			tooltip => q(restrict_usergroup - Only allow isolates submitted by sender's usergroup to be added )
+			  . q(to the project. This can be used in combination with restrict_user. This is only relevant for )
+			  . q(private projects and only affects adding records following a query - where it is easy to )
+			  . q(accidentally add more than intended.),
+			required => 1,
+			default  => 'false'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

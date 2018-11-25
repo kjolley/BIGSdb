@@ -22,8 +22,12 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Blast BIGSdb::Page);
 use List::MoreUtils qw(any uniq none);
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
+use Try::Tiny;
+use Storable qw(dclone);
+use constant MAX_RESULTS_SHOW => 20;
 
 sub run {
 	my ( $self, $seq ) = @_;
@@ -295,20 +299,25 @@ sub _get_scheme_exact_results {
 			);
 		}
 		if ($scheme_buffer) {
-			if ($scheme_id) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
-			}
 			my $table = $self->_get_table_header($data);
 			$table  .= $scheme_buffer;
 			$table  .= q(</table>);
 			$buffer .= qq(<div class="scrollable">\n$table</div>\n);
-			my $text        = BIGSdb::Utils::convert_html_table_to_text($table);
 			my $output_file = BIGSdb::Utils::get_random() . q(.txt);
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
 			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 			close $fh;
+
+			if ( $match_count > MAX_RESULTS_SHOW ) {
+				my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+				$buffer .=
+				    q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle">)
+				  . q(<a id="show_more" style="cursor:pointer"><span id="show_extra_matches" )
+				  . qq(title="Show extra matches" style="display:inline">$show</span>)
+				  . q(<span id="hide_extra_matches" title="Hide extra matches" )
+				  . qq(style="display:none">$hide</span></a></span>);
+			}
 			$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
 		}
 		$buffer .= $self->_get_scheme_fields( $scheme_id, $designations );
@@ -346,6 +355,8 @@ sub _get_locus_matches {
 	my $buffer      = q();
 	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_count = 0;
+	my $class       = q();
+	my $style       = q();
 	foreach my $match ( @{ $exact_matches->{$locus} } ) {
 		my ( $field_values, $attributes, $allele_info, $flags );
 		$$match_count_ref++;
@@ -355,7 +366,12 @@ sub _get_locus_matches {
 		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
 		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
-		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
+
+		if ( $$match_count_ref > MAX_RESULTS_SHOW ) {
+			$style = q( style="display:none");
+			$class = q( extra_match);
+		}
+		$buffer .= qq(<tr class="td$$td_ref$class"$style><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
@@ -419,21 +435,203 @@ sub _get_scheme_fields {
 		foreach my $scheme (@$schemes) {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
-				$buffer .= $self->_get_scheme_table( $scheme->{'id'}, $designations );
+				my $scheme_buffer = $self->_get_scheme_table( $scheme->{'id'}, $designations );
+				if ( !$scheme_buffer ) {
+					$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations );
+				}
+				if ($scheme_buffer) {
+					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
+					$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
+					$buffer .= $scheme_buffer;
+				}
 			}
 		}
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
-			$buffer .= $self->_get_scheme_table( $scheme_id, $designations );
+			my $scheme_buffer = $self->_get_scheme_table( $scheme_id, $designations );
+			if ( !$scheme_buffer ) {
+				$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations );
+			}
+			if ($scheme_buffer) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
+				$buffer .= $scheme_buffer;
+			}
 		}
 	}
 	return $buffer;
 }
 
-sub _get_scheme_table {
+sub _get_classification_groups {
 	my ( $self, $scheme_id, $designations ) = @_;
+	my $buffer = q();
+	return $buffer if !$self->is_page_allowed('profileInfo');
+	my $matched_loci = keys %$designations;
+	return $buffer
+	  if !$self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes WHERE scheme_id=?)', $scheme_id );
+	my $must_match = $self->_how_many_loci_must_match($scheme_id);
+	return $buffer if $matched_loci < $must_match;
+	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
+	return $buffer if !$ret_val;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $largest_threshold = $self->{'datastore'}
+	  ->run_query( 'SELECT MAX(inclusion_threshold) FROM classification_schemes WHERE scheme_id=?', $scheme_id );
+	return $buffer if $ret_val->{'mismatches'} > $largest_threshold;
+	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= q(<h3>Matching profiles</h3>);
+	$buffer .=
+	    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
+	  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
+	  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
+	$buffer .=
+	  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
+	my $cschemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	return $buffer if !@$cschemes;
+	my $client_dbs = $self->{'datastore'}->run_query(
+		'SELECT * FROM client_dbase_cschemes cdc JOIN classification_schemes c ON cdc.cscheme_id=c.id JOIN '
+		  . 'client_dbases cd ON cdc.client_dbase_id=cd.id WHERE c.scheme_id=? ORDER BY cd.name',
+		$scheme_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $td = 1;
+	my $cbuffer;
+
+	foreach my $cscheme (@$cschemes) {
+		my $cgroup = $self->{'datastore'}->run_query(
+			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
+			[ $cscheme->{'id'}, $ret_val->{'profile'} ],
+			{ cache => 'SequenceQuery::_get_classification_groups::groups' }
+		);
+		next if !defined $cgroup;
+		next if $cscheme->{'inclusion_threshold'} < $ret_val->{'mismatches'};
+		my $desc = $cscheme->{'description'};
+		my $tooltip =
+		    $desc
+		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
+		  : q();
+		my $profile_count =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+			[ $cscheme->{'id'}, $cgroup ] );
+		my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id&amp;s1=$cscheme->{'name'}&amp;y1==&amp;t1=$cgroup&amp;submit=1);
+		$cbuffer .=
+		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
+		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
+		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+
+		if (@$client_dbs) {
+			my @client_links = ();
+			foreach my $client_db (@$client_dbs) {
+				next if $client_db->{'cscheme_id'} != $cscheme->{'id'};
+				my $client = $self->{'datastore'}->get_client_db( $client_db->{'id'} );
+				my $client_cscheme = $client_db->{'client_cscheme_id'} // $cscheme->{'id'};
+				try {
+					my $isolates =
+					  $client->count_isolates_belonging_to_classification_group( $client_cscheme, $cgroup );
+					my $client_db_url = $client_db->{'url'} // $self->{'system'}->{'script_name'};
+					if ($isolates) {
+						push @client_links,
+						    qq(<span class="source">$client_db->{'name'}</span> )
+						  . qq(<a href="$client_db_url?db=$client_db->{'dbase_config_name'}&amp;page=query&amp;)
+						  . qq(designation_field1=cg_${client_cscheme}_group&amp;designation_value1=$cgroup&amp;submit=1">)
+						  . qq($isolates</a>);
+					}
+				}
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+						$self->{'logger'}->error( "Client database for classification scheme $cscheme->{'name'} "
+							  . 'is not configured correctly.' );
+					} else {
+						$self->{'logger'}->logdie($_);
+					}
+				};
+			}
+			local $" = q(<br />);
+			$cbuffer .= qq(<td style="text-align:left">@client_links</td>);
+		}
+		$cbuffer .= q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($cbuffer) {
+		$buffer .=
+		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span>)
+		  . q(<h3>Similar profiles (determined by classification schemes)</h3>)
+		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
+		  . q(<div class="scrollable">)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<th>Classification scheme</th><th>Clustering method</th>)
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th>);
+		$buffer .= q(<th>Isolates</th>) if @$client_dbs;
+		$buffer .= q(</tr>);
+		$buffer .= $cbuffer;
+		$buffer .= q(</table></div></div></div>);
+	}
+	return $buffer;
+}
+
+sub _get_closest_matching_profile {
+	my ( $self, $scheme_id, $designations ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk_field = $scheme_info->{'primary_key'};
+	return if !$pk_field;
+	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $profiles = $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $least_mismatches = @$loci;
+	my $best_match;
+	my @locus_list = sort @$loci;    #Profile array is always stored in alphabetical order, scheme order may not be
+  PROFILE: foreach my $profile (@$profiles) {
+		my $mismatches = 0;
+		my $index      = -1;
+	  LOCUS: foreach my $locus (@locus_list) {
+			$index++;
+			next LOCUS if $profile->{'profile'}->[$index] eq 'N';
+			if ( !$designations->{$locus} ) {
+				$mismatches++;
+				next LOCUS;
+			}
+			my $alleles = $designations->{$locus};
+			foreach my $allele (@$alleles) {
+				next LOCUS if $profile->{'profile'}->[$index] eq $allele;
+			}
+			$mismatches++;
+			next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
+		}
+		if ( $mismatches < $least_mismatches ) {
+			$least_mismatches = $mismatches;
+			$best_match       = $profile->{'pk'};
+		}
+	}
+	return if !$best_match;
+	return { profile => $best_match, mismatches => $least_mismatches };
+}
+
+sub _how_many_loci_must_match {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $must_match  = @$scheme_loci;
+	if ( $scheme_info->{'allow_missing_loci'} ) {
+		if ( $scheme_info->{'max_missing'} ) {
+			$must_match -= $scheme_info->{'max_missing'};
+		} else {
+			$must_match = int( 0.5 * $must_match );    #Must match at least half the loci
+		}
+	}
+	return $must_match;
+}
+
+sub _get_scheme_table {
+	my ( $self, $scheme_id, $designations_no_clobber ) = @_;
 	my ( @profile, @temp_qry );
 	my $set_id = $self->{'options'}->{'set_id'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
@@ -442,6 +640,8 @@ sub _get_scheme_table {
 	my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $missing_loci;
 
+	#Do a deep copy so that we don't clobber hashref.
+	state $designations = dclone $designations_no_clobber;
 	foreach my $locus (@$scheme_loci) {
 		$missing_loci = 1 if !defined $designations->{$locus};
 		my $alleles = $designations->{$locus};
@@ -465,7 +665,6 @@ sub _get_scheme_table {
 			undef, { fetch => 'all_arrayref', slice => {} } );
 		return q() if !@$all_values;
 		my $buffer;
-		$buffer .= qq(<h2>$scheme_info->{'name'}</h2>) if $self->{'cgi'}->param('locus') eq '0';
 		$buffer .= q(<dl class="data">);
 		my $td           = 1;
 		my $field_values = {};

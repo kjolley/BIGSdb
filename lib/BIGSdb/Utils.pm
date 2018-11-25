@@ -23,7 +23,7 @@ package BIGSdb::Utils;
 use strict;
 use warnings;
 use POSIX qw(ceil);
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use List::MoreUtils qw(any none);
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
@@ -246,7 +246,7 @@ sub read_fasta {
 			$header =~ s/\s.*$//x if !$options->{'keep_comments'};    #Strip off anything after space
 			next;
 		}
-		throw BIGSdb::DataException('Not valid FASTA format.')
+		BIGSdb::Exception::Data->throw('Not valid FASTA format.')
 		  if !defined $header || length $header == 0;
 		my $temp_seq = uc($line);
 		$seqs{$header} .= $temp_seq;
@@ -254,7 +254,7 @@ sub read_fasta {
 	foreach my $id ( keys %seqs ) {
 		$seqs{$id} =~ s/[^A-z\-\.]//gx;
 		if ( !$options->{'allow_peptide'} ) {
-			throw BIGSdb::DataException("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
+			BIGSdb::Exception::Data->throw("Not valid DNA - $id") if $seqs{$id} =~ /[^GATCBDHVRYKMSWN]/x;
 		}
 	}
 	return \%seqs;
@@ -324,7 +324,8 @@ sub xmfa2fasta {
 	my @ids;
 	my $temp_seq   = '';
 	my $current_id = '';
-	open( my $xmfa_fh, '<', $xmfa_file ) || throw BIGSdb::CannotOpenFileException("Can't open $xmfa_file for reading");
+	open( my $xmfa_fh, '<', $xmfa_file )
+	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $xmfa_file for reading");
 	my %labels;
 
 	while ( my $line = <$xmfa_fh> ) {
@@ -356,7 +357,7 @@ sub xmfa2fasta {
 	close $xmfa_fh;
 	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/x;
 	open( my $fasta_fh, '>', $fasta_file )
-	  || throw BIGSdb::CannotOpenFileException("Can't open $fasta_file for writing");
+	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $fasta_file for writing");
 	foreach my $id (@ids) {
 		my $label = $labels{$id} // $id;
 		say $fasta_fh ">$label";
@@ -400,7 +401,7 @@ sub text2excel {
 	my $cell_format = $workbook->add_format;
 	$cell_format->set_align('center');
 	open( my $text_fh, '<:encoding(utf8)', $text_file )
-	  || throw BIGSdb::CannotOpenFileException("Can't open $text_file for reading");
+	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
 	my $first_line = 1;
@@ -833,7 +834,7 @@ sub get_nice_size {
 sub slurp {
 	my ($file_path) = @_;
 	open( my $fh, '<:raw', $file_path )
-	  || throw BIGSdb::CannotOpenFileException("Can't open $file_path for reading");
+	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $file_path for reading");
 	my $contents = do { local $/ = undef; <$fh> };
 	return \$contents;
 }

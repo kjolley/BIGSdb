@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2018, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,20 +27,30 @@ use 5.010;
 sub new {
 	my ( $class, $params ) = @_;
 	my $self = {};
-	$self->{'jobManager'}       = $params->{'jobManager'};
 	$self->{'config_dir'}       = $params->{'config_dir'};
 	$self->{'lib_dir'}          = $params->{'lib_dir'};
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
 	$self->{'config'}           = $params->{'config'};
+	$self->{'jm_params'}        = $params->{'job_manager_params'};
 	bless( $self, $class );
 	return $self;
 }
 
+sub _get_job_manager {
+	my ($self) = @_;
+	return BIGSdb::OfflineJobManager->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			system           => $self->{'system'},
+			%{ $self->{'jm_params'} }
+		}
+	);
+}
+
 sub run {
 	my ( $self, $params ) = @_;
-	
-	
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
@@ -55,21 +65,20 @@ sub run {
 				params           => $params->{'user_params'}
 			}
 		);
-		my $isolates        = $script->get_isolates;
+		my $isolates = $script->get_isolates;
+		undef $script;
 		my $data            = {};
 		my $new_seqs        = {};
 		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
 		my $isolate_count   = 0;
-		
 		my $finish_progress = $params->{'align'} ? 20 : 80;
-		if ($params->{'user_genomes'}){
+		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
-			foreach (keys %{$params->{'user_genomes'}}){
-				unshift @$isolates,$id;
+			foreach ( keys %{ $params->{'user_genomes'} } ) {
+				unshift @$isolates, $id;
 				$id--;
 			}
 		}
-
 		$pm->run_on_finish(
 			sub {
 				my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
@@ -80,8 +89,9 @@ sub run {
 				if ( $params->{'job_id'} ) {
 					my $percent_complete = int( ( $isolate_count * $finish_progress ) / @$isolates );
 					if ( $isolate_count < @$isolates ) {
-						my $next_id = $isolate_count + 1;
-						$self->{'jobManager'}->update_job_status( $params->{'job_id'},
+						my $next_id     = $isolate_count + 1;
+						my $job_manager = $self->_get_job_manager;
+						$job_manager->update_job_status( $params->{'job_id'},
 							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } );
 					}
 				}
@@ -106,7 +116,6 @@ sub run {
 			my $local_new_seqs = $helper->get_new_sequences;
 			$pm->finish( 0,
 				{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } );
-			undef $helper;
 		}
 		$pm->wait_all_children;
 		$self->_correct_new_designations( $data, $new_seqs, $by_ref );

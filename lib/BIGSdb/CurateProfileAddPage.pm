@@ -225,7 +225,7 @@ sub _upload {
 		my $ret =
 		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
 		$self->print_bad_status( { message => $ret->{'msg'}, navbar => 1 } ) if $ret->{'msg'};
-		$insert = 0 if $ret->{'exists'};
+		$insert = 0 if $ret->{'exists'} || $ret->{'err'};
 	}
 	if ($insert) {
 		my $pk_exists =

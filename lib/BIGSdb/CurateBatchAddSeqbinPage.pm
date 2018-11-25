@@ -23,7 +23,7 @@ use 5.010;
 use JSON;
 use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 use File::Path qw(make_path remove_tree);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
@@ -163,8 +163,12 @@ sub _validate {
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$failed = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$failed = 1;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ($failed) {
 		$self->_print_interface;
@@ -201,18 +205,20 @@ sub _validate {
 			say qq(<td><span class="statusbad">$good</td>);
 			$success++;
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			say q(<td><span class="statusbad">Cannot open file</td>);
-			$failure++;
-		}
-		catch BIGSdb::DataException with {
-			my $exception = shift;
-			my $msg =
-			  $exception->{'-text'} =~ /format/x
-			  ? 'Invalid format'
-			  : 'Invalid DNA sequence';
-			say qq(<td><span class="statusbad">$bad ($msg)</td>);
-			$failure++;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+				say q(<td><span class="statusbad">Cannot open file</td>);
+				$failure++;
+			} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
+				my $msg =
+				  $_ =~ /format/x
+				  ? 'Invalid format'
+				  : 'Invalid DNA sequence';
+				say qq(<td><span class="statusbad">$bad ($msg)</td>);
+				$failure++;
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		if ($failure) {
 			say q(<td>-</td><td>-</td>);
@@ -235,18 +241,24 @@ sub _validate {
 		  . q(Upload may take a short while.</em></strong>);
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
-		my $sender;
-		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-		say q(</li><li><label for="sender" class="parameter">sender: !</label>);
-		say $self->popup_menu(
-			-name     => 'sender',
-			-id       => 'sender',
-			-values   => [ '', @$users ],
-			-labels   => $user_names,
-			-required => 'required',
-			-default  => $sender
-		);
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		say q(<li><label for="sender" class="parameter">sender: !</label>);
+		if ( $user_info->{'status'} eq 'submitter' ) {
+			say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
+			say $q->hidden( sender => $user_info->{'id'} );
+		} else {
+			my $sender;
+			my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+			my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
+			say $self->popup_menu(
+				-name     => 'sender',
+				-id       => 'sender',
+				-values   => [ '', @$users ],
+				-labels   => $user_names,
+				-required => 'required',
+				-default  => $sender
+			);
+		}
 		say q(</li><li><label for="method" class="parameter">method: </label>);
 		my $method_labels = { '' => ' ' };
 		say $q->popup_menu(
@@ -258,7 +270,6 @@ sub _validate {
 		my $seq_attributes =
 		  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
 			undef, { fetch => 'all_arrayref', slice => {} } );
-
 		if (@$seq_attributes) {
 			foreach my $attribute (@$seq_attributes) {
 				( my $label = $attribute->{'key'} ) =~ s/_/ /;
@@ -335,8 +346,12 @@ sub _upload {
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$failed = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$failed = 1;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ($failed) {
 		$self->_print_interface;
@@ -349,8 +364,7 @@ sub _upload {
 				message => 'Please do not refresh!',
 				detail  => 'Your contigs are already uploading. Check the database to see if '
 				  . 'they have finished uploading. If you click Restart below and they have not '
-				  . 'finished uploading, the process will be terminated.'
-				,
+				  . 'finished uploading, the process will be terminated.',
 				navbar      => 1,
 				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
 				reload_text => 'Restart'
@@ -367,7 +381,11 @@ sub _upload {
 	my $insert_sql = $self->{'db'}->prepare($qry);
 	my $curator    = $self->get_curator_id;
 	my $sender     = $q->param('sender');
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 
+	if ( $user_info->{'status'} eq 'submitter' ) {
+		$sender = $user_info->{'id'};    #Don't allow sender to modify hidden value on form
+	}
 	if ( !$sender ) {
 		$self->print_bad_status(
 			{
@@ -399,13 +417,10 @@ sub _upload {
 			my $fasta_ref = BIGSdb::Utils::slurp($filename);
 			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
 		}
-		catch BIGSdb::CannotOpenFileException with {
-			$failed_validation = 1;
-		}
-		catch BIGSdb::DataException with {
+		catch {
 			$failed_validation = 1;
 		};
-		if ($failed_validation){
+		if ($failed_validation) {
 			$failure++;
 			last;
 		}
@@ -507,8 +522,12 @@ sub _file_upload {
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$failed = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$failed = 1;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ($failed) {
 		$self->_print_interface;
@@ -646,8 +665,12 @@ sub _remove_row {
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$failed = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$failed = 1;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if $failed;
 	my $new_validated = [];

@@ -195,6 +195,8 @@ isolate_display boolean NOT NULL,
 list boolean NOT NULL,
 private boolean NOT NULL,
 no_quota boolean NOT NULL,
+restrict_user boolean NOT NULL,
+restrict_usergroup boolean NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
@@ -267,7 +269,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON project_user_groups TO apache;
 
 CREATE VIEW merged_project_users AS SELECT project_id,user_id,bool_or(admin) AS admin,bool_or(modify) AS modify 
 FROM (SELECT project_id,user_id,admin,modify FROM project_users UNION ALL SELECT project_id,user_id,false,modify 
-FROM project_user_groups AS pug LEFT JOIN user_group_members ugm ON pug.user_group=ugm.user_group) AS merged 
+FROM project_user_groups AS pug JOIN user_group_members ugm ON pug.user_group=ugm.user_group) AS merged 
 GROUP BY project_id,user_id;
 
 GRANT SELECT ON merged_project_users TO apache;

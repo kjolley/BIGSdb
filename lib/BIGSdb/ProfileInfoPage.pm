@@ -21,9 +21,11 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
+use constant MAX_LOCI_SHOW => 100;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -94,6 +96,7 @@ sub print_content {
 		$self->_print_profile( $scheme_id, $profile_id );
 		say $self->_get_ref_links( $scheme_id, $profile_id );
 		$self->_print_client_db_links( $scheme_id, $profile_id );
+		$self->_print_classification_groups( $scheme_id, $profile_id );
 		say q(</div>);
 	}
 	say q(</div>);
@@ -188,6 +191,93 @@ sub _print_client_db_links {
 	return;
 }
 
+sub _print_classification_groups {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $buffer = q();
+	my $cschemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$cschemes;
+	my $client_dbs = $self->{'datastore'}->run_query(
+		'SELECT * FROM client_dbase_cschemes cdc JOIN classification_schemes c ON cdc.cscheme_id=c.id JOIN '
+		  . 'client_dbases cd ON cdc.client_dbase_id=cd.id WHERE c.scheme_id=? ORDER BY cd.name',
+		$scheme_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $td = 1;
+	foreach my $cscheme (@$cschemes) {
+		my $cgroup = $self->{'datastore'}->run_query(
+			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
+			[ $cscheme->{'id'}, $profile_id ],
+			{ cache => 'ProfileInfoPage::print_classification_groups::groups' }
+		);
+		next if !defined $cgroup;
+		my $desc = $cscheme->{'description'};
+		my $tooltip =
+		    $desc
+		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
+		  : q();
+		my $profile_count =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+			[ $cscheme->{'id'}, $cgroup ] );
+		my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(scheme_id=$scheme_id&amp;s1=$cscheme->{'name'}&amp;y1==&amp;t1=$cgroup&amp;submit=1);
+		$buffer .=
+		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
+		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
+		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+		if (@$client_dbs) {
+			my @client_links = ();
+			foreach my $client_db (@$client_dbs) {
+				next if $client_db->{'cscheme_id'} != $cscheme->{'id'};
+				my $client = $self->{'datastore'}->get_client_db( $client_db->{'id'} );
+				my $client_cscheme = $client_db->{'client_cscheme_id'} // $cscheme->{'id'};
+				try {
+					my $isolates =
+					  $client->count_isolates_belonging_to_classification_group( $client_cscheme, $cgroup );
+					my $client_db_url = $client_db->{'url'} // $self->{'system'}->{'script_name'};
+					if ($isolates) {
+						push @client_links,
+						    qq(<span class="source">$client_db->{'name'}</span> )
+						  . qq(<a href="$client_db_url?db=$client_db->{'dbase_config_name'}&amp;page=query&amp;)
+						  . qq(designation_field1=cg_${client_cscheme}_group&amp;designation_value1=$cgroup&amp;submit=1">)
+						  . qq($isolates</a>);
+					}
+				}
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+						$logger->error( "Client database for classification scheme $cscheme->{'name'} "
+							  . 'is not configured correctly.' );
+					} else {
+						$logger->logdie($_);
+					}
+				};
+			}
+			local $" = q(<br />);
+			$buffer .= qq(<td style="text-align:left">@client_links</td>);
+		}
+		$buffer .= q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	if ($buffer) {
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span>)
+		  . q(<h2>Similar profiles (determined by classification schemes)</h2>)
+		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
+		  . q(<div class="scrollable">)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<th>Classification scheme</th><th>Clustering method</th>)
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th>);
+		say q(<th>Isolates</th>) if @$client_dbs;
+		say q(</tr>);
+		say $buffer;
+		say q(</table></div></div></div>);
+	}
+	return;
+}
+
 sub _print_profile {
 	my ( $self, $scheme_id, $profile_id ) = @_;
 	my $set_id      = $self->get_set_id;
@@ -205,10 +295,20 @@ sub _print_profile {
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
+	my $count         = 0;
 	foreach my $locus (@$loci) {
+		$count++;
 		my $cleaned = $self->clean_locus($locus);
 		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
-		say qq(<dl class="profile"><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
+		my ( $style, $class );
+		if ( $count > MAX_LOCI_SHOW ) {
+			$style = q( style="display:none");
+			$class = q( extra_locus);
+		} else {
+			$style = q();
+			$class = q();
+		}
+		say qq(<dl class="profile$class"$style><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
 		  . qq($value</a></dd></dl>);
 	}
@@ -224,6 +324,12 @@ sub _print_profile {
 		say qq(<dl class="profile"><dt>$cleaned</dt>);
 		$data->{ lc($field) } //= q(&nbsp;);
 		say qq(<dd>$data->{lc($field)}</dd></dl>);
+	}
+	if ( $count > MAX_LOCI_SHOW ) {
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_more" )
+		  . qq(style="cursor:pointer"><span id="show_extra_loci" title="Show extra loci" style="display:inline">$show</span>)
+		  . qq(<span id="hide_extra_loci" title="Hide extra loci" style="display:none">$hide</span></a></span>);
 	}
 	say q(<dl class="data">);
 	foreach my $field (qw (sender curator date_entered datestamp)) {
@@ -324,6 +430,27 @@ sub _get_update_history {
 		}
 		$buffer .= "</table>\n";
 	}
+	return $buffer;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$( "#show_more" ).click(function() {
+		if (\$("span#show_extra_loci").css('display') == 'none'){
+			\$("span#show_extra_loci").css('display', 'inline');
+			\$("span#hide_extra_loci").css('display', 'none');
+		} else {
+			\$("span#show_extra_loci").css('display', 'none');
+			\$("span#hide_extra_loci").css('display', 'inline');
+		}
+		\$( ".extra_locus" ).toggle();
+		return false;
+	});
+});
+
+END
 	return $buffer;
 }
 

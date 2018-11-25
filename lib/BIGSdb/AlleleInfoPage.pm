@@ -24,7 +24,6 @@ use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(:interface);
-use Error qw(:try);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {

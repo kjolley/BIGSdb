@@ -191,7 +191,7 @@ sub _update {
 			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
-		if ( $data->{ lc($field) } ne $newdata->{$field} ) {
+		if ( ($data->{ lc($field) } // q()) ne $newdata->{$field} ) {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
@@ -314,6 +314,7 @@ sub _prepare_eav_updates {
 	my $eav_update = [];
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	foreach my $eav_field (@$eav_fields) {
+		next if $eav_field->{'no_curate'};
 		my $field          = $eav_field->{'field'};
 		my $table          = $self->{'datastore'}->get_eav_field_table($field);
 		my $value          = $q->param($field);

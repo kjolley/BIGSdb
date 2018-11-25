@@ -127,6 +127,11 @@ sub _refresh_caches {
 			$self->{'datastore'}
 			  ->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+			my $cschemes = $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes WHERE scheme_id=?',
+				$scheme_id, { fetch => 'col_arrayref', cache => 'get_cschemes_from_scheme' } );
+			foreach my $cscheme_id (@$cschemes) {
+				$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );
+			}
 			say q(done.<br />);
 		}
 	}

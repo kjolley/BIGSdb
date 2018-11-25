@@ -20,6 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
+use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxMenu;
 use BIGSdb::AlleleInfoPage;
@@ -37,6 +38,7 @@ use BIGSdb::DownloadProfilesPage;
 use BIGSdb::DownloadSeqbinPage;
 use BIGSdb::ErrorPage;
 use BIGSdb::FieldHelpPage;
+use BIGSdb::DownloadFilePage;
 use BIGSdb::IDList;
 use BIGSdb::IndexPage;
 use BIGSdb::IsolateInfoPage;
@@ -64,7 +66,6 @@ use BIGSdb::UserProjectsPage;
 use BIGSdb::UserRegistrationPage;
 use BIGSdb::VersionPage;
 use BIGSdb::Offline::Blast;
-use Error qw(:try);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
@@ -91,6 +92,7 @@ sub print_page {
 		changePassword     => 'ChangePasswordPage',
 		customize          => 'CustomizePage',
 		downloadAlleles    => 'DownloadAllelesPage',
+		downloadFiles      => 'DownloadFilePage',
 		downloadProfiles   => 'DownloadProfilesPage',
 		downloadSeqbin     => 'DownloadSeqbinPage',
 		embl               => 'SeqbinToEMBL',

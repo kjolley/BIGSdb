@@ -22,12 +22,13 @@ use warnings;
 use 5.010;
 use List::MoreUtils qw(any uniq);
 use List::Util qw(min max sum);
-use Error qw(:try);
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
 use File::Path qw(make_path);
 use Fcntl qw(:flock);
+use BIGSdb::Exceptions;
 use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
@@ -79,7 +80,7 @@ sub DESTROY {
 
 sub get_data_connector {
 	my ($self) = @_;
-	throw BIGSdb::DatabaseConnectionException('Data connector not set up.') if !$self->{'dataConnector'};
+	BIGSdb::Exception::Database::Connection->throw('Data connector not set up.') if !$self->{'dataConnector'};
 	return $self->{'dataConnector'};
 }
 
@@ -307,8 +308,12 @@ sub get_profile_by_primary_key {
 	try {
 		$loci_values = $self->get_scheme($scheme_id)->get_profile_by_primary_keys( [$profile_id] );
 	}
-	catch BIGSdb::DatabaseConfigurationException with {
-		$logger->error('Error retrieving information from remote database - check configuration.');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+			$logger->error('Error retrieving information from remote database - check configuration.');
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if !defined $loci_values;
 	if ( $options->{'hashref'} ) {
@@ -341,8 +346,12 @@ sub get_scheme_field_values_by_designations {
 		try {
 			$field_data = $scheme->get_field_values_by_designations($designations);
 		}
-		catch BIGSdb::DatabaseConfigurationException with {
-			$logger->warn("Scheme $scheme_id database is not configured correctly");
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+				$logger->warn("Scheme $scheme_id database is not configured correctly");
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	foreach my $data (@$field_data) {
@@ -451,16 +460,28 @@ sub check_new_profile {
 		$scheme_id, { fetch => 'col_arrayref' } );
 	my @profile;
 	my $empty_profile = 1;
+	my $missing_loci  = 0;
 
 	foreach my $locus (@$loci) {
 		push @profile, $designations->{$locus};
-		$empty_profile = 0 if !( ( $designations->{$locus} // 'N' ) eq 'N' );
+		if ( ( $designations->{$locus} // 'N' ) eq 'N' ) {
+			$missing_loci++;
+		} else {
+			$empty_profile = 0;
+		}
 	}
 	if ($empty_profile) {
 		return {
 			exists => 1,
 			msg    => q(You cannot define a profile with every locus set to be an arbitrary value (N).)
 		};
+	}
+	if (   $scheme_info->{'allow_missing_loci'}
+		&& defined $scheme_info->{'max_missing'}
+		&& $missing_loci > $scheme_info->{'max_missing'} )
+	{
+		my $plural = $scheme_info->{'max_missing'} == 1 ? 'us' : 'i';
+		return { err => 1, msg => qq(This scheme can only have $scheme_info->{'max_missing'} loc$plural missing.) };
 	}
 	my $pg_array = BIGSdb::Utils::get_pg_array( \@profile );
 	if ( !$scheme_info->{'allow_missing_loci'} ) {
@@ -543,8 +564,12 @@ sub get_client_db {
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->warn("Can not connect to database '$attributes->{'dbase_name'}'");
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+					$logger->warn( $_->error );
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		}
 		$self->{'client_db'}->{$id} = BIGSdb::ClientDB->new(%$attributes);
@@ -561,9 +586,13 @@ sub initiate_userdbs {
 			$self->{'user_dbs'}->{ $config->{'id'} } =
 			  { db => $self->{'dataConnector'}->get_connection($config), name => $config->{'dbase_name'} };
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			$logger->warn("Cannot connect to database '$config->{'dbase_name'}'");
-			$self->{'error'} = 'noConnect';
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				$logger->warn( $_->error );
+				$self->{'error'} = 'noConnect';
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	return;
@@ -975,8 +1004,12 @@ sub get_scheme {
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->warn("Can not connect to database '$attributes->{'dbase_name'}'");
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+					$logger->warn( $_->error );
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($scheme_id);
@@ -1083,7 +1116,7 @@ sub create_temp_scheme_table {
 	my $scheme_db   = $scheme->get_db;
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
-		throw BIGSdb::DatabaseConnectionException('Database does not exist');
+		BIGSdb::Exception::Database::Connection->throw('Database does not exist');
 	}
 	my $table = "temp_scheme_$id";
 
@@ -1156,7 +1189,7 @@ sub create_temp_scheme_table {
 	if ($@) {
 		$logger->error("Can't put data into temp table: $@");
 		$self->{'db'}->rollback;
-		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
+		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
 	foreach my $field (@$fields) {
 		my $field_info = $self->get_scheme_field_info( $id, $field );
@@ -1242,7 +1275,7 @@ sub create_temp_list_table {
 	if ($@) {
 		$logger->logcarp("Can't put data into temp table: $@");
 		$self->{'db'}->rollback;
-		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
+		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
 	close $fh;
 	return;
@@ -1266,7 +1299,7 @@ sub create_temp_list_table_from_array {
 	if ($@) {
 		$logger->error("Can't put data into temp table: $@");
 		$self->{'db'}->rollback;
-		throw BIGSdb::DatabaseConnectionException('Cannot put data into temp table');
+		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
 	return $table;
 }
@@ -1282,9 +1315,12 @@ sub create_temp_combinations_table_from_file {
 	try {
 		$text = BIGSdb::Utils::slurp($full_path);
 	}
-	catch BIGSdb::CannotOpenFileException with {
-		$logger->error("Cannot open $full_path for reading");
-		$error = 1;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$logger->error("Cannot open $full_path for reading");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if $error;
 	eval {
@@ -1501,8 +1537,12 @@ sub get_locus {
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
 			}
-			catch BIGSdb::DatabaseConnectionException with {
-				$logger->warn("Can not connect to database '$attributes->{'dbase_name'}'");
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+					$logger->warn( $_->error );
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		}
 		$self->{'locus'}->{$id} = BIGSdb::Locus->new(%$attributes);
@@ -1820,10 +1860,14 @@ sub get_client_data_linked_to_allele {
 		try {
 			$field_data = $client->get_fields( $field, $locus, $allele_id );
 		}
-		catch BIGSdb::DatabaseConfigurationException with {
-			$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the "
-				  . "client_dbase_loci_fields table is correctly configured. $@" );
-			$proceed = 0;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the "
+					  . "client_dbase_loci_fields table is correctly configured. $@" );
+				$proceed = 0;
+			} else {
+				$logger->logdie($_);
+			}
 		};
 		next if !$proceed;
 		next if !@$field_data;
@@ -1911,8 +1955,12 @@ sub get_citation_hash {
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error('Cannot connect to reference database');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error( $_->error );
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return $citation_ref if !$self->{'config'}->{'ref_db'} || !$dbr;
 	foreach my $pmid (@$pmids) {
@@ -2000,10 +2048,14 @@ sub create_temp_ref_table {
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$continue = 0;
-		say q(<div class="box" id="statusbad"><p>Can not connect to reference database!</p></div>);
-		$logger->error->('Cannot connect to reference database');
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$continue = 0;
+			say q(<div class="box" id="statusbad"><p>Cannot connect to reference database!</p></div>);
+			$logger->error( $_->error );
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	return if !$continue;
 	my $create = 'CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, '
@@ -2048,23 +2100,6 @@ sub create_temp_ref_table {
 	eval { $self->{'db'}->do('CREATE INDEX i_tr1 ON temp_refs(pmid)') };
 	$logger->error($@) if $@;
 	return 1;
-}
-
-#Table containing all sequences for a particular locus - this is more efficient for querying by sequence
-#in large seqdef databases
-sub create_temp_allele_table {
-	my ( $self, $locus ) = @_;
-	my $table = 'temp_seqs_' . int( rand(99999999) );
-	eval {
-		$self->{'db'}->do(
-			"CREATE TEMP TABLE $table AS SELECT allele_id,UPPER(sequence) "
-			  . 'AS sequence FROM sequences WHERE locus=?;'
-			  . "CREATE INDEX i_${table}_seq ON $table(md5(sequence))",
-			undef, $locus
-		);
-	};
-	$logger->error($@) if $@;
-	return $table;
 }
 ##############SQL######################################################################
 sub run_query {
@@ -2181,7 +2216,7 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields user_dbases locus_links);
+		  classification_group_fields user_dbases locus_links client_dbase_cschemes);
 	}
 	return @tables;
 }

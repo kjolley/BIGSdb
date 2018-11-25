@@ -22,13 +22,13 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Application);
 use Dancer2 0.156;
-use Error qw(:try);
+use Try::Tiny;
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use POSIX qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
-use BIGSdb::BIGSException;
+use BIGSdb::Exceptions;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::Offline::Blast;
@@ -109,7 +109,7 @@ sub check_post_payload {
 
 #Read database configs and connect before entering route.
 sub _before {
-	my $self        = setting('self');
+	my $self         = setting('self');
 	my $request_path = request->path();
 	$self->{'instance'} = $request_path =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
@@ -153,11 +153,11 @@ sub _before {
 	$self->setup_datastore;
 	$self->setup_remote_contig_manager;
 	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
-	$self->_initiate_view;
-	$self->_set_page_options;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	_check_kiosk();
 	_check_authorization();
+	$self->_initiate_view;
+	$self->_set_page_options;
 	return;
 }
 
@@ -548,9 +548,13 @@ sub check_load_average {
 	try {
 		$load_average = $self->get_load_average;
 	}
-	catch BIGSdb::DataException with {
-		$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
-		exit;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Data') ) {
+			$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
+			exit;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ( $load_average > $max_load ) {
 		$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
@@ -569,24 +573,30 @@ sub get_user_id {
 sub add_filters {
 	my ( $self, $qry, $allowed_args, $options ) = @_;
 	my $params = params;
-	my ( $added_after, $updated_after, $alleles_added_after, $alleles_updated_after ) =
-	  @{$params}{qw(added_after updated_after alleles_added_after alleles_updated_after)};
+	my ( $added_after, $added_on, $updated_after, $updated_on, $alleles_added_after, $alleles_updated_after ) =
+	  @{$params}{qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after)}
+	  ;
 	my @terms;
 	my $id = $options->{'id'} // 'id';
 	my %methods = (
 		added_after => sub {
 			push @terms, qq(date_entered>'$added_after') if BIGSdb::Utils::is_date($added_after);
 		},
+		added_on => sub {
+			push @terms, qq(date_entered='$added_on') if BIGSdb::Utils::is_date($added_on);
+		},
 		updated_after => sub {
 			push @terms, qq(datestamp>'$updated_after') if BIGSdb::Utils::is_date($updated_after);
+		},
+		updated_on => sub {
+			push @terms, qq(datestamp='$updated_on') if BIGSdb::Utils::is_date($updated_on);
 		},
 		alleles_added_after => sub {
 			push @terms, qq($id IN (SELECT locus FROM sequences WHERE date_entered>'$alleles_added_after'))
 			  if BIGSdb::Utils::is_date($alleles_added_after);
 		},
 		alleles_updated_after => sub {
-			push @terms,
-			  qq($id IN (SELECT locus FROM locus_stats WHERE datestamp>'$alleles_updated_after'))
+			push @terms, qq($id IN (SELECT locus FROM locus_stats WHERE datestamp>'$alleles_updated_after'))
 			  if BIGSdb::Utils::is_date($alleles_updated_after);
 		}
 	);

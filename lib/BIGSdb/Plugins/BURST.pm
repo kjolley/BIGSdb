@@ -26,7 +26,6 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
 use constant PI => 3.141592654;
 
 #This code is a translation of C++ code written by a third party - it is not going to be
@@ -51,7 +50,7 @@ sub get_attributes {
 		buttontext  => 'BURST',
 		menutext    => 'BURST',
 		module      => 'BURST',
-		version     => '1.1.6',
+		version     => '1.1.7',
 		dbtype      => 'isolates,sequences',
 		seqdb_type  => 'schemes',
 		section     => 'postquery',

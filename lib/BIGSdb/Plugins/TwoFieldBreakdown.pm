@@ -22,9 +22,10 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Error qw(:try);
+use Try::Tiny;
 use List::MoreUtils qw(uniq any);
 use BIGSdb::Constants qw(:interface);
 use constant MAX_INSTANT_RUN => 10000;
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.6',
+		version     => '1.4.7',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -136,8 +137,15 @@ sub run {
 			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
 			$options{$att} = $options{$att} eq 'true' ? 1 : 0;
 		}
-		catch BIGSdb::DatabaseNoRecordException with {
-			$options{$att} = 0;
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+				$options{$att} = 0;
+			} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
+
+				#Ignore
+			} else {
+				$logger->logdie($_);
+			}
 		};
 	}
 	if ( @ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
@@ -189,10 +197,14 @@ sub run_job {
 	try {
 		$freq_hashes = $self->_get_value_frequency_hashes( $params->{'field1'}, $params->{'field2'}, $isolate_ids );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$continue = 0;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$continue = 0;
+		} else {
+			$logger->logdie($_);
+		}
 	};
-	throw BIGSdb::PluginException( 'The database for the scheme of one of your selected '
+	BIGSdb::Exception::Plugin->throw( 'The database for the scheme of one of your selected '
 		  . 'fields is inaccessible. This may be a configuration problem.' )
 	  if !$continue;
 	my ( $grand_total, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
@@ -413,7 +425,8 @@ sub _print_controls {
 	if ( $q->param('display') ne 'values only' ) {
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Calculate percentages</legend>);
-		say $q->hidden($_) foreach qw (db page name function field1 field2 display calcpc isolate_id isolate_paste_list);
+		say $q->hidden($_)
+		  foreach qw (db page name function field1 field2 display calcpc isolate_id isolate_paste_list);
 		my %pc_toggle = ( dataset => 'row', row => 'column', column => 'dataset' );
 		say q(<span style="text-align:center; display:block">);
 		say $q->submit(
@@ -436,15 +449,19 @@ sub _breakdown {
 	try {
 		$freq_hashes = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$self->print_bad_status(
-			{
-				message => q(The database for the scheme of one of your selected )
-				  . q(fields is inaccessible. This may be a configuration problem.),
-				navbar => 1
-			}
-		);
-		return;
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$self->print_bad_status(
+				{
+					message => q(The database for the scheme of one of your selected )
+					  . q(fields is inaccessible. This may be a configuration problem.),
+					navbar => 1
+				}
+			);
+			return;
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	my ( $grand_total, $data, $clean_field1, $clean_field2, $print_field1, $print_field2 ) =
 	  @{$freq_hashes}{qw(grand_total datahash cleanfield1 cleanfield2 printfield1 printfield2)};
@@ -918,7 +935,7 @@ sub _get_field_value {
 			  $self->{'datastore'}->run_query( "SELECT id,$clean_fields->{$field} FROM $self->{'system'}->{'view'}",
 				undef, { fetch => 'all_hashref', key => 'id' } );
 		}
-		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc($clean_fields->{$field} )};
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc( $clean_fields->{$field} ) };
 	} else {
 		$value =
 		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",

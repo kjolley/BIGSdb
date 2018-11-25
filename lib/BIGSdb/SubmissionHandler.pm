@@ -339,7 +339,6 @@ sub check_new_alleles_fasta {
 	$stringfh_in->untaint;
 	my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 	my ( @err, @info, @seqs, %used_ids );
-	my $locus_seq_table = $self->{'datastore'}->create_temp_allele_table($locus);
 	while ( my $seq_object = $seqin->next_seq ) {
 		push @seqs, { seq_id => $seq_object->id, sequence => $seq_object->seq };
 		my $seq_id = $seq_object->id;
@@ -379,8 +378,8 @@ sub check_new_alleles_fasta {
 			}
 		}
 		my $existing_allele =
-		  $self->{'datastore'}->run_query( "SELECT allele_id FROM $locus_seq_table WHERE sequence=?",
-			uc($sequence), { cache => 'check_new_alleles_fasta' } );
+		  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+			[$locus,uc($sequence)], { cache => 'check_new_alleles_fasta' } );
 		if ($existing_allele) {
 			push @err, qq(Sequence "$seq_id" has already been defined as $locus-$existing_allele.);
 		}
@@ -843,11 +842,11 @@ sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} !~ /^int/x;
-	if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer.' }
+	if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
 	elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be equal to or larger than $thisfield->{'min'}.";
+		return "must be equal to or larger than $thisfield->{'min'}";
 	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be equal to or smaller than $thisfield->{'max'}.";
+		return "must be equal to or smaller than $thisfield->{'max'}";
 	}
 	return;
 }
@@ -858,13 +857,13 @@ sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'date';
 	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
-		return 'must be a valid date in yyyy-mm-dd format.';
+		return 'must be a valid date in yyyy-mm-dd format';
 	}
-	if ( $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be $thisfield->{'min'} or later.";
+	if ( $thisfield->{'min'} && $value lt $thisfield->{'min'} ) {
+		return "must be $thisfield->{'min'} or later";
 	}
-	if ( $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be $thisfield->{'max'} or earlier.";
+	if ( $thisfield->{'max'} && $value gt $thisfield->{'max'} ) {
+		return "must be $thisfield->{'max'} or earlier";
 	}
 	return;
 }
@@ -875,11 +874,11 @@ sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'float';
 	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number.';
+		return 'must be a floating point number';
 	} elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be equal to or larger than $thisfield->{'min'}.";
+		return "must be equal to or larger than $thisfield->{'min'}";
 	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be equal to or smaller than $thisfield->{'max'}.";
+		return "must be equal to or smaller than $thisfield->{'max'}";
 	}
 	return;
 }
@@ -890,7 +889,7 @@ sub _check_isolate_boolean {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} !~ /^bool/x;
 	if ( $thisfield->{'type'} =~ /^bool/x && !BIGSdb::Utils::is_bool($value) ) {
-		return 'must be a valid boolean value - true, false, 1, or 0.';
+		return 'must be a valid boolean value - true, false, 1, or 0';
 	}
 	return;
 }

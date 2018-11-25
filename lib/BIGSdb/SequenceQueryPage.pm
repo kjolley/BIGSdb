@@ -23,12 +23,11 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq none);
-use BIGSdb::BIGSException;
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::SequenceQuery;
 use Bio::DB::GenBank;
 use JSON;
-use Error qw(:try);
+use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant INF                => 9**99;
 use constant RUN_OFFLINE_LENGTH => 10_000;
@@ -74,8 +73,10 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		initiate();
+		
 	});
 	initiate();
+
 });
 
 function initiate() {
@@ -87,6 +88,24 @@ function initiate() {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
+  	\$( "#show_more" ).click(function() {
+		if (\$("span#show_extra_matches").css('display') == 'none'){
+			\$("span#show_extra_matches").css('display', 'inline');
+			\$("span#hide_extra_matches").css('display', 'none');
+		} else {
+			\$("span#show_extra_matches").css('display', 'none');
+			\$("span#hide_extra_matches").css('display', 'inline');
+		}
+		\$( ".extra_match" ).toggle();
+		return false;
+	});
+	\$('#show_extra_matches').tooltip({ content: "Show extra matches"});
+	\$('#hide_extra_matches').tooltip({ content: "Hide extra matches"});
+	\$("div#results a.tooltip").each(function( index ) {
+		var value = \$(this).attr('title');
+		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");
+		\$(this).tooltip({content: value});
+	});
 }
 
 function loadContent(url) {
@@ -233,14 +252,17 @@ sub print_content {
 					$self->_run_query( \$acc_seq );
 				}
 			}
-			catch BIGSdb::DataException with {
-				my $err = shift;
-				$logger->debug($err);
-				if ( $err =~ /INVALID_ACCESSION/x ) {
-					$self->print_bad_status( { message => q(Accession is invalid.) } );
-				} elsif ( $err =~ /NO_DATA/x ) {
-					$self->print_bad_status(
-						{ message => q(The accession is valid but it contains no sequence data.) } );
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Data') ) {
+					$logger->debug($_);
+					if ( $_ =~ /INVALID_ACCESSION/x ) {
+						$self->print_bad_status( { message => q(Accession is invalid.) } );
+					} elsif ( $_ =~ /NO_DATA/x ) {
+						$self->print_bad_status(
+							{ message => q(The accession is valid but it contains no sequence data.) } );
+					}
+				} else {
+					$logger->logdie($_);
 				}
 			};
 		}
@@ -273,13 +295,13 @@ sub _upload_accession {
 		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
 		$sequence = $seq_obj->seq;
 	}
-	catch Bio::Root::Exception with {
+	catch {
 		my $err = shift;
 		$logger->debug($err);
-		throw BIGSdb::DataException('INVALID_ACCESSION');
+		BIGSdb::Exception::Data->throw('INVALID_ACCESSION');
 	};
 	if ( !length($sequence) ) {
-		throw BIGSdb::DataException('NO_DATA');
+		BIGSdb::Exception::Data->throw('NO_DATA');
 	}
 	return $sequence;
 }
@@ -368,17 +390,18 @@ sub _blast_fork {
 				}
 				$self->_update_status_file( $status_file, 'complete' );
 			}
-			catch BIGSdb::ServerBusyException with {
-				my $too_busy = q(<div class="box" id="statusbad"><p>The server is currently too busy to run )
-				  . q(your query. Please try again in a few minutes.</p></div>);
-				$self->_write_results_file( $results_file, $too_busy );
-				$self->_update_status_file( $status_file, 'complete' );
-				$logger->error('Server too busy to run sequence query.');
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
+					my $too_busy = q(<div class="box" id="statusbad"><p>The server is currently too busy to run )
+					  . q(your query. Please try again in a few minutes.</p></div>);
+					$self->_write_results_file( $results_file, $too_busy );
+					$self->_update_status_file( $status_file, 'complete' );
+					$logger->error('Server too busy to run sequence query.');
+				} else {
+					$self->_update_status_file( $status_file, 'failed' );
+					$logger->error($_);
+				}
 			}
-			otherwise {
-				$self->_update_status_file( $status_file, 'failed' );
-				$logger->error($@);
-			};
 		}
 		CORE::exit(0);
 	}

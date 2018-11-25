@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -307,6 +307,8 @@ sub _perform_rest_query {
 			Content      => $payload
 		);
 		if ( $server_error{ $response->code } ) {
+			my $code = $response->code;
+			$logger->error("Error $code received from rMLST REST API.");
 			$unavailable = 1;
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
@@ -360,7 +362,7 @@ sub _print_interface {
 	my $selected_ids;
 	my $seqbin_values = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
 	if ( !$seqbin_values ) {
-		$self->print_bad_status( { message => q(This database contains no genomes.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	}
 	if ( $q->param('single_isolate') ) {

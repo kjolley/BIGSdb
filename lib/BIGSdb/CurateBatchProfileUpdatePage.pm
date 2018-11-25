@@ -368,6 +368,8 @@ sub _check_existing_profile {
 	my $ret = $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
 	if ( $ret->{'exists'} ) {
 		$$problem = qq(would result in duplicate profile. $ret->{'msg'});
+	} elsif ($ret->{'err'}){
+		$$problem = $ret->{'msg'};
 	}
 	return;
 }

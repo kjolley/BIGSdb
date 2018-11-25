@@ -20,15 +20,16 @@ package BIGSdb::Page;
 use strict;
 use warnings;
 use 5.010;
+use BIGSdb::Exceptions;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use Error qw(:try);
 use List::MoreUtils qw(uniq none);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
-sub new {    ## no critic (RequireArgUnpacking)
+sub new {                             ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -228,15 +229,19 @@ sub create_temp_tables {
 				}
 			}
 		}
-		catch BIGSdb::DatabaseConnectionException with {
-			if ( $format ne 'text' ) {
-				$self->print_bad_status(
-					{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+				if ( $format ne 'text' ) {
+					$self->print_bad_status(
+						{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+				} else {
+					say q(Cannot connect to remote database. The query cannot be performed.);
+				}
+				$logger->error('Cannot connect to remote database.');
+				$continue = 0;
 			} else {
-				say q(Cannot connect to remote database. The query cannot be performed.);
+				$logger->logdie($_);
 			}
-			$logger->error('Cannot connect to remote database.');
-			$continue = 0;
 		};
 	}
 	if ( $q->param('list_file') && $q->param('datatype') ) {
@@ -271,8 +276,12 @@ sub choose_set {
 				$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $q->param('sets_list') );
 				$self->{'prefs'}->{'set_id'} = $q->param('sets_list');
 			}
-			catch BIGSdb::PrefstoreConfigurationException with {
-				$logger->error(q(Can't set set_id in prefs));
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
+					$logger->error(q(Cannot set set_id in prefs));
+				} else {
+					$logger->logdie($_);
+				}
 			};
 		} else {
 			$self->{'system'}->{'sets'} = 'no';
@@ -304,8 +313,7 @@ sub _initiate_plugin {
 			$self->{'type'} = 'no_header';
 		}
 	}
-	catch BIGSdb::InvalidPluginException with {
-
+	catch {
 		#ignore
 	};
 	return;
@@ -339,8 +347,12 @@ sub print_page_content {
 				$self->{'prefs'}->{'set_id'} =
 				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 			}
-			catch BIGSdb::DatabaseNoRecordException with {
-				$self->{'prefs'}->{'tooltips'} = 1;
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+					$self->{'prefs'}->{'tooltips'} = 1;
+				} else {
+					$logger->logdie($_);
+				}
 			};
 			$self->choose_set;
 		}
@@ -349,39 +361,41 @@ sub print_page_content {
 		$self->initiate_view( $self->{'username'} );
 	}
 	$q->charset('UTF-8');
+	if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
+		my $guid = $self->{'prefstore'}->get_new_guid;
+		push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
+		$self->{'setOptions'} = 1;
+	}
+	my %header_options;
+	$header_options{'-cookie'} = $self->{'cookies'} if $self->{'cookies'};
+	$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
 			embl      => 'chemical/x-embl-dl-nucleotide',
 			tar       => 'application/x-tar',
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
+			text      => 'text/plain',
+			html      => 'text/html',
+			png       => 'image/png',
+			jpg       => 'image/jpeg',
+			gif       => 'image/gif'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
-		my %atts;
-		$atts{'type'} = $mime_type{ $self->{'type'} } // 'text/plain';
-		$atts{'attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
+		$header_options{'-type'} = $mime_type{ $self->{'type'} } // 'text/plain';
+		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
 		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header' || $self->{'type'} eq 'text';
-		$atts{'expires'} = '+1h' if !$self->{'noCache'};
-		print $q->header( \%atts );
+		print $q->header( \%header_options );
 		$self->print_content;
 	} else {
 		binmode STDOUT, ':encoding(utf8)';
-		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
-			my $guid = $self->{'prefstore'}->get_new_guid;
-			push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
-			$self->{'setOptions'} = 1;
-		}
-		my %header_options;
-		$header_options{'-cookie'}  = $self->{'cookies'} if $self->{'cookies'};
-		$header_options{'-expires'} = '+1h'              if !$self->{'noCache'};
-		$header_options{'-status'}  = $self->{'status'}  if $self->{'status'};
+		$header_options{'-status'} = $self->{'status'} if $self->{'status'};
 		print $q->header(%header_options);
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
 		my ( $meta_content, $shortcut_icon ) = $self->_get_meta_data;
 		my $http_equiv = q(<meta name="viewport" content="width=device-width" />);
-
 		if ( $self->{'refresh'} ) {
 			my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
 			$http_equiv .= qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
@@ -1021,7 +1035,7 @@ sub _get_eav_fields {
 	my $list       = [];
 	foreach my $fieldname (@$eav_fields) {
 		push @$list, qq(eav_$fieldname);
-		(my $cleaned = $fieldname) =~ tr/_/ /;
+		( my $cleaned = $fieldname ) =~ tr/_/ /;
 		$self->{'cache'}->{'labels'}->{qq(eav_$fieldname)} = $cleaned;
 	}
 	return $list;
@@ -1586,7 +1600,7 @@ sub get_isolates_with_seqbin {
 	my %labels;
 	foreach (@$data) {
 		my ( $id, $isolate, $new_version ) = @$_;
-		$isolate //= ''; #One database on PubMLST uses a restricted view that hides some isolate names.
+		$isolate //= '';    #One database on PubMLST uses a restricted view that hides some isolate names.
 		push @ids, $id;
 		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
 	}
@@ -1657,7 +1671,8 @@ sub get_record_name {
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
 		oauth_credentials                 => 'OAuth credentials',
-		eav_fields                        => 'phenotypic field'
+		eav_fields                        => 'phenotypic field',
+		client_dbase_cschemes             => 'classification scheme to client database definition '
 	);
 	return $names{$table};
 }
@@ -2061,9 +2076,13 @@ sub initiate_prefs {
 	try {
 		$self->{'prefstore'}->update_datestamp($guid);
 	}
-	catch BIGSdb::PrefstoreConfigurationException with {
-		undef $self->{'prefstore'};
-		$self->{'fatal'} = 'prefstoreConfig';
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
+			undef $self->{'prefstore'};
+			$self->{'fatal'} = 'prefstoreConfig';
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	if ( ( $q->param('page') // '' ) eq 'options' && $q->param('set') ) {
 		foreach (qw(displayrecs pagebar alignwidth flanking)) {
@@ -2802,8 +2821,12 @@ sub use_correct_user_database {
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	}
-	catch BIGSdb::DatabaseConnectionException with {
-		$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+	catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
+			$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
+		} else {
+			$logger->logdie($_);
+		}
 	};
 	$self->{'datastore'}->change_db( $self->{'db'} );
 	foreach my $config ( @{ $self->{'config'}->{'site_user_dbs'} } ) {
@@ -2976,7 +2999,7 @@ sub get_list_block {
 		$buffer .= $item->{'data'};
 		$buffer .= q(</a>)                        if $item->{'href'};
 		$buffer .= q(</dd>);
-		$buffer .= qq(</span>\n)                     if $options->{'columnize'};
+		$buffer .= qq(</span>\n)                  if $options->{'columnize'};
 	}
 	$buffer .= qq(</dl>\n);
 	return $buffer;

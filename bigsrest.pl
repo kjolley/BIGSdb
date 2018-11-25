@@ -22,17 +22,17 @@ package BIGSdb::main;
 use strict;
 use warnings;
 use 5.010;
-###########Local configuration################################
+###########Local configuration################################################
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => 'localhost',
-	PORT             => 5432,
-	USER             => 'apache',
-	PASSWORD         => '',
+	HOST             => undef,                  #Use values in config.xml
+	PORT             => undef,                  #But you can override here.
+	USER             => undef,
+	PASSWORD         => undef
 };
-#######End Local configuration################################
+#######End Local configuration################################################
 use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
 use lib (LIB_DIR);
 use BIGSdb::REST::Interface;
