@@ -685,6 +685,10 @@ sub _create_blast_database {
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;
+	if ( !defined $data_type ) {
+		local $" = q(, );
+		$self->{'logger'}->error("No data type defined; Cache: $cache_name; Loci; @$loci");
+	}
 	my $db_type = $data_type eq 'DNA' ? 'nucl' : 'prot';
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
