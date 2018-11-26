@@ -18,6 +18,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20181126
 use strict;
 use warnings;
 use 5.010;
@@ -94,53 +96,47 @@ sub main {
 	my $loci = $script->get_selected_loci;
 	die "No valid loci selected.\n" if !@$loci;
 	foreach my $locus (@$loci) {
+		my %exemplars;
+		my %length_represented;
+		my $alleles = get_alleles($locus);
 		if ( $opts{'update'} ) {
 			eval { $script->{'db'}->do( 'UPDATE sequences SET exemplar=NULL WHERE locus=?', undef, $locus ); };
 			die "$@\n" if $@;
 		}
-		my %exemplars;
-		my %length_represented;
-		my %checked;
-		my $alleles = get_alleles($locus);
 
 		#First pass - add representative for each length
 		foreach my $allele (@$alleles) {
 			my ( $allele_id, $seq ) = @$allele;
 			my $length = length $seq;
 			if ( !$length_represented{$length} ) {
-				$exemplars{$allele_id}       = 1;
+				push @{ $exemplars{$length} }, [ $allele_id, $seq ];
 				$length_represented{$length} = 1;
-				$checked{$allele_id}         = 1;
 			}
 		}
-	  PASS: while ( keys %checked < @$alleles ) {
-		  ALLELE: foreach my $allele (@$alleles) {
-				my ( $allele_id, $seq ) = @$allele;
-				next ALLELE if $checked{$allele_id};
-				my $length = length $seq;
-			  COMPARE: foreach my $compare_allele (@$alleles) {
-					my ( $compare_allele_id, $compare_seq ) = @$compare_allele;
-					next COMPARE if !$exemplars{$compare_allele_id};
-					next COMPARE if $compare_allele_id eq $allele_id;
-					next COMPARE if $length != length $compare_seq;
-					my $diff = get_percent_difference( $seq, $compare_seq );
-					if ( $diff < $opts{'variation'} ) {
-						$checked{$allele_id} = 1;
-						next ALLELE;
-					}
-				}
-
-				#Sequence is >threshold percent different to any currently defined
-				#exemplar sequence.
-				$exemplars{$allele_id} = 1;
-				$checked{$allele_id}   = 1;
-				next PASS;
-			}
-		}
-		foreach my $allele (@$alleles) {
+	  ALLELE: foreach my $allele (@$alleles) {
 			my ( $allele_id, $seq ) = @$allele;
-			if ( $exemplars{$allele_id} ) {
-				say "$locus-$allele_id";
+			my $length = length $seq;
+		  COMPARE: foreach my $compare_allele ( @{ $exemplars{$length} } ) {
+				my ( $compare_allele_id, $compare_seq ) = @$compare_allele;
+				next COMPARE if $compare_allele_id eq $allele_id;
+
+				#XOR strings together and count bits
+				#See https://stackoverflow.com/questions/33050582/perl-count-mismatch-between-two-strings
+				my $diff_count = ( $seq ^ $compare_seq ) =~ tr/\0//c;
+				my $diff       = ( $diff_count * 100 ) / $length;
+				if ( $diff < $opts{'variation'} ) {
+					next ALLELE;
+				}
+			}
+
+			#Sequence is >threshold percent different to any currently defined
+			#exemplar sequence.
+			push @{ $exemplars{$length} }, [ $allele_id, $seq ] if $allele_id ne $exemplars{$length}[0]->[0];
+		}
+		foreach my $length ( sort {$a <=> $b} keys %exemplars ) {
+			foreach my $allele ( @{ $exemplars{$length} } ) {
+				my ( $allele_id, $seq ) = @$allele;
+				say "Locus: $locus; Length: $length; Allele: $allele_id";
 				if ( $opts{'update'} ) {
 					eval {
 						$script->{'db'}->do( 'UPDATE sequences SET exemplar=TRUE WHERE (locus,allele_id)=(?,?)',
@@ -157,23 +153,13 @@ sub main {
 	return;
 }
 
-sub get_percent_difference {
-	my ( $seq1, $seq2 ) = @_;
-	die "Sequences are different lengths.\n" if length $seq1 != length $seq2;
-	my $length = length $seq1;
-	my $diffs  = 0;
-	foreach my $pos ( 0 .. ($length - 1)  ) {
-		$diffs++ if substr( $seq1, $pos, 1 ) ne substr( $seq2, $pos, 1 );
-	}
-	return ( ( $diffs * 100 ) / $length );
-}
-
 sub get_alleles {
 	my ($locus)    = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
 	my $qry        = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
 	my $alleles = $script->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
+	$script->{'db'}->commit;    #Prevent idle in transaction
 	return $alleles;
 }
 
