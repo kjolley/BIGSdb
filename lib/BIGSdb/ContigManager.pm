@@ -221,6 +221,7 @@ sub _get_remote_record {
 		return $self->_get_protected_route( $oauth_credentials, $base_uri, $uri, $options );
 	}
 	BIGSdb::Exception::File->throw("Cannot retrieve $uri");
+	return;
 }
 
 sub _get_protected_route {
@@ -315,6 +316,7 @@ sub _get_session_token {
 		$logger->error($res->as_string);
 		BIGSdb::Exception::Authentication->throw("Invalid access token for $base_uri");
 	}
+	return;
 }
 
 sub get_contig_fragment {

@@ -129,7 +129,7 @@ sub _use_composites {
 		} else {
 			$logger->logdie($_);
 		}
-	}
+	};
 	return $use;
 }
 
