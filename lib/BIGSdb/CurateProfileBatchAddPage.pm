@@ -204,7 +204,6 @@ sub _check {
 	my $field_data = $self->_get_field_data($scheme_id);
 	my ( $field_order, $cleaned_order, $is_locus, $is_field, $scheme_field_info ) =
 	  @{$field_data}{qw(field_order cleaned_order is_locus is_field scheme_field_info)};
-	my %profiles_so_far;
 	local $" = q(</th><th>);
 	my $table_buffer = qq(<table class="resultstable"><tr><th>@$cleaned_order</th></tr>);
 	my ( $error, $sender, $sender_message ) = $self->_get_sender($scheme_id);
