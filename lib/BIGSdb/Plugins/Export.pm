@@ -612,7 +612,7 @@ sub _sort_alleles {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	return $allele_ids if !$locus_info;
-	my @list = $locus_info->{'allele_id_format'} eq 'integer' ? sort { $a <=> $b } @$allele_ids : sort @$allele_ids;
+	my @list = $locus_info->{'allele_id_format'} eq 'integer' ? sort { $a eq "" ? 1 : $b eq "" ? -1 : $a <=> $b } @$allele_ids : sort @$allele_ids;
 	return \@list;
 }
 
