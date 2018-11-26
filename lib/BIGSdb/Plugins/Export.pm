@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.6.1',
+		version     => '1.6.2',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -620,7 +620,7 @@ sub _write_allele {
 	my ( $self, $args ) = @_;
 	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
 	  @{$args}{qw(fh locus data all_allele_ids first params)};
-	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : q();
+	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ();
 	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
