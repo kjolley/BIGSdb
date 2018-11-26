@@ -1139,7 +1139,11 @@ sub _check_new_alleles {
 sub _start_submission {
 	my ( $self, $type ) = @_;
 	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates genomes);
-	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
+	my $submission_id =
+	    'BIGSdb_'
+	  . strftime( '%Y%m%d%H%M%S', localtime ) . '_'
+	  . sprintf( '%06d', $$ ) . '_'
+	  . sprintf( '%05d', int( rand(99999) ) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		$self->{'db'}
@@ -1522,6 +1526,7 @@ sub _print_sequence_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $td           = 1;
 	my $pending_seqs = [];
+
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
 		my $length   = length $seq->{'sequence'};

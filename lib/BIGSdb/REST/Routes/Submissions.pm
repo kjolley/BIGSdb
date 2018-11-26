@@ -55,9 +55,9 @@ sub _check_db_type {
 
 sub _check_updates_disabled {
 	my $self = setting('self');
-	if ($self->{'config'}->{'disable_updates'}){
+	if ( $self->{'config'}->{'disable_updates'} ) {
 		my $msg = $self->{'config'}->{'disable_update_message'} // q();
-		send_error("Submissions are currently disabled. $msg", 403)
+		send_error( "Submissions are currently disabled. $msg", 403 );
 	}
 	return;
 }
@@ -93,8 +93,7 @@ sub _get_submissions {
 	my $submission_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) $part_qry", $args );
 	my $page_values = $self->get_page_values($submission_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	
-	my $qry    = qq(SELECT id $part_qry ORDER BY id);
+	my $qry = qq(SELECT id $part_qry ORDER BY id);
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $submission_ids = $self->{'datastore'}->run_query( $qry, $args, { fetch => 'col_arrayref' } );
 	$values->{'records'} = int($submission_count);
@@ -236,9 +235,13 @@ sub _create_submission {
 	_check_db_type($type);
 	_check_if_over_limit();
 	_check_updates_disabled();
-	my $submitter     = $self->get_user_id;
-	my $submission_id = 'BIGSdb_' . strftime( '%Y%m%d%H%M%S', localtime ) . "_$$\_" . int( rand(99999) );
-	my %method        = (
+	my $submitter = $self->get_user_id;
+	my $submission_id =
+	    'BIGSdb_'
+	  . strftime( '%Y%m%d%H%M%S', localtime ) . '_'
+	  . sprintf( '%06d', $$ ) . '_'
+	  . sprintf( '%05d', int( rand(99999) ) );
+	my %method = (
 		alleles  => sub { _prepare_allele_submission($submission_id) },
 		profiles => sub { _prepare_profile_submission($submission_id) },
 		isolates => sub { _prepare_isolate_submission($submission_id) },
@@ -541,7 +544,7 @@ sub _add_message {
 }
 
 sub _upload_file {
-	my $self   = setting('self');
+	my $self = setting('self');
 	_check_updates_disabled();
 	my $params = params;
 	my ( $db, $submission_id, $filename, $upload ) = @{$params}{qw(db submission filename upload)};
