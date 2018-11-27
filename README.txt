@@ -1,3 +1,4 @@
+v1.20.2: *Fix for export plugin introduced with v1.20.1.
 v1.20.1: *Improved exception handling - please note new Perl module 
           dependencies: Try::Tiny and Exception::Class.
          *Updated GrapeTree plugin reflects upstream filename and data 
