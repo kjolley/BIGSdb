@@ -616,7 +616,7 @@ sub _write_field {
 sub _sort_alleles {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	return $allele_ids if !$locus_info;
+	return $allele_ids if !$locus_info || $allele_ids->[0] eq q();
 	my @list = $locus_info->{'allele_id_format'} eq 'integer' ? sort { $a <=> $b } @$allele_ids : sort @$allele_ids;
 	return \@list;
 }
@@ -625,7 +625,7 @@ sub _write_allele {
 	my ( $self, $args ) = @_;
 	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
 	  @{$args}{qw(fh locus data all_allele_ids first params)};
-	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : ();
+	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : (q());
 	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
