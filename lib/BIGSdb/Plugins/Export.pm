@@ -212,7 +212,12 @@ sub run {
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
 		local $" = '||';
 		$params->{'selected_fields'} = "@$selected_fields";
-		if ( @$ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
+		my $max_instant_run =
+		  BIGSdb::Utils::is_int( $self->{'config'}->{'export_instant_run'} )
+		  ? $self->{'config'}->{'export_instant_run'}
+		  : MAX_INSTANT_RUN;
+
+		if ( @$ids > $max_instant_run && $self->{'config'}->{'jobs_db'} ) {
 			my $att       = $self->get_attributes;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
@@ -451,7 +456,7 @@ sub _write_tab_text {
 				},
 				reference => sub {
 					$self->_write_ref( $fh, \%data, $first, $params );
-				  }
+				}
 			};
 			foreach my $field_type (qw(field locus scheme_field composite_field classification_scheme reference)) {
 				if ( $field =~ $regex->{$field_type} ) {
