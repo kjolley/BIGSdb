@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.6.2',
+		version     => '1.6.3',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
