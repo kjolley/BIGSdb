@@ -18,9 +18,12 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20181202
 use strict;
 use warnings;
 use List::Util qw(min);
+use Digest::MD5;
 use 5.010;
 ###########Local configuration#############################################
 use constant {
@@ -30,7 +33,8 @@ use constant {
 	HOST             => undef,                  #Use values in config.xml
 	PORT             => undef,                  #But you can override here.
 	USER             => undef,
-	PASSWORD         => undef
+	PASSWORD         => undef,
+	LOCK_DIR         => '/var/run/lock'
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -58,6 +62,7 @@ GetOptions(
 	'cscheme=i'  => \$opts{'cscheme_id'},
 	'database=s' => \$opts{'database'},
 	'help'       => \$opts{'help'},
+	'quiet'      => \$opts{'quiet'},
 	'reset'      => \$opts{'reset'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
@@ -91,9 +96,11 @@ if ( $opts{'reset'} ) {
 	exit;
 }
 main();
+remove_lock_file();
 undef $script;
 
 sub perform_sanity_checks {
+	check_if_script_already_running();
 	check_cscheme_exists();
 	check_user_exists();
 	check_cscheme_properly_defined();
@@ -125,7 +132,7 @@ sub main {
 					next ITERATION;
 				} else {
 					local $" = ',';
-					say "$script->{'pk'}-$profile_id: multiple possible groups: @$possible_groups";
+					say "$script->{'pk'}-$profile_id: multiple possible groups: @$possible_groups" if !$opts{'quiet'};
 					my $largest_groups = get_largest_groups($possible_groups);
 					if ( @$largest_groups == 1 ) {
 						add_profile_to_group( $largest_groups->[0], $profile_id );
@@ -188,7 +195,7 @@ sub merge_groups {
 			}
 		}
 		$script->{'db'}->commit;
-		say "Group $group_id merged in to group $merged_group_id.";
+		say "Group $group_id merged in to group $merged_group_id." if !$opts{'quiet'};
 	}
 	return;
 }
@@ -239,7 +246,7 @@ sub create_group {
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT COALESCE((MAX(group_id)+1),1) FROM classification_groups WHERE cg_scheme_id=?',
 		$opts{'cscheme_id'}, { cache => 'create_group:next_id' } );
-	say "New group: $new_group_id.";
+	say "New group: $new_group_id." if !$opts{'quiet'};
 	eval {
 		$script->{'db'}
 		  ->do( 'INSERT INTO classification_groups (cg_scheme_id,group_id,active,curator,datestamp) VALUES (?,?,?,?,?)',
@@ -256,7 +263,7 @@ sub create_group {
 sub add_profile_to_group {
 	my ( $group_id, $profile_id ) = @_;
 	my $cg_scheme_info = get_cscheme_info();
-	say "Adding $script->{'pk'}-$profile_id to group $group_id.";
+	say "Adding $script->{'pk'}-$profile_id to group $group_id." if !$opts{'quiet'};
 	eval {
 		$script->{'db'}->do(
 			'INSERT INTO classification_group_profiles (cg_scheme_id,group_id,profile_id,'
@@ -270,6 +277,43 @@ sub add_profile_to_group {
 	}
 	$script->{'db'}->commit;
 	$script->{'grouped_profiles'}->{$profile_id} = 1;
+	return;
+}
+
+sub get_lock_file {
+	my $hash      = Digest::MD5::md5_hex("$0||$opts{'database'}||$opts{'cscheme_id'}");
+	my $lock_file = LOCK_DIR . "/BIGSdb_cluster_$hash";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
+}
+
+sub check_if_script_already_running {
+	my $lock_file = get_lock_file();
+	if ( -e $lock_file ) {
+		open( my $fh, '<', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
+		my $pid = <$fh>;
+		close $fh;
+		my $pid_exists = kill( 0, $pid );
+		if ( !$pid_exists ) {
+			say 'Lock file exists but process is no longer running - deleting lock.' if !$opts{'quiet'};
+			unlink $lock_file;
+		} else {
+			undef $script;
+			if ($opts{'quiet'}){
+				exit(1);
+			} else {
+				die "Script already running with these parameters - terminating.\n";
+			}
+		}
+	}
+	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");
+	say $fh $$;
+	close $fh;
 	return;
 }
 
@@ -343,6 +387,9 @@ ${bold}--database$norm ${under}NAME$norm
     
 ${bold}--help$norm
     This help page.
+    
+${bold}--quiet$norm
+    Suppress normal output.
     
 ${bold}--reset$norm
     Remove all groups and profiles currently defined for classification group.          
