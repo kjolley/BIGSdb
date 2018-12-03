@@ -19,6 +19,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20181203
 use strict;
 use warnings;
 use 5.010;
@@ -30,12 +32,14 @@ use constant {
 	HOST             => undef,                  #Use values in config.xml
 	PORT             => undef,                  #But you can override here.
 	USER             => undef,
-	PASSWORD         => undef
+	PASSWORD         => undef,
+	LOCK_DIR         => '/var/run/lock'
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Exceptions;
+use Digest::MD5;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use Try::Tiny;
@@ -71,6 +75,7 @@ GetOptions(
 	'min_size=i'           => \$opts{'m'},
 	'missing=i'            => \$opts{'missing'},
 	'projects=s'           => \$opts{'p'},
+	'quiet'                => \$opts{'quiet'},
 	'scheme=i'             => \$opts{'scheme_id'},
 ) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
@@ -102,6 +107,7 @@ perform_sanity_checks();
 get_existing_alleles();
 local $| = 1;
 main();
+remove_lock_file();
 undef $script;
 
 sub main {
@@ -115,8 +121,8 @@ sub main {
 		my $field_values =
 		  $scheme->get_field_values_by_designations( $designations,
 			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
-		next if @$field_values;    #Already defined
-		print "Isolate id: $isolate_id; ";
+		next if @$field_values;                                 #Already defined
+		print "Isolate id: $isolate_id; " if !$opts{'quiet'};
 		define_new_profile($designations);
 	}
 	refresh_caches();
@@ -204,7 +210,7 @@ sub define_new_profile {
 		}
 		$script->{'new_missing_awaiting_commit'} = [];
 	}
-	say "$script->{'primary_key'}-$next_pk assigned.";
+	say "$script->{'primary_key'}-$next_pk assigned." if !$opts{'quiet'};
 	return;
 }
 
@@ -301,6 +307,7 @@ sub get_profile {
 }
 
 sub perform_sanity_checks {
+	check_if_script_already_running();
 	check_scheme_exists();
 	check_user_exists();
 	check_scheme_properly_defined();
@@ -414,7 +421,7 @@ sub get_seqdef_db {
 
 sub refresh_caches {
 	return if !$opts{'cache'};
-	say 'Refreshing caches...';
+	say 'Refreshing caches...' if !$opts{'quiet'};
 	$script->{'datastore'}->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1 } );
 	$script->{'datastore'}->create_temp_scheme_status_table( $opts{'scheme_id'}, { cache => 1 } );
 	return;
@@ -429,6 +436,39 @@ sub defined_in_cache {
 	return if !$cache_exists;
 	return $script->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)",
 		$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
+}
+
+sub get_lock_file {
+	my $hash      = Digest::MD5::md5_hex("$0||$opts{'database'}||$opts{'scheme_id'}");
+	my $lock_file = LOCK_DIR . "/BIGSdb_define_profiles_$hash";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
+}
+
+sub check_if_script_already_running {
+	my $lock_file = get_lock_file();
+	if ( -e $lock_file ) {
+		open( my $fh, '<', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
+		my $pid = <$fh>;
+		close $fh;
+		my $pid_exists = kill( 0, $pid );
+		if ( !$pid_exists ) {
+			say 'Lock file exists but process is no longer running - deleting lock.';
+			unlink $lock_file;
+		} else {
+			undef $script;
+			die "Script already running with these parameters - terminating.\n";
+		}
+	}
+	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");
+	say $fh $$;
+	close $fh;
+	return;
 }
 
 sub show_help {
@@ -494,6 +534,9 @@ ${bold}--missing$norm ${under}NUMBER$norm
     
 ${bold}--projects$norm ${under}LIST$norm
     Comma-separated list of project isolates to scan.
+    
+${bold}--quiet$norm
+    Suppress normal output.
  
 ${bold}--scheme$norm ${under}SCHEME_ID$norm
     Scheme id number.

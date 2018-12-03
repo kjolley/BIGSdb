@@ -22,8 +22,6 @@
 #Version: 20181203
 use strict;
 use warnings;
-use List::Util qw(min);
-use Digest::MD5;
 use 5.010;
 ###########Local configuration#############################################
 use constant {
@@ -39,6 +37,8 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use List::Util qw(min);
+use Digest::MD5;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 
