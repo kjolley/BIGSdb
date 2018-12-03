@@ -812,6 +812,12 @@ sub refresh_caches {
 				}
 				$data_types{ $locus_info->{'data_type'} } = 1;
 			}
+			if ( keys %data_types == 0 ) {
+
+				#This may be caused by a race condition. Logging added to investigate.
+				$self->{'logger'}->error("Cache $cache_name contains no loci.");
+				next CACHE;
+			}
 			if ( keys %data_types > 1 ) {
 				$self->{'logger'}->error("Cache $cache_name contains DNA and peptide loci. Cannot create.");
 				next CACHE;
