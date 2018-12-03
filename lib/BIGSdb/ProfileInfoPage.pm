@@ -222,6 +222,7 @@ sub _print_classification_groups {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
 			[ $cscheme->{'id'}, $cgroup ] );
+		next if $profile_count == 1;
 		my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(scheme_id=$scheme_id&amp;s1=$cscheme->{'name'}&amp;y1==&amp;t1=$cgroup&amp;submit=1);
 		$buffer .=
