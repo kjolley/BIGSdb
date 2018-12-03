@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20181202
+#Version: 20181203
 use strict;
 use warnings;
 use List::Util qw(min);
@@ -300,15 +300,11 @@ sub check_if_script_already_running {
 		close $fh;
 		my $pid_exists = kill( 0, $pid );
 		if ( !$pid_exists ) {
-			say 'Lock file exists but process is no longer running - deleting lock.' if !$opts{'quiet'};
+			say 'Lock file exists but process is no longer running - deleting lock.';
 			unlink $lock_file;
 		} else {
 			undef $script;
-			if ($opts{'quiet'}){
-				exit(1);
-			} else {
-				die "Script already running with these parameters - terminating.\n";
-			}
+			die "Script already running with these parameters - terminating.\n";
 		}
 	}
 	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");
