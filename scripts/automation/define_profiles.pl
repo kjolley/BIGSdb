@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20181203
+#Version: 20181204
 use strict;
 use warnings;
 use 5.010;
@@ -114,6 +114,7 @@ sub main {
 	my $isolates     = $script->get_isolates;
 	my $isolate_list = $script->filter_and_sort_isolates($isolates);
 	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
+	my $need_to_refresh_cache;
 	foreach my $isolate_id (@$isolate_list) {
 		next if defined_in_cache($isolate_id);
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
@@ -124,8 +125,9 @@ sub main {
 		next if @$field_values;                                 #Already defined
 		print "Isolate id: $isolate_id; " if !$opts{'quiet'};
 		define_new_profile($designations);
+		$need_to_refresh_cache = 1;
 	}
-	refresh_caches();
+	refresh_caches() if $need_to_refresh_cache;
 	return;
 }
 
@@ -422,8 +424,10 @@ sub get_seqdef_db {
 sub refresh_caches {
 	return if !$opts{'cache'};
 	say 'Refreshing caches...' if !$opts{'quiet'};
-	$script->{'datastore'}->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1 } );
-	$script->{'datastore'}->create_temp_scheme_status_table( $opts{'scheme_id'}, { cache => 1 } );
+	$script->{'datastore'}
+	  ->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1, method => 'incremental' } );
+	$script->{'datastore'}
+	  ->create_temp_scheme_status_table( $opts{'scheme_id'}, { cache => 1, method => 'incremental' } );
 	return;
 }
 
