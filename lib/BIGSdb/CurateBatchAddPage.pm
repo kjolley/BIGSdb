@@ -1040,6 +1040,7 @@ sub _get_primary_key_values {
 		if ( !defined $file_header_pos{$_} ) {
 			if ( $_ eq 'id' && $arg_ref->{'id'} ) {
 				$pk_combination .= 'id: ' . BIGSdb::Utils::pad_length( $arg_ref->{'id'}, 10 );
+				push @pk_values, $arg_ref->{'id'};
 			} else {
 				if ( $arg_ref->{'table'} eq 'sequences' && $arg_ref->{'locus'} && $_ eq 'locus' ) {
 					push @pk_values, $arg_ref->{'locus'};
@@ -1132,7 +1133,7 @@ sub _check_data_users {
 				  . q(user databases using this function. You need to import them.);
 				${ $arg_ref->{'special_problem'} } = 1;
 			}
-		  }
+		}
 	};
 	if ( $check->{$field} ) {
 		$check->{$field}->();
@@ -1959,7 +1960,7 @@ sub _upload_data {
 							field_order => $field_order,
 						}
 					);
-				  }
+				}
 			};
 			if ( $extra_methods->{$table} ) {
 				my $extra_inserts = $extra_methods->{$table}->();
