@@ -22,6 +22,7 @@ use warnings;
 use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.ClientDB');
+use constant MAX_LOCI_NON_CACHE => 20;
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
@@ -60,10 +61,47 @@ sub count_isolates_with_allele {
 	return $count;
 }
 
+sub scheme_cache_exists {
+	my ( $self, $scheme_id ) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)');
+	$self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)');
+	my $table = "temp_isolates_scheme_fields_$scheme_id";
+	eval { $sql->execute($table) };
+	$logger->error($@) if $@;
+	return $sql->fetchrow_array;
+}
+
+sub count_matching_profile_by_pk {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	if ( !$self->scheme_cache_exists($scheme_id) ) {
+		$logger->error("Scheme cache does not exist for scheme:$scheme_id in client isolate database.");
+		return 0;
+	}
+	my $table = "temp_isolates_scheme_fields_$scheme_id";
+	my $pk    = $self->_get_pk_field($scheme_id);
+	BIGSdb::Exception::Database::Configuration->throw("No primary key set for scheme $scheme_id")
+	  if !$pk;
+	my $view = $self->{'dbase_view'} // 'isolates';
+	my $sql =
+	  $self->{'db'}
+	  ->prepare("SELECT COUNT(*) FROM $table t JOIN $view v ON t.id=v.id WHERE $pk=? AND v.new_version IS NULL");
+	eval { $sql->execute($profile_id) };
+	if ($@) {
+		BIGSdb::Exception::Database::Configuration->throw($@);
+	}
+	return $sql->fetchrow_array;
+}
+
 sub count_matching_profiles {
 	my ( $self, $alleles_hashref ) = @_;
 	my $locus_count = scalar keys %$alleles_hashref;
-	my $first       = 1;
+	if ( $locus_count > MAX_LOCI_NON_CACHE ) {
+		my $max = MAX_LOCI_NON_CACHE;
+		$logger->error( "Called ClientDB::count_matching_loci when scheme has more than $max loci. "
+			  . 'You need to ensure caches are being used on the isolate database' );
+		return 0;
+	}
+	my $first = 1;
 	my $temp;
 	my @args;
 	foreach my $locus ( keys %$alleles_hashref ) {
@@ -110,6 +148,17 @@ sub get_fields {
 	return $data;
 }
 
+sub _get_pk_field {
+	my ( $self, $scheme_id ) = @_;
+	if ( !$self->{'sql'}->{'scheme_pk'} ) {
+		$self->{'sql'}->{'scheme_pk'} =
+		  $self->{'db'}->prepare('SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key');
+	}
+	eval { $self->{'sql'}->{'scheme_pk'}->execute($scheme_id) };
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	return $self->{'sql'}->{'scheme_pk'}->fetchrow_array;
+}
+
 sub count_isolates_belonging_to_classification_group {
 	my ( $self, $cscheme, $group ) = @_;
 	my $view = $self->{'dbase_view'} // 'isolates';
@@ -122,13 +171,7 @@ sub count_isolates_belonging_to_classification_group {
 	my $scheme_id = $self->{'sql'}->{'scheme_from_cg'}->fetchrow_array;
 	BIGSdb::Exception::Database::Configuration->throw("No scheme_id set for classification scheme $cscheme")
 	  if !defined $scheme_id;
-	if ( !$self->{'sql'}->{'scheme_pk'} ) {
-		$self->{'sql'}->{'scheme_pk'} =
-		  $self->{'db'}->prepare('SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key');
-	}
-	eval { $self->{'sql'}->{'scheme_pk'}->execute($scheme_id) };
-	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
-	my $pk = $self->{'sql'}->{'scheme_pk'}->fetchrow_array;
+	my $pk = $self->_get_pk_field($scheme_id);
 	BIGSdb::Exception::Database::Configuration->throw("No primary key set for scheme $scheme_id")
 	  if !$pk;
 	my $qry =

@@ -25,7 +25,8 @@ use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_LOCI_SHOW => 100;
+use constant MAX_LOCI_SHOW      => 100;
+use constant MAX_LOCI_NON_CACHE => 20;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -108,7 +109,7 @@ sub _print_client_db_links {
 	my $clients =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT client_dbase_id, client_scheme_id FROM client_dbase_schemes WHERE scheme_id=?',
-		$scheme_id, { fetch => 'all_arrayref' } );
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
 	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	return if !@$clients;
@@ -121,13 +122,13 @@ sub _print_client_db_links {
 	my $buffer;
 
 	foreach my $client (@$clients) {
-		my ( $client_dbase_id, $client_scheme_id ) = @$client;
-		my $client_info = $self->{'datastore'}->get_client_db_info($client_dbase_id);
+		$client->{'client_scheme_id'} //= $scheme_id;
+		my $client_info = $self->{'datastore'}->get_client_db_info( $client->{'client_dbase_id'} );
 		my %alleles;
 		foreach my $locus (@$loci) {
 			my ( $c_locus, $c_alias ) = $self->{'datastore'}->run_query(
 				'SELECT locus,locus_alias FROM client_dbase_loci WHERE (client_dbase_id,locus)=(?,?)',
-				[ $client_dbase_id, $locus ],
+				[ $client->{'client_dbase_id'}, $locus ],
 				{ cache => 'ProfileInfoPage::client_dbase_loci' }
 			);
 			if ($c_locus) {
@@ -140,15 +141,19 @@ sub _print_client_db_links {
 			$logger->error('No client database loci have been set.');
 			$count = 0;
 		} else {
-			$count =
-			  $self->{'datastore'}->get_client_db($client_dbase_id)->count_matching_profiles( \%alleles );
+			my $client_db = $self->{'datastore'}->get_client_db( $client->{'client_dbase_id'} );
+			if ( $client_db->scheme_cache_exists( $client->{'client_scheme_id'} ) ) {
+				$count = $client_db->count_matching_profile_by_pk( $client->{'client_scheme_id'}, $profile_id );
+			} else {
+				$count = $client_db->count_matching_profiles( \%alleles );
+			}
 		}
 		if ($count) {
 			my $plural = $count == 1 ? q() : q(s);
 			$buffer .= qq(<dt>$client_info->{'name'}</dt>\n);
 			$buffer .= qq(<dd>$client_info->{'description'} );
 			if ( $client_info->{'url'} ) {
-				my $c_scheme_id = $client_scheme_id // $scheme_id;
+				my $c_scheme_id = $client->{'client_scheme_id'} // $scheme_id;
 				my %params = (
 					db                    => $client_info->{'dbase_config_name'},
 					page                  => 'query',
@@ -229,6 +234,7 @@ sub _print_classification_groups {
 		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
 		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+
 		if (@$client_dbs) {
 			my @client_links = ();
 			foreach my $client_db (@$client_dbs) {
