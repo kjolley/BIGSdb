@@ -1941,10 +1941,9 @@ sub get_allele_attributes {
 	return $self->_format_list_values($values);
 }
 ##############REFERENCES###############################################################
-sub get_citation_hash {
-	my ( $self, $pmids, $options ) = @_;
-	my $citation_ref = {};
-	my %att          = (
+sub _get_ref_db {
+	my ($self) = @_;
+	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
 		host       => $self->{'system'}->{'host'},
 		port       => $self->{'system'}->{'port'},
@@ -1962,7 +1961,15 @@ sub get_citation_hash {
 			$logger->logdie($_);
 		}
 	};
-	return $citation_ref if !$self->{'config'}->{'ref_db'} || !$dbr;
+	return $dbr;
+}
+
+sub get_citation_hash {
+	my ( $self, $pmids, $options ) = @_;
+	my $citation_ref = {};
+	return $citation_ref if !$self->{'config'}->{'ref_db'};
+	my $dbr = $self->_get_ref_db;
+	return $citation_ref if !$dbr;
 	foreach my $pmid (@$pmids) {
 		my ( $year, $journal, $title, $volume, $pages ) =
 		  $self->run_query( 'SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?',
@@ -2434,7 +2441,7 @@ sub initiate_view {
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
 					push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
-				  }
+				}
 			};
 			if ( $method->{ $user_info->{'status'} } ) {
 				$method->{ $user_info->{'status'} }->();
