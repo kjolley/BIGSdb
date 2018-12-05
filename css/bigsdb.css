@@ -3,7 +3,7 @@ select{margin:0}
 p {margin:0 0 1em 0;padding:0}
 
 body {
-	font:1em/110% Arial,Helvetica,sans-serif;
+	font:1em/120% Arial,Helvetica,sans-serif;
 	background:#fff;
 	color:#000;
 	margin-left:3px;
@@ -426,7 +426,7 @@ a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.
 
 div.box {
 	padding:10px;
-	font-size:0.8em;
+	font-size:0.9em;
 	margin-bottom: 0.5em;
 	border: 1px solid #ccc;
 	border-radius: 10px;
