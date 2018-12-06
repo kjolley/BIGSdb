@@ -98,9 +98,9 @@ sub print_content {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
 			print qq($pk\t@$profile[@order]);
-			print qq(\t@$definition) if @$definition;
+			print qq(\t@$definition);
 			foreach my $cg_schemes (@$cg_schemes) {
-				my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk};
+				my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk} // q();
 				print qq(\t$group_id);
 			}
 			print qq(\n);
