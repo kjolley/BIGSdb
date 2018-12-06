@@ -26,7 +26,6 @@ use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_LOCI_SHOW      => 100;
-use constant MAX_LOCI_NON_CACHE => 20;
 
 sub get_help_url {
 	my ($self) = @_;
