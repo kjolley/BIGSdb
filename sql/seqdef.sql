@@ -1494,6 +1494,7 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
+CREATE INDEX i_cgp1 ON classification_group_profiles(cg_scheme_id,profile_id);
 GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profiles TO apache;
 
 --classification_group_profile_fields

@@ -1,4 +1,5 @@
 CREATE INDEX i_s3 ON sequences USING brin(datestamp);
+CREATE INDEX i_cgp1 ON classification_group_profiles(cg_scheme_id,profile_id);
 
 CREATE OR REPLACE FUNCTION matching_profiles_cg(i_cg_scheme_id int, profile_id1 text, threshold int) 
 	RETURNS setof text AS $$
