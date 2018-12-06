@@ -436,9 +436,12 @@ sub _get_scheme_fields {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
 				my $scheme_buffer = $self->_get_scheme_table( $scheme->{'id'}, $designations );
-				if ( !$scheme_buffer ) {
-					$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations );
-				}
+				my $exact_match = $scheme_buffer ? 1 : 0;
+
+				#				if ( !$scheme_buffer ) {
+				$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations, $exact_match );
+
+				#				}
 				if ($scheme_buffer) {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
 					$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -451,9 +454,12 @@ sub _get_scheme_fields {
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
 			my $scheme_buffer = $self->_get_scheme_table( $scheme_id, $designations );
-			if ( !$scheme_buffer ) {
-				$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations );
-			}
+			my $exact_match = $scheme_buffer ? 1 : 0;
+
+			#			if ( !$scheme_buffer ) {
+			$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations, $exact_match );
+
+			#			}
 			if ($scheme_buffer) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -465,7 +471,7 @@ sub _get_scheme_fields {
 }
 
 sub _get_classification_groups {
-	my ( $self, $scheme_id, $designations ) = @_;
+	my ( $self, $scheme_id, $designations, $exact_match ) = @_;
 	my $buffer = q();
 	return $buffer if !$self->is_page_allowed('profileInfo');
 	my $matched_loci = keys %$designations;
@@ -480,15 +486,19 @@ sub _get_classification_groups {
 	my $largest_threshold = $self->{'datastore'}
 	  ->run_query( 'SELECT MAX(inclusion_threshold) FROM classification_schemes WHERE scheme_id=?', $scheme_id );
 	return $buffer if $ret_val->{'mismatches'} > $largest_threshold;
-	$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= q(<h3>Matching profiles</h3>);
-	$buffer .=
-	    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
-	  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
-	  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
-	$buffer .=
-	  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
+
+	if ( !$exact_match ) {
+		$buffer .=
+		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
+		$buffer .= q(<h3>Matching profiles</h3>);
+		$buffer .=
+		    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
+		  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
+		  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
+		$buffer .=
+		  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
+	}
 	my $cschemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
@@ -502,7 +512,6 @@ sub _get_classification_groups {
 	);
 	my $td = 1;
 	my $cbuffer;
-
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
 			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
@@ -665,6 +674,10 @@ sub _get_scheme_table {
 			undef, { fetch => 'all_arrayref', slice => {} } );
 		return q() if !@$all_values;
 		my $buffer;
+		$buffer .=
+		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
+		my $plural = @$all_values == 1 ? q() : q(s);
+		$buffer .= qq(<h3>Matching profile$plural</h3>);
 		$buffer .= q(<dl class="data">);
 		my $td           = 1;
 		my $field_values = {};
