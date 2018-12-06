@@ -1,3 +1,4 @@
+/*Version: 20181206*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -426,7 +427,7 @@ a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.
 
 div.box {
 	padding:10px;
-	font-size:0.9em;
+	font-size:0.85em;
 	margin-bottom: 0.5em;
 	border: 1px solid #ccc;
 	border-radius: 10px;
