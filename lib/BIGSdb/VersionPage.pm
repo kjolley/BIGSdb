@@ -50,7 +50,7 @@ sub print_about_bigsdb {
 <div class="box resultspanel">
 <h2>BIGSdb Version $version</h2>
 <span class="main_icon far fa-copyright fa-3x fa-pull-left"></span>
-<ul style="margin-left:1em">
+<ul style="margin-left:2em">
 <li>Written by Keith Jolley</li>
 <li>Copyright &copy; University of Oxford, 2010-2018.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
@@ -71,13 +71,13 @@ GNU General Public License for more details.</p>
 can be found at <a href="http://www.gnu.org/licenses/gpl.html">
 http://www.gnu.org/licenses/gpl.html</a>.</p>
 <span class="main_icon fab fa-github fa-3x fa-pull-left"></span>
-<ul style="margin-left:1em;padding-top:1em"><li>
+<ul style="margin-left:2em;padding-top:1em"><li>
 Source code can be downloaded from <a href="https://github.com/kjolley/BIGSdb">
 https://github.com/kjolley/BIGSdb</a>.
 </li></ul>
 <h2>Documentation</h2>
 <span class="main_icon fas fa-book fa-3x fa-pull-left"></span>
-<ul style="margin-left:1em">
+<ul style="margin-left:2em">
 <li>The home page for this software is  
 <a href="https://pubmlst.org/software/database/bigsdb/">
 https://pubmlst.org/software/database/bigsdb/</a>.</li>
