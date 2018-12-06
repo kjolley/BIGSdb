@@ -463,14 +463,14 @@ div.curategroup_loci {background:#fdd}
 div.curategroup_schemes {background:#dcf}
 div.curategroup_sets {background:#cdf}
 
-div.queryform, div#queryform {background:#e0e0e0;z-index:0}
+div.queryform, div#queryform {background-image: linear-gradient(#e0e0e0, #e8e8e8);z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
 div#queryform table {border-collapse:collapse;border-spacing:0}
 div#queryform table.queryform {border-collapse:separate;border-spacing:1px}
 div#queryform table.queryform td {padding:0}
 div#chart {background:#e0e0e0}
 div#sequence {background:#efefff}
-div#index {background:#d5e0d5}
+div#index {background-image: linear-gradient(#d8e0d8, #e0e8e0)}
 div#curator {background:#e7e7e7}
 div#admin {background:#f0e7e7}
 div#submissions {background:#e7e7f0}
@@ -487,7 +487,7 @@ div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader, div.resultsheader {background:#d5e0d5;padding:5px}
 div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
-div#resultspanel, div.resultspanel {background:#f0f0f0}
+div#resultspanel, div.resultspanel {background-image: linear-gradient(#f0f0f0, #f8f8f8)}
 div#resultspanel li,p,dd {position:relative;z-index:3}
 div#samples table {border-spacing:1px}
 div#samples {background:#f0e0e0}
@@ -498,7 +498,7 @@ div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
-div#plugins {background:#d5d5e0}
+div#plugins {background-image: linear-gradient(#d8d8e0, #e0e0e8)}
 div#message {background:#e0d5d5}
 
 
