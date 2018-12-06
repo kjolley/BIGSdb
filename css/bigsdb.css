@@ -218,7 +218,6 @@ a.update:hover {background:#d0f5d0}
 .legendbutton {margin:-17px 5px 10px 0;float:right}
 
 input.pagebar {
-	font:84% arial,helvetica,sans-serif;
 	background:#efefff;
 	margin:1px;
 	border:1px solid;
@@ -231,7 +230,6 @@ input.pagebar {
 }
 
 .pagebar_selected {
-	font:84% arial,helvetica,sans-serif;
 	border: 1px solid black; 
 	padding: 0 5px;
 	border-radius: 3px;
