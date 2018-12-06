@@ -1,3 +1,9 @@
+v1.20.3: *Cache renewal fixes to prevent table locking if multiple processes
+          try to renew the same cache (may happen on big schemes when the 
+          renewal is run as a CRON job).
+         *Sequence query update to always include classification groups if
+          defined.
+         *Classification groups included in profile export plugin.
 v1.20.2: *Fix for bug in export plugin introduced with v1.20.1.
 v1.20.1: *Improved exception handling - please note new Perl module 
           dependencies: Try::Tiny and Exception::Class.
