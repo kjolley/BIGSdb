@@ -1304,6 +1304,7 @@ RETURNS VOID AS $$
 		qry text;
 		isolate RECORD;
 		table_type text;
+		records_updated int;
 	BEGIN
 		EXECUTE('SELECT * FROM schemes WHERE id=$1') INTO scheme_info USING _scheme_id;
 		IF (scheme_info.id IS NULL) THEN
@@ -1324,10 +1325,16 @@ RETURNS VOID AS $$
 		cache_table:='temp_' || _view || '_scheme_fields_' || _scheme_id;
 		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
 			IF _method='daily_replace' THEN
-				EXECUTE(FORMAT('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE datestamp=''today'')',cache_table,_view));
+				EXECUTE(FORMAT('SELECT COUNT(*) FROM %I WHERE datestamp=''today''',_view)) INTO records_updated;
+				IF records_updated > 10000 THEN
+					RAISE NOTICE 'Daily replace cache renewal would replace % records - performing full renewal instead.', records_updated;
+					_method := 'full';
+				ELSE
+					EXECUTE(FORMAT('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE datestamp=''today'')',cache_table,_view));
+				END IF;
 			END IF;
 		ELSE
-			_method='full';
+			_method:='full';
 		END IF;
 		cache_table_temp:=cache_table || floor(random()*9999999);
 		scheme_table:='temp_scheme_' || _scheme_id;
