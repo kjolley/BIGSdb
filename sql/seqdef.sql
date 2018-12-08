@@ -1376,11 +1376,14 @@ CREATE OR REPLACE FUNCTION matching_profiles_cg(i_cg_scheme_id int, profile_id1 
 	BEGIN
 		SELECT cs.scheme_id INTO i_scheme_id FROM classification_schemes cs WHERE id=i_cg_scheme_id;	
 		SELECT COUNT(*) INTO locus_count FROM scheme_members WHERE scheme_id=i_scheme_id;	
-		RETURN QUERY SELECT p2.profile_id FROM profile_members AS p1 JOIN profile_members AS p2 ON p1.locus=p2.locus AND 
-		p1.scheme_id=p2.scheme_id AND p1.scheme_id=i_scheme_id JOIN classification_group_profiles cgp ON 
-		p2.profile_id=cgp.profile_id AND cgp.cg_scheme_id=i_cg_scheme_id WHERE p1.profile_id=profile_id1 
-		AND p1.profile_id!=p2.profile_id AND (p1.allele_id=p2.allele_id OR p1.allele_id='N' OR p2.allele_id='N')  
-		GROUP BY p2.profile_id HAVING COUNT(*) >= (locus_count-threshold);
+		RETURN QUERY
+			EXECUTE 'SELECT p2.profile_id FROM profile_members AS p1 JOIN profile_members AS p2 ON '
+			  || 'p1.locus=p2.locus AND p1.scheme_id=p2.scheme_id AND p1.scheme_id=$1 JOIN '
+			  || 'classification_group_profiles cgp ON p2.profile_id=cgp.profile_id AND '
+			  || 'cgp.cg_scheme_id=$2 WHERE p1.profile_id=$3 AND '
+			  || 'p1.profile_id!=p2.profile_id AND (p1.allele_id=p2.allele_id OR p1.allele_id=$4 OR '
+			  || 'p2.allele_id=$4) GROUP BY p2.profile_id HAVING COUNT(*) >= $5'
+			 USING i_scheme_id, i_cg_scheme_id, profile_id1, 'N',(locus_count-threshold);
 	END 
 $$ LANGUAGE plpgsql;
 
