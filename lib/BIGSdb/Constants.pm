@@ -31,7 +31,7 @@ use constant MAX_MUSCLE_MB             => 4 * 1024;    #4GB
 use constant MAX_ISOLATES_DROPDOWN     => 1000;
 use constant MAX_EAV_FIELD_LIST        => 100;
 use constant MAX_LOCUS_ORDER_BY        => 2000;
-use constant MAX_LOCI_NON_CACHE_SCHEME => 20;
+use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
 my @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
   MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME);
 push @EXPORT_OK, @values;
