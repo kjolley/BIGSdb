@@ -98,7 +98,7 @@ sub count_matching_profiles {
 	if ( $locus_count > MAX_LOCI_NON_CACHE_SCHEME ) {
 		my $max = MAX_LOCI_NON_CACHE_SCHEME;
 		$logger->error( "Called ClientDB::count_matching_loci when scheme has more than $max loci. "
-			  . 'You need to ensure caches are being used on the isolate database' );
+			  . "You need to ensure caches are being used on the $self->{'dbase_config_name'} database" );
 		return 0;
 	}
 	my $first = 1;
