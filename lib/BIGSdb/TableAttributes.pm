@@ -2202,7 +2202,7 @@ sub get_classification_group_fields_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z][\w_]*$' },
-		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;date' }
+		{ name => 'type',  type => 'text', required => 1, optlist     => 'text;integer' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
@@ -2229,6 +2229,42 @@ sub get_classification_group_fields_table_attributes {
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	  );
+	return $attributes;
+}
+
+sub get_classification_group_field_values_table_attributes {
+	my ($self) = @_;
+	my $fields = $self->run_query( 'SELECT DISTINCT field FROM classification_group_fields ORDER BY field',
+		undef, { fetch => 'col_arrayref' } );
+	local $" = q(;);
+	my $attributes = [
+		{
+			name           => 'cg_scheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'classification_schemes',
+			labels         => '|$name|',
+			dropdown_query => 1
+		},
+		{
+			name           => 'field',
+			type           => 'text',
+			required       => 1,
+			primary_key    => 1,
+			optlist        => "@$fields",
+			dropdown_query => 1
+		},
+		{
+			name        => 'group_id',
+			type        => 'int',
+			required    => 1,
+			primary_key => 1,
+		},
+		{ name => 'value',   type => 'text', },
+		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
 	return $attributes;
 }
 

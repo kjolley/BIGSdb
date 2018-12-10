@@ -2223,7 +2223,7 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields user_dbases locus_links client_dbase_cschemes);
+		  classification_group_fields classification_group_field_values user_dbases locus_links client_dbase_cschemes);
 	}
 	return @tables;
 }

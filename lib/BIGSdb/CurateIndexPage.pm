@@ -238,6 +238,7 @@ sub _get_seqdef_links {
 	my $buffer = $self->_get_locus_description_fields;
 	$buffer .= $self->_get_sequence_fields;
 	$buffer .= $self->_get_profile_fields;
+	$buffer .= $self->_get_classification_field_values;
 	return $buffer;
 }
 
@@ -1420,6 +1421,41 @@ sub _get_classification_schemes {
 			query     => 1,
 			info      => 'Classification schemes - Set up for clustering '
 			  . 'of scheme profiles at different locus difference thresholds.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer if !$self->_classification_schemes_exist;
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
+	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification group fields</h2>);
+	$buffer .= $self->_get_icon_group(
+		'classification_group_fields',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Classification group fields - Additional fields that can be associated with '
+			  . 'classification scheme groups.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_classification_field_values {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Classification group field values</h2>);
+	$buffer .= $self->_get_icon_group(
+		'classification_group_field_values',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Classification group field values - Associate values with particular classification groups.'
 		}
 	);
 	$buffer .= qq(</div>\n);

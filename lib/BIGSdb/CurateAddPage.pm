@@ -229,7 +229,7 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users eav_fields);
+	  retired_isolates schemes users eav_fields classification_group_field_values);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -536,10 +536,9 @@ sub _check_sequence_allele_id {
 		push @$problems, 'Allele id must not contain spaces - try substituting with underscores (_).';
 	} else {
 		$newdata->{'sequence'} =~ s/\s//gx;
-		my $exists = $self->{'datastore'}->run_query(
-			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
-			[ $newdata->{'locus'}, $newdata->{'sequence'} ]
-		);
+		my $exists =
+		  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+			[ $newdata->{'locus'}, $newdata->{'sequence'} ] );
 		if ($exists) {
 			my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 			push @$problems, "Sequence already exists in the database ($cleaned_locus: $exists).";
@@ -694,7 +693,22 @@ sub _check_classification_group_fields {    ## no critic (ProhibitUnusedPrivateS
 	return;
 }
 
-sub _check_locus_aliases {                  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_classification_group_field_values { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	if (
+		!$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))'
+			,
+			[ $newdata->{'cg_scheme_id'}, $newdata->{'field'} ]
+		)
+	  )
+	{
+		push @$problems, q(Selected field has not been defined for the selected classification scheme.);
+	} 
+	return;
+}
+
+sub _check_locus_aliases {                     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @$problems, 'Locus alias can not be set the same as the locus name.';

@@ -691,7 +691,10 @@ sub _check_data {
 					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				projects => sub {
-					$self->_check_projects( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_projects( $new_args, \%problems, $pk_combination );
+				},
+				classification_group_field_values => sub {
+					$self->_check_classification_field_values( $new_args, \%problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -814,7 +817,7 @@ sub _check_field_bad {
 }
 
 sub _check_projects {
-	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
+	my ( $self, $args, $problems, $pk_combination ) = @_;
 	my $data            = $args->{'data'};
 	my $list            = $data->[ $args->{'file_header_pos'}->{'list'} ];
 	my $private         = $data->[ $args->{'file_header_pos'}->{'private'} ];
@@ -823,6 +826,36 @@ sub _check_projects {
 	if ( $true{ lc $private } && ( $true{ lc $list } || $true{ lc $isolate_display } ) ) {
 		$problems->{$pk_combination} .=
 		  'You cannot make a project both private and list it on the projects or isolate information pages. ';
+	}
+	return;
+}
+
+sub _check_classification_field_values {
+	my ( $self, $args, $problems, $pk_combination ) = @_;
+	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
+	if (
+		!$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))',
+			[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ]
+		)
+	  )
+	{
+		$problems->{$pk_combination} .= q(Selected field has not been defined for the selected classification scheme.);
+	}
+	my $format = $self->{'datastore'}->run_query(
+		'SELECT type,value_regex FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?)',
+		[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ],
+		{ fetch => 'row_hashref' }
+	);
+	return if !$format;
+	if ( $format->{'type'} eq 'integer'
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
+	{
+		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
+	} elsif ( $format->{'value_regex'} && $data->[ $file_header_pos->{'value'} ] !~ /$format->{'value_regex'}/x ) {
+		$problems->{$pk_combination} .=
+		    "$data->[$file_header_pos->{'field'}] value is invalid - "
+		  . "it must match the regular expression /$format->{'value_regex'}/.";
 	}
 	return;
 }
@@ -1998,7 +2031,8 @@ sub _report_successful_upload {
 	my ( $self, $table, $project_id ) = @_;
 	my $q        = $self->{'cgi'};
 	my $nav_data = $self->_get_nav_data($table);
-	my $script   = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
+	my $script =
+	  $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	my ( $more_url, $back_url, $upload_contigs_url );
 	if ( $script eq $self->{'system'}->{'script_name'} ) {
 		$more_url = qq($script?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
@@ -2231,7 +2265,8 @@ sub _prepare_loci_extra_inserts {
 		my $full_name = defined $field_order->{'full_name'} ? $data->[ $field_order->{'full_name'} ] : undef;
 		my $product = defined $field_order->{'product'}
 		  && $data->[ $field_order->{'product'} ] ? $data->[ $field_order->{'product'} ] : undef;
-		my $description = defined $field_order->{'description'} ? $data->[ $field_order->{'description'} ] : undef;
+		my $description =
+		  defined $field_order->{'description'} ? $data->[ $field_order->{'description'} ] : undef;
 		my $qry =
 		    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
 		  . 'VALUES (?,?,?,?,?,?)';
