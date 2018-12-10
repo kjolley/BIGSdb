@@ -1500,28 +1500,24 @@ ON UPDATE CASCADE
 CREATE INDEX i_cgp1 ON classification_group_profiles(cg_scheme_id,profile_id);
 GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profiles TO apache;
 
---classification_group_profile_fields
-CREATE TABLE classification_group_profile_fields (
+--classification_group_field_values
+CREATE TABLE classification_group_field_values (
 cg_scheme_id int NOT NULL,
 field text NOT NULL,
 group_id int NOT NULL,
-profile_id text NOT NULL,
 value text NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(cg_scheme_id,field,group_id,profile_id),
-CONSTRAINT cgpf_cg_scheme_id_field FOREIGN KEY (cg_scheme_id,field) REFERENCES classification_group_fields
+PRIMARY KEY(cg_scheme_id,field,group_id),
+CONSTRAINT cgfv_cg_scheme_id_field FOREIGN KEY (cg_scheme_id,field) REFERENCES classification_group_fields
 ON DELETE CASCADE
 ON UPDATE CASCADE,
-CONSTRAINT cgpf_cg_scheme_id_group_profile_id FOREIGN KEY (cg_scheme_id,group_id,profile_id) REFERENCES classification_group_profiles
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT cgpf_curator FOREIGN KEY (curator) REFERENCES users
+CONSTRAINT cgfv_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_profile_fields TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_field_values TO apache;
 
 --classification_group_profile_history
 CREATE TABLE classification_group_profile_history (

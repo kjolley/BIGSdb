@@ -41,4 +41,21 @@ RETURNS setof text AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+DROP TABLE classification_group_profile_fields;
+CREATE TABLE classification_group_field_values (
+cg_scheme_id int NOT NULL,
+field text NOT NULL,
+group_id int NOT NULL,
+value text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(cg_scheme_id,field,group_id),
+CONSTRAINT cgfv_cg_scheme_id_field FOREIGN KEY (cg_scheme_id,field) REFERENCES classification_group_fields
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT cgfv_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
 
+GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_field_values TO apache;
