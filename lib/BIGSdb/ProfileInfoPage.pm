@@ -25,7 +25,7 @@ use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
-use constant MAX_LOCI_SHOW      => 100;
+use constant MAX_LOCI_SHOW => 100;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -209,7 +209,12 @@ sub _print_classification_groups {
 		$scheme_id,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $td = 1;
+	my $td             = 1;
+	my $fields_defined = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM classification_group_fields cgf JOIN '
+		  . 'classification_schemes cs ON cgf.cg_scheme_id=cs.id WHERE cs.scheme_id=?)',
+		$scheme_id
+	);
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
 			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
@@ -232,8 +237,14 @@ sub _print_classification_groups {
 		$buffer .=
 		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
-		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+		  . qq(<td>$cgroup</a></td>);
 
+		if ($fields_defined) {
+			$buffer .= q(<td>);
+			$buffer .= $self->_get_classification_group_fields( $cscheme->{'id'}, $cgroup );
+			$buffer .= q(</td>);
+		}
+		$buffer .= qq(<td><a href="$url">$profile_count</a></td>);
 		if (@$client_dbs) {
 			my @client_links = ();
 			foreach my $client_db (@$client_dbs) {
@@ -275,13 +286,32 @@ sub _print_classification_groups {
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Clustering method</th>)
-		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th>);
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th>);
+		say q(<th>Fields</th>) if $fields_defined;
+		say q(<th>Profiles</th>);
 		say q(<th>Isolates</th>) if @$client_dbs;
 		say q(</tr>);
 		say $buffer;
 		say q(</table></div></div></div>);
 	}
 	return;
+}
+
+sub _get_classification_group_fields {
+	my ( $self, $cg_scheme_id, $group_id ) = @_;
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT cgfv.* FROM classification_group_field_values cgfv JOIN classification_group_fields '
+		  . 'cgf ON cgfv.cg_scheme_id=cgf.cg_scheme_id AND cgfv.field=cgf.field WHERE '
+		  . '(cgf.cg_scheme_id,group_id)=(?,?) ORDER BY cgf.field_order,cgf.field',
+		[ $cg_scheme_id, $group_id ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my @values;
+	foreach my $field (@$data) {
+		push @values, qq($field->{'field'}: $field->{'value'});
+	}
+	local $" = q(; );
+	return qq(@values);
 }
 
 sub _print_profile {
