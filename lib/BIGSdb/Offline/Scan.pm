@@ -1006,7 +1006,7 @@ sub _get_row {
 			-name    => "id_${isolate_id}_${locus}_sequence_$id",
 			-id      => "id_${isolate_id}_${cleaned_locus}_sequence_$id",
 			-label   => '',
-			-checked => $exact||$hunter->{'off_end'}
+			-checked => $exact || ( $hunter->{'off_end'} && $match->{'identity'} == 100 )
 		);
 		push @$js3, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",true));
 		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
