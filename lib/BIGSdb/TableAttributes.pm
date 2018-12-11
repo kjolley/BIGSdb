@@ -2218,14 +2218,6 @@ sub get_classification_group_fields_table_attributes {
 	  (
 		{ name => 'description', type => 'text', required => 0, length => 64, },
 		{ name => 'field_order', type => 'int',  required => 0 },
-		{
-			name     => 'dropdown',
-			type     => 'bool',
-			required => 1,
-			default  => 'false',
-			tooltip  => 'dropdown - Sets whether to display a dropdown list box in the query interface '
-			  . '(can be overridden by user preference).'
-		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	  );

@@ -148,3 +148,6 @@ RETURNS VOID AS $$
 		DROP TABLE ad;
 	END;
 $$ LANGUAGE plpgsql;
+
+ALTER TABLE classification_group_fields DROP COLUMN dropdown;
+

@@ -42,6 +42,7 @@ RETURNS setof text AS $$
 $$ LANGUAGE plpgsql;
 
 DROP TABLE classification_group_profile_fields;
+ALTER TABLE classification_group_fields DROP COLUMN dropdown;
 CREATE TABLE classification_group_field_values (
 cg_scheme_id int NOT NULL,
 field text NOT NULL,
