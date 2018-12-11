@@ -650,7 +650,7 @@ sub _get_scheme_table {
 	my $missing_loci;
 
 	#Do a deep copy so that we don't clobber hashref.
-	state $designations = dclone $designations_no_clobber;
+	my $designations = dclone $designations_no_clobber;
 	foreach my $locus (@$scheme_loci) {
 		$missing_loci = 1 if !defined $designations->{$locus};
 		my $alleles = $designations->{$locus};
