@@ -1108,6 +1108,57 @@ sub create_temp_cscheme_table {
 	return $table;
 }
 
+sub create_temp_cscheme_field_values_table {
+	my ( $self, $cscheme_id, $options ) = @_;
+	my $table = "temp_cscheme_${cscheme_id}_field_values";
+	if ( !$options->{'cache'} ) {
+		if ( $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table ) ) {
+			return $table;
+		}
+	}
+	my $table_type = 'TEMP TABLE';
+	my $rename_table;
+	if ( $options->{'cache'} ) {
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		$table        = $table . '_' . int( rand(99999) );
+	}
+	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
+	my $cscheme        = $self->get_classification_scheme($cscheme_id);
+	my $db             = $cscheme->get_db;
+	my $group_values = $self->run_query(
+		'SELECT group_id,field,value FROM classification_group_field_values WHERE cg_scheme_id=?',
+		$cscheme_info->{'seqdef_cscheme_id'},
+		{ db => $db, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}->do("CREATE $table_type $table (group_id int, field text, value text)");
+		$self->{'db'}->do("COPY $table(group_id,field,value) FROM STDIN");
+		local $" = "\t";
+		foreach my $values (@$group_values) {
+			$self->{'db'}->pg_putcopydata("@$values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do("CREATE INDEX ON $table(group_id)");
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+
+	#Create new temp table, then drop old and rename the new - this
+	#should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		$logger->error($@) if $@;
+		$self->{'db'}->commit;
+		$table = $rename_table;
+	}
+	return $table;
+}
+
 sub create_temp_scheme_table {
 	my ( $self, $id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1360,6 +1411,23 @@ sub get_classification_scheme_info {
 		$cg_scheme_id, { fetch => 'row_hashref', cache => 'get_classification_scheme_info' } );
 	$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
 	return $info;
+}
+
+sub get_classification_group_fields {
+	my ( $self, $cg_scheme_id, $group_id ) = @_;
+	my $data = $self->run_query(
+		'SELECT cgfv.* FROM classification_group_field_values cgfv JOIN classification_group_fields '
+		  . 'cgf ON cgfv.cg_scheme_id=cgf.cg_scheme_id AND cgfv.field=cgf.field WHERE '
+		  . '(cgf.cg_scheme_id,group_id)=(?,?) ORDER BY cgf.field_order,cgf.field',
+		[ $cg_scheme_id, $group_id ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my @values;
+	foreach my $field (@$data) {
+		push @values, qq($field->{'field'}: $field->{'value'});
+	}
+	local $" = q(; );
+	return qq(@values);
 }
 ##############LOCI#####################################################################
 #options passed as hashref:
@@ -2223,7 +2291,7 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields user_dbases locus_links client_dbase_cschemes);
+		  classification_group_fields classification_group_field_values user_dbases locus_links client_dbase_cschemes);
 	}
 	return @tables;
 }

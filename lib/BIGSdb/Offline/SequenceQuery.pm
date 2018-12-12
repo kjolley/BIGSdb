@@ -512,6 +512,11 @@ sub _get_classification_groups {
 	);
 	my $td = 1;
 	my $cbuffer;
+	my $fields_defined = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM classification_group_fields cgf JOIN '
+		  . 'classification_schemes cs ON cgf.cg_scheme_id=cs.id WHERE cs.scheme_id=?)',
+		$scheme_id
+	);
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
 			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
@@ -534,8 +539,15 @@ sub _get_classification_groups {
 		$cbuffer .=
 		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
-		  . qq(<td>$cgroup</a></td><td><a href="$url">$profile_count</a></td>);
+		  . qq(<td>$cgroup</td>);
 
+		if ($fields_defined) {
+			$cbuffer .= q(<td>);
+			$cbuffer .=
+			  $self->{'datastore'}->get_classification_group_fields( $cscheme->{'id'}, $cgroup );
+			$cbuffer .= q(</td>);
+		}
+		$cbuffer .= qq(<td><a href="$url">$profile_count</a></td>);
 		if (@$client_dbs) {
 			my @client_links = ();
 			foreach my $client_db (@$client_dbs) {
@@ -578,7 +590,9 @@ sub _get_classification_groups {
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Clustering method</th>)
-		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th><th>Profiles</th>);
+		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th>);
+		$buffer .= q(<th>Fields</th>)   if $fields_defined;
+		$buffer .= q(<th>Profiles</th>);
 		$buffer .= q(<th>Isolates</th>) if @$client_dbs;
 		$buffer .= q(</tr>);
 		$buffer .= $cbuffer;

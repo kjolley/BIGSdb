@@ -531,7 +531,7 @@ sub _get_foreign_key_label {
 	}
 	local $" = ',';
 	my $data = $self->{'datastore'}->run_query(
-		"select id,@fields_to_query from $att->{'foreign_key'} WHERE id=?",
+		"SELECT @fields_to_query FROM $att->{'foreign_key'} WHERE id=?",
 		$newdata_ref->{ $att->{'name'} },
 		{ fetch => 'row_hashref' }
 	);
@@ -1074,6 +1074,13 @@ sub check_record {
 				method => sub {
 					$self->_check_retired_allele_id( $att, $newdata );
 				  }
+			},
+			{
+				table => 'classification_group_field_values',
+				field => 'value',
+				method => sub {
+					$self->_check_classification_group_field_value( $att, $newdata );
+				}
 			}
 		);
 		foreach my $check (@table_field_checks) {
@@ -1217,7 +1224,7 @@ sub _check_isolate_field_extended_attribute_value {
 		[ $newdata->{'isolate_field'}, $newdata->{'attribute'} ],
 		{ fetch => 'row_arrayref' }
 	);
-	next if !$format;
+	return if !$format;
 	if ( $format->[0] eq 'integer'
 		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
 	{
@@ -1227,6 +1234,24 @@ sub _check_isolate_field_extended_attribute_value {
 	} elsif ( $format->[2] && length( $newdata->{ $att->{'name'} } ) > $format->[2] ) {
 		return "$att->{'name'} value is too long - it must be no longer than $format->[2] characters.";
 	}
+	return;
+}
+
+sub _check_classification_group_field_value {
+	my ( $self, $att, $newdata ) = @_;
+	my $format = $self->{'datastore'}->run_query(
+		'SELECT type,value_regex FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?)',
+		[ $newdata->{'cg_scheme_id'}, $newdata->{'field'} ],
+		{ fetch => 'row_hashref' }
+	);
+	return if !$format;
+	if ( $format->{'type'} eq 'integer'
+		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	{
+		return "$att->{'name'} must be an integer.";
+	} elsif ( $format->{'value_regex'} && $newdata->{ $att->{'name'} } !~ /$format->{'value_regex'}/x ) {
+		return "$att->{'name'} value is invalid - it must match the regular expression /$format->{'value_regex'}/.";
+	} 
 	return;
 }
 

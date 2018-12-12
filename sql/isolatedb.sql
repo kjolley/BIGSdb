@@ -1303,7 +1303,7 @@ RETURNS VOID AS $$
 		modify_qry text;
 		qry text;
 		isolate RECORD;
-		table_type text;
+		table_type text;	
 	BEGIN
 		EXECUTE('SELECT * FROM schemes WHERE id=$1') INTO scheme_info USING _scheme_id;
 		IF (scheme_info.id IS NULL) THEN
@@ -1327,7 +1327,7 @@ RETURNS VOID AS $$
 				EXECUTE(FORMAT('DELETE FROM %I WHERE id IN (SELECT id FROM %I WHERE datestamp=''today'')',cache_table,_view));
 			END IF;
 		ELSE
-			_method='full';
+			_method:='full';
 		END IF;
 		cache_table_temp:=cache_table || floor(random()*9999999);
 		scheme_table:='temp_scheme_' || _scheme_id;
@@ -1349,10 +1349,13 @@ RETURNS VOID AS $$
 			unqual_scheme_fields:=unqual_scheme_fields||fields[i];
 		END LOOP;
 		IF _method='incremental' THEN
-			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) ',cache_table);
+			EXECUTE(FORMAT('CREATE TEMP TABLE to_update AS SELECT v.id FROM %I v LEFT JOIN %I c ON v.id=c.id '
+			|| 'WHERE c.id IS NULL',_view,cache_table));
+			modify_qry:=' AND isolate_id IN (SELECT id FROM to_update) ';			
 		ELSIF _method='daily' OR _method='daily_replace' THEN
-			modify_qry:=FORMAT(' AND isolate_id NOT IN (SELECT id FROM %I) AND isolate_id IN (SELECT id FROM %I WHERE datestamp=''today'') ',
-			cache_table,_view);
+			EXECUTE(FORMAT('CREATE TEMP TABLE to_update AS SELECT v.id FROM %I v LEFT JOIN %I c ON v.id=c.id '
+			|| 'WHERE c.id IS NULL AND v.datestamp=''today''',_view, cache_table));
+			modify_qry:=' AND isolate_id IN (SELECT id FROM to_update) ';
 		ELSE
 			modify_qry:=' ';
 		END IF;
@@ -1420,6 +1423,9 @@ RETURNS VOID AS $$
 		EXECUTE FORMAT('ALTER TABLE %I OWNER TO apache', cache_table_temp);
 		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name=cache_table) THEN
 			EXECUTE FORMAT('DROP TABLE %I', cache_table);
+		END IF;
+		IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name='to_update') THEN
+			EXECUTE('DROP TABLE to_update');
 		END IF;
 		EXECUTE FORMAT('ALTER TABLE %I RENAME TO %s',cache_table_temp,cache_table);
 		DROP TABLE ad;
@@ -1527,7 +1533,6 @@ field text NOT NULL,
 type text NOT NULL,
 description text,
 field_order int,
-dropdown boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(cg_scheme_id,field),
