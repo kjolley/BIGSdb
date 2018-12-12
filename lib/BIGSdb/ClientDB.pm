@@ -135,10 +135,10 @@ sub get_fields {
 	if ( !$self->{'sql'}->{$field} ) {
 		$self->{'sql'}->{$field} =
 		  $self->{'db'}
-		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id="
+		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
 			  . 'allele_designations.isolate_id WHERE (allele_designations.locus,allele_designations.allele_id)='
-			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL GROUP BY $field "
-			  . "ORDER BY frequency desc,$field" );
+			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL AND new_version IS NULL "
+			  . "GROUP BY $field ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
