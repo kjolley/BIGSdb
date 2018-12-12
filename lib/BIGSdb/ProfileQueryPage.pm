@@ -582,7 +582,10 @@ sub _modify_query_by_classification_group {
 			$clean_operator =~ s/>/&gt;/x;
 			$clean_operator =~ s/</&lt;/x;
 			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			return q();
 		}
+		return "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND group_id $operator $text))";
 	}
 	return q();
 }
@@ -619,16 +622,13 @@ sub _modify_query_by_classification_group_field {
 	  . q(ON v.cg_scheme_id=p.cg_scheme_id AND v.group_id=p.group_id AND )
 	  . qq(v.cg_scheme_id=$cscheme_field->{'cg_scheme_id'} AND v.field=E'$cleaned_field');
 	my %modify = (
-		  'NOT' => lc($text) eq 'null'
-		? "($primary_key IN (SELECT profile_id FROM $join_table))"
+		  'NOT' => lc($text) eq 'null' ? "($primary_key IN (SELECT profile_id FROM $join_table))"
 		: "($primary_key NOT IN (SELECT profile_id FROM $join_table WHERE value=E'$cleaned_value'))",
 		'contains'    => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text\%'))",
 		'starts with' => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'$text\%'))",
 		'ends with'   => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text'))",
-		'NOT contain' => "($primary_key NOT IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text\%'))"
-		,
-		'=' => lc($text) eq 'null'
-		? "($primary_key NOT IN (SELECT profile_id FROM $join_table))"
+		'NOT contain' => "($primary_key NOT IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text\%'))",
+		'='           => lc($text) eq 'null' ? "($primary_key NOT IN (SELECT profile_id FROM $join_table))"
 		: "($primary_key IN (SELECT profile_id FROM $join_table WHERE value=E'$cleaned_value'))"
 	);
 	if ( $modify{$operator} ) {
@@ -639,7 +639,11 @@ sub _modify_query_by_classification_group_field {
 			$clean_operator =~ s/>/&gt;/x;
 			$clean_operator =~ s/</&lt;/x;
 			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			return q();
 		}
+		return $cscheme_field->{'type'} eq 'integer'
+		  ? "($primary_key IN (SELECT profile_id FROM $join_table WHERE CAST(value AS int) $operator $text))"
+		  : "($primary_key IN (SELECT profile_id FROM $join_table WHERE value $operator E'$text'))";
 	}
 	return q();
 }
