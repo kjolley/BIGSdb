@@ -1182,8 +1182,11 @@ sub _check_data_scheme_fields {
 
 	#special case to check that only one primary key field is set for a scheme field
 	my $field_order = $arg_ref->{'file_header_pos'};
-	my $scheme_id   = $arg_ref->{'data'}->[ $field_order->{'scheme_id'} ];
-	my %false       = map { $_ => 1 } qw(false 0);
+	my $scheme_id =
+	  defined $field_order->{'scheme_id'}
+	  ? $arg_ref->{'data'}->[ $field_order->{'scheme_id'} ]
+	  : undef;
+	my %false = map { $_ => 1 } qw(false 0);
 	if ( $field eq 'primary_key' && !$false{ lc $value } ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {

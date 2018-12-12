@@ -604,8 +604,9 @@ sub _get_classification_group_data {
 	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $td = 1;
+	my $cg_fields_defined;
 	foreach my $cscheme (@$classification_schemes) {
-		my $cg_buffer;
+		my ( $cg_buffer, $cgf_buffer );
 		my $scheme_id = $cscheme->{'scheme_id'};
 		my $cache_table_exists =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
@@ -638,6 +639,11 @@ sub _get_classification_group_data {
 						$group_id
 					);
 					if ( $isolate_count > 1 ) {
+						my $cg_fields = $self->get_classification_group_fields( $cscheme->{'id'}, $group_id );
+						if ($cg_fields) {
+							$cg_fields_defined = 1;
+							$cgf_buffer .= qq($cg_fields<br />);
+						}
 						my $url =
 						    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
@@ -658,11 +664,16 @@ sub _get_classification_group_data {
 			$buffer .=
 			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'name'}</td>)
 			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
-			  . qq($cg_buffer</td></tr>);
+			  . qq($cg_buffer</td>);
+			if ($cgf_buffer) {
+				$buffer .= qq(<td>$cgf_buffer</td>);
+			}
+			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
 	if ($buffer) {
+		my $fields_header = $cg_fields_defined ? q(<th>Fields</th>) : q();
 		$buffer =
 		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 		  . q(style="margin-top:-0.2em"></span>)
@@ -671,9 +682,28 @@ sub _get_classification_group_data {
 		  . q(<div class="scrollable">)
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
-		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th></tr>$buffer</table></div></div></div>);
+		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th>$fields_header</tr>)
+		  . qq($buffer</table></div></div></div>);
 	}
 	return $buffer;
+}
+
+sub get_classification_group_fields {
+	my ( $self, $cg_scheme_id, $group_id ) = @_;
+	my $cgfv_table = $self->{'datastore'}->create_temp_cscheme_field_values_table($cg_scheme_id);
+	my $data       = $self->{'datastore'}->run_query(
+		"SELECT cgfv.* FROM $cgfv_table cgfv JOIN classification_group_fields "
+		  . 'cgf ON cgf.cg_scheme_id=? AND cgfv.field=cgf.field WHERE '
+		  . 'group_id=? ORDER BY cgf.field_order,cgf.field',
+		[ $cg_scheme_id, $group_id ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my @values;
+	foreach my $field (@$data) {
+		push @values, qq($field->{'field'}: $field->{'value'});
+	}
+	local $" = q(; );
+	return qq(@values);
 }
 
 sub _print_other_schemes {

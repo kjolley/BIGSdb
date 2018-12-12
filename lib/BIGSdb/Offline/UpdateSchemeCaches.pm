@@ -73,6 +73,7 @@ sub run_script {
 	}
 	foreach my $cscheme_id (@$cschemes){
 		$self->{'datastore'}->create_temp_cscheme_table($cscheme_id,{ cache => 1});
+		$self->{'datastore'}->create_temp_cscheme_field_values_table($cscheme_id,{ cache => 1});
 	}
 	eval {$self->{'db'}->do('SET lock_timeout = 0')};
 	$self->{'logger'}->error($@) if $@;
