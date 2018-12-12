@@ -1361,6 +1361,23 @@ sub get_classification_scheme_info {
 	$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
 	return $info;
 }
+
+sub get_classification_group_fields {
+	my ( $self, $cg_scheme_id, $group_id ) = @_;
+	my $data = $self->run_query(
+		'SELECT cgfv.* FROM classification_group_field_values cgfv JOIN classification_group_fields '
+		  . 'cgf ON cgfv.cg_scheme_id=cgf.cg_scheme_id AND cgfv.field=cgf.field WHERE '
+		  . '(cgf.cg_scheme_id,group_id)=(?,?) ORDER BY cgf.field_order,cgf.field',
+		[ $cg_scheme_id, $group_id ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my @values;
+	foreach my $field (@$data) {
+		push @values, qq($field->{'field'}: $field->{'value'});
+	}
+	local $" = q(; );
+	return qq(@values);
+}
 ##############LOCI#####################################################################
 #options passed as hashref:
 #query_pref: only the loci for which the user has a query field preference selected will be returned

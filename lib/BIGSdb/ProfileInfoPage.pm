@@ -224,7 +224,7 @@ sub _print_classification_groups {
 		next if !defined $cgroup;
 		my $desc = $cscheme->{'description'};
 		my $tooltip =
-		    $desc
+		  $desc
 		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 		  : q();
 		my $profile_count =
@@ -241,7 +241,7 @@ sub _print_classification_groups {
 
 		if ($fields_defined) {
 			$buffer .= q(<td>);
-			$buffer .= $self->_get_classification_group_fields( $cscheme->{'id'}, $cgroup );
+			$buffer .= $self->{'datastore'}->get_classification_group_fields( $cscheme->{'id'}, $cgroup );
 			$buffer .= q(</td>);
 		}
 		$buffer .= qq(<td><a href="$url">$profile_count</a></td>);
@@ -295,23 +295,6 @@ sub _print_classification_groups {
 		say q(</table></div></div></div>);
 	}
 	return;
-}
-
-sub _get_classification_group_fields {
-	my ( $self, $cg_scheme_id, $group_id ) = @_;
-	my $data = $self->{'datastore'}->run_query(
-		'SELECT cgfv.* FROM classification_group_field_values cgfv JOIN classification_group_fields '
-		  . 'cgf ON cgfv.cg_scheme_id=cgf.cg_scheme_id AND cgfv.field=cgf.field WHERE '
-		  . '(cgf.cg_scheme_id,group_id)=(?,?) ORDER BY cgf.field_order,cgf.field',
-		[ $cg_scheme_id, $group_id ],
-		{ fetch => 'all_arrayref', slice => {} }
-	);
-	my @values;
-	foreach my $field (@$data) {
-		push @values, qq($field->{'field'}: $field->{'value'});
-	}
-	local $" = q(; );
-	return qq(@values);
 }
 
 sub _print_profile {
