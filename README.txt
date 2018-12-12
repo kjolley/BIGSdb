@@ -1,3 +1,6 @@
+v1.21.0: *Faster clustering function.
+         *Faster cache renewal.
+         *Support for classification group fields.
 v1.20.3: *Cache renewal fixes to prevent table locking if multiple processes
           try to renew the same cache (may happen on big schemes when the 
           renewal is run as a CRON job).

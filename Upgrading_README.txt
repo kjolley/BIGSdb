@@ -26,6 +26,7 @@ Version 1.17: Change of seqdef and isolate database structures.
 Version 1.18: Change of seqdef and isolate database structures.
 Version 1.19: Change of seqdef and isolate database structures.
 Version 1.20: Change of seqdef and isolate database structures.
+Version 1.21: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -404,4 +405,12 @@ search and conditional formatting of EAV fields.
 
 Please run the seqdefdb_v1.20.sql script against sequence definition databases
 and isolatedb_v1.20.sql against isolate databases.
+
+Version 1.21
+------------
+There are changes to the sequence definition and isolate databases. These 
+support associating additional fields to classification groups.
+
+Please run the seqdefdb_v1.21.sql script against sequence definition databases
+and isolatedb_v1.21.sql against isolate databases.
 
