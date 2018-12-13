@@ -38,7 +38,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.0.1',
+		version     => '1.1.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -125,6 +125,26 @@ sub _print_interface {
 	return;
 }
 
+sub _get_classification_schemes {
+	my ( $self, $scheme_id ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,id',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+}
+
+sub _get_classification_groups {
+	my ( $self, $scheme_id ) = @_;
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT cg_scheme_id,group_id,profile_id FROM classification_group_profiles WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $groups = {};
+	foreach my $values (@$data) {
+		$groups->{ $values->{'cg_scheme_id'} }->{ $values->{'profile_id'} } = $values->{'group_id'};
+	}
+	return $groups;
+}
+
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
@@ -150,6 +170,11 @@ sub run_job {
 	foreach my $field (@$fields) {
 		push @header, $field if $field ne $pk;
 	}
+	my $cg_schemes = $self->_get_classification_schemes($scheme_id);
+	my $c_groups   = $self->_get_classification_groups($scheme_id);
+	foreach my $cg_scheme (@$cg_schemes) {
+		push @header, $cg_scheme->{'name'};
+	}
 	local $" = qq(\t);
 	my $buffer        = qq(@header\n);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
@@ -162,7 +187,8 @@ sub run_job {
 			push @problem_ids, $profile_id;
 			next;
 		}
-		$buffer .= $data->{ lc($pk) };
+		my $pk_value = $data->{ lc($pk) };
+		$buffer .= $pk_value;
 		foreach my $locus (@$loci) {
 			$buffer .= qq(\t$data->{'profile'}->[$indices->{$locus}]);
 		}
@@ -170,6 +196,10 @@ sub run_job {
 			next if $field eq $pk;
 			my $value = $data->{ lc($field) } // q();
 			$buffer .= qq(\t$value);
+		}
+		foreach my $cg_schemes (@$cg_schemes) {
+			my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk_value} // q();
+			$buffer .= qq(\t$group_id);
 		}
 		$buffer .= qq(\n);
 		if ( $self->{'exit'} ) {

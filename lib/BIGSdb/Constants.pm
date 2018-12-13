@@ -26,12 +26,14 @@ use constant DEFAULT_DOMAIN => 'pubmlst.org';
 push @EXPORT_OK, qw(DEFAULT_DOMAIN);
 
 #Limits
-use constant MAX_SPLITS_TAXA       => 150;
-use constant MAX_MUSCLE_MB         => 4 * 1024;    #4GB
-use constant MAX_ISOLATES_DROPDOWN => 1000;
-use constant MAX_EAV_FIELD_LIST    => 100;
-use constant MAX_LOCUS_ORDER_BY => 2000;
-my @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST MAX_LOCUS_ORDER_BY);
+use constant MAX_SPLITS_TAXA           => 150;
+use constant MAX_MUSCLE_MB             => 4 * 1024;    #4GB
+use constant MAX_ISOLATES_DROPDOWN     => 1000;
+use constant MAX_EAV_FIELD_LIST        => 100;
+use constant MAX_LOCUS_ORDER_BY        => 2000;
+use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
+my @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
+  MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'limits'} = [@values];
 
@@ -80,12 +82,12 @@ use constant RELOAD         => q(<span class="nav_icon fas fa-2x fa-sync"></span
 use constant KEY            => q(<span class="nav_icon fas fa-2x fa-key"></span>);
 use constant EYE_SHOW       => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE       => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
-use constant EXCEL_FILE => q(<span class="file_icon far fa-2x fa-file-excel" style="color:green"></span>);
-use constant TEXT_FILE  => q(<span class="file_icon far fa-2x fa-file-alt" style="color:#333"></span>);
-use constant FLANKING   => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant MAX_ROWS   => 20;
+use constant EXCEL_FILE     => q(<span class="file_icon far fa-2x fa-file-excel" style="color:green"></span>);
+use constant TEXT_FILE      => q(<span class="file_icon far fa-2x fa-file-alt" style="color:#333"></span>);
+use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant MAX_ROWS       => 20;
 @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE 
+  EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE
   UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE EXCEL_FILE TEXT_FILE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];

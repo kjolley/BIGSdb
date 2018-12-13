@@ -274,14 +274,19 @@ sub _get_select_items {
 	}
 	my $cschemes =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
-		$scheme_id, { fetch => 'col_arrayref' } );
+	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $cscheme (@$cschemes) {
-		push @selectitems, $cscheme;
+		push @selectitems, $cscheme->{'name'};
+		my $cscheme_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM classification_group_fields WHERE cg_scheme_id=? ORDER BY field_order,field',
+			$cscheme->{'id'}, { fetch => 'col_arrayref' } );
+		push @selectitems, "$cscheme->{'name'}: $_" foreach @$cscheme_fields;
 	}
-	foreach (qw (sender curator)) {
-		push @selectitems, "$_ (id)", "$_ (surname)", "$_ (first_name)", "$_ (affiliation)";
-		push @orderitems, $_;
+	foreach my $field (qw (sender curator)) {
+		push @selectitems, "$field (id)", "$field (surname)", "$field (first_name)", "$field (affiliation)";
+		push @orderitems, $field;
 	}
 	push @selectitems, qw(date_entered datestamp);
 	$cleaned{'date_entered'} = 'date entered';
@@ -343,7 +348,7 @@ sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my ( $qry, $errors ) = $self->_generate_query_from_locus_fields($scheme_id);
+	my ( $qry, $errors ) = $self->_generate_query_from_main_form($scheme_id);
 	( $qry, my $list_file ) = $self->_modify_by_list( $scheme_id, $qry );
 	$q->param( datatype => 'text' );
 	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
@@ -378,7 +383,27 @@ sub _get_data_type {
 	return;
 }
 
-sub _generate_query_from_locus_fields {
+sub _get_classification_scheme_names {
+	my ( $self, $scheme_id ) = @_;
+	my $cschemes = $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE scheme_id=?',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	my %cscheme_names = map { $_ => 1 } @$cschemes;
+	return \%cscheme_names;
+}
+
+sub _get_classification_scheme_fields {
+	my ($self) = @_;
+	my $cscheme_fields = $self->{'datastore'}->run_query(
+		'SELECT cs.name,cgf.field FROM classification_group_fields cgf JOIN '
+		  . 'classification_schemes cs ON cgf.cg_scheme_id=cs.id',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my %cscheme_fields = map { ("$_->{'name'}: $_->{'field'}") => 1 } @$cscheme_fields;
+	return \%cscheme_fields;
+}
+
+sub _generate_query_from_main_form {
 	my ( $self, $scheme_id ) = @_;
 	my $q                = $self->{'cgi'};
 	my $errors           = [];
@@ -387,10 +412,9 @@ sub _generate_query_from_locus_fields {
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $andor            = $q->param('c0');
 	my $first_value      = 1;
-	my $cschemes         = $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE scheme_id=?',
-		$scheme_id, { fetch => 'col_arrayref' } );
-	my %cscheme_fields  = map { $_ => 1 } @$cschemes;
-	my %standard_fields = map { $_ => 1 } (
+	my $cscheme_names    = $self->_get_classification_scheme_names($scheme_id);
+	my $cscheme_fields   = $self->_get_classification_scheme_fields($scheme_id);
+	my %standard_fields  = map { $_ => 1 } (
 		'sender (id)',
 		'sender (surname)',
 		'sender (first_name)',
@@ -402,15 +426,16 @@ sub _generate_query_from_locus_fields {
 		'date_entered',
 		'datestamp'
 	);
+	my %recognized_fields = ( %standard_fields, %$cscheme_names, %$cscheme_fields );
 
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
 		my $type = $self->_get_data_type( $scheme_id, $field );
-		if ( !defined $type && !$standard_fields{$field} && !$cscheme_fields{$field} ) {
+		if ( !defined $type && !$recognized_fields{$field} ) {
 
 			#Prevent cross-site scripting vulnerability
-			( my $cleaned_field = $field ) =~ s/[^A-z0-9].*$//x;
+			( my $cleaned_field = $field ) =~ s/[^A-z0-9:\s].*$//x;
 			push @$errors, "Field $cleaned_field is not recognized.";
 			$logger->error("Attempt to modify fieldname: $field");
 			next;
@@ -442,40 +467,46 @@ sub _generate_query_from_locus_fields {
 		}
 		if ( any { $field =~ /(.*)\ \($_\)$/x } qw (id surname first_name affiliation) ) {
 			$qry .= $self->search_users( $field, $operator, $text, $scheme_warehouse );
-		} elsif ( $cscheme_fields{$field} ) {
+			next;
+		}
+		if ( $cscheme_names->{$field} ) {
 			if ( lc($text) ne 'null' && !BIGSdb::Utils::is_int($text) ) {
 				push @$errors, "$field is an integer field.";
 				next;
 			}
 			$qry .= $self->_modify_query_by_classification_group( $scheme_id, $field, $operator, $text, $errors );
+			next;
+		}
+		if ( $cscheme_fields->{$field} ) {
+			$qry .= $self->_modify_query_by_classification_group_field( $scheme_id, $field, $operator, $text, $errors );
+			next;
+		}
+		my $equals =
+		  lc($text) eq 'null'
+		  ? "$cleaned_field is null"
+		  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
+		my %modify = (
+			'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
+			'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
+			'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
+			'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
+			'NOT contain' => "(NOT UPPER($cleaned_field) LIKE UPPER('\%$text\%') OR $cleaned_field IS NULL)",
+			'='           => "($equals)"
+		);
+		if ( $modify{$operator} ) {
+			$qry .= $modify{$operator};
 		} else {
-			my $equals =
-			  lc($text) eq 'null'
-			  ? "$cleaned_field is null"
-			  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
-			my %modify = (
-				'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
-				'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
-				'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
-				'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
-				'NOT contain' => "(NOT UPPER($cleaned_field) LIKE UPPER('\%$text\%') OR $cleaned_field IS NULL)",
-				'='           => "($equals)"
-			);
-			if ( $modify{$operator} ) {
-				$qry .= $modify{$operator};
-			} else {
-				if ( lc($text) eq 'null' ) {
-					my $clean_operator = $operator;
-					$clean_operator =~ s/>/&gt;/x;
-					$clean_operator =~ s/</&lt;/x;
-					push @$errors, "$clean_operator is not a valid operator for comparing null values.";
-				}
-				$qry .= (
-					$type eq 'integer'
-					? "(to_number(textcat('0', $cleaned_field), text(99999999))"
-					: "($cleaned_field"
-				) . " $operator '$text')";
+			if ( lc($text) eq 'null' ) {
+				my $clean_operator = $operator;
+				$clean_operator =~ s/>/&gt;/x;
+				$clean_operator =~ s/</&lt;/x;
+				push @$errors, "$clean_operator is not a valid operator for comparing null values.";
 			}
+			$qry .= (
+				$type eq 'integer'
+				? "(to_number(textcat('0', $cleaned_field), text(99999999))"
+				: "($cleaned_field"
+			) . " $operator '$text')";
 		}
 	}
 	$qry .= ')';
@@ -536,8 +567,7 @@ sub _modify_query_by_classification_group {
 		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '$text\%'))",
 		'ends with' => "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
 		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '\%$text'))",
-		'NOT contain' =>
-		  "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		'NOT contain' => "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE "
 		  . "cg_scheme_id=$cscheme_id AND CAST(group_id AS text) LIKE '\%$text\%'))",
 		'=' => lc($text) eq 'null'
 		? "($primary_key NOT IN (SELECT profile_id FROM classification_group_profiles WHERE cg_scheme_id=$cscheme_id))"
@@ -552,9 +582,70 @@ sub _modify_query_by_classification_group {
 			$clean_operator =~ s/>/&gt;/x;
 			$clean_operator =~ s/</&lt;/x;
 			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			return q();
+		}
+		return "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
+		  . "cg_scheme_id=$cscheme_id AND group_id $operator $text))";
+	}
+	return q();
+}
+
+sub _get_cscheme_field_info {
+	my ( $self, $field ) = @_;
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT cs.name,cgf.*FROM classification_group_fields cgf JOIN '
+		  . 'classification_schemes cs ON cgf.cg_scheme_id=cs.id',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	foreach my $scheme_field (@$data) {
+		if ( $field eq "$scheme_field->{'name'}: $scheme_field->{'field'}" ) {
+			return $scheme_field;
 		}
 	}
-	return;
+	return {};
+}
+
+sub _modify_query_by_classification_group_field {
+	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key   = $scheme_info->{'primary_key'};
+	my $cscheme_field = $self->_get_cscheme_field_info($field);
+	if ( $cscheme_field->{'type'} eq 'integer' && $text ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+		push @$errors, "$field is an integer field.";
+		return q();
+	}
+	( my $cleaned_field = $cscheme_field->{'field'} ) =~ s/'/\\'/gx;
+	( my $cleaned_value = $text ) =~ s/'/\\'/gx;
+	my $join_table =
+	    q(classification_group_field_values v JOIN classification_group_profiles p )
+	  . q(ON v.cg_scheme_id=p.cg_scheme_id AND v.group_id=p.group_id AND )
+	  . qq(v.cg_scheme_id=$cscheme_field->{'cg_scheme_id'} AND v.field=E'$cleaned_field');
+	my %modify = (
+		  'NOT' => lc($text) eq 'null' ? "($primary_key IN (SELECT profile_id FROM $join_table))"
+		: "($primary_key NOT IN (SELECT profile_id FROM $join_table WHERE value=E'$cleaned_value'))",
+		'contains'    => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text\%'))",
+		'starts with' => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'$text\%'))",
+		'ends with'   => "($primary_key IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text'))",
+		'NOT contain' => "($primary_key NOT IN (SELECT profile_id FROM $join_table WHERE value LIKE E'\%$text\%'))",
+		'='           => lc($text) eq 'null' ? "($primary_key NOT IN (SELECT profile_id FROM $join_table))"
+		: "($primary_key IN (SELECT profile_id FROM $join_table WHERE value=E'$cleaned_value'))"
+	);
+	if ( $modify{$operator} ) {
+		return $modify{$operator};
+	} else {
+		if ( lc($text) eq 'null' ) {
+			my $clean_operator = $operator;
+			$clean_operator =~ s/>/&gt;/x;
+			$clean_operator =~ s/</&lt;/x;
+			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			return q();
+		}
+		return $cscheme_field->{'type'} eq 'integer'
+		  ? "($primary_key IN (SELECT profile_id FROM $join_table WHERE CAST(value AS int) $operator $text))"
+		  : "($primary_key IN (SELECT profile_id FROM $join_table WHERE value $operator E'$text'))";
+	}
+	return q();
 }
 
 sub _modify_by_list {

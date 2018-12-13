@@ -29,7 +29,7 @@ use JSON;
 use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
-sub new {                             ## no critic (RequireArgUnpacking)
+sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	$self->{'prefs'} = {};
@@ -1668,6 +1668,7 @@ sub get_record_name {
 		retired_isolates                  => 'retired isolate id',
 		classification_schemes            => 'classification scheme',
 		classification_group_fields       => 'classification group field',
+		classification_group_field_values => 'classification group field value',
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
 		oauth_credentials                 => 'OAuth credentials',

@@ -20,9 +20,9 @@ package BIGSdb::ClientDB;
 use strict;
 use warnings;
 use BIGSdb::Exceptions;
+use BIGSdb::Constants qw(:limits);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.ClientDB');
-use constant MAX_LOCI_NON_CACHE => 20;
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
@@ -95,10 +95,10 @@ sub count_matching_profile_by_pk {
 sub count_matching_profiles {
 	my ( $self, $alleles_hashref ) = @_;
 	my $locus_count = scalar keys %$alleles_hashref;
-	if ( $locus_count > MAX_LOCI_NON_CACHE ) {
-		my $max = MAX_LOCI_NON_CACHE;
+	if ( $locus_count > MAX_LOCI_NON_CACHE_SCHEME ) {
+		my $max = MAX_LOCI_NON_CACHE_SCHEME;
 		$logger->error( "Called ClientDB::count_matching_loci when scheme has more than $max loci. "
-			  . 'You need to ensure caches are being used on the isolate database' );
+			  . "You need to ensure caches are being used on the $self->{'dbase_config_name'} database" );
 		return 0;
 	}
 	my $first = 1;
@@ -135,10 +135,10 @@ sub get_fields {
 	if ( !$self->{'sql'}->{$field} ) {
 		$self->{'sql'}->{$field} =
 		  $self->{'db'}
-		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view LEFT JOIN allele_designations ON $view.id="
+		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
 			  . 'allele_designations.isolate_id WHERE (allele_designations.locus,allele_designations.allele_id)='
-			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL GROUP BY $field "
-			  . "ORDER BY frequency desc,$field" );
+			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL AND new_version IS NULL "
+			  . "GROUP BY $field ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
