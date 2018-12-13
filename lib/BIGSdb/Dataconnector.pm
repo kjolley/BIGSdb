@@ -121,7 +121,7 @@ sub get_connection {
 		} else {
 			$logger->info("pid:$$ connected to database $attributes->{'dbase_name'} ($host)");
 			$logger->debug(
-				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: $password");
+				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: ********");
 		}
 		if ( BIGSdb::Utils::is_int( $self->{'config'}->{'temp_buffers'} ) ) {
 			$db->do("SET temp_buffers='$self->{'config'}->{'temp_buffers'}MB'");
