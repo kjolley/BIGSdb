@@ -106,6 +106,10 @@ function initiate() {
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");
 		\$(this).tooltip({content: value});
 	});
+	\$( "#and_others" ).click(function() {
+		\$( "div#other_matches" ).toggle( 'blind', {} , 500 );
+		return false;
+	});
 }
 
 function loadContent(url) {

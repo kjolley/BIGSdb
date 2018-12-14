@@ -437,11 +437,7 @@ sub _get_scheme_fields {
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
 				my $scheme_buffer = $self->_get_scheme_table( $scheme->{'id'}, $designations );
 				my $exact_match = $scheme_buffer ? 1 : 0;
-
-				#				if ( !$scheme_buffer ) {
 				$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations, $exact_match );
-
-				#				}
 				if ($scheme_buffer) {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
 					$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -455,11 +451,7 @@ sub _get_scheme_fields {
 		if ( @$scheme_fields && @$scheme_loci ) {
 			my $scheme_buffer = $self->_get_scheme_table( $scheme_id, $designations );
 			my $exact_match = $scheme_buffer ? 1 : 0;
-
-			#			if ( !$scheme_buffer ) {
 			$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations, $exact_match );
-
-			#			}
 			if ($scheme_buffer) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -488,13 +480,33 @@ sub _get_classification_groups {
 		$buffer .=
 		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 		$buffer .= q(<h3>Matching profiles</h3>);
+		my $first_profile        = shift @{ $ret_val->{'profiles'} };
+		my $other_profiles_count = @{ $ret_val->{'profiles'} };
+		my $plural               = $other_profiles_count == 1 ? q() : q(s);
+		my $and_others           = $other_profiles_count
+		  ? qq( and <a id="and_others" style="cursor:pointer">$other_profiles_count other$plural</a>)
+		  : q();
 		$buffer .=
 		    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
 		  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
-		  . qq($scheme_info->{'primary_key'}-$ret_val->{'profile'}</a></dd>);
+		  . qq($scheme_info->{'primary_key'}-$first_profile</a>$and_others</dd>);
 		$buffer .=
 		  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
+
+		if ($other_profiles_count) {
+			$plural = $ret_val->{'mismatches'} == 1 ? q() : q(es);
+			$buffer .= q(<div id="other_matches" class="infopanel" style="display:none">);
+			$buffer .= qq(<h3>Other profiles that have $ret_val->{'mismatches'} mismatch$plural</h3>);
+			$buffer .= q(<ul>);
+			foreach my $profile ( @{ $ret_val->{'profiles'} } ) {
+				$buffer .=
+				    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$profile">)
+				  . qq($scheme_info->{'primary_key'}-$profile</a></li>\n);
+			}
+			$buffer .= q(</ul></div>);
+		}
 	}
 	my $cschemes =
 	  $self->{'datastore'}
@@ -517,7 +529,7 @@ sub _get_classification_groups {
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
 			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
-			[ $cscheme->{'id'}, $ret_val->{'profile'} ],
+			[ $cscheme->{'id'}, $ret_val->{'profiles'}->[0] ],
 			{ cache => 'SequenceQuery::_get_classification_groups::groups' }
 		);
 		next if !defined $cgroup;
@@ -603,12 +615,15 @@ sub _get_closest_matching_profile {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $pk_field = $scheme_info->{'primary_key'};
 	return if !$pk_field;
-	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $profiles = $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id",
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
+	my $order = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $profiles =
+	  $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order",
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $least_mismatches = @$loci;
-	my $best_match;
-	my @locus_list = sort @$loci;    #Profile array is always stored in alphabetical order, scheme order may not be
+	my $best_matches     = [];
+	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
   PROFILE: foreach my $profile (@$profiles) {
 		my $mismatches = 0;
 		my $index      = -1;
@@ -628,11 +643,13 @@ sub _get_closest_matching_profile {
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
-			$best_match       = $profile->{'pk'};
+			$best_matches     = [ $profile->{'pk'} ];
+		} elsif ( $mismatches == $least_mismatches ) {
+			push @$best_matches, $profile->{'pk'};
 		}
 	}
-	return if !$best_match;
-	return { profile => $best_match, mismatches => $least_mismatches };
+	return if !@$best_matches;
+	return { profiles => $best_matches, mismatches => $least_mismatches };
 }
 
 sub _how_many_loci_must_match {
