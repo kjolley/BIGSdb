@@ -483,9 +483,6 @@ sub _get_classification_groups {
 	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
 	return $buffer if !$ret_val;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $largest_threshold = $self->{'datastore'}
-	  ->run_query( 'SELECT MAX(inclusion_threshold) FROM classification_schemes WHERE scheme_id=?', $scheme_id );
-	return $buffer if $ret_val->{'mismatches'} > $largest_threshold;
 
 	if ( !$exact_match ) {
 		$buffer .=
