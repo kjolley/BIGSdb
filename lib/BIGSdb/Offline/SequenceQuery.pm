@@ -483,27 +483,45 @@ sub _get_classification_groups {
 		my $first_profile        = shift @{ $ret_val->{'profiles'} };
 		my $other_profiles_count = @{ $ret_val->{'profiles'} };
 		my $plural               = $other_profiles_count == 1 ? q() : q(s);
-		my $and_others           = $other_profiles_count
+		my $and_others =
+		  $other_profiles_count
 		  ? qq( and <a id="and_others" style="cursor:pointer">$other_profiles_count other$plural</a>)
 		  : q();
-		$buffer .=
-		    q(<dl class="data"><dt style="width:8em">Closest profile</dt>)
-		  . qq(<dd style="margin: 0 0 0 9em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$ret_val->{'profile'}">)
-		  . qq($scheme_info->{'primary_key'}-$first_profile</a>$and_others</dd>);
-		$buffer .=
-		  qq(<dt style="width:8em">Mismatches</dt><dd style="margin: 0 0 0 9em">$ret_val->{'mismatches'}</dd></dl>);
-
+		my $values = $self->_get_field_values( $scheme_id, $first_profile );
+		my $loci_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
+		my $loci_matched    = $loci_count - $ret_val->{'mismatches'};
+		my $percent_matched = BIGSdb::Utils::decimal_place( 100 * $loci_matched / $loci_count, 1 );
+		my $list            = [
+			{
+				title => 'Closest profile',
+				data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$first_profile">)
+				  . qq($scheme_info->{'primary_key'}-$first_profile</a>$and_others)
+			},
+		];
+		push @$list, { title => 'Fields', data => $values } if $values;
+		push @$list,
+		  (
+			{
+				title => 'Mismatches',
+				data  => $ret_val->{'mismatches'}
+			},
+			{ title => 'Loci matched', data => "$loci_matched/$loci_count ($percent_matched%)" }
+		  );
+		$buffer .= $self->get_list_block( $list, { width => 8 } );
 		if ($other_profiles_count) {
 			$plural = $ret_val->{'mismatches'} == 1 ? q() : q(es);
 			$buffer .= q(<div id="other_matches" class="infopanel" style="display:none">);
 			$buffer .= qq(<h3>Other profiles that have $ret_val->{'mismatches'} mismatch$plural</h3>);
 			$buffer .= q(<ul>);
 			foreach my $profile ( @{ $ret_val->{'profiles'} } ) {
+				$values = $self->_get_field_values( $scheme_id, $profile );
+				$values = qq( - $values) if $values;
 				$buffer .=
 				    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$profile">)
-				  . qq($scheme_info->{'primary_key'}-$profile</a></li>\n);
+				  . qq($scheme_info->{'primary_key'}-$profile</a>$values</li>\n);
 			}
 			$buffer .= q(</ul></div>);
 		}
@@ -608,6 +626,23 @@ sub _get_classification_groups {
 		$buffer .= q(</table></div></div></div>);
 	}
 	return $buffer;
+}
+
+sub _get_field_values {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
+	my $table       = "mv_scheme_$scheme_id";
+	my $profile_info =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $table WHERE $pk=?", $profile_id, { fetch => 'row_hashref' } );
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my @values;
+	foreach my $field (@$fields) {
+		( my $cleaned_field = $field ) =~ tr/_/ /;
+		push @values, "<b>$cleaned_field:</b> $profile_info->{$field}" if defined $profile_info->{$field};
+	}
+	local $" = q(; );
+	return qq(@values);
 }
 
 sub _get_closest_matching_profile {

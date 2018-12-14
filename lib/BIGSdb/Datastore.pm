@@ -815,7 +815,7 @@ sub get_scheme_fields {
 	my ( $self, $scheme_id ) = @_;
 	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
 		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} =
-		  $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order',
+		  $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order,field',
 			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_fields' } );
 	}
 	return $self->{'cache'}->{'scheme_fields'}->{$scheme_id};
