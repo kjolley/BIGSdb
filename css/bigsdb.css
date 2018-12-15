@@ -1,4 +1,4 @@
-/*Version: 20181206*/
+/*Version: 20181215*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -783,6 +783,7 @@ span.navigation_button {
 	border-radius:5px;
 }
 span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
+span.wait_icon {color: #66a;background: -webkit-linear-gradient(#9c47fc, #356ad2); -webkit-background-clip: text; -webkit-text-fill-color: transparent}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
 span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
 span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}

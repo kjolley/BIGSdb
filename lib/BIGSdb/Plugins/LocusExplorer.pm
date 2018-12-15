@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.7',
+		version          => '1.3.8',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -294,7 +294,7 @@ sub _get_seqs {
 		if ( $options->{'print_status'} ) {
 			local $| = 1;
 			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
-			  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
+			  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 			if ( $ENV{'MOD_PERL'} ) {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
@@ -697,7 +697,7 @@ sub _translate {
 	if ( $allele_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		local $| = 1;
 		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
-		  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
+		  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;

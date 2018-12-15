@@ -48,7 +48,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version             => '1.1.2',
+		version             => '1.1.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -153,7 +153,7 @@ sub run {
 		$self->_print_info_panel;
 		say q(<div class="box" id="resultstable">);
 		say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-		say q(<p class="hideonload"><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
+		say q(<p class="hideonload"><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		say q(<p>Data are being processed and sent to PhyloViz Online.</p>);
 		my $uuid           = BIGSdb::Utils::get_random();
 		my $profile_file   = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_profile_data.txt";

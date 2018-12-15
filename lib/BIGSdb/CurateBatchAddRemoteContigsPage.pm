@@ -62,7 +62,7 @@ sub _process {
 	say $self->_get_polling_javascript($results_prefix);
 	say q(<div id="error"></div>);
 	say q(<div class="box" id="resultspanel">);
-	say q(<div id="wait"><span class="main_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	say q(<div id="wait"><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
 	  . q(<span class="wait_message">Processing - Please wait.</span></div>)
 	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript>);
 	say q(<h2 id="title">Processing contigs</h2>);
