@@ -475,12 +475,12 @@ sub _get_classification_groups {
 	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
 	return $buffer if !$ret_val;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $first_profile = shift @{ $ret_val->{'profiles'} };
 
 	if ( !$exact_match ) {
 		$buffer .=
 		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 		$buffer .= q(<h3>Matching profiles</h3>);
-		my $first_profile        = shift @{ $ret_val->{'profiles'} };
 		my $other_profiles_count = @{ $ret_val->{'profiles'} };
 		my $plural               = $other_profiles_count == 1 ? q() : q(s);
 		my $and_others =
@@ -547,7 +547,7 @@ sub _get_classification_groups {
 	foreach my $cscheme (@$cschemes) {
 		my $cgroup = $self->{'datastore'}->run_query(
 			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,profile_id)=(?,?)',
-			[ $cscheme->{'id'}, $ret_val->{'profiles'}->[0] ],
+			[ $cscheme->{'id'}, $first_profile ],
 			{ cache => 'SequenceQuery::_get_classification_groups::groups' }
 		);
 		next if !defined $cgroup;
