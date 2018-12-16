@@ -446,21 +446,21 @@ div.curategroup {
 	float:left;
 }
 div.curategroup h2 {font-size:1.2em;margin:0}
-div.curategroup_users {background:#fff}
-div.curategroup_locus_descriptions {background:#fef}
-div.curategroup_sequences {background:#eef}
-div.curategroup_profiles {background:#eff}
-div.curategroup_isolates {background:#eef}
-div.curategroup_projects {background:#ddf}
-div.curategroup_designations {background:#fee}
-div.curategroup_experiments {background:#eff}
-div.curategroup_samples {background:#fdd}
-div.curategroup_permissions {background:#fff}
-div.curategroup_remote_dbases {background:#eef}
-div.curategroup_maintenance {background:#ffe}
-div.curategroup_loci {background:#fdd}
-div.curategroup_schemes {background:#dcf}
-div.curategroup_sets {background:#cdf}
+div.curategroup_users {background-image: linear-gradient(#fff,#eee)}
+div.curategroup_locus_descriptions {background-image: linear-gradient(#fff,#ede)}
+div.curategroup_sequences {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_profiles {background-image: linear-gradient(#fff,#dee)}
+div.curategroup_isolates {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_projects {background-image: linear-gradient(#fff,#cce)}
+div.curategroup_designations {background-image: linear-gradient(#fff,#edd)}
+div.curategroup_experiments {background-image: linear-gradient(#fff,#dee)}
+div.curategroup_samples {background-image: linear-gradient(#fff,#ecc)}
+div.curategroup_permissions {background-image: linear-gradient(#fff,#eee)}
+div.curategroup_remote_dbases {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_maintenance {background-image: linear-gradient(#fff,#eed)}
+div.curategroup_loci {background-image: linear-gradient(#fff,#ecc)}
+div.curategroup_schemes {background-image: linear-gradient(#fff,#cbe)}
+div.curategroup_sets {background-image: linear-gradient(#fff,#bce)}
 
 div.queryform, div#queryform {background-image: linear-gradient(#e0e0e0, #e8e8e8);z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
