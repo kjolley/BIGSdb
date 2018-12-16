@@ -1,4 +1,4 @@
-/*Version: 20181206*/
+/*Version: 20181215*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -446,21 +446,21 @@ div.curategroup {
 	float:left;
 }
 div.curategroup h2 {font-size:1.2em;margin:0}
-div.curategroup_users {background:#fff}
-div.curategroup_locus_descriptions {background:#fef}
-div.curategroup_sequences {background:#eef}
-div.curategroup_profiles {background:#eff}
-div.curategroup_isolates {background:#eef}
-div.curategroup_projects {background:#ddf}
-div.curategroup_designations {background:#fee}
-div.curategroup_experiments {background:#eff}
-div.curategroup_samples {background:#fdd}
-div.curategroup_permissions {background:#fff}
-div.curategroup_remote_dbases {background:#eef}
-div.curategroup_maintenance {background:#ffe}
-div.curategroup_loci {background:#fdd}
-div.curategroup_schemes {background:#dcf}
-div.curategroup_sets {background:#cdf}
+div.curategroup_users {background-image: linear-gradient(#fff,#eee)}
+div.curategroup_locus_descriptions {background-image: linear-gradient(#fff,#ede)}
+div.curategroup_sequences {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_profiles {background-image: linear-gradient(#fff,#dee)}
+div.curategroup_isolates {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_projects {background-image: linear-gradient(#fff,#cce)}
+div.curategroup_designations {background-image: linear-gradient(#fff,#edd)}
+div.curategroup_experiments {background-image: linear-gradient(#fff,#dee)}
+div.curategroup_samples {background-image: linear-gradient(#fff,#ecc)}
+div.curategroup_permissions {background-image: linear-gradient(#fff,#eee)}
+div.curategroup_remote_dbases {background-image: linear-gradient(#fff,#dde)}
+div.curategroup_maintenance {background-image: linear-gradient(#fff,#eed)}
+div.curategroup_loci {background-image: linear-gradient(#fff,#ecc)}
+div.curategroup_schemes {background-image: linear-gradient(#fff,#cbe)}
+div.curategroup_sets {background-image: linear-gradient(#fff,#bce)}
 
 div.queryform, div#queryform {background-image: linear-gradient(#e0e0e0, #e8e8e8);z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
@@ -783,6 +783,7 @@ span.navigation_button {
 	border-radius:5px;
 }
 span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
+span.wait_icon {color: #66a;background: -webkit-linear-gradient(#9c47fc, #356ad2); -webkit-background-clip: text; -webkit-text-fill-color: transparent}
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
 span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
 span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
@@ -794,7 +795,13 @@ span.plugin_icon {color:#a6a;text-shadow: 3px 3px 3px #999}
 span.dataset_icon {color:#6a6;text-shadow: 3px 3px 3px #999}
 span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
-span.wait_message {color:#66a;font-size:3em}
+span.wait_message {
+	color:#66a;
+	font-size:3em;
+	background: -webkit-linear-gradient(#aaa, #66a); 
+	-webkit-background-clip: text; 
+	-webkit-text-fill-color: transparent
+}
 span.browse {color:#080}
 span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.success {color:#080;text-shadow: 5px 5px 5px #aaa}

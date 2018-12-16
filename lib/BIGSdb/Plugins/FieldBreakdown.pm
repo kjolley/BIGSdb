@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext    => 'Fields',
 		menutext      => 'Single field',
 		module        => 'FieldBreakdown',
-		version       => '1.2.5',
+		version       => '1.2.6',
 		dbtype        => 'isolates',
 		section       => 'breakdown,postquery',
 		url           => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -159,7 +159,7 @@ sub run {
 	if ( !( defined $q->param('function') && $q->param('function') eq 'summary_table' ) ) {
 		say q(<h1>Field breakdown of dataset</h1>);
 		say q(<div class="hideonload"><p><b>Please wait for charts to be generated ...</b></p>)
-		  . q(<p><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
+		  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	}
 	if ( $ENV{'MOD_PERL'} ) {
 		$self->{'mod_perl_request'}->rflush;

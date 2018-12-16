@@ -42,7 +42,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.6.3',
+		version     => '1.6.4',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -237,7 +237,7 @@ sub run {
 		}
 		say q(<div class="box" id="resultstable">);
 		say q(<p>Please wait for processing to finish (do not refresh page).</p>);
-		say q(<p class="hideonload"><span class="main_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
+		say q(<p class="hideonload"><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		print q(<p>Output files being generated ...);
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 		$self->_write_tab_text(
