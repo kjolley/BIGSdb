@@ -192,7 +192,7 @@ sub _get_remote_record {
 		my $response;
 		for my $attempt ( 1 .. 5 ) {
 			$response = $self->{'ua'}->get($uri);
-			last if $response->is_success || $response->code == 401;
+			last if $response->is_success || $response->code == 401 || $response->code == 404;
 			my ( $code, $msg ) = ( $response->code, $response->message );
 			$logger->error("Error retrieving $uri: Response $code: $msg. Will retry in 1s.");
 			sleep 1;
