@@ -1835,7 +1835,7 @@ sub get_sequence_bin_table_attributes {
 sub get_oauth_credentials_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'base_uri',        type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'base_uri', type => 'text', required => 1, length => 200, primary_key => 1 },
 		{ name => 'consumer_key',    type => 'text', required => 1 },
 		{ name => 'consumer_secret', type => 'text', required => 1 },
 		{ name => 'access_token',    type => 'text', required => 1 },
@@ -2216,10 +2216,10 @@ sub get_classification_group_fields_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'description', type => 'text', required => 0, length => 64, },
+		{ name => 'description', type => 'text', required => 0, length         => 64, },
 		{ name => 'field_order', type => 'int',  required => 0 },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	  );
 	return $attributes;
 }
