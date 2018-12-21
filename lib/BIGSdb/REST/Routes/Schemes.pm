@@ -64,7 +64,7 @@ sub _get_scheme {
 	foreach my $field (@$scheme_fields) {
 		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field");
 	}
-	if ( $scheme_info->{'primary_key'} ) {
+	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences') {
 		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 		my $table           = "mv_scheme_$scheme_id";
 		my $qry =
