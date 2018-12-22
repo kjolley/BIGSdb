@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext       => 'Microreact',
 		menutext         => 'Microreact',
 		module           => 'Microreact',
-		version          => '1.0.5',
+		version          => '1.0.6',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -94,7 +94,7 @@ sub _microreact_upload {
 		name => $params->{'title'} || $job_id,
 		description      => $params->{'description'},
 		website          => $params->{'website'},
-		map_countryField => 'country',
+		map_countryField => 'Country__autocolour',
 		data             => $$tsv,
 		tree             => $$tree
 	};
@@ -143,6 +143,7 @@ sub _create_tsv_file {
 
 	foreach my $field (@$prov_fields) {
 		( my $cleaned_field = $field ) =~ tr/_/ /;
+		$cleaned_field = 'Country__autocolour' if $cleaned_field eq 'country';
 		push @header_fields, $cleaned_field if $include_fields{"f_$field"};
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
