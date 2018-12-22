@@ -146,12 +146,19 @@ sub _get_javascript_paths {
 			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
 			'CryptoJS.MD5'        => [qw(md5.js)],
 			'packery'             => [qw(packery.js)],
-			'dropzone'            => [qw(dropzone.js)]
+			'dropzone'            => [qw(dropzone.js)],
+			'd3'                  => [qw(d3.v5.min.js d3pie.min.js)],
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
 			my $libs = $js{$feature};
-			push @javascript, ( { src => "/javascript/$_?v=$date", @language } ) foreach @$libs;
+			foreach my $lib (@$libs) {
+				if ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
+					push @javascript, ( { src => "/javascript/$lib?v=$date", @language } );
+				} else {
+					$logger->error("/javascript/$lib file not installed.");
+				}
+			}
 		}
 		push @javascript, { code => $page_js, @language } if $page_js;
 	}
@@ -295,19 +302,33 @@ sub _initiate_plugin {
 	my $q = $self->{'cgi'};
 	$q->param( format => 'html' ) if !defined $q->param('format');
 	try {
-		my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
-		my $att    = $plugin->get_attributes;
-		if ( $q->param('format') eq 'text' ) {
-			$self->{'type'}       = 'text';
-			$self->{'attachment'} = $att->{'text_filename'};
-		} elsif ( $q->param('format') eq 'xlsx' ) {
-			$self->{'type'}       = 'xlsx';
-			$self->{'attachment'} = $att->{'xlsx_filename'};
-		} elsif ( $q->param('format') eq 'tar' ) {
-			$self->{'type'}       = 'tar';
-			$self->{'attachment'} = $att->{'tar_filename'};
+		my $plugin  = $self->{'pluginManager'}->get_plugin($plugin_name);
+		my $att     = $plugin->get_attributes;
+		my $formats = {
+			text => sub {
+				$self->{'type'}       = 'text';
+				$self->{'attachment'} = $att->{'text_filename'};
+			},
+			xlsx => sub {
+				$self->{'type'}       = 'xlsx';
+				$self->{'attachment'} = $att->{'xlsx_filename'};
+			},
+			tar => sub {
+				$self->{'type'}       = 'tar';
+				$self->{'attachment'} = $att->{'tar_filename'};
+			},
+			json => sub {
+				$self->{'type'}       = 'json';
+			}
+		};
+		if ( $formats->{ $q->param('format') } ) {
+			$formats->{ $q->param('format') }->();
 		} else {
 			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
+		}
+		my $init_values = $plugin->get_initiation_values;
+		foreach my $key ( keys %$init_values ) {
+			$self->{$key} = $init_values->{$key};
 		}
 		if ( $q->param('no_header') ) {
 			$self->{'type'} = 'no_header';
@@ -385,7 +406,8 @@ sub print_page_content {
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
 		$header_options{'-type'} = $mime_type{ $self->{'type'} } // 'text/plain';
 		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
-		binmode STDOUT, ':encoding(utf8)' if $self->{'type'} eq 'no_header' || $self->{'type'} eq 'text';
+		my %utf8_types = map {$_ => 1} qw(no_header text json);
+		binmode STDOUT, ':encoding(utf8)' if $utf8_types{$self->{'type'}} ;
 		print $q->header( \%header_options );
 		$self->print_content;
 	} else {

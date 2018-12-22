@@ -31,6 +31,7 @@ use constant SEQ_SOURCE => 'seqbin id + position';
 our @EXPORT_OK = qw(SEQ_SOURCE);
 
 #Override the following methods in subclass
+sub get_initiation_values { return{}};
 sub get_attributes { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
