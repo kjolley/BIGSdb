@@ -1,4 +1,4 @@
-/*Version: 20181215*/
+/*Version: 20181223*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -799,6 +799,13 @@ span.wait_message {
 	color:#66a;
 	font-size:3em;
 	background: -webkit-linear-gradient(#aaa, #66a); 
+	-webkit-background-clip: text; 
+	-webkit-text-fill-color: transparent
+}
+span.error_message {
+	color:#c33;
+	font-size:3em;
+	background: -webkit-linear-gradient(#aaa, #c33); 
 	-webkit-background-clip: text; 
 	-webkit-text-fill-color: transparent
 }

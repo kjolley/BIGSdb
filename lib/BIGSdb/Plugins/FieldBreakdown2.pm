@@ -80,28 +80,39 @@ sub run {
 		$self->_ajax( $q->param('field') );
 		return;
 	}
-	my $fields = $self->_get_fields;
+	my ($fields,$labels) = $self->_get_fields;
 	say q(<h1>Field breakdown of dataset</h1>);
 	say q(<div class="box" id="resultspanel">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<label for="field">Select field:</label>);
-	say $q->popup_menu( - name => 'field', id => 'field', values => $fields );
+	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
 	say q(<div class="scrollable"><div id="pie_chart"></div></div>);
+	say q(<div id="error"></div>);
 	say q(</div>);
 	return;
 }
 
 sub _get_fields {
-	my ($self)  = @_;
-	my $fields  = $self->{'xmlHandler'}->get_field_list;
+	my ($self)        = @_;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $expanded_list = [];
+	my $labels = {};
 	my $no_show = $self->_get_no_show_fields;
-	my $values  = [];
-	foreach my $field (@$fields) {
+	my $extended = $self->get_extended_attributes;
+	foreach my $field (@$field_list) {
 		next if $no_show->{$field};
-		push @$values, $field;
+		push @$expanded_list, $field;
+		if ( ref $extended->{$field} eq 'ARRAY' ) {
+			foreach my $attribute ( @{ $extended->{$field} } ) {
+				push @$expanded_list, "${field}..$attribute";
+				$labels->{"${field}..$attribute"} = $attribute;
+			}
+		}
 	}
-	return $values;
+	return ($expanded_list, $labels);
 }
 
 sub _get_no_show_fields {
@@ -185,6 +196,7 @@ function get_size() {
 function load_pie(url,field) {
 	var data = [];
 	var size = get_size();
+	var title = field.replace(/^.+\\.\\./, "");
 	d3.json(url).then (function(json) {
 		\$.each(json, function(d,i){
 		    data.push({
@@ -195,11 +207,10 @@ function load_pie(url,field) {
   		})
   		var value_count = data.length;
   		var plural = value_count == 1 ? "" : "s";
- 
  		pie = new d3pie("pie_chart", {
 			header: {
 				title: {
-					text: field
+					text: title
 				},
 				subtitle: {
 					text: value_count + " value" + plural
@@ -239,7 +250,10 @@ function load_pie(url,field) {
 			 	string: "{label}: {value} ({percentage}%)"
 			 }
 		});
-	});
+	},
+	function(error){
+ 		\$("div#error").html('<p style="margin-top:2em"><span class="error_message">No data retrieved!</span></p>');
+ 	});
 	\$(window).resize(function() {
     	var size = get_size();
     	pie.updateProp("size.canvasHeight",size.height);
@@ -259,6 +273,17 @@ sub _ajax {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
 		}
 		say to_json($freqs);
+		return;
+	}
+	$logger->error($field);
+	if ($field =~ /^(.+)\.\.(.+)$/x){
+		my ($std_field, $extended) = ($1, $2);
+		my $freqs = $self->_get_extended_field_freqs($std_field, $extended);
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+		say to_json($freqs);
+		return;
 	}
 	return;
 }
@@ -269,6 +294,18 @@ sub _get_field_freqs {
 		"SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 		  . 'JOIN id_list i ON v.id=i.value GROUP BY label',
 		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	return $values;
+}
+
+sub _get_extended_field_freqs {
+	my ( $self, $field, $extended ) = @_;
+	my $values = $self->{'datastore'}->run_query(
+		"SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		  . "JOIN isolate_value_extended_attributes e ON v.$field=e.field_value JOIN id_list i ON v.id=i.value "
+		  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label',
+		[ $field, $extended],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	return $values;
