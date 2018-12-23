@@ -17,7 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::FieldBreakdown2;
+package BIGSdb::Plugins::FieldBreakdown3;
 use strict;
 use warnings;
 use 5.010;
@@ -38,9 +38,9 @@ sub get_attributes {
 		email       => 'keith.jolley@zoo.ox.ac.uk',
 		description => 'Breakdown of query results by field',
 		category    => 'Breakdown',
-		buttontext  => 'Fields2',
+		buttontext  => 'Fields3',
 		menutext    => 'Single field',
-		module      => 'FieldBreakdown2',
+		module      => 'FieldBreakdown3',
 		version     => '2.0.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
@@ -50,7 +50,7 @@ sub get_attributes {
 		#		requires      => 'chartdirector',
 		#		text_filename => "$field\_breakdown.txt",
 		#		xlsx_filename => "$field\_breakdown.xlsx",
-		order => 11
+		order => 12
 	);
 	return \%att;
 }
@@ -58,7 +58,7 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { d3 => 1, noCache => 1 };
+	my $values = { plotly => 1, noCache => 1 };
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
@@ -87,8 +87,8 @@ sub run {
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
-	say q(<div class="scrollable"><div id="pie_chart"></div></div>);
-	say q(<div id="error"></div>);
+	say q(<div class="scrollable"><div id="chart" style="min-width:420px"></div></div>);
+	say q(<div id="error" style="padding-bottom:4em"></div>);
 	say q(</div>);
 	return;
 }
@@ -155,111 +155,84 @@ sub get_plugin_javascript {
 	my $query_params = $self->_get_query_params;
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&)
-	  . qq(name=FieldBreakdown2&field=$field);
+	  . qq(name=FieldBreakdown3&field=$field);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
 	my $buffer = <<"JS";
-var pie = null;
 \$(function () {		
 	load_pie("$url","$field");
 	\$('#field').on("change",function(){
 		var field = \$('#field').val();
-		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
+		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown3&field=" 
 		+ field + "$param_string";
 		var panel_height = \$("#resultspanel").height();
-		if (pie !== null) {
-			pie.destroy();
-			\$("#resultspanel").css("height",panel_height);
-			pie = null;			
-		}
-		load_pie(url,field);
+		\$("#resultspanel").css("height",panel_height);
+		load_pie(url, field);
     });
+    \$(window).resize(function() {
+    	var size = get_size();
+ 		Plotly.relayout('chart',{height:size.height,width:size.width});
+ 	});
 });
 
 function get_size() {
 	var canvas = document.getElementById('resultspanel');
-	var outerRadius;
 	var width;
 	var height;
 	if (canvas.scrollWidth < 800) {
-		width = canvas.scrollWidth;
-		height = parseInt(canvas.scrollWidth *  0.8);
-		outerRadius = "60%";
+		width = canvas.scrollWidth - 25;
+		height = parseInt(canvas.scrollWidth *  0.9);
 	} else {
 		width = 800;
-		height = 600;
-		outerRadius = "95%";
+		height = 700;
 	}
-	return {width: width, height: height, outerRadius: outerRadius};
+	return {width: width, height: height};
 }
 
 function load_pie(url,field) {
-	var data = [];
-	var size = get_size();
+	var values = [];
+	var labels = [];
+	var display = [];
+	var total = 0;
 	var title = field.replace(/^.+\\.\\./, "");
-	d3.json(url).then (function(json) {
+	Plotly.d3.json(url, function(err, json) {
+		if (err){
+			\$("div#error").html('<p style="margin-top:2em"><span class="error_message">No data retrieved!</span></p>');
+			return;
+		}
 		\$.each(json, function(d,i){
-		    data.push({
-		    	label: i.label,
-				value: i.value
-
-    		})
+		    values.push(i.value);
+		    labels.push(i.label);
+		    total += i.value;
   		})
-  		var value_count = data.length;
+  		var min_to_display = parseInt(0.02 * total);
+   		\$.each(json, function(d,i){
+  			display.push(i.value >= min_to_display ? 'outside' : 'none');
+  		})
+  		var data = [{
+  			values: values,
+  			labels: labels,
+  			textposition: display,
+  			type: 'pie',
+  			opacity: 0.8,
+  			textinfo: 'label',
+  			rotation: 60,
+   		}];
+   		var value_count = values.length;
   		var plural = value_count == 1 ? "" : "s";
- 		pie = new d3pie("pie_chart", {
-			header: {
-				title: {
-					text: title
-				},
-				subtitle: {
-					text: value_count + " value" + plural
-				}
-			},
-			size: {
-				pieOuterRadius: size.outerRadius,
-				canvasHeight: size.height,
-				canvasWidth: size.width
-			},
-			labels: {
-				inner: {
-					hideWhenLessThanPercentage: 3
-				},
-				mainLabel: {
-					fontSize: 12
-				}
-			},
-			data: {
-			    content: data,
-			    smallSegmentGrouping: {
-					enabled: true,
-					value: 1,
-					valueType: "percentage",
-					label: "Others"
-				},
-				sortOrder: "value-desc"
-			 },
-			 misc: {
-			 	gradient: {
-			 		enabled: true
-			 	}
-			 },
-			 tooltips: {
-			 	enabled: true,
-			 	type: "placeholder",
-			 	string: "{label}: {value} ({percentage}%)"
-			 }
-		});
-	},
-	function(error){
- 		\$("div#error").html('<p style="margin-top:2em"><span class="error_message">No data retrieved!</span></p>');
- 	});
-	\$(window).resize(function() {
-    	var size = get_size();
-    	pie.updateProp("size.canvasHeight",size.height);
-    	pie.updateProp("size.canvasWidth",size.width);
-    	pie.updateProp("size.pieOuterRadius",size.outerRadius);
- 	});
+ 		title += " (" + value_count + " value" + plural + ")";
+ 		var size = get_size();
+		var layout = {
+			showlegend: false,
+ 			title: title,
+  			font: {size: 14},
+  			paper_bgcolor: 'rgba(0,0,0,0)',
+  			plot_bgcolor: 'rgba(0,0,0,0)',
+  			width: size.width,
+  			height: size.height,
+ 		};
+		Plotly.newPlot('chart', data, layout,{displayModeBar:false});
+	});
 }
 JS
 	return $buffer;
@@ -275,7 +248,6 @@ sub _ajax {
 		say to_json($freqs);
 		return;
 	}
-	$logger->error($field);
 	if ($field =~ /^(.+)\.\.(.+)$/x){
 		my ($std_field, $extended) = ($1, $2);
 		my $freqs = $self->_get_extended_field_freqs($std_field, $extended);

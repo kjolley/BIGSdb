@@ -500,7 +500,6 @@ div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background-image: linear-gradient(#d8d8e0, #e0e0e8)}
 div#message {background:#e0d5d5}
 
-
 div#menubutton {
 	float:right;
 	font-size:1.4em;
@@ -889,6 +888,8 @@ a.slide_trigger {
 	cursor:pointer
 }
 .feint{color:#aaa}
+
+.plot-container.plotly{background-image: linear-gradient(#f0f0f0, #f8f8f8)}
 
 .coolfieldset, .coolfieldset.expanded{min-width:15em}
 .coolfieldset.collapsed{}
