@@ -147,8 +147,7 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5'        => [qw(md5.js)],
 			'packery'             => [qw(packery.js)],
 			'dropzone'            => [qw(dropzone.js)],
-			'd3'                  => [qw(d3.v5.min.js d3pie.min.js)],
-			'plotly'              => [qw(plotly-latest.min.js)]
+			'd3'                  => [qw(d3.v5.min.js c3.min.js)],
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -492,34 +491,33 @@ sub _get_meta_data {
 }
 
 sub get_stylesheets {
-	my ($self) = @_;
-	my $stylesheet;
+	my ($self)  = @_;
 	my $system  = $self->{'system'};
 	my $version = '20181223';
 	my @filenames;
 	push @filenames, q(dropzone.css) if $self->{'dropzone'};
+	push @filenames, q(c3.css)       if $self->{'d3'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
 
 	foreach my $filename (@filenames) {
+		my $stylesheet;
 		my $vfilename = "$filename?v=$version";
 		if ( !$system->{'db'} ) {
 			$stylesheet = -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ? "/css/$vfilename" : "/$vfilename";
 		} else {
 			my @css_paths = ( "$system->{'webroot'}/$system->{'db'}", $system->{'webroot'}, '/css', '' );
+			my $found = 0;
 			foreach my $path (@css_paths) {
 				if ( -e "$ENV{'DOCUMENT_ROOT'}$path/$filename" ) {
 					$stylesheet = "$path/$vfilename";
+					$found      = 1;
 					last;
 				}
 			}
+			$logger->error("Stylesheet $filename not found!") if !$found;
 		}
-		my %added = map { $_ => 1 } @paths;
-		if ( !$added{$stylesheet} ) {
-			push @paths, $stylesheet;
-		} else {
-			$logger->error("Stylesheet $filename not found!");
-		}
+		push @paths, $stylesheet;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";

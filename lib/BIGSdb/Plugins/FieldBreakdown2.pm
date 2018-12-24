@@ -39,7 +39,7 @@ sub get_attributes {
 		description => 'Breakdown of query results by field',
 		category    => 'Breakdown',
 		buttontext  => 'Fields2',
-		menutext    => 'Single field',
+		menutext    => 'Single field (2)',
 		module      => 'FieldBreakdown2',
 		version     => '2.0.0',
 		dbtype      => 'isolates',
@@ -87,7 +87,7 @@ sub run {
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
-	say q(<div class="scrollable"><div id="pie_chart"></div></div>);
+	say q(<div><div id="c3_chart" style="min-height:400px"></div>);
 	say q(<div id="error"></div>);
 	say q(</div>);
 	return;
@@ -159,108 +159,87 @@ sub get_plugin_javascript {
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
 	my $buffer = <<"JS";
-var pie = null;
-\$(function () {		
-	load_pie("$url","$field");
+\$(function () {	
+	load_pie("$url","$field",20);
 	\$('#field').on("change",function(){
 		var field = \$('#field').val();
 		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
 		+ field + "$param_string";
-		var panel_height = \$("#resultspanel").height();
-		if (pie !== null) {
-			pie.destroy();
-			\$("#resultspanel").css("height",panel_height);
-			pie = null;			
-		}
-		load_pie(url,field);
+		load_pie(url,field,20);
     });
 });
 
-function get_size() {
-	var canvas = document.getElementById('resultspanel');
-	var outerRadius;
-	var width;
-	var height;
-	if (canvas.scrollWidth < 800) {
-		width = canvas.scrollWidth;
-		height = parseInt(canvas.scrollWidth *  0.8);
-		outerRadius = "60%";
-	} else {
-		width = 800;
-		height = 600;
-		outerRadius = "95%";
-	}
-	return {width: width, height: height, outerRadius: outerRadius};
-}
-
-function load_pie(url,field) {
+function load_pie(url,field,max_segments) {
 	var data = [];
-	var size = get_size();
 	var title = field.replace(/^.+\\.\\./, "");
-	d3.json(url).then (function(json) {
-		\$.each(json, function(d,i){
-		    data.push({
-		    	label: i.label,
-				value: i.value
-
-    		})
-  		})
-  		var value_count = data.length;
-  		var plural = value_count == 1 ? "" : "s";
- 		pie = new d3pie("pie_chart", {
-			header: {
-				title: {
-					text: title
-				},
-				subtitle: {
-					text: value_count + " value" + plural
-				}
-			},
-			size: {
-				pieOuterRadius: size.outerRadius,
-				canvasHeight: size.height,
-				canvasWidth: size.width
-			},
-			labels: {
-				inner: {
-					hideWhenLessThanPercentage: 3
-				},
-				mainLabel: {
-					fontSize: 12
-				}
+	var f = d3.format(".1f");
+	
+	d3.json(url).then (function(jsonData) {
+		var data = {};
+		var fields = [];
+		var count = 0;
+		var others = 0;
+		var other_fields = 0;
+		jsonData.forEach(function(e) {
+			e.label = e.label.toString(); 
+			count++;
+			if (count >= max_segments){
+				others += e.value;
+				other_fields++;
+			} else {
+			    fields.push(e.label);
+			    data[e.label] = e.value;
+			}
+		}) 
+		
+		var plural = count == 1 ? "" : "s";
+		title += " (" + count + " value" + plural + ")";
+		if (others > 0){
+			fields.push('Others');
+			data['Others'] = others;
+		}  
+		
+		var chart = c3.generate({
+			bindto: '#c3_chart',
+			title: {
+				text: title
 			},
 			data: {
-			    content: data,
-			    smallSegmentGrouping: {
-					enabled: true,
-					value: 1,
-					valueType: "percentage",
-					label: "Others"
+				json: [data],
+				keys: {
+					value: fields
 				},
-				sortOrder: "value-desc"
-			 },
-			 misc: {
-			 	gradient: {
-			 		enabled: true
-			 	}
-			 },
-			 tooltips: {
-			 	enabled: true,
-			 	type: "placeholder",
-			 	string: "{label}: {value} ({percentage}%)"
-			 }
+				type: 'pie',
+				order: null,
+				colors: {
+					'Others': '#aaa'
+				}
+			},
+			pie: {
+				label: {
+					show: true					
+				},
+				expand: false,
+			},
+			legend: {
+				show: true,
+				position: 'bottom'
+			},
+			size: {
+				height: 600
+			},
+			tooltip: {
+				format: {
+					title: name,
+					value: function (value, ratio, id){
+						return value + " (" + f(ratio * 100) + "%)";
+					}
+				}
+			}
 		});
-	},
-	function(error){
- 		\$("div#error").html('<p style="margin-top:2em"><span class="error_message">No data retrieved!</span></p>');
- 	});
-	\$(window).resize(function() {
-    	var size = get_size();
-    	pie.updateProp("size.canvasHeight",size.height);
-    	pie.updateProp("size.canvasWidth",size.width);
-    	pie.updateProp("size.pieOuterRadius",size.outerRadius);
- 	});
+	});
 }
+
 JS
 	return $buffer;
 }
@@ -275,7 +254,6 @@ sub _ajax {
 		say to_json($freqs);
 		return;
 	}
-	$logger->error($field);
 	if ($field =~ /^(.+)\.\.(.+)$/x){
 		my ($std_field, $extended) = ($1, $2);
 		my $freqs = $self->_get_extended_field_freqs($std_field, $extended);
@@ -292,7 +270,7 @@ sub _get_field_freqs {
 	my ( $self, $field ) = @_;
 	my $values = $self->{'datastore'}->run_query(
 		"SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-		  . 'JOIN id_list i ON v.id=i.value GROUP BY label',
+		  . 'JOIN id_list i ON v.id=i.value GROUP BY label ORDER BY value desc',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -304,7 +282,7 @@ sub _get_extended_field_freqs {
 	my $values = $self->{'datastore'}->run_query(
 		"SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 		  . "JOIN isolate_value_extended_attributes e ON v.$field=e.field_value JOIN id_list i ON v.id=i.value "
-		  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label',
+		  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label ORDER BY value desc',
 		[ $field, $extended],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
