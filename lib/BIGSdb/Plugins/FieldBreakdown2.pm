@@ -80,7 +80,7 @@ sub run {
 		$self->_ajax( $q->param('field') );
 		return;
 	}
-	my ($fields,$labels) = $self->_get_fields;
+	my ( $fields, $labels ) = $self->_get_fields;
 	say q(<h1>Field breakdown of dataset</h1>);
 	say q(<div class="box" id="resultspanel">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
@@ -99,9 +99,9 @@ sub _get_fields {
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my $expanded_list = [];
-	my $labels = {};
-	my $no_show = $self->_get_no_show_fields;
-	my $extended = $self->get_extended_attributes;
+	my $labels        = {};
+	my $no_show       = $self->_get_no_show_fields;
+	my $extended      = $self->get_extended_attributes;
 	foreach my $field (@$field_list) {
 		next if $no_show->{$field};
 		push @$expanded_list, $field;
@@ -112,7 +112,7 @@ sub _get_fields {
 			}
 		}
 	}
-	return ($expanded_list, $labels);
+	return ( $expanded_list, $labels );
 }
 
 sub _get_no_show_fields {
@@ -149,6 +149,25 @@ sub _get_query_params {
 	return $params;
 }
 
+sub _get_field_types_js {
+	my ($self) = @_;
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
+	my @type_values;
+	my %allowed_types = map { $_ => 1 } qw(integer text float date);
+	foreach my $field ( keys %$field_attributes ) {
+		my $type = lc( $field_attributes->{$field}->{'type'} );
+		$type = 'integer' if $type eq 'int';
+		if ( !$allowed_types{$type} ) {
+			$logger->error("Field $field has an unrecognized type: $type");
+			$type = 'text';
+		}
+		push @type_values, qq('$field':'$type');
+	}
+	local $" = qq(,\n\t);
+	return qq(var field_types = {@type_values};\n);
+}
+
 sub get_plugin_javascript {
 	my ($self)       = @_;
 	my $field        = $self->_get_first_field;
@@ -158,15 +177,22 @@ sub get_plugin_javascript {
 	  . qq(name=FieldBreakdown2&field=$field);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
-	my $buffer = <<"JS";
-\$(function () {	
+	my $types_js = $self->_get_field_types_js;
+	my $buffer   = <<"JS";
+\$(function () {
+	$types_js	
 	load_pie("$url","$field",20);
 	\$('#field').on("change",function(){
 		var field = \$('#field').val();
 		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
 		+ field + "$param_string";
-		load_pie(url,field,20);
+		if (field_types[field] == 'integer'){
+			load_bar(url,field);
+		} else {
+			load_pie(url,field,20);
+		}		
     });
+
 });
 
 function load_pie(url,field,max_segments) {
@@ -198,7 +224,6 @@ function load_pie(url,field,max_segments) {
 			fields.push('Others');
 			data['Others'] = others;
 		}  
-		
 		var chart = c3.generate({
 			bindto: '#c3_chart',
 			title: {
@@ -240,6 +265,49 @@ function load_pie(url,field,max_segments) {
 	});
 }
 
+function load_bar(url,field) {
+	var data = [];
+	var title = field.replace(/^.+\\.\\./, "");
+	var f = d3.format(".1f");
+	
+	d3.json(url).then (function(jsonData) {
+		var count = Object.keys(jsonData).length;
+		var plural = count == 1 ? "" : "s";
+		title += " (" + count + " value" + plural + ")";
+		
+		var chart = c3.generate({
+			bindto: '#c3_chart',
+			title: {
+				text: title
+			},
+			data: {
+				json: jsonData,
+				keys: {
+					x: 'label',
+					value: ['value']
+				},
+				type: 'bar',
+				order: 'asc',
+			},			
+			bar: {
+				
+			},
+			axis: {
+				x: {
+					type: 'category',
+					tick: {
+						culling: true,
+					},
+					height: 100
+				}
+			},
+			legend: {
+				show: false
+			}
+		});
+	});
+}
+
 JS
 	return $buffer;
 }
@@ -247,16 +315,17 @@ JS
 sub _ajax {
 	my ( $self, $field ) = @_;
 	if ( $self->{'xmlHandler'}->is_field($field) ) {
-		my $freqs = $self->_get_field_freqs($field);
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $freqs = $self->_get_field_freqs($field, $att->{'type'} =~ /^int/x ? {order => 'label ASC',no_null=>1} : undef);
 		foreach my $value (@$freqs) {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
 		}
 		say to_json($freqs);
 		return;
 	}
-	if ($field =~ /^(.+)\.\.(.+)$/x){
-		my ($std_field, $extended) = ($1, $2);
-		my $freqs = $self->_get_extended_field_freqs($std_field, $extended);
+	if ( $field =~ /^(.+)\.\.(.+)$/x ) {
+		my ( $std_field, $extended ) = ( $1, $2 );
+		my $freqs = $self->_get_extended_field_freqs( $std_field, $extended );
 		foreach my $value (@$freqs) {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
 		}
@@ -267,25 +336,27 @@ sub _ajax {
 }
 
 sub _get_field_freqs {
-	my ( $self, $field ) = @_;
-	my $values = $self->{'datastore'}->run_query(
-		"SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-		  . 'JOIN id_list i ON v.id=i.value GROUP BY label ORDER BY value desc',
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my ( $self, $field, $options ) = @_;
+	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . 'JOIN id_list i ON v.id=i.value ';
+	$qry .= "WHERE $field IS NOT NULL " if $options->{'no_null'};
+	$qry .= 'GROUP BY label';
+	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
+	$qry .= " ORDER BY $order";
+	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
 sub _get_extended_field_freqs {
-	my ( $self, $field, $extended ) = @_;
-	my $values = $self->{'datastore'}->run_query(
-		"SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-		  . "JOIN isolate_value_extended_attributes e ON v.$field=e.field_value JOIN id_list i ON v.id=i.value "
-		  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label ORDER BY value desc',
-		[ $field, $extended],
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my ( $self, $field, $extended, $options ) = @_;
+	my $qry =
+	    "SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . "JOIN isolate_value_extended_attributes e ON v.$field=e.field_value JOIN id_list i ON v.id=i.value "
+	  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label';
+	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
+	$qry .= " ORDER BY $order";
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, [ $field, $extended ], { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
