@@ -87,9 +87,39 @@ sub run {
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
-	say q(<div><div id="c3_chart" style="min-height:400px"></div>);
+	say q(<div id="c3_chart" style="min-height:400px"></div>);
 	say q(<div id="error"></div>);
-	say q(</div>);
+	$self->_print_bar_controls;
+	$self->_print_line_controls;
+	say q(<div style="clear:both"></div></div>);
+	return;
+}
+
+sub _print_bar_controls {
+	my ($self, $type) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="bar_controls" class="c3_controls" )
+	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
+	say q(<li><label for="orientation">Orientation:</label>);
+	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)],-default=>'horizontal' )
+	  ;
+	say q(</li>);
+	say q(<li><label for="height">Height:</label>);
+	say q(<div id="bar_height" style="display:inline-block;width:8em"></div></li>);
+	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_line_controls {
+	my ($self, $type) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="line_controls" class="c3_controls" )
+	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
+	say q(<li><label for="height">Height:</label>);
+	say q(<div id="line_height" style="display:inline-block;width:8em"></div></li>);
+	say q(</ul></fieldset>);
 	return;
 }
 
@@ -118,7 +148,7 @@ sub _get_fields {
 sub _get_no_show_fields {
 	my ($self) = @_;
 	my %no_show = map { $_ => 1 } split /,/x, ( $self->{'system'}->{'noshow'} // q() );
-	$no_show{'id'} = 1;
+	$no_show{$_} = 1 foreach qw(id sender curator);
 	$no_show{ $self->{'system'}->{'labelfield'} } = 1;
 	return \%no_show;
 }
@@ -183,19 +213,44 @@ sub get_plugin_javascript {
 	$types_js	
 	load_pie("$url","$field",20);
 	\$('#field').on("change",function(){
+		\$(".c3_controls").css("display", "none");
 		var field = \$('#field').val();
 		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
 		+ field + "$param_string";
 		if (field_types[field] == 'integer'){
 			load_bar(url,field);
+		} else if (field_types[field] == 'date'){
+			load_line(url,field,true);
 		} else {
 			load_pie(url,field,20);
 		}		
     });
-
+    
+    var orientation_radio = \$('input[name="orientation"]');
+	orientation_radio.on("change",function(){
+		var checked = orientation_radio.filter(function() {
+	    	return \$(this).prop('checked');
+	  	});
+		var orientation = checked.val();
+		var field = \$('#field').val();
+		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
+		+ field + "$param_string";
+		var rotate = orientation == 'vertical' ? 1 : 0;
+		load_bar(url,field,rotate);
+	});
+	\$(window).resize(function() {
+		if (\$(window).width() < 600){
+			\$(".c3_controls").css("position", "static");
+			\$(".c3_controls").css("float", "left");
+		} else {
+			\$(".c3_controls").css("position", "absolute");
+			\$(".c3_controls").css("clear", "both");
+		}
+	});
 });
 
 function load_pie(url,field,max_segments) {
+	\$("#bar_controls").css("display", "none");
 	var data = [];
 	var title = field.replace(/^.+\\.\\./, "");
 	var f = d3.format(".1f");
@@ -261,15 +316,82 @@ function load_pie(url,field,max_segments) {
 					}
 				}
 			}
-		});
+		})
+
 	});
 }
 
-function load_bar(url,field) {
+function load_line(url,field,cumulative) {
 	var data = [];
 	var title = field.replace(/^.+\\.\\./, "");
-	var f = d3.format(".1f");
+
+	d3.json(url).then (function(jsonData) {
+		var values = ['value'];
+		var fields = ['date'];
+		var count = 0;
+		var total = 0;
+		jsonData.forEach(function(e) {
+			count++;
+			
+			fields.push(e.label);
+			if (cumulative){
+				total += e.value;
+				values.push(total);
+			} else {
+				values.push(e.value);
+			}
+		}) 
+		var plural = count == 1 ? "" : "s";
+		title += " (" + count + " value" + plural + ")";
+		
+		var chart = c3.generate({
+			bindto: '#c3_chart',
+			title: {
+				text: title
+			},
+			data: {
+				x: 'date',
+				columns: [
+					fields,
+					values
+				],
+				type: 'line',
+				order: 'asc',
+			},			
+
+			axis: {
+				x: {
+					type: 'timeseries',
+					tick: {
+                		format: '%Y-%m-%d',
+                		count: 10,
+                		rotate: 45,
+                		fit: true
+           			},
+					height: 100
+				}
+			},
+			legend: {
+				show: false
+			}
+		});
+		\$("#line_height").on("slidechange",function(){
+			var height = \$("#line_height").slider('value');
+			chart.resize({
+				height: height
+			});
+		});
+		
+		\$("#line_controls").css("display", "block");
+		\$("#line_height").slider({min:300,max:800,value:400});
+	});
 	
+}
+
+function load_bar(url,field,rotate) {
+	var data = [];
+	var title = field.replace(/^.+\\.\\./, "");
+
 	d3.json(url).then (function(jsonData) {
 		var count = Object.keys(jsonData).length;
 		var plural = count == 1 ? "" : "s";
@@ -288,11 +410,14 @@ function load_bar(url,field) {
 				},
 				type: 'bar',
 				order: 'asc',
-			},			
+			},	
 			bar: {
-				
-			},
+				width: {
+					ratio: 0.7
+				}
+			},	
 			axis: {
+				rotated: rotate,
 				x: {
 					type: 'category',
 					tick: {
@@ -305,6 +430,16 @@ function load_bar(url,field) {
 				show: false
 			}
 		});
+		\$("#bar_height").on("slidechange",function(){
+			var height = \$("#bar_height").slider('value');
+			chart.resize({
+				height: height
+			});
+		});
+	
+		\$("#bar_height").slider({min:300,max:800,value:400});
+		\$("input[name=orientation][value='horizontal']").prop("checked",(rotate ? false : true));
+		\$("#bar_controls").css("display", "block");
 	});
 }
 
@@ -316,7 +451,9 @@ sub _ajax {
 	my ( $self, $field ) = @_;
 	if ( $self->{'xmlHandler'}->is_field($field) ) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $freqs = $self->_get_field_freqs($field, $att->{'type'} =~ /^int/x ? {order => 'label ASC',no_null=>1} : undef);
+		my $freqs =
+		  $self->_get_field_freqs( $field,
+			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
 		foreach my $value (@$freqs) {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
 		}
