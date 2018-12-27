@@ -26,6 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
 use JSON;
+use BIGSdb::Constants qw(:interface);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -46,11 +47,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
 		input       => 'query',
-
-		#		requires      => 'chartdirector',
-		#		text_filename => "$field\_breakdown.txt",
-		#		xlsx_filename => "$field\_breakdown.xlsx",
-		order => 11
+		order => 10
 	);
 	return \%att;
 }
@@ -62,6 +59,13 @@ sub get_initiation_values {
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
+	if ( $q->param('export') && $q->param('format') ) {
+		if ( $q->param('format') eq 'text' ) {
+			$values->{'attachment'} = $q->param('export') . '.txt';
+		} elsif ( $q->param('format') eq 'xlsx' ) {
+			$values->{'attachment'} = $q->param('export') . '.xlsx';
+		}
+	}
 	return $values;
 }
 
@@ -72,12 +76,130 @@ sub set_pref_requirements {
 	return;
 }
 
+sub _export {
+	my ( $self, $field, $format ) = @_;
+	my $formats = {
+		table => sub { $self->_show_table($field) },
+		xlsx  => sub { $self->_export_excel($field) },
+		text  => sub { $self->_export_text($field) }
+	};
+	if ( $formats->{$format} ) {
+		$formats->{$format}->();
+	} else {
+		say q(<h1>Field breakdown</h1>);
+		$self->print_bad_status( { message => q(Invalid format selected.) } );
+	}
+	return;
+}
+
+sub _show_table {
+	my ( $self, $field ) = @_;
+	my $freqs = [];
+	if ( $self->{'xmlHandler'}->is_field($field) ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		$freqs =
+		  $self->_get_field_freqs( $field,
+			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+	} elsif ( $field =~ /^(.+)\.\.(.+)$/x ) {
+		my ( $std_field, $extended ) = ( $1, $2 );
+		$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+	}
+	my $count = @$freqs;
+	my $plural = $count != 1 ? 's' : '';
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $display_field = $metafield // $field;
+	$display_field =~ tr/_/ /;
+	$display_field =~ s/^.*\.\.//x;
+	say qq(<h1>Breakdown by $display_field</h1>);
+	say q(<div class="box" id="resultstable">);
+	say qq(<p>$count value$plural.</p>);
+	say qq(<table class="tablesorter" id="sortTable"><thead><tr><th>$display_field</th>)
+	  . q(<th>Frequency</th><th>Percentage</th></tr></thead><tbody>);
+	my $td    = 1;
+	my $total = 0;
+	$total += $_->{'value'} foreach @$freqs;
+
+	foreach my $record (@$freqs) {
+		say qq(<tr class="td$td"><td>$record->{'label'}</td><td>$record->{'value'}</td>);
+		my $percentage = BIGSdb::Utils::decimal_place( ( $record->{'value'} / $total ) * 100, 2 );
+		say qq(<td>$percentage</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</tbody></table></div>);
+	say q(</div>);
+	return;
+}
+
+sub _get_text_table {
+	my ( $self, $field ) = @_;
+	my $freqs = [];
+	if ( $self->{'xmlHandler'}->is_field($field) ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		$freqs =
+		  $self->_get_field_freqs( $field,
+			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+	} elsif ( $field =~ /^(.+)\.\.(.+)$/x ) {
+		my ( $std_field, $extended ) = ( $1, $2 );
+		$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+	}
+	my $count = @$freqs;
+	my $plural = $count != 1 ? 's' : '';
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $display_field = $metafield // $field;
+	$display_field =~ tr/_/ /;
+	$display_field =~ s/^.*\.\.//x;
+	my $buffer = qq($display_field\tFrequency\tPercentage\n);
+	my $total  = 0;
+	$total += $_->{'value'} foreach @$freqs;
+
+	foreach my $record (@$freqs) {
+		my $percentage = BIGSdb::Utils::decimal_place( ( $record->{'value'} / $total ) * 100, 2 );
+		$buffer .= qq($record->{'label'}\t$record->{'value'}\t$percentage\n);
+	}
+	return $buffer;
+}
+
+sub _export_text {
+	my ( $self, $field ) = @_;
+	say $self->_get_text_table($field);
+	return;
+}
+
+sub _export_excel {
+	my ( $self, $field ) = @_;
+	my $display_field = $field;
+	$display_field =~ tr/_/ /;
+	$display_field =~ s/^.*\.\.//x;
+	my $text_table = $self->_get_text_table($field);
+	my $temp_file  = $self->make_temp_file($text_table);
+	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
+	BIGSdb::Utils::text2excel( $full_path,
+		{ stdout => 1, worksheet => "$display_field breakdown", tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+	unlink $full_path;
+	return;
+}
+
 sub run {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
 	my $id_table = $self->_create_id_table;
 	if ( $q->param('field') ) {
 		$self->_ajax( $q->param('field') );
+		return;
+	} elsif ( $q->param('export') && $q->param('format') ) {
+		$self->_export( $q->param('export'), $q->param('format') );
 		return;
 	}
 	my ( $fields, $labels ) = $self->_get_fields;
@@ -91,19 +213,24 @@ sub run {
 	say q(<div id="error"></div>);
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
-	say q(<div style="clear:both"></div></div>);
+	say q(<div style="clear:both"></div>);
+	my ( $table, $excel, $text ) = ( EXPORT_TABLE, EXCEL_FILE, TEXT_FILE );
+	say q(<div id="export" style="display:none">);
+	say qq(<a id="export_table" title="Show as table" style="cursor:pointer">$table</a>);
+	say qq(<a id="export_excel" title="Export Excel file" style="cursor:pointer">$excel</a>);
+	say qq(<a id="export_text" title="Export text file" style="cursor:pointer">$text</a>);
+	say q(</div></div>);
 	return;
 }
 
 sub _print_bar_controls {
-	my ($self, $type) = @_;
+	my ( $self, $type ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="bar_controls" class="c3_controls" )
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="orientation">Orientation:</label>);
-	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)],-default=>'horizontal' )
-	  ;
+	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)], -default => 'horizontal' );
 	say q(</li>);
 	say q(<li><label for="height">Height:</label>);
 	say q(<div id="bar_height" style="display:inline-block;width:8em"></div></li>);
@@ -112,7 +239,7 @@ sub _print_bar_controls {
 }
 
 sub _print_line_controls {
-	my ($self, $type) = @_;
+	my ( $self, $type ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="line_controls" class="c3_controls" )
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
@@ -205,8 +332,11 @@ sub get_plugin_javascript {
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&)
 	  . qq(name=FieldBreakdown2&field=$field);
+	my $export_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&) . q(name=FieldBreakdown2);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
-	$url .= $param_string;
+	$url        .= $param_string;
+	$export_url .= $param_string;
 	my $types_js = $self->_get_field_types_js;
 	my $buffer   = <<"JS";
 \$(function () {
@@ -247,6 +377,7 @@ sub get_plugin_javascript {
 			\$(".c3_controls").css("clear", "both");
 		}
 	});
+	
 });
 
 function load_pie(url,field,max_segments) {
@@ -317,7 +448,7 @@ function load_pie(url,field,max_segments) {
 				}
 			}
 		})
-
+		show_export_options();
 	});
 }
 
@@ -384,6 +515,7 @@ function load_line(url,field,cumulative) {
 		
 		\$("#line_controls").css("display", "block");
 		\$("#line_height").slider({min:300,max:800,value:400});
+		show_export_options();
 	});
 	
 }
@@ -440,8 +572,17 @@ function load_bar(url,field,rotate) {
 		\$("#bar_height").slider({min:300,max:800,value:400});
 		\$("input[name=orientation][value='horizontal']").prop("checked",(rotate ? false : true));
 		\$("#bar_controls").css("display", "block");
+		show_export_options();		
 	});
 }
+
+function show_export_options () {
+	var field = \$('#field').val();
+	\$("a#export_table").attr("href", "$export_url&export=" + field + "&format=table");
+	\$("a#export_excel").attr("href", "$export_url&export=" + field + "&format=xlsx");
+	\$("a#export_text").attr("href", "$export_url&export=" + field + "&format=text");
+	\$("#export").css("display", "block");
+} 
 
 JS
 	return $buffer;
