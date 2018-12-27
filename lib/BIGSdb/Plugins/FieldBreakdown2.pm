@@ -47,7 +47,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
 		input       => 'query',
-		order => 10
+		order       => 10
 	);
 	return \%att;
 }
@@ -178,8 +178,9 @@ sub _export_text {
 }
 
 sub _export_excel {
-	my ( $self, $field ) = @_;
-	my $display_field = $field;
+	my ( $self,    $field )     = @_;
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
 	$display_field =~ s/^.*\.\.//x;
 	my $text_table = $self->_get_text_table($field);
@@ -265,8 +266,13 @@ sub _get_fields {
 		if ( ref $extended->{$field} eq 'ARRAY' ) {
 			foreach my $attribute ( @{ $extended->{$field} } ) {
 				push @$expanded_list, "${field}..$attribute";
-				$labels->{"${field}..$attribute"} = $attribute;
+				( $labels->{"${field}..$attribute"} = $attribute ) =~ tr/_/ /;
 			}
+		} else {
+			my $label = $field;
+			$label =~ s/^$_://x foreach @$metadata_list;
+			$label =~ tr/_/ /;
+			$labels->{$field} = $label;
 		}
 	}
 	return ( $expanded_list, $labels );
@@ -615,9 +621,16 @@ sub _ajax {
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-	  . 'JOIN id_list i ON v.id=i.value ';
-	$qry .= "WHERE $field IS NOT NULL " if $options->{'no_null'};
+	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
+	my $qry;
+	if ( defined $metaset ) {
+		$qry = "SELECT m.$metafield AS label,COUNT(*) AS value FROM meta_$metaset m RIGHT JOIN "
+		  . "$self->{'system'}->{'view'} v ON m.isolate_id=v.id JOIN id_list i ON v.id=i.value ";
+	} else {
+		$qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		  . 'JOIN id_list i ON v.id=i.value ';
+	}
+	$qry .= 'WHERE ' . ( $metafield // $field ) . ' IS NOT NULL ' if $options->{'no_null'};
 	$qry .= 'GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
