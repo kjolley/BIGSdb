@@ -351,7 +351,13 @@ var rotate = 0;
 
 \$(function () {
 	$types_js	
-	load_pie("$url","$field",20);
+	if (field_types["$field"] == 'integer'){
+		load_bar("$url","$field",rotate);
+	} else if (field_types["$field"] == 'date'){
+		load_line("$url","$field",true);
+	} else {
+		load_pie("$url","$field",20);
+	}	
 	
 	\$('#field').on("change",function(){
 		\$(".c3_controls").css("display", "none");
