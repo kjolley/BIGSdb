@@ -410,8 +410,7 @@ function load_pie(url,field,max_segments) {
 	var f = d3.format(".1f");
 	
 	d3.json(url).then (function(jsonData) {
-		var data = {};
-		var fields = [];
+		var columns = [];
 		var count = 0;
 		var others = 0;
 		var other_fields = 0;
@@ -422,16 +421,13 @@ function load_pie(url,field,max_segments) {
 				others += e.value;
 				other_fields++;
 			} else {
-			    fields.push(e.label);
-			    data[e.label] = e.value;
+				columns.push([e.label, e.value]);
 			}
 		}) 
-		
 		var plural = count == 1 ? "" : "s";
 		title += " (" + count + " value" + plural + ")";
 		if (others > 0){
-			fields.push('Others');
-			data['Others'] = others;
+			columns.push(['Others',others]);
 		}  
 		var chart = c3.generate({
 			bindto: '#c3_chart',
@@ -439,10 +435,7 @@ function load_pie(url,field,max_segments) {
 				text: title
 			},
 			data: {
-				json: [data],
-				keys: {
-					value: fields
-				},
+				columns: columns,
 				type: 'pie',
 				order: null,
 				colors: {
@@ -622,6 +615,9 @@ sub _ajax {
 			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
 		foreach my $value (@$freqs) {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
+#TODO Doesn't seem to like . in the label.
+#						$value->{'label'} =~ s/\./_/;
+			
 		}
 		say to_json($freqs);
 		return;
