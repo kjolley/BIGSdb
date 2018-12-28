@@ -212,6 +212,7 @@ sub run {
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
 	say q(<div id="c3_chart" style="min-height:400px"></div>);
 	say q(<div id="error"></div>);
+	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
 	say q(<div style="clear:both"></div>);
@@ -224,8 +225,21 @@ sub run {
 	return;
 }
 
+sub _print_pie_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="pie_controls" class="c3_controls" )
+	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
+	say q(<li><label for="segments">Max segments:</label>);
+	say q(<div id="segments" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
+	say q(<div id="segments_display" style="display:inline-block;width:3em;margin-left:1em"></div></li>);
+	say q(</ul></fieldset>);
+	return;
+}
+
 sub _print_bar_controls {
-	my ( $self, $type ) = @_;
+	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="bar_controls" class="c3_controls" )
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
@@ -240,7 +254,7 @@ sub _print_bar_controls {
 }
 
 sub _print_line_controls {
-	my ( $self, $type ) = @_;
+	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="line_controls" class="c3_controls" )
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
@@ -335,7 +349,8 @@ sub get_plugin_javascript {
 	my ($self)       = @_;
 	my $field        = $self->_get_first_field;
 	my $query_params = $self->_get_query_params;
-	my $height = 400; #TODO Read this from prefs
+	my $height       = 400;                        #TODO Read this from prefs
+	my $segments = 20; #TODO Read this from prefs
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&)
 	  . qq(name=FieldBreakdown2&field=$field);
@@ -347,6 +362,7 @@ sub get_plugin_javascript {
 	my $types_js = $self->_get_field_types_js;
 	my $buffer   = <<"JS";
 var height = $height;
+var segments = $segments;
 var rotate = 0;
 
 \$(function () {
@@ -382,17 +398,21 @@ var rotate = 0;
 		rotate = is_vertical();
 		load_bar(url,field,rotate);
 	});
+	position_controls();
 	\$(window).resize(function() {
-		if (\$(window).width() < 600){
-			\$(".c3_controls").css("position", "static");
-			\$(".c3_controls").css("float", "left");
-		} else {
-			\$(".c3_controls").css("position", "absolute");
-			\$(".c3_controls").css("clear", "both");
-		}
+		position_controls();
 	});
-	
 });
+
+function position_controls(){
+	if (\$(window).width() < 600){
+		\$(".c3_controls").css("position", "static");
+		\$(".c3_controls").css("float", "left");
+	} else {
+		\$(".c3_controls").css("position", "absolute");
+		\$(".c3_controls").css("clear", "both");
+	}
+}
 
 function is_vertical() {
 	var orientation_radio = \$('input[name="orientation"]');
@@ -405,37 +425,29 @@ function is_vertical() {
 
 function load_pie(url,field,max_segments) {
 	\$("#bar_controls").css("display", "none");
-	var data = [];
 	var title = field.replace(/^.+\\.\\./, "");
 	var f = d3.format(".1f");
 	
 	d3.json(url).then (function(jsonData) {
-		var columns = [];
-		var count = 0;
-		var others = 0;
-		var other_fields = 0;
-		jsonData.forEach(function(e) {
-			e.label = e.label.toString(); 
-			count++;
-			if (count >= max_segments){
-				others += e.value;
-				other_fields++;
-			} else {
-				columns.push([e.label, e.value]);
-			}
-		}) 
-		var plural = count == 1 ? "" : "s";
-		title += " (" + count + " value" + plural + ")";
-		if (others > 0){
-			columns.push(['Others',others]);
-		}  
+		var data = pie_json_to_cols(jsonData,max_segments);
+		
+		//Load all data first otherwise a glitch causes one segment to be missing
+		//when increasing number of segments.
+		var all_data = pie_json_to_cols(jsonData,50);
+		
+		//Need to create 'Others' segment otherwise it won't display properly
+		//if needed when reducing segment count.
+		all_data.columns.push(['Others',0]);
+		
+		var plural = data.count == 1 ? "" : "s";
+		title += " (" + data.count + " value" + plural + ")";
 		var chart = c3.generate({
 			bindto: '#c3_chart',
 			title: {
 				text: title
 			},
 			data: {
-				columns: columns,
+				columns: all_data.columns,
 				type: 'pie',
 				order: null,
 				colors: {
@@ -457,15 +469,60 @@ function load_pie(url,field,max_segments) {
 			},
 			tooltip: {
 				format: {
-					title: name,
 					value: function (value, ratio, id){
 						return value + " (" + f(ratio * 100) + "%)";
 					}
 				}
 			}
-		})
+		});
+		chart.unload();
+		chart.load({
+			columns: data.columns,
+		});	
+		
+		\$("#segments").on("slidechange",function(){
+			var new_segments = \$("#segments").slider('value');
+			\$("#segments_display").text(new_segments);
+			segments = new_segments;
+			var data = pie_json_to_cols(jsonData,segments);
+			chart.unload();
+			chart.load({
+				columns: data.columns,
+			});	
+		});
+		
+		\$("#segments").slider({min:5,max:50,value:segments});
+		\$("#segments_display").text(segments);
+		\$("#pie_controls").css("display", "block");
 		show_export_options();
 	});
+}
+
+function pie_json_to_cols(jsonData,segments){
+	var columns = [];
+	var first_other = [];
+	var count = 0;
+	var others = 0;
+	var other_fields = 0;
+	jsonData.forEach(function(e) {
+		e.label = e.label.toString(); 
+		count++;
+		if (count >= segments){
+			others += e.value;
+			other_fields++;
+			if (count == segments){
+				first_other = [e.label, e.value];
+			}
+		} else {
+			columns.push([e.label, e.value]);
+		}
+	}) 
+	if (other_fields == 1){
+		columns.push(first_other);
+	} else if (other_fields > 1){
+		columns.push(['Others',others]);
+	}
+	return {columns: columns, count: count};  
 }
 
 function load_line(url,field,cumulative) {
@@ -533,8 +590,7 @@ function load_line(url,field,cumulative) {
 		\$("#line_controls").css("display", "block");
 		\$("#line_height").slider({min:300,max:800,value:height});
 		show_export_options();
-	});
-	
+	});	
 }
 
 function load_bar(url,field,rotate) {
@@ -588,7 +644,6 @@ function load_bar(url,field,rotate) {
 		});
 	
 		\$("#bar_height").slider({min:300,max:800,value:height});
-	//	\$("input[name=orientation][value='horizontal']").prop("checked",(rotate ? false : true));
 		\$("#bar_controls").css("display", "block");
 		show_export_options();		
 	});
@@ -615,9 +670,6 @@ sub _ajax {
 			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
 		foreach my $value (@$freqs) {
 			$value->{'label'} = 'No value' if !defined $value->{'label'};
-#TODO Doesn't seem to like . in the label.
-#						$value->{'label'} =~ s/\./_/;
-			
 		}
 		say to_json($freqs);
 		return;
