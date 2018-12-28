@@ -335,6 +335,7 @@ sub get_plugin_javascript {
 	my ($self)       = @_;
 	my $field        = $self->_get_first_field;
 	my $query_params = $self->_get_query_params;
+	my $height = 400; #TODO Read this from prefs
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&)
 	  . qq(name=FieldBreakdown2&field=$field);
@@ -345,16 +346,21 @@ sub get_plugin_javascript {
 	$export_url .= $param_string;
 	my $types_js = $self->_get_field_types_js;
 	my $buffer   = <<"JS";
+var height = $height;
+var rotate = 0;
+
 \$(function () {
 	$types_js	
 	load_pie("$url","$field",20);
+	
 	\$('#field').on("change",function(){
 		\$(".c3_controls").css("display", "none");
+		var rotate = is_vertical();
 		var field = \$('#field').val();
 		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
 		+ field + "$param_string";
 		if (field_types[field] == 'integer'){
-			load_bar(url,field);
+			load_bar(url,field,rotate);
 		} else if (field_types[field] == 'date'){
 			load_line(url,field,true);
 		} else {
@@ -364,14 +370,10 @@ sub get_plugin_javascript {
     
     var orientation_radio = \$('input[name="orientation"]');
 	orientation_radio.on("change",function(){
-		var checked = orientation_radio.filter(function() {
-	    	return \$(this).prop('checked');
-	  	});
-		var orientation = checked.val();
 		var field = \$('#field').val();
 		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown2&field=" 
 		+ field + "$param_string";
-		var rotate = orientation == 'vertical' ? 1 : 0;
+		rotate = is_vertical();
 		load_bar(url,field,rotate);
 	});
 	\$(window).resize(function() {
@@ -385,6 +387,15 @@ sub get_plugin_javascript {
 	});
 	
 });
+
+function is_vertical() {
+	var orientation_radio = \$('input[name="orientation"]');
+	var checked = orientation_radio.filter(function() {
+	    	return \$(this).prop('checked');
+	  	});
+	var orientation = checked.val();
+	return orientation == 'vertical' ? 1 : 0;
+}
 
 function load_pie(url,field,max_segments) {
 	\$("#bar_controls").css("display", "none");
@@ -513,14 +524,15 @@ function load_line(url,field,cumulative) {
 			}
 		});
 		\$("#line_height").on("slidechange",function(){
-			var height = \$("#line_height").slider('value');
-			chart.resize({
+			var new_height = \$("#line_height").slider('value');
+			height = new_height;
+			chart.resize({				
 				height: height
 			});
 		});
 		
 		\$("#line_controls").css("display", "block");
-		\$("#line_height").slider({min:300,max:800,value:400});
+		\$("#line_height").slider({min:300,max:800,value:height});
 		show_export_options();
 	});
 	
@@ -569,14 +581,15 @@ function load_bar(url,field,rotate) {
 			}
 		});
 		\$("#bar_height").on("slidechange",function(){
-			var height = \$("#bar_height").slider('value');
-			chart.resize({
+			var new_height = \$("#bar_height").slider('value');
+			height = new_height;
+			chart.resize({				
 				height: height
 			});
 		});
 	
-		\$("#bar_height").slider({min:300,max:800,value:400});
-		\$("input[name=orientation][value='horizontal']").prop("checked",(rotate ? false : true));
+		\$("#bar_height").slider({min:300,max:800,value:height});
+	//	\$("input[name=orientation][value='horizontal']").prop("checked",(rotate ? false : true));
 		\$("#bar_controls").css("display", "block");
 		show_export_options();		
 	});
