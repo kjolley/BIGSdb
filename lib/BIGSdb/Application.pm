@@ -23,6 +23,7 @@ use 5.010;
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxMenu;
+use BIGSdb::AjaxPrefs;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
@@ -82,6 +83,7 @@ sub print_page {
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
 		ajaxMenu           => 'AjaxMenu',
+		ajaxPrefs          => 'AjaxPrefs',
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
 		alleleSequence     => 'AlleleSequencePage',

@@ -1,0 +1,98 @@
+#Written by Keith Jolley
+#Copyright (c) 2018, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+package BIGSdb::AjaxPrefs;
+use strict;
+use warnings;
+use 5.010;
+use parent qw(BIGSdb::Page);
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
+use JSON;
+
+sub initiate {
+	my ($self) = @_;
+	$self->{'noCache'} = 1;
+	$self->{'type'}    = 'no_header';
+	return;
+}
+
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} =
+	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	return;
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('update') ) {
+		$self->_update;
+	} else {
+		$self->_get;
+	}
+	return;
+}
+
+sub _get {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	if ( !$guid ) {
+		say encode_json( { error => 1, message => 'No GUID.' } );
+		return;
+	}
+	my $dbase = $self->{'system'}->{'db'};
+	if ( !$q->param('plugin') ) {
+		say encode_json( { error => 1, message => 'No plugin set.' } );
+		return;
+	}
+	my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, $q->param('plugin') );
+	say encode_json($data);
+	return;
+}
+
+sub _update {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	if ( !$guid ) {
+		say encode_json( { error => 1, message => 'No GUID.' } );
+		return;
+	}
+	my $dbase = $self->{'system'}->{'db'};
+	foreach my $param (qw(attribute value plugin)) {
+		my $value = $q->param($param);
+		if ( !defined $value ) {
+			say encode_json( { error => 1, message => "No $param set." } );
+			return;
+		}
+	}
+	eval {
+		$self->{'prefstore'}
+		  ->set_plugin_attribute( $guid, $dbase, $q->param('plugin'), $q->param('attribute'), $q->param('value') );
+	};
+	if ($@) {
+		say encode_json( { error => 1, message => 'Update failed.' } );
+	} else {
+		say encode_json( { message => 'Updated.' } );
+	}
+	return;
+}
+1;

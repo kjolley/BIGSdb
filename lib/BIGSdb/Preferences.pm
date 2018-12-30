@@ -258,8 +258,8 @@ sub get_general_pref {
 sub get_all_field_prefs {
 	my ( $self, $guid, $dbase ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
-	my $sql = $self->{'db'}->prepare('SELECT field,action,value FROM field WHERE (guid,dbase)=(?,?)');
-	my $values;
+	my $sql    = $self->{'db'}->prepare('SELECT field,action,value FROM field WHERE (guid,dbase)=(?,?)');
+	my $values = {};
 	eval { $sql->execute( $guid, $dbase ) };
 	if ($@) {
 		$logger->error($@);
@@ -275,8 +275,8 @@ sub get_all_field_prefs {
 sub get_all_locus_prefs {
 	my ( $self, $guid, $dbname ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
-	my $prefs;
-	my $sql = $self->{'db'}->prepare('SELECT locus,action,value FROM locus WHERE (guid,dbase)=(?,?)');
+	my $prefs = {};
+	my $sql   = $self->{'db'}->prepare('SELECT locus,action,value FROM locus WHERE (guid,dbase)=(?,?)');
 	eval { $sql->execute( $guid, $dbname ) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchall_arrayref( {} );
@@ -464,7 +464,7 @@ sub get_all_scheme_prefs {
 		$logger->error($@);
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get scheme all attribute query');
 	}
-	my $values;
+	my $values = {};
 	my $data = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
 		$values->{ $pref->{'scheme_id'} }->{ $pref->{'action'} } = $pref->{'value'};
@@ -480,10 +480,27 @@ sub get_all_scheme_field_prefs {
 		$logger->error($@);
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get all scheme fields attribute query');
 	}
-	my $values;
+	my $values = {};
 	my $data = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
 		$values->{ $pref->{'scheme_id'} }->{ $pref->{'field'} }->{ $pref->{'action'} } = $pref->{'value'};
+	}
+	return $values;
+}
+
+sub get_plugin_attributes {
+	my ( $self, $guid, $dbase, $plugin ) = @_;
+	BIGSdb::Exception::Prefstore::NoGUID->throw('No guid passed') if !$guid;
+	my $sql = $self->{'db'}->prepare('SELECT attribute,value FROM plugin WHERE (guid,dbase,plugin)=(?,?,?)');
+	eval { $sql->execute( $guid, $dbase, $plugin ) };
+	if ($@) {
+		$logger->error($@);
+		BIGSdb::Exception::Prefstore->throw('Cannot execute get plugin attributes query');
+	}
+	my $values = {};
+	my $data = $sql->fetchall_arrayref( {} );
+	foreach my $prefs (@$data) {
+		$values->{ $prefs->{'attribute'} } = $prefs->{'value'};
 	}
 	return $values;
 }

@@ -248,7 +248,7 @@ sub _print_bar_controls {
 	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)], -default => 'horizontal' );
 	say q(</li>);
 	say q(<li><label for="height">Height:</label>);
-	say q(<div id="bar_height" style="display:inline-block;width:8em"></div></li>);
+	say q(<div id="bar_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
 	say q(</ul></fieldset>);
 	return;
 }
@@ -260,7 +260,7 @@ sub _print_line_controls {
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="height">Height:</label>);
-	say q(<div id="line_height" style="display:inline-block;width:8em"></div></li>);
+	say q(<div id="line_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
 	say q(</ul></fieldset>);
 	return;
 }
@@ -305,17 +305,6 @@ sub _get_id_count {
 	return $self->{'datastore'}->run_query('SELECT COUNT(*) FROM id_list');
 }
 
-sub _get_first_field {
-	my ($self)  = @_;
-	my $fields  = $self->{'xmlHandler'}->get_field_list;
-	my $no_show = $self->_get_no_show_fields;
-	foreach my $field (@$fields) {
-		next if $no_show->{$field};
-		return $field;
-	}
-	return;
-}
-
 sub _get_query_params {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -346,46 +335,54 @@ sub _get_field_types_js {
 }
 
 sub get_plugin_javascript {
-	my ($self)       = @_;
-	my $field        = $self->_get_first_field;
+	my ($self) = @_;
 	my $query_params = $self->_get_query_params;
-	my $height       = 400;                        #TODO Read this from prefs
-	my $segments     = 20;                         #TODO Read this from prefs
 	local $" = q(&);
-	my $url =
-	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&) . qq(name=FieldBreakdown&field=$field);
-	my $export_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
+	my $url      = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
+	my $ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
-	$url        .= $param_string;
-	$export_url .= $param_string;
+	$url .= $param_string;
 	my $types_js = $self->_get_field_types_js;
 	my $buffer   = <<"JS";
-var height = $height;
-var segments = $segments;
+var height = 400;
+var segments = 20;
 var rotate = 0;
 
 \$(function () {
+	\$.ajax({
+		url: "$ajax_url"
+	})
+	.done(function(data) {
+		var prefObj = JSON.parse(data);
+		if (prefObj.height){height=prefObj.height}; 
+		if (prefObj.segments){segments=prefObj.segments}; 			
+  	})
+  	.fail(function(response){
+  		console.log(response);
+  	});
+  	var field = \$("#field").val();
+	var initial_url = "$url" + "&field=" + field;
+	
 	$types_js	
-	if (field_types["$field"] == 'integer'){
-		load_bar("$url","$field",rotate);
-	} else if (field_types["$field"] == 'date'){
-		load_line("$url","$field",true);
+	if (field_types[field] == 'integer'){
+		load_bar(initial_url,field,rotate);
+	} else if (field_types[field] == 'date'){
+		load_line(initial_url,field,true);
 	} else {
-		load_pie("$url","$field",20);
+		load_pie(initial_url,field,segments);
 	}	
 	
 	\$('#field').on("change",function(){
 		\$(".c3_controls").css("display", "none");
 		var rotate = is_vertical();
 		var field = \$('#field').val();
-		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown&field=" 
-		+ field + "$param_string";
+		var url = "$url" + "&field=" + field;
 		if (field_types[field] == 'integer'){
 			load_bar(url,field,rotate);
 		} else if (field_types[field] == 'date'){
 			load_line(url,field,true);
 		} else {
-			load_pie(url,field,20);
+			load_pie(url,field,segments);
 		}		
     });
     
@@ -482,13 +479,24 @@ function load_pie(url,field,max_segments) {
 		\$("#segments").on("slidechange",function(){
 			var new_segments = \$("#segments").slider('value');
 			\$("#segments_display").text(new_segments);
+			if (segments != new_segments){
+				set_prefs('segments',new_segments);
+			}
 			segments = new_segments;
 			var data = pie_json_to_cols(jsonData,segments);
 			chart.unload();
 			chart.load({
 				columns: data.columns,
 			});	
+
 		});
+		if (max_segments != segments){
+			var data = pie_json_to_cols(jsonData,segments);
+			chart.unload();
+			chart.load({
+				columns: data.columns,
+			});
+		}
 		
 		\$("#segments").slider({min:5,max:50,value:segments});
 		\$("#segments_display").text(segments);
@@ -584,6 +592,10 @@ function load_line(url,field,cumulative) {
 			chart.resize({				
 				height: height
 			});
+			set_prefs('height',height);
+		});
+		chart.resize({				
+			height: height
 		});
 		
 		\$("#line_controls").css("display", "block");
@@ -640,6 +652,10 @@ function load_bar(url,field,rotate) {
 			chart.resize({				
 				height: height
 			});
+			set_prefs('height',height);
+		});
+		chart.resize({				
+			height: height
 		});
 	
 		\$("#bar_height").slider({min:300,max:800,value:height});
@@ -650,11 +666,15 @@ function load_bar(url,field,rotate) {
 
 function show_export_options () {
 	var field = \$('#field').val();
-	\$("a#export_table").attr("href", "$export_url&export=" + field + "&format=table");
-	\$("a#export_excel").attr("href", "$export_url&export=" + field + "&format=xlsx");
-	\$("a#export_text").attr("href", "$export_url&export=" + field + "&format=text");
+	\$("a#export_table").attr("href", "$url&export=" + field + "&format=table");
+	\$("a#export_excel").attr("href", "$url&export=" + field + "&format=xlsx");
+	\$("a#export_text").attr("href", "$url&export=" + field + "&format=text");
 	\$("#export").css("display", "block");
 } 
+
+function set_prefs(attribute, value){
+	\$.ajax("$ajax_url" + "&update=1&attribute=" + attribute + "&value=" + value);
+}
 
 JS
 	return $buffer;
