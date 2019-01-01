@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018, University of Oxford
+#Copyright (c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -234,7 +234,22 @@ sub _print_pie_controls {
 	say q(<li><label for="segments">Max segments:</label>);
 	say q(<div id="segments" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(<div id="segments_display" style="display:inline-block;width:3em;margin-left:1em"></div></li>);
+	$self->_print_chart_types;
 	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_chart_types {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<li>);
+	say q(<a class="chart_icon transform_to_pie" title="Convert to pie chart" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
+	say q(<a class="chart_icon transform_to_donut" title="Convert to donut chart" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
+#	say q(<a class="chart_icon transform_to_bar" title="Convert to bar chart" style="display:none">)
+#	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+	say q(</li>);
 	return;
 }
 
@@ -347,6 +362,7 @@ sub get_plugin_javascript {
 var height = 400;
 var segments = 20;
 var rotate = 0;
+var pie = 1;
 
 \$(function () {
 	\$.ajax({
@@ -355,13 +371,15 @@ var rotate = 0;
 	.done(function(data) {
 		var prefObj = JSON.parse(data);
 		if (prefObj.height){height=prefObj.height}; 
-		if (prefObj.segments){segments=prefObj.segments}; 			
+		if (prefObj.segments){segments=prefObj.segments};
+		if (prefObj.pie == 0){pie=0} 			
   	})
   	.fail(function(response){
   		console.log(response);
   	});
   	var field = \$("#field").val();
 	var initial_url = "$url" + "&field=" + field;
+	var rotate = is_vertical();
 	
 	$types_js	
 	if (field_types[field] == 'integer'){
@@ -384,16 +402,8 @@ var rotate = 0;
 		} else {
 			load_pie(url,field,segments);
 		}		
-    });
-    
-    var orientation_radio = \$('input[name="orientation"]');
-	orientation_radio.on("change",function(){
-		var field = \$('#field').val();
-		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown&field=" 
-		+ field + "$param_string";
-		rotate = is_vertical();
-		load_bar(url,field,rotate);
-	});
+    });   
+
 	position_controls();
 	\$(window).resize(function() {
 		position_controls();
@@ -444,7 +454,7 @@ function load_pie(url,field,max_segments) {
 			},
 			data: {
 				columns: all_data.columns,
-				type: 'pie',
+				type: pie ? 'pie' : 'donut',
 				order: null,
 				colors: {
 					'Others': '#aaa'
@@ -497,10 +507,25 @@ function load_pie(url,field,max_segments) {
 				columns: data.columns,
 			});
 		}
-		
+		\$(".transform_to_donut").click(function(){
+			chart.transform('donut');
+			\$(".transform_to_donut").css("display","none");
+			\$(".transform_to_pie").css("display","inline");
+			pie = 0;
+			set_prefs('pie',0);
+		});
+		\$(".transform_to_pie").click(function(){
+			chart.transform('pie');
+			\$(".transform_to_pie").css("display","none");
+			\$(".transform_to_donut").css("display","inline");
+			pie = 1;
+			set_prefs('pie',1);
+		});
 		\$("#segments").slider({min:5,max:50,value:segments});
 		\$("#segments_display").text(segments);
-		\$("#pie_controls").css("display", "block");
+		\$(".transform_to_pie").css("display",pie ? "none" : "inline");
+		\$(".transform_to_donut").css("display",pie ? "inline": "none");
+		\$("#pie_controls").css("display","block");
 		show_export_options();
 	});
 }
@@ -604,63 +629,72 @@ function load_line(url,field,cumulative) {
 	});	
 }
 
-function load_bar(url,field,rotate) {
-	var data = [];
+function load_bar_json(jsonData,field,rotate){
 	var title = field.replace(/^.+\\.\\./, "");
-
-	d3.json(url).then (function(jsonData) {
-		var count = Object.keys(jsonData).length;
-		var plural = count == 1 ? "" : "s";
-		title += " (" + count + " value" + plural + ")";
-		
-		var chart = c3.generate({
-			bindto: '#c3_chart',
-			title: {
-				text: title
+	var count = Object.keys(jsonData).length;
+	var plural = count == 1 ? "" : "s";
+	title += " (" + count + " value" + plural + ")";
+	
+	var chart = c3.generate({
+		bindto: '#c3_chart',
+		title: {
+			text: title
+		},
+		data: {
+			json: jsonData,
+			keys: {
+				x: 'label',
+				value: ['value']
 			},
-			data: {
-				json: jsonData,
-				keys: {
-					x: 'label',
-					value: ['value']
-				},
-				type: 'bar',
-				order: 'asc',
-			},	
-			bar: {
-				width: {
-					ratio: 0.7
-				}
-			},	
-			axis: {
-				rotated: rotate,
-				x: {
-					type: 'category',
-					tick: {
-						culling: true,
-					},
-					height: 100
-				}
-			},
-			legend: {
-				show: false
+			type: 'bar',
+		},	
+		bar: {
+			width: {
+				ratio: 0.7
 			}
-		});
-		\$("#bar_height").on("slidechange",function(){
-			var new_height = \$("#bar_height").slider('value');
-			height = new_height;
-			chart.resize({				
-				height: height
-			});
-			set_prefs('height',height);
-		});
+		},	
+		axis: {
+			rotated: rotate,
+			x: {
+				type: 'category',
+				tick: {
+					culling: true,
+				},
+				height: 100
+			}
+		},
+		legend: {
+			show: false
+		}
+	});
+	\$("#bar_height").on("slidechange",function(){
+		var new_height = \$("#bar_height").slider('value');
+		height = new_height;
 		chart.resize({				
 			height: height
 		});
-	
-		\$("#bar_height").slider({min:300,max:800,value:height});
-		\$("#bar_controls").css("display", "block");
-		show_export_options();		
+		set_prefs('height',height);
+	});
+	chart.resize({				
+		height: height
+	});
+		
+	\$("#bar_height").slider({min:300,max:800,value:height});
+	\$("#bar_controls").css("display", "block");
+	show_export_options();		
+}
+
+function load_bar(url,field,rotate) {
+	d3.json(url).then (function(jsonData) {
+		load_bar_json(jsonData,field,rotate)
+	});
+	var orientation_radio = \$('input[name="orientation"]');
+	orientation_radio.on("change",function(){
+		var field = \$('#field').val();
+		rotate = is_vertical();
+		//Reload by URL rather than from already downloaded JSON data
+		//as it seems that the required unload() function currently has a memory leak.
+		load_bar(url,field,rotate);
 	});
 }
 

@@ -1,4 +1,4 @@
-/*Version: 20181223*/
+/*Version: 20190101*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -809,6 +809,8 @@ span.error_message {
 	-webkit-text-fill-color: transparent
 }
 span.browse {color:#080}
+a.chart_icon{text-decoration:none}
+span.chart_icon {text-shadow: 2px 2px 2px #aaa;cursor:pointer};
 span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.success {color:#080;text-shadow: 5px 5px 5px #aaa}
 span.failure {color:#800;text-shadow: 5px 5px 5px #aaa}
