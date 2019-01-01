@@ -210,8 +210,9 @@ sub run {
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
-	say q(<div id="c3_chart" style="min-height:400px"></div>);
-	say q(<div id="error"></div>);
+	say q(<div id="c3_chart" style="min-height:400px">);
+	$self->print_loading_message;
+	say q(</div>) ;
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
@@ -247,8 +248,9 @@ sub _print_chart_types {
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
 	say q(<a class="chart_icon transform_to_donut" title="Convert to donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
-#	say q(<a class="chart_icon transform_to_bar" title="Convert to bar chart" style="display:none">)
-#	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+
+	#	say q(<a class="chart_icon transform_to_bar" title="Convert to bar chart" style="display:none">)
+	#	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
 	say q(</li>);
 	return;
 }
@@ -411,7 +413,7 @@ var pie = 1;
 });
 
 function position_controls(){
-	if (\$(window).width() < 600){
+	if (\$(window).width() < 800){
 		\$(".c3_controls").css("position", "static");
 		\$(".c3_controls").css("float", "left");
 	} else {

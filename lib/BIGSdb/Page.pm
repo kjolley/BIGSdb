@@ -2982,6 +2982,15 @@ sub print_good_status {
 	return;
 }
 
+sub print_loading_message {
+	my ($self) = @_;
+	say q(<p style="margin-top:5em;text-align:center;line-height:3em">)
+	  . q(<span class="wait_message">Loading ... Please wait.</span></p>)
+	  . q(<p style="text-align:center"><span class="wait_icon fas fa-sync-alt fa-spin fa-8x"></span></p>)
+	  ;
+	return;
+}
+
 sub print_warning {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Warning!';
