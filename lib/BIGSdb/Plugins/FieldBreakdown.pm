@@ -28,6 +28,9 @@ use Try::Tiny;
 use JSON;
 use BIGSdb::Constants qw(:interface);
 
+#TODO EAV fields
+#TODO Alleles - FASTA export
+#TODO Scheme fields
 sub get_attributes {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -212,7 +215,7 @@ sub run {
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
 	say q(<div id="c3_chart" style="min-height:400px">);
 	$self->print_loading_message;
-	say q(</div>) ;
+	say q(</div>);
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
@@ -244,13 +247,14 @@ sub _print_chart_types {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<li>);
-	say q(<a class="chart_icon transform_to_pie" title="Convert to pie chart" style="display:none">)
+	say q(<a class="chart_icon transform_to_pie" title="Pie chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
-	say q(<a class="chart_icon transform_to_donut" title="Convert to donut chart" style="display:none">)
+	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
-
-	#	say q(<a class="chart_icon transform_to_bar" title="Convert to bar chart" style="display:none">)
-	#	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-chart-line" style="color:#844"></span></a>);
 	say q(</li>);
 	return;
 }
@@ -278,6 +282,7 @@ sub _print_line_controls {
 	say q(<ul>);
 	say q(<li><label for="height">Height:</label>);
 	say q(<div id="line_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
+	$self->_print_chart_types;
 	say q(</ul></fieldset>);
 	return;
 }
@@ -365,6 +370,7 @@ var height = 400;
 var segments = 20;
 var rotate = 0;
 var pie = 1;
+var line = 1;
 
 \$(function () {
 	\$.ajax({
@@ -374,7 +380,7 @@ var pie = 1;
 		var prefObj = JSON.parse(data);
 		if (prefObj.height){height=prefObj.height}; 
 		if (prefObj.segments){segments=prefObj.segments};
-		if (prefObj.pie == 0){pie=0} 			
+		if (prefObj.pie == 0){pie=0} 	
   	})
   	.fail(function(response){
   		console.log(response);
@@ -387,7 +393,7 @@ var pie = 1;
 	if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
-		load_line(initial_url,field,true);
+		load_line(initial_url,field,line);
 	} else {
 		load_pie(initial_url,field,segments);
 	}	
@@ -400,7 +406,7 @@ var pie = 1;
 		if (field_types[field] == 'integer'){
 			load_bar(url,field,rotate);
 		} else if (field_types[field] == 'date'){
-			load_line(url,field,true);
+			load_line(url,field,line);
 		} else {
 			load_pie(url,field,segments);
 		}		
@@ -527,8 +533,14 @@ function load_pie(url,field,max_segments) {
 		\$("#segments_display").text(segments);
 		\$(".transform_to_pie").css("display",pie ? "none" : "inline");
 		\$(".transform_to_donut").css("display",pie ? "inline": "none");
+		\$(".transform_to_bar").css("display","none");
+		\$(".transform_to_line").css("display","none");
 		\$("#pie_controls").css("display","block");
 		show_export_options();
+	},function(error) {
+		console.log(error);
+		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		 + '<span class="error_message">Error accessing data.</span></p>');
 	});
 }
 
@@ -560,6 +572,8 @@ function pie_json_to_cols(jsonData,segments){
 }
 
 function load_line(url,field,cumulative) {
+	//Prevent multiple event firing after reloading
+	\$("#line_height").off("slidechange");
 	var data = [];
 	var title = field.replace(/^.+\\.\\./, "");
 
@@ -578,7 +592,7 @@ function load_line(url,field,cumulative) {
 			} else {
 				values.push(e.value);
 			}
-		}) 
+		});
 		var plural = count == 1 ? "" : "s";
 		title += " (" + count + " value" + plural + ")";
 		
@@ -593,7 +607,7 @@ function load_line(url,field,cumulative) {
 					fields,
 					values
 				],
-				type: 'line',
+				type: line ? 'line' : 'bar',
 				order: 'asc',
 			},			
 
@@ -602,8 +616,8 @@ function load_line(url,field,cumulative) {
 					type: 'timeseries',
 					tick: {
                 		format: '%Y-%m-%d',
-                		count: 10,
-                		rotate: 45,
+                		count: 100,
+                		rotate: 90,
                 		fit: true
            			},
 					height: 100
@@ -613,6 +627,33 @@ function load_line(url,field,cumulative) {
 				show: false
 			}
 		});
+
+		chart.resize({				
+			height: height
+		});
+		
+		\$(".transform_to_bar").off("click").click(function(){
+			chart.unload();
+			load_line(url,field,0);
+			\$(".transform_to_bar").css("display","none");
+			\$(".transform_to_line").css("display","inline");
+			line = 0;
+		});
+		\$(".transform_to_line").off("click").click(function(){
+			chart.unload();
+			load_line(url,field,1);
+			\$(".transform_to_line").css("display","none");
+			\$(".transform_to_bar").css("display","inline");
+			line = 1;
+		});
+		
+		\$(".transform_to_line").css("display",line ? "none" : "inline");
+		\$(".transform_to_bar").css("display",line ? "inline": "none");
+		\$(".transform_to_pie").css("display","none");
+		\$(".transform_to_donut").css("display","none");
+		
+		\$("#line_controls").css("display", "block");
+		\$("#line_height").slider({min:300,max:800,value:height});
 		\$("#line_height").on("slidechange",function(){
 			var new_height = \$("#line_height").slider('value');
 			height = new_height;
@@ -621,17 +662,16 @@ function load_line(url,field,cumulative) {
 			});
 			set_prefs('height',height);
 		});
-		chart.resize({				
-			height: height
-		});
-		
-		\$("#line_controls").css("display", "block");
-		\$("#line_height").slider({min:300,max:800,value:height});
 		show_export_options();
+	},function(error) {
+		console.log(error);
+		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
 }
 
 function load_bar_json(jsonData,field,rotate){
+	\$("#bar_height").off("slidechange");
 	var title = field.replace(/^.+\\.\\./, "");
 	var count = Object.keys(jsonData).length;
 	var plural = count == 1 ? "" : "s";
@@ -669,6 +709,12 @@ function load_bar_json(jsonData,field,rotate){
 			show: false
 		}
 	});
+	chart.resize({				
+		height: height
+	});
+		
+	\$("#bar_height").slider({min:300,max:800,value:height});
+	\$("#bar_controls").css("display", "block");
 	\$("#bar_height").on("slidechange",function(){
 		var new_height = \$("#bar_height").slider('value');
 		height = new_height;
@@ -677,18 +723,16 @@ function load_bar_json(jsonData,field,rotate){
 		});
 		set_prefs('height',height);
 	});
-	chart.resize({				
-		height: height
-	});
-		
-	\$("#bar_height").slider({min:300,max:800,value:height});
-	\$("#bar_controls").css("display", "block");
 	show_export_options();		
 }
 
 function load_bar(url,field,rotate) {
 	d3.json(url).then (function(jsonData) {
 		load_bar_json(jsonData,field,rotate)
+	},function(error) {
+		console.log(error);
+		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		 + '<span class="error_message">Error accessing data.</span></p>');
 	});
 	var orientation_radio = \$('input[name="orientation"]');
 	orientation_radio.on("change",function(){
