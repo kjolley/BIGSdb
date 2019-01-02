@@ -29,7 +29,6 @@ use JSON;
 use BIGSdb::Constants qw(:interface);
 
 #TODO Alleles - FASTA export
-#TODO Add waiting for AJAX indication
 sub get_attributes {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -255,6 +254,8 @@ sub run {
 	say q(</li><li style="margin-top:0.5em"><label for="field_type">List:</label>);
 	say $q->radio_group( -name => 'field_type', -values => [qw(fields loci schemes)], -default => 'fields' );
 	say q(</li></ul></fieldset>);
+	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
+	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
 	say q(<div id="c3_chart" style="min-height:400px">);
 	$self->print_loading_message;
 	say q(</div>);
@@ -475,17 +476,19 @@ var line = 1;
 	}	
 	
 	\$("#field").on("change",function(){
-		\$(".c3_controls").css("display", "none");
+		\$("div#waiting").css("display","block");
+		\$(".c3_controls").css("display", "none");			
 		var rotate = is_vertical();
 		var field = \$('#field').val();
 		var url = "$url" + "&field=" + field;
+		
 		if (field_types[field] == 'integer'){
 			load_bar(url,field,rotate);
 		} else if (field_types[field] == 'date'){
 			load_line(url,field,line);
 		} else {
 			load_pie(url,field,segments);
-		}		
+		}	
     }); 
     
    	var field_type_radio = \$('input[name="field_type"]');
@@ -555,8 +558,7 @@ function load_pie(url,field,max_segments) {
 	var title = field.replace(/^.+\\.\\./, "");
 	title = title.replace(/^s_\\d+_/,"");
 	var f = d3.format(".1f");
-	
-	d3.json(url).then (function(jsonData) {
+	d3.json(url).then (function(jsonData) {			
 		var data = pie_json_to_cols(jsonData,max_segments);
 		
 		//Load all data first otherwise a glitch causes one segment to be missing
@@ -651,6 +653,7 @@ function load_pie(url,field,max_segments) {
 		\$(".transform_to_line").css("display","none");
 		\$("#pie_controls").css("display","block");
 		show_export_options();
+		\$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
@@ -686,6 +689,7 @@ function pie_json_to_cols(jsonData,segments){
 }
 
 function load_line(url,field,cumulative) {
+	\$("div#waiting").css("display","block");
 	//Prevent multiple event firing after reloading
 	\$("#line_height").off("slidechange");
 	var data = [];
@@ -777,6 +781,7 @@ function load_line(url,field,cumulative) {
 			set_prefs('height',height);
 		});
 		show_export_options();
+		\$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
@@ -842,7 +847,8 @@ function load_bar_json(jsonData,field,rotate){
 
 function load_bar(url,field,rotate) {
 	d3.json(url).then (function(jsonData) {
-		load_bar_json(jsonData,field,rotate)
+		load_bar_json(jsonData,field,rotate);
+		\$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
