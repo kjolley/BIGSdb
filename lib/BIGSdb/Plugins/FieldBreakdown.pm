@@ -29,7 +29,7 @@ use JSON;
 use BIGSdb::Constants qw(:interface);
 
 #TODO Alleles - FASTA export
-#TODO Scheme fields
+#TODO Add waiting for AJAX indication
 sub get_attributes {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -62,10 +62,11 @@ sub get_initiation_values {
 		$values->{'type'} = 'json';
 	}
 	if ( $q->param('export') && $q->param('format') ) {
+		( my $field_name = $q->param('export') ) =~ s/^s_\d+_//x;
 		if ( $q->param('format') eq 'text' ) {
-			$values->{'attachment'} = $q->param('export') . '.txt';
+			$values->{'attachment'} = "$field_name.txt";
 		} elsif ( $q->param('format') eq 'xlsx' ) {
-			$values->{'attachment'} = $q->param('export') . '.xlsx';
+			$values->{'attachment'} = "$field_name.xlsx";
 		}
 	}
 	return $values;
@@ -94,30 +95,81 @@ sub _export {
 	return;
 }
 
+sub _get_field_type {
+	my ( $self, $field ) = @_;
+	if ( $self->{'xmlHandler'}->is_field($field) ) {
+		return 'field';
+	}
+	if ( $self->{'datastore'}->is_eav_field($field) ) {
+		return 'eav_field';
+	}
+	if ( $field =~ /^(.+)\.\.(.+)$/x ) {
+		return 'extended_field';
+	}
+	if ( $field =~ /^s_\d+_.+$/x ) {
+		return 'scheme_field';
+	}
+	if ( $self->{'datastore'}->is_locus($field) ) {
+		return 'locus';
+	}
+	return;
+}
+
+sub _get_field_values {
+	my ( $self, $field ) = @_;
+	my $field_type = $self->_get_field_type($field);
+	my $freqs      = [];
+	my $methods    = {
+		field => sub {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			$freqs =
+			  $self->_get_field_freqs( $field,
+				$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+		},
+		eav_field => sub {
+			my $att = $self->{'datastore'}->get_eav_field($field);
+			$freqs =
+			  $self->_get_eav_field_freqs( $field,
+				$att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+		},
+		extended_field => sub {
+			if ( $field =~ /^(.+)\.\.(.+)$/x ) {
+				my ( $std_field, $extended ) = ( $1, $2 );
+				$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
+			}
+		},
+		locus => sub {
+			$freqs = $self->_get_allele_freqs($field);
+		},
+		scheme_field => sub {
+			if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+				$freqs = $self->_get_scheme_field_freqs( $scheme_id, $scheme_field );
+			}
+		}
+	};
+	if ( $methods->{$field_type} ) {
+		$methods->{$field_type}->();
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+	} else {
+		$logger->error('Invalid field type');
+		return;
+	}
+	return $freqs;
+}
+
 sub _show_table {
 	my ( $self, $field ) = @_;
-	my $freqs = [];
-	if ( $self->{'xmlHandler'}->is_field($field) ) {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		$freqs =
-		  $self->_get_field_freqs( $field,
-			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-	} elsif ( $field =~ /^(.+)\.\.(.+)$/x ) {
-		my ( $std_field, $extended ) = ( $1, $2 );
-		$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-	}
-	my $count = @$freqs;
+	my $freqs  = $self->_get_field_values($field);
+	my $count  = @$freqs;
 	my $plural = $count != 1 ? 's' : '';
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $display_field = $metafield // $field;
-	$display_field =~ tr/_/ /;
+	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
+	$display_field =~ tr/_/ /;
 	say qq(<h1>Breakdown by $display_field</h1>);
 	say q(<div class="box" id="resultstable">);
 	say qq(<p>$count value$plural.</p>);
@@ -140,28 +192,14 @@ sub _show_table {
 
 sub _get_text_table {
 	my ( $self, $field ) = @_;
-	my $freqs = [];
-	if ( $self->{'xmlHandler'}->is_field($field) ) {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		$freqs =
-		  $self->_get_field_freqs( $field,
-			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-	} elsif ( $field =~ /^(.+)\.\.(.+)$/x ) {
-		my ( $std_field, $extended ) = ( $1, $2 );
-		$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-	}
-	my $count = @$freqs;
+	my $freqs  = $self->_get_field_values($field);
+	my $count  = @$freqs;
 	my $plural = $count != 1 ? 's' : '';
 	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $display_field = $metafield // $field;
-	$display_field =~ tr/_/ /;
+	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
+	$display_field =~ tr/_/ /;
 	my $buffer = qq($display_field\tFrequency\tPercentage\n);
 	my $total  = 0;
 	$total += $_->{'value'} foreach @$freqs;
@@ -185,6 +223,7 @@ sub _export_excel {
 	my $display_field = $metafield // $field;
 	$display_field =~ tr/_/ /;
 	$display_field =~ s/^.*\.\.//x;
+	$display_field =~ s/'//x;
 	my $text_table = $self->_get_text_table($field);
 	my $temp_file  = $self->make_temp_file($text_table);
 	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
@@ -210,8 +249,12 @@ sub run {
 	say q(<div class="box" id="resultspanel">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
-	say q(<label for="field">Select field:</label>);
+	say q(<fieldset><legend>Field selection</legend><ul>);
+	say q(<li><label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
+	say q(</li><li style="margin-top:0.5em"><label for="field_type">List:</label>);
+	say $q->radio_group( -name => 'field_type', -values => [qw(fields loci schemes)], -default => 'fields' );
+	say q(</li></ul></fieldset>);
 	say q(<div id="c3_chart" style="min-height:400px">);
 	$self->print_loading_message;
 	say q(</div>);
@@ -337,7 +380,7 @@ sub _get_query_params {
 	return $params;
 }
 
-sub _get_field_types_js {
+sub _get_fields_js {
 	my ($self) = @_;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
@@ -353,7 +396,35 @@ sub _get_field_types_js {
 		push @type_values, qq('$field':'$type');
 	}
 	local $" = qq(,\n\t);
-	return qq(var field_types = {@type_values};\n);
+	my ($fields) = $self->_get_fields;
+	my $buffer = q(var fields=) . encode_json($fields) . qq(;\n);
+	$buffer .= qq(\tvar field_types = {@type_values};\n);
+	return $buffer;
+}
+
+sub _get_loci_js {
+	my ($self) = @_;
+	my $loci = $self->{'datastore'}->get_loci;
+	return q(var loci=) . encode_json($loci);
+}
+
+sub _get_schemes_js {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my $fields = [];
+	foreach my $scheme (@$schemes) {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+		foreach my $scheme_field (@$scheme_fields) {
+			push @$fields,
+			  {
+				field => "s_$scheme->{'id'}_$scheme_field",
+				label => "$scheme_field ($scheme->{'name'})"
+			  };
+		}
+	}
+	@$fields = sort { lc( $a->{'label'} ) cmp lc( $b->{'label'} ) } @$fields;
+	return q(var schemes=) . encode_json($fields);
 }
 
 sub get_plugin_javascript {
@@ -364,8 +435,10 @@ sub get_plugin_javascript {
 	my $ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
-	my $types_js = $self->_get_field_types_js;
-	my $buffer   = <<"JS";
+	my $types_js   = $self->_get_fields_js;
+	my $loci_js    = $self->_get_loci_js;
+	my $schemes_js = $self->_get_schemes_js;
+	my $buffer     = <<"JS";
 var height = 400;
 var segments = 20;
 var rotate = 0;
@@ -385,11 +458,14 @@ var line = 1;
   	.fail(function(response){
   		console.log(response);
   	});
+  	\$('input[name="field_type"][value="fields"]').prop("checked", true);
   	var field = \$("#field").val();
 	var initial_url = "$url" + "&field=" + field;
 	var rotate = is_vertical();
 	
 	$types_js	
+	$loci_js
+	$schemes_js
 	if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
@@ -398,7 +474,7 @@ var line = 1;
 		load_pie(initial_url,field,segments);
 	}	
 	
-	\$('#field').on("change",function(){
+	\$("#field").on("change",function(){
 		\$(".c3_controls").css("display", "none");
 		var rotate = is_vertical();
 		var field = \$('#field').val();
@@ -410,7 +486,35 @@ var line = 1;
 		} else {
 			load_pie(url,field,segments);
 		}		
-    });   
+    }); 
+    
+   	var field_type_radio = \$('input[name="field_type"]');
+	field_type_radio.on("change",function(){
+		var field_type = get_field_type();
+		\$("#field").empty();
+		var list = {
+			fields: fields,
+			loci: loci,
+			schemes: schemes
+		};
+		
+		\$.each(list[field_type], function(index, item){
+			var value;
+			var label;
+			if (field_type == 'schemes'){
+				label = item.label;
+				value = item.field;
+			} else {
+				label = item.replace(/^.+\\.\\./, "");
+				value = item;
+			}
+			jQuery('<option/>', {
+       			value: value,
+       			html: label
+       		}).appendTo("#field"); 
+		});
+		\$("#field").change();
+	});  
 
 	position_controls();
 	\$(window).resize(function() {
@@ -437,9 +541,19 @@ function is_vertical() {
 	return orientation == 'vertical' ? 1 : 0;
 }
 
+function get_field_type() {
+	var field_type_radio = \$('input[name="field_type"]');
+	var checked = field_type_radio.filter(function() {
+		return \$(this).prop('checked');
+	});
+	var field_type = checked.val();
+	return field_type;
+}
+
 function load_pie(url,field,max_segments) {
 	\$("#bar_controls").css("display", "none");
 	var title = field.replace(/^.+\\.\\./, "");
+	title = title.replace(/^s_\\d+_/,"");
 	var f = d3.format(".1f");
 	
 	d3.json(url).then (function(jsonData) {
@@ -762,37 +876,8 @@ JS
 
 sub _ajax {
 	my ( $self, $field ) = @_;
-	if ( $self->{'xmlHandler'}->is_field($field) ) {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $freqs =
-		  $self->_get_field_freqs( $field,
-			$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-		say to_json($freqs);
-		return;
-	}
-	if ( $self->{'datastore'}->is_eav_field($field) ) {
-		my $att = $self->{'datastore'}->get_eav_field($field);
-		my $freqs =
-		  $self->_get_eav_field_freqs( $field,
-			$att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-		say to_json($freqs);
-		return;
-	}
-	if ( $field =~ /^(.+)\.\.(.+)$/x ) {
-		my ( $std_field, $extended ) = ( $1, $2 );
-		my $freqs = $self->_get_extended_field_freqs( $std_field, $extended );
-		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
-		}
-		say to_json($freqs);
-		return;
-	}
+	my $freqs = $self->_get_field_values($field);
+	say to_json($freqs);
 	return;
 }
 
@@ -838,6 +923,29 @@ sub _get_extended_field_freqs {
 	$qry .= " ORDER BY $order";
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $extended ], { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_allele_freqs {
+	my ( $self, $locus ) = @_;
+	my $qry =
+	    "SELECT a.allele_id AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . 'JOIN id_list i ON v.id=i.value LEFT JOIN allele_designations a ON a.isolate_id=v.id AND a.locus=? '
+	  . 'GROUP BY label ORDER BY value DESC';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_scheme_field_freqs {
+	my ( $self, $scheme_id, $field ) = @_;
+	my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	my $qry =
+	    "SELECT s.$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . "JOIN $scheme_table s ON v.id=s.id JOIN id_list i ON v.id=i.value "
+	  . 'GROUP BY label ORDER BY value DESC';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
