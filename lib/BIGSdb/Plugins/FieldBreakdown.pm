@@ -28,7 +28,6 @@ use Try::Tiny;
 use JSON;
 use BIGSdb::Constants qw(:interface);
 
-#TODO EAV fields
 #TODO Alleles - FASTA export
 #TODO Scheme fields
 sub get_attributes {
@@ -288,15 +287,16 @@ sub _print_line_controls {
 }
 
 sub _get_fields {
-	my ($self)        = @_;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $expanded_list = [];
-	my $labels        = {};
-	my $no_show       = $self->_get_no_show_fields;
-	my $extended      = $self->get_extended_attributes;
-	foreach my $field (@$field_list) {
+	my ($self)         = @_;
+	my $set_id         = $self->get_set_id;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
+	my $field_list     = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
+	my $expanded_list  = [];
+	my $labels         = {};
+	my $no_show        = $self->_get_no_show_fields;
+	my $extended       = $self->get_extended_attributes;
+	foreach my $field ( @$field_list, @$eav_field_list ) {
 		next if $no_show->{$field};
 		push @$expanded_list, $field;
 		if ( ref $extended->{$field} eq 'ARRAY' ) {
@@ -773,6 +773,17 @@ sub _ajax {
 		say to_json($freqs);
 		return;
 	}
+	if ( $self->{'datastore'}->is_eav_field($field) ) {
+		my $att = $self->{'datastore'}->get_eav_field($field);
+		my $freqs =
+		  $self->_get_eav_field_freqs( $field,
+			$att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+		foreach my $value (@$freqs) {
+			$value->{'label'} = 'No value' if !defined $value->{'label'};
+		}
+		say to_json($freqs);
+		return;
+	}
 	if ( $field =~ /^(.+)\.\.(.+)$/x ) {
 		my ( $std_field, $extended ) = ( $1, $2 );
 		my $freqs = $self->_get_extended_field_freqs( $std_field, $extended );
@@ -801,6 +812,19 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_eav_field_freqs {
+	my ( $self, $field, $options ) = @_;
+	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
+	my $qry       = "SELECT e.value AS label,COUNT(*) AS value FROM $eav_table e RIGHT JOIN id_list i ON "
+	  . 'e.isolate_id=i.value AND e.field=?';
+	$qry .= 'WHERE value IS NOT NULL ' if $options->{'no_null'};
+	$qry .= 'GROUP BY label';
+	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
+	$qry .= " ORDER BY $order";
+	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
