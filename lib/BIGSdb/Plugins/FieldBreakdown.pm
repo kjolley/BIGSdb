@@ -76,7 +76,7 @@ sub get_initiation_values {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
-	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -283,7 +283,13 @@ sub run {
 	say q(<li><label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
 	say q(</li><li style="margin-top:0.5em"><label for="field_type">List:</label>);
-	say $q->radio_group( -name => 'field_type', -values => [qw(fields loci schemes)], -default => 'fields' );
+	my $loci = $self->{'datastore'}->get_loci( { analysis_pref => 1 } );
+	my $types = [qw(fields)];
+	push @$types, 'loci' if @$loci;
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+	push @$types, 'schemes' if @$schemes;
+	say $q->radio_group( -name => 'field_type', -values => $types, -default => 'fields' );
 	say q(</li></ul></fieldset>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
@@ -438,6 +444,10 @@ sub _get_fields_js {
 }
 
 sub _get_loci_js {
+
+	#Get all loci irrespective of whether analysis_prefs flag is set.
+	#The list will be updated by an AJAX call, but we cannot tell who is logged in
+	#when the Javascript is being prepared as this goes in the header.
 	my ($self) = @_;
 	my $loci = $self->{'datastore'}->get_loci;
 	return q(var loci=) . encode_json($loci);
@@ -466,8 +476,11 @@ sub get_plugin_javascript {
 	my ($self) = @_;
 	my $query_params = $self->_get_query_params;
 	local $" = q(&);
-	my $url      = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
-	my $ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
+	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
+	my $plugin_prefs_ajax_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
+	my $locus_prefs_ajax_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&loci=1);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
 	my $types_js   = $self->_get_fields_js;
@@ -483,7 +496,7 @@ var fasta = 0;
 
 \$(function () {
 	\$.ajax({
-		url: "$ajax_url"
+		url: "$plugin_prefs_ajax_url"
 	})
 	.done(function(data) {
 		var prefObj = JSON.parse(data);
@@ -494,6 +507,7 @@ var fasta = 0;
   	.fail(function(response){
   		console.log(response);
   	});
+
   	\$('input[name="field_type"][value="fields"]').prop("checked", true);
   	var field = \$("#field").val();
 	var initial_url = "$url" + "&field=" + field;
@@ -502,6 +516,13 @@ var fasta = 0;
 	$types_js	
 	$loci_js
 	$schemes_js
+	\$.ajax({
+  		url: "$locus_prefs_ajax_url"
+  	}).done(function(data){
+ 		loci = JSON.parse(data);
+   	}).fail(function(response){
+  		console.log(response);
+  	});
 	if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
@@ -667,14 +688,14 @@ function load_pie(url,field,max_segments) {
 				columns: data.columns,
 			});
 		}
-		\$(".transform_to_donut").click(function(){
+		\$(".transform_to_donut").off("click").click(function(){
 			chart.transform('donut');
 			\$(".transform_to_donut").css("display","none");
 			\$(".transform_to_pie").css("display","inline");
 			pie = 0;
 			set_prefs('pie',0);
 		});
-		\$(".transform_to_pie").click(function(){
+		\$(".transform_to_pie").off("click").click(function(){
 			chart.transform('pie');
 			\$(".transform_to_pie").css("display","none");
 			\$(".transform_to_donut").css("display","inline");
@@ -908,10 +929,10 @@ function show_export_options () {
 	\$("a#export_fasta").attr("href", "$url&export=" + field + "&format=fasta");
 	\$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	\$("#export").css("display", "block");
-} 
+}
 
 function set_prefs(attribute, value){
-	\$.ajax("$ajax_url" + "&update=1&attribute=" + attribute + "&value=" + value);
+	\$.ajax("$plugin_prefs_ajax_url" + "&update=1&attribute=" + attribute + "&value=" + value);
 }
 
 JS

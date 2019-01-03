@@ -35,7 +35,7 @@ sub initiate {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
-	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
 
@@ -59,13 +59,21 @@ sub _get {
 		return;
 	}
 	my $dbase = $self->{'system'}->{'db'};
-	if ( !$q->param('plugin') ) {
-		say encode_json( { error => 1, message => 'No plugin set.' } );
+
+	if ($q->param('plugin')){
+		my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, $q->param('plugin') );
+		say encode_json($data);
 		return;
 	}
-	my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, $q->param('plugin') );
-	say encode_json($data);
+	if ($q->param('loci')){
+		
+		my $data = $self->{'datastore'}->get_loci({analysis_pref=>1});
+		say encode_json($data);
+		return;
+	}
+	say encode_json( { error => 1, message => 'No valid parameters passed.' } );
 	return;
+	
 }
 
 sub _update {
