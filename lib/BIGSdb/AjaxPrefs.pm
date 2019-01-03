@@ -59,21 +59,33 @@ sub _get {
 		return;
 	}
 	my $dbase = $self->{'system'}->{'db'};
-
-	if ($q->param('plugin')){
+	if ( $q->param('plugin') ) {
 		my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, $q->param('plugin') );
 		say encode_json($data);
 		return;
 	}
-	if ($q->param('loci')){
-		
-		my $data = $self->{'datastore'}->get_loci({analysis_pref=>1});
+	my $set_id = $self->get_set_id;
+	if ( $q->param('loci') ) {
+		my $data = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => 1 } );
 		say encode_json($data);
+		return;
+	}
+	if ( $q->param('scheme_fields') ) {
+		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, analysis_pref => 1, with_pk => 1 } );
+		my $fields = [];
+		foreach my $scheme (@$schemes) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+			foreach my $scheme_field (@$scheme_fields) {
+				push @$fields,
+				  { field => "s_$scheme->{'id'}_$scheme_field",
+					label => "$scheme_field ($scheme->{'name'})" };
+			}
+		}
+		say encode_json($fields);
 		return;
 	}
 	say encode_json( { error => 1, message => 'No valid parameters passed.' } );
 	return;
-	
 }
 
 sub _update {

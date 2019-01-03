@@ -283,11 +283,11 @@ sub run {
 	say q(<li><label for="field">Select field:</label>);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
 	say q(</li><li style="margin-top:0.5em"><label for="field_type">List:</label>);
-	my $loci = $self->{'datastore'}->get_loci( { analysis_pref => 1 } );
-	my $types = [qw(fields)];
-	push @$types, 'loci' if @$loci;
 	my $set_id = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => 1 } );
+	my $types  = [qw(fields)];
+	push @$types, 'loci' if @$loci;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id, analysis_pref => 1 } );
 	push @$types, 'schemes' if @$schemes;
 	say $q->radio_group( -name => 'field_type', -values => $types, -default => 'fields' );
 	say q(</li></ul></fieldset>);
@@ -454,6 +454,10 @@ sub _get_loci_js {
 }
 
 sub _get_schemes_js {
+
+	#Get all schemes irrespective of whether analysis_prefs flag is set.
+	#The list will be updated by an AJAX call, but we cannot tell who is logged in
+	#when the Javascript is being prepared as this goes in the header.
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
@@ -479,8 +483,7 @@ sub get_plugin_javascript {
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
 	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
-	my $locus_prefs_ajax_url =
-	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&loci=1);
+	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
 	my $types_js   = $self->_get_fields_js;
@@ -493,6 +496,9 @@ var rotate = 0;
 var pie = 1;
 var line = 1;
 var fasta = 0;
+$types_js	
+$loci_js
+$schemes_js
 
 \$(function () {
 	\$.ajax({
@@ -513,16 +519,9 @@ var fasta = 0;
 	var initial_url = "$url" + "&field=" + field;
 	var rotate = is_vertical();
 	
-	$types_js	
-	$loci_js
-	$schemes_js
-	\$.ajax({
-  		url: "$locus_prefs_ajax_url"
-  	}).done(function(data){
- 		loci = JSON.parse(data);
-   	}).fail(function(response){
-  		console.log(response);
-  	});
+
+	get_ajax_prefs();
+
 	if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
@@ -581,6 +580,23 @@ var fasta = 0;
 		position_controls();
 	});
 });
+
+function get_ajax_prefs(){
+	\$.ajax({
+  	url: "$prefs_ajax_url" + "&loci=1"
+  	}).done(function(data){
+ 		loci = JSON.parse(data);
+   	}).fail(function(response){
+  		console.log(response);
+  	});
+  	\$.ajax({
+  		url: "$prefs_ajax_url" + "&scheme_fields=1"
+  	}).done(function(data){
+ 		schemes = JSON.parse(data);
+   	}).fail(function(response){
+  		console.log(response);
+  	});
+}
 
 function position_controls(){
 	if (\$(window).width() < 800){
@@ -746,7 +762,6 @@ function pie_json_to_cols(jsonData,segments){
 }
 
 function load_line(url,field,cumulative) {
-	\$("div#waiting").css("display","block");
 	//Prevent multiple event firing after reloading
 	\$("#line_height").off("slidechange");
 	var data = [];

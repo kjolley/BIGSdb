@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -889,7 +889,7 @@ sub get_scheme_list {
 	} else {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
+			  q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
 			  . qq(scheme_fields.scheme_id WHERE primary_key$submission_clause ORDER BY schemes.display_order,schemes.name);
 		} else {
@@ -898,10 +898,13 @@ sub get_scheme_list {
 		}
 	}
 	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	foreach (@$list) {
-		$_->{'name'} = $_->{'set_name'} if $_->{'set_name'};
+	my $filtered_list = [];
+	foreach my $scheme (@$list) {
+		$scheme->{'name'} = $scheme->{'set_name'} if $scheme->{'set_name'};
+		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_schemes'}->{ $scheme->{'id'} };
+		push @$filtered_list, $scheme;
 	}
-	return $list;
+	return $filtered_list;
 }
 
 sub get_group_list {
@@ -1123,9 +1126,9 @@ sub create_temp_cscheme_field_values_table {
 		$rename_table = $table;
 		$table        = $table . '_' . int( rand(99999) );
 	}
-	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
-	my $cscheme        = $self->get_classification_scheme($cscheme_id);
-	my $db             = $cscheme->get_db;
+	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
+	my $cscheme      = $self->get_classification_scheme($cscheme_id);
+	my $db           = $cscheme->get_db;
 	my $group_values = $self->run_query(
 		'SELECT group_id,field,value FROM classification_group_field_values WHERE cg_scheme_id=?',
 		$cscheme_info->{'seqdef_cscheme_id'},
