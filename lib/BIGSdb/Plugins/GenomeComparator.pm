@@ -942,7 +942,7 @@ sub _get_html_table {
 	foreach my $locus (@$loci) {
 		my %value_colour;
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
-		my $length     = length( $locus_data->{'sequence'} );
+		my $length     = length( $locus_data->{'sequence'} // '' );
 		$buffer .= qq(<tr class="td$td">);
 		if ($by_ref) {
 			$buffer .= qq(<td>$locus_data->{'full_name'}</td><td>$locus_data->{'description'}</td>)
@@ -981,7 +981,7 @@ sub _get_text_table {
 	my $buffer = $self->_get_isolate_table_header( $by_ref, $ids, 'text' );
 	foreach my $locus (@$loci) {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
-		my $length     = length( $locus_data->{'sequence'} );
+		my $length     = length( $locus_data->{'sequence'} // '' );
 		if ($by_ref) {
 			$buffer .=
 			  qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t) . qq($length\t$locus_data->{'start'});
@@ -1769,8 +1769,8 @@ sub _write_excel_table_worksheet {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
 		if ($by_ref) {
 			my @locus_desc = (
-				$locus_data->{'full_name'},          $locus_data->{'description'},
-				length( $locus_data->{'sequence'} ), $locus_data->{'start'}
+				$locus_data->{'full_name'},                $locus_data->{'description'},
+				length( $locus_data->{'sequence'} // '' ), $locus_data->{'start'}
 			);
 			foreach my $locus_value (@locus_desc) {
 				$worksheet->write( $row, $col, $locus_value, $formats->{'locus'} );
@@ -2488,7 +2488,7 @@ sub _core_analysis {
 		} else {
 			$locus_name = $locus;
 		}
-		my $length = length( $data->{'locus_data'}->{$locus}->{'sequence'} ) // '';
+		my $length = length( $data->{'locus_data'}->{$locus}->{'sequence'}   // '' );
 		my $pos    = $data->{'locus_data'}->{$locus}->{'start'}              // '';
 		my $freq   = $data->{'frequency'}->{$locus}                          // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
