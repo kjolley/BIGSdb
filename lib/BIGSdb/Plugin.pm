@@ -31,8 +31,8 @@ use constant SEQ_SOURCE => 'seqbin id + position';
 our @EXPORT_OK = qw(SEQ_SOURCE);
 
 #Override the following methods in subclass
-sub get_initiation_values { return{}};
-sub get_attributes { return {} }
+sub get_initiation_values { return {} }
+sub get_attributes        { return {} }
 sub get_option_list { return [] }
 sub print_extra_form_elements { }
 sub get_hidden_attributes     { return [] }
@@ -1017,5 +1017,50 @@ sub filter_missing_isolates {
 		{ fetch => 'col_arrayref' }
 	);
 	return ( $ids_found, $ids_missing );
+}
+
+sub get_export_buttons {
+	my ( $self, $options ) = @_;
+	my $buffer = ();
+	my $div_display = $options->{'hide_div'} ? 'none' : 'block';
+	$buffer .= qq(<div id="export" style="display:$div_display">\n);
+	my %hide = $options->{'hide'} ? map { $_ => 1 } @{ $options->{'hide'} } : ();
+	if ( $options->{'table'} ) {
+		my $display = $hide{'table'} ? 'none' : 'inline';
+		my $table =
+		    q(<span class="fa-stack fa-2x export">)
+		  . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
+		  . q(<span class="fas fa-table fa-stack-1x fa-inverse"></span></span>);
+		$buffer .= qq(<a id="export_table" title="Show as table" style="cursor:pointer;display:$display">$table</a>);
+	}
+	if ( $options->{'excel'} ) {
+		my $display = $hide{'excel'} ? 'none' : 'inline';
+		my $excel =
+		    q(<span class="fa-stack fa-2x export">)
+		  . q(<span class="fas fa-square fa-stack-2x export_excel"></span>)
+		  . q(<span class="fas fa-file-excel fa-stack-1x fa-inverse"></span></span>);
+		$buffer .=
+		  qq(<a id="export_excel" title="Export Excel file" style="cursor:pointer;display:$display">$excel</a>);
+	}
+	if ( $options->{'text'} ) {
+		my $display = $hide{'text'} ? 'none' : 'inline';
+		my $text =
+		    q(<span class="fa-stack fa-2x export">)
+		  . q(<span class="fas fa-square fa-stack-2x export_text"></span>)
+		  . q(<span class="fas fa-file-alt fa-stack-1x fa-inverse"></span></span>);
+		$buffer .= qq(<a id="export_text" title="Export text file" style="cursor:pointer;display:$display">$text</a>);
+	}
+	if ( $options->{'fasta'} ) {
+		my $display = $hide{'fasta'} ? 'none' : 'inline';
+		my $fasta =
+		    q(<span class="fa-stack fa-2x export">)
+		  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+		  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
+		  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span></span>);
+		$buffer .=
+		  qq(<a id="export_fasta" title="Export FASTA file" style="cursor:pointer;display:$display">$fasta</a>);
+	}
+	$buffer .= q(</div>);
+	return $buffer;
 }
 1;

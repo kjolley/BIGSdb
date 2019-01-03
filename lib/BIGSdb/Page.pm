@@ -319,6 +319,9 @@ sub _initiate_plugin {
 			},
 			json => sub {
 				$self->{'type'} = 'json';
+			},
+			fasta => sub {
+				$self->{'type'} = 'text';
 			}
 		};
 		if ( $formats->{ $q->param('format') } ) {
@@ -493,7 +496,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190101';
+	my $version = '20190103';
 	my @filenames;
 	push @filenames, q(dropzone.css) if $self->{'dropzone'};
 	push @filenames, q(c3.css)       if $self->{'d3'};
@@ -2986,8 +2989,7 @@ sub print_loading_message {
 	my ($self) = @_;
 	say q(<p style="margin-top:5em;text-align:center;line-height:3em">)
 	  . q(<span class="wait_message">Loading ... Please wait.</span></p>)
-	  . q(<p style="text-align:center"><span class="wait_icon fas fa-sync-alt fa-spin fa-8x"></span></p>)
-	  ;
+	  . q(<p style="text-align:center"><span class="wait_icon fas fa-sync-alt fa-spin fa-8x"></span></p>);
 	return;
 }
 

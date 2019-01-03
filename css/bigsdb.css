@@ -1,4 +1,4 @@
-/*Version: 20190101*/
+/*Version: 20190103*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -808,6 +808,26 @@ span.error_message {
 	-webkit-background-clip: text; 
 	-webkit-text-fill-color: transparent
 }
+span.export_button {
+	color:#448;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_excel {
+	color:#484;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_text {
+	color:#666;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_fasta {
+	color:#848;
+	text-shadow: 3px 3px 3px #999
+}
+span.export:hover .fa-square {
+	text-shadow: 3px 3px 3px #444
+}
+
 span.browse {color:#080}
 a.chart_icon{text-decoration:none}
 span.chart_icon {text-shadow: 2px 2px 2px #aaa;cursor:pointer}

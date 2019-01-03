@@ -28,7 +28,6 @@ use Try::Tiny;
 use JSON;
 use BIGSdb::Constants qw(:interface);
 
-#TODO Alleles - FASTA export
 sub get_attributes {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -62,10 +61,13 @@ sub get_initiation_values {
 	}
 	if ( $q->param('export') && $q->param('format') ) {
 		( my $field_name = $q->param('export') ) =~ s/^s_\d+_//x;
-		if ( $q->param('format') eq 'text' ) {
-			$values->{'attachment'} = "$field_name.txt";
-		} elsif ( $q->param('format') eq 'xlsx' ) {
-			$values->{'attachment'} = "$field_name.xlsx";
+		my $format = {
+			text  => 'txt',
+			xlsx  => 'xlsx',
+			fasta => 'fas'
+		};
+		if ( $format->{ $q->param('format') } ) {
+			$values->{'attachment'} = "$field_name." . $format->{ $q->param('format') };
 		}
 	}
 	return $values;
@@ -83,7 +85,8 @@ sub _export {
 	my $formats = {
 		table => sub { $self->_show_table($field) },
 		xlsx  => sub { $self->_export_excel($field) },
-		text  => sub { $self->_export_text($field) }
+		text  => sub { $self->_export_text($field) },
+		fasta => sub { $self->_export_fasta($field) }
 	};
 	if ( $formats->{$format} ) {
 		$formats->{$format}->();
@@ -232,6 +235,34 @@ sub _export_excel {
 	return;
 }
 
+sub _export_fasta {
+	my ( $self, $locus ) = @_;
+	my $freqs      = $self->_get_field_values($locus);
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( !$locus_info ) {
+		say 'Invalid locus selected.';
+		return;
+	}
+	my @filtered_ids;
+	my %invalid = map { $_ => 1 } ( 'No value', 'N', '0' );
+	foreach my $allele (@$freqs) {
+		next if $invalid{ $allele->{'label'} };
+		next if $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int( $allele->{'label'} );
+		push @filtered_ids, $allele->{'label'};
+	}
+	my $locus_obj = $self->{'datastore'}->get_locus($locus);
+	foreach
+	  my $allele_id ( sort { $locus_info->{'allele_id_format'} eq 'integer' ? $a <=> $b : $a cmp $b } @filtered_ids )
+	{
+		my $seq_ref = $locus_obj->get_allele_sequence($allele_id);
+		my $formatted_seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
+		$$formatted_seq_ref = q(-) if length $$formatted_seq_ref == 0;
+		say qq(>$allele_id);
+		say $$formatted_seq_ref;
+	}
+	return;
+}
+
 sub run {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
@@ -263,12 +294,15 @@ sub run {
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
 	say q(<div style="clear:both"></div>);
-	my ( $table, $excel, $text ) = ( EXPORT_TABLE, EXCEL_FILE, TEXT_FILE );
-	say q(<div id="export" style="display:none">);
-	say qq(<a id="export_table" title="Show as table" style="cursor:pointer">$table</a>);
-	say qq(<a id="export_excel" title="Export Excel file" style="cursor:pointer">$excel</a>);
-	say qq(<a id="export_text" title="Export text file" style="cursor:pointer">$text</a>);
-	say q(</div></div>);
+	$self->_print_export_buttons;
+	say q(</div>);
+	return;
+}
+
+sub _print_export_buttons {
+	my ($self) = @_;
+	say $self->get_export_buttons(
+		{ table => 1, excel => 1, text => 1, fasta => 1, hide_div => 1, hide => ['fasta'] } );
 	return;
 }
 
@@ -445,6 +479,7 @@ var segments = 20;
 var rotate = 0;
 var pie = 1;
 var line = 1;
+var fasta = 0;
 
 \$(function () {
 	\$.ajax({
@@ -517,6 +552,7 @@ var line = 1;
        		}).appendTo("#field"); 
 		});
 		\$("#field").change();
+		fasta = field_type == 'loci' ? 1 : 0;
 	});  
 
 	position_controls();
@@ -595,7 +631,7 @@ function load_pie(url,field,max_segments) {
 				position: 'bottom'
 			},
 			size: {
-				height: 600
+				height: 500
 			},
 			tooltip: {
 				format: {
@@ -869,6 +905,8 @@ function show_export_options () {
 	\$("a#export_table").attr("href", "$url&export=" + field + "&format=table");
 	\$("a#export_excel").attr("href", "$url&export=" + field + "&format=xlsx");
 	\$("a#export_text").attr("href", "$url&export=" + field + "&format=text");
+	\$("a#export_fasta").attr("href", "$url&export=" + field + "&format=fasta");
+	\$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	\$("#export").css("display", "block");
 } 
 
