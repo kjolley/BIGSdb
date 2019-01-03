@@ -67,6 +67,7 @@ sub _get {
 	my $set_id = $self->get_set_id;
 	if ( $q->param('loci') ) {
 		my $data = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => 1 } );
+		@$data = sort @$data;
 		say encode_json($data);
 		return;
 	}
