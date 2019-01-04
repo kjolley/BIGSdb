@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.8',
+		version     => '2.3.9',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -942,9 +942,9 @@ sub _get_html_table {
 	foreach my $locus (@$loci) {
 		my %value_colour;
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
-		my $length     = length( $locus_data->{'sequence'} );
 		$buffer .= qq(<tr class="td$td">);
 		if ($by_ref) {
+			my $length = length( $locus_data->{'sequence'} );
 			$buffer .= qq(<td>$locus_data->{'full_name'}</td><td>$locus_data->{'description'}</td>)
 			  . qq(<td>$length</td><td>$locus_data->{'start'}</td>);
 		} else {
@@ -981,10 +981,9 @@ sub _get_text_table {
 	my $buffer = $self->_get_isolate_table_header( $by_ref, $ids, 'text' );
 	foreach my $locus (@$loci) {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
-		my $length     = length( $locus_data->{'sequence'} );
 		if ($by_ref) {
-			$buffer .=
-			  qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t) . qq($length\t$locus_data->{'start'});
+			my $length = length( $locus_data->{'sequence'} );
+			$buffer .= qq($locus_data->{'full_name'}\t$locus_data->{'description'}\tlength\t$locus_data->{'start'});
 		} else {
 			my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
 			my $desc = $self->{'datastore'}->get_locus($locus)->get_description;
@@ -2488,9 +2487,12 @@ sub _core_analysis {
 		} else {
 			$locus_name = $locus;
 		}
-		my $length = length( $data->{'locus_data'}->{$locus}->{'sequence'} ) // '';
-		my $pos    = $data->{'locus_data'}->{$locus}->{'start'}              // '';
-		my $freq   = $data->{'frequency'}->{$locus}                          // 0;
+		my $length =
+		  defined $data->{'locus_data'}->{$locus}->{'sequence'}
+		  ? length( $data->{'locus_data'}->{$locus}->{'sequence'} )
+		  : q();
+		my $pos  = $data->{'locus_data'}->{$locus}->{'start'} // '';
+		my $freq = $data->{'frequency'}->{$locus}             // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
 		my $core;
 		if ( $percentage >= $threshold ) {
