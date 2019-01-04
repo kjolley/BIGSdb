@@ -1,3 +1,7 @@
+v1.21.1: *New D3-based FieldBreakdown plugin offering dynamic charting. This
+          works for provenance fields, alleles and scheme fields, so the old
+          Scheme/allele breakdown plugin has been removed as it is redundant.
+         *Classification groups now shown for exact matching sequence queries.
 v1.21.0: *Faster clustering function.
          *Faster cache renewal.
          *Support for classification group fields.
