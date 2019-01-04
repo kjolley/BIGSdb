@@ -983,7 +983,7 @@ sub _get_text_table {
 		my $locus_data = $scan_data->{'locus_data'}->{$locus};
 		if ($by_ref) {
 			my $length = length( $locus_data->{'sequence'} );
-			$buffer .= qq($locus_data->{'full_name'}\t$locus_data->{'description'}\tlength\t$locus_data->{'start'});
+			$buffer .= qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t$length\t$locus_data->{'start'});
 		} else {
 			my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
 			my $desc = $self->{'datastore'}->get_locus($locus)->get_description;
