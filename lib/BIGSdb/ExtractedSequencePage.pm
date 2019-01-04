@@ -227,8 +227,8 @@ sub format_sequence {
 		my $first_codon = substr( $seq_ref->{'seq'}, $orf - 1, 3 );
 		my $end_codon_pos = $orf - 1 + 3 * int( ( length( $seq_ref->{'seq'} ) - $orf + 1 - 3 ) / 3 );
 		my $last_codon = substr( $seq_ref->{'seq'}, $end_codon_pos, 3 );
-		my $start_offset = ( any { $first_codon eq $_ } qw (ATG TTG GTG) ) ? $orf + 2 : 0;
-		my $end_offset = ( any { $last_codon eq $_ } qw (TAA TAG TGA) ) ? ( $length - $end_codon_pos ) : 0;
+		my $start_offset = ( any { uc($first_codon) eq $_ } qw (ATG TTG GTG) ) ? $orf + 2 : 0;
+		my $end_offset = ( any { uc($last_codon) eq $_ } qw (TAA TAG TGA) ) ? ( $length - $end_codon_pos ) : 0;
 		$end_offset = 0 if $end_offset > 3;
 
 		#5' of start codon
