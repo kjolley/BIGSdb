@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -472,7 +472,7 @@ sub _get_designation_seqs {
 				next;
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-				$seqs->{$locus} .= $$seq_ref;
+				$seqs->{$locus} .= $$seq_ref // q();
 			}
 		}
 	}
