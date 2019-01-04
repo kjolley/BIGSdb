@@ -430,6 +430,7 @@ sub _get_fields_js {
 	foreach my $field ( keys %$field_attributes ) {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
+		$type = 'text' if $type =~ /^bool/x;
 		if ( !$allowed_types{$type} ) {
 			$logger->error("Field $field has an unrecognized type: $type");
 			$type = 'text';
