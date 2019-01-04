@@ -24,14 +24,11 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use Try::Tiny;
 use JSON;
-use BIGSdb::Constants qw(:interface);
 
 sub get_attributes {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $field = $q->param('field') // 'field';
 	my %att = (
 		name        => 'Field Breakdown',
 		author      => 'Keith Jolley',
@@ -42,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.0.0',
+		version     => '2.0.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -998,8 +995,8 @@ sub _get_extended_field_freqs {
 	my ( $self, $field, $extended, $options ) = @_;
 	my $qry =
 	    "SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-	  . "JOIN isolate_value_extended_attributes e ON v.$field=e.field_value JOIN id_list i ON v.id=i.value "
-	  . 'WHERE (e.isolate_field,e.attribute)=(?,?) GROUP BY label';
+	  . "JOIN id_list i ON v.id=i.value LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
+	  . 'AND (e.isolate_field,e.attribute)=(?,?) GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values =
