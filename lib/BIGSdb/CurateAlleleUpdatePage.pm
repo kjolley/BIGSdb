@@ -132,6 +132,10 @@ sub print_content {
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
 	say $q->submit( -label => 'Add/update', -class => 'button' );
 	$q->param( update_id => $data->{'update_id'} );
+
+	if ( !defined $q->param('isolate_id') && defined $q->param('allele_designations_isolate_id') ) {
+		$q->param( isolate_id => $q->param('allele_designations_isolate_id') );
+	}
 	say $q->hidden($_) foreach qw(db page isolate_id update_id);
 	say $q->end_form;
 	say q(</td><td style="vertical-align:top; padding-left:2em">);
