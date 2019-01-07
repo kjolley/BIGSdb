@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -280,7 +280,7 @@ sub format_sequence {
 		$orf = $orf - 3 if $orf > 3;    #reverse reading frames
 		foreach ( my $i = $orf - 1 ; $i < length( $seq_ref->{'seq'} ) - 3 ; $i += 3 ) {
 			my $codon = substr( $seq_ref->{'seq'}, $i, 3 );
-			if ( any { $codon eq $_ } qw (TAA TAG TGA) ) {
+			if ( any { uc($codon) eq $_ } qw (TAA TAG TGA) ) {
 				push @internal_stop_codons,
 				  $i + 1 +
 				  ( $options->{'reverse'} ? length( $seq_ref->{'downstream'} ) : length( $seq_ref->{'upstream'} ) );
