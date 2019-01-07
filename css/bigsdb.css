@@ -1,4 +1,4 @@
-/*Version: 20190103*/
+/*Version: 20190107*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -43,7 +43,7 @@ a {color:#00b;text-decoration:none;z-index:9}
 a.hideshow,a.showhide {cursor:pointer}
 a:hover {color:#000;text-decoration:underline}
 
-th {background:#404090}
+th {background:#449;background-image:linear-gradient(#559,#449)}
 th,th a {color:#fff}
 
 th a:hover {
@@ -305,7 +305,8 @@ table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
 table.tablesorter th.header { 
-	background-image: url(/javascript/tablesorter/bg.gif);
+	background-image: url(/javascript/tablesorter/bg.gif);/* fallback */
+	background-image: url(/javascript/tablesorter/bg.gif),linear-gradient(#559,#449);
 	background-repeat: no-repeat; 
 	padding:0px;
 	margin:0px;
@@ -315,11 +316,13 @@ table.tablesorter th.header {
  } 
 table.tablesorter th.headerSortUp { 
     background-image: url(/javascript/tablesorter/asc.gif); 
-    background-color: #0000FF; 
+    background-image: url(/javascript/tablesorter/asc.gif),linear-gradient(#339,#229);
+    background-color: #339; 
 }
 table.tablesorter th.headerSortDown { 
     background-image: url(/javascript/tablesorter/desc.gif); 
-    background-color: #0000FF; 
+    background-image: url(/javascript/tablesorter/desc.gif),linear-gradient(#339,#229);
+    background-color: #339; 
 } 
 
 div.content {
