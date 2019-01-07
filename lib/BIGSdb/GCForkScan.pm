@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,6 +52,7 @@ sub _get_job_manager {
 sub run {
 	my ( $self, $params ) = @_;
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
+	
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script = BIGSdb::GCHelper->new(    #Create script object to use methods to determine isolate list
@@ -71,7 +72,7 @@ sub run {
 		my $new_seqs        = {};
 		my $pm              = Parallel::ForkManager->new( $params->{'threads'} );
 		my $isolate_count   = 0;
-		my $finish_progress = $params->{'align'} ? 20 : 80;
+		my $finish_progress = $params->{'finish_progress'} // ($params->{'align'} ? 20 : 80);
 		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
 			foreach ( keys %{ $params->{'user_genomes'} } ) {

@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ package BIGSdb::Plugins::GrapeTree;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -41,7 +41,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.1.0',
+		version             => '1.2.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -262,7 +262,8 @@ sub run_job {
 			job_id   => $job_id,
 			file     => $profile_file,
 			isolates => $ids,
-			loci     => $loci
+			loci     => $loci,
+			params   => $params,
 		}
 	);
 	$self->_generate_mstree(
@@ -293,26 +294,42 @@ sub run_job {
 
 sub _generate_profile_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $filename, $isolates, $loci ) = @{$args}{qw(job_id file isolates loci)};
+	my ( $job_id, $filename, $isolates, $loci, $params ) = @{$args}{qw(job_id file isolates loci params)};
+	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating profile data file' } );
+	$self->set_offline_view($params);
+	$self->{'params'} = $params;
+	$self->{'threads'} =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
+	  ? $self->{'config'}->{'genome_comparator_threads'}
+	  : 2;
+	$self->{'params'}->{'finish_progress'} = 60;
+	$self->{'exit'} = 0;
+	local @SIG{qw (INT TERM HUP)} =
+	  ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	my $scan_data;
+	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Cannot open temp file $filename for writing");
 	local $" = qq(\t);
 	say $fh qq(#isolate\t@$loci);
+
 	foreach my $isolate_id (@$isolates) {
 		my @profile;
 		push @profile, $isolate_id;
-		my $ad = $self->{'datastore'}->get_all_allele_designations($isolate_id);
 		foreach my $locus (@$loci) {
-			my @values = sort keys %{ $ad->{$locus} };
+			my @values = split /;/x,
+			  $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
 
 			#Just pick lowest value
+			$values[0] = q(-) if $values[0] eq 'missing';
+			$values[0] = q(I) if $values[0] eq 'incomplete';
 			push @profile, $values[0] // q(-);
 		}
 		say $fh qq(@profile);
 	}
 	close $fh;
-	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 10 } );
+	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 60 } );
 	if ( -e $filename ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
@@ -330,7 +347,7 @@ sub _generate_mstree {
 	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
 	my $python = $self->{'config'}->{'python3_path'};
-	my $cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
+	my $cmd    = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
 	eval { system($cmd); };
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
