@@ -23,7 +23,9 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::GenomeComparator);
+use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
+use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 10_000;
@@ -307,6 +309,7 @@ sub _generate_profile_file {
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} =
 	  ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	my %profile_hash;
 	my $scan_data;
 	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
 	open( my $fh, '>:encoding(utf8)', $filename )
@@ -316,19 +319,23 @@ sub _generate_profile_file {
 
 	foreach my $isolate_id (@$isolates) {
 		my @profile;
-		push @profile, $isolate_id;
 		foreach my $locus (@$loci) {
-			my @values = split /;/x,
-			  $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
+			my @values = split /;/x, $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
 
 			#Just pick lowest value
 			$values[0] = q(-) if $values[0] eq 'missing';
 			$values[0] = q(I) if $values[0] eq 'incomplete';
 			push @profile, $values[0] // q(-);
 		}
+		$profile_hash{ Digest::MD5::md5_hex(qq(@profile)) } = 1;
+		unshift @profile, $isolate_id;
 		say $fh qq(@profile);
 	}
 	close $fh;
+	if ( keys %profile_hash == 1 ) {
+		BIGSdb::Exception::Plugin->throw('All isolates are identical at selected loci. Cannot generate tree.')
+		  ;
+	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 60 } );
 	if ( -e $filename ) {
 		$self->{'jobManager'}->update_job_output(
