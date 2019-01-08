@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.2.0',
+		version             => '1.2.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -121,6 +121,7 @@ sub _print_interface {
 	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	say q(<fieldset style="float:left"><legend>Include fields</legend>);
 	say q(<p>Select additional fields to include in GrapeTree metadata.</p>);
@@ -171,6 +172,7 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
+		$self->add_recommended_scheme_loci($loci_selected);
 		my @ids = $q->param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;

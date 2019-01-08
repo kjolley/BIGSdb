@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1062,5 +1062,55 @@ sub get_export_buttons {
 	}
 	$buffer .= q(</div>);
 	return $buffer;
+}
+
+sub print_recommended_scheme_fieldset {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'recommended_schemes'};
+	my @schemes = split /,/x, $self->{'system'}->{'recommended_schemes'};
+	my $buffer;
+	foreach my $scheme_id (@schemes) {
+		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
+				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
+			return;
+		}
+	}
+	return if !@schemes;
+	my $scheme_labels =
+	  $self->{'datastore'}->run_query( 'SELECT id,name FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+	my %labels = map { $_->{'id'} => $_->{'name'} } @$scheme_labels;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
+	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
+	say $self->popup_menu(
+		-name     => 'recommended_schemes',
+		-id       => 'recommended_schemes',
+		-values   => [@schemes],
+		-labels   => \%labels,
+		-size     => 5,
+		-multiple => 'true'
+	);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
+	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
+	say q(</fieldset>);
+	return;
+}
+
+sub add_recommended_scheme_loci {
+	my ( $self, $loci ) = @_;
+	my $q              = $self->{'cgi'};
+	my @schemes        = $q->param('recommended_schemes');
+	my %locus_selected = map { $_ => 1 } @$loci;
+	foreach my $scheme_id (@schemes) {
+		next if !BIGSdb::Utils::is_int($scheme_id);
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach my $locus (@$scheme_loci) {
+			next if $locus_selected{$locus};
+			push @$loci, $locus;
+			$locus_selected{$locus} = 1;
+		}
+	}
+	return;
 }
 1;

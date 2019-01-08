@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.10',
+		version     => '2.3.11',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -120,7 +120,7 @@ sub run {
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
-		$self->_add_recommended_scheme_loci($loci_selected);
+		$self->add_recommended_scheme_loci($loci_selected);
 		my $accession = $q->param('accession') || $q->param('annotation');
 		if ( !$accession && !$ref_upload && !@$loci_selected && $continue ) {
 			push @errors,
@@ -172,23 +172,6 @@ sub run {
 		}
 	}
 	$self->_print_interface;
-	return;
-}
-
-sub _add_recommended_scheme_loci {
-	my ( $self, $loci ) = @_;
-	my $q              = $self->{'cgi'};
-	my @schemes        = $q->param('recommended_schemes');
-	my %locus_selected = map { $_ => 1 } @$loci;
-	foreach my $scheme_id (@schemes) {
-		next if !BIGSdb::Utils::is_int($scheme_id);
-		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		foreach my $locus (@$scheme_loci) {
-			next if $locus_selected{$locus};
-			push @$loci, $locus;
-			$locus_selected{$locus} = 1;
-		}
-	}
 	return;
 }
 
@@ -248,7 +231,7 @@ sub _print_interface {
 			include_scheme_fields => 1
 		}
 	);
-	$self->_print_recommended_scheme_fieldset;
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -353,39 +336,6 @@ sub _print_reference_genome_fieldset {
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
 	say $self->get_tooltip( q(Reference upload - File format is recognised by the extension in the )
 		  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.) );
-	say q(</fieldset>);
-	return;
-}
-
-sub _print_recommended_scheme_fieldset {
-	my ($self) = @_;
-	return if !$self->{'system'}->{'genome_comparator_recommended_schemes'};
-	my @schemes = split /,/x, $self->{'system'}->{'genome_comparator_recommended_schemes'};
-	my $buffer;
-	foreach my $scheme_id (@schemes) {
-		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
-				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
-			return;
-		}
-	}
-	return if !@schemes;
-	my $scheme_labels =
-	  $self->{'datastore'}->run_query( 'SELECT id,name FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
-	my %labels = map { $_->{'id'} => $_->{'name'} } @$scheme_labels;
-	my $q = $self->{'cgi'};
-	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
-	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
-	say $self->popup_menu(
-		-name     => 'recommended_schemes',
-		-id       => 'recommended_schemes',
-		-values   => [@schemes],
-		-labels   => \%labels,
-		-size     => 5,
-		-multiple => 'true'
-	);
-	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
-	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
 	say q(</fieldset>);
 	return;
 }
