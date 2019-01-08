@@ -24,7 +24,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::GenomeComparator);
 use BIGSdb::Exceptions;
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(uniq all);
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -312,11 +312,12 @@ sub _generate_profile_file {
 	local @SIG{qw (INT TERM HUP)} =
 	  ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	my %profile_hash;
+	my $empty_profiles = 0;
 	my $scan_data;
 	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
+	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Cannot open temp file $filename for writing");
-	local $" = qq(\t);
 	say $fh qq(#isolate\t@$loci);
 
 	foreach my $isolate_id (@$isolates) {
@@ -330,12 +331,17 @@ sub _generate_profile_file {
 			push @profile, $values[0] // q(-);
 		}
 		$profile_hash{ Digest::MD5::md5_hex(qq(@profile)) } = 1;
+		$empty_profiles = 1 if all { $_ eq q(-) } @profile;
 		unshift @profile, $isolate_id;
 		say $fh qq(@profile);
 	}
 	close $fh;
 	if ( keys %profile_hash == 1 ) {
-		BIGSdb::Exception::Plugin->throw('All isolates are identical at selected loci. Cannot generate tree.')
+		BIGSdb::Exception::Plugin->throw('All isolates are identical at selected loci. Cannot generate tree.');
+	}
+	if ( ( keys %profile_hash ) - $empty_profiles <= 1 ) {
+		BIGSdb::Exception::Plugin->throw(
+			'All isolates are either identical or missing at selected loci. Cannot generate tree.')
 		  ;
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 60 } );
