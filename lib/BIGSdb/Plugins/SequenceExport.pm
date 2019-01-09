@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.14',
+		version          => '1.5.15',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -441,10 +441,16 @@ sub make_isolate_seq_file {
 				try {
 					foreach my $allele_id ( sort @$allele_ids ) {
 						next if $allele_id eq '0';
-						$allele_seq .= ${ $locus->get_allele_sequence($allele_id) };
+						my $seq = ${ $locus->get_allele_sequence($allele_id) };
+						if ($seq) {
+							$allele_seq .= $seq;
+						} else {
+							$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.")
+							  ;
+						}
 					}
 				}
-				catch {};    #do nothing
+				catch { };         #do nothing
 			}
 			my $seqbin_seq;
 			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
