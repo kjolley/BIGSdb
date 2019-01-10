@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -196,13 +196,19 @@ sub _batch_query {
 	}
 	$buffer .= q(<div class="box" id="resultstable">);
 	$buffer .= qq(<div class="scrollable">\n$table</div>);
-	my $output_file = BIGSdb::Utils::get_random() . q(.txt);
-	my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
+	my $output_file = BIGSdb::Utils::get_random();
+	my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
 	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 	say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 	close $fh;
-	$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
-	$buffer .= q(</div>);
+	my ($text, $excel) = (TEXT_FILE, EXCEL_FILE);
+	$buffer .= qq(<p style="margin-top:1em">)
+	 . qq(<a href="/tmp/$output_file.txt" title="Download in tab-delimited text format">$text</a>);
+	my $excel_file = BIGSdb::Utils::text2excel($full_path);
+	if (-e $excel_file){
+		$buffer.=qq(<a href="/tmp/$output_file.xlsx" title="Download in Excel format">$excel</a>)
+	}
+	$buffer .= q(</p></div>);
 	return $buffer;
 }
 
@@ -303,8 +309,8 @@ sub _get_scheme_exact_results {
 			$table  .= $scheme_buffer;
 			$table  .= q(</table>);
 			$buffer .= qq(<div class="scrollable">\n$table</div>\n);
-			my $output_file = BIGSdb::Utils::get_random() . q(.txt);
-			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file";
+			my $output_file = BIGSdb::Utils::get_random();
+			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
 			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 			close $fh;
@@ -318,7 +324,14 @@ sub _get_scheme_exact_results {
 				  . q(<span id="hide_extra_matches" title="Hide extra matches" )
 				  . qq(style="display:none">$hide</span></a></span>);
 			}
-			$buffer .= qq(<p style="margin-top:1em">Download: <a href="/tmp/$output_file">text format</a></p>);
+			my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+			$buffer .= qq(<p style="margin-top:1em"><a href="/tmp/$output_file.txt" )
+			  . qq(title="Download in tab-delimited text format">$text</a>);
+			my $excel_file = BIGSdb::Utils::text2excel($full_path);
+			if ( -e $excel_file ) {
+				$buffer .= qq(<a href="/tmp/$output_file.xlsx" title="Download in Excel format">$excel</a>);
+			}
+			$buffer .= q(</p>);
 		}
 		$buffer .= $self->_get_scheme_fields( $scheme_id, $designations );
 	}
@@ -482,7 +495,7 @@ sub _get_classification_groups {
 		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 		$buffer .= q(<h3>Matching profiles</h3>);
 		my $other_profiles_count = @{ $ret_val->{'profiles'} };
-		my $plural               = $other_profiles_count == 1 ? q() : q(s);
+		my $plural = $other_profiles_count == 1 ? q() : q(s);
 		my $and_others =
 		  $other_profiles_count
 		  ? qq( and <a id="and_others" style="cursor:pointer">$other_profiles_count other$plural</a>)
@@ -510,6 +523,7 @@ sub _get_classification_groups {
 			{ title => 'Loci matched', data => "$loci_matched/$loci_count ($percent_matched%)" }
 		  );
 		$buffer .= $self->get_list_block( $list, { width => 8 } );
+
 		if ($other_profiles_count) {
 			$plural = $ret_val->{'mismatches'} == 1 ? q() : q(es);
 			$buffer .= q(<div id="other_matches" class="infopanel" style="display:none">);

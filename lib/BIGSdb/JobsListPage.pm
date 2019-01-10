@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2015, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub print_content {
 	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
 	my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !keys %$user ) {
-		say q(<p>No information about current user.</p>);
+		$self->print_bad_status( { message => q(No information about current user.), navbar => 1 } );
 		return;
 	}
 	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
@@ -70,7 +70,6 @@ sub print_content {
 	  . qq(<th>Finished</th><th>Duration (seconds)</th>$nice_duration_header<th>Status</th>)
 	  . q(<th>Progress (%)</th><th>Stage</th></tr></thead><tbody>);
 	foreach my $job (@$jobs) {
-
 		if ( $job->{'total_time'} ) {
 			$job->{'duration_s'} = int( $job->{'total_time'} );
 		} elsif ( $job->{'elapsed'} ) {

@@ -1,4 +1,4 @@
-/*Version: 20190107*/
+/*Version: 20190110*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -502,6 +502,18 @@ div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
 div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background-image: linear-gradient(#d8d8e0, #e0e0e8)}
 div#message {background:#e0d5d5}
+div.file_output {
+	padding:10px;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	box-shadow: 3px 3px 3px #dfdfdf;
+	min-width:20em;
+	max-width:50em;
+	float:left;
+	margin-right:1em;
+	margin-bottom:1em;
+	background-image: linear-gradient(#eee,#bce)
+}
 
 div#menubutton {
 	float:right;
@@ -823,8 +835,24 @@ span.export_text {
 	color:#666;
 	text-shadow: 3px 3px 3px #999
 }
+span.export_misc {
+	color:#844;
+	text-shadow: 3px 3px 3px #999
+}
 span.export_fasta {
 	color:#848;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_archive {
+	color:#f94;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_image {
+	color:#47f;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_align {
+	color:#64e;
 	text-shadow: 3px 3px 3px #999
 }
 span.export:hover .fa-square {

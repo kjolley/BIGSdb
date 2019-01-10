@@ -819,7 +819,7 @@ sub _output_file_buffer {
 	say $job_fh $buffer;
 	close $job_fh;
 	$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file (text)' } );
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
 	return;
 }
 
@@ -1407,13 +1407,13 @@ sub align {
 	return if $no_output;
 	if ( -e $align_file && !-z $align_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "$job_id\.align", description => '30_Alignments', compress => 1 } );
+			{ filename => "${job_id}.align", description => '30_Alignments', compress => 1 } );
 	}
 	if ( -e $align_stats_file && !-z $align_stats_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "$job_id\.align_stats", description => '31_Alignment stats', compress => 1 } );
+			{ filename => "${job_id}.align_stats", description => '31_Alignment stats', compress => 1 } );
 	}
-	if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa" ) {
+	if ( -e "$self->{'config'}->{'tmp_dir'}/${job_id}.xmfa" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
@@ -1427,7 +1427,7 @@ sub align {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA', percent_complete => 70 } );
 			my $fasta_file =
-			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa", { integer_ids => 1 } );
+			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/${job_id}.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
 				$self->{'jobManager'}->update_job_output(
 					$job_id,
@@ -1447,7 +1447,7 @@ sub align {
 			}
 		};
 	}
-	if ( -e "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa" ) {
+	if ( -e "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
@@ -1461,7 +1461,7 @@ sub align {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
 			my $fasta_file =
-			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/$job_id\_core.xmfa", { integer_ids => 1 } );
+			  BIGSdb::Utils::xmfa2fasta( "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa", { integer_ids => 1 } );
 			if ( -e $fasta_file ) {
 				$self->{'jobManager'}->update_job_output(
 					$job_id,
@@ -1676,7 +1676,7 @@ sub _generate_excel_file {
 
 	if ( -e $excel_file ) {
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format (Excel)' } );
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format output' } );
 	}
 	return;
 }

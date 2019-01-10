@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,8 +52,7 @@ sub print_content {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 	if ( !@$schemes ) {
 		say q(<h1>Batch profile query</h1>);
-		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
-		  ;
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -219,11 +218,11 @@ sub _run_query {
 	my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
 
 	if ( -e $full_path ) {
-		say qq(<p style="margin-top:1em">Download: <a href="/tmp/$out_file" title="Tab-delimited text">)
+		say qq(<p style="margin-top:1em"><a href="/tmp/$out_file" title="Download in tab-delimited text format">)
 		  . qq($text_icon</a>);
 		my $excel = BIGSdb::Utils::text2excel($full_path);
 		if ( -e $excel ) {
-			say qq( <a href="/tmp/$excel_file" title="Excel format">$excel_icon</a>);
+			say qq(<a href="/tmp/$excel_file" title="Download in Excel format">$excel_icon</a>);
 		}
 		say q(</p>);
 	}

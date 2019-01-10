@@ -1027,36 +1027,23 @@ sub get_export_buttons {
 	my %hide = $options->{'hide'} ? map { $_ => 1 } @{ $options->{'hide'} } : ();
 	if ( $options->{'table'} ) {
 		my $display = $hide{'table'} ? 'none' : 'inline';
-		my $table =
-		    q(<span class="fa-stack fa-2x export">)
-		  . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
-		  . q(<span class="fas fa-table fa-stack-1x fa-inverse"></span></span>);
+		my $table = EXPORT_TABLE;
 		$buffer .= qq(<a id="export_table" title="Show as table" style="cursor:pointer;display:$display">$table</a>);
 	}
 	if ( $options->{'excel'} ) {
 		my $display = $hide{'excel'} ? 'none' : 'inline';
-		my $excel =
-		    q(<span class="fa-stack fa-2x export">)
-		  . q(<span class="fas fa-square fa-stack-2x export_excel"></span>)
-		  . q(<span class="fas fa-file-excel fa-stack-1x fa-inverse"></span></span>);
+		my $excel = EXCEL_FILE;
 		$buffer .=
 		  qq(<a id="export_excel" title="Export Excel file" style="cursor:pointer;display:$display">$excel</a>);
 	}
 	if ( $options->{'text'} ) {
 		my $display = $hide{'text'} ? 'none' : 'inline';
-		my $text =
-		    q(<span class="fa-stack fa-2x export">)
-		  . q(<span class="fas fa-square fa-stack-2x export_text"></span>)
-		  . q(<span class="fas fa-file-alt fa-stack-1x fa-inverse"></span></span>);
+		my $text = TEXT_FILE;
 		$buffer .= qq(<a id="export_text" title="Export text file" style="cursor:pointer;display:$display">$text</a>);
 	}
 	if ( $options->{'fasta'} ) {
 		my $display = $hide{'fasta'} ? 'none' : 'inline';
-		my $fasta =
-		    q(<span class="fa-stack fa-2x export">)
-		  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
-		  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
-		  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span></span>);
+		my $fasta = FASTA_FILE;
 		$buffer .=
 		  qq(<a id="export_fasta" title="Export FASTA file" style="cursor:pointer;display:$display">$fasta</a>);
 	}

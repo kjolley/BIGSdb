@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -82,15 +82,39 @@ use constant RELOAD         => q(<span class="nav_icon fas fa-2x fa-sync"></span
 use constant KEY            => q(<span class="nav_icon fas fa-2x fa-key"></span>);
 use constant EYE_SHOW       => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE       => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
-use constant EXPORT_TABLE   => q(<span class="file_icon fas fa-2x fa-table" style="color:#338"></span>);
-use constant EXCEL_FILE     => q(<span class="file_icon far fa-2x fa-file-excel" style="color:green"></span>);
-use constant TEXT_FILE      => q(<span class="file_icon far fa-2x fa-file-alt" style="color:#333"></span>);
-use constant FLANKING       => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
-use constant MAX_ROWS       => 20;
+use constant EXPORT_TABLE   => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
+  . q(<span class="fas fa-table fa-stack-1x fa-inverse"></span></span>);
+use constant EXCEL_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_excel"></span>)
+  . q(<span class="fas fa-file-excel fa-stack-1x fa-inverse"></span></span>);
+use constant TEXT_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_text"></span>)
+  . q(<span class="fas fa-file-alt fa-stack-1x fa-inverse"></span></span>);
+use constant FASTA_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
+  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span></span>);
+use constant MISC_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_misc"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span></span>); 
+use constant ARCHIVE_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_archive"></span>)
+  . q(<span class="fas fa-file-archive fa-stack-1x fa-inverse"></span></span>); 
+use constant IMAGE_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_image"></span>)
+  . q(<span class="fas fa-file-image fa-stack-1x fa-inverse"></span></span>); 
+use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_align"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
+  . q(<span class="fas fa-align-center fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#64e">)
+  . q(</span></span>);
+use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
+use constant MAX_ROWS => 20;
 @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE
-  UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE EXPORT_TABLE EXCEL_FILE TEXT_FILE 
-  FLANKING MAX_ROWS);
+  UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE EXPORT_TABLE EXCEL_FILE TEXT_FILE
+  FASTA_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 
