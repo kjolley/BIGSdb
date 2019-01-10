@@ -294,14 +294,15 @@ sub _print_output {
 		my ( $link_text, $comments ) = split /\|/x, $description;
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
 		my %icons = (
-			txt  => TEXT_FILE,
-			xlsx => EXCEL_FILE,
-			png  => IMAGE_FILE,
-			svg  => IMAGE_FILE,
-			fas  => FASTA_FILE,
-			xmfa => FASTA_FILE,
-			aln => ALIGN_FILE,
-			align => ALIGN_FILE
+			txt   => TEXT_FILE,
+			xlsx  => EXCEL_FILE,
+			png   => IMAGE_FILE,
+			svg   => IMAGE_FILE,
+			fas   => FASTA_FILE,
+			xmfa  => FASTA_FILE,
+			aln   => ALIGN_FILE,
+			align => ALIGN_FILE,
+			json  => CODE_FILE
 		);
 		my $url       = qq(tmp/$output->{$description});
 		my $file_type = 'misc';
@@ -322,7 +323,8 @@ sub _print_output {
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
 		if ( $output->{$description} =~ /\.png$/x ) {
 			my $title = $link_text . ( $comments ? qq( - $comments) : q() );
-			$text .= q(<div style="margin-top:1em;text-align:center">)
+			$text .=
+			    q(<div style="margin-top:1em;text-align:center">)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
 			  . qq(title="$title"><img src="/tmp/$output->{$description}" alt="" )
 			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
@@ -335,10 +337,10 @@ sub _print_output {
 	  ? q( (only files <10MB included - download larger files separately))
 	  : q();
 	my $icon = ARCHIVE_FILE;
-	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	my $url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=job&amp;id=$job->{'id'}&amp;output=archive);
 	push @buffer,
-	  qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
+	    qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
 	  . q(<div style="width:90%;margin-top:1em">)
 	  . qq(<a href="$url">Tar file containing all output files</a>$tar_msg</div></div>)
 	  if $job->{'status'} eq 'finished' && $include_in_tar > 1;

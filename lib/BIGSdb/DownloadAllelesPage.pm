@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,7 @@ use parent qw(BIGSdb::TreeViewPage);
 use List::MoreUtils qw(none any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(LOCUS_PATTERN);
+use BIGSdb::Constants qw(:interface LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
@@ -248,14 +248,16 @@ sub print_content {
 sub _print_table_link {
 	my ($self) = @_;
 	if ( $self->{'text_buffer'} ) {
-		say qq(<p style="margin-top:1em">Download table: <a href="/tmp/$self->{'prefix'}.txt">tab-delimited text</a>);
+		my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+		say qq(<p style="margin-top:1em"><a href="/tmp/$self->{'prefix'}.txt" )
+		  . qq(title="Download table in tab-delimited text format">$text</a>);
 		open( my $fh, '>:encoding(utf8)', $self->{'outfile'} )
 		  || $logger->error("Cannot open $self->{'outfile'} for appending");
 		say $fh $self->{'text_buffer'};
 		close $fh;
-		my $excel = BIGSdb::Utils::text2excel( $self->{'outfile'} );
-		if ( -e $excel ) {
-			say qq( | <a href="/tmp/$self->{'prefix'}.xlsx">Excel format</a>);
+		my $excel_file = BIGSdb::Utils::text2excel( $self->{'outfile'} );
+		if ( -e $excel_file ) {
+			say qq(<a href="/tmp/$self->{'prefix'}.xlsx" title="Download table in Excel format">$excel</a>);
 		}
 		say q(</p>);
 	}
@@ -547,7 +549,6 @@ sub _print_alphabetical_list {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 			$self->{'mod_perl_request'}->rflush;
 		}
-#		my $qry_letter = $letter =~ /\d/x ? '\\\_' . $letter : $letter;
 		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
 		if ( @$main || @$common || @$aliases ) {
 			my %names;
@@ -600,7 +601,7 @@ sub _print_alphabetical_list {
 
 sub _get_loci_by_letter {
 	my ( $self, $letter ) = @_;
-	$letter= q(\_) if $letter eq q(_);
+	$letter = q(\_) if $letter eq q(_);
 	my $set_id = $self->get_set_id;
 
 	#make sure 'id IN' has a space before it - used in the substitution a

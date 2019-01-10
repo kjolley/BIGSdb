@@ -621,7 +621,7 @@ sub _print_interface {
 	my $q           = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
-	say q(<div class="box" id="queryform">)
+	say q(<div class="box" id="queryform"><h2>Instructions</h2>)
 	  . q(<p>This page allows you to upload profiles as tab-delimited text or copied from a spreadsheet.</p>)
 	  . q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be omitted )
 	  . q(if you wish.</li>);
@@ -631,11 +631,13 @@ sub _print_interface {
 		  . qq(available $primary_key will be used automatically.  If however, you include it in the header line, then )
 		  . q(you must also provide it for each profile record.</li>);
 	}
-	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download tab-delimited header for your spreadsheet</a> - use )
-	  . q(Paste Special <span class="fas fa-arrow-circle-right"></span> Text to paste the data.</li><li>)
+	say q(</ul><h2>Templates</h2>);
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
+	  . qq(table=profiles&amp;scheme_id=$scheme_id" title="Tab-delimited text header">$text</a>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id">Download submission template (xlsx format)</a></li></ul>);
+	  . qq(table=profiles&amp;scheme_id=$scheme_id" title="Excel format">$excel</a></p>);
+	 say q(<h2>Upload</h2>);
 	say $q->start_form;
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	$user_names->{-1} = 'Override with sender field';

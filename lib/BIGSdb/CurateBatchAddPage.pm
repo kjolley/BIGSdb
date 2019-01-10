@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,7 +139,8 @@ sub _print_interface {
 	if ( $table eq 'isolates' ) {
 		return if $self->_cannot_upload_private_data( $q->param('private'), $q->param('project_id') );
 	}
-	say qq(<div class="box" id="queryform"><div class="scrollable"><p>This page allows you to upload $record_name )
+	say q(<div class="box" id="queryform"><div class="scrollable"><h2>Instructions</h2>)
+	  . qq(<p>This page allows you to upload $record_name )
 	  . q(data as tab-delimited text or copied from a spreadsheet.</p>);
 	say q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be )
 	  . q(omitted if you wish.</li>);
@@ -175,18 +176,20 @@ sub _print_interface {
 			say q(<li>Sequence flags can be added as a semi-colon (;) separated list.</li>);
 		}
 	}
-	my $order_clause = $table eq 'isolates' ? q(&amp;order=scheme) : q();
-	say qq(</ul><ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=tableHeader&amp;table=$table$locus_attribute$order_clause">Download tab-delimited header for your spreadsheet</a>)
-	  . q( - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' to paste the data.</li>);
-	say
-	  qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
-	  . qq($locus_attribute$order_clause">Download submission template (xlsx format)</a>);
 	if ( $table eq 'sequences' && !$q->param('locus') ) {
 		$self->_print_interface_locus_selection;
 	}
 	say q(</ul>);
+	say q(<h2>Templates</h2>);
+	my $order_clause = $table eq 'isolates' ? q(&amp;order=scheme) : q();
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=tableHeader&amp;table=$table$locus_attribute$order_clause" title="Tab-delimited text header">$text</a>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
+	  . qq($locus_attribute$order_clause" title="Excel format">$excel</a></p>);
+	say q(<h2>Upload</h2>);
 	say $q->start_form;
+
 	if ( $arg_ref->{'has_sender_field'} ) {
 		$self->_print_interface_sender_field;
 	}

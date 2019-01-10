@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
@@ -95,13 +96,20 @@ sub _print_results {
 	my $prefix      = BIGSdb::Utils::get_random();
 	my $table_file  = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
 	my $allele_file = "$self->{'config'}->{'tmp_dir'}/def_$prefix.txt";
-	say q(<div class="box" id="resultsheader" style="display:none">);
-	say qq(<p>Download table: <a href="/tmp/$prefix.txt">tab-delimited text</a> | )
-	  . qq(<a href="/tmp/$prefix.xlsx">Excel format</a> (suitable for batch upload of loci).</p>);
-	say qq(<p>Download alleles: <a href="/tmp/def_$prefix.txt">tab-delimited text</a> | )
-	  . qq(<a href="/tmp/def_$prefix.xlsx">Excel format</a> )
-	  . q((suitable for defining the first allele in the seqdef database).</p>);
-	say q(</div>);
+	say q(<div class="box" id="resultspanel" style="display:none"><div class="scrollable">);
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say qq(<div class="file_output"><h2>Download table</h2><a href="/tmp/$prefix.txt">)
+	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
+	  . qq(<a href="/tmp/$prefix.xlsx">)
+	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
+	  . q(<div style="width:90%;margin-top:1em">Suitable for batch upload of loci.</div></div>);
+	say qq(<div class="file_output"><h2>Download alleles</h2><a href="/tmp/def_$prefix.txt">)
+	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
+	  . qq(<a href="/tmp/def_$prefix.xlsx">)
+	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
+	  . q(<div style="width:90%;margin-top:1em">Suitable for defining the first allele in the )
+	  . q(seqdef database.</div></div>);
+	say q(</div></div>);
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Annotation information</h2>);
 	my $list = [];
@@ -126,12 +134,18 @@ sub _print_results {
 		}
 	}
 	say $self->get_list_block($list);
+	if ( !@cds ) {
+		say q(</div>);
+		$self->print_bad_status( { message => 'Accession contains no sequences' } );
+		say q(<script>failed=1;</script>);
+		return;
+	}
 	say q(<h2>Coding sequences</h2>);
 	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
-	open( my $fh, '>', $table_file ) || $logger->error("Can't open $table_file for writing");
+	open( my $fh, '>', $table_file ) || $logger->error("Cannot open $table_file for writing");
 	say $fh qq(id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\t)
 	  . qq(main_display\tisolate_display\tquery_field\tanalysis\treference_sequence);
-	open( my $fh_allele, '>', $allele_file ) || $logger->error("Can't open $allele_file for writing");
+	open( my $fh_allele, '>', $allele_file ) || $logger->error("Cannot open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
 	local $| = 1;
 	my $td = 1;
@@ -203,8 +217,11 @@ sub _print_results {
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
+var failed = 0;
 \$(function () {
- \$("#resultsheader").css('display','block');
+	if (!failed){
+	 \$("#resultspanel").css('display','block');
+	}
 });
 END
 	return $buffer;
