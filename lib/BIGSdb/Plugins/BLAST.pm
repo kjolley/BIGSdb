@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,7 @@ use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
 use constant MAX_TAXA         => 10_000;
 use constant MAX_QUERY_LENGTH => 100_000;
-use BIGSdb::Constants qw(SEQ_METHODS FLANKING);
+use BIGSdb::Constants qw(:interface SEQ_METHODS FLANKING);
 {
 	no warnings 'qw';
 	use constant BLASTN_SCORES => qw(
@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.6',
+		version     => '1.4.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -167,8 +167,7 @@ sub run {
 	}
 	if ( length $q->param('sequence') > MAX_QUERY_LENGTH ) {
 		my $limit = BIGSdb::Utils::commify(MAX_QUERY_LENGTH);
-		$self->print_bad_status( { message => qq(Query sequence is limited to a maximum of $limit characters.) } )
-		  ;
+		$self->print_bad_status( { message => qq(Query sequence is limited to a maximum of $limit characters.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -240,8 +239,8 @@ sub _run_now {
 	my ( $prefix, $ids, $includes, $seq_ref, $show_no_match, $flanking, $include_seqbin ) =
 	  @{$args}{qw(prefix ids includes seq_ref show_no_match flanking include_seqbin)};
 	my ( $html_header, $text_header ) = $self->_get_headers($includes);
-	my $out_file                 = "$prefix.txt";
-	my $out_file_flanking        = "$prefix\_flanking.txt";
+	my $out_file                 = "$prefix.fas";
+	my $out_file_flanking        = "$prefix\_flanking.fas";
 	my $out_file_table           = "$prefix\_table.txt";
 	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
 	my $file_buffer              = $text_header;
@@ -306,18 +305,24 @@ sub _run_now {
 	close $fh_output_table;
 	if ($some_results) {
 		say q(</table>);
-		say q(<p style="margin-top:1em">Download );
-		say qq(<a href="/tmp/$out_file" target="_blank">FASTA</a> | ) if -e "$self->{'config'}->{'tmp_dir'}/$out_file";
-		say qq(<a href="/tmp/$out_file_flanking" target="_blank">FASTA with flanking</a>)
-		  . $self->get_tooltip( q(Flanking sequence - You can change the amount of flanking )
-			  . q(sequence exported by selecting the appropriate length in the options page.) )
-		  . q( | )
-		  if -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking";
-		say qq(<a href="/tmp/$out_file_table" target="_blank">Table (tab-delimited text)</a>);
+		my ( $fasta, $fasta_flanking, $text, $excel_file ) = ( FASTA_FILE, FASTA_FLANKING_FILE, TEXT_FILE, EXCEL_FILE );
+		say q(<p style="margin-top:1em"> );
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$out_file" ) {
+			say qq(<a href="/tmp/$out_file" target="_blank" title="Export sequences in FASTA file">$fasta</a>);
+		}
+		if ( -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" ) {
+			say qq(<a href="/tmp/$out_file_flanking" target="_blank" )
+			  . qq(title="Export sequences including flanking regions in FASTA format">$fasta_flanking</a>);
+		}
+		say qq(<a href="/tmp/$out_file_table" target="_blank" )
+		  . qq(title="Export table in tab-delimited text format">$text</a>);
 		my $excel =
 		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
 			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-		say qq(| <a href="/tmp/$prefix\_table.xlsx">Excel format</a>) if -e $excel;
+		if ( -e $excel ) {
+			say qq(<a href="/tmp/${prefix}_table.xlsx" title="Export table in Excel format">$excel_file</a>)
+			  ;
+		}
 		say q(</p>);
 	} else {
 		say q(<p>No matches found.</p>);
@@ -335,8 +340,8 @@ sub run_job {
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my @includes = split /\|\|/x, ( $params->{'includes'} // q() );
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
-	my $out_file                 = "$job_id.txt";
-	my $out_file_flanking        = "${job_id}_flanking.txt";
+	my $out_file                 = "$job_id.fas";
+	my $out_file_flanking        = "${job_id}_flanking.fas";
 	my $out_file_table           = "${job_id}_table.txt";
 	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
 	my $html_buffer;

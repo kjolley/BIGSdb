@@ -95,15 +95,21 @@ use constant FASTA_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
   . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
   . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span></span>);
+use constant FASTA_FLANKING_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
+  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span>)
+  . q(<span class="fas fa-plus fa-stack-1x" style="font-size:0.6em;padding-left:0.9em;)
+  . q(margin-top:-0.8em;color:#fff"></span></span>);
 use constant MISC_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_misc"></span>)
-  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span></span>); 
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span></span>);
 use constant ARCHIVE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_archive"></span>)
-  . q(<span class="fas fa-file-archive fa-stack-1x fa-inverse"></span></span>); 
+  . q(<span class="fas fa-file-archive fa-stack-1x fa-inverse"></span></span>);
 use constant IMAGE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_image"></span>)
-  . q(<span class="fas fa-file-image fa-stack-1x fa-inverse"></span></span>); 
+  . q(<span class="fas fa-file-image fa-stack-1x fa-inverse"></span></span>);
 use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_align"></span>)
   . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
@@ -114,7 +120,7 @@ use constant MAX_ROWS => 20;
 @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE
   UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE EXPORT_TABLE EXCEL_FILE TEXT_FILE
-  FASTA_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE FLANKING MAX_ROWS);
+  FASTA_FILE FASTA_FLANKING_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 
