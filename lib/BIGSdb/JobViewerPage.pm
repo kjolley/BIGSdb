@@ -304,7 +304,7 @@ sub _print_output {
 			align => ALIGN_FILE,
 			json  => CODE_FILE
 		);
-		my $url       = qq(tmp/$output->{$description});
+		my $url       = qq(/tmp/$output->{$description});
 		my $file_type = 'misc';
 		if ( $url =~ /\.([A-z]+)$/x ) {
 			$file_type = $1;
