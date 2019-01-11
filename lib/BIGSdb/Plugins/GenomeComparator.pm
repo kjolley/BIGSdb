@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.11',
+		version     => '2.3.12',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -481,7 +481,15 @@ sub run_job {
 				my $seq_db = Bio::DB::GenBank->new;
 				$seq_db->verbose(2);    #convert warn to exception
 				try {
-					$seq_obj = $seq_db->get_Seq_by_acc($accession);
+					my $str;
+					open( my $fh, '>', \$str ) || $logger->error('Cannot open file handle');
+
+					#Temporarily suppress messages to STDERR
+					{
+						local *STDERR = $fh;
+						$seq_obj = $seq_db->get_Seq_by_acc($accession);
+					}
+					close $fh;
 				}
 				catch {
 					$logger->debug($_);
