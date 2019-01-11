@@ -1074,11 +1074,6 @@ sub _print_isolate_table_fieldset {
 	return if !$isolate_submission;
 	my $isolates = $isolate_submission->{'isolates'};
 	my $order    = $isolate_submission->{'order'};
-
-	if ( $q->param('curate') && $q->param('update') ) {
-		$self->_update_isolate_submission_isolate_status($submission_id);
-		$submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	}
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural = @$isolates == 1 ? '' : 's';
@@ -1108,6 +1103,7 @@ sub _print_isolate_table_fieldset {
 		$q->param( page => $page );
 	}
 	say q(</fieldset>);
+	say q(<div id="dialog"></div>);
 	$self->{'all_assigned_or_rejected'} = $submission->{'outcome'} ? 1 : 0;
 	return;
 }
@@ -1507,6 +1503,14 @@ sub _update_isolate_submission_isolate_status {
 	my $q = $self->{'cgi'};
 	my %outcome = ( accepted => 'good', rejected => 'bad' );
 	$self->_update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
+	if ( $q->param('record_status') eq 'accepted' ) {
+		say q[<script>$(function(){]
+		  . q[$("#dialog").html("<p>Please note that changing the status of an isolate submission to ]
+		  . q['accepted' does not automatically upload the records to the database. You need to 'Batch curate' ]
+		  . q[the submission in order to upload the records. Change the staus back to 'pending' if you need ]
+		  . q[to re-enable the 'Batch curate' button.</p>");$("#dialog").dialog({title:"Uploading isolates"});]
+		  . q[});</script>];
+	}
 	return;
 }
 
@@ -2260,6 +2264,7 @@ sub _is_submission_valid {
 
 sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<h1>Curate submission</h1>);
 	return if !$self->_is_submission_valid( $submission_id, { curate => 1 } );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
@@ -2270,6 +2275,11 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<h2>Submission: $submission_id</h2>);
+	my %isolate_type = map { $_ => 1 } qw(isolates genomes);
+	if ( $isolate_type{ $submission->{'type'} } && $q->param('curate') && $q->param('update') ) {
+		$self->_update_isolate_submission_isolate_status($submission_id);
+		$submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	}
 	$self->_print_summary($submission_id);
 	$self->_print_sequence_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_profile_table_fieldset( $submission_id, { curate => $curate } );
