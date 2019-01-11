@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2018, University of Oxford
+#Copyright (c) 2013-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,7 @@ use Archive::Tar;
 use Archive::Tar::Constant;
 use constant MAX_ISOLATES => 1000;
 use List::MoreUtils qw(uniq);
-use BIGSdb::Constants qw(SEQ_METHODS);
+use BIGSdb::Constants qw(:interface SEQ_METHODS);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export.html#contig-export",
-		version      => '1.1.5',
+		version      => '1.1.6',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -168,7 +168,7 @@ sub _run_analysis {
 	  . q(<th class="{sorter: false}">download</th><th>count</th>)
 	  . q(<th class="{sorter: false}">download</th></tr></thead><tbody>);
 	my $filebuffer =
-	  qq($title:\n\nid\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
+	  qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");
 	my $td          = 1;
@@ -214,15 +214,20 @@ sub _run_analysis {
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh $filebuffer;
 	close $fh;
-	say qq(<ul><li><a href="/tmp/$prefix.txt">Download table in tab-delimited text format</a></li>);
-
+	my ($text, $excel, $archive) = (TEXT_FILE, EXCEL_FILE, ARCHIVE_FILE);
+	print q(<p style="margin-top:1em">)
+	 . qq(<a href="/tmp/$prefix.txt" title="Download table in tab-delimited text format">$text</a>);
+	my $excel_file = BIGSdb::Utils::text2excel($filename);
+	if (-e $excel_file){
+		print qq(<a href="/tmp/$prefix.xlsx" title="Download table in Excel format">$excel</a>);
+	}
 	if ( !$self->{'no_archive'} ) {
 		my $header = $q->param('header_list') // 1;
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-		  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar&amp;header=$header">Batch download )
-		  . q(all contigs from selected isolates (tar format)</a></li>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar&amp;header=$header" )
+		  . qq(title="Batch download all contigs from selected isolates (tar format)">$archive</a>);
 	}
-	say q(</ul></div>);
+	say q(</p></div>);
 	return;
 }
 
