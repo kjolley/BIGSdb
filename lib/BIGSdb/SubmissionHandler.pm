@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -377,9 +377,11 @@ sub check_new_alleles_fasta {
 				  . qq(has a maximum length of $locus_info->{'max_length'} $units.);
 			}
 		}
-		my $existing_allele =
-		  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
-			[$locus,uc($sequence)], { cache => 'check_new_alleles_fasta' } );
+		my $existing_allele = $self->{'datastore'}->run_query(
+			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+			[ $locus, uc($sequence) ],
+			{ cache => 'check_new_alleles_fasta' }
+		);
 		if ($existing_allele) {
 			push @err, qq(Sequence "$seq_id" has already been defined as $locus-$existing_allele.);
 		}
@@ -615,6 +617,7 @@ sub _get_isolate_header_positions {
 	}
 	foreach my $heading (@header) {
 		next if $self->{'datastore'}->is_locus($heading);
+		next if $self->{'datastore'}->is_eav_field($heading);
 		next if $heading eq 'references';
 		next if $heading eq 'aliases';
 		push @unrecognized, $heading if $not_accounted_for{$heading};
@@ -664,6 +667,7 @@ sub _check_isolate_record {
 	$options = {} if ref $options ne 'HASH';
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
 	my $fields = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	push @$fields, @{ $self->{'datastore'}->get_eav_fieldnames };
 	push @$fields, REQUIRED_GENOME_FIELDS if $options->{'genomes'};
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
@@ -746,7 +750,6 @@ sub _is_field_bad_isolates {
 	}
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$fieldname};
 	$thisfield->{'type'} ||= 'text';
-
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
 	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
@@ -916,7 +919,7 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	return q(value is not on the list of allowed values for this field.);
 }
 
-sub _check_isolate_length {             ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $field, $value ) = @_;
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
