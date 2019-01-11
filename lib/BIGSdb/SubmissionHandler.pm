@@ -679,6 +679,7 @@ sub _check_isolate_record {
 		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		$att->{'required'} = 'yes' if ( any { $field eq $_ } REQUIRED_GENOME_FIELDS ) && $options->{'genomes'};
+		$att->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($field);
 		if (  !( ( $att->{'required'} // '' ) eq 'no' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{
@@ -752,6 +753,7 @@ sub _is_field_bad_isolates {
 	$thisfield->{'type'} ||= 'text';
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
+	$thisfield->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($fieldname);
 	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
 	if ( $value eq '' ) {
 		if ( $optional_fields{$fieldname} || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
