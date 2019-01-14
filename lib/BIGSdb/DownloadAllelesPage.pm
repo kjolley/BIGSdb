@@ -573,7 +573,7 @@ sub _print_alphabetical_list {
 				{ cache => 'DownloadAllelesPage::print_alphabetical_list::curators_exists' }
 			);
 			say qq(<h2>$letter</h2>);
-			say q(<table class="resultstable">);
+			say q(<div class="scrollable"><table class="resultstable">);
 			$self->_print_table_header_row(
 				{ descs_exist => $descs_exist, aliases_exist => $aliases_exist, curators_exist => $curators_exist } );
 			my $td = 1;
@@ -592,7 +592,7 @@ sub _print_alphabetical_list {
 				);
 				$td = $td == 1 ? 2 : 1;
 			}
-			say q(</table>);
+			say q(</table></div>);
 		}
 	}
 	$self->_print_table_link;
