@@ -249,7 +249,7 @@ sub _print_table_link {
 	my ($self) = @_;
 	if ( $self->{'text_buffer'} ) {
 		my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
-		say qq(<p style="margin-top:1em"><a href="/tmp/$self->{'prefix'}.txt" )
+		print qq(<p style="margin-top:1em"><a href="/tmp/$self->{'prefix'}.txt" )
 		  . qq(title="Download table in tab-delimited text format">$text</a>);
 		open( my $fh, '>:encoding(utf8)', $self->{'outfile'} )
 		  || $logger->error("Cannot open $self->{'outfile'} for appending");
