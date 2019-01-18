@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_GENOMES       => 1000;
+use constant MAX_GENOMES => 1000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -40,13 +40,13 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version  => '2.0.0',
-		dbtype   => 'isolates',
-		section  => 'analysis,postquery',
-		input    => 'query',
-		requires => 'js_tree,offline_jobs',
-		help     => 'tooltips',
-		order    => 16
+		version     => '2.0.0',
+		dbtype      => 'isolates',
+		section     => 'analysis,postquery',
+		input       => 'query',
+		requires    => 'js_tree,offline_jobs',
+		help        => 'tooltips',
+		order       => 16
 	);
 	return \%att;
 }
@@ -65,16 +65,13 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-
-
 	$self->print_set_section if $q->param('select_sets');
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
 	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
 	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset(
-		{ use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
@@ -143,8 +140,7 @@ sub run {
 		if ( @$filtered_ids > $max_genomes ) {
 			my $nice_max = BIGSdb::Utils::commify($max_genomes);
 			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
-			push @errors,
-			  qq(Genome presence analysis is limited to $nice_max isolates. You have selected $selected.);
+			push @errors, qq(Genome presence analysis is limited to $nice_max isolates. You have selected $selected.);
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -228,7 +224,9 @@ sub run_job {
 
 	#Allow temp files to be cleaned on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
-		$self->{'params'} = $params;
+	$self->{'params'}                         = $params;
+	$self->{'params'}->{'designation_status'} = 1;
+	$self->{'params'}->{'tag_status'}         = 1;
 	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $user_genomes = $self->process_uploaded_genomes( $job_id, $isolate_ids, $params );
@@ -241,7 +239,7 @@ sub run_job {
 		);
 		return;
 	}
-		if ( !@$loci ) {
+	if ( !@$loci ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
@@ -250,11 +248,44 @@ sub run_job {
 		);
 		return;
 	}
-	my $scan_data = $self->assemble_data_for_defined_loci(
-		{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
+	my $data = $self->_get_data( $job_id, $isolate_ids, $loci, $user_genomes );
 	use Data::Dumper;
-	$logger->error(Dumper $scan_data);
+	$logger->error( Dumper $data);
 	return;
 }
 
+sub _get_data {
+	my ( $self, $job_id, $ids, $loci, $user_genomes ) = @_;
+	my $scan_data = $self->assemble_data_for_defined_loci(
+		{
+			job_id       => $job_id,
+			ids          => $ids,
+			user_genomes => $user_genomes,
+			loci         => $loci
+		}
+	);
+	my $data = [];
+	foreach my $id (@$ids) {
+		my %designation_in_db = map { $_ => 1 } @{ $scan_data->{'isolate_data'}->{$id}->{'designation_in_db'} };
+		my %tag_in_db         = map { $_ => 1 } @{ $scan_data->{'isolate_data'}->{$id}->{'tag_in_db'} };
+		my $isolate_data      = {};
+		foreach my $locus (@$loci) {
+			$isolate_data->{'id'} = $id;
+			my $designation = $scan_data->{'isolate_data'}->{$id}->{'designations'}->{$locus};
+			$isolate_data->{'loci'}->{$locus}->{'present'} =
+			  ( defined $designation && $designation ne 'missing' ) ? 1 : 0;
+			$isolate_data->{'loci'}->{$locus}->{'known_allele'} =
+			  (      defined $designation
+				  && $designation !~ /^New/x
+				  && $designation ne 'missing'
+				  && $designation ne 'incomplete' ) ? 1 : 0;
+			$isolate_data->{'loci'}->{$locus}->{'complete'} =
+			  ( $designation ne 'missing' && $designation ne 'incomplete' ) ? 1 : 0;
+			$isolate_data->{'loci'}->{$locus}->{'designation_in_db'} = $designation_in_db{$locus} ? 1 : 0;
+			$isolate_data->{'loci'}->{$locus}->{'tag_in_db'}         = $tag_in_db{$locus}         ? 1 : 0;
+		}
+		push @$data, $isolate_data;
+	}
+	return $data;
+}
 1;

@@ -25,8 +25,9 @@ use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub run_script {
 	my ($self) = @_;
+	use Data::Dumper;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
-	my $isolates = $self->_process_user_genomes;
+	my $isolates    = $self->_process_user_genomes;
 	my $merged_data = {};
 	if ( $self->{'options'}->{'reference_file'} ) {
 		foreach my $isolate_id (@$isolates) {
@@ -333,12 +334,24 @@ sub _get_allele_designations_from_defined_loci {
 	  $self->{'datastore'}
 	  ->run_query( q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? AND status!='ignore'),
 		$isolate_id, { fetch => 'all_arrayref', slice => {}, cache => 'GCHelper::get_allele_designations' } );
+	my $tagged_loci = [];
+	if ( $self->{'options'}->{'tag_status'} ) {
+		$tagged_loci =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT DISTINCT(locus) FROM allele_sequences WHERE isolate_id=? ORDER BY locus',
+			$isolate_id, { fetch => 'col_arrayref', cache => 'GCHelper::get_tagged_loci' } );
+	}
 	my $designations = {};
 	my $paralogous   = {};
+	my %designation_in_db;
 	foreach my $designation (@$all_designations) {
 		next if !$self->{'options'}->{'use_tagged'};
 		next if !$loci{ $designation->{'locus'} };
-		next if $designation->{'allele_id'} eq '0';
+		if ( $designation->{'allele_id'} eq '0' ) {
+			next;
+		} else {
+			$designation_in_db{ $designation->{'locus'} } = 1;
+		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( $designation->{'locus'} );
 
 		#Always BLAST if it is a peptide locus and we need the nucleotide sequence for alignment
@@ -376,7 +389,20 @@ sub _get_allele_designations_from_defined_loci {
 		%$sequences = ( %$sequences, %$scanned_sequences );
 	}
 	my $return_hash = { designations => $designations, paralogous => $paralogous_list };
-	$return_hash->{'sequences'} = $sequences if $self->{'options'}->{'align'};
+	if ( $self->{'options'}->{'align'} ) {
+		$return_hash->{'sequences'} = $sequences;
+	}
+	if ( $self->{'options'}->{'designation_status'} ) {
+		$return_hash->{'designation_in_db'} = [ sort ( keys %designation_in_db ) ];
+	}
+	if ( $self->{'options'}->{'tag_status'} ) {
+		my $filtered_list = [];
+		foreach my $locus (@$tagged_loci) {
+			next if !$loci{$locus};
+			push @$filtered_list, $locus;
+		}
+		$return_hash->{'tag_in_db'} = $filtered_list;
+	}
 	return $return_hash;
 }
 
