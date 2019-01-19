@@ -148,6 +148,8 @@ sub _get_javascript_paths {
 			'packery'             => [qw(packery.js)],
 			'dropzone'            => [qw(dropzone.js)],
 			'd3'                  => [qw(d3.v5.min.js c3.min.js)],
+			'pivot'               => [qw(pivot.min.js)],
+			'papaparse'           => [qw(papaparse.min.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -498,8 +500,9 @@ sub get_stylesheets {
 	my $system  = $self->{'system'};
 	my $version = '20190111';
 	my @filenames;
-	push @filenames, q(dropzone.css) if $self->{'dropzone'};
-	push @filenames, q(c3.css)       if $self->{'d3'};
+	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
+	push @filenames, q(c3.css)        if $self->{'d3'};
+	push @filenames, q(pivot.min.css) if $self->{'pivot'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
 

@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Gene Presence',
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
+#		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
 		version     => '2.0.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
@@ -105,11 +105,31 @@ sub _print_parameters_fieldset {
 	return;
 }
 
+sub get_initiation_values {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('results');
+	return { pivot => 1, papaparse => 1, noCache => 1 };
+}
+
+sub _show_results {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<div id="pivot"></div>);
+	say q(</div>);
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $desc = $self->get_db_description;
 	say qq(<h1>Gene Presence - $desc</h1>);
 	my $q = $self->{'cgi'};
+	if ( $q->param('results') ) {
+		$self->_show_results;
+		return;
+	}
 	if ( $q->param('submit') ) {
 		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
@@ -175,6 +195,7 @@ sub run {
 			$q->delete('locus_paste_list');
 			$q->delete('isolate_id');
 			my $params = $q->Vars;
+			$params->{'script_name'} = $self->{'system'}->{'script_name'};
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
 			local $" = q(,);
@@ -249,9 +270,39 @@ sub run_job {
 		return;
 	}
 	my $data = $self->_get_data( $job_id, $isolate_ids, $loci, $user_genomes );
-	use Data::Dumper;
-	$logger->error( Dumper $data);
+	my $tsv_file = $self->_create_tsv_output( $job_id, $data );
+	$self->{'jobManager'}->update_job_status(
+		$job_id,
+		{
+			    message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
+			  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+			  . qq(name=GenePresence&amp;results=$tsv_file" target="_blank" )
+			  . q(class="launchbutton">Launch Pivot Table</a></p>)
+		}
+	);
 	return;
+}
+
+sub _create_tsv_output {
+	my ( $self, $job_id, $data ) = @_;
+	my $loci      = $self->{'jobManager'}->get_job_loci($job_id);
+	my $filename  = BIGSdb::Utils::get_random() . '.txt';
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh qq(id\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
+	foreach my $record (@$data) {
+		foreach my $locus (@$loci) {
+			my @output = ( $record->{'id'}, $locus );
+			push @output, $record->{'loci'}->{$locus}->{$_}
+			  foreach qw(present complete known_allele designation_in_db tag_in_db);
+			local $" = qq(\t);
+			say $fh qq(@output);
+		}
+	}
+	close $fh;
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => $filename, description => '01_Text output file' } );
+	return $filename;
 }
 
 sub _get_data {
@@ -287,5 +338,41 @@ sub _get_data {
 		push @$data, $isolate_data;
 	}
 	return $data;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('results');
+	my $data_file = $q->param('results');
+	my $url = qq(/tmp/$data_file);
+	my $buffer    = <<"JS";
+
+\$(function () {
+	var tpl = \$.pivotUtilities.aggregatorTemplates;
+	Papa.parse("$url", {
+		download: true,
+		skipEmptyLines: true,
+	    complete: function(parsed){
+	    	\$.each(parsed.data.slice(1),function(){
+	    		this[2] = this[2] == 1 ? 'present' : 'absent';
+	    		this[3] = this[3] == 1 ? 'complete' : 'incomplete';
+	    		this[4] = this[4] == 1 ? 'known':'new';
+	    		this[5] = this[5] == 1 ? 'designated' : 'not designated';
+	    		this[6] = this[6] == 1 ? 'tagged' : 'untagged';
+	    	});
+			\$("#pivot").pivotUI(parsed.data, {
+	        	rows: ["locus"],
+	            cols: ["presence"],
+	            
+	            aggregators: {
+	            	"Count":  function(){return tpl.count()()}
+	            }
+	        });
+	    }
+	});
+});
+JS
+	return $buffer;
 }
 1;
