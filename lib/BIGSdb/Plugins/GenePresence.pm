@@ -39,14 +39,15 @@ sub get_attributes {
 		buttontext  => 'Gene Presence',
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
-#		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version     => '2.0.0',
-		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
-		input       => 'query',
-		requires    => 'js_tree,offline_jobs',
-		help        => 'tooltips',
-		order       => 16
+
+		#		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
+		version  => '2.0.0',
+		dbtype   => 'isolates',
+		section  => 'analysis,postquery',
+		input    => 'query',
+		requires => 'js_tree,offline_jobs',
+		help     => 'tooltips',
+		order    => 16
 	);
 	return \%att;
 }
@@ -116,8 +117,9 @@ sub _show_results {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
-	say q(<div id="pivot"></div>);
-	say q(</div>);
+	say q(<div id="pivot">);
+	$self->print_loading_message;
+	say q(</div></div>);
 	return;
 }
 
@@ -345,7 +347,7 @@ sub get_plugin_javascript {
 	my $q = $self->{'cgi'};
 	return if !$q->param('results');
 	my $data_file = $q->param('results');
-	my $url = qq(/tmp/$data_file);
+	my $url       = qq(/tmp/$data_file);
 	my $buffer    = <<"JS";
 
 \$(function () {
