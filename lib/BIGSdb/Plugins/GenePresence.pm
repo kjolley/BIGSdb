@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_GENOMES => 1000;
+use constant MAX_RECORDS => 100_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -70,6 +70,9 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
 	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
 	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description.</p>);
+	  my $max = BIGSdb::Utils::commify(MAX_RECORDS);
+	say qq(<p>Interactive analysis is limited to $max records. )
+	 . q(If you select more than this then output will be restricted to static tables.);
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
@@ -155,16 +158,6 @@ sub run {
 			  . q(haven't been filtered to none by selecting a project.);
 			$continue = 0;
 		}
-		my $max_genomes =
-		  ( BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
-		  ? $self->{'system'}->{'genome_comparator_limit'}
-		  : MAX_GENOMES;
-		if ( @$filtered_ids > $max_genomes ) {
-			my $nice_max = BIGSdb::Utils::commify($max_genomes);
-			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
-			push @errors, qq(Genome presence analysis is limited to $nice_max isolates. You have selected $selected.);
-			$continue = 0;
-		}
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 		$q->delete('locus');
@@ -182,6 +175,15 @@ sub run {
 			push @errors, q(You must either select one or more loci or schemes.);
 			$continue = 0;
 		}
+		my $record_count = @$filtered_ids * @$loci_selected;
+		if ( $record_count > MAX_RECORDS ) {
+			my $nice_max = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $selected = BIGSdb::Utils::commify($record_count);
+			push @errors,
+			  qq(Interactive analysis is limited to $nice_max records (isolates x loci). )
+			  . qq(You have selected $selected. Output will be limited to static tables.)
+			  ;
+		}
 		if (@errors) {
 			if ( @errors == 1 ) {
 				$self->print_bad_status( { message => qq(@errors) } );
@@ -190,6 +192,7 @@ sub run {
 				$self->print_bad_status( { message => q(Please address the following:), detail => qq(@errors) } );
 			}
 		}
+
 		$q->param( user_upload => $user_upload ) if $user_upload;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
