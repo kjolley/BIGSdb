@@ -39,7 +39,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.0.1',
+		version     => '2.0.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -412,7 +412,7 @@ sub _get_query_params {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $params = [];
-	foreach my $param (qw(query_file list_file datatype)) {
+	foreach my $param (qw(query_file list_file datatype temp_table_file)) {
 		push @$params, qq($param=) . $q->param($param) if $q->param($param);
 	}
 	return $params;
