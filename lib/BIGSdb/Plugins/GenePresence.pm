@@ -70,9 +70,9 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
 	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
 	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description.</p>);
-	  my $max = BIGSdb::Utils::commify(MAX_RECORDS);
-	say qq(<p>Interactive analysis is limited to $max records. )
-	 . q(If you select more than this then output will be restricted to static tables.);
+	my $max = BIGSdb::Utils::commify(MAX_RECORDS);
+	say qq(<p>Interactive analysis is limited to $max data points (isolates x loci). )
+	  . q(If you select more than this then output will be restricted to static tables.);
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
@@ -175,15 +175,6 @@ sub run {
 			push @errors, q(You must either select one or more loci or schemes.);
 			$continue = 0;
 		}
-		my $record_count = @$filtered_ids * @$loci_selected;
-		if ( $record_count > MAX_RECORDS ) {
-			my $nice_max = BIGSdb::Utils::commify(MAX_RECORDS);
-			my $selected = BIGSdb::Utils::commify($record_count);
-			push @errors,
-			  qq(Interactive analysis is limited to $nice_max records (isolates x loci). )
-			  . qq(You have selected $selected. Output will be limited to static tables.)
-			  ;
-		}
 		if (@errors) {
 			if ( @errors == 1 ) {
 				$self->print_bad_status( { message => qq(@errors) } );
@@ -192,7 +183,6 @@ sub run {
 				$self->print_bad_status( { message => q(Please address the following:), detail => qq(@errors) } );
 			}
 		}
-
 		$q->param( user_upload => $user_upload ) if $user_upload;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ($continue) {
@@ -276,15 +266,22 @@ sub run_job {
 	}
 	my $data = $self->_get_data( $job_id, $isolate_ids, $loci, $user_genomes );
 	my $tsv_file = $self->_create_tsv_output( $job_id, $data );
-	$self->{'jobManager'}->update_job_status(
-		$job_id,
-		{
-			    message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
-			  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-			  . qq(name=GenePresence&amp;results=$tsv_file" target="_blank" )
-			  . q(class="launchbutton">Launch Pivot Table</a></p>)
-		}
-	);
+	my $message;
+	my $record_count = @$isolate_ids * @$loci;
+	if ( $record_count > MAX_RECORDS ) {
+		my $nice_max = BIGSdb::Utils::commify(MAX_RECORDS);
+		my $selected = BIGSdb::Utils::commify($record_count);
+		$message =
+		    qq(Interactive analysis is limited to $nice_max records (isolates x loci). )
+		  . qq(You have selected $selected. Output is limited to static tables.);
+	} else {
+		$message =
+		    q(<p style="margin-top:2em;margin-bottom:2em">)
+		  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . qq(name=GenePresence&amp;results=$tsv_file" target="_blank" )
+		  . q(class="launchbutton">Launch Pivot Table</a></p>);
+	}
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message } );
 	return;
 }
 
@@ -341,6 +338,7 @@ sub _get_data {
 			$isolate_data->{'loci'}->{$locus}->{'tag_in_db'}         = $tag_in_db{$locus}         ? 1 : 0;
 		}
 		push @$data, $isolate_data;
+		return if $self->{'exit'};
 	}
 	return $data;
 }
