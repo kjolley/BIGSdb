@@ -265,7 +265,7 @@ sub run_job {
 		return;
 	}
 	my $data = $self->_get_data( $job_id, $isolate_ids, $loci, $user_genomes );
-	my $tsv_file = $self->_create_tsv_output( $job_id, $data );
+	$self->_create_presence_output( $job_id, $data );
 	my $message;
 	my $record_count = @$isolate_ids * @$loci;
 	if ( $record_count > MAX_RECORDS ) {
@@ -275,6 +275,7 @@ sub run_job {
 		    qq(Interactive analysis is limited to $nice_max records (isolates x loci). )
 		  . qq(You have selected $selected. Output is limited to static tables.);
 	} else {
+		my $tsv_file = $self->_create_tsv_output( $job_id, $data );
 		$message =
 		    q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
@@ -288,7 +289,7 @@ sub run_job {
 sub _create_tsv_output {
 	my ( $self, $job_id, $data ) = @_;
 	my $loci      = $self->{'jobManager'}->get_job_loci($job_id);
-	my $filename  = BIGSdb::Utils::get_random() . '.txt';
+	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
 	say $fh qq(id\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
@@ -302,9 +303,33 @@ sub _create_tsv_output {
 		}
 	}
 	close $fh;
-	$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => $filename, description => '01_Text output file' } );
 	return $filename;
+}
+
+sub _create_presence_output {
+	my ( $self, $job_id, $data ) = @_;
+	my $loci      = $self->{'jobManager'}->get_job_loci($job_id);
+	my $filename  = "${job_id}_presence.txt";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	local $" = qq(\t);
+	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh qq(id\t@$loci);
+	foreach my $record (@$data) {
+		print $fh $record->{'id'};
+		foreach my $locus (@$loci) {
+			print $fh qq(\t$record->{'loci'}->{$locus}->{'present'});
+		}
+		print $fh qq(\n);
+	}
+	close $fh;
+	$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => $filename, description => '01_Presence/absence (text)' } );
+	my $excel_file = BIGSdb::Utils::text2excel($full_path);
+	if (-e $excel_file){
+		$self->{'jobManager'}
+	  ->update_job_output( $job_id, { filename => "${job_id}_presence.xlsx", description => '01_Presence/absence (Excel)' } );
+	}
+	return;
 }
 
 sub _get_data {
@@ -359,17 +384,26 @@ sub get_plugin_javascript {
 	    complete: function(parsed){
 	    	\$.each(parsed.data.slice(1),function(){
 	    		this[2] = this[2] == 1 ? 'present' : 'absent';
-	    		this[3] = this[3] == 1 ? 'complete' : 'incomplete';
-	    		this[4] = this[4] == 1 ? 'known':'new';
+	    		if (this[2] == 'present'){
+	    			this[3] = this[3] == 1 ? 'complete' : 'incomplete';
+	    		} else {
+	    			this[3] = 'undefined';
+	    		}
+	    		if (this[3] == 'complete'){
+	    			this[4] = this[4] == 1 ? 'known' : 'new';
+	    		} else {
+	    			this[4] = 'undefined';
+	    		}
 	    		this[5] = this[5] == 1 ? 'designated' : 'not designated';
 	    		this[6] = this[6] == 1 ? 'tagged' : 'untagged';
 	    	});
 			\$("#pivot").pivotUI(parsed.data, {
 	        	rows: ["locus"],
-	            cols: ["presence"],
-	            
+	            cols: ["presence"],	            
 	            aggregators: {
-	            	"Count":  function(){return tpl.count()()}
+	            	"Count":  function(){return tpl.count()()},
+	            	"Count as Fraction of Rows":    function(){return tpl.fractionOf(tpl.count(),"row")()},
+					"Count as Fraction of Columns": function(){return tpl.fractionOf(tpl.count(),"col")()}
 	            }
 	        });
 	    }
