@@ -120,6 +120,9 @@ sub _show_results {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<div id="pivot_instructions" style="display:none"><h2>Pivot table</h2>);
+	say q(<p>Drag and drop fields on to the table axes. Multiple fields can be combined.</p>);
+	say q(</div>);
 	say q(<div id="pivot">);
 	$self->print_loading_message;
 	say q(</div></div>);
@@ -410,8 +413,10 @@ sub get_plugin_javascript {
 					"Count as Fraction of Columns": function(){return tpl.fractionOf(tpl.count(),"col")()}
 	            }
 	        });
+	        \$("div#pivot_instructions").show();
 	    }
 	});
+	
 });
 JS
 	return $buffer;
