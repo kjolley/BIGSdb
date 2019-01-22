@@ -147,7 +147,7 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5'        => [qw(md5.js)],
 			'packery'             => [qw(packery.js)],
 			'dropzone'            => [qw(dropzone.js)],
-			'd3'                  => [qw(d3.v5.min.js c3.min.js)],
+			'd3'                  => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)],
 			'pivot'               => [qw(pivot.min.js jquery.ui.touch-punch.min.js)],
 			'papaparse'           => [qw(papaparse.min.js)]
 		);
