@@ -378,6 +378,9 @@ sub get_plugin_javascript {
 
 \$(function () {
 	var tpl = \$.pivotUtilities.aggregatorTemplates;
+	var renderers = \$.extend(\$.pivotUtilities.renderers,
+            \$.pivotUtilities.export_renderers);
+	
 	Papa.parse("$url", {
 		download: true,
 		skipEmptyLines: true,
@@ -399,7 +402,8 @@ sub get_plugin_javascript {
 	    	});
 			\$("#pivot").pivotUI(parsed.data, {
 	        	rows: ["locus"],
-	            cols: ["presence"],	            
+	            cols: ["presence"],	
+	            renderers: renderers,            
 	            aggregators: {
 	            	"Count":  function(){return tpl.count()()},
 	            	"Count as Fraction of Rows":    function(){return tpl.fractionOf(tpl.count(),"row")()},
