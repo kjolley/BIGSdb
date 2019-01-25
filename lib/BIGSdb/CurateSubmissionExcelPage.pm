@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -165,7 +165,7 @@ sub _print_isolate_allowed_values {
 		@$option_list = split /\s*;\s*/x, $eav_field->{'option_list'};
 	} else {
 		$option_list = $self->{'xmlHandler'}->get_field_option_list($field);
-		$options = [SEQ_METHODS] if $field eq 'sequence_method';
+		$option_list = [SEQ_METHODS] if $field eq 'sequence_method';
 	}
 	my $col_width = 5;
 	my $field_length = int( 0.9 * ( length $field ) + 2 );
