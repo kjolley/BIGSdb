@@ -25,7 +25,9 @@ use parent qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_RECORDS => 100_000;
+use constant MAX_RECORDS        => 100_000;
+use constant HEATMAP_MIN_WIDTH  => 600;
+use constant HEATMAP_MIN_HEIGHT => 200;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -112,11 +114,16 @@ sub _print_parameters_fieldset {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$q->param('results');
-	return { pivot => 1, papaparse => 1, noCache => 1 };
+	if ( $q->param('results') ) {
+		return { pivot => 1, papaparse => 1, noCache => 1 };
+	}
+	if ( $q->param('heatmap') ) {
+		return { heatmap => 1, papaparse => 1, noCache => 1 };
+	}
+	return;
 }
 
-sub _show_results {
+sub _pivot_table {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
@@ -129,13 +136,65 @@ sub _show_results {
 	return;
 }
 
+sub _get_heatmap_size {
+	my ( $self, $job_id ) = @_;
+	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
+	my $isolates     = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $largest_axes = @$loci;
+	$largest_axes = @$isolates if @$isolates > @$loci;
+	my $radius;
+	for my $r ( 1 .. 10 ) {
+		my $test_radius = 11 - $r;
+		if ( $largest_axes * $test_radius < HEATMAP_MIN_WIDTH || $largest_axes < HEATMAP_MIN_HEIGHT ) {
+			$radius = $test_radius;
+			last;
+		}
+	}
+	$radius //= 1;
+	my $blur = $radius == 1 ? 0 : 0.9;
+	my $width = @$loci * $radius * 2 + 20;
+	my $height = @$isolates * $radius * 2 + 20;
+	return { height => $height, width => $width, radius => $radius, blur => $blur };
+}
+
+sub _heatmap {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	( my $job_id = $q->param('heatmap') ) =~ s/\.txt$//x;
+	my $job = $self->{'jobManager'}->get_job($job_id);
+	if ( !$job ) {
+		$self->print_bad_status( { message => 'Job does not exist.', navbar => 1 } );
+		return;
+	}
+	my $size = $self->_get_heatmap_size($job_id);
+	say q(<div class="box" id="resultspanel">);
+	say q(<div id="heatmap_instructions" style="display:none"><h2>Heatmap</h2>);
+
+	say q(</div><div class="scrollable">);
+	say q(<div id="waiting">);
+	$self->print_loading_message;
+	say q(</div>);
+	say q(<div id="wrapper">);
+	say qq(<div id="heatmap" style="width:$size->{'width'}px;height:$size->{'height'}px">);
+	
+	say q(</div>);
+	say q(<div id="tooltip" style="position:absolute; left:0; top:0; background:rgba(0,0,0,.8); )
+	  . q(color:white; font-size:14px; padding:5px; line-height:18px; display:none"></div>);
+	say q(</div></div>);
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $desc = $self->get_db_description;
 	say qq(<h1>Gene Presence - $desc</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('results') ) {
-		$self->_show_results;
+		$self->_pivot_table;
+		return;
+	}
+	if ( $q->param('heatmap') ) {
+		$self->_heatmap;
 		return;
 	}
 	if ( $q->param('submit') ) {
@@ -283,7 +342,10 @@ sub run_job {
 		    q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 		  . qq(name=GenePresence&amp;results=$tsv_file" target="_blank" )
-		  . q(class="launchbutton">Launch Pivot Table</a></p>);
+		  . q(class="launchbutton">Pivot Table</a> )
+		  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . qq(name=GenePresence&amp;heatmap=$tsv_file" target="_blank" )
+		  . q(class="launchbutton">Heatmap</a></p>);
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message } );
 	return;
@@ -328,9 +390,9 @@ sub _create_presence_output {
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => $filename, description => '01_Presence/absence (text)' } );
 	my $excel_file = BIGSdb::Utils::text2excel($full_path);
-	if (-e $excel_file){
-		$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "${job_id}_presence.xlsx", description => '01_Presence/absence (Excel)' } );
+	if ( -e $excel_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "${job_id}_presence.xlsx", description => '01_Presence/absence (Excel)' } );
 	}
 	return;
 }
@@ -374,7 +436,18 @@ sub _get_data {
 sub get_plugin_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$q->param('results');
+	if ( $q->param('results') ) {
+		return $self->_get_pivot_table_js;
+	}
+	if ( $q->param('heatmap') ) {
+		return $self->_get_heatmap_js;
+	}
+	return;
+}
+
+sub _get_pivot_table_js {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
 	my $data_file = $q->param('results');
 	my $url       = qq(/tmp/$data_file);
 	my $buffer    = <<"JS";
@@ -418,6 +491,114 @@ sub get_plugin_javascript {
 	});
 	
 });
+JS
+	return $buffer;
+}
+
+sub _get_heatmap_js {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $data_file = $q->param('heatmap');
+	( my $job_id = $data_file ) =~ s/\.txt$//x;
+	my $loci = $self->{'jobManager'}->get_job_loci($job_id);
+	my $locus_count = @$loci;
+	my $size   = $self->_get_heatmap_size($job_id);
+	my $url    = qq(/tmp/$data_file);
+	my $buffer = <<"JS";
+
+\$(function () {
+	var radius = $size->{'radius'};
+	Papa.parse("$url", {
+		download: true,
+		skipEmptyLines: true,
+	    complete: function(parsed){
+	    	var presence_data = get_presence(parsed.data.slice(1),$size->{'radius'});
+			console.log(parsed.data.slice(1));
+	    	\$("#heatmap").html("");
+			var heatmapInstance = h337.create({
+				container: document.getElementById('heatmap'),
+  				radius: radius,
+ 				opacity: 1,
+  				blur: $size->{'blur'},
+				gradient: {
+				    // enter n keys between 0 and 1 here
+				    // for gradient color customization
+				    '0': '#dde',
+				    '0.5': '#f00',
+				}
+ 			});
+//			console.log(presence_data['data_points'}];
+			heatmapInstance.setData({
+				min: 0,
+				max: 1,
+				data: presence_data["data_points"]
+			});
+	        \$("div#heatmap_instructions").show();
+	        \$("div#waiting").hide();
+	        
+	        var wrapper = document.querySelector('#wrapper');
+				var tooltip = document.querySelector('#tooltip');
+				function updateTooltip(x, y, value) {
+				  var transl = 'translate(' + (x + 40) + 'px, ' + (y + 75) + 'px)';
+				  tooltip.style.webkitTransform = transl;
+				  tooltip.innerHTML = value;
+				};
+			wrapper.onmousemove = function(ev) {
+				var x = parseInt(ev.layerX / (radius * 2));
+				var y = parseInt(ev.layerY / (radius * 2));
+				var value = presence_data["tooltips"][x][y];
+				if (typeof value != 'undefined'){
+					tooltip.style.display = 'block';
+					updateTooltip(ev.layerX, ev.layerY , value);
+				}
+			};
+			// hide tooltip on mouseout
+			wrapper.onmouseout = function() {
+				tooltip.style.display = 'none';
+			}; 
+	    }   
+	});
+});
+
+function get_presence(data,radius){
+	var presence = [];
+	var id_pos = {};
+	var locus_pos = {};
+	var x = 0;
+	var y = 0;
+	var data_points = [];
+	var tooltips = create_2D_array($locus_count);
+	\$.each(data,function(){
+		var id = this[0];
+		var locus = this[1];
+		if (typeof id_pos[id] == 'undefined'){
+			id_pos[id] = x;
+			x++;
+		}
+		if (typeof locus_pos[locus] == 'undefined'){
+			locus_pos[locus] = y;
+			y++;
+		}
+		data_points.push({
+			x:locus_pos[locus]*2*radius + radius,
+			y:id_pos[id]*2*radius + radius,
+			value:this[2]
+		});
+		if (typeof locus_pos[locus] != 'undefined' && typeof id_pos[id] != 'undefined'){
+			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "<br />locus:" + locus + " " + 
+			(parseInt(this[2]) ? 'present' : 'absent');
+		}
+	});
+	return {data_points:data_points, tooltips:tooltips};
+}
+
+function create_2D_array(rows) {
+	var arr = [];
+	for (var i=0;i<rows;i++) {
+	   arr[i] = [];
+	}
+	return arr;
+}
 JS
 	return $buffer;
 }

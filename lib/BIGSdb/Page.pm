@@ -149,7 +149,8 @@ sub _get_javascript_paths {
 			'dropzone'            => [qw(dropzone.js)],
 			'd3'                  => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)],
 			'pivot'               => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
-			'papaparse'           => [qw(papaparse.min.js)]
+			'papaparse'           => [qw(papaparse.min.js)],
+			'heatmap'             => [qw(heatmap.min.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
