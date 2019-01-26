@@ -145,14 +145,15 @@ sub _get_heatmap_size {
 	my $radius;
 	for my $r ( 1 .. 10 ) {
 		my $test_radius = 11 - $r;
-		if ( $largest_axes * $test_radius < HEATMAP_MIN_WIDTH || $largest_axes < HEATMAP_MIN_HEIGHT ) {
+		if ( $largest_axes * $test_radius < HEATMAP_MIN_WIDTH || $largest_axes * $test_radius < HEATMAP_MIN_HEIGHT )
+		{
 			$radius = $test_radius;
 			last;
 		}
 	}
 	$radius //= 1;
-	my $blur = $radius == 1 ? 0 : 0.9;
-	my $width = @$loci * $radius * 2 + 20;
+	my $blur   = $radius == 1 ? 0 : 0.2;
+	my $width  = @$loci * $radius * 2 + 20;
 	my $height = @$isolates * $radius * 2 + 20;
 	return { height => $height, width => $width, radius => $radius, blur => $blur };
 }
@@ -169,18 +170,44 @@ sub _heatmap {
 	my $size = $self->_get_heatmap_size($job_id);
 	say q(<div class="box" id="resultspanel">);
 	say q(<div id="heatmap_instructions" style="display:none"><h2>Heatmap</h2>);
-
 	say q(</div><div class="scrollable">);
 	say q(<div id="waiting">);
 	$self->print_loading_message;
 	say q(</div>);
-	say q(<div id="wrapper">);
-	say qq(<div id="heatmap" style="width:$size->{'width'}px;height:$size->{'height'}px">);
-	
-	say q(</div>);
+	say q(<div id="wrapper" style="float:left;margin-top:2em">);
+	say qq(<div id="heatmap" style="width:$size->{'width'}px;height:$size->{'height'}px"></div>);
 	say q(<div id="tooltip" style="position:absolute; left:0; top:0; background:rgba(0,0,0,.8); )
 	  . q(color:white; font-size:14px; padding:5px; line-height:18px; display:none"></div>);
-	say q(</div></div>);
+	say q(</div>);
+	say q(</div>);
+	$self->_print_heatmap_controls;
+	say q(</div>);
+	return;
+}
+
+sub _print_heatmap_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="controls" style="position:absolute;top:6em;right:1em"><legend>Controls</legend>);
+	say q(<ul><li style="margin-top:0.5em"><label for="attribute">Attribute:</label>);
+	my $types  = [qw(presence designated)];
+	my $labels = {
+		presence   => 'Presence',
+		completion => 'Complete sequences',
+		designated => 'Alleles designated',
+		tagged     => 'Sequences tagged',
+		known      => 'Known/new alleles'
+	};
+	say $q->popup_menu(
+		-id      => 'attribute',
+		-name    => 'attribute',
+		-values  => $types,
+		-labels  => $labels,
+		-default => 'presence'
+	);
+	say q(</li></ul></fieldset>);
+	say q(</fieldset>);
+	say q(<div style="clear:both"></div>);
 	return;
 }
 
@@ -357,10 +384,11 @@ sub _create_tsv_output {
 	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
-	say $fh qq(id\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
+	say $fh qq(id\t$self->{'system'}->{'labelfield'}\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
 	foreach my $record (@$data) {
+		my $label = $self->_get_label_field( $record->{'id'} );
 		foreach my $locus (@$loci) {
-			my @output = ( $record->{'id'}, $locus );
+			my @output = ( $record->{'id'}, $label, $locus );
 			push @output, $record->{'loci'}->{$locus}->{$_}
 			  foreach qw(present complete known_allele designation_in_db tag_in_db);
 			local $" = qq(\t);
@@ -369,6 +397,12 @@ sub _create_tsv_output {
 	}
 	close $fh;
 	return $filename;
+}
+
+sub _get_label_field {
+	my ( $self, $id ) = @_;
+	return $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
+		$id, { cache => 'GenePresence::get_label_field' } );
 }
 
 sub _create_presence_output {
@@ -462,19 +496,19 @@ sub _get_pivot_table_js {
 		skipEmptyLines: true,
 	    complete: function(parsed){
 	    	\$.each(parsed.data.slice(1),function(){
-	    		this[2] = this[2] == 1 ? 'present' : 'absent';
-	    		if (this[2] == 'present'){
-	    			this[3] = this[3] == 1 ? 'complete' : 'incomplete';
-	    		} else {
-	    			this[3] = 'undefined';
-	    		}
-	    		if (this[3] == 'complete'){
-	    			this[4] = this[4] == 1 ? 'known' : 'new';
+	    		this[3] = this[3] == 1 ? 'present' : 'absent';
+	    		if (this[3] == 'present'){
+	    			this[4] = this[4] == 1 ? 'complete' : 'incomplete';
 	    		} else {
 	    			this[4] = 'undefined';
 	    		}
-	    		this[5] = this[5] == 1 ? 'designated' : 'not designated';
-	    		this[6] = this[6] == 1 ? 'tagged' : 'untagged';
+	    		if (this[4] == 'complete'){
+	    			this[5] = this[5] == 1 ? 'known' : 'new';
+	    		} else {
+	    			this[5] = 'undefined';
+	    		}
+	    		this[6] = this[6] == 1 ? 'designated' : 'not designated';
+	    		this[7] = this[7] == 1 ? 'tagged' : 'untagged';
 	    	});
 			\$("#pivot").pivotUI(parsed.data, {
 	        	rows: ["locus"],
@@ -500,65 +534,113 @@ sub _get_heatmap_js {
 	my $q         = $self->{'cgi'};
 	my $data_file = $q->param('heatmap');
 	( my $job_id = $data_file ) =~ s/\.txt$//x;
-	my $loci = $self->{'jobManager'}->get_job_loci($job_id);
-	my $locus_count = @$loci;
-	my $size   = $self->_get_heatmap_size($job_id);
-	my $url    = qq(/tmp/$data_file);
-	my $buffer = <<"JS";
+	my $isolates      = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $isolate_count = @$isolates;
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	my $locus_count   = @$loci;
+	my $size          = $self->_get_heatmap_size($job_id);
+	my $url           = qq(/tmp/$data_file);
+	my $buffer        = <<"JS";
 
+var radius = $size->{'radius'};
+var blur = $size->{'blur'};
 \$(function () {
-	var radius = $size->{'radius'};
 	Papa.parse("$url", {
 		download: true,
 		skipEmptyLines: true,
 	    complete: function(parsed){
-	    	var presence_data = get_presence(parsed.data.slice(1),$size->{'radius'});
-			console.log(parsed.data.slice(1));
-	    	\$("#heatmap").html("");
-			var heatmapInstance = h337.create({
-				container: document.getElementById('heatmap'),
-  				radius: radius,
- 				opacity: 1,
-  				blur: $size->{'blur'},
-				gradient: {
-				    // enter n keys between 0 and 1 here
-				    // for gradient color customization
-				    '0': '#dde',
-				    '0.5': '#f00',
-				}
- 			});
-//			console.log(presence_data['data_points'}];
-			heatmapInstance.setData({
-				min: 0,
-				max: 1,
-				data: presence_data["data_points"]
-			});
+	    	var attribute = \$("#attribute").val();
+	    	config = get_config(attribute);
+			heatmap_data = get_heatmap_data(parsed.data.slice(1),attribute);
+			var heatmap = load_heatmap(config,heatmap_data.data);
 	        \$("div#heatmap_instructions").show();
 	        \$("div#waiting").hide();
+	        position_controls();
 	        
 	        var wrapper = document.querySelector('#wrapper');
-				var tooltip = document.querySelector('#tooltip');
-				function updateTooltip(x, y, value) {
-				  var transl = 'translate(' + (x + 40) + 'px, ' + (y + 75) + 'px)';
-				  tooltip.style.webkitTransform = transl;
-				  tooltip.innerHTML = value;
-				};
+			var tooltip = document.querySelector('#tooltip');
+			function updateTooltip(x, y, value) {
+			  var transl = 'translate(' + (x + 30) + 'px, ' + (y + 110) + 'px)';
+			  tooltip.style.webkitTransform = transl;
+			  tooltip.innerHTML = value;
+			}
 			wrapper.onmousemove = function(ev) {
 				var x = parseInt(ev.layerX / (radius * 2));
 				var y = parseInt(ev.layerY / (radius * 2));
-				var value = presence_data["tooltips"][x][y];
-				if (typeof value != 'undefined'){
-					tooltip.style.display = 'block';
-					updateTooltip(ev.layerX, ev.layerY , value);
+				if (typeof heatmap_data.tooltips[x] != 'undefined'){
+					var value = heatmap_data.tooltips[x][y];
+					if (typeof value != 'undefined'){				
+						tooltip.style.display = 'block';
+						updateTooltip(ev.layerX, ev.layerY , value);
+					}
 				}
-			};
+			}
 			// hide tooltip on mouseout
 			wrapper.onmouseout = function() {
 				tooltip.style.display = 'none';
-			}; 
+			} 
+			
+			\$("#attribute").on("change",function(){
+				attribute = \$("#attribute").val();
+				config = get_config(attribute);
+				heatmap_data = get_heatmap_data(parsed.data.slice(1),attribute);
+				var canvas = heatmap._renderer.canvas;
+				\$(canvas).remove();
+				heatmap = undefined;
+				heatmap = load_heatmap(config,heatmap_data.data);
+			});
 	    }   
 	});
+	
+	\$(window).resize(function() {
+		position_controls();
+	});
 });
+
+function load_heatmap(config,data){
+	var heatmap = h337.create(config);
+	heatmap.setData(data);
+	return heatmap;
+}
+
+function get_config(attribute){
+	var config = {
+		container: document.getElementById('heatmap'),
+  		radius: radius,
+ 		opacity: 1,
+  		blur: blur
+	};
+	if (attribute == 'designated'){
+		config.gradient = {0:'#dde','0.1':'#000','0.51':'#080','1':'#080'};
+	} else {
+		//Default (presence)
+		config.gradient = {0:'#dde','0.1':'#888',1:'#800'};
+	}
+	console.log(attribute);
+	return config;
+}
+
+function get_heatmap_data(parsed_data,attribute){
+	var data;
+	var max;
+	var min = 0;
+	if (attribute == 'designated'){
+		data = get_designation(parsed_data,$size->{'radius'});
+		min = 1;
+		max = 10;
+	} else { //presence
+		data = get_presence(parsed_data,$size->{'radius'});
+		max = 1;
+	}
+	return { data:
+		{
+			min: min,
+			max: max,
+			data: data["data_points"]
+		},
+		tooltips: data["tooltips"]
+	}
+}
 
 function get_presence(data,radius){
 	var presence = [];
@@ -570,7 +652,8 @@ function get_presence(data,radius){
 	var tooltips = create_2D_array($locus_count);
 	\$.each(data,function(){
 		var id = this[0];
-		var locus = this[1];
+		var label = this[1];
+		var locus = this[2];
 		if (typeof id_pos[id] == 'undefined'){
 			id_pos[id] = x;
 			x++;
@@ -582,11 +665,52 @@ function get_presence(data,radius){
 		data_points.push({
 			x:locus_pos[locus]*2*radius + radius,
 			y:id_pos[id]*2*radius + radius,
-			value:this[2]
+			value:this[3]
 		});
 		if (typeof locus_pos[locus] != 'undefined' && typeof id_pos[id] != 'undefined'){
-			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "<br />locus:" + locus + " " + 
-			(parseInt(this[2]) ? 'present' : 'absent');
+			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "; " + label + "<br />locus:" + locus + " " + 
+			(parseInt(this[3]) ? 'present' : 'absent');
+		}
+	});
+	return {data_points:data_points, tooltips:tooltips};
+}
+
+function get_designation(data,radius){
+	var presence = [];
+	var id_pos = {};
+	var locus_pos = {};
+	var x = 0;
+	var y = 0;
+	var data_points = [];
+	var tooltips = create_2D_array($locus_count);
+	\$.each(data,function(){
+		var id = this[0];
+		var label = this[1];
+		var locus = this[2];
+		if (typeof id_pos[id] == 'undefined'){
+			id_pos[id] = x;
+			x++;
+		}
+		if (typeof locus_pos[locus] == 'undefined'){
+			locus_pos[locus] = y;
+			y++;
+		}
+		var value;
+		if (parseInt(this[3])){
+			value = parseInt(this[6]) ? 10 : 2;
+		} else {
+			value = 0;
+		}
+		data_points.push({
+			x:locus_pos[locus]*2*radius + radius,
+			y:id_pos[id]*2*radius + radius,
+			value:value
+		});
+		if (typeof locus_pos[locus] != 'undefined' && typeof id_pos[id] != 'undefined'){
+			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "; " + label + "<br />locus:" + locus + " " +
+			(parseInt(this[3]) 
+			? (parseInt(this[6]) ? 'designated' : 'not designated')
+			: 'absent');	
 		}
 	});
 	return {data_points:data_points, tooltips:tooltips};
@@ -598,6 +722,16 @@ function create_2D_array(rows) {
 	   arr[i] = [];
 	}
 	return arr;
+}
+
+function position_controls(){
+	if (\$(window).width() < 800){
+		\$("#controls").css("position", "static");
+		\$("#controls").css("float", "left");
+	} else {
+		\$("#controls").css("position", "absolute");
+		\$("#controls").css("clear", "both");
+	}
 }
 JS
 	return $buffer;
