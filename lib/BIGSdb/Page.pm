@@ -330,7 +330,7 @@ sub _initiate_plugin {
 		if ( $formats->{ $q->param('format') } ) {
 			$formats->{ $q->param('format') }->();
 		} else {
-			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.slimbox);
+			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort);
 		}
 		my $init_values = $plugin->get_initiation_values;
 		foreach my $key ( keys %$init_values ) {

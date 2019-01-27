@@ -55,7 +55,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.slimbox' => 1 };
 }
 
 sub set_pref_requirements {

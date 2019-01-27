@@ -54,6 +54,10 @@ sub get_attributes {
 	return \%att;
 }
 
+sub get_initiation_values {
+	return { 'jQuery.slimbox' => 1 };
+}
+
 sub get_option_list {
 	my @list = (
 		{ name => 'threeD',      description => 'Enable 3D effect',           default => 0 },
