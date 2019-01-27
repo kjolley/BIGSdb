@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.8',
+		version          => '1.3.9',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -51,6 +51,10 @@ sub get_attributes {
 		order            => 15
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.tablesort' => 1 };
 }
 
 sub get_plugin_javascript {

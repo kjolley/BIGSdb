@@ -35,7 +35,7 @@ sub set_pref_requirements {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1};
 }
 
 sub get_attributes {

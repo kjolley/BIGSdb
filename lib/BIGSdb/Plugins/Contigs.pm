@@ -57,6 +57,10 @@ sub get_attributes {
 	return \%att;
 }
 
+sub get_initiation_values {
+	return { 'jQuery.tablesort' => 1 };
+}
+
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
@@ -167,8 +171,7 @@ sub _run_analysis {
 	  . qq(<th colspan="2" class="{sorter: false}">non-matching contigs</th></tr>\n<tr><th>count</th>)
 	  . q(<th class="{sorter: false}">download</th><th>count</th>)
 	  . q(<th class="{sorter: false}">download</th></tr></thead><tbody>);
-	my $filebuffer =
-	  qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
+	my $filebuffer  = qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");
 	my $td          = 1;
@@ -214,11 +217,12 @@ sub _run_analysis {
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh $filebuffer;
 	close $fh;
-	my ($text, $excel, $archive) = (TEXT_FILE, EXCEL_FILE, ARCHIVE_FILE);
+	my ( $text, $excel, $archive ) = ( TEXT_FILE, EXCEL_FILE, ARCHIVE_FILE );
 	print q(<p style="margin-top:1em">)
-	 . qq(<a href="/tmp/$prefix.txt" title="Download table in tab-delimited text format">$text</a>);
+	  . qq(<a href="/tmp/$prefix.txt" title="Download table in tab-delimited text format">$text</a>);
 	my $excel_file = BIGSdb::Utils::text2excel($filename);
-	if (-e $excel_file){
+
+	if ( -e $excel_file ) {
 		print qq(<a href="/tmp/$prefix.xlsx" title="Download table in Excel format">$excel</a>);
 	}
 	if ( !$self->{'no_archive'} ) {
@@ -387,6 +391,7 @@ sub _batchDownload {
 			$isolate_name =~ s/\W/_/gx;
 			my $contig_file = "${id}_$isolate_name.fas";
 			my $data = $self->_get_contigs( { isolate_id => $id, pc_untagged => 0, match => 1 } );
+
 			#Modified from Archive::Tar::Streamed to allow mod_perl support.
 			my $tar = Archive::Tar->new;
 			$tar->add_data( $contig_file, $$data );

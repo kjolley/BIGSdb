@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2015, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,12 +34,16 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.4',
+		version     => '1.0.5',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.tablesort' => 1 };
 }
 
 sub set_pref_requirements {
