@@ -49,7 +49,7 @@ sub get_javascript {
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
 		if ($requires) {
 			$tree_js =
-			    $requires =~ /js_tree/x
+			    $requires =~ /js_tree/x || $self->{'jQuery.jstree'}
 			  ? $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, resizable => 1 } )
 			  : q();
 		} else {

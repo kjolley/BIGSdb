@@ -1,6 +1,6 @@
 #TagStatus.pm - Tag status plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		menutext    => 'Tag status',
 		module      => 'TagStatus',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#tag-status",
-		version     => '1.2.3',
+		version     => '1.2.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		requires    => 'mogrify',
@@ -59,6 +59,10 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub run {

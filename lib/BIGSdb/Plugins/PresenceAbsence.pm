@@ -1,6 +1,6 @@
 #PresenceAbsence.pm - Presence/Absence export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Presence/absence status of loci',
 		module      => 'PresenceAbsence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version  => '1.1.8',
+		version  => '1.1.9',
 		dbtype   => 'isolates',
 		section  => 'analysis,postquery',
 		input    => 'query',
@@ -50,6 +50,10 @@ sub get_attributes {
 		order    => 16
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub run {

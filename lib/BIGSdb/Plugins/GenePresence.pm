@@ -47,7 +47,7 @@ sub get_attributes {
 		dbtype   => 'isolates',
 		section  => 'analysis,postquery',
 		input    => 'query',
-		requires => 'js_tree,offline_jobs',
+		requires => 'offline_jobs',
 		help     => 'tooltips',
 		order    => 16
 	);
@@ -120,7 +120,7 @@ sub get_initiation_values {
 	if ( $q->param('heatmap') ) {
 		return { heatmap => 1, papaparse => 1, noCache => 1 };
 	}
-	return;
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub _pivot_table {

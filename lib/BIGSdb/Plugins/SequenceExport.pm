@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.15',
+		version          => '1.5.16',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -65,6 +65,11 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub get_initiation_values {
+	my ($self) = @_;
+	return { 'jQuery.jstree' => ($self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0) };
 }
 
 sub run {
