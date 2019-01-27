@@ -190,7 +190,7 @@ sub _print_heatmap_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="controls" style="position:absolute;top:6em;right:1em"><legend>Controls</legend>);
 	say q(<ul><li style="margin-top:0.5em"><label for="attribute">Attribute:</label>);
-	my $types  = [qw(presence designated)];
+	my $types  = [qw(presence designated tagged)];
 	my $labels = {
 		presence   => 'Presence',
 		completion => 'Complete sequences',
@@ -612,9 +612,11 @@ function get_config(attribute){
 	};
 	if (attribute == 'designated'){
 		config.gradient = {0:'#dde','0.1':'#000','0.51':'#080','1':'#080'};
+	} else if (attribute == 'tagged'){
+		config.gradient = {0:'#dde','0.1':'#000','0.51':'#22a','1':'#22a'};
 	} else {
 		//Default (presence)
-		config.gradient = {0:'#dde','0.1':'#888',1:'#800'};
+		config.gradient = {0:'#dde','0.1':'#000','0.51':'#800','1':'#800'};
 	}
 	console.log(attribute);
 	return config;
@@ -626,6 +628,10 @@ function get_heatmap_data(parsed_data,attribute){
 	var min = 0;
 	if (attribute == 'designated'){
 		data = get_designation(parsed_data,$size->{'radius'});
+		min = 1;
+		max = 10;
+	} else if (attribute == 'tagged'){
+		data = get_tagged(parsed_data,$size->{'radius'});
 		min = 1;
 		max = 10;
 	} else { //presence
@@ -643,7 +649,6 @@ function get_heatmap_data(parsed_data,attribute){
 }
 
 function get_presence(data,radius){
-	var presence = [];
 	var id_pos = {};
 	var locus_pos = {};
 	var x = 0;
@@ -676,7 +681,6 @@ function get_presence(data,radius){
 }
 
 function get_designation(data,radius){
-	var presence = [];
 	var id_pos = {};
 	var locus_pos = {};
 	var x = 0;
@@ -710,6 +714,46 @@ function get_designation(data,radius){
 			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "; " + label + "<br />locus:" + locus + " " +
 			(parseInt(this[3]) 
 			? (parseInt(this[6]) ? 'designated' : 'not designated')
+			: 'absent');	
+		}
+	});
+	return {data_points:data_points, tooltips:tooltips};
+}
+
+function get_tagged(data,radius){
+	var id_pos = {};
+	var locus_pos = {};
+	var x = 0;
+	var y = 0;
+	var data_points = [];
+	var tooltips = create_2D_array($locus_count);
+	\$.each(data,function(){
+		var id = this[0];
+		var label = this[1];
+		var locus = this[2];
+		if (typeof id_pos[id] == 'undefined'){
+			id_pos[id] = x;
+			x++;
+		}
+		if (typeof locus_pos[locus] == 'undefined'){
+			locus_pos[locus] = y;
+			y++;
+		}
+		var value;
+		if (parseInt(this[3])){
+			value = parseInt(this[7]) ? 10 : 2;
+		} else {
+			value = 0;
+		}
+		data_points.push({
+			x:locus_pos[locus]*2*radius + radius,
+			y:id_pos[id]*2*radius + radius,
+			value:value
+		});
+		if (typeof locus_pos[locus] != 'undefined' && typeof id_pos[id] != 'undefined'){
+			tooltips[locus_pos[locus]][id_pos[id]] = "id:" + id + "; " + label + "<br />locus:" + locus + " " +
+			(parseInt(this[3]) 
+			? (parseInt(this[7]) ? 'tagged' : 'not tagged')
 			: 'absent');	
 		}
 	});
