@@ -147,7 +147,10 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5'        => [qw(md5.js)],
 			'packery'             => [qw(packery.js)],
 			'dropzone'            => [qw(dropzone.js)],
-			'd3'                  => [qw(d3.v5.min.js c3.min.js)],
+			'd3'                  => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)],
+			'pivot'               => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
+			'papaparse'           => [qw(papaparse.min.js)],
+			'heatmap'             => [qw(heatmap.min.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -327,7 +330,7 @@ sub _initiate_plugin {
 		if ( $formats->{ $q->param('format') } ) {
 			$formats->{ $q->param('format') }->();
 		} else {
-			$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.jstree jQuery.slimbox);
+			$self->{$_} = 1 foreach qw(jQuery);
 		}
 		my $init_values = $plugin->get_initiation_values;
 		foreach my $key ( keys %$init_values ) {
@@ -496,10 +499,11 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190111';
+	my $version = '20190122';
 	my @filenames;
-	push @filenames, q(dropzone.css) if $self->{'dropzone'};
-	push @filenames, q(c3.css)       if $self->{'d3'};
+	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
+	push @filenames, q(c3.css)        if $self->{'d3'};
+	push @filenames, q(pivot.min.css) if $self->{'pivot'};
 	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
 	my @paths;
 

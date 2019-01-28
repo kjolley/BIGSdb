@@ -28,8 +28,8 @@ use JSON;
 
 sub get_attributes {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my %att = (
+	my $q      = $self->{'cgi'};
+	my %att    = (
 		name        => 'Field Breakdown',
 		author      => 'Keith Jolley',
 		affiliation => 'University of Oxford, UK',
@@ -52,7 +52,7 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { d3 => 1, noCache => 1 };
+	my $values = { d3 => 1, noCache => 1, 'jQuery.tablesort' => 1 };
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
@@ -427,7 +427,7 @@ sub _get_fields_js {
 	foreach my $field ( keys %$field_attributes ) {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
-		$type = 'text' if $type =~ /^bool/x;
+		$type = 'text'    if $type =~ /^bool/x;
 		if ( !$allowed_types{$type} ) {
 			$logger->error("Field $field has an unrecognized type: $type");
 			$type = 'text';

@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.12',
+		version     => '2.3.14',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -64,6 +64,10 @@ sub get_attributes {
 		priority    => 1
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub run {
@@ -116,7 +120,7 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		if (@$invalid_loci) {
 			local $" = ', ';
-			push @errors, qq(<p>The following loci in your pasted list are invalid: @$invalid_loci.);
+			push @errors, qq(The following loci in your pasted list are invalid: @$invalid_loci.);
 			$continue = 0;
 		}
 		$self->add_scheme_loci($loci_selected);
@@ -255,21 +259,6 @@ sub _print_banner {
 	say q(<div class="box" id="pluginbanner">);
 	$self->print_file($banner_file);
 	say q(</div>);
-	return;
-}
-
-sub print_user_genome_upload_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
-	say q(<p>Optionally include data not in the<br />database.</p>);
-	say q(<p>Upload assembly FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
-	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
-	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
-		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
-	say q(</p>);
-	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
-	say q(</fieldset>);
 	return;
 }
 
@@ -2123,31 +2112,15 @@ sub _write_excel_citations {
 	return;
 }
 
-sub _upload_file {
-	my ( $self, $param, $suffix ) = @_;
-	my $temp     = BIGSdb::Utils::get_random();
-	my $format   = $self->{'cgi'}->param($param) =~ /.+(\.\w+)$/x ? $1 : q();
-	my $filename = "$self->{'config'}->{'tmp_dir'}/${temp}_$suffix$format";
-	my $buffer;
-	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
-	my $fh2 = $self->{'cgi'}->upload($param);
-	binmode $fh2;
-	binmode $fh;
-	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
-	print $fh $buffer;
-	close $fh;
-	return "${temp}_$suffix$format";
-}
-
 sub _upload_ref_file {
 	my ($self) = @_;
-	my $file = $self->_upload_file( 'ref_upload', 'ref' );
+	my $file = $self->upload_file( 'ref_upload', 'ref' );
 	return $file;
 }
 
 sub _upload_user_file {
 	my ($self) = @_;
-	my $file = $self->_upload_file( 'user_upload', 'user' );
+	my $file = $self->upload_file( 'user_upload', 'user' );
 	return $file;
 }
 

@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.7',
+		version     => '1.4.8',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
@@ -52,6 +52,10 @@ sub get_attributes {
 		order       => 12
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1 };
 }
 
 sub get_option_list {
@@ -914,7 +918,7 @@ sub _get_values {
 			},
 			metafield => sub {
 				return [ $self->_get_metafield_value($sub_args) ];
-			  }
+			}
 		};
 		if ( $method->{ $field_type->{$field} } ) {
 			push @values, $method->{ $field_type->{$field} }->();
