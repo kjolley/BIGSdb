@@ -41,15 +41,14 @@ sub get_attributes {
 		buttontext  => 'Gene Presence',
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
-
-		#		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#presence-absence",
-		version  => '2.0.0',
-		dbtype   => 'isolates',
-		section  => 'analysis,postquery',
-		input    => 'query',
-		requires => 'offline_jobs',
-		help     => 'tooltips',
-		order    => 16
+		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
+		version     => '2.0.0',
+		dbtype      => 'isolates',
+		section     => 'analysis,postquery',
+		input       => 'query',
+		requires    => 'offline_jobs',
+		help        => 'tooltips',
+		order       => 16
 	);
 	return \%att;
 }
