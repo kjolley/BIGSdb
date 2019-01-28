@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_RECORDS        => 200_000;
+use constant MAX_RECORDS        => 500_000;
 use constant HEATMAP_MIN_WIDTH  => 600;
 use constant HEATMAP_MIN_HEIGHT => 200;
 
@@ -124,9 +124,24 @@ sub get_initiation_values {
 }
 
 sub _pivot_table {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $job_id      = $q->param('results');
+	my $isolates    = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
+	my $data_points = @$isolates * @$loci;
+	if ( $data_points > 100_000 ) {
+		my $nice_points = BIGSdb::Utils::commify($data_points);
+		$self->print_warning(
+			{
+				message => "$nice_points data points (isolates x loci) used",
+				detail  => 'Please note that table updates may be slow if you try to combine id '
+				  . "(or $self->{'system'}->{'labelfield'}) with locus. Any other combination of "
+				  . 'fields is fine, e.g. locus vs presence, id vs presence.'
+			}
+		);
+	}
+	say q(<div class="box" id="resultspanel" style="position:relative"><div class="scrollable">);
 	say q(<div id="pivot_instructions" style="display:none"><h2>Pivot table</h2>);
 	say q(<p>Drag and drop fields on to the table axes. Multiple fields can be combined.</p>);
 	say q(</div>);
@@ -225,7 +240,7 @@ sub _print_pivot_controls {
 	my $q      = $self->{'cgi'};
 	my $job_id = $q->param('results');
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
-	say q(<div id="controls" style="position:absolute;top:6em;right:1em">);
+	say q(<div id="controls" style="position:absolute;top:1em;right:1em">);
 	say q(<fieldset style="float:left"><legend>Change analysis</legend>);
 	say q(<p style="text-align:center;margin-top:0.5em">)
 	  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
@@ -380,6 +395,7 @@ sub run_job {
 		return;
 	}
 	my $data = $self->_get_data( $job_id, $isolate_ids, $loci, $user_genomes );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating output files', percent_complete => 80 } );
 	$self->_create_presence_output( $job_id, $data );
 	my $message;
 	my $record_count = @$isolate_ids * @$loci;
