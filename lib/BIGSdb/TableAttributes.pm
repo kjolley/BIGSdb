@@ -2319,6 +2319,7 @@ sub get_eav_fields_table_attributes {
 		{
 			name    => 'option_list',
 			type    => 'text',
+			length  => 500,
 			tooltip => 'option_list - Semi-colon (;)-separated list of allowed values'
 		},
 		{
