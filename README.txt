@@ -1,3 +1,5 @@
+v1.21.3: *New GenePresence plugin using interactive pivot tables and heatmaps
+          to replace the old PresenceAbsence and TagStatus plugins.
 v1.21.2: *GrapeTree plugin now uses Genome Comparator scanner so genomes do
           not need to be fully scanned and tagged before use.
          *New export file icons.
