@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -471,6 +471,9 @@ sub _print_general_info_section {
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
 	  . q(pdate history</a></li>)
 	  if $history_exists;
+	if ( $self->{'config'}->{'jobs_db'} ) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?page=jobMonitor">Jobs monitor</a></li>);
+	}
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version">)
 	  . q(About BIGSdb</a></li>);
 	say q(</ul></div>);
@@ -509,8 +512,7 @@ sub _print_plugin_section {
 			$q->param( 'page', 'index' );
 			$plugins =
 			  $self->{'pluginManager'}
-			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } )
-			  ;
+			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
 			next if !@$plugins;
 			say q(<div style="float:left; margin-right:1em" class="grid-item">);
 			say qq(<span class="plugin_icon $icon{$section} fa-3x fa-pull-left"></span>);

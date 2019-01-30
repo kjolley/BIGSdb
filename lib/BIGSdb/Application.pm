@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
+use BIGSdb::AjaxJobs;
 use BIGSdb::AjaxMenu;
 use BIGSdb::AjaxPrefs;
 use BIGSdb::AlleleInfoPage;
@@ -45,6 +46,7 @@ use BIGSdb::IndexPage;
 use BIGSdb::IsolateInfoPage;
 use BIGSdb::IsolateQueryPage;
 use BIGSdb::JobsListPage;
+use BIGSdb::JobMonitorPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
@@ -82,6 +84,7 @@ sub print_page {
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
+		ajaxJobs           => 'AjaxJobs',
 		ajaxMenu           => 'AjaxMenu',
 		ajaxPrefs          => 'AjaxPrefs',
 		alleleInfo         => 'AlleleInfoPage',
@@ -105,6 +108,7 @@ sub print_page {
 		index              => 'IndexPage',
 		info               => 'IsolateInfoPage',
 		job                => 'JobViewerPage',
+		jobMonitor         => 'JobMonitorPage',
 		jobs               => 'JobsListPage',
 		listQuery          => $query_page,
 		locusInfo          => 'LocusInfoPage',

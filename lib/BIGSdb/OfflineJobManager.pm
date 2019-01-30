@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -492,5 +492,23 @@ sub _run_query {
 	}
 	$logger->logcarp('Query failed - invalid fetch method specified.');
 	return;
+}
+
+sub get_job_temporal_data {
+	my ( $self, $past_mins ) = @_;
+	return $self->_run_query(
+		q[SET timezone TO 'UTC';]
+		  . q[SELECT submit_time,start_time,stop_time,status FROM jobs where ((submit_time > now()-interval ]
+		  . qq['$past_mins min' OR start_time > now()-interval '$past_mins min' OR ]
+		  . qq[stop_time > now()-interval '$past_mins min') AND ]
+		  . q[(status NOT LIKE '%rejected%' AND status != 'cancelled')) OR status='started' ORDER BY submit_time],
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+}
+
+sub get_period_timestamp {
+	my ( $self, $past_mins ) = @_;
+	return $self->_run_query(qq(SET timezone TO 'UTC';SELECT CAST(now()-interval '$past_mins min' AS timestamp)));
 }
 1;

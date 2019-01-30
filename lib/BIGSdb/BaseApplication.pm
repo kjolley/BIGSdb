@@ -102,16 +102,20 @@ sub new {
 			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };
 			$self->setup_remote_contig_manager;
 		}
-	} elsif ( !$self->{'instance'} && $self->{'config'}->{'site_user_dbs'} ) {
+	} elsif ( !$self->{'instance'} ) {
+		if ( $self->{'page'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
 
-		#Set db to one of these, connect and then inititate Datastore etc.
-		#We can change the Datastore db later if needed.
-		$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
-		$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
-		$self->{'system'}->{'webroot'}     = '/';
-		$self->db_connect;
-		if ( $self->{'db'} ) {
-			$self->setup_datastore;
+			#Set db to one of these, connect and then inititate Datastore etc.
+			#We can change the Datastore db later if needed.
+			$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
+			$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
+			$self->{'system'}->{'webroot'}     = '/';
+			$self->db_connect;
+			if ( $self->{'db'} ) {
+				$self->setup_datastore;
+			}
+		} elsif ($self->{'page'} eq 'ajaxJobs'){
+			$self->initiate_jobmanager( $config_dir, $dbase_config_dir );
 		}
 	}
 	$self->app_specific_initiation;
@@ -243,7 +247,7 @@ sub _is_user_page {
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} =
 		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind);
+		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind ajaxJobs jobMonitor);
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
 		return 1;
