@@ -1,4 +1,4 @@
-/*Version: 20190111*/
+/*Version: 20190131*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -608,6 +608,22 @@ div.floatmenu a {
 	text-decoration:none;
 	color:white;
 	cursor:pointer;	
+}
+div.dashboard_number {
+	float:left;
+	min-width:150px;
+	height:100px;
+}
+p.dashboard_number {
+	font-size:3em;
+	text-align:center;
+	color:#444
+}
+p.dashboard_number_detail {
+	font-size:1.5em;
+	margin-bottom:1em;
+	text-align:center;
+	color:#444
 }
 
 div.flags {line-height:2em;margin-bottom:0.5em}

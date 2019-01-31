@@ -36,6 +36,10 @@ sub initiate {
 sub print_content {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
+	if ($q->param('summary')){
+		$self->_summary_stats;
+		return;
+	}
 	my $minutes = $q->param('minutes');
 	my $time = $minutes // DEFAULT_TIME;
 	if ( !BIGSdb::Utils::is_int($time) ) {
@@ -54,15 +58,15 @@ sub print_content {
 			} else {
 				$initial_running++;
 			}
-			$times->{ $self->trimmed_time( $t->{'stop_time'} ) }->{'stop'}++ if $t->{'stop_time'};
+			$times->{ $self->_trimmed_time( $t->{'stop_time'} ) }->{'stop'}++ if $t->{'stop_time'};
 		} else {
-			$times->{ $self->trimmed_time( $t->{'submit_time'} ) }->{'submit'}++;
-			$times->{ $self->trimmed_time( $t->{'start_time'} ) }->{'start'}++ if $t->{'start_time'};
-			$times->{ $self->trimmed_time( $t->{'stop_time'} ) }->{'stop'}++   if $t->{'stop_time'};
+			$times->{ $self->_trimmed_time( $t->{'submit_time'} ) }->{'submit'}++;
+			$times->{ $self->_trimmed_time( $t->{'start_time'} ) }->{'start'}++ if $t->{'start_time'};
+			$times->{ $self->_trimmed_time( $t->{'stop_time'} ) }->{'stop'}++   if $t->{'stop_time'};
 		}
 	}
 	my $status =
-	  [ { time => $self->trimmed_time($begin_time), queued => $initial_queued, running => $initial_running } ];
+	  [ { time => $self->_trimmed_time($begin_time), queued => $initial_queued, running => $initial_running } ];
 	my $queued  = $initial_queued;
 	my $running = $initial_running;
 	foreach my $time ( sort keys %$times ) {
@@ -78,7 +82,7 @@ sub print_content {
 		}
 		push @$status, { time => $time, queued => $queued, running => $running };
 	}
-	my $now = $self->trimmed_time( $self->{'jobManager'}->get_period_timestamp(0) );
+	my $now = $self->_trimmed_time( $self->{'jobManager'}->get_period_timestamp(0) );
 	push @$status, { time => $now, queued => $status->[-1]->{'queued'}, running => $status->[-1]->{'running'} };
 	my $format = $q->param('format') // 'json';
 	if ( $format eq 'json' ) {
@@ -90,8 +94,15 @@ sub print_content {
 	return;
 }
 
-sub trimmed_time {
+sub _trimmed_time {
 	my ( $self, $time ) = @_;
 	return substr( $time, 0, 19 );
+}
+
+sub _summary_stats {
+	my ($self) = @_;
+	my $stats = $self->{'jobManager'}->get_summary_stats;
+	say encode_json($stats);
+	return;
 }
 1;

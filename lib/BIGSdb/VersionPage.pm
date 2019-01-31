@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub print_about_bigsdb {
 <span class="main_icon far fa-copyright fa-3x fa-pull-left"></span>
 <ul style="margin-left:2em">
 <li>Written by Keith Jolley</li>
-<li>Copyright &copy; University of Oxford, 2010-2018.</li>
+<li>Copyright &copy; University of Oxford, 2010-2019.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
 Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></li>
 </ul>
@@ -83,8 +83,16 @@ https://github.com/kjolley/BIGSdb</a>.
 https://pubmlst.org/software/database/bigsdb/</a>.</li>
 <li>Full documentation can be found at <a href="http://bigsdb.readthedocs.io/">
 http://bigsdb.readthedocs.io/</a>.</li></ul>
-</div>
 HTML
+	if ( $self->{'config'}->{'jobs_db'} ) {
+		say q(<h2>Server status</h2>);
+		say q(<span class="main_icon fas fa-tachometer-alt fa-3x fa-pull-left"></span>);
+		say q(<ul style="margin-left:2em;margin-top:2em">);
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?page=jobMonitor">Jobs monitor</a></li>);
+		say q(</ul>);
+	}
+	say q(</div>);
+
 	return;
 }
 

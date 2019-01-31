@@ -47,7 +47,16 @@ sub print_content {
 		);
 		return;
 	}
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box resultspanel">);
+	say q(<div id="summary">);
+	say q(<div id="running" class="dashboard_number"></div>);
+	say q(<div id="queued" class="dashboard_number"></div>);
+	say q(<div id="day" class="dashboard_number optional"></div>);
+	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
+		say q(<div id="week" class="dashboard_number optional"></div>);
+	}
+	say q(<div style="clear:both"></div>);
+	say q(</div>);
 	say q(<div id="c3_chart" style="height:250px">);
 	$self->print_loading_message;
 	say q(</div>);
@@ -79,15 +88,34 @@ sub print_content {
 sub get_javascript {
 	my ($self) = @_;
 	my $url    = "$self->{'system'}->{'script_name'}?page=ajaxJobs";
+	my $max_queued_colour_warn = $self->{'config'}->{'max_queued_colour_warn'} // 10;
+	my $max_running_colour_warn = $self->{'config'}->{'max_running_colour_warn'} // 10;
 	my $buffer = << "END";
-var interval;
+var chart_interval;
+var summary_interval;
+var max_running_colour_warn = $max_running_colour_warn;
+var max_queued_colour_warn = $max_queued_colour_warn;
 \$(function () {
 	var mins = \$("#period").val();
 	if (typeof mins == 'undefined'){
 		mins = 720;
 	}
 	load_chart("$url&minutes=" + mins);
+	refresh_summary("$url&summary=1");
+	
+	showhide_optional_dashboard_numbers();
+	\$(window).resize(function() {
+		showhide_optional_dashboard_numbers();
+	});
 });
+
+function showhide_optional_dashboard_numbers(){
+	if (\$(window).width() < 660){
+		\$(".optional").hide();
+	} else {
+		\$(".optional").show();
+	}
+}
 
 function load_chart(url){
 	
@@ -139,7 +167,21 @@ function load_chart(url){
 						count: 6
 					}
 
-				}
+				},
+				y: {
+		    		tick: {
+						format: function (x) {
+	                    	if (x != Math.floor(x)) {
+								var tick = d3.selectAll('.c3-axis-y g.tick').filter(function () {
+		                    		var text = d3.select(this).select('text').text();
+		                    		return +text === x;
+	                      		}).style('opacity', 0);
+								return '';
+	                    	}
+	                    	return x;
+						}
+           			}  
+       			}
 			},
 			padding: {
 				right:20
@@ -163,23 +205,22 @@ function load_chart(url){
 		});
 		\$(".c3-title").css("font-weight","600");
 		\$("#period_select").show();
-		interval = setInterval(function(){refresh(chart,url)}, 30000);
+		chart_interval = setInterval(function(){refresh_chart(chart,url)}, 30000);
 		\$("#period").off("change").on("change",function(){
-			clearInterval(interval);
+			clearInterval(chart_interval);
 			var mins = \$("#period").val();
 			url = "$url&minutes="+mins;
-			refresh(chart, url);			
-			interval = setInterval(function(){refresh(chart,url)}, 30000);
+			refresh_chart(chart, url);			
+			chart_interval = setInterval(function(){refresh_chart(chart,url)}, 30000);
 		});		
 	},function(error){
 		console.log(error);
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
-
 }
 
-function refresh (chart, url){
+function refresh_chart (chart, url){
 	d3.json(url).then (function(jsonData){
 		var time = ["time"];
 		var queued = ["queued"];
@@ -196,6 +237,32 @@ function refresh (chart, url){
 				running
 			]				
 		});
+	});
+}
+
+function get_colour_function (max) {
+	return d3.scaleLinear()
+		.domain([0,max])
+		.range(["#0347b5", "#b50303"])
+      	.interpolate(d3.interpolateHcl);
+}
+
+function refresh_summary (url){
+	d3.json(url).then (function(jsonData){
+		var running_colour =  get_colour_function(max_running_colour_warn);
+ 		\$("#running").html('<p class="dashboard_number_detail">Running</p><p class="dashboard_number" style="color:' 
+		+ running_colour(jsonData.running) + '">' + jsonData.running + '</p>');
+		var queue_colour = get_colour_function(max_queued_colour_warn);
+		\$("#queued").html('<p class="dashboard_number_detail">Queued</p><p class="dashboard_number" style="color:' 
+		+ queue_colour(jsonData.queued) + '">' + jsonData.queued + '</p>');
+		\$("#day").html('<p class="dashboard_number_detail">Past 24h</p><p class="dashboard_number">' + 
+		jsonData.day + '</p>');
+		if (typeof jsonData.week != "undefined"){
+			\$("#week").html('<p class="dashboard_number_detail">Past week</p><p class="dashboard_number">' + 
+			jsonData.week + '</p>');
+		}
+		clearInterval(summary_interval);
+		summary_interval = setInterval(function(){refresh_summary(url)}, 30000);
 	});
 }
 

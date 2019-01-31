@@ -511,4 +511,18 @@ sub get_period_timestamp {
 	my ( $self, $past_mins ) = @_;
 	return $self->_run_query(qq(SET timezone TO 'UTC';SELECT CAST(now()-interval '$past_mins min' AS timestamp)));
 }
+
+sub get_summary_stats {
+	my ($self)  = @_;
+	my $running = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE status='started'));
+	my $queued  = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE status='submitted'));
+	my $day     = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '1 day'));
+	my $results = { running => $running, queued => $queued, day => $day };
+	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
+		my $week =
+		  $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '7 days'));
+		$results->{'week'} = $week;
+	}
+	return $results;
+}
 1;

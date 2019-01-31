@@ -471,9 +471,6 @@ sub _print_general_info_section {
 	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
 	  . q(pdate history</a></li>)
 	  if $history_exists;
-	if ( $self->{'config'}->{'jobs_db'} ) {
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?page=jobMonitor">Jobs monitor</a></li>);
-	}
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version">)
 	  . q(About BIGSdb</a></li>);
 	say q(</ul></div>);
