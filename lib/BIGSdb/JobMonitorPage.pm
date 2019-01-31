@@ -229,9 +229,7 @@ function refresh_chart (chart, url){
 			time.push(e.time);
 			queued.push(e.queued);
 			running.push(e.running);
-		});     		
-      		console.log(running_colour(jsonData.running));
-		
+		});
 		chart.load({			
 			columns: [
 				time,
@@ -245,18 +243,20 @@ function refresh_chart (chart, url){
 function get_colour_function (max) {
 	return d3.scaleLinear()
 		.domain([0,max])
-		.range(["#0347b5", "#b50303"])
+		.range(["#024fea", "#ea022c"])
       	.interpolate(d3.interpolateHcl);
 }
 
 function refresh_summary (url){
 	d3.json(url).then (function(jsonData){
 		var running_colour =  get_colour_function(max_running_colour_warn);
+		var colour_number = jsonData.running > max_running_colour_warn ? max_running_colour_warn : jsonData.running;
  		\$("#running").html('<p class="dashboard_number_detail">Running</p><p class="dashboard_number" style="color:' 
-		+ running_colour(jsonData.running) + '">' + jsonData.running + '</p>');
+		+ running_colour(colour_number) + '">' + jsonData.running + '</p>');
 		var queue_colour = get_colour_function(max_queued_colour_warn);
+		var queue_number = jsonData.queued > max_queued_colour_warn ? max_queued_colour_warn : jsonData.queued;
 		\$("#queued").html('<p class="dashboard_number_detail">Queued</p><p class="dashboard_number" style="color:' 
-		+ queue_colour(jsonData.queued) + '">' + jsonData.queued + '</p>');
+		+ queue_colour(queue_number) + '">' + jsonData.queued + '</p>');
 		\$("#day").html('<p class="dashboard_number_detail">Past 24h</p><p class="dashboard_number">' + 
 		jsonData.day + '</p>');
 		if (typeof jsonData.week != "undefined"){

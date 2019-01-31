@@ -513,14 +513,15 @@ sub get_period_timestamp {
 }
 
 sub get_summary_stats {
-	my ($self)  = @_;
-	my $running = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE status='started'));
-	my $queued  = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE status='submitted'));
-	my $day     = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '1 day'));
+	my ($self) = @_;
+	my ( $running, $queued, $day ) = $self->_run_query(
+		q(SELECT SUM(CASE WHEN status='started' THEN 1 ELSE 0 END) AS running, )
+		  . q(SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS queued, )
+		  . q(SUM(CASE WHEN stop_time > now()-interval '1 day' THEN 1 ELSE 0 END) AS day FROM jobs)
+	);
 	my $results = { running => $running, queued => $queued, day => $day };
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
-		my $week =
-		  $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '7 days'));
+		my $week = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '7 days'));
 		$results->{'week'} = $week;
 	}
 	return $results;
