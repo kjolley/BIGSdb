@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2024,9 +2024,7 @@ sub _print_message_fieldset {
 		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
 		$buffer .= q(</div><div style="float:right">Message: );
 		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => BUTTON_CLASS );
-		if ( $submission->{'email'} ) {
-			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
-		}
+		$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes locus submit view curate abort submission_id no_check );
