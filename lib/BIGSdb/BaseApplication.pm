@@ -42,7 +42,7 @@ my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
 use Config::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword userProjects submit login logout);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options);
+use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
 
@@ -82,6 +82,7 @@ sub new {
 	my $q = $self->{'cgi'};
 	$self->initiate_authdb
 	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
+	my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
 
 	if ( $self->{'instance'} && !$self->{'error'} ) {
 		$self->db_connect;
@@ -93,7 +94,6 @@ sub new {
 					  . q(in the system tag of the XML database description.) );
 			}
 			$self->{'datastore'}->initiate_userdbs;
-			my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
 			$self->initiate_jobmanager( $config_dir, $dbase_config_dir )
 			  if !$self->{'curate'}
 			  && $job_manager_pages{ $q->param('page') }
@@ -103,19 +103,21 @@ sub new {
 			$self->setup_remote_contig_manager;
 		}
 	} elsif ( !$self->{'instance'} ) {
-		if ( $self->{'page'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
-
-			#Set db to one of these, connect and then inititate Datastore etc.
-			#We can change the Datastore db later if needed.
-			$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
-			$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
-			$self->{'system'}->{'webroot'}     = '/';
-			$self->db_connect;
-			if ( $self->{'db'} ) {
-				$self->setup_datastore;
-			}
-		} elsif ($self->{'page'} eq 'ajaxJobs'){
+		if ( $self->{'page'} eq 'ajaxJobs' ) {
 			$self->initiate_jobmanager( $config_dir, $dbase_config_dir );
+		} else {
+			if ( $self->{'config'}->{'site_user_dbs'} ) {
+
+				#Set db to one of these, connect and then inititate Datastore etc.
+				#We can change the Datastore db later if needed.
+				$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
+				$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
+				$self->{'system'}->{'webroot'}     = '/';
+				$self->db_connect;
+				if ( $self->{'db'} ) {
+					$self->setup_datastore;
+				}
+			}
 		}
 	}
 	$self->app_specific_initiation;
@@ -149,7 +151,9 @@ sub _initiate {
 	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
+	return if $self->_is_job_page;
 	return if $self->_is_user_page;
+	
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
 	if ( !-e $full_path ) {
@@ -251,6 +255,18 @@ sub _is_user_page {
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
 		return 1;
+	}
+	return;
+}
+
+sub _is_job_page {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my %job_page = map { $_ => 1 } qw(ajaxJobs jobMonitor);
+	if ( $job_page{ $q->param('page') }){
+		$self->{'system'}->{'dbtype'}      = 'job';
+		return 1;
+		
 	}
 	return;
 }
@@ -575,6 +591,7 @@ sub authenticate {
 			$self->{'handled_error'} = 1;
 		}
 	} else {    #use built-in authentication
+	
 		$page_attributes->{'auth_db'} = $self->{'auth_db'};
 		$page_attributes->{'vars'}    = $q->Vars;
 		if ( !$self->{'instance'} && $self->{'config'}->{'site_user_dbs'} ) {
@@ -590,6 +607,7 @@ sub authenticate {
 			$logging_out = 1;
 		}
 		my $login_requirement = $self->{'datastore'}->get_login_requirement;
+		
 		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
 		{

@@ -889,7 +889,7 @@ sub get_scheme_list {
 	} else {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			  q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
+			    q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
 			  . qq(scheme_fields.scheme_id WHERE primary_key$submission_clause ORDER BY schemes.display_order,schemes.name);
 		} else {
@@ -2423,6 +2423,9 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
+	if ( $self->{'system'}->{'dbtype'} eq 'job' ) {
+		return NOT_ALLOWED;
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {
 		return REQUIRED;
 	}
