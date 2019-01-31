@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.14',
+		version     => '2.3.15',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1101,7 +1101,7 @@ sub _get_isolate_name {
 	if ( $options->{'name_only'} ) {
 		if ( !$options->{'no_name'} ) {
 			my $name = $self->{'datastore'}->get_isolate_field_values($id)->{ $self->{'system'}->{'labelfield'} };
-			$isolate .= "|$name";
+			$isolate .= "|$name" if $name;
 		}
 		return $isolate;
 	}
