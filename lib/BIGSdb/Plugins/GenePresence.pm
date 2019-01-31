@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
-		version     => '2.0.0',
+		version     => '2.0.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -443,7 +443,7 @@ sub _create_tsv_output {
 sub _get_label_field {
 	my ( $self, $id ) = @_;
 	return $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
-		$id, { cache => 'GenePresence::get_label_field' } );
+		$id, { cache => 'GenePresence::get_label_field' } ) // q();
 }
 
 sub _create_presence_output {
