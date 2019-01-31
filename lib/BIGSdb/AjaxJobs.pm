@@ -55,6 +55,7 @@ sub print_content {
 		if ( $t->{'submit_time'} lt $begin_time ) {
 			if ( !$t->{'start_time'} || $t->{'start_time'} gt $begin_time ) {
 				$initial_queued++;
+				$times->{ $self->_trimmed_time( $t->{'start_time'} ) }->{'start'}++ if $t->{'start_time'};
 			} else {
 				$initial_running++;
 			}

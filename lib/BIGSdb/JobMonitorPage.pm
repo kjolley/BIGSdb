@@ -229,7 +229,9 @@ function refresh_chart (chart, url){
 			time.push(e.time);
 			queued.push(e.queued);
 			running.push(e.running);
-		});
+		});     		
+      		console.log(running_colour(jsonData.running));
+		
 		chart.load({			
 			columns: [
 				time,
