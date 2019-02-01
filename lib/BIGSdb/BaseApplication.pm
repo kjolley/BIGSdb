@@ -20,20 +20,16 @@ package BIGSdb::BaseApplication;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.21.2');
 use BIGSdb::Exceptions;
-use BIGSdb::ClassificationScheme;
 use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
-use BIGSdb::Login;
 use BIGSdb::Parser;
 use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::ContigManager;
-use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SubmissionHandler;
-use BIGSdb::CGI::as_utf8;
+
 use DBI;
 use Carp;
 use Try::Tiny;
@@ -41,233 +37,6 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
 use Config::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword userProjects submit login logout);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options ajaxJobs);
-use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
-  batchIsolateUpdate isolateAdd isolateUpdate index logout);
-
-sub new {
-	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
-	my $self = {};
-	$self->{'system'}           = {};
-	$self->{'config'}           = {};
-	$self->{'instance'}         = undef;
-	$self->{'xmlHandler'}       = undef;
-	$self->{'page'}             = undef;
-	$self->{'invalidXML'}       = 0;
-	$self->{'invalidDbType'}    = 0;
-	$self->{'dataConnector'}    = BIGSdb::Dataconnector->new;
-	$self->{'datastore'}        = undef;
-	$self->{'db'}               = undef;
-	$self->{'mod_perl_request'} = $r;
-	$self->{'fatal'}            = undef;
-	$self->{'curate'}           = $curate;
-	$self->{'config_dir'}       = $config_dir;
-	$self->{'lib_dir'}          = $lib_dir;
-	$self->{'dbase_config_dir'} = $dbase_config_dir;
-	bless( $self, $class );
-	$self->read_config_file($config_dir);
-	$self->{'config'}->{'version'} = $VERSION;
-	$self->{'max_upload_size_mb'} = $self->{'config'}->{'max_upload_size'};
-
-	#Under SSL if upload size > CGI::POST_MAX then call will fail but not return useful message.
-	#The following will stop a ridiculously large upload.
-	$CGI::POST_MAX        = $self->{'config'}->{'max_upload_size'} * 4;
-	$CGI::DISABLE_UPLOADS = 0;
-	$self->{'cgi'}        = CGI->new;
-	$self->_initiate( $config_dir, $dbase_config_dir );
-	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
-	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
-	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
-	my $q = $self->{'cgi'};
-	$self->initiate_authdb
-	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
-	my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
-
-	if ( $self->{'instance'} && !$self->{'error'} ) {
-		$self->db_connect;
-		if ( $self->{'db'} ) {
-			$self->setup_datastore;
-			$self->_setup_prefstore;
-			if ( !$self->{'system'}->{'authentication'} ) {
-				$logger->logdie( q(No authentication attribute set - set to either 'apache' or 'builtin' )
-					  . q(in the system tag of the XML database description.) );
-			}
-			$self->{'datastore'}->initiate_userdbs;
-			$self->initiate_jobmanager( $config_dir, $dbase_config_dir )
-			  if !$self->{'curate'}
-			  && $job_manager_pages{ $q->param('page') }
-			  && $self->{'config'}->{'jobs_db'};
-			my %submission_handler_pages = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
-			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };
-			$self->setup_remote_contig_manager;
-		}
-	} elsif ( !$self->{'instance'} ) {
-		if ( $self->{'page'} eq 'ajaxJobs' ) {
-			$self->initiate_jobmanager( $config_dir, $dbase_config_dir );
-		} else {
-			if ( $self->{'config'}->{'site_user_dbs'} ) {
-
-				#Set db to one of these, connect and then inititate Datastore etc.
-				#We can change the Datastore db later if needed.
-				$self->{'system'}->{'db'}          = $self->{'config'}->{'site_user_dbs'}->[0]->{'dbase'};
-				$self->{'system'}->{'description'} = $self->{'config'}->{'site_user_dbs'}->[0]->{'name'};
-				$self->{'system'}->{'webroot'}     = '/';
-				$self->db_connect;
-				if ( $self->{'db'} ) {
-					$self->setup_datastore;
-				}
-			}
-		}
-	}
-	$self->app_specific_initiation;
-	$self->print_page;
-	$self->_db_disconnect;
-
-	#Prevent apache appending its own error pages.
-	if ( $self->{'handled_error'} && $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
-		$self->{'mod_perl_request'}->status(200);
-	}
-	return $self;
-}
-
-sub _initiate {
-	my ( $self, $config_dir, $dbase_config_dir ) = @_;
-	my $q = $self->{'cgi'};
-	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
-	$self->read_host_mapping_file($config_dir);
-	my $content_length = $ENV{'CONTENT_LENGTH'} // 0;
-	if ( $content_length > $self->{'max_upload_size_mb'} ) {
-		$self->{'error'} = 'tooBig';
-		my $size = BIGSdb::Utils::get_nice_size($content_length);
-		$logger->fatal("Attempted upload too big - $size.");
-		return;
-	}
-	my $db = $q->param('db');
-	$q->param( page => 'index' ) if !defined $q->param('page');
-
-	#Prevent cross-site scripting vulnerability
-	( my $cleaned_page = $q->param('page') ) =~ s/[^A-z].*$//x;
-	$q->param( page => $cleaned_page );
-	$self->{'page'} = $q->param('page');
-	return if $self->_is_job_page;
-	return if $self->_is_user_page;
-	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
-	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
-	if ( !-e $full_path ) {
-		$logger->fatal("Database config file for '$self->{'instance'}' does not exist.");
-		$self->{'error'} = 'missingXML';
-		return;
-	}
-	$self->{'xmlHandler'} = BIGSdb::Parser->new;
-	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
-	eval { $parser->parse( Source => { SystemId => $full_path } ) };
-	if ($@) {
-		$logger->fatal("Invalid XML description: $@") if $self->{'instance'} ne '';
-		$self->{'error'} = 'invalidXML';
-		return;
-	}
-	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
-	$self->_check_kiosk_page;
-	$self->set_system_overrides;
-	if ( !defined $self->{'system'}->{'dbtype'}
-		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
-	{
-		$self->{'error'} = 'invalidDbType';
-	}
-	$self->{'script_name'} = $q->script_name || 'bigsdb.pl';
-	if ( $self->{'curate'} && $self->{'system'}->{'curate_path_includes'} ) {
-		if ( $self->{'script_name'} !~ /$self->{'system'}->{'curate_path_includes'}/x ) {
-			$self->{'error'} = 'invalidScriptPath';
-			$logger->error("Invalid curate script path - $self->{'script_name'}");
-		}
-	} elsif ( !$self->{'curate'} && $self->{'system'}->{'script_path_includes'} ) {
-		if ( $self->{'script_name'} !~ /$self->{'system'}->{'script_path_includes'}/x ) {
-			$self->{'error'} = 'invalidScriptPath';
-			$logger->error("Invalid script path - $self->{'script_name'}");
-		}
-	}
-	if ( !$self->{'system'}->{'authentication'} ) {
-		$self->{'error'} = 'noAuthenticationSet';
-	} elsif ( $self->{'system'}->{'authentication'} ne 'apache' && $self->{'system'}->{'authentication'} ne 'builtin' )
-	{
-		$self->{'error'} = 'invalidAuthenticationSet';
-	}
-	$self->{'system'}->{'script_name'} = $self->{'script_name'};
-	$self->{'system'}->{'query_script'}  //= $self->{'config'}->{'query_script'}  // 'bigsdb.pl';
-	$self->{'system'}->{'curate_script'} //= $self->{'config'}->{'curate_script'} // 'bigscurate.pl';
-	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
-	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$self->{'page'} = $q->param('page');
-	$self->{'system'}->{'read_access'} //= 'public';    #everyone can view by default
-	$self->set_dbconnection_params;
-	$self->{'system'}->{'privacy'} //= 'yes';
-	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
-	$self->{'system'}->{'locus_superscript_prefix'} //= 'no';
-	$self->{'system'}->{'dbase_config_dir'} = $dbase_config_dir;
-
-	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
-		$self->{'system'}->{'view'}       //= 'isolates';
-		$self->{'system'}->{'labelfield'} //= 'isolate';
-		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
-			$logger->error(
-				    qq(The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database. )
-				  . q(Please set the labelfield attribute in the system tag of the database XML file.) );
-		}
-	}
-
-	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
-	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
-
-	#Allow individual database configs to override system auth and pref databases and tmp directories
-	foreach (qw (prefs_db auth_db tmp_dir secure_tmp_dir ref_db)) {
-		$self->{'config'}->{$_} = $self->{'system'}->{$_} if defined $self->{'system'}->{$_};
-	}
-
-	#dbase_job_quota attribute has been renamed job_quota for consistency (dbase_job_quota still works)
-	$self->{'system'}->{'job_quota'} //= $self->{'system'}->{'dbase_job_quota'};
-	return;
-}
-
-sub _check_kiosk_page {
-	my ($self) = @_;
-	return if !$self->{'system'}->{'kiosk'};
-	my $q = $self->{'cgi'};
-	if ( $self->{'system'}->{'kiosk_allowed_pages'} ) {
-		my %allowed_pages = map { $_ => 1 } split /,/x, $self->{'system'}->{'kiosk_allowed_pages'};
-		return if $allowed_pages{ $q->param('page') };
-	}
-	$q->param( page => $self->{'system'}->{'kiosk'} ) if $self->{'system'}->{'kiosk'};
-	return;
-}
-
-sub _is_user_page {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( !$q->param('db') || $q->param('page') eq 'user' ) {
-		$self->{'system'}->{'read_access'} = 'public';
-		$self->{'system'}->{'dbtype'}      = 'user';
-		$self->{'system'}->{'script_name'} =
-		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind ajaxJobs jobMonitor);
-		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
-		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
-		return 1;
-	}
-	return;
-}
-
-sub _is_job_page {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my %job_page = map { $_ => 1 } qw(ajaxJobs jobMonitor);
-	if ( $job_page{ $q->param('page') } ) {
-		$self->{'system'}->{'dbtype'} = 'job';
-		return 1;
-	}
-	return;
-}
 
 sub set_dbconnection_params {
 	my ( $self, $options ) = @_;
@@ -467,30 +236,6 @@ sub read_host_mapping_file {
 	return;
 }
 
-sub _setup_prefstore {
-	my ($self) = @_;
-	my %att = (
-		dbase_name => $self->{'config'}->{'prefs_db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'},
-	);
-	my $pref_db;
-	try {
-		$pref_db = $self->{'dataConnector'}->get_connection( \%att );
-	}
-	catch {
-		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
-			$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
-		} else {
-			$logger->logdie($_);
-		}
-	};
-	$self->{'prefstore'} = BIGSdb::Preferences->new( db => $pref_db );
-	return;
-}
-
 sub setup_datastore {
 	my ($self) = @_;
 	$self->{'datastore'} = BIGSdb::Datastore->new(
@@ -556,14 +301,6 @@ sub db_connect {
 			$logger->logdie($_);
 		}
 	};
-	return;
-}
-
-sub _db_disconnect {
-	my ($self) = @_;
-	$self->{'prefstore'}->finish_statement_handles if $self->{'prefstore'};
-	undef $self->{'prefstore'};
-	undef $self->{'datastore'};
 	return;
 }
 

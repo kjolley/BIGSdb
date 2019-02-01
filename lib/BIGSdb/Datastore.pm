@@ -29,6 +29,7 @@ use Unicode::Collate;
 use File::Path qw(make_path);
 use Fcntl qw(:flock);
 use BIGSdb::Exceptions;
+use BIGSdb::ClassificationScheme;
 use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
