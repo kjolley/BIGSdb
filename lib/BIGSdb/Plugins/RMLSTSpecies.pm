@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -55,7 +55,7 @@ sub get_attributes {
 		system_flag => 'rMLSTSpecies',
 		requires    => 'seqbin',
 		order       => 40,
-		priority    => 1
+		priority    => 0
 	);
 	return \%att;
 }

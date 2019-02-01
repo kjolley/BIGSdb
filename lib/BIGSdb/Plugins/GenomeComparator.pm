@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.15',
+		version     => '2.3.16',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -61,7 +61,7 @@ sub get_attributes {
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator',
-		priority    => 1
+		priority    => 0
 	);
 	return \%att;
 }
