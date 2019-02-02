@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,16 +34,7 @@ use Try::Tiny;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
-		{
-			config_dir       => $self->{'config_dir'},
-			dbase_config_dir => $self->{'dbase_config_dir'},
-			host             => $self->{'host'} || 'localhost',
-			port             => $self->{'port'} || 5432,
-			user             => $self->{'user'} || 'apache',
-			password         => $self->{'password'} || 'remote'
-		}
-	);
+	$self->initiate_job_manager;
 
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};

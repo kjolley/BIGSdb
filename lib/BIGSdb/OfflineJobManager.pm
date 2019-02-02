@@ -20,7 +20,7 @@ package BIGSdb::OfflineJobManager;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Application);
+use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::Exceptions;
 use Try::Tiny;
 use Digest::MD5;
@@ -123,20 +123,11 @@ sub add_job {
 	}
 	delete $cgi_params->{$_} foreach qw(submit page update_options format dbase_config_dir instance);
 	my $fingerprint = $self->_make_job_fingerprint( $cgi_params, $params );
-	my $duplicate_job = $self->_get_duplicate_job_id( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
-	my $quota_exceeded = $self->_is_quota_exceeded($params);
-	my $status;
-	if ($duplicate_job) {
-		$status = "rejected - duplicate job ($duplicate_job)";
-	} elsif ($quota_exceeded) {
-		$status = $self->_get_quota_status($quota_exceeded);
-	} else {
-		$status = 'submitted';
-	}
+	my $status = $self->_get_status( $params, $fingerprint );
 	eval {
 		$self->{'db'}->do(
-			'INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,module,status,percent_complete,'
-			  . 'priority,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+			'INSERT INTO jobs (id,dbase_config,username,email,ip_address,submit_time,start_time,module,status,'
+			  . 'pid,percent_complete,priority,fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
 			undef,
 			$id,
 			$params->{'dbase_config'},
@@ -144,9 +135,11 @@ sub add_job {
 			$params->{'email'},
 			$params->{'ip_address'},
 			'now',
+			( $params->{'mark_started'} ? 'now' : undef ),
 			$params->{'module'},
 			$status,
-			0,
+			( $params->{'mark_started'} ? $$ : undef ),
+			( $params->{'no_progress'}  ? -1 : 0 ),
 			$priority,
 			$fingerprint
 		);
@@ -195,6 +188,22 @@ sub add_job {
 	return $id;
 }
 
+sub _get_status {
+	my ( $self, $params, $fingerprint ) = @_;
+	return 'started' if $params->{'mark_started'};
+	my $duplicate_job = $self->_get_duplicate_job_id( $fingerprint, $params->{'username'}, $params->{'ip_address'} );
+	my $quota_exceeded = $self->_is_quota_exceeded($params);
+	my $status;
+	if ($duplicate_job) {
+		$status = "rejected - duplicate job ($duplicate_job)";
+	} elsif ($quota_exceeded) {
+		$status = $self->_get_quota_status($quota_exceeded);
+	} else {
+		$status = 'submitted';
+	}
+	return $status;
+}
+
 sub _get_quota_status {
 	my ( $self, $quota_status ) = @_;
 	if ( $quota_status == DBASE_QUOTA_EXCEEDED ) {
@@ -212,7 +221,8 @@ sub _get_quota_status {
 
 sub _make_job_fingerprint {
 	my ( $self, $cgi_params, $params ) = @_;
-	my $buffer;
+	my $buffer = q();
+	return $buffer if $params->{'mark_started'};
 	foreach my $key ( sort keys %$cgi_params ) {
 		$buffer .= "$key:$cgi_params->{$key};" if ( $cgi_params->{$key} // '' ) ne '';
 	}
@@ -514,11 +524,10 @@ sub get_period_timestamp {
 
 sub get_summary_stats {
 	my ($self) = @_;
-	my ( $running, $queued, $day ) = $self->_run_query(
-		q(SELECT SUM(CASE WHEN status='started' THEN 1 ELSE 0 END) AS running, )
+	my ( $running, $queued, $day ) =
+	  $self->_run_query( q(SELECT SUM(CASE WHEN status='started' THEN 1 ELSE 0 END) AS running, )
 		  . q(SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS queued, )
-		  . q(SUM(CASE WHEN stop_time > now()-interval '1 day' THEN 1 ELSE 0 END) AS day FROM jobs)
-	);
+		  . q(SUM(CASE WHEN stop_time > now()-interval '1 day' THEN 1 ELSE 0 END) AS day FROM jobs) );
 	my $results = { running => $running, queued => $queued, day => $day };
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
 		my $week = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '7 days'));

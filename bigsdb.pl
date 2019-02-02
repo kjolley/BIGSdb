@@ -32,7 +32,6 @@ use constant {
 use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
 use lib (LIB_DIR);
 use BIGSdb::Application;
-use BIGSdb::OfflineJobManager;
 my $r = shift;                       #Apache request object (used for mod_perl)
 Log::Log4perl->init_once( CONFIG_DIR . '/logging.conf' );
 BIGSdb::Application->new( CONFIG_DIR, LIB_DIR, DBASE_CONFIG_DIR, $r );

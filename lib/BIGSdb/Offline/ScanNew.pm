@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,8 +48,11 @@ sub run_script {
 	my $isolate_list  = $self->filter_and_sort_isolates($isolates);
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
+	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
+	my $job_id = $self->add_job;
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner start ($isolate_count genome$plural)");
+
 	if ( $params->{'fast'} ) {
 		$self->_scan_loci_together( $isolate_list, $loci, $params );
 	} else {
@@ -59,6 +62,7 @@ sub run_script {
 	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop ($nice_duration)");
+	$self->stop_job($job_id);
 	return;
 }
 
@@ -385,5 +389,38 @@ sub _can_define_alleles {
 		last if !$can_define;
 	}
 	return $can_define;
+}
+
+sub add_job {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
+	my $job_id = $self->{'jobManager'}->add_job(
+		{
+			dbase_config => $self->{'instance'},
+			ip_address   => $hostname,
+			module       => 'AutoDefiner',
+			username     => 'autodefiner',
+			parameters   => {},
+			mark_started => 1,
+			no_progress  => 1
+		}
+	);
+	return $job_id;
+}
+
+sub stop_job {
+	my ( $self, $job_id ) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	$self->{'jobManager'}->update_job_status(
+		$job_id,
+		{
+			status           => 'finished',
+			stop_time        => 'now',
+			percent_complete => 100,
+			pid              => undef
+		}
+	);
+	return;
 }
 1;

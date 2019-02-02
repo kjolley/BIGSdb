@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,6 +54,8 @@ sub run_script {
 	}
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
+	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
+	my $job_id = $self->add_job;
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
 	if ( $params->{'fast'} ) {
@@ -65,6 +67,40 @@ sub run_script {
 	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($nice_duration)");
+	$self->stop_job($job_id);
+	return;
+}
+
+sub add_job {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
+	my $job_id = $self->{'jobManager'}->add_job(
+		{
+			dbase_config => $self->{'instance'},
+			ip_address   => $hostname,
+			module       => 'AutoTagger',
+			username     => 'autotagger',
+			parameters   => {},
+			mark_started => 1,
+			no_progress  => 1
+		}
+	);
+	return $job_id;
+}
+
+sub stop_job {
+	my ( $self, $job_id ) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	$self->{'jobManager'}->update_job_status(
+		$job_id,
+		{
+			status           => 'finished',
+			stop_time        => 'now',
+			percent_complete => 100,
+			pid              => undef
+		}
+	);
 	return;
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2018, University of Oxford
+#Copyright (c) 2013-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20190202
 use strict;
 use warnings;
 use 5.010;
@@ -93,7 +95,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 			port             => PORT,
 			user             => USER,
 			password         => PASSWORD,
-			options          => { query_only => 1, %opts },
+			options          => { mark_job => 1, query_only => 1, %opts },
 			instance         => $opts{'d'},
 		}
 	);
@@ -115,16 +117,18 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
-	my $uses_remote_contigs =
-	  $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
+	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
+	$script->initiate_job_manager;
+	my $job_id = $script->add_job;
 	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
+
 	foreach my $list (@$lists) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;                                                                  #Forks
+		$pm->start and next;                          #Forks
 		local $" = ',';
 		BIGSdb::Offline::ScanNew->new(
 			{
@@ -144,6 +148,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	$pm->wait_all_children;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/*$opts{'prefix'}*");
 	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
+	$script->stop_job($job_id);
 	exit;
 }
 
@@ -158,7 +163,7 @@ my $script = BIGSdb::Offline::ScanNew->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => \%opts,
+		options          => { mark_job => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );

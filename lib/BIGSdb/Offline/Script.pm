@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,7 @@ use Carp;
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
 use BIGSdb::Exceptions;
+use BIGSdb::OfflineJobManager;
 use BIGSdb::Parser;
 use BIGSdb::Utils;
 $ENV{'PATH'} = '/bin:/usr/bin';             ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
@@ -122,6 +123,22 @@ sub db_disconnect {
 	my ($self) = @_;
 	undef $self->{'datastore'};
 	undef $self->{'dataConnector'};
+	return;
+}
+
+sub initiate_job_manager {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'jobs_db'};
+	$self->{'jobManager'} = BIGSdb::OfflineJobManager->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			host             => $self->{'host'} || 'localhost',
+			port             => $self->{'port'} || 5432,
+			user             => $self->{'user'} || 'apache',
+			password         => $self->{'password'} || 'remote'
+		}
+	);
 	return;
 }
 

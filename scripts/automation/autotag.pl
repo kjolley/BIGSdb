@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20190202
 use strict;
 use warnings;
 use 5.010;
@@ -79,8 +81,7 @@ if ( !$opts{'d'} ) {
 	exit;
 }
 if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
-	my $script;
-	$script = BIGSdb::Offline::AutoTag->new(    #Create script object to use methods to determine isolate list
+	my $script = BIGSdb::Offline::AutoTag->new(    #Create script object to use methods to determine isolate list
 		{
 			config_dir       => CONFIG_DIR,
 			lib_dir          => LIB_DIR,
@@ -89,7 +90,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			port             => PORT,
 			user             => USER,
 			password         => PASSWORD,
-			options          => { query_only => 1, %opts },
+			options          => { mark_job => 1, query_only => 1, %opts },
 			instance         => $opts{'d'},
 		}
 	);
@@ -111,20 +112,21 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 		}
 	}
 	delete $opts{$_} foreach qw(i I p P x y);    #Remove options that impact isolate list
-	my $isolate_count = @$isolates;
-	my $threads       = @$lists;
-	my $plural        = $isolate_count == 1 ? q() : q(s);
-	my $uses_remote_contigs =
-	  $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
+	my $isolate_count       = @$isolates;
+	my $threads             = @$lists;
+	my $plural              = $isolate_count == 1 ? q() : q(s);
+	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
-	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
+	$script->initiate_job_manager;
+	my $job_id = $script->add_job;
+	my $pm     = Parallel::ForkManager->new( $opts{'threads'} );
 
 	foreach my $list (@$lists) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;                                                                  #Forks
+		$pm->start and next;    #Forks
 		local $" = ',';
 		BIGSdb::Offline::AutoTag->new(
 			{
@@ -143,6 +145,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	}
 	$pm->wait_all_children;
 	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
+	$script->stop_job($job_id);
 	exit;
 }
 
@@ -156,7 +159,7 @@ BIGSdb::Offline::AutoTag->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => \%opts,
+		options          => { mark_job => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );
