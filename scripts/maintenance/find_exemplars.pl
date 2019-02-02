@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20181126
+#Version: 20190202
 use strict;
 use warnings;
 use 5.010;
@@ -89,7 +89,11 @@ my $script = BIGSdb::Offline::Script->new(
 );
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
+$script->initiate_job_manager if $script->{'config'}->{'jobs_db'};
+$script->{'options'}->{'mark_job'} =1;
+my $job_id = $script->add_job('FindExemplars');
 main();
+$script->stop_job($job_id);
 undef $script;
 
 sub main {
@@ -133,7 +137,7 @@ sub main {
 			#exemplar sequence.
 			push @{ $exemplars{$length} }, [ $allele_id, $seq ] if $allele_id ne $exemplars{$length}[0]->[0];
 		}
-		foreach my $length ( sort {$a <=> $b} keys %exemplars ) {
+		foreach my $length ( sort { $a <=> $b } keys %exemplars ) {
 			foreach my $allele ( @{ $exemplars{$length} } ) {
 				my ( $allele_id, $seq ) = @$allele;
 				say "Locus: $locus; Length: $length; Allele: $allele_id";

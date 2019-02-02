@@ -408,4 +408,37 @@ sub delete_temp_files {
 	}
 	return;
 }
+
+sub add_job {
+	my ($self, $module) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
+	my $job_id = $self->{'jobManager'}->add_job(
+		{
+			dbase_config => $self->{'instance'},
+			ip_address   => $hostname,
+			module       => $module,
+			username     => 'bigsdb',
+			parameters   => {},
+			mark_started => 1,
+			no_progress  => 1
+		}
+	);
+	return $job_id;
+}
+
+sub stop_job {
+	my ( $self, $job_id ) = @_;
+	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
+	$self->{'jobManager'}->update_job_status(
+		$job_id,
+		{
+			status           => 'finished',
+			stop_time        => 'now',
+			percent_complete => 100,
+			pid              => undef
+		}
+	);
+	return;
+}
 1;

@@ -119,7 +119,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	$script->initiate_job_manager;
-	my $job_id = $script->add_job;
+	my $job_id = $script->add_job('AutoTag');
 	my $pm     = Parallel::ForkManager->new( $opts{'threads'} );
 
 	foreach my $list (@$lists) {

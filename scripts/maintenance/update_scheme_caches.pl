@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Update tables of scheme field values linked to isolate
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,6 +18,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Version: 20190202
 use strict;
 use warnings;
 use 5.010;
@@ -59,7 +61,7 @@ BIGSdb::Offline::UpdateSchemeCaches->new(
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
 		dbase_config_dir => DBASE_CONFIG_DIR,
-		options          => \%opts,
+		options          => { mark_job => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );

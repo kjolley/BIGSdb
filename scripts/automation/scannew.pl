@@ -120,7 +120,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	$script->initiate_job_manager;
-	my $job_id = $script->add_job;
+	my $job_id = $script->add_job('ScanNew');
 	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 

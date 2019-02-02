@@ -55,7 +55,7 @@ sub run_script {
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
 	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
-	my $job_id = $self->add_job;
+	my $job_id = $self->add_job('AutoTag');
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
 	if ( $params->{'fast'} ) {
@@ -71,38 +71,7 @@ sub run_script {
 	return;
 }
 
-sub add_job {
-	my ($self) = @_;
-	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
-	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
-	my $job_id = $self->{'jobManager'}->add_job(
-		{
-			dbase_config => $self->{'instance'},
-			ip_address   => $hostname,
-			module       => 'AutoTagger',
-			username     => 'autotagger',
-			parameters   => {},
-			mark_started => 1,
-			no_progress  => 1
-		}
-	);
-	return $job_id;
-}
 
-sub stop_job {
-	my ( $self, $job_id ) = @_;
-	return if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'};
-	$self->{'jobManager'}->update_job_status(
-		$job_id,
-		{
-			status           => 'finished',
-			stop_time        => 'now',
-			percent_complete => 100,
-			pid              => undef
-		}
-	);
-	return;
-}
 
 sub _scan_loci_together {
 	my ( $self, $isolate_list, $loci, $params ) = @_;

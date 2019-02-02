@@ -2,7 +2,7 @@
 #Create scheme profile caches in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,6 +30,8 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	  $self->initiate_job_manager if $self->{'options'}->{'mark_job'};
+	my $job_id = $self->add_job('UpdateSchemeCaches');
 	eval {$self->{'db'}->do(q(SET lock_timeout = 5000))};
 	$self->{'logger'}->error($@) if $@;
 	my $schemes  = [];
@@ -77,6 +79,7 @@ sub run_script {
 	}
 	eval {$self->{'db'}->do('SET lock_timeout = 0')};
 	$self->{'logger'}->error($@) if $@;
+	$self->stop_job($job_id);
 	return;
 }
 1;
