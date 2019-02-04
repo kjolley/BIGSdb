@@ -267,10 +267,11 @@ sub print_content {
 		say q(</p>);
 	}
 	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
-	my $refresh = $self->_get_nice_refresh_time($job);
-	say qq(<p>This page will reload in $refresh. You can refresh it any time, )
-	  . q(or bookmark it and close your browser if you wish.</p>)
-	  if $self->{'refresh'};
+	if ( $self->{'refresh'} ) {
+		my $refresh = $self->_get_nice_refresh_time($job);
+		say qq(<p>This page will reload in $refresh. You can refresh it any time, )
+		  . q(or bookmark it and close your browser if you wish.</p>);
+	}
 	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		say q(<p>Please note that job results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
