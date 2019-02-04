@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.16',
+		version     => '2.3.17',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1308,7 +1308,7 @@ sub _run_splitstree {
 	my ( $self, $nexus_file, $output_file, $format ) = @_;
 	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
 		my $cmd =
-		    qq($self->{'config'}->{'splitstree_path'} +g false -S true -x )
+		    qq($self->{'config'}->{'splitstree_path'} -g true -S true -x )
 		  . qq('EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT' )
 		  . q(> /dev/null 2>&1);
 		system($cmd);
