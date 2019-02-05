@@ -1,5 +1,9 @@
 v1.21.3: *New GenePresence plugin using interactive pivot tables and heatmaps
           to replace the old PresenceAbsence and TagStatus plugins.
+         *Job monitor page to track current running and queuing jobs. This can
+          also track maintenance tasks such as autotagger.
+         *Updated SplitsTree parameters in Genome Comparator to support more
+          recent versions.
 v1.21.2: *GrapeTree plugin now uses Genome Comparator scanner so genomes do
           not need to be fully scanned and tagged before use.
          *New export file icons.
