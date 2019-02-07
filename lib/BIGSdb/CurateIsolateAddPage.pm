@@ -493,10 +493,10 @@ sub _get_html5_args {
 	my ( $required_field, $field, $thisfield ) = @{$args}{qw(required_field field thisfield)};
 	my $html5_args = {};
 	$html5_args->{'required'} = 'required' if $required_field;
-	if ($thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'}){
+	if ( $thisfield->{'type'} eq 'date' && !$thisfield->{'optlist'} ) {
 		$html5_args->{'type'} = 'date';
-		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};
-		$html5_args->{'max'} = $thisfield->{'max'} if defined $thisfield->{'max'};
+		$html5_args->{'min'}  = $thisfield->{'min'} if defined $thisfield->{'min'};
+		$html5_args->{'max'}  = $thisfield->{'max'} if defined $thisfield->{'max'};
 	}
 	if ( $thisfield->{'type'} =~ /^int/x || $thisfield->{'type'} eq 'float' ) {
 		if ( $field ne 'sender' && !$thisfield->{'optlist'} ) {
@@ -661,7 +661,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-id      => "field_$field",
 			-values  => [ '', @$optlist ],
 			-labels  => { '' => ' ' },
-			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+			-default => ( $newdata->{$field} // $thisfield->{'default'} ),
 			%$html5_args
 		);
 		return 1;
@@ -815,8 +815,8 @@ sub print_sparse_field_form_elements {
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$fields;
 	my @fieldnames = map { $_->{'field'} } @$fields;
-	my $width = $self->_get_field_width( \@fieldnames );
-	my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
+	my $width      = $self->_get_field_width( \@fieldnames );
+	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 	say qq(<fieldset style="float:left"><legend>$field_name</legend>);
 	say q(<div style="white-space:nowrap">);
 	say q(<p class="comment">These fields are listed and stored separately<br />)
