@@ -150,8 +150,9 @@ sub _print_interface {
 		  . q[ids will be ignored).</li>];
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
 		if ( @$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST ) {
-			say q[<li>You can add new columns for phenotypic fields - there are too many to include by default ]
-			  . q[(see the 'phenotypic_fields' tab in the Excel template for allowed field names).];
+			my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
+			say qq[<li>You can add new columns for $field_name - there are too many to include by default ]
+			  . qq[(see the '$field_name' tab in the Excel template for allowed field names).];
 		}
 		say q[<li>You can also upload allele fields along with the other isolate data - simply create a new column ]
 		  . q[with the locus name (see the 'allowed_loci' tab in the Excel template for locus names). These will be ]

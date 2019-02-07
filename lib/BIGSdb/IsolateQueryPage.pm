@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -212,7 +212,8 @@ sub _print_phenotypic_fields_fieldset {
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
 	say q(<fieldset id="phenotypic_fieldset" style="float:left;display:none">);
-	say q(<legend>Phenotype fields</legend><div>);
+	my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
+	say qq(<legend>$field_name</legend><div>);
 	if ( $self->_highest_entered_fields('phenotypic') ) {
 		$self->_print_phenotypic_fieldset_contents;
 	}
@@ -620,8 +621,9 @@ sub _print_modify_search_fieldset {
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
 		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
+		my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
 		say qq(<li><a href="" class="button" id="show_phenotypic">$phenotypic_fieldset_display</a>);
-		say q(Phenotypic fields</li>);
+		say qq($field_name</li>);
 	}
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -816,7 +816,8 @@ sub print_sparse_field_form_elements {
 	return if !@$fields;
 	my @fieldnames = map { $_->{'field'} } @$fields;
 	my $width = $self->_get_field_width( \@fieldnames );
-	say q(<fieldset style="float:left"><legend>Phenotypic fields</legend>);
+	my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
+	say qq(<fieldset style="float:left"><legend>$field_name</legend>);
 	say q(<div style="white-space:nowrap">);
 	say q(<p class="comment">These fields are listed and stored separately<br />)
 	  . q(as they may be infrequently populated.</p>);

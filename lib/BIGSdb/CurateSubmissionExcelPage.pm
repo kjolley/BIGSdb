@@ -222,7 +222,9 @@ sub _print_isolate_eav_fields {
 	my ( $self, $workbook ) = @_;
 	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 	return if @$eav_fields <= MAX_EAV_FIELD_LIST;
-	my $worksheet = $workbook->add_worksheet('phenotypic_fields');
+	my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic_fields';
+	$field_name =~ s/\s/_/gx;
+	my $worksheet = $workbook->add_worksheet($field_name);
 	$worksheet->write( 0, 0, 'field', $self->{'header_format'} );
 	my $row = 1;
 	foreach my $field (@$eav_fields) {
