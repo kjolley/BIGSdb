@@ -28,23 +28,23 @@ use JSON;
 
 sub get_attributes {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my %att    = (
-		name        => 'Field Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Breakdown of query results by field',
-		category    => 'Breakdown',
-		buttontext  => 'Fields',
-		menutext    => 'Single field',
-		module      => 'FieldBreakdown',
-		version     => '2.0.2',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
-		input       => 'query',
-		order       => 10
+	my $q = $self->{'cgi'};
+	my %att = (
+				name        => 'Field Breakdown',
+				author      => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+				description => 'Breakdown of query results by field',
+				category    => 'Breakdown',
+				buttontext  => 'Fields',
+				menutext    => 'Single field',
+				module      => 'FieldBreakdown',
+				version     => '2.0.2',
+				dbtype      => 'isolates',
+				section     => 'breakdown,postquery',
+				url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
+				input       => 'query',
+				order       => 10
 	);
 	return \%att;
 }
@@ -52,16 +52,16 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { d3 => 1, noCache => 1, 'jQuery.tablesort' => 1 };
+	my $values = { d3 => 1, filesaver => 1, noCache => 1, 'jQuery.tablesort' => 1 };
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
 	if ( $q->param('export') && $q->param('format') ) {
 		( my $field_name = $q->param('export') ) =~ s/^s_\d+_//x;
 		my $format = {
-			text  => 'txt',
-			xlsx  => 'xlsx',
-			fasta => 'fas'
+					   text  => 'txt',
+					   xlsx  => 'xlsx',
+					   fasta => 'fas'
 		};
 		if ( $format->{ $q->param('format') } ) {
 			$values->{'attachment'} = "$field_name." . $format->{ $q->param('format') };
@@ -80,10 +80,10 @@ sub set_pref_requirements {
 sub _export {
 	my ( $self, $field, $format ) = @_;
 	my $formats = {
-		table => sub { $self->_show_table($field) },
-		xlsx  => sub { $self->_export_excel($field) },
-		text  => sub { $self->_export_text($field) },
-		fasta => sub { $self->_export_fasta($field) }
+					table => sub { $self->_show_table($field) },
+					xlsx  => sub { $self->_export_excel($field) },
+					text  => sub { $self->_export_text($field) },
+					fasta => sub { $self->_export_fasta($field) }
 	};
 	if ( $formats->{$format} ) {
 		$formats->{$format}->();
@@ -118,18 +118,18 @@ sub _get_field_values {
 	my ( $self, $field ) = @_;
 	my $field_type = $self->_get_field_type($field);
 	my $freqs      = [];
-	my $methods    = {
+	my $methods = {
 		field => sub {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			$freqs =
 			  $self->_get_field_freqs( $field,
-				$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+								  $att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
 		},
 		eav_field => sub {
 			my $att = $self->{'datastore'}->get_eav_field($field);
 			$freqs =
 			  $self->_get_eav_field_freqs( $field,
-				$att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+						  $att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
 		},
 		extended_field => sub {
 			if ( $field =~ /^(.+)\.\.(.+)$/x ) {
@@ -226,8 +226,14 @@ sub _export_excel {
 	my $text_table = $self->_get_text_table($field);
 	my $temp_file  = $self->make_temp_file($text_table);
 	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
-	BIGSdb::Utils::text2excel( $full_path,
-		{ stdout => 1, worksheet => "$display_field breakdown", tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+	BIGSdb::Utils::text2excel(
+							   $full_path,
+							   {
+								  stdout    => 1,
+								  worksheet => "$display_field breakdown",
+								  tmp_dir   => $self->{'config'}->{'secure_tmp_dir'}
+							   }
+	);
 	unlink $full_path;
 	return;
 }
@@ -305,7 +311,7 @@ sub run {
 sub _print_export_buttons {
 	my ($self) = @_;
 	say $self->get_export_buttons(
-		{ table => 1, excel => 1, text => 1, fasta => 1, hide_div => 1, hide => ['fasta'] } );
+					  { table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } );
 	return;
 }
 
@@ -576,6 +582,27 @@ $schemes_js
 	position_controls();
 	\$(window).resize(function() {
 		position_controls();
+	});
+	
+	\$("#export_image").off("click").click(function(){
+		//fix back fill
+		d3.select("#c3_chart").selectAll("path").attr("fill","none");
+		//fix no axes
+		d3.select("#c3_chart").selectAll("path.domain").attr("stroke","black");
+		//fix no tick
+		d3.select("#c3_chart").selectAll(".tick line").attr("stroke","black");
+		d3.select("#c3_chart").selectAll(".c3-axis-y2").attr("display","none");
+		//Annoying 2nd x-axis
+		//Hide both, then selectively show the first one.
+		d3.select("#c3_chart").selectAll(".c3-axis-x").attr("display","none");
+		d3.select("#c3_chart").select(".c3-axis-x").attr("display","inline");
+		var svg = d3.select("svg")
+			.attr("xmlns","http://www.w3.org/2000/svg")
+			.node().parentNode.innerHTML;
+		svg = svg.replace(/<\\/svg>.*\$/,"</svg>");
+		var blob = new Blob([svg],{type: "image/svg+xml"});		
+		var filename = \$("#field").val().replace(/^.+\\.\\./, "") + ".svg";
+		saveAs(blob, filename);
 	});
 });
 
@@ -896,6 +923,9 @@ function load_bar_json(jsonData,field,rotate){
 		},
 		legend: {
 			show: false
+		},
+		padding: {
+			right: 20
 		}
 	});
 	chart.resize({				
@@ -1036,7 +1066,7 @@ sub _create_id_table {
 		$ids = $self->get_id_list( 'id', $query_file );
 	} else {
 		$ids = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL",
-			undef, { fetch => 'col_arrayref' } );
+												undef, { fetch => 'col_arrayref' } );
 	}
 	$self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids, { table => 'id_list' } );
 	return;

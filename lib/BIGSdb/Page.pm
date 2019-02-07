@@ -150,7 +150,8 @@ sub _get_javascript_paths {
 			'd3'                  => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)],
 			'pivot'               => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
 			'papaparse'           => [qw(papaparse.min.js)],
-			'heatmap'             => [qw(heatmap.min.js)]
+			'heatmap'             => [qw(heatmap.min.js)],
+			'filesaver' => [qw(FileSaver.min.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -185,11 +186,10 @@ sub get_guid {
 sub show_user_projects {
 	my ($self) = @_;
 	if (
-		(
-			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
-			|| $self->{'system'}->{'read_access'} ne 'public'
-		)
-		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
+		 (
+		   ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' ) || $self->{'system'}->{'read_access'} ne 'public'
+		 )
+		 && ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
 	  )
 	{
 		return 1;
@@ -224,8 +224,8 @@ sub create_temp_tables {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if (   $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x
-					|| $qry =~ /ORDER\ BY\ s_$scheme_id\_/x )
+				if (    $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x
+					 || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x )
 				{
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
@@ -243,7 +243,7 @@ sub create_temp_tables {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 				if ( $format ne 'text' ) {
 					$self->print_bad_status(
-						{ message => q(Cannot connect to remote database. The query can not be performed.) } );
+								 { message => q(Cannot connect to remote database. The query can not be performed.) } );
 				} else {
 					say q(Cannot connect to remote database. The query cannot be performed.);
 				}
@@ -305,8 +305,8 @@ sub _initiate_plugin {
 	my $q = $self->{'cgi'};
 	$q->param( format => 'html' ) if !defined $q->param('format');
 	try {
-		my $plugin  = $self->{'pluginManager'}->get_plugin($plugin_name);
-		my $att     = $plugin->get_attributes;
+		my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
+		my $att    = $plugin->get_attributes;
 		my $formats = {
 			text => sub {
 				$self->{'type'}       = 'text';
@@ -398,15 +398,15 @@ sub print_page_content {
 	$header_options{'-expires'} = '+1h' if !$self->{'noCache'};
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
-			embl      => 'chemical/x-embl-dl-nucleotide',
-			tar       => 'application/x-tar',
-			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-			no_header => 'text/html',
-			text      => 'text/plain',
-			html      => 'text/html',
-			png       => 'image/png',
-			jpg       => 'image/jpeg',
-			gif       => 'image/gif'
+						  embl      => 'chemical/x-embl-dl-nucleotide',
+						  tar       => 'application/x-tar',
+						  xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+						  no_header => 'text/html',
+						  text      => 'text/plain',
+						  html      => 'text/html',
+						  png       => 'image/png',
+						  jpg       => 'image/jpeg',
+						  gif       => 'image/gif'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
@@ -433,11 +433,11 @@ sub print_page_content {
 		my @styles;
 		push @styles, { -src => $_, -media => 'Screen' } foreach @$stylesheets;
 		my @args = (
-			-title    => $title,
-			-meta     => $meta_content,
-			-style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
-			-script   => $javascript,
-			-encoding => 'utf-8'
+					 -title    => $title,
+					 -meta     => $meta_content,
+					 -style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
+					 -script   => $javascript,
+					 -encoding => 'utf-8'
 		);
 		if (%$shortcut_icon) {
 			push @args, ( -head => [ CGI->Link($shortcut_icon), $http_equiv ] );
@@ -544,7 +544,7 @@ sub print_set_section {
 	my $sets =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+				   undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$sets || ( @$sets == 1 && ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' );
 	say q(<div class="box" id="sets">);
 	say q(<div class="scrollable">);
@@ -553,9 +553,9 @@ sub print_set_section {
 	say q(<h2>Datasets</h2>);
 	say q(<p>This database contains multiple datasets.);
 	print(
-		( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
-		? '</p>'
-		: 'You can choose to display a single set or the whole database.</p>'
+		   ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes'
+		   ? '</p>'
+		   : 'You can choose to display a single set or the whole database.</p>'
 	);
 	say $q->start_form;
 	say q(<label for="sets_list">Please select: </label>);
@@ -570,11 +570,11 @@ sub print_set_section {
 		$labels{ $set->{'id'} } = $set->{'description'};
 	}
 	say $q->popup_menu(
-		-name    => 'sets_list',
-		-id      => 'sets_list',
-		-values  => \@set_ids,
-		-labels  => \%labels,
-		-default => $set_id
+						-name    => 'sets_list',
+						-id      => 'sets_list',
+						-values  => \@set_ids,
+						-labels  => \%labels,
+						-default => $set_id
 	);
 	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'smallbutton' );
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
@@ -603,11 +603,11 @@ sub is_scheme_invalid {
 	}
 	if ( $options->{'with_pk'} && !$scheme_info->{'primary_key'} ) {
 		$self->print_bad_status(
-			{
-				message => q(No primary key field has been set for this scheme. )
-				  . q(This function is unavailable until this has been set.),
-				navbar => 1
-			}
+								 {
+								   message => q(No primary key field has been set for this scheme. )
+									 . q(This function is unavailable until this has been set.),
+								   navbar => 1
+								 }
 		);
 		return 1;
 	}
@@ -679,10 +679,10 @@ sub print_action_fieldset {
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
 		$buffer .= $q->submit(
-			-name  => $options->{'submit2'},
-			-label => $options->{'submit2_label'},
-			-class => BUTTON_CLASS,
-			-style => 'margin-left:0.2em'
+							   -name  => $options->{'submit2'},
+							   -label => $options->{'submit2_label'},
+							   -class => BUTTON_CLASS,
+							   -style => 'margin-left:0.2em'
 		);
 	}
 	$buffer .= q(</fieldset>);
@@ -859,7 +859,7 @@ sub add_existing_metadata_to_hashref {
 	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
 	foreach my $metadata_set (@$metadata_list) {
 		my $metadata = $self->{'datastore'}->run_query( "SELECT * FROM $metadata_set WHERE isolate_id=?",
-			$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+														$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $metadata_ref (@$metadata) {
 			foreach my $field ( keys %$metadata_ref ) {
 				$data->{"$metadata_set:$field"} = $metadata_ref->{$field};
@@ -875,7 +875,7 @@ sub add_existing_eav_data_to_hashref {
 	my @types = qw(int float text date boolean);
 	foreach my $type (@types) {
 		my $eav_data = $self->{'datastore'}->run_query( "SELECT * FROM eav_$type WHERE isolate_id=?",
-			$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+														$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $record (@$eav_data) {
 			$data->{ $record->{'field'} } = $record->{'value'};
 		}
@@ -888,7 +888,7 @@ sub get_extended_attributes {
 	my $data =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
-		undef, { fetch => 'all_arrayref', slice => {}, cache => 'Page::get_extended_attributes' } );
+				   undef, { fetch => 'all_arrayref', slice => {}, cache => 'Page::get_extended_attributes' } );
 	my $extended;
 	foreach (@$data) {
 		push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
@@ -949,14 +949,14 @@ sub _get_loci_list {
 		$logger->error($@) if $@;
 		my $common_names = $cn_sql->fetchall_hashref('id');
 		my $set_id       = $self->get_set_id;
-		my $loci         = $self->{'datastore'}->get_loci(
-			{
-				query_pref    => $options->{'query_pref'},
-				analysis_pref => $options->{'analysis_pref'},
-				seq_defined   => 0,
-				do_not_order  => 1,
-				set_id        => $set_id
-			}
+		my $loci = $self->{'datastore'}->get_loci(
+												   {
+													 query_pref    => $options->{'query_pref'},
+													 analysis_pref => $options->{'analysis_pref'},
+													 seq_defined   => 0,
+													 do_not_order  => 1,
+													 set_id        => $set_id
+												   }
 		);
 		my $set_loci =
 		    $set_id
@@ -1029,8 +1029,8 @@ sub _get_provenance_fields {
 	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
 
-		if (   ( $options->{'sender_attributes'} )
-			&& ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
+		if (    ( $options->{'sender_attributes'} )
+			 && ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
 		{
 			foreach my $user_attribute (qw (id surname first_name affiliation)) {
@@ -1088,10 +1088,10 @@ sub _get_scheme_fields {
 			#No point using scheme fields if no scheme database is available.
 			next
 			  if !( ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} || $options->{'ignore_prefs'} )
-				&& $scheme_db );
+					&& $scheme_db );
 			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
-				if (   $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field}
-					|| $options->{'ignore_prefs'} )
+				if (    $self->{'prefs'}->{'query_field_scheme_fields'}->{$scheme_id}->{$field}
+					 || $options->{'ignore_prefs'} )
 				{
 					if ($set_id) {
 						eval { $set_sql->execute( $set_id, $scheme_id ) };
@@ -1241,14 +1241,15 @@ sub get_user_filter {
 	my $options = $field =~ /^curator/x ? { curators => 1 } : {};
 	my ( $users, $labels ) = $self->{'datastore'}->get_users($options);
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-	return $self->get_filter(
-		$field, $users,
-		{
-			labels  => $labels,
-			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
-			  . qq(those records that match the selected $field.)
-		}
-	);
+	return
+	  $self->get_filter(
+						 $field, $users,
+						 {
+							labels  => $labels,
+							tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
+							  . qq(those records that match the selected $field.)
+						 }
+	  );
 }
 
 sub get_number_records_control {
@@ -1258,10 +1259,10 @@ sub get_number_records_control {
 	}
 	my $buffer = q(<span style="white-space:nowrap"><label for="displayrecs" class="display">Display: </label>);
 	$buffer .= $self->{'cgi'}->popup_menu(
-		-name   => 'displayrecs',
-		-id     => 'displayrecs',
-		-values => [ '10', '25', '50', '100', '200', '500', 'all' ],
-		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
+								   -name   => 'displayrecs',
+								   -id     => 'displayrecs',
+								   -values => [ '10', '25', '50', '100', '200', '500', 'all' ],
+								   -default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
 	$buffer .= q( records per page);
 	$buffer .=
@@ -1283,14 +1284,14 @@ sub get_scheme_filter {
 		$self->{'cache'}->{'scheme_labels'}->{0} = 'No scheme';
 	}
 	my $buffer = $self->get_filter(
-		'scheme_id',
-		$self->{'cache'}->{'schemes'},
-		{
-			text    => 'scheme',
-			labels  => $self->{'cache'}->{'scheme_labels'},
-			tooltip => 'scheme filter - Select a scheme to filter your search to '
-			  . 'only those belonging to the selected scheme.'
-		}
+									'scheme_id',
+									$self->{'cache'}->{'schemes'},
+									{
+									   text    => 'scheme',
+									   labels  => $self->{'cache'}->{'scheme_labels'},
+									   tooltip => 'scheme filter - Select a scheme to filter your search to '
+										 . 'only those belonging to the selected scheme.'
+									}
 	);
 	return $buffer;
 }
@@ -1301,7 +1302,7 @@ sub get_locus_filter {
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	my $buffer =
 	  $self->get_filter( 'locus', $loci,
-		{ labels => $labels, tooltip => 'locus filter - Select a locus to filter your search by.' } );
+						 { labels => $labels, tooltip => 'locus filter - Select a locus to filter your search by.' } );
 	return $buffer;
 }
 
@@ -1318,10 +1319,10 @@ sub get_isolate_publication_filter {
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON "
-			  . "refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
-			undef,
-			{ fetch => 'col_arrayref' }
+													"SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON "
+													  . "refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
+													undef,
+													{ fetch => 'col_arrayref' }
 		);
 		my $buffer;
 		if (@$pmid) {
@@ -1333,18 +1334,19 @@ sub get_isolate_publication_filter {
 				unshift @values, 'any';
 				$labels->{'any'} = 'linked to any publication';
 			}
-			return $self->get_filter(
-				'publication',
-				\@values,
-				{
-					labels   => $labels,
-					text     => 'Publication',
-					multiple => 1,
-					noblank  => 1,
-					tooltip  => q(publication filter - Select publications to filter your )
-					  . q(search to only those isolates referred by them.)
-				}
-			);
+			return
+			  $self->get_filter(
+								 'publication',
+								 \@values,
+								 {
+									labels   => $labels,
+									text     => 'Publication',
+									multiple => 1,
+									noblank  => 1,
+									tooltip  => q(publication filter - Select publications to filter your )
+									  . q(search to only those isolates referred by them.)
+								 }
+			  );
 		}
 	}
 	return '';
@@ -1392,7 +1394,7 @@ sub get_experiment_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $experiment_list =
 	  $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+									   undef, { fetch => 'all_arrayref', slice => {} } );
 	my @experiments;
 	my %labels;
 	foreach my $experiment (@$experiment_list) {
@@ -1401,17 +1403,18 @@ sub get_experiment_filter {
 	}
 	if (@experiments) {
 		my $class = $options->{'class'} || 'filter';
-		return $self->get_filter(
-			'experiment',
-			\@experiments,
-			{
-				'labels'  => \%labels,
-				'text'    => 'Experiment',
-				'tooltip' => 'experiments filter - Only include sequences that have been linked '
-				  . 'to the specified experiment.',
-				'class' => $class
-			}
-		);
+		return
+		  $self->get_filter(
+							 'experiment',
+							 \@experiments,
+							 {
+								'labels'  => \%labels,
+								'text'    => 'Experiment',
+								'tooltip' => 'experiments filter - Only include sequences that have been linked '
+								  . 'to the specified experiment.',
+								'class' => $class
+							 }
+		  );
 	}
 }
 
@@ -1419,15 +1422,16 @@ sub get_sequence_method_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
-	return $self->get_filter(
-		'seq_method',
-		[SEQ_METHODS],
-		{
-			'text'    => 'Sequence method',
-			'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
-			'class'   => $class
-		}
-	);
+	return
+	  $self->get_filter(
+				  'seq_method',
+				  [SEQ_METHODS],
+				  {
+					'text'    => 'Sequence method',
+					'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
+					'class'   => $class
+				  }
+	  );
 }
 
 sub get_truncated_label {
@@ -1453,7 +1457,8 @@ sub get_scheme_flags {
 	my $buffer = q();
 	return $buffer if !BIGSdb::Utils::is_int($scheme_id);
 	my $flags = $self->{'datastore'}->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=?',
-		$scheme_id, { fetch => 'col_arrayref', cache => 'DownloadAlleles::flags' } );
+												 $scheme_id,
+												 { fetch => 'col_arrayref', cache => 'DownloadAlleles::flags' } );
 	if (@$flags) {
 		my $colours = SCHEME_FLAG_COLOURS;
 		$buffer .= q(<div class="flags">);
@@ -1539,7 +1544,7 @@ sub get_set_id {
 		if ( !$self->{'cache'}->{'set_list'} ) {
 			$self->{'cache'}->{'set_list'} =
 			  $self->{'datastore'}->run_query( 'SELECT id FROM sets ORDER BY display_order,description',
-				undef, { fetch => 'col_arrayref' } );
+											   undef, { fetch => 'col_arrayref' } );
 		}
 		return $self->{'cache'}->{'set_list'}->[0] if @{ $self->{'cache'}->{'set_list'} };
 	}
@@ -1595,7 +1600,7 @@ sub get_isolate_name_from_id {
 	my $isolate =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
-		$isolate_id, { cache => 'Page::get_isolate_name_from_id' } );
+				   $isolate_id, { cache => 'Page::get_isolate_name_from_id' } );
 	return $isolate // '';
 }
 
@@ -1603,12 +1608,13 @@ sub get_isolate_id_and_name_from_seqbin_id {
 	my ( $self, $seqbin_id ) = @_;
 	my $view        = $self->{'system'}->{'view'};
 	my $label_field = $self->{'system'}->{'labelfield'};
-	return $self->{'datastore'}->run_query(
-		qq(SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin )
-		  . qq(ON $view.id = isolate_id WHERE sequence_bin.id=?),
-		$seqbin_id,
-		{ cache => 'Page::get_isolate_id_and_name_from_seqbin_id' }
-	);
+	return
+	  $self->{'datastore'}->run_query(
+									   qq(SELECT $view.id,$view.$label_field FROM $view LEFT JOIN sequence_bin )
+										 . qq(ON $view.id = isolate_id WHERE sequence_bin.id=?),
+									   $seqbin_id,
+									   { cache => 'Page::get_isolate_id_and_name_from_seqbin_id' }
+	  );
 }
 
 #Return list and formatted labels
@@ -1639,69 +1645,69 @@ sub get_record_name {
 	my ( $self, $table ) = @_;
 	$table ||= '';
 	my %names = (
-		users                             => 'user',
-		user_groups                       => 'user group',
-		user_group_members                => 'user group member',
-		loci                              => 'locus',
-		refs                              => 'PubMed link',
-		allele_designations               => 'allele designation',
-		scheme_members                    => 'scheme member',
-		schemes                           => 'scheme',
-		scheme_fields                     => 'scheme field',
-		composite_fields                  => 'composite field',
-		composite_field_values            => 'composite field value',
-		isolates                          => 'isolate',
-		sequences                         => 'allele sequence',
-		accession                         => 'accession number',
-		sequence_refs                     => 'PubMed link',
-		profiles                          => 'profile',
-		sequence_bin                      => 'sequence (contig)',
-		allele_sequences                  => 'allele sequence tag',
-		isolate_aliases                   => 'isolate alias',
-		locus_aliases                     => 'locus alias',
-		curator                           => 'curator permission record',
-		client_dbases                     => 'client database',
-		client_dbase_loci                 => 'locus to client database definition',
-		client_dbase_schemes              => 'scheme to client database definition',
-		locus_extended_attributes         => 'locus extended attribute',
-		projects                          => 'project description',
-		project_members                   => 'project member',
-		profile_refs                      => 'Pubmed link',
-		samples                           => 'sample storage record',
-		scheme_curators                   => 'scheme curator access record',
-		locus_curators                    => 'locus curator access record',
-		experiments                       => 'experiment',
-		experiment_sequences              => 'experiment sequence link',
-		isolate_field_extended_attributes => 'isolate field extended attribute',
-		isolate_value_extended_attributes => 'isolate field extended attribute value',
-		locus_descriptions                => 'locus description',
-		scheme_groups                     => 'scheme group',
-		scheme_group_scheme_members       => 'scheme group scheme member',
-		scheme_group_group_members        => 'scheme group group member',
-		pcr                               => 'PCR reaction',
-		pcr_locus                         => 'PCR locus link',
-		probes                            => 'nucleotide probe',
-		probe_locus                       => 'probe locus link',
-		client_dbase_loci_fields          => 'locus to client database isolate field definition',
-		sets                              => 'set',
-		set_loci                          => 'set member locus',
-		set_schemes                       => 'set member schemes',
-		set_metadata                      => 'set metadata',
-		set_view                          => 'database view linked to set',
-		history                           => 'update record',
-		profile_history                   => 'profile update record',
-		sequence_attributes               => 'sequence attribute',
-		retired_allele_ids                => 'retired allele id',
-		retired_profiles                  => 'retired profile',
-		retired_isolates                  => 'retired isolate id',
-		classification_schemes            => 'classification scheme',
-		classification_group_fields       => 'classification group field',
-		classification_group_field_values => 'classification group field value',
-		user_dbases                       => 'user database',
-		locus_links                       => 'locus link',
-		oauth_credentials                 => 'OAuth credentials',
-		eav_fields                        => 'phenotypic field',
-		client_dbase_cschemes             => 'classification scheme to client database definition '
+				  users                             => 'user',
+				  user_groups                       => 'user group',
+				  user_group_members                => 'user group member',
+				  loci                              => 'locus',
+				  refs                              => 'PubMed link',
+				  allele_designations               => 'allele designation',
+				  scheme_members                    => 'scheme member',
+				  schemes                           => 'scheme',
+				  scheme_fields                     => 'scheme field',
+				  composite_fields                  => 'composite field',
+				  composite_field_values            => 'composite field value',
+				  isolates                          => 'isolate',
+				  sequences                         => 'allele sequence',
+				  accession                         => 'accession number',
+				  sequence_refs                     => 'PubMed link',
+				  profiles                          => 'profile',
+				  sequence_bin                      => 'sequence (contig)',
+				  allele_sequences                  => 'allele sequence tag',
+				  isolate_aliases                   => 'isolate alias',
+				  locus_aliases                     => 'locus alias',
+				  curator                           => 'curator permission record',
+				  client_dbases                     => 'client database',
+				  client_dbase_loci                 => 'locus to client database definition',
+				  client_dbase_schemes              => 'scheme to client database definition',
+				  locus_extended_attributes         => 'locus extended attribute',
+				  projects                          => 'project description',
+				  project_members                   => 'project member',
+				  profile_refs                      => 'Pubmed link',
+				  samples                           => 'sample storage record',
+				  scheme_curators                   => 'scheme curator access record',
+				  locus_curators                    => 'locus curator access record',
+				  experiments                       => 'experiment',
+				  experiment_sequences              => 'experiment sequence link',
+				  isolate_field_extended_attributes => 'isolate field extended attribute',
+				  isolate_value_extended_attributes => 'isolate field extended attribute value',
+				  locus_descriptions                => 'locus description',
+				  scheme_groups                     => 'scheme group',
+				  scheme_group_scheme_members       => 'scheme group scheme member',
+				  scheme_group_group_members        => 'scheme group group member',
+				  pcr                               => 'PCR reaction',
+				  pcr_locus                         => 'PCR locus link',
+				  probes                            => 'nucleotide probe',
+				  probe_locus                       => 'probe locus link',
+				  client_dbase_loci_fields          => 'locus to client database isolate field definition',
+				  sets                              => 'set',
+				  set_loci                          => 'set member locus',
+				  set_schemes                       => 'set member schemes',
+				  set_metadata                      => 'set metadata',
+				  set_view                          => 'database view linked to set',
+				  history                           => 'update record',
+				  profile_history                   => 'profile update record',
+				  sequence_attributes               => 'sequence attribute',
+				  retired_allele_ids                => 'retired allele id',
+				  retired_profiles                  => 'retired profile',
+				  retired_isolates                  => 'retired isolate id',
+				  classification_schemes            => 'classification scheme',
+				  classification_group_fields       => 'classification group field',
+				  classification_group_field_values => 'classification group field value',
+				  user_dbases                       => 'user database',
+				  locus_links                       => 'locus link',
+				  oauth_credentials                 => 'OAuth credentials',
+				  eav_fields                        => 'phenotypic field',
+				  client_dbase_cschemes             => 'classification scheme to client database definition '
 	);
 	return $names{$table};
 }
@@ -1745,7 +1751,7 @@ sub is_allowed_to_view_isolate {
 	my ( $self, $isolate_id ) = @_;
 	my $allowed =
 	  $self->{'datastore'}->run_query( "SELECT EXISTS (SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
-		$isolate_id, { cache => 'is_allowed_to_view_isolate' } );
+									   $isolate_id, { cache => 'is_allowed_to_view_isolate' } );
 	return $allowed;
 }
 
@@ -1846,7 +1852,7 @@ sub get_seq_detail_tooltips {
 	my $cleaned_locus = $self->clean_locus( $locus, { text_output => 1 } );
 	my $sequence_tooltip =
 	  $self->_get_seq_detail_tooltip_text( $cleaned_locus, $designations, $allele_sequences,
-		\@flags_foreach_alleleseq );
+										   \@flags_foreach_alleleseq );
 	if (@$allele_sequences) {
 		my $set_id         = $self->get_set_id;
 		my $set_clause     = $set_id ? qq(&amp;set_id=$set_id) : q();
@@ -1888,7 +1894,9 @@ sub _get_isolate_allele_sequence {
 		}
 		my $locus_allele_sequences = $self->{'cache'}->{'allele_sequences'}->{$isolate_id}->{$locus};
 		foreach my $allele_sequence_id (
-			sort { $locus_allele_sequences->{$a}->{'complete'} cmp $locus_allele_sequences->{$b}->{'complete'} }
+			sort {
+				$locus_allele_sequences->{$a}->{'complete'} cmp $locus_allele_sequences->{$b}->{'complete'}
+			}
 			keys %$locus_allele_sequences
 		  )
 		{
@@ -1911,7 +1919,11 @@ sub _get_isolate_allele_designation {
 		my $locus_allele_designations = $self->{'cache'}->{'allele_designations'}->{$isolate_id}->{$locus};
 		no warnings 'numeric';    #sort by status, then by numeric values, then by alphabetical value.
 		foreach my $allele_id (
-			sort { $locus_allele_designations->{$a} cmp $locus_allele_designations->{$b} || $a <=> $b || $a cmp $b }
+			sort {
+				     $locus_allele_designations->{$a} cmp $locus_allele_designations->{$b}
+				  || $a <=> $b
+				  || $a cmp $b
+			}
 			keys %$locus_allele_designations
 		  )
 		{
@@ -1956,7 +1968,7 @@ sub is_admin {
 	return if $self->{'system'}->{'dbtype'} eq 'user';
 	if ( $self->{'username'} ) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
-			$self->{'username'}, { cache => 'Page::is_admin' } );
+													  $self->{'username'}, { cache => 'Page::is_admin' } );
 		return   if !$status;
 		return 1 if $status eq 'admin';
 	}
@@ -1978,9 +1990,9 @@ sub can_modify_table {
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
 	my %general_permissions = (
-		users              => $self->{'permissions'}->{'modify_users'},
-		user_groups        => $self->{'permissions'}->{'modify_usergroups'},
-		user_group_members => $self->{'permissions'}->{'modify_usergroups'},
+								users              => $self->{'permissions'}->{'modify_users'},
+								user_groups        => $self->{'permissions'}->{'modify_usergroups'},
+								user_group_members => $self->{'permissions'}->{'modify_usergroups'},
 	);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
 	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
@@ -1996,12 +2008,12 @@ sub can_modify_table {
 
 		#Isolate only tables
 		my %isolate_permissions = (
-			allele_designations               => $self->{'permissions'}->{'designate_alleles'},
-			sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
-			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
-			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
-			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'},
-			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
+							   allele_designations               => $self->{'permissions'}->{'designate_alleles'},
+							   sequence_bin                      => $self->{'permissions'}->{'modify_sequences'},
+							   allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
+							   isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
+							   isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'},
+							   eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates retired_isolates isolate_aliases refs);
@@ -2047,9 +2059,10 @@ sub can_modify_table {
 		my %profile_tables = map { $_ => 1 } qw (profiles profile_fields profile_members);
 		if ( $profile_tables{$table} ) {
 			return 0 if !$scheme_id;
-			return $self->{'datastore'}
+			return
+			  $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE scheme_id=? AND curator_id=?)',
-				[ $scheme_id, $self->get_curator_id ] );
+						   [ $scheme_id, $self->get_curator_id ] );
 		}
 
 		#Sequence refs
@@ -2085,15 +2098,17 @@ sub get_curator_id {
 sub isolate_exists {
 	my ( $self, $id, $options ) = @_;
 	if ( $options->{'has_seqbin'} ) {
-		return $self->{'datastore'}->run_query(
-			"SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} v JOIN "
-			  . 'seqbin_stats s ON v.id=s.isolate_id WHERE v.id=?)',
-			$id,
-			{ cache => 'Page::isolate_exists::has_seqbin' }
-		);
+		return
+		  $self->{'datastore'}->run_query(
+										   "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} v JOIN "
+											 . 'seqbin_stats s ON v.id=s.isolate_id WHERE v.id=?)',
+										   $id,
+										   { cache => 'Page::isolate_exists::has_seqbin' }
+		  );
 	}
-	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)",
-		$id, { cache => 'Page::isolate_exists' } );
+	return
+	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} WHERE id=?)",
+									   $id, { cache => 'Page::isolate_exists' } );
 }
 
 sub initiate_prefs {
@@ -2139,8 +2154,8 @@ sub initiate_prefs {
 			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  // 100;
 			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    // 100;
 			foreach (
-				qw(set_id submit_allele_technology submit_allele_read_length
-				submit_allele_coverage submit_allele_assembly submit_allele_software)
+					  qw(set_id submit_allele_technology submit_allele_read_length
+					  submit_allele_coverage submit_allele_assembly submit_allele_software)
 			  )
 			{
 				$self->{'prefs'}->{$_} = $general_prefs->{$_};
@@ -2199,12 +2214,12 @@ sub _initiate_isolatedb_prefs {
 	my $eav_field_list   = $self->{'datastore'}->get_eav_fieldnames;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended         = $self->get_extended_attributes;
-	my $args             = {
-		field_list       => $field_list,
-		eav_field_list   => $eav_field_list,
-		field_prefs      => $field_prefs,
-		extended         => $extended,
-		field_attributes => $field_attributes
+	my $args = {
+				 field_list       => $field_list,
+				 eav_field_list   => $eav_field_list,
+				 field_prefs      => $field_prefs,
+				 extended         => $extended,
+				 field_attributes => $field_attributes
 	};
 
 	#Parameters set by preference store via session cookie
@@ -2252,9 +2267,9 @@ sub _set_isolatedb_options {
 
 	#Switches
 	foreach my $option (
-		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
-		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
-		sample_details display_publications)
+						 qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
+						 sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
+						 sample_details display_publications)
 	  )
 	{
 		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
@@ -2297,8 +2312,8 @@ sub _initiate_isolatedb_general_prefs {
 
 	#default off
 	foreach my $option (
-		qw (update_details allele_flags scheme_members_alias sequence_details_main
-		display_seqbin_main display_contig_count display_publications)
+						 qw (update_details allele_flags scheme_members_alias sequence_details_main
+						 display_seqbin_main display_contig_count display_publications)
 	  )
 	{
 		$general_prefs->{$option} //= 'off';
@@ -2406,7 +2421,7 @@ sub _initiate_isolatedb_locus_prefs {
 	my ( $self, $guid, $dbname ) = @_;
 	my $locus_prefs =
 	  $self->{'datastore'}->run_query( 'SELECT id,isolate_display,main_display,query_field,analysis FROM loci',
-		undef, { fetch => 'all_arrayref' } );
+									   undef, { fetch => 'all_arrayref' } );
 	my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
 	my $i = 1;
 	foreach my $action (qw (isolate_display main_display query_field analysis)) {
@@ -2582,14 +2597,14 @@ sub print_seqbin_isolate_fieldset {
 		say q(<div style="float:left">);
 		if ( @$ids <= MAX_ISOLATES_DROPDOWN || !$options->{'isolate_paste_list'} ) {
 			say $self->popup_menu(
-				-name     => 'isolate_id',
-				-id       => 'isolate_id',
-				-values   => $ids,
-				-labels   => $labels,
-				-size     => $options->{'size'} // 8,
-				-multiple => 'true',
-				-default  => $options->{'selected_ids'},
-				-required => $options->{'isolate_paste_list'} ? undef : 'required'
+								   -name     => 'isolate_id',
+								   -id       => 'isolate_id',
+								   -values   => $ids,
+								   -labels   => $labels,
+								   -size     => $options->{'size'} // 8,
+								   -multiple => 'true',
+								   -default  => $options->{'selected_ids'},
+								   -required => $options->{'isolate_paste_list'} ? undef : 'required'
 			);
 			my $list_button = q();
 			if ( $options->{'isolate_paste_list'} ) {
@@ -2610,24 +2625,24 @@ sub print_seqbin_isolate_fieldset {
 				my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
 				say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
 				say $q->textarea(
-					-name        => 'isolate_paste_list',
-					-id          => 'isolate_paste_list',
-					-cols        => 12,
-					-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-					-placeholder => 'Paste list of isolate ids...'
+								  -name        => 'isolate_paste_list',
+								  -id          => 'isolate_paste_list',
+								  -cols        => 12,
+								  -rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+								  -placeholder => 'Paste list of isolate ids...'
 				);
 				say q(</div>);
 			}
 		} else {
 			local $" = qq(\n);
 			say $q->textarea(
-				-name        => 'isolate_paste_list',
-				-id          => 'isolate_paste_list',
-				-cols        => 12,
-				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-				-default     => "@{$options->{'selected_ids'}}",
-				-placeholder => 'Paste list of isolate ids...',
-				-required    => 'required'
+							  -name        => 'isolate_paste_list',
+							  -id          => 'isolate_paste_list',
+							  -cols        => 12,
+							  -rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+							  -default     => "@{$options->{'selected_ids'}}",
+							  -placeholder => 'Paste list of isolate ids...',
+							  -required    => 'required'
 			);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
 			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />)
@@ -2671,17 +2686,17 @@ sub print_isolates_locus_fieldset {
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
-		{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
+									{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		say q(<div style="float:left">);
 		say $self->popup_menu(
-			-name     => 'locus',
-			-id       => 'locus',
-			-values   => $locus_list,
-			-labels   => $locus_labels,
-			-size     => $options->{'size'} // 8,
-			-multiple => 'true',
-			-default  => $options->{'selected_loci'}
+							   -name     => 'locus',
+							   -id       => 'locus',
+							   -values   => $locus_list,
+							   -labels   => $locus_labels,
+							   -size     => $options->{'size'} // 8,
+							   -multiple => 'true',
+							   -default  => $options->{'selected_loci'}
 		);
 		my $list_button = q();
 		if ( $options->{'locus_paste_list'} ) {
@@ -2701,11 +2716,11 @@ sub print_isolates_locus_fieldset {
 			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
 			say qq(<div id="locus_paste_list_div" style="float:left; display:$display">);
 			say $q->textarea(
-				-name        => 'locus_paste_list',
-				-id          => 'locus_paste_list',
-				-cols        => 12,
-				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-				-placeholder => 'Paste list of locus primary names...'
+							  -name        => 'locus_paste_list',
+							  -id          => 'locus_paste_list',
+							  -cols        => 12,
+							  -rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+							  -placeholder => 'Paste list of locus primary names...'
 			);
 			say q(</div>);
 		}
@@ -2790,20 +2805,22 @@ sub populate_submission_params {
 sub _get_allele_submission_sequence {
 	my ( $self, $submission_id, $index ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	return $self->{'datastore'}
+	return
+	  $self->{'datastore'}
 	  ->run_query( 'SELECT sequence FROM allele_submission_sequences WHERE (submission_id,index)=(?,?)',
-		[ $submission_id, $index ] );
+				   [ $submission_id, $index ] );
 }
 
 sub _get_profile_submission_alleles {
 	my ( $self, $submission_id, $index ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	return $self->{'datastore'}->run_query(
-		'SELECT locus,allele_id FROM profile_submission_designations d JOIN profile_submission_profiles p '
-		  . 'ON (d.submission_id,d.profile_id)=(p.submission_id,p.profile_id) WHERE (p.submission_id,p.index)=(?,?)',
-		[ $submission_id, $index ],
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	return
+	  $self->{'datastore'}->run_query(
+		   'SELECT locus,allele_id FROM profile_submission_designations d JOIN profile_submission_profiles p '
+			 . 'ON (d.submission_id,d.profile_id)=(p.submission_id,p.profile_id) WHERE (p.submission_id,p.index)=(?,?)',
+		   [ $submission_id, $index ],
+		   { fetch => 'all_arrayref', slice => {} }
+	  );
 }
 
 #Scheme list filtered to remove disabled schemes.
@@ -2841,11 +2858,11 @@ sub use_correct_user_database {
 	#the logged in user details. Make sure the DBI object is set to correct
 	#database.
 	my $att = {
-		dbase_name => $self->{'system'}->{'db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'}
+				dbase_name => $self->{'system'}->{'db'},
+				host       => $self->{'system'}->{'host'},
+				port       => $self->{'system'}->{'port'},
+				user       => $self->{'system'}->{'user'},
+				password   => $self->{'system'}->{'password'}
 	};
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
@@ -2876,9 +2893,9 @@ sub get_user_db_name {
 		return $self->{'system'}->{'db'};
 	}
 	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$user_name
+												   'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+													 . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+												   $user_name
 	);
 	$db_name //= $self->{'system'}->{'db'};
 	return $db_name;
