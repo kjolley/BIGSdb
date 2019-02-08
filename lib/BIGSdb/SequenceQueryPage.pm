@@ -88,19 +88,17 @@ function initiate() {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-  	\$( "#show_more" ).click(function() {
-		if (\$("span#show_extra_matches").css('display') == 'none'){
-			\$("span#show_extra_matches").css('display', 'inline');
-			\$("span#hide_extra_matches").css('display', 'none');
-		} else {
-			\$("span#show_extra_matches").css('display', 'none');
-			\$("span#hide_extra_matches").css('display', 'inline');
-		}
-		\$( ".extra_match" ).toggle();
-		return false;
+	\$('#expand_matches').off('click').on('click', function(){	  
+	  if (\$('#matches').hasClass('expandable_expanded')) {
+	  	\$('#matches').switchClass('expandable_expanded','expandable_retracted_large',0, null, function(){
+	  		\$('#expand_matches').html('<span class="fas fa-chevron-down"></span>');  		
+	  	});	    
+	  } else {
+	  	\$('#matches').switchClass('expandable_retracted_large','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_matches').html('<span class="fas fa-chevron-up"></span>');  		
+	  	});	    
+	  }
 	});
-	\$('#show_extra_matches').tooltip({ content: "Show extra matches"});
-	\$('#hide_extra_matches').tooltip({ content: "Hide extra matches"});
 	\$("div#results a.tooltip").each(function( index ) {
 		var value = \$(this).attr('title');
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");

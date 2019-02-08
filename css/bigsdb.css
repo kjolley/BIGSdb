@@ -1,4 +1,4 @@
-/*Version: 20190131*/
+/*Version: 20190207*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -626,6 +626,47 @@ p.dashboard_number_detail {
 	color:#444
 }
 
+div.expandable_retracted {
+	margin:0;padding:0;
+	overflow-y: hidden;
+  	position: relative;
+  	height: 10em;
+  	-webkit-mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    -webkit-mask-size: 100% 100%;
+  	-webkit-mask-repeat: no-repeat;
+  	-webkit-mask-position: 0 100%;
+  	mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    mask-size: 100% 100%;
+  	mask-repeat: no-repeat;
+  	mask-position: 0 100%;
+}
+
+div.expandable_retracted_large {
+	margin:0;padding:0;
+	overflow-y: hidden;
+  	position: relative;
+  	height: 15em;
+  	-webkit-mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    -webkit-mask-size: 100% 100%;
+  	-webkit-mask-repeat: no-repeat;
+  	-webkit-mask-position: 0 100%;
+  	mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    mask-size: 100% 100%;
+  	mask-repeat: no-repeat;
+  	mask-position: 0 100%;
+}
+
+div.expand_link {
+	text-align: center
+}
+
+div.expand_link span {
+	font-size:3em;
+	color:#888;
+	text-shadow: 3px 3px 3px #999;
+	cursor:pointer
+}
+
 div.flags {line-height:2em;margin-bottom:0.5em}
 div.flags a {text-decoration:none}
 
@@ -813,7 +854,14 @@ span.navigation_button {
 	border-radius:5px;
 }
 span.fa-stack-text {font-family: Helvetica, Arial, sans-serif;color:white}
-span.wait_icon {color: #66a;background: -webkit-linear-gradient(#9c47fc, #356ad2); -webkit-background-clip: text; -webkit-text-fill-color: transparent}
+span.wait_icon {
+	color: #66a;
+	background: -webkit-linear-gradient(#9c47fc, #356ad2);
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent
+}
+
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
 span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
 span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
@@ -830,6 +878,7 @@ span.wait_message {
 	font-size:3em;
 	background: -webkit-linear-gradient(#aaa, #66a); 
 	-webkit-background-clip: text; 
+	background-clip: text; 
 	-webkit-text-fill-color: transparent
 }
 span.error_message {
@@ -837,6 +886,7 @@ span.error_message {
 	font-size:3em;
 	background: -webkit-linear-gradient(#aaa, #c33); 
 	-webkit-background-clip: text; 
+	background-clip: text; 
 	-webkit-text-fill-color: transparent
 }
 span.export_button {

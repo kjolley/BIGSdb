@@ -179,9 +179,9 @@ sub print_content {
 	}
 	$self->_print_client_database_data( $locus, $allele_id );
 	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
-	if ($client_buffer->{'formatted'}){
+	if ( $client_buffer->{'formatted'} ) {
 		say q(<span class="info_icon fas fa-2x fa-fw fa-link fa-pull-left" style="margin-top:-0.2em"></span>);
-		say qq(<h2>Linked data</h2>\n$client_buffer->{'formatted'}) 
+		say qq(<h2>Linked data</h2>\n$client_buffer->{'formatted'});
 	}
 	say q(</div></div>);
 	return;
@@ -270,7 +270,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
 	return;
 }
 
@@ -279,10 +279,10 @@ sub _print_accessions {
 	my $qry = 'SELECT databank,databank_id FROM accession WHERE (locus,allele_id)=(?,?) ORDER BY databank,databank_id';
 	my $accession_list =
 	  $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
+	my $hide = @$accession_list > 15;
 	if (@$accession_list) {
 		my $plural = @$accession_list > 1 ? q(s) : q();
 		my $count = @$accession_list;
-		say q(<div>);
 		my ( $display, $offset );
 		if ( @$accession_list > 4 ) {
 			$display = 'none';
@@ -294,30 +294,24 @@ sub _print_accessions {
 		say q(<span class="info_icon fas fa-2x fa-fw fa-external-link-square-alt fa-pull-left" )
 		  . qq(style="margin-top:${offset}em"></span>);
 		say qq(<h2 style="display:inline">Accession$plural ($count)</h2>);
-		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle;margin-bottom:0.5em">)
-		  . q(<a id="show_accessions" )
-		  . qq(style="cursor:pointer"><span id="show_accessions_text" title="Show accessions" style="display:inline">$show</span>)
-		  . qq(<span id="hide_accessions_text" title="Hide accessions" style="display:none">$hide</span></a></span>)
-		  if $display eq 'none';
-		my $id = $display eq 'none' ? 'hidden_accessions' : 'accessions';
 		my $accessions = [];
-
 		foreach my $accession (@$accession_list) {
 			my $href;
 			if ( $accession->{'databank'} eq 'Genbank' ) {
 				$href = qq(https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'});
 			} elsif ( $accession->{'databank'} eq 'ENA' ) {
 				$href = qq(http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'});
-				say qq(<dd><a href="http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}">)
-				  . qq($accession->{'databank_id'}</a></dd>);
 			}
 			push @$accessions,
 			  { title => $accession->{'databank'}, data => $accession->{'databank_id'}, href => $href };
 		}
-		say qq(<div id="$id">);
-		say $self->get_list_block($accessions);
-		say q(</div></div>);
+		my $class = $hide ? q(expandable_retracted) : q();
+		say qq(<div id="accessions" style="overflow:hidden" class="$class">);
+		say $self->get_list_block( $accessions, { width => 6, columnize => 1 } );
+		say q(</div>);
+		if ($hide) {
+			say q(<div class="expand_link" id="expand_accessions"><span class="fas fa-chevron-down"></span></div>);
+		}
 	}
 	return;
 }
@@ -329,37 +323,25 @@ sub _print_ref_links {
 		[ $locus, $allele_id ],
 		{ fetch => 'col_arrayref' }
 	);
+	my $hide = @$pmids > 4;
 	if (@$pmids) {
 		my $count = @$pmids;
 		my $plural = $count > 1 ? q(s) : q();
-		my ( $display, $class, $icon_offset );
-		if ( @$pmids > 4 ) {
-			$display     = q(none);
-			$class       = q(infopanel);
-			$icon_offset = 0;
-		} else {
-			$display     = q(block);
-			$class       = q();
-			$icon_offset = -0.2;
-		}
 		say q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" )
-		  . qq(style="margin-top:${icon_offset}em"></span>);
+		  . q(style="margin-top:-0.2em"></span>);
 		say qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_refs" )
-		  . qq(style="cursor:pointer"><span id="show_refs_text" title="Show references" style="display:inline">$show</span>)
-		  . qq(<span id="hide_refs_text" title="Hide references" style="display:none">$hide</span></a></span>)
-		  if $display eq 'none';
-		my $id = $display eq 'none' ? 'hidden_references' : 'references';
-		say qq(<ul id="$id" class="$class" style="display:$display">);
+		my $class = $hide ? q(expandable_retracted) : q();
+		say qq(<div id="references" style="overflow:hidden" class="$class"><ul>);
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
-
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
 			say qq(<li style="padding-bottom:1em">$citations->{$pmid}</li>);
 		}
 		say q(</ul></div>);
+		if ($hide) {
+			say q(<div class="expand_link" id="expand_references"><span class="fas fa-chevron-down"></span></div>);
+		}
 	}
 	return;
 }
@@ -368,30 +350,32 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-
-	\$("#hidden_accessions").css('display', 'none');
-	\$("#show_accessions").click(function() {
-		if (\$("span#show_accessions_text").css('display') == 'none'){
-			\$("span#show_accessions_text").css('display', 'inline');
-			\$("span#hide_accessions_text").css('display', 'none');
-		} else {
-			\$("span#show_accessions_text").css('display', 'none');
-			\$("span#hide_accessions_text").css('display', 'inline');
-		}
-		\$("#hidden_accessions").toggle( 'blind', {} , 500 );
+	\$('#expand_accessions').on('click', function(){	  
+	  if (\$('#accessions').hasClass('expandable_expanded')) {
+	  	\$('#accessions').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_accessions').html('<span class="fas fa-chevron-down"></span>');
+	  	});
+	    
+	  } else {
+	  	\$('#accessions').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_accessions').html('<span class="fas fa-chevron-up"></span>');
+	  	});
+	    
+	  }
 	});
-	\$( "#hidden_references" ).css('display', 'none');
-	\$( "#show_refs" ).click(function() {
-		if (\$("span#show_refs_text").css('display') == 'none'){
-			\$("span#show_refs_text").css('display', 'inline');
-			\$("span#hide_refs_text").css('display', 'none');
-		} else {
-			\$("span#show_refs_text").css('display', 'none');
-			\$("span#hide_refs_text").css('display', 'inline');
-		}
-		\$( "#hidden_references" ).toggle( 'blind', {} , 500 );
+	\$('#expand_references').on('click', function(){	  
+	  if (\$('#references').hasClass('expandable_expanded')) {
+	  	\$('#references').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_references').html('<span class="fas fa-chevron-down"></span>');
+	  	});	    
+	  } else {
+	  	\$('#references').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_references').html('<span class="fas fa-chevron-up"></span>');
+	  	});
+	    
+	  }
 	});
-
+	\$("#accessions").columnize({width:300});
 });
 
 END

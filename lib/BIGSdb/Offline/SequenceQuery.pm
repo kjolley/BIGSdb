@@ -201,12 +201,13 @@ sub _batch_query {
 	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 	say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 	close $fh;
-	my ($text, $excel) = (TEXT_FILE, EXCEL_FILE);
-	$buffer .= qq(<p style="margin-top:1em">)
-	 . qq(<a href="/tmp/$output_file.txt" title="Download in tab-delimited text format">$text</a>);
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	$buffer .= q(<p style="margin-top:1em">)
+	  . qq(<a href="/tmp/$output_file.txt" title="Download in tab-delimited text format">$text</a>);
 	my $excel_file = BIGSdb::Utils::text2excel($full_path);
-	if (-e $excel_file){
-		$buffer.=qq(<a href="/tmp/$output_file.xlsx" title="Download in Excel format">$excel</a>)
+
+	if ( -e $excel_file ) {
+		$buffer .= qq(<a href="/tmp/$output_file.xlsx" title="Download in Excel format">$excel</a>);
 	}
 	$buffer .= q(</p></div>);
 	return $buffer;
@@ -306,28 +307,25 @@ sub _get_scheme_exact_results {
 		}
 		if ($scheme_buffer) {
 			my $table = $self->_get_table_header($data);
-			$table  .= $scheme_buffer;
-			$table  .= q(</table>);
-			$buffer .= qq(<div class="scrollable">\n$table</div>\n);
+			$table .= $scheme_buffer;
+			$table .= q(</table>);
+			my $hide = $match_count > MAX_RESULTS_SHOW;
+			my $class = $hide ? q(expandable_retracted_large) : q();
+			$buffer .= qq(<div id="matches" class="$class"><div class="scrollable">$table</div></div>);
+			if ($hide) {
+				$buffer .=
+				  q(<div class="expand_link" id="expand_matches"><span class="fas fa-chevron-down"></span></div>);
+			}
 			my $output_file = BIGSdb::Utils::get_random();
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
 			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 			close $fh;
-
-			if ( $match_count > MAX_RESULTS_SHOW ) {
-				my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-				$buffer .=
-				    q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle">)
-				  . q(<a id="show_more" style="cursor:pointer"><span id="show_extra_matches" )
-				  . qq(title="Show extra matches" style="display:inline">$show</span>)
-				  . q(<span id="hide_extra_matches" title="Hide extra matches" )
-				  . qq(style="display:none">$hide</span></a></span>);
-			}
 			my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
 			$buffer .= qq(<p style="margin-top:1em"><a href="/tmp/$output_file.txt" )
 			  . qq(title="Download in tab-delimited text format">$text</a>);
 			my $excel_file = BIGSdb::Utils::text2excel($full_path);
+
 			if ( -e $excel_file ) {
 				$buffer .= qq(<a href="/tmp/$output_file.xlsx" title="Download in Excel format">$excel</a>);
 			}
@@ -368,8 +366,6 @@ sub _get_locus_matches {
 	my $buffer      = q();
 	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_count = 0;
-	my $class       = q();
-	my $style       = q();
 	foreach my $match ( @{ $exact_matches->{$locus} } ) {
 		my ( $field_values, $attributes, $allele_info, $flags );
 		$$match_count_ref++;
@@ -379,12 +375,7 @@ sub _get_locus_matches {
 		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
 		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
-
-		if ( $$match_count_ref > MAX_RESULTS_SHOW ) {
-			$style = q( style="display:none");
-			$class = q( extra_match);
-		}
-		$buffer .= qq(<tr class="td$$td_ref$class"$style><td>$cleaned_locus</td><td>$allele_link</td>);
+		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
