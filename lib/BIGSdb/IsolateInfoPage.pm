@@ -78,8 +78,7 @@ sub get_javascript {
 	  } else {
 	  	\$('#references').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
 	  		\$('#expand_references').html('<span class="fas fa-chevron-up"></span>');
-	  	});
-	    
+	  	});	    
 	  }
 	});
 	

@@ -628,14 +628,29 @@ p.dashboard_number_detail {
 
 div.expandable_retracted {
 	margin:0;padding:0;
-	overflow: hidden;
+	overflow-y: hidden;
   	position: relative;
   	height: 10em;
   	-webkit-mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
     -webkit-mask-size: 100% 100%;
   	-webkit-mask-repeat: no-repeat;
   	-webkit-mask-position: 0 100%;
-  	mask-image: linear-gradient(to bottom, black calc(50%), transparent calc(100%));
+  	mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    mask-size: 100% 100%;
+  	mask-repeat: no-repeat;
+  	mask-position: 0 100%;
+}
+
+div.expandable_retracted_large {
+	margin:0;padding:0;
+	overflow-y: hidden;
+  	position: relative;
+  	height: 15em;
+  	-webkit-mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
+    -webkit-mask-size: 100% 100%;
+  	-webkit-mask-repeat: no-repeat;
+  	-webkit-mask-position: 0 100%;
+  	mask-image: linear-gradient(to bottom, black calc(80%), transparent calc(100%));
     mask-size: 100% 100%;
   	mask-repeat: no-repeat;
   	mask-position: 0 100%;
