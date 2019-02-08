@@ -1645,7 +1645,9 @@ sub get_refs {
 	my ( $self, $pmids ) = @_;
 	my $buffer = q();
 	if (@$pmids) {
-		$buffer .= q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left"></span>);
+		$buffer .=
+		  q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" style="margin-top:-0.2em"></span>)
+		  ;
 		my $count = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
