@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -224,7 +224,7 @@ sub _print_classification_groups {
 		next if !defined $cgroup;
 		my $desc = $cscheme->{'description'};
 		my $tooltip =
-		  $desc
+		    $desc
 		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 		  : q();
 		my $profile_count =
@@ -302,32 +302,26 @@ sub _print_profile {
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $data =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM mv_scheme_$scheme_id WHERE $primary_key=?", $profile_id, { fetch => 'row_hashref' } );
+	my $hide = @$loci > MAX_LOCI_SHOW;
+	my $class = $hide ? q(expandable_retracted) : q();
+	say qq(<div id="profile" style="overflow:hidden" class="$class">);
 	say qq(<dl class="profile"><dt>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+
 	if ( $scheme_field_info->{'description'} ) {
 		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say qq(</dt><dd>$profile_id</dd></dl>);
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
-	my $count         = 0;
 	foreach my $locus (@$loci) {
-		$count++;
 		my $cleaned = $self->clean_locus($locus);
 		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
-		my ( $style, $class );
-		if ( $count > MAX_LOCI_SHOW ) {
-			$style = q( style="display:none");
-			$class = q( extra_locus);
-		} else {
-			$style = q();
-			$class = q();
-		}
-		say qq(<dl class="profile$class"$style><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
+		say qq(<dl class="profile"><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
 		  . qq($value</a></dd></dl>);
 	}
@@ -344,11 +338,9 @@ sub _print_profile {
 		$data->{ lc($field) } //= q(&nbsp;);
 		say qq(<dd>$data->{lc($field)}</dd></dl>);
 	}
-	if ( $count > MAX_LOCI_SHOW ) {
-		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
-		say q(<span class="navigation_button" style="margin-left:1em;vertical-align:middle"><a id="show_more" )
-		  . qq(style="cursor:pointer"><span id="show_extra_loci" title="Show extra loci" style="display:inline">$show</span>)
-		  . qq(<span id="hide_extra_loci" title="Hide extra loci" style="display:none">$hide</span></a></span>);
+	say q(</div>);
+	if ($hide) {
+		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 	}
 	say q(<dl class="data">);
 	foreach my $field (qw (sender curator date_entered datestamp)) {
@@ -456,16 +448,17 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-	\$( "#show_more" ).click(function() {
-		if (\$("span#show_extra_loci").css('display') == 'none'){
-			\$("span#show_extra_loci").css('display', 'inline');
-			\$("span#hide_extra_loci").css('display', 'none');
-		} else {
-			\$("span#show_extra_loci").css('display', 'none');
-			\$("span#hide_extra_loci").css('display', 'inline');
-		}
-		\$( ".extra_locus" ).toggle();
-		return false;
+	\$('#expand_profile').on('click', function(){	  
+	  if (\$('#profile').hasClass('expandable_expanded')) {
+	  	\$('#profile').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_profile').html('<span class="fas fa-chevron-down"></span>');
+	  	});	    
+	  } else {
+	  	\$('#profile').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_profile').html('<span class="fas fa-chevron-up"></span>');
+	  	});
+	    
+	  }
 	});
 });
 
