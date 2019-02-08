@@ -74,8 +74,7 @@ sub get_javascript {
 	  if (\$('#references').hasClass('expandable_expanded')) {
 	  	\$('#references').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
 	  		\$('#expand_references').html('<span class="fas fa-chevron-down"></span>');
-	  	});
-	    
+	  	});	    
 	  } else {
 	  	\$('#references').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
 	  		\$('#expand_references').html('<span class="fas fa-chevron-up"></span>');
@@ -1021,9 +1020,6 @@ sub _get_phenotypic_fields {
 		  };
 	}
 	$buffer .= qq(<div id="sparse" style="overflow:hidden" class="$class"><ul>);
-
-	#	$buffer .= qq(<div id="$id" class="$class" style="visibility:$visibility">);
-	#	$buffer .= q(<div id="sparse">);
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div></div>);
 	foreach my $spanel (@slide_panel) {
