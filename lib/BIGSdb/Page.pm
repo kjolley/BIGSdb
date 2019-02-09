@@ -1576,7 +1576,7 @@ sub get_link_button_to_ref {
 	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
-	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=?";
+	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=? AND new_version IS NULL";
 	my $count = $self->{'datastore'}->run_query( $qry, $ref, { cache => 'Page::link_ref' } );
 	my $plural = $count == 1 ? '' : 's';
 	my $q = $self->{'cgi'};

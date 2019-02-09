@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -105,7 +105,7 @@ sub print_content {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$qry =
 		    "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on "
-		  . "refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=$pmid "
+		  . "refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=$pmid AND new_version IS NULL "
 		  . "ORDER BY $self->{'system'}->{'view'}.id;";
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
