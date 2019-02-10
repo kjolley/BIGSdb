@@ -25,7 +25,6 @@ use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub run_script {
 	my ($self) = @_;
-	use Data::Dumper;
 	return $self if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
 	my $isolates    = $self->_process_user_genomes;
 	my $merged_data = {};

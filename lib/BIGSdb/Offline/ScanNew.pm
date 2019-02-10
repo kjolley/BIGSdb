@@ -161,7 +161,6 @@ sub _scan_locus_by_locus {
 
 sub _handle_match {
 	my ( $self, $locus_info, $match, $seqs ) = @_;
-	use Data::Dumper;
 	return if $self->_off_end_of_contig($match);
 	my $seq = $self->extract_seq_from_match($match);
 	my ( $reject, $flag ) = $self->_check_cds($seq);

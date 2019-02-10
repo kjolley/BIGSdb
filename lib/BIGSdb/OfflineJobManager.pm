@@ -92,7 +92,6 @@ sub add_job {
 	#dbase_config: name of db configuration direction in /etc/dbases
 	#ip_address: connecting address
 	#module: Plugin module name
-	#function: Function in module to call
 	#
 	#Optional params:
 	#username and email of user

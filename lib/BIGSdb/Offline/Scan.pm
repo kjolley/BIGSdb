@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -581,8 +581,8 @@ sub _skip_because_existing {
 }
 
 sub run_script {
-	my ($self)  = @_;
-	my $params  = $self->{'params'};
+	my ($self) = @_;
+	my $params = $self->{'params'};
 	my $options = $self->{'options'};
 	my @isolate_list = split( "\0", $params->{'isolate_id'} );
 	BIGSdb::Exception::Data->throw('Invalid isolate_ids passed') if !@isolate_list;
@@ -596,6 +596,8 @@ sub run_script {
 	my %isolates_to_tag;
 	my $locus_prefix = BIGSdb::Utils::get_random();
 	my $file_prefix  = BIGSdb::Utils::get_random();
+	$self->initiate_job_manager if $self->{'config'}->{'record_scans'};
+	my $job_id       = $self->_add_job;
 	my $start_time   = time;
 	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
@@ -648,6 +650,51 @@ sub run_script {
 	$self->_write_status( $options->{'scan_job'}, "loci:@$loci" );
 	$self->_write_status( $options->{'scan_job'}, "stop_time:$stop_time" );
 	$logger->info("Scan $self->{'instance'}:$options->{'scan_job'} ($options->{'curator_name'}) finished");
+	$self->_stop_job($job_id);
+	return;
+}
+
+sub _add_job {
+	my ( $self ) = @_;
+	my $params = $self->{'params'};
+	return
+	  if !$self->{'config'}->{'jobs_db'}
+	  || !$self->{'config'}->{'record_scans'};
+	my $job_id;
+	try {
+		$job_id = $self->{'jobManager'}->add_job(
+			{
+				dbase_config => $self->{'instance'},
+				module       => 'ManualScan',
+				ip_address => $params->{'ip_address'},
+				username => $params->{'username'},
+				email => $params->{'email'},
+				parameters   => {},
+				mark_started => 1,
+				no_progress  => 1
+			}
+		);
+	}
+	catch {
+		$logger->error($_);
+	};
+	return $job_id;
+}
+
+sub _stop_job {
+	my ( $self, $job_id ) = @_;
+	return
+	  if !$self->{'config'}->{'jobs_db'}
+	  || !$self->{'config'}->{'record_scans'};
+	$self->{'jobManager'}->update_job_status(
+		$job_id,
+		{
+			status           => 'finished',
+			stop_time        => 'now',
+			percent_complete => 100,
+			pid              => undef
+		}
+	);
 	return;
 }
 

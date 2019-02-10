@@ -495,6 +495,7 @@ sub _scan {
 	$self->_save_parameters($scan_job);
 	my $project_id   = $q->param('project_list');
 	my $curator_name = $self->get_curator_name;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
 	my ( undef, $labels ) = $self->get_isolates_with_seqbin;
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
@@ -521,6 +522,9 @@ sub _scan {
 				throw_busy_exception => 1
 			};
 			my $params = $q->Vars;
+			$params->{'ip_address'} = $ENV{'REMOTE_ADDR'};
+			$params->{'username'} = $self->{'username'};
+			$params->{'email'} = $user_info->{'email'};
 			$params->{'scannew'} = 1;
 			if ( $params->{'loci_together'} ) {
 				$params->{'exemplar'}             = 1;
