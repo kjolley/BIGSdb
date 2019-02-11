@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -240,13 +240,17 @@ sub _get_group_schemes {
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};
-			next if $options->{'no_disabled'}     && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
+			next if $options->{'no_disabled'} && $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+			next
+			  if defined $isolate_id
+			  && $scheme_info->{'view'}
+			  && !$self->_is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
 			$scheme_info->{'name'} =~ s/&/\&amp;/gx;
 			my $page = $self->{'cgi'}->param('page');
 			$page = 'info' if any { $page eq $_ } qw (isolateDelete isolateUpdate alleleUpdate);
-			if ( defined $isolate_id ) {
 
+			if ( defined $isolate_id ) {
 				if ( $self->_scheme_data_present( $scheme_id, $isolate_id ) ) {
 					$buffer .=
 					  $options->{'no_link_out'}
@@ -271,6 +275,20 @@ sub _get_group_schemes {
 		}
 	}
 	return $buffer ? qq(<ul>$buffer</ul>\n) : q();
+}
+
+sub _is_isolate_in_view {
+	my ( $self, $view, $isolate_id ) = @_;
+	my $result;
+	eval {
+		$result = $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT id FROM $view WHERE id=?)",
+			$isolate_id, { cache => "TreeViewPage::is_isolate_in_view::$view" } );
+	};
+	if ($@) {
+		$logger->error($@);
+		return;
+	}
+	return $result;
 }
 
 sub _get_child_groups {
@@ -319,6 +337,10 @@ sub _get_child_groups {
 
 sub _scheme_data_present {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	return
+	  if $scheme_info->{'view'}
+	  && !$self->_is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
 	my $designations_present = $self->{'datastore'}->run_query(
 		q[SELECT EXISTS(SELECT * FROM allele_designations LEFT JOIN scheme_members ON ]
 		  . q[allele_designations.locus=scheme_members.locus WHERE isolate_id=? AND ]
