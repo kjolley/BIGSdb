@@ -498,6 +498,19 @@ sub get_loci_table_attributes {
 				  . 'template will become unwieldy.'
 			}
 		  );
+		if ( $self->{'system'}->{'views'} ) {
+			my @views = split /,/x, $self->{'system'}->{'views'};
+			local $" = q(;);
+			push @$attributes, (
+				{
+					name    => 'view',
+					type    => 'text',
+					optlist => qq(@views),
+					tooltip =>
+					  'view - restrict locus to only isolates belonging to specified database view.'
+				}
+			);
+		}
 	} else {    #Seqdef database
 		my $id_threshold = IDENTITY_THRESHOLD;
 		push @$attributes,
