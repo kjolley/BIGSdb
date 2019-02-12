@@ -1,6 +1,6 @@
 #RuleQuery.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2018, University of Oxford
+#Copyright (c) 2012-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use Try::Tiny;
+use BIGSdb::Offline::Blast;
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -40,7 +41,7 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Rule Query',
 		module           => 'RuleQuery',
-		version          => '1.1.3',
+		version          => '1.1.4',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => '',
