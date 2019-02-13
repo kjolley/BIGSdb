@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Application);
 use Dancer2 0.156;
+use Time::HiRes qw(gettimeofday tv_interval);
 use Try::Tiny;
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
@@ -109,7 +110,8 @@ sub check_post_payload {
 
 #Read database configs and connect before entering route.
 sub _before {
-	my $self         = setting('self');
+	my $self = setting('self');
+	$self->{'start_time'} = [gettimeofday];
 	my $request_path = request->path();
 	$self->{'instance'} = $request_path =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
@@ -153,12 +155,49 @@ sub _before {
 	$self->setup_datastore;
 	$self->setup_remote_contig_manager;
 	$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
+	$self->_setup_db_logger;
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	_check_kiosk();
 	_check_authorization();
 	$self->_initiate_view;
 	$self->_set_page_options;
 	return;
+}
+
+sub _setup_db_logger {
+	my $self = setting('self');
+	return if !$self->{'config'}->{'rest_log_to_db'};
+	$self->{'log_db'} = $self->{'dataConnector'}->get_connection( { dbase_name => $self->{'config'}->{'rest_db'} } );
+	my $real_host = $self->{'config'}->{'host_map'}->{ $self->{'system'}->{'host'} } // $self->{'system'}->{'host'};
+	$self->{'do_not_drop'} = ["$real_host|$self->{'config'}->{'rest_db'}"];
+	return;
+}
+
+sub _log_call {
+	my $self = setting('self');
+	return if !$self->{'config'}->{'rest_log_to_db'};
+	return if request->path eq '/favicon.ico';
+	my $ip_address = _get_ip_address();
+	eval {
+		$self->{'log_db'}->do( 'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
+			undef, 'now', $ip_address, request->method, request->path,
+			int( 1000 * tv_interval( $self->{'start_time'} ) ) );
+	};
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'log_db'}->rollback;
+	} else {
+		$self->{'log_db'}->commit;
+	}
+	return;
+}
+
+sub _get_ip_address {
+	if ( setting('behind_proxy') && request->forwarded_for_address ) {
+		my @addresses = split /,/x, request->forwarded_for_address;
+		return $addresses[0];
+	}
+	return request->address;
 }
 
 sub _check_authorization {
@@ -250,15 +289,17 @@ sub get_page_values {
 #for systems with only a few databases.
 sub _after {
 	my $self = setting('self');
+	$self->_log_call;
 	undef $self->{'username'};
-	$self->{'dataConnector'}->drop_all_connections;
+	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 	return;
 }
 
 sub _after_error {
 	my $self = setting('self');
+	$self->_log_call;
 	undef $self->{'username'};
-	$self->{'dataConnector'}->drop_all_connections;
+	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 	return;
 }
 
@@ -574,8 +615,7 @@ sub add_filters {
 	my ( $self, $qry, $allowed_args, $options ) = @_;
 	my $params = params;
 	my ( $added_after, $added_on, $updated_after, $updated_on, $alleles_added_after, $alleles_updated_after ) =
-	  @{$params}{qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after)}
-	  ;
+	  @{$params}{qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after)};
 	my @terms;
 	my $id = $options->{'id'} // 'id';
 	my %methods = (

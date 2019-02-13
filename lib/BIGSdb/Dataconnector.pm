@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -84,8 +84,11 @@ sub drop_connection {
 }
 
 sub drop_all_connections {
-	my ($self) = @_;
+	my ($self, $except) = @_;
+	$except = [] if ref $except ne 'ARRAY';
+	my %except = map {$_ => 1} @$except;
 	foreach my $db ( keys %{ $self->{'db'} } ) {
+		next if $except{$db};
 		next if $self->{'forks'} && $self->{'db'}->{$db}->{'InactiveDestroy'};
 		$self->_finish_active_statement_handles( $self->{'db'}->{$db}, 1 );
 		eval {
