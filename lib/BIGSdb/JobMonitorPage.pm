@@ -110,7 +110,7 @@ var max_queued_colour_warn = $max_queued_colour_warn;
 });
 
 function showhide_optional_dashboard_numbers(){
-	if (\$(window).width() < 660){
+	if (\$(window).width() < 600){
 		\$(".optional").hide();
 	} else {
 		\$(".optional").show();
