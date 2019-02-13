@@ -71,8 +71,6 @@ sub run_script {
 	return;
 }
 
-
-
 sub _scan_loci_together {
 	my ( $self, $isolate_list, $loci, $params ) = @_;
 	my $EXIT = 0;
@@ -93,6 +91,7 @@ sub _scan_loci_together {
 			@loci_to_scan = @$loci;
 		}
 		foreach my $locus (@$loci) {
+			next if $self->skip_for_locus_view( $isolate_id, $locus, $params );
 			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$existing_allele_ids;
 			$allele_seq->{$locus} = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );
@@ -163,6 +162,7 @@ sub _scan_locus_by_locus {
 		undef $self->{'history'};
 	  LOCUS: foreach my $locus (@$loci) {
 			last if $EXIT || $self->_is_time_up;
+			next LOCUS if $self->skip_for_locus_view( $isolate_id, $locus, $params );
 			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$existing_allele_ids;
 			my $allele_seq = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus );

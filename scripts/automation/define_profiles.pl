@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190202
+#Version: 20190212
 use strict;
 use warnings;
 use 5.010;
@@ -118,9 +118,12 @@ sub main {
 	my $isolates     = $script->get_isolates;
 	my $isolate_list = $script->filter_and_sort_isolates($isolates);
 	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
+	my $scheme_info  = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
+	my $view         = $scheme_info->{'view'};
 	my $need_to_refresh_cache;
 	foreach my $isolate_id (@$isolate_list) {
 		next if defined_in_cache($isolate_id);
+		next if filtered_out_by_view( $view, $isolate_id );
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
 		next if $missing > $opts{'missing'};
 		my $field_values =
@@ -444,6 +447,12 @@ sub defined_in_cache {
 	return if !$cache_exists;
 	return $script->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)",
 		$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
+}
+
+sub filtered_out_by_view {
+	my ( $view, $isolate_id ) = @_;
+	return if !defined $view;
+	return !$script->{'datastore'}->is_isolate_in_view( $view, $isolate_id );
 }
 
 sub get_lock_file {

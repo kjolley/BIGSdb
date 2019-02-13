@@ -498,6 +498,19 @@ sub get_loci_table_attributes {
 				  . 'template will become unwieldy.'
 			}
 		  );
+		if ( $self->{'system'}->{'views'} ) {
+			my @views = split /,/x, $self->{'system'}->{'views'};
+			local $" = q(;);
+			push @$attributes, (
+				{
+					name    => 'view',
+					type    => 'text',
+					optlist => qq(@views),
+					tooltip =>
+					  'view - restrict locus to only isolates belonging to specified database view.'
+				}
+			);
+		}
 	} else {    #Seqdef database
 		my $id_threshold = IDENTITY_THRESHOLD;
 		push @$attributes,
@@ -1256,6 +1269,19 @@ sub get_schemes_table_attributes {
 				  . '(can be overridden by user preference).'
 			}
 		  );
+		if ( $self->{'system'}->{'views'} ) {
+			my @views = split /,/x, $self->{'system'}->{'views'};
+			local $" = q(;);
+			push @$attributes,
+			  (
+				{
+					name    => 'view',
+					type    => 'text',
+					optlist => qq(@views),
+					tooltip => 'view - restrict scheme to only isolates belonging to specified database view.'
+				}
+			  );
+		}
 	}
 	push @$attributes,
 	  (
@@ -1835,14 +1861,14 @@ sub get_sequence_bin_table_attributes {
 sub get_oauth_credentials_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'base_uri', type => 'text', required => 1, length => 200, primary_key => 1 },
+		{ name => 'base_uri',        type => 'text', required => 1, length => 200, primary_key => 1 },
 		{ name => 'consumer_key',    type => 'text', required => 1 },
 		{ name => 'consumer_secret', type => 'text', required => 1 },
 		{ name => 'access_token',    type => 'text', required => 1 },
 		{ name => 'access_secret',   type => 'text', required => 1 },
-		{ name => 'curator',         type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'date_entered',    type => 'date', required => 1 },
-		{ name => 'datestamp',       type => 'date', required => 1 }
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'date_entered', type => 'date', required => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 }
 	];
 	return $attributes;
 }

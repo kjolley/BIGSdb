@@ -580,6 +580,22 @@ sub _skip_because_existing {
 	return;
 }
 
+sub skip_for_locus_view {
+	my ( $self, $isolate_id, $locus, $params ) = @_;
+	return if $params->{'override_view'};
+	if ( !$self->{'locus_view_cache_set'} ) {
+		my $data = $self->{'datastore'}->run_query( 'SELECT id,view FROM loci WHERE view IS NOT NULL',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		$self->{'locus_view_cache'} = {};
+		%{ $self->{'locus_view_cache'} } = map { $_->{'id'} => $_->{'view'} } @$data;
+		$self->{'locus_view_cache_set'} = 1;
+	}
+	if ( $self->{'locus_view_cache'}->{$locus} ) {
+		return !$self->{'datastore'}->is_isolate_in_view( $self->{'locus_view_cache'}->{$locus}, $isolate_id );
+	}
+	return;
+}
+
 sub run_script {
 	my ($self) = @_;
 	my $params = $self->{'params'};
@@ -728,6 +744,7 @@ sub _scan_locus_by_locus {
 			}
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
+			next if $self->skip_for_locus_view( $isolate_id, $locus, $params );
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $analysis_args = {
@@ -883,6 +900,7 @@ sub _scan_loci_together {
 			}
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
+			next if $self->skip_for_locus_view( $isolate_id, $locus, $params );
 			push @$loci_to_scan, $locus;
 		}
 		next if !@$loci_to_scan;

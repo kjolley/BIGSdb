@@ -425,6 +425,20 @@ sub isolate_exists {
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $isolate_id );
 }
 
+sub is_isolate_in_view {
+	my ( $self, $view, $isolate_id ) = @_;
+	my $result;
+	eval {
+		$result = $self->run_query( "SELECT EXISTS(SELECT id FROM $view WHERE id=?)",
+			$isolate_id, { cache => "is_isolate_in_view::$view" } );
+	};
+	if ($@) {
+		$logger->error($@);
+		return;
+	}
+	return $result;
+}
+
 sub get_scheme_locus_indices {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';

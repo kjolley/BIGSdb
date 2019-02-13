@@ -38,6 +38,7 @@ my $PARTIAL_WHEN_EXACT = 'off';
 my $LOCI_TOGETHER      = 'off';
 my $TBLASTX            = 'off';
 my $HUNT               = 'off';
+my $OVERRIDE_VIEW      = 'off';
 my $RESCAN_ALLELES     = 'off';
 my $RESCAN_SEQS        = 'off';
 my $TYPE_ALLELES       = 'off';
@@ -67,6 +68,7 @@ function use_defaults() {
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
 	\$("#hunt").prop(\"checked\",$check_values{$HUNT});
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
+	\$("#override_view").prop(\"checked\",$check_values{$OVERRIDE_VIEW});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
 	\$("#rescan_seqs").prop(\"checked\",$check_values{$RESCAN_SEQS});
 	\$("#type_alleles").prop(\"checked\",$check_values{$TYPE_ALLELES});
@@ -399,6 +401,21 @@ sub _print_parameter_fieldset {
 		: q()
 	);
 	say q(</li><li>);
+	if ( $self->{'system'}->{'views'} ) {
+		say $q->checkbox(
+			-name    => 'override_view',
+			-id      => 'override_view',
+			-label   => 'Override locus view restrictions',
+			-checked => ( $general_prefs->{'scan_override_view'} && $general_prefs->{'scan_override_view'} eq 'on' )
+			? 'checked'
+			: q()
+		);
+		say $self->get_tooltip( q[Override view restriction - Some loci are restricted by an isolate view so that ]
+			  . q[only isolates that belong to a view will be scanned against them (this is used, for example, to restrict ]
+			  . q[some loci to only particular species or types). Select to override this restriction.] )
+		  ;
+		say q(</li><li>);
+	}
 	say $q->checkbox(
 		-name    => 'rescan_alleles',
 		-id      => 'rescan_alleles',
@@ -483,7 +500,7 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt rescan_alleles rescan_seqs type_alleles mark_missing loci_together)
+			tblastx hunt override_view rescan_alleles rescan_seqs type_alleles mark_missing loci_together)
 		  )
 		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
@@ -754,8 +771,7 @@ sub _show_results {
 				}
 			);
 		} else {
-			say
-			  q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+			say q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
 			  . q(<span class="wait_message">No results yet ... Please wait.</span></p>);
 		}
 	} else {
