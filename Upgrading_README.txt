@@ -27,6 +27,7 @@ Version 1.18: Change of seqdef and isolate database structures.
 Version 1.19: Change of seqdef and isolate database structures.
 Version 1.20: Change of seqdef and isolate database structures.
 Version 1.21: Change of seqdef and isolate database structures.
+Version 1.22: Change of isolate database structure.
 
 Details can be found below.
 
@@ -414,3 +415,9 @@ support associating additional fields to classification groups.
 Please run the seqdefdb_v1.21.sql script against sequence definition databases
 and isolatedb_v1.21.sql against isolate databases.
 
+Version 1.22
+------------
+There are changes to the isolate database. These are to support restricting 
+loci and schemes to particular isolate table views.
+
+Please run isolatedb_v1.22.sql against isolate databases. 

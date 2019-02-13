@@ -1,3 +1,7 @@
+v1.22.0: *Option to restrict schemes and loci to subsets of isolate records
+          defined by database views.
+         *Option to track maintenance tasks in jobs database and include in
+          the jobs monitor.
 v1.21.3: *New GenePresence plugin using interactive pivot tables and heatmaps
           to replace the old PresenceAbsence and TagStatus plugins.
          *Job monitor page to track current running and queuing jobs. This can
