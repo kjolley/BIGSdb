@@ -7,4 +7,4 @@ duration float NOT NULL
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON log TO apache,bigsdb;
-CREATE INDEX l_l1 ON log USING brin(timestamp);
+CREATE INDEX i_l1 ON log USING brin(timestamp);

@@ -117,8 +117,7 @@ function showhide_optional_dashboard_numbers(){
 	}
 }
 
-function load_chart(url){
-	
+function load_chart(url){	
 	d3.json(url).then (function(jsonData){
 		var time = ["time"];
 		var queued = ["queued"];
@@ -186,22 +185,22 @@ function load_chart(url){
 			padding: {
 				right:20
 			},
-	    tooltip: {
-			format: {
-			    title: function (x, index) {
-				var timestamp = new Date(x);
-				var offset = timestamp.getTimezoneOffset();
-				timestamp.setMinutes( timestamp.getMinutes() - offset );
-				return (timestamp.getFullYear()
-					+ "-" + ("0" + (timestamp.getMonth()+1)).slice(-2) + "-"
-					+ ("0" + timestamp.getDate()).slice(-2) + " "
-					+ ("0" + timestamp.getHours()).slice(-2)) + ":"
-				        + ("0" + timestamp.getMinutes()).slice(-2);
-				
-			    },
-			    value: function (value, ratio, id, index) { return value }
-			}
-	    }
+		    tooltip: {
+				format: {
+				    title: function (x, index) {
+					var timestamp = new Date(x);
+					var offset = timestamp.getTimezoneOffset();
+					timestamp.setMinutes( timestamp.getMinutes() - offset );
+					return (timestamp.getFullYear()
+						+ "-" + ("0" + (timestamp.getMonth()+1)).slice(-2) + "-"
+						+ ("0" + timestamp.getDate()).slice(-2) + " "
+						+ ("0" + timestamp.getHours()).slice(-2)) + ":"
+					        + ("0" + timestamp.getMinutes()).slice(-2);
+					
+				    },
+				    value: function (value, ratio, id, index) { return value }
+				}
+		    }
 		});
 		\$(".c3-title").css("font-weight","600");
 		\$("#period_select").show();

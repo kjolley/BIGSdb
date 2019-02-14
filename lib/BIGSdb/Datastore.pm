@@ -2438,7 +2438,7 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'job' ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'job' || $self->{'system'}->{'dbtype'} eq 'rest') {
 		return NOT_ALLOWED;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {

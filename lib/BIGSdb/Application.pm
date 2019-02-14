@@ -26,6 +26,7 @@ use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxJobs;
 use BIGSdb::AjaxMenu;
 use BIGSdb::AjaxPrefs;
+use BIGSdb::AjaxRest;
 use BIGSdb::AlleleInfoPage;
 use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
@@ -60,6 +61,7 @@ use BIGSdb::ProjectsPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
 use BIGSdb::RecordInfoPage;
+use BIGSdb::RestMonitorPage;
 use BIGSdb::SchemeInfoPage;
 use BIGSdb::SeqbinPage;
 use BIGSdb::SequenceQueryPage;
@@ -80,6 +82,7 @@ use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePasswo
 use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchIsolateUpdate isolateAdd isolateUpdate index logout);
+use constant PAGES_NOT_NEEDING_PLUGINS => qw(ajaxJobs jobMonitor ajaxRest restMonitor);
 
 sub new {
 	my ( $class, $config_dir, $lib_dir, $dbase_config_dir, $r, $curate ) = @_;
@@ -140,6 +143,12 @@ sub new {
 	} elsif ( !$self->{'instance'} ) {
 		if ( $self->{'page'} eq 'ajaxJobs' ) {
 			$self->initiate_jobmanager( $config_dir, $dbase_config_dir );
+		} elsif ( $self->{'page'} eq 'ajaxRest' && $self->{'config'}->{'rest_db'}) {
+			$self->{'system'}->{'db'} = $self->{'config'}->{'rest_db'};
+			$self->db_connect;
+			if ( $self->{'db'} ) {
+				$self->setup_datastore;
+			}
 		} else {
 			if ( $self->{'config'}->{'site_user_dbs'} ) {
 
@@ -187,9 +196,11 @@ sub _initiate {
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
 	return if $self->_is_job_page;
+	return if $self->_is_rest_page;
 	return if $self->_is_user_page;
 	$self->{'instance'} = $db =~ /^([\w\d\-_]+)$/x ? $1 : '';
 	my $full_path = "$dbase_config_dir/$self->{'instance'}/config.xml";
+
 	if ( !-e $full_path ) {
 		$logger->fatal("Database config file for '$self->{'instance'}' does not exist.");
 		$self->{'error'} = 'missingXML';
@@ -309,6 +320,20 @@ sub _check_kiosk_page {
 	return;
 }
 
+#This is not for the REST interface, just web pages that are used to monitor the REST interface.
+sub _is_rest_page {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my %rest_page = map { $_ => 1 } qw(ajaxRest restMonitor);
+	if ( $rest_page{ $q->param('page') } ) {
+		$self->{'system'}->{'dbtype'} = 'rest';
+		$self->{'system'}->{'script_name'} =
+		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
+		return 1;
+	}
+	return;
+}
+
 sub _is_job_page {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -330,7 +355,7 @@ sub _is_user_page {
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} =
 		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind ajaxJobs jobMonitor);
+		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind);
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
 		return 1;
@@ -347,6 +372,7 @@ sub print_page {
 		ajaxJobs           => 'AjaxJobs',
 		ajaxMenu           => 'AjaxMenu',
 		ajaxPrefs          => 'AjaxPrefs',
+		ajaxRest           => 'AjaxRest',
 		alleleInfo         => 'AlleleInfoPage',
 		alleleQuery        => 'AlleleQueryPage',
 		alleleSequence     => 'AlleleSequencePage',
@@ -382,6 +408,7 @@ sub print_page {
 		projects           => 'ProjectsPage',
 		recordInfo         => 'RecordInfoPage',
 		registration       => 'UserRegistrationPage',
+		restMonitor        => 'RestMonitorPage',
 		schemeInfo         => 'SchemeInfoPage',
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
@@ -479,6 +506,10 @@ sub print_page {
 
 sub app_specific_initiation {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my %no_plugins = map { $_ => 1 } PAGES_NOT_NEEDING_PLUGINS;
+	return if $no_plugins{ $q->param('page') };
+	$logger->error('initiating plugins');
 	$self->initiate_plugins;
 	return;
 }
