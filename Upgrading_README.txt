@@ -27,7 +27,7 @@ Version 1.18: Change of seqdef and isolate database structures.
 Version 1.19: Change of seqdef and isolate database structures.
 Version 1.20: Change of seqdef and isolate database structures.
 Version 1.21: Change of seqdef and isolate database structures.
-Version 1.22: Change of isolate database structure.
+Version 1.22: Change of isolate and rest_db database structure.
 
 Details can be found below.
 
@@ -421,3 +421,6 @@ There are changes to the isolate database. These are to support restricting
 loci and schemes to particular isolate table views.
 
 Please run isolatedb_v1.22.sql against isolate databases. 
+
+There has also been a change to the rest_db database structure in order to 
+support logging. Please run rest_v1.22.sql against the rest_db database.
