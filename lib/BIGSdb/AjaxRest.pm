@@ -57,7 +57,7 @@ sub print_content {
 		$width = DEFAULT_INTERVAL;
 	}
 	my $buckets = $self->{'datastore'}->run_query(
-		    q[SET timezone TO 'UTC';]
+		q[SET timezone TO 'UTC';]
 		  . qq[SELECT * FROM generate_series(CAST(date_trunc('minute',now()-interval '$time minutes') AS timestamp),]
 		  . qq[CAST(date_trunc('minute',now()) AS timestamp), '$width minutes') t],
 		undef,
@@ -82,18 +82,6 @@ sub print_content {
 			hits  => $bucket_count{$start_time} // 0
 		  };
 	}
-
-	#	foreach my $populated_bucket (@$data) {
-	#		push @$return_data, {
-	#			start => $buckets->[ $populated_bucket->{'bucket'} - 1 ],
-	#			hits  => $populated_bucket->{'count'}
-	#		};
-	#	}
-	push @$return_data,
-	  {
-		start => $buckets->[-1],
-		hits  => 0
-	  };
 	say encode_json($return_data);
 	return;
 }

@@ -30,7 +30,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery d3);
+	$self->{$_} = 1 foreach qw(jQuery c3);
 	return;
 }
 

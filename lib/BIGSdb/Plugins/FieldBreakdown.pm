@@ -39,7 +39,7 @@ sub get_attributes {
 				buttontext  => 'Fields',
 				menutext    => 'Single field',
 				module      => 'FieldBreakdown',
-				version     => '2.1.0',
+				version     => '2.1.1',
 				dbtype      => 'isolates',
 				section     => 'breakdown,postquery',
 				url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -52,7 +52,7 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { d3 => 1, filesaver => 1, noCache => 1, 'jQuery.tablesort' => 1 };
+	my $values = { c3 => 1, filesaver => 1, noCache => 1, 'jQuery.tablesort' => 1 };
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}

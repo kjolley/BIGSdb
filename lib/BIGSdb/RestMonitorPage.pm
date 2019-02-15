@@ -30,7 +30,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery d3);
+	$self->{$_} = 1 foreach qw(jQuery c3);
 	return;
 }
 
@@ -83,7 +83,7 @@ sub print_content {
 			id      => 'period',
 			values  => [ 30, 60, 120, 360, 720, 1440, 2880, 4320, 5760, 7200 ],
 			labels  => $labels,
-			default => 720,
+			default => 360,
 			style => 'margin-right:1em;margin-bottom:0.5em'
 		}
 	);
@@ -221,14 +221,19 @@ function load_chart(url){
 				format: {
 				    title: function (x, index) {
 					var timestamp = new Date(x);
+					var timestamp2 = new Date(x);
 					var offset = timestamp.getTimezoneOffset();
 					timestamp.setMinutes( timestamp.getMinutes() - offset );
+					timestamp2.setMinutes(timestamp2.getMinutes() + parseInt(\$("#interval").val()) - offset);
+					
 					return (timestamp.getFullYear()
 						+ "-" + ("0" + (timestamp.getMonth()+1)).slice(-2) + "-"
 						+ ("0" + timestamp.getDate()).slice(-2) + " "
-						+ ("0" + timestamp.getHours()).slice(-2)) + ":"
-					        + ("0" + timestamp.getMinutes()).slice(-2);
-					
+						+ ("0" + timestamp.getHours()).slice(-2) + ":"
+					    + ("0" + timestamp.getMinutes()).slice(-2)
+					    + " - "
+						+ ("0" + timestamp2.getHours()).slice(-2) + ":"
+					    + ("0" + timestamp2.getMinutes()).slice(-2));				
 				    },
 				    value: function (value, ratio, id, index) { return value }
 				}

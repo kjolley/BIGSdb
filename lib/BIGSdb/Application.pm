@@ -509,7 +509,6 @@ sub app_specific_initiation {
 	my $q = $self->{'cgi'};
 	my %no_plugins = map { $_ => 1 } PAGES_NOT_NEEDING_PLUGINS;
 	return if $no_plugins{ $q->param('page') };
-	$logger->error('initiating plugins');
 	$self->initiate_plugins;
 	return;
 }
