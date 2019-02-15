@@ -500,7 +500,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190207';
+	my $version = '20190215';
 	my @filenames;
 	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
 	push @filenames, q(c3.css)        if $self->{'c3'};

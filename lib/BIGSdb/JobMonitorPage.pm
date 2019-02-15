@@ -55,6 +55,11 @@ sub print_content {
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
 		say q(<div id="week" class="dashboard_number optional"></div>);
 	}
+	if ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) {
+		say q(<div id="links" class="dashboard_link">)
+		  . qq(<a href="$self->{'system'}->{'script_name'}?page=restMonitor" title="RESTful API monitor">)
+		  . q(<span class="fas fa-code fa-3x"></span></a></div>);
+	}
 	say q(<div style="clear:both"></div>);
 	say q(</div>);
 	say q(<div id="c3_chart" style="height:250px">);
@@ -87,10 +92,10 @@ sub print_content {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $url    = "$self->{'system'}->{'script_name'}?page=ajaxJobs";
-	my $max_queued_colour_warn = $self->{'config'}->{'max_queued_colour_warn'} // 10;
+	my $url = "$self->{'system'}->{'script_name'}?page=ajaxJobs";
+	my $max_queued_colour_warn  = $self->{'config'}->{'max_queued_colour_warn'}  // 10;
 	my $max_running_colour_warn = $self->{'config'}->{'max_running_colour_warn'} // 10;
-	my $buffer = << "END";
+	my $buffer                  = << "END";
 var chart_interval;
 var summary_interval;
 var max_running_colour_warn = $max_running_colour_warn;
@@ -106,6 +111,7 @@ var max_queued_colour_warn = $max_queued_colour_warn;
 	showhide_optional_dashboard_numbers();
 	\$(window).resize(function() {
 		showhide_optional_dashboard_numbers();
+		showhide_optional_dashboard_links();
 	});
 });
 
@@ -114,6 +120,14 @@ function showhide_optional_dashboard_numbers(){
 		\$(".optional").hide();
 	} else {
 		\$(".optional").show();
+	}
+}
+
+function showhide_optional_dashboard_links(){
+	if (\$(window).width() < 680){
+		\$(".dashboard_link").hide();
+	} else {
+		\$(".dashboard_link").show();
 	}
 }
 

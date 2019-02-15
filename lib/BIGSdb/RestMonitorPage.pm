@@ -61,6 +61,11 @@ sub print_content {
 	say q(<div id="hits" class="dashboard_number" style="margin-right:1em"></div>);
 	say q(<div id="rate" class="dashboard_number" style="margin-right:1em"></div>);
 	say q(<div id="response" class="dashboard_number"></div>);
+	if ( $self->{'config'}->{'jobs_db'} ) {
+		say q(<div id="links" class="dashboard_link optional">)
+		  . qq(<a href="$self->{'system'}->{'script_name'}?page=jobMonitor" title="Jobs monitor">)
+		  . q(<span class="fas fa-briefcase fa-3x"></span></a></div>);
+	}
 	say q(<div style="clear:both"></div>);
 	say q(<div id="c3_chart" style="height:250px">);
 	$self->print_loading_message( { top_margin => 0 } );
@@ -148,8 +153,19 @@ var max_avg_response_warn = $max_avg_response_warn;
 		interval = \$("#interval").val();
 		url = "$url" + "&minutes="+mins + "&interval=" + interval;
 		load_chart(url);
-	});			
+	});		
+	\$(window).resize(function() {
+		showhide_optional_dashboard_links();
+	});	
 });
+
+function showhide_optional_dashboard_links(){
+	if (\$(window).width() < 600){
+		\$(".optional").hide();
+	} else {
+		\$(".optional").show();
+	}
+}
 
 function get_colour_function (max) {
 	return d3.scaleLinear()
@@ -248,8 +264,7 @@ function load_chart(url){
 		console.log(error);
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
-	});
-	
+	});	
 }
 END
 	return $buffer;
