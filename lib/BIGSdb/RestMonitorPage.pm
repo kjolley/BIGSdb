@@ -176,9 +176,9 @@ function refresh_summary (url){
 	});
 }
 
-function load_chart(url){	
+function load_chart(url){
+	var interval =parseInt(\$("#interval").val());
 	d3.json(url).then (function(jsonData){
-		var width = get_bar_width(jsonData.length);
 		var chart = c3.generate({
 			bindto: '#c3_chart',
 			title: {
@@ -192,10 +192,12 @@ function load_chart(url){
 					x: 'start',
 					value: ['hits']
 				},
-				type: 'bar',
-			},	
-			bar: {
-				width: width
+				type: 'area-step',
+			},
+			line: {
+				step: {
+					type: "step-after"
+				}
 			},	
 			axis: {
 				x: {
@@ -224,7 +226,7 @@ function load_chart(url){
 					var timestamp2 = new Date(x);
 					var offset = timestamp.getTimezoneOffset();
 					timestamp.setMinutes( timestamp.getMinutes() - offset );
-					timestamp2.setMinutes(timestamp2.getMinutes() + parseInt(\$("#interval").val()) - offset);
+					timestamp2.setMinutes(timestamp2.getMinutes() + interval - offset);
 					
 					return (timestamp.getFullYear()
 						+ "-" + ("0" + (timestamp.getMonth()+1)).slice(-2) + "-"
@@ -249,18 +251,6 @@ function load_chart(url){
 	});
 	
 }
-
-function get_bar_width (bars){
-	var width = parseInt(\$(window).width() / bars) - 2;
-	if (width > 20){
-		width = width - 5;
-	}
-	if (width == 0){
-		width = 1;
-	}
-	return width;
-}
-
 END
 	return $buffer;
 }
