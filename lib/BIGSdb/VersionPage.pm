@@ -84,15 +84,26 @@ https://pubmlst.org/software/database/bigsdb/</a>.</li>
 <li>Full documentation can be found at <a href="http://bigsdb.readthedocs.io/">
 http://bigsdb.readthedocs.io/</a>.</li></ul>
 HTML
-	if ( $self->{'config'}->{'jobs_db'} ) {
+	if ( $self->{'config'}->{'jobs_db'} || ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) )
+	{
 		say q(<h2>Server status</h2>);
 		say q(<span class="main_icon fas fa-tachometer-alt fa-3x fa-pull-left"></span>);
-		say q(<ul style="margin-left:2em;margin-top:2em">);
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?page=jobMonitor">Jobs monitor</a></li>);
+		my $buffer;
+		my $links = 0;
+		if ( $self->{'config'}->{'jobs_db'} ) {
+			$buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?page=jobMonitor">Jobs monitor</a></li>);
+			$links++;
+		}
+		if ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) {
+			$buffer .= qq(<li><a href="$self->{'system'}->{'script_name'}?page=restMonitor">REST API monitor</a></li>);
+			$links++;
+		}
+		my $margin = $links == 1 ? 2 : 1;
+		say qq(<ul style="margin-left:2em;margin-top:${margin}em">);
+		say $buffer;
 		say q(</ul>);
 	}
 	say q(</div>);
-
 	return;
 }
 
