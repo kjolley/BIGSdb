@@ -24,18 +24,20 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Script);
+use constant DAILY_REPLACE_LIMIT => 10_000;
 
 sub run_script {
 	my ($self) = @_;
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	  $self->initiate_job_manager if $self->{'options'}->{'mark_job'};
+	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
 	my $job_id = $self->add_job('UpdateSchemeCaches');
-	eval {$self->{'db'}->do(q(SET lock_timeout = 5000))};
+	eval { $self->{'db'}->do(q(SET lock_timeout = 5000)) };
 	$self->{'logger'}->error($@) if $@;
 	my $schemes  = [];
 	my $cschemes = [];
+
 	if ( $self->{'options'}->{'schemes'} ) {
 		@$schemes = split /,/x, $self->{'options'}->{'schemes'};
 		foreach my $scheme_id (@$schemes) {
@@ -56,6 +58,18 @@ sub run_script {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	}
+	my $method = $self->{'options'}->{'method'} // 'full';
+	if ( $method eq 'daily_replace' ) {
+		my $count = $self->{'datastore'}->run_query(q(SELECT COUNT(*) FROM isolates WHERE datestamp='today'));
+		if ( $count > DAILY_REPLACE_LIMIT ) {
+			my $limit = DAILY_REPLACE_LIMIT;
+			$self->{'logger'}->error(
+				    "Daily replace limit is $limit. $count records were modified today. "
+				  . 'Scheme renewal cancelled. Run full refresh if necessary.'
+			);
+			return;
+		}
+	}
 	foreach my $scheme_id (@$schemes) {
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -67,17 +81,16 @@ sub run_script {
 			say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.";
 			next;
 		}
-		my $method = $self->{'options'}->{'method'} // 'full';
 		say "Updating scheme $scheme_id cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
 	}
-	foreach my $cscheme_id (@$cschemes){
-		$self->{'datastore'}->create_temp_cscheme_table($cscheme_id,{ cache => 1});
-		$self->{'datastore'}->create_temp_cscheme_field_values_table($cscheme_id,{ cache => 1});
+	foreach my $cscheme_id (@$cschemes) {
+		$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );
+		$self->{'datastore'}->create_temp_cscheme_field_values_table( $cscheme_id, { cache => 1 } );
 	}
-	eval {$self->{'db'}->do('SET lock_timeout = 0')};
+	eval { $self->{'db'}->do('SET lock_timeout = 0') };
 	$self->{'logger'}->error($@) if $@;
 	$self->stop_job($job_id);
 	return;
