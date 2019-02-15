@@ -145,6 +145,7 @@ END
 
 sub _get_select_items {
 	my ( $self, $table ) = @_;
+	return if !$table;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @select_items, @order_by );
 	if ( $table eq 'experiment_sequences' ) {
