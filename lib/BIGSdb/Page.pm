@@ -2991,8 +2991,9 @@ sub print_good_status {
 }
 
 sub print_loading_message {
-	my ($self) = @_;
-	say q(<p style="margin-top:5em;text-align:center;line-height:3em">)
+	my ($self, $options) = @_;
+	my $top_margin = $options->{'top_margin'} // 5;
+	say qq(<p style="margin-top:${top_margin}em;text-align:center;line-height:3em">)
 	  . q(<span class="wait_message">Loading ... Please wait.</span></p>)
 	  . q(<p style="text-align:center"><span class="wait_icon fas fa-sync-alt fa-spin fa-8x"></span></p>);
 	return;

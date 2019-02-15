@@ -63,7 +63,7 @@ sub print_content {
 	say q(<div id="response" class="dashboard_number"></div>);
 	say q(<div style="clear:both"></div>);
 	say q(<div id="c3_chart" style="height:250px">);
-	$self->print_loading_message;
+	$self->print_loading_message( { top_margin => 0 } );
 	say q(</div>);
 	say q(<div id="period_select" style="display:none"><label for="period">Period:</label>);
 	my $labels = {
@@ -84,14 +84,14 @@ sub print_content {
 			values  => [ 30, 60, 120, 360, 720, 1440, 2880, 4320, 5760, 7200 ],
 			labels  => $labels,
 			default => 360,
-			style => 'margin-right:1em;margin-bottom:0.5em'
+			style   => 'margin-right:1em;margin-bottom:0.5em'
 		}
 	);
 	say q(<span style="white-space:nowrap"><label for="interval">Interval:</label>);
 	$labels = {
-		1 => '1 minute',
-		2 => '2 minutes',
-		5 => '5 minutes',
+		1  => '1 minute',
+		2  => '2 minutes',
+		5  => '5 minutes',
 		10 => '10 minutes',
 		30 => '30 minutes',
 		60 => '1 hour'
@@ -99,7 +99,7 @@ sub print_content {
 	say $q->popup_menu(
 		{
 			id      => 'interval',
-			values  => [ 1,2,5,10,30,60 ],
+			values  => [ 1, 2, 5, 10, 30, 60 ],
 			labels  => $labels,
 			default => 5
 		}
