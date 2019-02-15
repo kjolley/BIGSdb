@@ -154,6 +154,7 @@ var max_avg_response_warn = $max_avg_response_warn;
 		url = "$url" + "&minutes="+mins + "&interval=" + interval;
 		load_chart(url);
 	});		
+	showhide_optional_dashboard_links();
 	\$(window).resize(function() {
 		showhide_optional_dashboard_links();
 	});	
@@ -257,6 +258,7 @@ function load_chart(url){
 				}
 		    }
 		});
+		\$(".c3-title").css("font-weight","600");
 		\$("div#waiting").css("display","none");
 		clearInterval(chart_interval);
 		chart_interval = setInterval(function(){load_chart(url)}, 30000);

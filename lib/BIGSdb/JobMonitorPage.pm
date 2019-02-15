@@ -109,6 +109,7 @@ var max_queued_colour_warn = $max_queued_colour_warn;
 	refresh_summary("$url&summary=1");
 	
 	showhide_optional_dashboard_numbers();
+	showhide_optional_dashboard_links();
 	\$(window).resize(function() {
 		showhide_optional_dashboard_numbers();
 		showhide_optional_dashboard_links();
