@@ -146,6 +146,11 @@ END
 sub _get_select_items {
 	my ( $self, $table ) = @_;
 	return if !$table;
+	if (   !$self->{'datastore'}->is_table($table)
+		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
+	{
+		return;
+	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @select_items, @order_by );
 	if ( $table eq 'experiment_sequences' ) {
