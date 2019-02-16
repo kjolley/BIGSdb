@@ -55,11 +55,6 @@ sub print_content {
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
 		say q(<div id="week" class="dashboard_number optional"></div>);
 	}
-	if ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) {
-		say q(<div id="links" class="dashboard_link">)
-		  . qq(<a href="$self->{'system'}->{'script_name'}?page=restMonitor" title="RESTful API monitor">)
-		  . q(<span class="fas fa-code fa-3x"></span></a></div>);
-	}
 	say q(<div style="clear:both"></div>);
 	say q(</div>);
 	say q(<div id="c3_chart" style="height:250px">);
@@ -109,10 +104,8 @@ var max_queued_colour_warn = $max_queued_colour_warn;
 	refresh_summary("$url&summary=1");
 	
 	showhide_optional_dashboard_numbers();
-	showhide_optional_dashboard_links();
 	\$(window).resize(function() {
 		showhide_optional_dashboard_numbers();
-		showhide_optional_dashboard_links();
 	});
 });
 
@@ -121,14 +114,6 @@ function showhide_optional_dashboard_numbers(){
 		\$(".optional").hide();
 	} else {
 		\$(".optional").show();
-	}
-}
-
-function showhide_optional_dashboard_links(){
-	if (\$(window).width() < 680){
-		\$(".dashboard_link").hide();
-	} else {
-		\$(".dashboard_link").show();
 	}
 }
 

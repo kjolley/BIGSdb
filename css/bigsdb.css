@@ -625,13 +625,6 @@ p.dashboard_number_detail {
 	text-align:center;
 	color:#444
 }
-div.dashboard_link {
-	float:right;
-}
-div.dashboard_link span.fas {
-	color:#88d;text-shadow: 3px 3px 3px #999
-}
-
 
 div.expandable_retracted {
 	margin:0;padding:0;
