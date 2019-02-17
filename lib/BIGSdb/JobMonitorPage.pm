@@ -58,7 +58,7 @@ sub print_content {
 	say q(<div style="clear:both"></div>);
 	say q(</div>);
 	say q(<div id="c3_chart" style="height:250px">);
-	$self->print_loading_message;
+	$self->print_loading_message( { top_margin => 0 } );
 	say q(</div>);
 	say q(<div id="period_select" style="display:none"><label for="period">Period:</label>);
 	my $labels = {
