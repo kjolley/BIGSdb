@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018, University of Oxford
+#Copyright (c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,9 @@ use warnings;
 use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-get '/db/:db/sequences' => sub { _get_sequences() };
+get '/db/:db/sequences'                         => sub { _get_sequences() };
+get '/db/:db/sequences/fields'                  => sub { _get_fields() };
+get '/db/:db/sequences/fields/:field/breakdown' => sub { _get_fields_breakdown() };
 
 sub _get_sequences {
 	my $self = setting('self');
@@ -48,9 +50,40 @@ sub _get_sequences {
 		#This is more efficient if we don't need to filter.
 		my ( $count, $last_updated ) =
 		  $self->{'datastore'}->run_query("SELECT SUM(allele_count),MAX(datestamp) FROM locus_stats$set_clause");
-		$values->{'records'} = int($count);
+		$values->{'records'}      = int($count);
 		$values->{'last_updated'} = $last_updated if $last_updated;
+		$values->{'fields'}       = request->uri_for("/db/$db/sequences/fields");
 	}
 	return $values;
+}
+
+sub _get_fields {
+	my $self = setting('self');
+	my ($db) = params->{'db'};
+	$self->check_seqdef_database;
+	return [
+		{
+			name      => 'date_entered',
+			required  => JSON::true,
+			breakdown => request->uri_for("/db/$db/sequences/fields/date_entered/breakdown")
+		},
+		{
+			name      => 'datestamp',
+			required  => JSON::true,
+			breakdown => request->uri_for("/db/$db/sequences/fields/datestamp/breakdown")
+		}
+	];
+}
+
+sub _get_fields_breakdown {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $field ) = @{$params}{qw(db field)};
+	$self->check_seqdef_database;
+	my $qry = "SELECT $field,COUNT(*) AS count FROM sequences WHERE $field IS NOT NULL GROUP BY $field";
+	my $value_counts =
+	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my %values = map { $_->{$field} => $_->{'count'} } @$value_counts;
+	return \%values;
 }
 1;
