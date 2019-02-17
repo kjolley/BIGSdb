@@ -85,7 +85,7 @@ sub print_content {
 		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
 	{
 		say q(<h1>Table query</h1>);
-		$self->print_bad_status( { message => qq(Table '$table' is not defined.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid table.), navbar => 1 } );
 		return;
 	}
 	my $cleaned = $table;
