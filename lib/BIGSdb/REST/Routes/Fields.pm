@@ -42,7 +42,7 @@ sub _get_fields {
 		$thisfield->{'required'} //= 'yes';    #This is the default and may not be specified in config.xml.
 		foreach (qw ( type required length min max regex comments)) {
 			next if !defined $thisfield->{$_};
-			if ( $_ eq 'min' || $_ eq 'max' || $_ eq 'length' ) {
+			if ( (($_ eq 'min' || $_ eq 'max') && $thisfield->{'type'} =~ /^int/x)|| $_ eq 'length' ) {
 				$value->{$_} = int( $thisfield->{$_} );
 			} elsif ( $_ eq 'required' ) {
 				$value->{$_} = $thisfield->{$_} eq 'yes' ? JSON::true : JSON::false;
@@ -160,14 +160,14 @@ sub _get_breakdown {
 	  "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL GROUP BY $field";
 
 	#Undocumented call - needed to generate stats of genome submissions
-	if ( $params->{'genomes'} && $field eq 'date_entered' ) {
+	if ( $params->{'genomes'} && ($field eq 'date_entered' || $field eq 'datestamp') ) {
 
 		#Need to ensure we use minimum date_entered value from sequence bin not the isolate date_entered
 		$qry =
-		    'CREATE TEMP TABLE temp_table_date_breakdown AS SELECT isolate_id,min(date_entered) AS date_entered FROM '
+		    "CREATE TEMP TABLE temp_table_date_breakdown AS SELECT isolate_id,min($field) AS $field FROM "
 		  . 'sequence_bin GROUP BY isolate_id;'
-		  . 'SELECT date_entered,COUNT(DISTINCT isolate_id) AS count FROM temp_table_date_breakdown WHERE '
-		  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}) GROUP BY date_entered";
+		  . "SELECT $field,COUNT(DISTINCT isolate_id) AS count FROM temp_table_date_breakdown WHERE "
+		  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'}) GROUP BY $field";
 	}
 	my $value_counts =
 	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
