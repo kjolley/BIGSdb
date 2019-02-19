@@ -26,6 +26,7 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
 get '/db/:db/schemes'                       => sub { _get_schemes() };
+get '/db/:db/schemes/breakdown/:field'      => sub { _get_schemes_breakdown() };
 get '/db/:db/schemes/:scheme'               => sub { _get_scheme() };
 get '/db/:db/schemes/:scheme/loci'          => sub { _get_scheme_loci() };
 get '/db/:db/schemes/:scheme/fields/:field' => sub { _get_scheme_field() };
@@ -43,6 +44,38 @@ sub _get_schemes {
 		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
 	}
 	$values->{'schemes'} = $scheme_list;
+	return $values;
+}
+
+#Undocumented call used for site statistics
+sub _get_schemes_breakdown {
+	my $self = setting('self');
+	my ( $db, $field ) = ( params->{'db'}, params->{'field'} );
+	$self->check_seqdef_database;
+	my %allowed_fields = map { $_ => 1 } qw(date_entered datestamp);
+	if ( !$allowed_fields{$field} ) {
+		send_error( 'Invalid field', 400 );
+	}
+	my $set_id      = $self->get_set_id;
+	
+	my $values = $self->{'datastore'}->run_query(
+		
+		"SELECT p.$field,p.scheme_id,s.name,COUNT(*) AS count FROM profiles p JOIN "
+		  . "schemes s ON p.scheme_id=s.id GROUP BY p.$field,p.scheme_id,s.name",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	if ($set_id){
+		my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my %scheme_name = map {$_->{'id'} => $_->{'name'}} @$schemes;
+		my $filtered_values = [];
+		foreach my $value (@$values){
+			next if !$scheme_name{$value->{'scheme_id'}};
+			$value->{'name'} = $scheme_name{$value->{'scheme_id'}};
+			push @$filtered_values, $value;
+		}
+		return $filtered_values;
+	}
 	return $values;
 }
 
@@ -64,7 +97,7 @@ sub _get_scheme {
 	foreach my $field (@$scheme_fields) {
 		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field");
 	}
-	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences') {
+	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 		my $table           = "mv_scheme_$scheme_id";
 		my $qry =

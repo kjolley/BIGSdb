@@ -177,6 +177,7 @@ sub _log_call {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};
 	return if request->path eq '/favicon.ico';
+	return if !$self->{'log_db'};
 	my $ip_address = _get_ip_address();
 	eval {
 		$self->{'log_db'}->do( 'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
