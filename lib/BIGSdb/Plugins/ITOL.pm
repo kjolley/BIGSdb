@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.5',
+		version             => '1.3.6',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -364,6 +364,12 @@ sub generate_tree_files {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
 		} else {
+			$logger->error('Tree file has not been generated.');
+			if (!-e $self->{'config'}->{'clustalw_path'}){
+				$logger->error("CLUSTALW program does not exist at $self->{'config'}->{'clustalw_path'}.");
+			} elsif (!-x $self->{'config'}->{'clustalw_path'}){
+				$logger->error("CLUSTALW program at $self->{'config'}->{'clustalw_path'} is not executable.");
+			}
 			$failed = 1;
 		}
 	}
