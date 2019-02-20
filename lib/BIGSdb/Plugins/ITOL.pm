@@ -369,6 +369,8 @@ sub generate_tree_files {
 				$logger->error("CLUSTALW program does not exist at $self->{'config'}->{'clustalw_path'}.");
 			} elsif (!-x $self->{'config'}->{'clustalw_path'}){
 				$logger->error("CLUSTALW program at $self->{'config'}->{'clustalw_path'} is not executable.");
+			} else {
+                                $logger->debug("CLUSTALW program has been found at $self->{'config'}->{'clustalw_path'} and is executable.");
 			}
 			$failed = 1;
 		}
