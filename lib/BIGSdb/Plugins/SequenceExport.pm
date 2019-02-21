@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.16',
+		version          => '1.5.17',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -425,7 +425,7 @@ sub make_isolate_seq_file {
 		my $temp         = BIGSdb::Utils::get_random();
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
-		open( my $fh_unaligned, '>', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
+		open( my $fh_unaligned, '>:encoding(utf8)', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
 		foreach my $id (@$ids) {
 			my @include_values;
 			my $isolate_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
