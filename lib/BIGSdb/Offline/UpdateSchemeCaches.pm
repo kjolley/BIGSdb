@@ -63,10 +63,8 @@ sub run_script {
 		my $count = $self->{'datastore'}->run_query(q(SELECT COUNT(*) FROM isolates WHERE datestamp='today'));
 		if ( $count > DAILY_REPLACE_LIMIT ) {
 			my $limit = DAILY_REPLACE_LIMIT;
-			$self->{'logger'}->error(
-				    "Daily replace limit is $limit. $count records were modified today. "
-				  . 'Scheme renewal cancelled. Run full refresh if necessary.'
-			);
+			$self->{'logger'}->error( "Daily replace limit is $limit. $count records were modified today. "
+				  . 'Scheme renewal cancelled. Run full refresh if necessary.' );
 			return;
 		}
 	}
@@ -78,7 +76,9 @@ sub run_script {
 			next;
 		}
 		if ( !defined $scheme_info->{'primary_key'} ) {
-			say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.";
+			if ( !$self->{'options'}->{'q'} ) {
+				say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.";
+			}
 			next;
 		}
 		say "Updating scheme $scheme_id cache ($scheme_info->{'name'}) - method: $method"
