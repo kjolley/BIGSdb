@@ -1020,7 +1020,7 @@ sub _get_phenotypic_fields {
 	}
 	$buffer .= qq(<div id="sparse" style="overflow:hidden" class="$class"><ul>);
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
-	$buffer .= q(</div></div></div>);
+	$buffer .= q(</div></div>);
 	foreach my $spanel (@slide_panel) {
 		$buffer .= qq(<div class="slide_panel" id="slide_$spanel->{'field'}->{'field'}">$spanel->{'data'});
 		$buffer .= q(<p class="feint">Click to close</p>);
