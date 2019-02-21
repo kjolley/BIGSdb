@@ -81,7 +81,12 @@ sub _get_fields_breakdown {
 	my ( $db, $field ) = @{$params}{qw(db field)};
 	$self->check_seqdef_database;
 	my $set_id = $self->get_set_id;
-	my $set_clause = $set_id ? qq( AND locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)) : q();
+	my $set_clause =
+	  $set_id
+	  ? qq[ AND (locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id) OR ]
+	  . q[locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN ]
+	  . qq[(SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)))]
+	  : q();
 	my $qry = "SELECT $field,COUNT(*) AS count FROM sequences WHERE $field IS NOT NULL$set_clause GROUP BY $field";
 	my $value_counts =
 	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
