@@ -65,6 +65,7 @@ sub run_script {
 			my $limit = DAILY_REPLACE_LIMIT;
 			$self->{'logger'}->error( "Daily replace limit is $limit. $count records were modified today. "
 				  . 'Scheme renewal cancelled. Run full refresh if necessary.' );
+			$self->stop_job($job_id);
 			return;
 		}
 	}
