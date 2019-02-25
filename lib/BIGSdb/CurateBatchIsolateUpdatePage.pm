@@ -660,7 +660,9 @@ sub _prepare_eav_update {
 	my $view      = $self->{'system'}->{'view'};
 	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
 	my $record_exists =
-	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE isolate_id=?)", $isolate_id );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE (isolate_id,field)=(?,?))", [ $isolate_id, $field ] )
+	  ;
 	if ($record_exists) {
 		$qry = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
 		@$args = ( $value, $isolate_id, $field );
@@ -668,6 +670,7 @@ sub _prepare_eav_update {
 		$qry = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
 		@$args = ( $isolate_id, $field, $value );
 	}
+	$logger->error( $qry . " " . "@$args" );
 	$old_value =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT value FROM $eav_table WHERE (isolate_id,field)=(?,?)", [ $isolate_id, $field ] );
