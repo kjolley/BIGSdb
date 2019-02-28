@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -182,7 +182,7 @@ sub _check_scheme_databases {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Scheme description</th><th>Database</th>)
 		  . q(<th>Host</th><th>Port</th><th>Id</th><th>Database accessible</th><th>Profile query</th></tr>);
 		foreach my $scheme_id (@$schemes) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 			$scheme_info->{'name'} =~ s/&/&amp;/gx;
 			print qq(<tr class="td$td"><td>$scheme_info->{'name'}</td><td>)
 			  . ( $scheme_info->{'dbase_name'} // q() )
@@ -200,6 +200,12 @@ sub _check_scheme_databases {
 				print GOOD;
 			}
 			print q(</td><td>);
+			if ( !$scheme_info->{'primary_key'} ) {
+				$logger->error("No primary key field set for scheme#$scheme_id ($scheme_info->{'name'}).")
+				  ;
+				print BAD;
+				next;
+			}
 			eval { $self->{'datastore'}->get_scheme($scheme_id)->get_field_values_by_designations( {} ) };
 			if ($@) {
 				print BAD;
