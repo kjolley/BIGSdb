@@ -66,14 +66,16 @@ sub get_javascript {
 		}
 	};
 	$js .= $self->get_list_javascript;
-	$js .= <<"JS";
+	if ( $self->{'jQuery.tablesort'} ) {
+		$js .= <<"JS";
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']});       
     } 
 ); 	
-$tree_js
 JS
+	}
+	$js .= $tree_js;
 	return $js;
 }
 
@@ -122,10 +124,10 @@ sub get_query {
 				say 'The temporary file containing your query does not exist. Please repeat your query.';
 			} else {
 				$self->print_bad_status(
-										 {
-										   message => q(The temporary file containing your query does not exist. )
-											 . q(Please repeat your query.)
-										 }
+					{
+						message => q(The temporary file containing your query does not exist. )
+						  . q(Please repeat your query.)
+					}
 				);
 			}
 			return;
@@ -162,10 +164,10 @@ sub print_content {
 	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
 		say q(<h1>Incompatible plugin</h1>);
 		$self->print_bad_status(
-								 {
-								   message => qq(This plugin is not compatible with this type of database ($dbtype).),
-								   navbar  => 1
-								 }
+			{
+				message => qq(This plugin is not compatible with this type of database ($dbtype).),
+				navbar  => 1
+			}
 		);
 		return;
 	}
@@ -246,7 +248,7 @@ sub _update_options {
 					$value = $q->param( $option->{'name'} ) ? 'true' : 'false';
 				}
 				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-															$q->param('name'), $option->{'name'}, $value );
+					$q->param('name'), $option->{'name'}, $value );
 			}
 			$self->{'prefstore'}->update_datestamp($guid);
 		} elsif ( $q->param('reset') ) {
@@ -295,11 +297,11 @@ sub _print_fields {
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
 		print q(<li>);
 		print $q->checkbox(
-							-name    => "$prefix\_$field",
-							-id      => $id,
-							-checked => $default_select,
-							-value   => 'checked',
-							-label   => $label
+			-name    => "$prefix\_$field",
+			-id      => $id,
+			-checked => $default_select,
+			-value   => 'checked',
+			-label   => $label
 		);
 		say q(</li>);
 		$i++;
@@ -348,13 +350,13 @@ sub print_isolates_fieldset {
 	}
 	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
 	$self->_print_fields(
-						  {
-							fields         => \@display_fields,
-							prefix         => 'f',
-							num_columns    => 3,
-							labels         => {},
-							default_select => $default_select
-						  }
+		{
+			fields         => \@display_fields,
+			prefix         => 'f',
+			num_columns    => 3,
+			labels         => {},
+			default_select => $default_select
+		}
 	);
 	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
 	say q(</fieldset>);
@@ -372,11 +374,11 @@ sub print_isolates_fieldset {
 			}
 			say q(<fieldset style="float:left"><legend>Composite fields);
 			say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
-						 . q(other fields (some of which may come from external databases). Including composite fields )
-						 . q(will slow down the processing.) );
+				  . q(other fields (some of which may come from external databases). Including composite fields )
+				  . q(will slow down the processing.) );
 			say q(</legend>);
 			$self->_print_fields(
-						{ fields => $composites, prefix => 'c', num_columns => 1, labels => {}, default_select => 0 } );
+				{ fields => $composites, prefix => 'c', num_columns => 1, labels => {}, default_select => 0 } );
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
 			say q(</fieldset>);
 		}
@@ -536,7 +538,7 @@ sub print_sequence_export_form {
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	if ( !$options->{'no_includes'} ) {
 		$self->print_includes_fieldset(
-									{ scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
+			{ scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
@@ -552,33 +554,33 @@ sub print_sequence_export_form {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			say q(<p>If both allele designations and tagged sequences<br />)
 			  . q(exist for a locus, choose how you want these handled: );
-			say $self->get_tooltip(   q(Sequence retrieval - Peptide loci will only be retrieved from the )
-									. q(sequence bin (as nucleotide sequences).) );
+			say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from the )
+				  . q(sequence bin (as nucleotide sequences).) );
 			say q(</p><ul><li>);
 			my %labels = (
-						   seqbin             => 'Use sequences tagged from the bin',
-						   allele_designation => 'Use allele sequence retrieved from external database'
+				seqbin             => 'Use sequences tagged from the bin',
+				allele_designation => 'Use allele sequence retrieved from external database'
 			);
 			say $q->radio_group(
-								 -name      => 'chooseseq',
-								 -values    => [ 'seqbin', 'allele_designation' ],
-								 -labels    => \%labels,
-								 -linebreak => 'true'
+				-name      => 'chooseseq',
+				-values    => [ 'seqbin', 'allele_designation' ],
+				-labels    => \%labels,
+				-linebreak => 'true'
 			);
 			say q(</li><li style="margin-top:0.5em">);
 			if ( $options->{'ignore_seqflags'} ) {
 				say $q->checkbox(
-						 -name  => 'ignore_seqflags',
-						 -label => 'Do not include sequences with problem flagged (defined alleles will still be used)',
-						 -checked => 'checked'
+					-name    => 'ignore_seqflags',
+					-label   => 'Do not include sequences with problem flagged (defined alleles will still be used)',
+					-checked => 'checked'
 				);
 				say q(</li><li>);
 			}
 			if ( $options->{'ignore_incomplete'} ) {
 				say $q->checkbox(
-								  -name    => 'ignore_incomplete',
-								  -label   => 'Do not include incomplete sequences',
-								  -checked => 'checked'
+					-name    => 'ignore_incomplete',
+					-label   => 'Do not include incomplete sequences',
+					-checked => 'checked'
 				);
 				say q(</li><li>);
 			}
@@ -587,7 +589,7 @@ sub print_sequence_export_form {
 				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
 				say q( bp flanking sequence);
 				say $self->get_tooltip( q(Flanking sequence - This can only be included if you )
-					   . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
+					  . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
 				say q(</li>);
 			}
 		} else {
@@ -636,10 +638,10 @@ sub has_set_changed {
 	if ( $q->param('set_id') && $set_id ) {
 		if ( $q->param('set_id') != $set_id ) {
 			$self->print_bad_status(
-									 {
-									   message => q(The dataset has been changed since this )
-										 . q(plugin was started. Please repeat the query.)
-									 }
+				{
+					message => q(The dataset has been changed since this )
+					  . q(plugin was started. Please repeat the query.)
+				}
 			);
 			return 1;
 		}
@@ -687,13 +689,13 @@ sub print_includes_fieldset {
 		my $title = $options->{'title'} // 'Include in identifier';
 		say qq(<fieldset style="float:left"><legend>$title</legend>);
 		say $q->scrolling_list(
-								-name     => 'includes',
-								-id       => 'includes',
-								-values   => \@fields,
-								-labels   => $labels,
-								-size     => 10,
-								-default  => $options->{'preselect'},
-								-multiple => 'true'
+			-name     => 'includes',
+			-id       => 'includes',
+			-values   => \@fields,
+			-labels   => $labels,
+			-size     => 10,
+			-default  => $options->{'preselect'},
+			-multiple => 'true'
 		);
 		say q(</fieldset>);
 	}
@@ -709,12 +711,12 @@ sub print_scheme_locus_fieldset {
 	say q(<fieldset style="float:left"><legend>Select loci</legend>);
 	if (@$locus_list) {
 		print $self->{'cgi'}->scrolling_list(
-											  -name     => 'locus',
-											  -id       => 'locus',
-											  -values   => $locus_list,
-											  -labels   => \%labels,
-											  -size     => 8,
-											  -multiple => 'true'
+			-name     => 'locus',
+			-id       => 'locus',
+			-values   => $locus_list,
+			-labels   => \%labels,
+			-size     => 8,
+			-multiple => 'true'
 		);
 		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
 		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
@@ -738,15 +740,15 @@ sub print_scheme_fieldset {
 	if ( $options->{'fields_or_loci'} ) {
 		say q(<div style="padding-top:1em"><ul><li>);
 		say $q->checkbox(
-						  -name    => 'scheme_fields',
-						  -label   => 'Include all fields from selected schemes',
-						  -checked => 1
+			-name    => 'scheme_fields',
+			-label   => 'Include all fields from selected schemes',
+			-checked => 1
 		);
 		say q(</li><li>);
 		say $q->checkbox(
-						  -name    => 'scheme_members',
-						  -label   => 'Include all loci from selected schemes',
-						  -checked => 1
+			-name    => 'scheme_members',
+			-label   => 'Include all loci from selected schemes',
+			-checked => 1
 		);
 		say q(</li></ul></div>);
 	}
@@ -767,14 +769,14 @@ sub print_sequence_filter_fieldset {
 
 	if ( $options->{'min_length'} ) {
 		$buffer = $self->get_filter(
-									 'min_length',
-									 [qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
-									 {
-										text    => 'Minimum length',
-										tooltip => 'minimum length filter - Only include sequences that are '
-										  . 'longer or equal to the specified length.',
-										class => 'parameter'
-									 }
+			'min_length',
+			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
+			{
+				text    => 'Minimum length',
+				tooltip => 'minimum length filter - Only include sequences that are '
+				  . 'longer or equal to the specified length.',
+				class => 'parameter'
+			}
 		);
 		say qq(<li>$buffer</li>);
 	}
@@ -795,7 +797,7 @@ sub filter_ids_by_project {
 	my ( $self, $ids, $project_id ) = @_;
 	return $ids if !$project_id;
 	my $ids_in_project = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM project_members WHERE project_id=?',
-														  $project_id, { fetch => 'col_arrayref' } );
+		$project_id, { fetch => 'col_arrayref' } );
 	my @filtered_ids;
 	foreach my $id (@$ids) {
 		push @filtered_ids, $id if any { $id eq $_ } @$ids_in_project;
@@ -856,10 +858,11 @@ sub add_scheme_loci {
 
 sub should_scheme_be_cited {
 	my ( $self, $scheme_id ) = @_;
-	return
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM scheme_flags WHERE (scheme_id,flag)=(?,?))',
-									   [ $scheme_id, 'please cite' ],
-									   { cache => 'Plugin::should_scheme_be_cited' } );
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM scheme_flags WHERE (scheme_id,flag)=(?,?))',
+		[ $scheme_id, 'please cite' ],
+		{ cache => 'Plugin::should_scheme_be_cited' }
+	);
 }
 
 sub order_loci {
@@ -941,14 +944,14 @@ sub escape_params {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
 	my @param_names = $q->param;
-	my %escapes = (
-					'__prime__' => q('),
-					'__slash__' => q(\\),
-					'__comma__' => q(,),
-					'__space__' => q( ),
-					'_OPEN_'    => q[(],
-					'_CLOSE_'   => q[)],
-					'_GT_'      => q(>)
+	my %escapes     = (
+		'__prime__' => q('),
+		'__slash__' => q(\\),
+		'__comma__' => q(,),
+		'__space__' => q( ),
+		'_OPEN_'    => q[(],
+		'_CLOSE_'   => q[)],
+		'_GT_'      => q(>)
 	);
 	foreach my $param_name (@param_names) {
 		my $key = $param_name;
@@ -979,11 +982,9 @@ sub get_scheme_field_values {
 		};
 	}
 	my $values =
-	  $self->{'datastore'}->run_query(
-						   "SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
-						   $isolate_id,
-						   { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::${scheme_id}::$field" }
-	  );
+	  $self->{'datastore'}
+	  ->run_query( "SELECT $field FROM $self->{'scheme_field_table'}->{$scheme_id} WHERE id=? ORDER BY $field",
+		$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::get_scheme_field_values::${scheme_id}::$field" } );
 	no warnings 'uninitialized';    #Values most probably include undef
 	@$values = uniq @$values;
 	return $values;
@@ -1011,11 +1012,11 @@ sub filter_missing_isolates {
 	my $ids_found =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT i.id FROM $self->{'system'}->{'view'} i JOIN $temp_table t ON i.id=t.value ORDER BY i.id",
-				   undef, { fetch => 'col_arrayref' } );
+		undef, { fetch => 'col_arrayref' } );
 	my $ids_missing = $self->{'datastore'}->run_query(
-		 "SELECT value FROM $temp_table WHERE value NOT IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY value",
-		 undef,
-		 { fetch => 'col_arrayref' }
+		"SELECT value FROM $temp_table WHERE value NOT IN (SELECT id FROM $self->{'system'}->{'view'}) ORDER BY value",
+		undef,
+		{ fetch => 'col_arrayref' }
 	);
 	return ( $ids_found, $ids_missing );
 }
@@ -1066,8 +1067,8 @@ sub print_recommended_scheme_fieldset {
 	my $buffer;
 	foreach my $scheme_id (@schemes) {
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			$logger->error(   'genome_comparator_favourite_schemes attribute in config.xml contains '
-							. 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
+			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
+				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
 			return;
 		}
 	}
@@ -1079,12 +1080,12 @@ sub print_recommended_scheme_fieldset {
 	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
 	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
 	say $self->popup_menu(
-						   -name     => 'recommended_schemes',
-						   -id       => 'recommended_schemes',
-						   -values   => [@schemes],
-						   -labels   => \%labels,
-						   -size     => 5,
-						   -multiple => 'true'
+		-name     => 'recommended_schemes',
+		-id       => 'recommended_schemes',
+		-values   => [@schemes],
+		-labels   => \%labels,
+		-size     => 5,
+		-multiple => 'true'
 	);
 	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
 	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
@@ -1117,7 +1118,7 @@ sub print_user_genome_upload_fieldset {
 	say q(<p>Upload assembly FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
 	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
 	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
-						. qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
+		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
 	say q(</p>);
 	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
 	say q(</fieldset>);
