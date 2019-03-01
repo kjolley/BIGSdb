@@ -28,6 +28,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS        => 500_000;
 use constant HEATMAP_MIN_WIDTH  => 600;
 use constant HEATMAP_MIN_HEIGHT => 200;
+use constant HEATMAP_MAX_WIDTH  => 10_000;
+use constant HEATMAP_MAX_HEIGHT => 10_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -42,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
-		version     => '2.0.1',
+		version     => '2.0.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -170,6 +172,8 @@ sub _get_heatmap_size {
 	my $blur   = $radius == 1 ? 0 : 0.2;
 	my $width  = @$loci * $radius * 2 + 20;
 	my $height = @$isolates * $radius * 2 + 20;
+	$width = HEATMAP_MAX_WIDTH if $width > HEATMAP_MAX_WIDTH;
+	$height = HEATMAP_MAX_HEIGHT if $height > HEATMAP_MAX_HEIGHT;
 	return { height => $height, width => $width, radius => $radius, blur => $blur };
 }
 
