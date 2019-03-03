@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190212
+#Version: 20190303
 use strict;
 use warnings;
 use 5.010;
@@ -33,7 +33,7 @@ use constant {
 	PORT             => undef,                  #But you can override here.
 	USER             => undef,
 	PASSWORD         => undef,
-	LOCK_DIR         => '/var/run/lock'
+	LOCK_DIR         => '/var/run/lock'         #Override in bigsdb.conf
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -457,7 +457,8 @@ sub filtered_out_by_view {
 
 sub get_lock_file {
 	my $hash      = Digest::MD5::md5_hex("$0||$opts{'database'}||$opts{'scheme_id'}");
-	my $lock_file = LOCK_DIR . "/BIGSdb_define_profiles_$hash";
+	my $lock_dir = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
+	my $lock_file = "$lock_dir/BIGSdb_define_profiles_$hash";
 	return $lock_file;
 }
 
