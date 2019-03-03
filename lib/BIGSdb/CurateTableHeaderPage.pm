@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,7 +68,7 @@ sub _get_isolate_table_headers {
 	}
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	if ( @$eav_fields && @$eav_fields <= MAX_EAV_FIELD_LIST ) {
-		foreach my $eav_field (@$eav_fields){
+		foreach my $eav_field (@$eav_fields) {
 			push @$headers, $eav_field->{'field'} if !$eav_field->{'no_curate'};
 		}
 	}
@@ -163,8 +163,7 @@ sub get_isolate_loci {
 
 	foreach my $locus (@$loci) {
 		next if !$include{$locus};
-		my $cleaned_name =
-		  $self->clean_locus( $locus, { no_common_name => 1, text_output => 1, keep_underscores => 1 } );
+		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
 		push @headers, $cleaned_name;
 	}
 	return \@headers;
