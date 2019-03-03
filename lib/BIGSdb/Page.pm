@@ -1516,7 +1516,6 @@ sub clean_locus {
 			if ( ( $self->{'system'}->{'locus_superscript_prefix'} // '' ) eq 'yes' ) {
 				$locus =~ s/^([A-Za-z]{1,3})_/<sup>$1<\/sup>/x;
 			}
-			$locus =~ tr/_/ /;
 		}
 		if ( $options->{'strip_links'} ) {
 			$locus =~ s/<[a|A]\s+[href|HREF].+?>//gx;
