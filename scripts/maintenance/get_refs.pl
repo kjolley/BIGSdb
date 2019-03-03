@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #Written by Keith Jolley
-#Copyright (c) 2003-2018 University of Oxford
+#Copyright (c) 2003-2019 University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #Find out which references are cited in the databases
@@ -33,6 +33,8 @@
 #
 #Please note that Bio::Biblio is no longer a part of BioPerl (since version 1.6.920).
 #This can be installed from CPAN if a package isn't available with your Linux distribution.
+#
+#Version: 20190303
 use strict;
 use warnings;
 use 5.010;
