@@ -35,17 +35,18 @@ use constant DBASE       => 'bigsdb_auth';
 use constant BCRYPT_COST => 12;
 my %opts;
 GetOptions(
-	'a|add' => \$opts{'add'},
-	'd|database=s' => \$opts{'database'},
-	'h|help' => \$opts{'help'},
-	'n|username=s' => \$opts{'name'},
-	'p|password=s' => \$opts{'password'}
-	)or die("Error in command line arguments\n");
+	'a|add'            => \$opts{'add'},
+	'd|database=s'     => \$opts{'database'},
+	'h|help'           => \$opts{'help'},
+	'n|username=s'     => \$opts{'name'},
+	'p|password=s'     => \$opts{'password'},
+	'r|reset_password' => \$opts{'reset_password'}
+) or die("Error in command line arguments\n");
+
 if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
-
 if ( !$opts{'database'} || !$opts{'name'} || !$opts{'password'} ) {
 	say 'Usage: add_user.pl [-a] --database <dbase> --name <username> --password <password>';
 	say 'Use --add option to add a new user.';
@@ -56,24 +57,25 @@ exit;
 
 sub main {
 	my $db =
-	  DBI->connect( 'DBI:Pg:dbname=' . DBASE, 'postgres', '',
-		{ AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+	     DBI->connect( 'DBI:Pg:dbname=' . DBASE, 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
 	  || croak 'could not open database';
 	my $qry;
 	my $password    = Digest::MD5::md5_hex( $opts{'password'} . $opts{'name'} );
 	my $salt        = generate_salt();
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => BCRYPT_COST, salt => $salt }, $password ) );
-	my @values = ( $bcrypt_hash, 'bcrypt', BCRYPT_COST, $salt );
+	my @values      = ( $bcrypt_hash, 'bcrypt', BCRYPT_COST, $salt );
+	my $reset       = $opts{'reset_password'} ? 'true' : undef;
 	if ( $opts{'add'} ) {
-		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp) '
-		  . 'VALUES (?,?,?,?,?,?,?,?)';
-		push @values, ($opts{'database'}, $opts{'name'}, 'now', 'now' );
+		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp,reset_password) '
+		  . 'VALUES (?,?,?,?,?,?,?,?,?)';
+		push @values, ( $opts{'database'}, $opts{'name'}, 'now', 'now', $reset );
 	} else {
-		$qry = 'UPDATE users SET (password,algorithm,cost,salt,datestamp)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
-		push @values, ( 'now', $opts{'database'}, $opts{'name'} );
+		$qry =
+		    'UPDATE users SET (password,algorithm,cost,salt,datestamp,reset_password)=(?,?,?,?,?,?) '
+		  . 'WHERE (dbase,name)=(?,?)';
+		push @values, ( 'now', $reset, $opts{'database'}, $opts{'name'} );
 	}
-	my $sql         = $db->prepare($qry);
-
+	my $sql = $db->prepare($qry);
 	eval { $db->do( $qry, undef, @values ) };
 	if ($@) {
 		if ( $@ =~ /duplicate/ ) {
@@ -97,7 +99,7 @@ sub generate_salt {
 }
 
 sub show_help {
-		my $termios = POSIX::Termios->new;
+	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
 	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
@@ -116,16 +118,20 @@ ${bold}-a, --add$norm
     of an existing user.
     
 ${bold}-d, --database ${under}DATABASE$norm  
-    Database configuration name. If site-wide databases are being used, this may be the name of the users database.
+    Database name. If site-wide databases are being used, this may be the name of the users database.
+    
+${bold}-h, --help$norm
+    This help page.
     
 ${bold}-n, --username ${under}USERNAME$norm  
     User name.
     
 ${bold}-p, --password ${under}PASSWORD$norm  
     Password.    
-    
-${bold}-h, --help$norm
-    This help page.
+
+${bold}-r, --reset_password$norm
+    Require that the user resets their password the next time they log in.    
+
 HELP
 	return;
 }
