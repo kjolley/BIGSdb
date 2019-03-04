@@ -298,7 +298,7 @@ sub _get_user_fields {
 	my $buffer = q();
 	my $import;
 	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
-		 && $self->{'datastore'}->user_dbs_defined )
+		&& $self->{'datastore'}->user_dbs_defined )
 	{
 		$import = 1;
 	}
@@ -307,15 +307,15 @@ sub _get_user_fields {
 		my $import_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=importUser);
 		$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_curator"><h2>Users</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'users', 'user',
-										   {
-											  add          => $modify_users,
-											  batch_add    => $modify_users,
-											  query        => $modify_users,
-											  import       => $import,
-											  import_url   => $import_url,
-											  import_label => 'Import user account from centralized user database'
-										   }
+			'users', 'user',
+			{
+				add          => $modify_users,
+				batch_add    => $modify_users,
+				query        => $modify_users,
+				import       => $import,
+				import_url   => $import_url,
+				import_label => 'Import user account from centralized user database'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -323,14 +323,14 @@ sub _get_user_fields {
 		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User groups</h2>);
 		$buffer .= $self->_get_icon_group(
-			   'user_groups',
-			   'users',
-			   {
-				 add       => 1,
-				 batch_add => 1,
-				 query     => 1,
-				 info => 'User groups - Users can be members of user groups to facilitate setting access permissions.',
-			   }
+			'user_groups',
+			'users',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info => 'User groups - Users can be members of user groups to facilitate setting access permissions.',
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -338,20 +338,19 @@ sub _get_user_fields {
 		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User group members</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'user_group_members',
-										   'user-friends',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info =>
-'User group members - Add users to user groups to facilitate setting access permissions.'
-										   }
+			'user_group_members',
+			'user-friends',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'User group members - Add users to user groups to facilitate setting access permissions.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
 	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
-		 && $self->{'datastore'}->user_dbs_defined )
+		&& $self->{'datastore'}->user_dbs_defined )
 	{
 	}
 	return $buffer;
@@ -371,27 +370,26 @@ sub _get_locus_description_fields {
 	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus descriptions</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'locus_descriptions',
-									   'clipboard',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1
-									   }
+		'locus_descriptions',
+		'clipboard',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1
+		}
 	);
 	$buffer .= qq(</div>\n);
 	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus links</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'locus_links',
-									   'link',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Locus links - Hyperlinks to further information on the internet about a locus.'
-									   }
+		'locus_links',
+		'link',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Locus links - Hyperlinks to further information on the internet about a locus.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -403,62 +401,60 @@ sub _get_sequence_fields {
 	return $buffer if !$self->can_modify_table('sequences');
 	return $buffer if !$self->_loci_exist;
 	my $set_string = $self->_get_set_string;
+	my $batch_add_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences$set_string);
 	my $fasta_url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_show_curator"><h2>Sequences</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'sequences',
-									   'dna',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  fasta     => 1,
-										  fasta_url => $fasta_url,
-										  fasta_label =>
-'Upload new sequences using a FASTA file containing new variants of a single locus.'
-									   }
+		'sequences',
+		'dna',
+		{
+			add         => 1,
+			batch_add   => 1,
+			batch_add_url => $batch_add_url,
+			query       => 1,
+			fasta       => 1,
+			fasta_url   => $fasta_url,
+			fasta_label => 'Upload new sequences using a FASTA file containing new variants of a single locus.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired alleles</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'retired_allele_ids',
-									   'trash-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Retired alleles - Alleles ids defined here will be prevented from being reused.'
-									   }
+		'retired_allele_ids',
+		'trash-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Retired alleles - Alleles ids defined here will be prevented from being reused.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele accessions</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'accession',
-									   'external-link-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Allele accessions - Associate sequences with Genbank/ENA accessions numbers.'
-									   }
+		'accession',
+		'external-link-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Allele accessions - Associate sequences with Genbank/ENA accessions numbers.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele publications</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'sequence_refs',
-									   'book-open',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-											'Allele references - Associate sequences with publications using PubMed id.'
-									   }
+		'sequence_refs',
+		'book-open',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Allele references - Associate sequences with publications using PubMed id.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -470,17 +466,17 @@ sub _get_profile_fields {
 	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
 		$schemes = $self->{'datastore'}->run_query(
-					 'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
-					   . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
-					 undef,
-					 { fetch => 'col_arrayref' }
+			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
+			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
+			undef,
+			{ fetch => 'col_arrayref' }
 		);
 	} else {
 		$schemes = $self->{'datastore'}->run_query(
-											 'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
-											   . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
-											 $self->get_curator_id,
-											 { fetch => 'col_arrayref' }
+			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
+			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
+			$self->get_curator_id,
+			{ fetch => 'col_arrayref' }
 		);
 	}
 	my $buffer = q();
@@ -504,21 +500,21 @@ sub _get_profile_fields {
 		    qq(<div class="curategroup curategroup_profiles grid-item $class" )
 		  . qq($display><h2>$desc{$scheme_id} profiles</h2>);
 		$buffer .= $self->_get_icon_group(
-							   undef, 'table',
-							   {
-								 add     => 1,
-								 add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								   . qq(page=profileAdd&amp;scheme_id=$scheme_id),
-								 batch_add     => 1,
-								 batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								   . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id),
-								 query     => 1,
-								 query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								   . qq(page=query&amp;scheme_id=$scheme_id),
-								 batch_update     => 1,
-								 batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								   . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id)
-							   }
+			undef, 'table',
+			{
+				add     => 1,
+				add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileAdd&amp;scheme_id=$scheme_id),
+				batch_add     => 1,
+				batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=profileBatchAdd&amp;scheme_id=$scheme_id),
+				query     => 1,
+				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=query&amp;scheme_id=$scheme_id),
+				batch_update     => 1,
+				batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id)
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -526,29 +522,27 @@ sub _get_profile_fields {
 		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Profile publications</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'profile_refs',
-										   'book-open',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info =>
-'Profile references - Associate allelic profiles with publications using PubMed id.'
-										   }
+			'profile_refs',
+			'book-open',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Profile references - Associate allelic profiles with publications using PubMed id.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired profiles</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'retired_profiles',
-										   'trash-alt',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info =>
-'Retired profiles - Profile ids defined here will be prevented from being reused.'
-										   }
+			'retired_profiles',
+			'trash-alt',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -567,18 +561,18 @@ sub _get_isolate_fields {
 	my $batch_update_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate);
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_show_curator"><h2>Isolates</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'isolates',
-									   'file-alt',
-									   {
-										  add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
-										  add_url          => $add_url,
-										  batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
-										  batch_add_url    => $batch_add_url,
-										  query            => $exists,
-										  query_url        => $query_url,
-										  batch_update     => $exists,
-										  batch_update_url => $batch_update_url
-									   }
+		'isolates',
+		'file-alt',
+		{
+			add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
+			add_url          => $add_url,
+			batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
+			batch_add_url    => $batch_add_url,
+			query            => $exists,
+			query_url        => $query_url,
+			batch_update     => $exists,
+			batch_update_url => $batch_update_url
+		}
 	);
 	$buffer .= qq(</div>\n);
 
@@ -586,42 +580,41 @@ sub _get_isolate_fields {
 		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Isolate aliases</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'isolate_aliases',
-										   'list-ul',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info      => 'Isolate aliases - Alternative names for isolates.'
-										   }
+			'isolate_aliases',
+			'list-ul',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Isolate aliases - Alternative names for isolates.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Publications</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'refs',
-										   'book-open',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info =>
-												'Publications - Associate isolates with publications using PubMed id.'
-										   }
+			'refs',
+			'book-open',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Publications - Associate isolates with publications using PubMed id.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired isolates</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'retired_isolates',
-									   'trash-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Retired isolates - Isolate ids defined here will not be reused.'
-									   }
+		'retired_isolates',
+		'trash-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Retired isolates - Isolate ids defined here will not be reused.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -636,14 +629,14 @@ sub _get_isolate_field_extended_attribute_field {
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Extended attributes</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'isolate_value_extended_attributes',
-									   'expand-arrows-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info => 'Extended attributes - Data linked to isolate record field values.'
-									   }
+		'isolate_value_extended_attributes',
+		'expand-arrows-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Extended attributes - Data linked to isolate record field values.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -656,15 +649,15 @@ sub _get_projects {
 	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Projects</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'projects',
-									   'list-alt',
-									   {
-										  fa_class  => 'far',
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Projects - Group isolate records.'
-									   }
+		'projects',
+		'list-alt',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Projects - Group isolate records.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects)');
@@ -673,16 +666,15 @@ sub _get_projects {
 	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Project members</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'project_members',
-									   'object-group',
-									   {
-										  fa_class  => 'far',
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Project members - Isolates belonging to projects. Isolates can belong to any number of projects.'
-									   }
+		'project_members',
+		'object-group',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'Project members - Isolates belonging to projects. Isolates can belong to any number of projects.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -696,14 +688,14 @@ sub _get_allele_designations {
 	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele designations</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'allele_designations',
-									   'table',
-									   {
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Allele designations - Update individual allele designations from within the isolate update function.'
-									   }
+		'allele_designations',
+		'table',
+		{
+			batch_add => 1,
+			query     => 1,
+			info =>
+			  'Allele designations - Update individual allele designations from within the isolate update function.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -717,20 +709,20 @@ sub _get_sequence_bin {
 	$buffer .=
 	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence bin</h2>);
 	$buffer .= $self->_get_icon_group(
-			'sequence_bin',
-			'dna',
-			{
-			  add           => 1,
-			  add_url       => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
-			  batch_add     => 1,
-			  batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
-			  query         => 1,
-			  link          => ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ? 1 : 0,
-			  link_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs),
-			  link_label => 'Link contigs stored in remote isolate database',
-			  info       => 'Sequence bin - The sequence bin for an isolate can contain sequences from any source, '
-				. 'but usually consists of genome assembly contigs.'
-			}
+		'sequence_bin',
+		'dna',
+		{
+			add           => 1,
+			add_url       => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
+			batch_add     => 1,
+			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
+			query         => 1,
+			link          => ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ? 1 : 0,
+			link_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs),
+			link_label => 'Link contigs stored in remote isolate database',
+			info       => 'Sequence bin - The sequence bin for an isolate can contain sequences from any source, '
+			  . 'but usually consists of genome assembly contigs.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
@@ -738,15 +730,15 @@ sub _get_sequence_bin {
 	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Sequence accessions</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'accession',
-									   'external-link-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Accessions - Associate individual contigs in the '
-											. 'sequence bin with Genbank/ENA accessions numbers.'
-									   }
+		'accession',
+		'external-link-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Accessions - Associate individual contigs in the '
+			  . 'sequence bin with Genbank/ENA accessions numbers.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -762,15 +754,15 @@ sub _get_allele_sequences {
 	$buffer .=
 	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence tags</h2>);
 	$buffer .= $self->_get_icon_group(
-						  'allele_sequences',
-						  'tags',
-						  {
-							query    => 1,
-							scan     => 1,
-							scan_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan),
-							info     => 'Sequence tags - Scan genomes to identify locus regions, '
-							  . 'then tag these positions and allele designations.'
-						  }
+		'allele_sequences',
+		'tags',
+		{
+			query    => 1,
+			scan     => 1,
+			scan_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan),
+			info     => 'Sequence tags - Scan genomes to identify locus regions, '
+			  . 'then tag these positions and allele designations.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -783,15 +775,14 @@ sub _get_experiments {
 	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiments</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'experiments',
-									   'flask',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-											'Experiments - Set up experiments to group contigs in the sequence bin.'
-									   }
+		'experiments',
+		'flask',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Experiments - Set up experiments to group contigs in the sequence bin.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	my $experiments = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM experiments)');
@@ -799,15 +790,15 @@ sub _get_experiments {
 	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiment contigs</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'experiment_sequences',
-									   'object-group',
-									   {
-										  fa_class  => 'far',
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Experiment contigs - Group contigs by experiment.'
-									   }
+		'experiment_sequences',
+		'object-group',
+		{
+			fa_class  => 'far',
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Experiment contigs - Group contigs by experiment.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -822,14 +813,13 @@ sub _get_samples {
 	return $buffer if !$self->_isolates_exist;
 	$buffer .= q(<div class="curategroup curategroup_samples grid-item default_show_curator"><h2>Samples</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'samples',
-									   'vial',
-									   {
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Sample storage records - These can also be added and updated from the isolate update page.'
-									   }
+		'samples',
+		'vial',
+		{
+			batch_add => 1,
+			query     => 1,
+			info      => 'Sample storage records - These can also be added and updated from the isolate update page.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -841,15 +831,15 @@ sub _get_permissions {
 	return $buffer if !$self->can_modify_table('permissions');
 	$buffer .= q(<div class="curategroup curategroup_permissions grid-item default_show_admin"><h2>Permissions</h2>);
 	$buffer .= $self->_get_icon_group(
-			  'permissions',
-			  'user-shield',
-			  {
-				query             => 1,
-				always_show_query => 1,
-				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions),
-				info      => q(Permissions - Set curator permissions for individual users - )
-				  . q(these are only active for users with a status of 'curator' in the users table.)
-			  }
+		'permissions',
+		'user-shield',
+		{
+			query             => 1,
+			always_show_query => 1,
+			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions),
+			info      => q(Permissions - Set curator permissions for individual users - )
+			  . q(these are only active for users with a status of 'curator' in the users table.)
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -862,15 +852,15 @@ sub _get_user_dbases {
 	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>User databases</h2>);
 	$buffer .= $self->_get_icon_group(
-									'user_dbases',
-									'database',
-									{
-									  add       => 1,
-									  batch_add => 1,
-									  query     => 1,
-									  info => 'User databases - Add global databases containing site-wide user data - '
-										. 'these can be used to set up accounts that work across databases.'
-									}
+		'user_dbases',
+		'database',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'User databases - Add global databases containing site-wide user data - '
+			  . 'these can be used to set up accounts that work across databases.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -884,15 +874,14 @@ sub _get_oauth_credentials {
 	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>OAuth credentials</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'oauth_credentials',
-									   'unlock-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
-									   }
+		'oauth_credentials',
+		'unlock-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -905,60 +894,60 @@ sub _get_genome_filtering {
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>PCR reactions</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'pcr', 'vial',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'PCR reactions - Set up <i>in silico</i> PCR reactions. '
-											. 'These can be used to filter genomes for tagging to specific repetitive loci.'
-									   }
+		'pcr', 'vial',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'PCR reactions - Set up <i>in silico</i> PCR reactions. '
+			  . 'These can be used to filter genomes for tagging to specific repetitive loci.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM pcr)') && $self->_loci_exist ) {
 		$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>PCR locus links</h2>);
 		$buffer .= $self->_get_icon_group(
-									  'pcr_locus',
-									  'stream',
-									  {
-										add       => 1,
-										batch_add => 1,
-										query     => 1,
-										info      => 'Link a locus definition to an <i>in silico</i> PCR reaction. '
-										  . 'For the locus to be matched, the region of DNA must be predicted to fall '
-										  . 'within the PCR amplification product.'
-									  }
+			'pcr_locus',
+			'stream',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Link a locus definition to an <i>in silico</i> PCR reaction. '
+				  . 'For the locus to be matched, the region of DNA must be predicted to fall '
+				  . 'within the PCR amplification product.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Nucleotide probes</h2>);
 	$buffer .= $self->_get_icon_group(
-						   'probes', 'vial',
-						   {
-							 add       => 1,
-							 batch_add => 1,
-							 query     => 1,
-							 info => 'Nucleotide probes - Define nucleotide probes for <i>in silico</i> hybridization '
-							   . 'reaction to filter genomes for tagging to specific repetitive loci.'
-						   }
+		'probes', 'vial',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Nucleotide probes - Define nucleotide probes for <i>in silico</i> hybridization '
+			  . 'reaction to filter genomes for tagging to specific repetitive loci.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM probes)') && $self->_loci_exist ) {
 		$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Probe locus links</h2>);
 		$buffer .= $self->_get_icon_group(
-									   'probe_locus',
-									   'stream',
-									   {
-										 add       => 1,
-										 batch_add => 1,
-										 query     => 1,
-										 info      => 'Link a locus to an <i>in silico</i> hybridization reaction. '
-										   . 'For the locus to be matched, the region of DNA must be predicted to lie '
-										   . 'within a specified distance of the probe sequence in the genome.'
-									   }
+			'probe_locus',
+			'stream',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Link a locus to an <i>in silico</i> hybridization reaction. '
+				  . 'For the locus to be matched, the region of DNA must be predicted to lie '
+				  . 'within a specified distance of the probe sequence in the genome.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -972,13 +961,13 @@ sub _get_sequence_attributes {
 	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sequence attributes</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'sequence_attributes',
-									   'code',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-									   }
+		'sequence_attributes',
+		'code',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -992,13 +981,13 @@ sub _get_locus_extended_attributes {
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus extended attributes</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'locus_extended_attributes',
-									   'expand-arrows-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-									   }
+		'locus_extended_attributes',
+		'expand-arrows-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1011,16 +1000,16 @@ sub _get_client_dbases {
 	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client databases</h2>);
 	$buffer .= $self->_get_icon_group(
-		   'client_dbases',
-		   'coins',
-		   {
-			 add       => 1,
-			 batch_add => 1,
-			 query     => 1,
-			 info => 'Client databases - Define isolate databases that use locus allele or scheme profile definitions '
-			   . 'defined in this database - this enables backlinks and searches of these databases when you query '
-			   . 'sequences or profiles in this database.'
-		   }
+		'client_dbases',
+		'coins',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'Client databases - Define isolate databases that use locus allele or scheme profile definitions '
+			  . 'defined in this database - this enables backlinks and searches of these databases when you query '
+			  . 'sequences or profiles in this database.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM client_dbases)');
@@ -1028,29 +1017,28 @@ sub _get_client_dbases {
 		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database loci</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'client_dbase_loci',
-										   'sliders-h',
-										   {
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info =>
-												'Client database loci - Define loci that are used in client databases.'
-										   }
+			'client_dbase_loci',
+			'sliders-h',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database loci - Define loci that are used in client databases.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database fields</h2>);
 		$buffer .= $self->_get_icon_group(
-					  'client_dbase_loci_fields',
-					  'th-list',
-					  {
-						add       => 1,
-						batch_add => 1,
-						query     => 1,
-						info => 'Client database fields linked to loci - Define fields in client database whose value '
-						  . 'can be displayed when isolate has matching allele.'
-					  }
+			'client_dbase_loci_fields',
+			'th-list',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database fields linked to loci - Define fields in client database whose value '
+				  . 'can be displayed when isolate has matching allele.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1058,15 +1046,15 @@ sub _get_client_dbases {
 		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database schemes</h2>);
 		$buffer .= $self->_get_icon_group(
-							  'client_dbase_schemes',
-							  'table',
-							  {
-								add       => 1,
-								batch_add => 1,
-								query     => 1,
-								info => 'Client database scheme - Define schemes that are used in client databases. '
-								  . 'You will also need to add the appropriate loci to the client database loci table.'
-							  }
+			'client_dbase_schemes',
+			'table',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database scheme - Define schemes that are used in client databases. '
+				  . 'You will also need to add the appropriate loci to the client database loci table.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1074,15 +1062,15 @@ sub _get_client_dbases {
 		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database classification schemes</h2>);
 		$buffer .= $self->_get_icon_group(
-					'client_dbase_cschemes',
-					'object-group',
-					{
-					  add       => 1,
-					  batch_add => 1,
-					  query     => 1,
-					  info => 'Client database classification scheme - Define classification schemes that are used in '
-						. 'client databases.'
-					}
+			'client_dbase_cschemes',
+			'object-group',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Client database classification scheme - Define classification schemes that are used in '
+				  . 'client databases.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1096,18 +1084,17 @@ sub _get_locus_curators {
 	return $buffer if !$self->_loci_exist;
 	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Locus curators</h2>);
 	$buffer .= $self->_get_icon_group(
-							'locus_curators',
-							'user-tie',
-							{
-							   add              => 1,
-							   batch_add        => 1,
-							   query            => 1,
-							   batch_update     => 1,
-							   batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								 . q(page=memberUpdate&amp;table=locus_curators),
-							   info =>
-'Locus curators - Define which curators can add or update sequences for particular loci.'
-							}
+		'locus_curators',
+		'user-tie',
+		{
+			add              => 1,
+			batch_add        => 1,
+			query            => 1,
+			batch_update     => 1,
+			batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=memberUpdate&amp;table=locus_curators),
+			info => 'Locus curators - Define which curators can add or update sequences for particular loci.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1120,18 +1107,17 @@ sub _get_scheme_curators {
 	return $buffer if !$self->_schemes_exist;
 	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Scheme curators</h2>);
 	$buffer .= $self->_get_icon_group(
-							'scheme_curators',
-							'user-tie',
-							{
-							   add              => 1,
-							   batch_add        => 1,
-							   query            => 1,
-							   batch_update     => 1,
-							   batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-								 . q(page=memberUpdate&amp;table=scheme_curators),
-							   info =>
-'Scheme curators - Define which curators can add or update profiles for particular schemes.'
-							}
+		'scheme_curators',
+		'user-tie',
+		{
+			add              => 1,
+			batch_add        => 1,
+			query            => 1,
+			batch_update     => 1,
+			batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=memberUpdate&amp;table=scheme_curators),
+			info => 'Scheme curators - Define which curators can add or update profiles for particular schemes.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1144,14 +1130,14 @@ sub _get_user_passwords {
 	return $buffer if !$self->{'permissions'}->{'set_user_passwords'} && !$self->is_admin;
 	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>User passwords</h2>);
 	$buffer .= $self->_get_icon_group(
-					   undef, 'key',
-					   {
-						 set     => 1,
-						 set_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword),
-						 set_label => 'Set passwords',
-						 info      => 'Set user password - Set a user password to enable them to log on '
-						   . 'or change an existing password.'
-					   }
+		undef, 'key',
+		{
+			set       => 1,
+			set_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword),
+			set_label => 'Set passwords',
+			info      => 'Set user password - Set a user password to enable them to log on '
+			  . 'or change an existing password.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1165,29 +1151,29 @@ sub _get_config_check {
 	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">)
 	  . q(<h2>Configuration check</h2>);
 	$buffer .= $self->_get_icon_group(
-				undef,
-				'clipboard-check',
-				{
-				  action     => 1,
-				  action_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
-					. q(show_probs_only=1),
-				  action_label => 'Check',
-				  info         => 'Configuration check - Checks database connectivity for loci and schemes and '
-					. 'that required helper applications are properly installed.'
-				}
+		undef,
+		'clipboard-check',
+		{
+			action     => 1,
+			action_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
+			  . q(show_probs_only=1),
+			action_label => 'Check',
+			info         => 'Configuration check - Checks database connectivity for loci and schemes and '
+			  . 'that required helper applications are properly installed.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">)
 		  . q(<h2>Configuration repair</h2>);
 		$buffer .= $self->_get_icon_group(
-				   undef, 'wrench',
-				   {
-					 action     => 1,
-					 action_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair),
-					 action_label => 'Repair',
-					 info         => 'Configuration repair - Rebuild scheme tables'
-				   }
+			undef, 'wrench',
+			{
+				action       => 1,
+				action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair),
+				action_label => 'Repair',
+				info         => 'Configuration repair - Rebuild scheme tables'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1201,14 +1187,14 @@ sub _get_cache_refresh {
 	$buffer .=
 	  q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">) . q(<h2>Cache refresh</h2>);
 	$buffer .= $self->_get_icon_group(
-				   undef,
-				   'sync-alt',
-				   {
-					 action     => 1,
-					 action_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
-					 action_label => 'Refresh',
-					 info         => 'Scheme caches - Update one or all scheme field caches.'
-				   }
+		undef,
+		'sync-alt',
+		{
+			action       => 1,
+			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
+			action_label => 'Refresh',
+			info         => 'Scheme caches - Update one or all scheme field caches.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1221,32 +1207,30 @@ sub _get_loci {
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Loci</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'loci',
-									   'sliders-h',
-									   {
-										  add        => 1,
-										  batch_add  => 1,
-										  query      => 1,
-										  scan       => 1,
-										  scan_label => 'Databank scan',
-										  scan_url =>
-qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan)
-									   }
+		'loci',
+		'sliders-h',
+		{
+			add        => 1,
+			batch_add  => 1,
+			query      => 1,
+			scan       => 1,
+			scan_label => 'Databank scan',
+			scan_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan)
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_loci_exist;
 	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus aliases</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'locus_aliases',
-									   'list-ul',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Locus aliases - Alternative names for loci. These can also be set when you batch add loci.'
-									   }
+		'locus_aliases',
+		'list-ul',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Locus aliases - Alternative names for loci. These can also be set when you batch add loci.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1259,15 +1243,15 @@ sub _get_isolate_field_extended_attributes {
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Extended attribute fields</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'isolate_field_extended_attributes',
-									   'expand-arrows-alt',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Extended attribute fields - '
-											. 'Define additional attributes linked to a particular isolate record field.'
-									   }
+		'isolate_field_extended_attributes',
+		'expand-arrows-alt',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Extended attribute fields - '
+			  . 'Define additional attributes linked to a particular isolate record field.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1285,13 +1269,13 @@ sub _get_eav_fields {
 		'eav_fields',
 		'microscope',
 		{
-		   add       => 1,
-		   batch_add => 1,
-		   query     => 1,
-		   info => "$uc_field_name - Define fields that are likely to contain sparsely populated "
-			 . 'values, i.e. fields that only a minority of records will have values for. It is '
-			 . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
-			 . "appropriate if you have 10s-100s of $field_name to define."
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => "$uc_field_name - Define fields that are likely to contain sparsely populated "
+			  . 'values, i.e. fields that only a minority of records will have values for. It is '
+			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
+			  . "appropriate if you have 10s-100s of $field_name to define."
 		}
 	);
 	$buffer .= qq(</div>\n);
@@ -1305,14 +1289,14 @@ sub _get_composite_fields {
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Composite fields</h2>);
 	$buffer .= $self->_get_icon_group(
-				  'composite_fields',
-				  'cubes',
-				  {
-					add       => 1,
-					query     => 1,
-					query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
-					info => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
-				  }
+		'composite_fields',
+		'cubes',
+		{
+			add       => 1,
+			query     => 1,
+			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
+			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1325,29 +1309,29 @@ sub _get_schemes {
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Schemes</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'schemes',
-									   'table',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Schemes - Schemes consist of collections of loci, '
-											. 'optionally containing a primary key field, e.g. MLST'
-									   }
+		'schemes',
+		'table',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Schemes - Schemes consist of collections of loci, '
+			  . 'optionally containing a primary key field, e.g. MLST'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_schemes_exist;
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme fields</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'scheme_fields',
-									   'th-list',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Scheme fields - Define which fields belong to a scheme'
-									   }
+		'scheme_fields',
+		'th-list',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Scheme fields - Define which fields belong to a scheme'
+		}
 	);
 	$buffer .= qq(</div>\n);
 
@@ -1355,15 +1339,15 @@ sub _get_schemes {
 		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme members</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'scheme_members',
-										   'object-group',
-										   {
-											  fa_class  => 'far',
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info      => 'Scheme members - Define which loci belong to a scheme'
-										   }
+			'scheme_members',
+			'object-group',
+			{
+				fa_class  => 'far',
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Scheme members - Define which loci belong to a scheme'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1378,30 +1362,30 @@ sub _get_scheme_groups {
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme groups</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'scheme_groups',
-									   'sitemap',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Scheme groups - Define groups in to which schemes can belong - '
-											. 'groups can also belong to other groups to create a hierarchy.'
-									   }
+		'scheme_groups',
+		'sitemap',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Scheme groups - Define groups in to which schemes can belong - '
+			  . 'groups can also belong to other groups to create a hierarchy.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->_schemes_exist ) {
 		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Group members (schemes)</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'scheme_group_scheme_members',
-										   'object-group',
-										   {
-											  fa_class  => 'far',
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info => 'Scheme group members - Define which schemes belong to a group.'
-										   }
+			'scheme_group_scheme_members',
+			'object-group',
+			{
+				fa_class  => 'far',
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Scheme group members - Define which schemes belong to a group.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1409,16 +1393,16 @@ sub _get_scheme_groups {
 		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Group members (groups)</h2>);
 		$buffer .= $self->_get_icon_group(
-							   'scheme_group_group_members',
-							   'object-group',
-							   {
-								 fa_class  => 'far',
-								 add       => 1,
-								 batch_add => 1,
-								 query     => 1,
-								 info => 'Scheme group members - Define which scheme groups belong to a parent group. '
-								   . 'Use this to construct a hierarchy of schemes.'
-							   }
+			'scheme_group_group_members',
+			'object-group',
+			{
+				fa_class  => 'far',
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Scheme group members - Define which scheme groups belong to a parent group. '
+				  . 'Use this to construct a hierarchy of schemes.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1433,30 +1417,30 @@ sub _get_classification_schemes {
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification schemes</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'classification_schemes',
-									   'object-group',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info      => 'Classification schemes - Set up for clustering '
-											. 'of scheme profiles at different locus difference thresholds.'
-									   }
+		'classification_schemes',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Classification schemes - Set up for clustering '
+			  . 'of scheme profiles at different locus difference thresholds.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_classification_schemes_exist;
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification group fields</h2>);
 	$buffer .= $self->_get_icon_group(
-							   'classification_group_fields',
-							   'object-group',
-							   {
-								 add       => 1,
-								 batch_add => 1,
-								 query     => 1,
-								 info => 'Classification group fields - Additional fields that can be associated with '
-								   . 'classification scheme groups.'
-							   }
+		'classification_group_fields',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Classification group fields - Additional fields that can be associated with '
+			  . 'classification scheme groups.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1469,15 +1453,14 @@ sub _get_classification_field_values {
 	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Classification group field values</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'classification_group_field_values',
-									   'object-group',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Classification group field values - Associate values with particular classification groups.'
-									   }
+		'classification_group_field_values',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Classification group field values - Associate values with particular classification groups.'
+		}
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer;
@@ -1491,14 +1474,13 @@ sub _get_sets {
 	$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
 	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sets</h2>);
 	$buffer .= $self->_get_icon_group(
-									   'sets', 'hands',
-									   {
-										  add       => 1,
-										  batch_add => 1,
-										  query     => 1,
-										  info =>
-'Sets - Describe a collection of loci and schemes that can be treated like a stand-alone database.'
-									   }
+		'sets', 'hands',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info => 'Sets - Describe a collection of loci and schemes that can be treated like a stand-alone database.'
+		}
 	);
 	return $buffer if !$self->_sets_exist;
 	$buffer .= qq(</div>\n);
@@ -1507,15 +1489,15 @@ sub _get_sets {
 		$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set loci</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'set_loci',
-										   'object-group',
-										   {
-											  fa_class  => 'far',
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info      => 'Set loci - Define loci belonging to a set.'
-										   }
+			'set_loci',
+			'object-group',
+			{
+				fa_class  => 'far',
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Set loci - Define loci belonging to a set.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1523,15 +1505,15 @@ sub _get_sets {
 		$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
 		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set schemes</h2>);
 		$buffer .= $self->_get_icon_group(
-										   'set_schemes',
-										   'object-group',
-										   {
-											  fa_class  => 'far',
-											  add       => 1,
-											  batch_add => 1,
-											  query     => 1,
-											  info      => 'Set schemes - Define schemes belonging to a set.'
-										   }
+			'set_schemes',
+			'object-group',
+			{
+				fa_class  => 'far',
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Set schemes - Define schemes belonging to a set.'
+			}
 		);
 		$buffer .= qq(</div>\n);
 	}
@@ -1541,15 +1523,15 @@ sub _get_sets {
 			$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
 			  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set metadata</h2>);
 			$buffer .= $self->_get_icon_group(
-											   'set_metadata',
-											   'object-group',
-											   {
-												  fa_class  => 'far',
-												  add       => 1,
-												  batch_add => 1,
-												  query     => 1,
-												  info      => 'Set metadata - Add metadata collection to sets.'
-											   }
+				'set_metadata',
+				'object-group',
+				{
+					fa_class  => 'far',
+					add       => 1,
+					batch_add => 1,
+					query     => 1,
+					info      => 'Set metadata - Add metadata collection to sets.'
+				}
 			);
 			$buffer .= qq(</div>\n);
 		}
@@ -1557,14 +1539,14 @@ sub _get_sets {
 			$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
 			  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set views</h2>);
 			$buffer .= $self->_get_icon_group(
-											   'set_view',
-											   'glasses',
-											   {
-												  add       => 1,
-												  batch_add => 1,
-												  query     => 1,
-												  info      => 'Set views - Set database views linked to sets.'
-											   }
+				'set_view',
+				'glasses',
+				{
+					add       => 1,
+					batch_add => 1,
+					query     => 1,
+					info      => 'Set views - Set database views linked to sets.'
+				}
 			);
 			$buffer .= qq(</div>\n);
 		}
@@ -1784,11 +1766,11 @@ sub print_content {
 	}
 	if ( !$can_do_something ) {
 		$self->print_bad_status(
-							 {
-							       message => q(Although you are set as a curator/submitter, )
-								 . q(you haven't been granted specific permission to do anything.  Please contact the )
-								 . q(database administrator to set your appropriate permissions.)
-							 }
+			{
+				    message => q(Although you are set as a curator/submitter, )
+				  . q(you haven't been granted specific permission to do anything.  Please contact the )
+				  . q(database administrator to set your appropriate permissions.)
+			}
 		);
 	}
 	return;
@@ -1889,19 +1871,19 @@ sub _get_publication_requests {
 		  . q(below to see these records and to choose whether to publish them.</p>);
 	}
 	my $users = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
-			  . 'WHERE p.request_publish ORDER BY i.sender',
-			undef,
-			{ fetch => 'col_arrayref' }
+		"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
+		  . 'WHERE p.request_publish ORDER BY i.sender',
+		undef,
+		{ fetch => 'col_arrayref' }
 	);
 	$buffer .= q(<table class="resultstable"><tr><th>Sender</th><th>Isolates</th><th>Display</th></tr>);
 	my $td = 1;
 	foreach my $user_id (@$users) {
 		my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1 } );
 		my $isolate_count = $self->{'datastore'}->run_query(
-										 'SELECT COUNT(*) FROM private_isolates p JOIN isolates i ON p.isolate_id=i.id '
-										   . 'WHERE request_publish AND sender=?',
-										 $user_id
+			'SELECT COUNT(*) FROM private_isolates p JOIN isolates i ON p.isolate_id=i.id '
+			  . 'WHERE request_publish AND sender=?',
+			$user_id
 		);
 		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
@@ -1918,7 +1900,7 @@ sub _print_account_requests_section {
 	my $curator = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return
 	  if !( $curator->{'account_request_emails'}
-			&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
+		&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
 	my $q = $self->{'cgi'};
 	$self->_reject_user if ( $q->param('reject') );
 	$self->_import_user if ( $q->param('import') );
@@ -1932,12 +1914,10 @@ sub _print_account_requests_section {
 			my $users =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT user_name,datestamp FROM pending_requests WHERE dbase_config=? ORDER BY datestamp',
-						   $config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} } );
+				$config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} } );
 			foreach my $user (@$users) {
-				my $user_info =
-				  $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
-												   $user->{'user_name'},
-												   { db => $user_db->{'db'}, fetch => 'row_hashref' } );
+				my $user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
+					$user->{'user_name'}, { db => $user_db->{'db'}, fetch => 'row_hashref' } );
 				$user_info->{'request_date'} = $user->{'datestamp'};
 				$user_info->{'user_db'}      = $user_db->{'id'};
 				push @user_details, $user_info;
@@ -2004,24 +1984,15 @@ sub _import_user {
 	my $curator_id = $self->get_curator_id;
 	eval {
 		$self->{'db'}->do(
-						   'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,submission_emails,'
-							 . 'account_request_emails,user_db) VALUES (?,?,?,?,?,?,?,?,?)',
-						   undef,
-						   $id,
-						   $user_name,
-						   'user',
-						   'now',
-						   'now',
-						   $curator_id,
-						   'false',
-						   'false',
-						   $user_db
+			'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,submission_emails,'
+			  . 'account_request_emails,user_db) VALUES (?,?,?,?,?,?,?,?,?)',
+			undef, $id, $user_name, 'user', 'now', 'now', $curator_id, 'false', 'false', $user_db
 		);
 
 		#We need to identify all registered configs that use the same database
 		foreach my $config (@$configs) {
 			$db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
-					 undef, $config, $user_name, 'now' );
+				undef, $config, $user_name, 'now' );
 			$db->do( 'DELETE FROM pending_requests WHERE (dbase_config,user_name)=(?,?)', undef, $config, $user_name );
 		}
 	};
@@ -2038,9 +2009,8 @@ sub _import_user {
 
 sub _isolates_exist {
 	my ($self) = @_;
-	return
-	  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'})",
-									   undef, { cache => 'CurateIndexPage::isolates_exist' } );
+	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'})",
+		undef, { cache => 'CurateIndexPage::isolates_exist' } );
 }
 
 sub _schemes_exist {
@@ -2051,9 +2021,8 @@ sub _schemes_exist {
 
 sub _classification_schemes_exist {
 	my ($self) = @_;
-	return
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes)',
-									   undef, { cache => 'CurateIndexPage::cschemes_exist' } );
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes)',
+		undef, { cache => 'CurateIndexPage::cschemes_exist' } );
 }
 
 sub _loci_exist {

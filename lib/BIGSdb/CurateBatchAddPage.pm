@@ -75,7 +75,9 @@ sub print_content {
 	}
 	my %table_message = (
 		sequence_bin     => 'You cannot use this interface to add sequences to the bin.',
-		allele_sequences => 'Tag allele sequences using the scan interface.'
+		allele_sequences => 'Tag allele sequences using the scan interface.',
+		#TODO Uncomment the following to disable adding new sequences
+#		sequences => 'You cannot use this interface to add new sequence definitions.'
 	);
 	if ( $table_message{$table} ) {
 		$self->print_bad_status( { message => $table_message{$table}, navbar => 1 } );
@@ -192,7 +194,7 @@ sub _print_interface {
 	say $q->start_form;
 
 	if ( $arg_ref->{'has_sender_field'} ) {
-		$self->_print_interface_sender_field;
+		$self->print_interface_sender_field;
 	}
 	if ( $table eq 'sequences' ) {
 		$self->_print_interface_sequence_switches;
@@ -305,7 +307,7 @@ sub _cannot_upload_private_data {
 	return;
 }
 
-sub _print_interface_sender_field {
+sub print_interface_sender_field {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -424,7 +426,7 @@ sub _get_locus_extended_attributes {
 	};
 }
 
-sub _get_sender_message {
+sub get_sender_message {
 	my ( $self, $args ) = @_;
 	my $sender_message = q();
 	my $q              = $self->{'cgi'};
@@ -444,7 +446,7 @@ sub _get_sender_message {
 	return $sender_message;
 }
 
-sub _sender_needed {
+sub sender_needed {
 	my ( $self, $args ) = @_;
 	if ( $args->{'has_sender_field'} ) {
 		my $q      = $self->{'cgi'};
@@ -462,7 +464,7 @@ sub _sender_needed {
 	return;
 }
 
-sub _get_file_header_data {
+sub get_file_header_data {
 	my ( $self, $records ) = @_;
 	my $header;
 	while ( $header = shift @$records ) {    #ignore blank lines before header
@@ -529,14 +531,14 @@ sub _check_data {
 	my ( $extended_attributes, $required_extended_exist ) =
 	  @{ $self->_get_locus_extended_attributes( $table, $locus ) }{qw(extended_attributes required_extended_exist)};
 	my %last_id;
-	return if $self->_sender_needed($args);
-	my $sender_message = $self->_get_sender_message($args);
+	return if $self->sender_needed($args);
+	my $sender_message = $self->get_sender_message($args);
 	my ( %problems, %advisories );
 	my $table_header = $self->_get_field_table_header($table);
 	my $tablebuffer  = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
 	my @records      = split /\n/x, $q->param('data');
 	my $td           = 1;
-	my ( $file_header_fields, $file_header_pos ) = $self->_get_file_header_data( \@records );
+	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $id           = $self->_get_id($table);
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
@@ -579,7 +581,7 @@ sub _check_data {
 				}
 
 				#Check individual values for correctness.
-				my $value = $self->_extract_value(
+				my $value = $self->extract_value(
 					{
 						field               => $field,
 						data                => \@data,
@@ -604,12 +606,12 @@ sub _check_data {
 					extended_attributes     => $extended_attributes,
 					unique_field            => $unique_field
 				};
-				$self->_check_data_duplicates($new_args);
+				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 				#Display field - highlight in red if invalid.
-				$rowbuffer .= $self->_format_display_value(
+				$rowbuffer .= $self->format_display_value(
 					{
 						table           => $table,
 						field           => $field,
@@ -673,26 +675,26 @@ sub _check_data {
 			my %record_checks = (
 				accession => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				sequence_refs => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				loci => sub {
 					$self->_check_data_loci($new_args);
 				},
 				sequences => sub {
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				locus_descriptions => sub {
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				locus_links => sub {
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				retired_allele_ids => sub {
-					$self->_check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
 				},
 				projects => sub {
 					$self->_check_projects( $new_args, \%problems, $pk_combination );
@@ -718,7 +720,7 @@ sub _check_data {
 		return;
 	}
 	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
-	$self->_report_check(
+	$self->report_check(
 		{
 			table          => $table,
 			buffer         => \$tablebuffer,
@@ -779,7 +781,7 @@ sub _isolate_record_further_checks {
 	return $buffer;
 }
 
-sub _format_display_value {
+sub format_display_value {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $value, $problems, $pk_combination, $special_problem ) =
 	  @{$args}{qw(table field value problems pk_combination special_problem)};
@@ -793,7 +795,7 @@ sub _format_display_value {
 		$display_value = BIGSdb::Utils::escape_html($display_value);
 	}
 	my $buffer;
-	my $problem = $self->_check_field_bad( $table, $field, $value, $problems, $pk_combination );
+	my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 	if ( !( $problem || $special_problem ) ) {
 		if ( $table eq 'sequences' && $field eq 'flags' ) {
 			my @flags = split /;/x, ( $display_value // q() );
@@ -813,7 +815,7 @@ sub _format_display_value {
 	return $buffer;
 }
 
-sub _check_field_bad {
+sub check_field_bad {
 	my ( $self, $table, $field, $value, $problems, $pk_combination ) = @_;
 	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
 	my $set_id = $self->get_set_id;
@@ -864,7 +866,7 @@ sub _check_classification_field_values {
 	return;
 }
 
-sub _check_permissions {
+sub check_permissions {
 	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return if $self->is_admin;
@@ -971,7 +973,7 @@ sub _get_existing_label_field_values {
 	return \%hash;
 }
 
-sub _report_check {
+sub report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
@@ -1027,7 +1029,7 @@ sub _report_check {
 	return;
 }
 
-sub _extract_value {
+sub extract_value {
 	my ( $self, $arg_ref ) = @_;
 	my $q               = $self->{'cgi'};
 	my $field           = $arg_ref->{'field'};
@@ -1381,7 +1383,7 @@ sub _check_data_loci {
 	return;
 }
 
-sub _check_data_duplicates {
+sub check_data_duplicates {
 
 	#check if unique value exists twice in submission
 	my ( $self, $arg_ref ) = @_;
@@ -1872,9 +1874,9 @@ sub _upload_data {
 	my $table   = $arg_ref->{'table'};
 	my $locus   = $arg_ref->{'locus'};
 	my $q       = $self->{'cgi'};
-	my $records = $self->_extract_checked_records;
+	my $records = $self->extract_checked_records;
 	return if !@$records;
-	my $field_order = $self->_get_field_order($records);
+	my $field_order = $self->get_field_order($records);
 	my ( $fields_to_include, $meta_fields, $extended_attributes ) = $self->_get_fields_to_include( $table, $locus );
 	my @history;
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -1888,15 +1890,15 @@ sub _upload_data {
 		$record =~ s/\r//gx;
 		if ($record) {
 			my @data = split /\t/x, $record;
-			@data = $self->_process_fields( \@data );
+			@data = $self->process_fields( \@data );
 			my @value_list;
 			my ( @extras, @ref_extras );
 			my $id;
-			my $sender = $self->_get_sender( $field_order, \@data, $user_info->{'status'} );
+			my $sender = $self->get_sender( $field_order, \@data, $user_info->{'status'} );
 			foreach my $field (@$fields_to_include) {
 				$id = $data[ $field_order->{$field} ] if $field eq 'id';
 				push @value_list,
-				  $self->_read_value(
+				  $self->read_value(
 					{
 						table       => $table,
 						field       => $field,
@@ -2012,7 +2014,7 @@ sub _upload_data {
 				}
 			};
 			if ( $@ || $upload_err ) {
-				$self->_report_upload_error( ( $upload_err // $@ ), $failed_file );
+				$self->report_upload_error( ( $upload_err // $@ ), $failed_file );
 				$self->{'db'}->rollback;
 				return;
 			}
@@ -2072,7 +2074,7 @@ sub _report_successful_upload {
 	return;
 }
 
-sub _report_upload_error {
+sub report_upload_error {
 	my ( $self, $err, $failed_file ) = @_;
 	my $detail;
 	if ( $err eq 'Invalid FASTA file' ) {
@@ -2342,7 +2344,7 @@ sub _prepare_sequences_extra_inserts {
 	return \@inserts;
 }
 
-sub _extract_checked_records {
+sub extract_checked_records {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @records;
@@ -2374,7 +2376,7 @@ sub _extract_checked_records {
 	return \@records;
 }
 
-sub _get_sender {
+sub get_sender {
 	my ( $self, $field_order, $data, $user_status ) = @_;
 	if ( $user_status eq 'submitter' ) {
 		return $self->get_curator_id;
@@ -2390,7 +2392,7 @@ sub _get_sender {
 	return;
 }
 
-sub _read_value {
+sub read_value {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $field_order, $data, $locus, $user_status ) =
 	  @{$args}{qw(table field field_order data locus user_status)};
@@ -2416,7 +2418,7 @@ sub _read_value {
 	return;
 }
 
-sub _get_field_order {
+sub get_field_order {
 	my ( $self, $records ) = @_;
 	my $header_line = shift @$records;
 	my @fields;
@@ -2424,11 +2426,11 @@ sub _get_field_order {
 		$header_line =~ s/[\r\n]//gx;
 		@fields = split /\t/x, $header_line;
 	}
-	my %field_order;
+	my $field_order = {};
 	for my $i ( 0 .. @fields - 1 ) {
-		$field_order{ $fields[$i] } = $i;
+		$field_order->{ $fields[$i] } = $i;
 	}
-	return \%field_order;
+	return $field_order;
 }
 
 sub _get_fields_to_include {
@@ -2634,7 +2636,7 @@ sub _is_id_used {
 	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
 
-sub _process_fields {
+sub process_fields {
 	my ( $self, $data ) = @_;
 	my @return_data;
 	foreach my $value (@$data) {
