@@ -28,6 +28,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
 use constant DBASE_QUOTA_EXCEEDED => 1;
 use constant USER_QUOTA_EXCEEDED  => 2;
+use constant RESULTS_DELETED_DAYS => 7;
 
 sub new {
 
@@ -533,5 +534,25 @@ sub get_summary_stats {
 		$results->{'week'} = $week;
 	}
 	return $results;
+}
+
+sub purge_old_jobs {
+	my ($self) = @_;
+	my $days = $self->{'config'}->{'results_deleted_days'} // RESULTS_DELETED_DAYS;
+	eval {
+		$self->{'db'}->do(
+			    qq[DELETE FROM jobs where (stop_time IS NOT NULL AND stop_time < now()-interval '$days days') ]
+			  . qq[OR (status LIKE 'rejected%' AND submit_time < now()-interval '$days days') OR ]
+			  . q[(status IN ('failed','cancelled','terminated','finished') ]
+			  . qq[AND stop_time IS NULL AND submit_time <now()-interval '$days days')]
+		);
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
 }
 1;

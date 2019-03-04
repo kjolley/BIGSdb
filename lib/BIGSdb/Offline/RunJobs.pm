@@ -79,7 +79,10 @@ sub _initiate_db {
 sub run_script {
 	my ($self) = @_;
 	my $job_id = $self->{'jobManager'}->get_next_job_id;
-	exit if !$job_id;
+	if (!$job_id){
+		$self->_purge;
+		exit;
+	}
 	$self->{'logger'}->info("Job:$job_id") if $job_id;
 	my $job = $self->{'jobManager'}->get_job($job_id);
 	if ( $job->{'cancel'} ) {
@@ -168,6 +171,19 @@ sub _notify_user {
 		  || $self->{'logger'}->error("Cannot send E-mail to $address");
 	};
 	$self->{'logger'}->error($@) if $@;
+	return;
+}
+
+#Only need to purge old jobs infrequently. This script is usually run from
+#a CRON job every minute, so we can check the time and only purge if we're 
+#on the hour. It is also only run if there is no job to run (it doesn't really 
+#matter when or how often old jobs are purged, as long as it happens occasionally).
+sub _purge {
+	my ($self) = @_;
+	my @time = localtime(time);
+	my $min = $time[1];
+	return if $min != 0;
+	$self->{'jobManager'}->purge_old_jobs;
 	return;
 }
 1;
