@@ -19,23 +19,36 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20190304
 use strict;
 use warnings;
 use 5.010;
 use Digest::MD5;
-use Getopt::Std;
+use Getopt::Long qw(:config no_ignore_case);
 use DBI;
 use Carp;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
+use Getopt::Long qw(:config no_ignore_case);
+use Term::Cap;
+use POSIX;
 use constant DBASE       => 'bigsdb_auth';
 use constant BCRYPT_COST => 12;
 my %opts;
-getopts( 'ad:n:p:', \%opts );
+GetOptions(
+	'a|add' => \$opts{'add'},
+	'd|database=s' => \$opts{'database'},
+	'h|help' => \$opts{'help'},
+	'n|username=s' => \$opts{'name'},
+	'p|password=s' => \$opts{'password'}
+	)or die("Error in command line arguments\n");
+if ( $opts{'help'} ) {
+	show_help();
+	exit;
+}
 
-if ( !$opts{'d'} || !$opts{'n'} || !$opts{'n'} ) {
-	say 'Usage: add_user.pl [-a] -d <dbase> -n <username> -p <password>';
-	say 'Use -a option to add a new user.';
+if ( !$opts{'database'} || !$opts{'name'} || !$opts{'password'} ) {
+	say 'Usage: add_user.pl [-a] --database <dbase> --name <username> --password <password>';
+	say 'Use --add option to add a new user.';
 	exit;
 }
 main();
@@ -47,24 +60,24 @@ sub main {
 		{ AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
 	  || croak 'could not open database';
 	my $qry;
-	my $password    = Digest::MD5::md5_hex( $opts{'p'} . $opts{'n'} );
+	my $password    = Digest::MD5::md5_hex( $opts{'password'} . $opts{'name'} );
 	my $salt        = generate_salt();
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => BCRYPT_COST, salt => $salt }, $password ) );
 	my @values = ( $bcrypt_hash, 'bcrypt', BCRYPT_COST, $salt );
-	if ( $opts{'a'} ) {
+	if ( $opts{'add'} ) {
 		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp) '
 		  . 'VALUES (?,?,?,?,?,?,?,?)';
-		push @values, ($opts{'d'}, $opts{'n'}, 'now', 'now' );
+		push @values, ($opts{'database'}, $opts{'name'}, 'now', 'now' );
 	} else {
 		$qry = 'UPDATE users SET (password,algorithm,cost,salt,datestamp)=(?,?,?,?,?) WHERE (dbase,name)=(?,?)';
-		push @values, ( 'now', $opts{'d'}, $opts{'n'} );
+		push @values, ( 'now', $opts{'database'}, $opts{'name'} );
 	}
 	my $sql         = $db->prepare($qry);
 
 	eval { $db->do( $qry, undef, @values ) };
 	if ($@) {
 		if ( $@ =~ /duplicate/ ) {
-			say 'Username already exists.  Do not use the -a option to update.';
+			say 'Username already exists.  Do not use the --add (-a) option to update.';
 		} else {
 			say $@;
 		}
@@ -81,4 +94,38 @@ sub generate_salt {
 		$salt .= $saltchars[ int( rand($#saltchars) ) ];
 	}
 	return $salt;
+}
+
+sub show_help {
+		my $termios = POSIX::Termios->new;
+	$termios->getattr;
+	my $ospeed = $termios->getospeed;
+	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
+	say << "HELP";
+${bold}NAME$norm
+    ${bold}add_user.pl$norm - Add user to authentication database 
+
+${bold}SYNOPSIS$norm
+    ${bold}add_user.pl ${bold}--database ${under}DATABASE$norm ${bold}--name ${under}NAME$norm ${bold}--password ${under}PASSWORD$norm ${norm}[${under}options$norm]
+
+${bold}OPTIONS$norm
+
+${bold}-a, --add$norm
+    Add details to authentication database. Do not use if updating the password
+    of an existing user.
+    
+${bold}-d, --database ${under}DATABASE$norm  
+    Database configuration name. If site-wide databases are being used, this may be the name of the users database.
+    
+${bold}-n, --username ${under}USERNAME$norm  
+    User name.
+    
+${bold}-p, --password ${under}PASSWORD$norm  
+    Password.    
+    
+${bold}-h, --help$norm
+    This help page.
+HELP
+	return;
 }
