@@ -835,20 +835,20 @@ sub report_check {
 		}
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity submission_id project_id private user_header);
+		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing 
+		    submission_id project_id private user_header);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->end_form;
 		say q(</div>);
 	}
 	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	my $caveat =
-	  ( $table eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
-	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
-	  : q();
+#	my $caveat =
+#	  ( $table eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
+#	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
+#	  : q();
 	say q(<p>The following table shows your data.  Any field with red text has a )
-	  . qq(problem and needs to be checked. $caveat</p>);
+	  . qq(problem and needs to be checked.</p>);
 	say $$buffer;
 	say q(</div>);
 	return;

@@ -23,34 +23,41 @@ use 5.010;
 use parent qw(BIGSdb::Offline::Script BIGSdb::CurateBatchAddPage);
 use List::MoreUtils qw(any none);
 use Digest::MD5 qw(md5);
+use JSON;
 use BIGSdb::Constants qw(ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD);
 my $logger;
 
 sub run {
-	my ($self) = @_;
+	my ( $self, $prefix ) = @_;
 	$logger = $self->{'logger'};
+	my $status_file = qq($self->{'config'}->{'tmp_dir'}/${prefix}_status.json);
+	my $data_file   = qq($prefix.json);
+	my $full_path   = qq($self->{'config'}->{'tmp_dir'}/$data_file);
+	$self->_update_status_file( $status_file, 'running', 0 );
 	$self->{'username'} = $self->{'options'}->{'username'};
 	my $locus = $self->{'options'}->{'locus'};
 	$self->setup_submission_handler;
 	my $checked_buffer = [];
-	my $fields = $self->_get_fields_in_order($locus);
+	my $fields         = $self->_get_fields_in_order($locus);
 	my ( $extended_attributes, $required_extended_exist ) =
 	  @{ $self->_get_locus_extended_attributes($locus) }{qw(extended_attributes required_extended_exist)};
 	my %last_id;
-	my $problems = {};
+	my $problems     = {};
 	my $table_header = $self->_get_field_table_header;
-	my $table_buffer  = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	my $table_buffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
 	my @records      = split /\n/x, $self->{'options'}->{'data'};
 	my $td           = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $primary_keys = [qw(locus allele_id)];
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
-	my $first_record = 1;
+	my $i = 0;
 
 	foreach my $record (@records) {
+		my $progress = int( 100 * $i / @records );
+		$self->_update_status_file( $status_file, 'running', $progress );
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
-		my $checked_record;
+		my $checked_record = {};
 		if ($record) {
 			my @data = split /\t/x, $record;
 			BIGSdb::Utils::remove_trailing_spaces_from_list( \@data );
@@ -68,11 +75,6 @@ sub run {
 			my $rowbuffer;
 			my $continue = 1;
 			foreach my $field (@$fields) {
-
-				#Prepare checked header
-				if ( !$header_complete && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
-					$header_row .= "$field\t";
-				}
 
 				#Check individual values for correctness.
 				my $value = $self->extract_value(
@@ -115,49 +117,37 @@ sub run {
 						special_problem => $special_problem
 					}
 				);
-				$value //= q();
 				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
-					$checked_record .= qq($value\t);
+					$checked_record->{$field} = $value if defined $value && $value ne q();
 				}
 			}
-			if ( !$continue ) {
-				undef $header_row if $first_record;
-				next;
-			}
+			next if !$continue;
 			$table_buffer .= qq(<tr class="td$td">$rowbuffer);
 			my $new_args = {
-				file_header_fields => $file_header_fields,
-				header_row         => \$header_row,
-				first_record       => $first_record,
-				file_header_pos    => $file_header_pos,
-				data               => \@data,
-				locus_format       => \%locus_format,
-				locus_regex        => \%locus_regex,
-				primary_keys       => $primary_keys,
-				pk_combination     => $pk_combination,
-				pk_values          => $pk_values_ref,
-				problems           => $problems,
-				checked_record     => \$checked_record,
+				file_header_pos => $file_header_pos,
+				data            => \@data,
 			};
 			$header_complete = 1;
-			push @$checked_buffer, $header_row if $first_record;
-			$first_record = 0;
 			$table_buffer .= qq(</tr>\n);
 			$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 		}
 		$td = $td == 1 ? 2 : 1;    #row stripes
-		$checked_record =~ s/\t$//x if defined $checked_record;
 		push @$checked_buffer, $checked_record;
 	}
 	$table_buffer .= q(</table></div>);
-	use Data::Dumper;
-	$logger->error( Dumper $table_buffer);
-	return {
-		table_buffer    => \$table_buffer,
-		record_count   => $record_count,
-		checked_buffer => $checked_buffer,
-		problems       => $problems
-	};
+	$self->_update_status_file( $status_file, 'finished', 100 );
+	$self->_write_results_file(
+		$full_path,
+		encode_json(
+			{
+				html         => $table_buffer,
+				checked      => $checked_buffer,
+				problems     => $problems,
+				record_count => $record_count
+			}
+		)
+	);
+	return $data_file;
 }
 
 sub _get_fields_in_order {
@@ -590,5 +580,22 @@ sub _check_super_sequence {
 	}
 	$self->{'cache'}->{'seqs'}->{$locus}->{$seq} = $allele_id;
 	return q();
+}
+
+sub _write_results_file {
+	my ( $self, $filename, $buffer ) = @_;
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+	say $fh $buffer;
+	close $fh;
+	return;
+}
+
+sub _update_status_file {
+	my ( $self, $status_file, $status, $progress ) = @_;
+	open( my $fh, '>', $status_file )
+	  || $self->{'logger'}->error("Cannot touch $status_file");
+	say $fh qq({"status":"$status","progress":$progress});
+	close $fh;
+	return;
 }
 1;

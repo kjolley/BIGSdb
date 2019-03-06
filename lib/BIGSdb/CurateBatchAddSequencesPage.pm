@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateBatchAddPage);
 use BIGSdb::Offline::BatchSequenceCheck;
 use BIGSdb::Constants qw(:interface SEQ_STATUS );
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -79,14 +80,11 @@ sub print_content {
 		my $query      = $self->get_query_from_temp_file($query_file);
 		$q->param( query => $query );
 	}
-	if ( $q->param('checked_buffer') ) {
-		$self->_upload_data($locus);
+	if ( $q->param('checked_file') ) {
+		$self->_upload_data( $locus, $q->param('checked_file') );
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data($locus);
 	} else {
-		if ( $q->param('submission_id') ) {
-			$self->_set_submission_params( $q->param('submission_id') );
-		}
 		my $icon = $self->get_form_icon( 'sequences', 'plus' );
 		say $icon;
 		$self->_print_interface($locus);
@@ -233,20 +231,25 @@ sub _run_helper {
 			logger   => $logger
 		}
 	);
-	return $check_obj->run;
+	my $prefix = BIGSdb::Utils::get_random();
+	return $check_obj->run($prefix);
 }
 
 sub _check_data {
 	my ( $self, $locus ) = @_;
 	return if $self->sender_needed( { has_sender_field => 1 } );
-	my $results = $self->_run_helper($locus);
-	use Data::Dumper;
-	$logger->error( Dumper $results);
-	my $sender_message   = $self->get_sender_message( { has_sender_field => 1 } );
-	my $table_buffer_ref = $results->{'table_buffer'};
-	my $record_count     = $results->{'record_count'};
-	my $problems         = $results->{'problems'};
-	my $checked_buffer   = $results->{'checked_buffer'};
+	my $results_file = $self->_run_helper($locus);
+	my $full_path    = qq($self->{'config'}->{'tmp_dir'}/$results_file);
+	my $json_ref     = BIGSdb::Utils::slurp($full_path);
+	my $results      = decode_json($$json_ref);
+
+	#	use Data::Dumper;
+	#	$logger->error( Dumper $results);
+	#	my $sender_message   = $self->get_sender_message( { has_sender_field => 1 } );
+	my $table_buffer   = $results->{'html'};
+	my $record_count   = $results->{'record_count'};
+	my $problems       = $results->{'problems'};
+	my $checked_buffer = $results->{'checked'};
 	if ( !$record_count ) {
 		$self->print_bad_status(
 			{
@@ -256,81 +259,102 @@ sub _check_data {
 		);
 		return;
 	}
-	$self->report_check(
-		{
-			table          => 'sequences',
-			buffer         => $table_buffer_ref,
-			problems       => $problems,
-			advisories     => {},
-			checked_buffer => $checked_buffer,
-			sender_message => \$sender_message
+	$self->_report_check( $results_file, $results );
+	return;
+}
+
+sub _report_check {
+	my ( $self, $results_file, $results ) = @_;
+	my ( $html, $checked, $record_count, $problems ) =
+	  @{$results}{qw (html checked record_count problems)};
+	my $sender_message = $self->get_sender_message( { has_sender_field => 1 } );
+	if ( !@$checked ) {
+		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say q(<p>No valid records to upload after filtering.</p></div>);
+		return;
+	}
+	my $q = $self->{'cgi'};
+	if (%$problems) {
+		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		say q(<table class="resultstable">);
+		say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
+		my $td = 1;
+		foreach my $id ( sort keys %$problems ) {
+			say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
+			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
-	);
+		say q(</table></div>);
+	} else {
+		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message);
+		say q(<p>No obvious problems identified so far.</p>);
+		say $q->start_form;
+		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
+		  complete_CDS ignore_similarity);
+		say $q->hidden( checked_file => $results_file );
+		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
+		say $q->end_form;
+		say q(</div>);
+	}
+	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	my $caveat =
+	  ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
+	  : q();
+	say q(<p>The following table shows your data.  Any field with red text has a )
+	  . qq(problem and needs to be checked. $caveat</p>);
+	say $html;
+	say q(</div>);
 	return;
 }
 
 sub _upload_data {
-	my ( $self, $locus ) = @_;
-	my $q       = $self->{'cgi'};
-	my $records = $self->extract_checked_records;
+	my ( $self, $locus, $results_file ) = @_;
+	my $q         = $self->{'cgi'};
+	my $full_path = qq($self->{'config'}->{'tmp_dir'}/$results_file);
+	my $json_ref  = BIGSdb::Utils::slurp($full_path);
+	my $results   = decode_json($$json_ref);
+	my $records   = $results->{'checked'};
 	return if !@$records;
-	my $field_order = $self->get_field_order($records);
-	my ( $fields_to_include, $meta_fields, $extended_attributes ) = $self->_get_fields_to_include($locus);
+	my ( $fields_to_include, $extended_attributes ) = $self->_get_fields_to_include($locus);
 	my @history;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my %loci;
 	$loci{$locus} = 1 if $locus;
+	my $curator_id = $self->get_curator_id;
 
 	foreach my $record (@$records) {
-		$record =~ s/\r//gx;
 		if ($record) {
-			my @data = split /\t/x, $record;
-			@data = $self->process_fields( \@data );
-			my @value_list;
-			my $id;
-			my $sender = $self->get_sender( $field_order, \@data, $user_info->{'status'} );
+			my @values;
+			$record->{'locus'} //= $locus;
 			foreach my $field (@$fields_to_include) {
-				$id = $data[ $field_order->{$field} ] if $field eq 'id';
-				push @value_list,
-				  $self->read_value(
-					{
-						table       => 'sequences',
-						field       => $field,
-						field_order => $field_order,
-						data        => \@data,
-						locus       => $locus,
-						user_status => ( $user_info->{'status'} // undef )
-					}
-				  ) // undef;
+				if ( $field eq 'sender' ) {
+					push @values, $self->_get_sender( $record, $user_info->{'status'} );
+				} elsif ( $field eq 'curator' ) {
+					push @values, $curator_id;
+				} elsif ( $field eq 'date_entered' || $field eq 'datestamp' ) {
+					push @values, 'now';
+				} else {
+					push @values, $record->{$field};
+				}
 			}
-			$loci{ $data[ $field_order->{'locus'} ] } = 1 if defined $field_order->{'locus'};
 			my @inserts;
 			my $qry;
 			local $" = ',';
 			my @placeholders = ('?') x @$fields_to_include;
 			$qry = "INSERT INTO sequences (@$fields_to_include) VALUES (@placeholders)";
-			push @inserts, { statement => $qry, arguments => \@value_list };
+			push @inserts, { statement => $qry, arguments => \@values };
 			my $curator = $self->get_curator_id;
 			my ( $upload_err, $failed_file );
-			my $extra_methods = {
-				sequences => sub {
-					return $self->_prepare_sequences_extra_inserts(
-						{
-							locus               => $locus,
-							extended_attributes => $extended_attributes,
-							data                => \@data,
-							field_order         => $field_order,
-							curator             => $curator
-						}
-					);
-				},
-			};
-			if ( $extra_methods->{'sequences'} ) {
-				my $extra_inserts = $extra_methods->{'sequences'}->();
-				push @inserts, @$extra_inserts;
-			}
+			my $extra_inserts = $self->_prepare_extra_inserts(
+				{
+					extended_attributes => $extended_attributes,
+					record              => $record,
+					locus               => $locus,
+					curator             => $curator_id
+				}
+			);
 			eval {
-				foreach my $insert (@inserts) {
+				foreach my $insert ( @inserts, @$extra_inserts ) {
 					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 				}
 			};
@@ -353,9 +377,23 @@ sub _upload_data {
 	return;
 }
 
+sub _get_sender {
+	my ( $self, $record, $user_status ) = @_;
+	if ( $user_status eq 'submitter' ) {
+		return $self->get_curator_id;
+	} elsif ( $record->{'sender'} ) {
+		return $record->{'sender'};
+	}
+	my $q = $self->{'cgi'};
+	if ( $q->param('sender') ) {
+		return $q->param('sender');
+	}
+	return;
+}
+
 sub _get_fields_to_include {
 	my ( $self, $locus ) = @_;
-	my ( @fields_to_include, @metafields, $extended_attributes );
+	my ( @fields_to_include, $extended_attributes );
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('sequences');
 	push @fields_to_include, $_->{'name'} foreach @$attributes;
 	if ($locus) {
@@ -363,45 +401,40 @@ sub _get_fields_to_include {
 		  $self->{'datastore'}->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
 			$locus, { fetch => 'col_arrayref' } );
 	}
-	return ( \@fields_to_include, \@metafields, $extended_attributes );
+	return ( \@fields_to_include, $extended_attributes );
 }
 
-sub _prepare_sequences_extra_inserts {
+sub _prepare_extra_inserts {
 	my ( $self, $args ) = @_;
-	my ( $locus, $extended_attributes, $data, $field_order, $curator ) =
-	  @{$args}{qw(locus extended_attributes data field_order curator)};
+	my ( $locus, $extended_attributes, $record, $curator ) =
+	  @{$args}{qw(locus extended_attributes record curator)};
 	my @inserts;
-	$locus //= $data->[ $field_order->{'locus'} ];
+
+	#	$locus //= $data->[ $field_order->{'locus'} ];
 	if ( $locus && ref $extended_attributes eq 'ARRAY' ) {
 		my @values;
 		my $qry = 'INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,'
 		  . 'curator) VALUES (?,?,?,?,?,?)';
-		foreach (@$extended_attributes) {
-			if ( defined $field_order->{$_} && defined $data->[ $field_order->{$_} ] ) {
+		foreach my $field (@$extended_attributes) {
+			if ( defined $record->{$field} ) {
 				push @inserts,
 				  {
 					statement => $qry,
-					arguments => [
-						$locus, $_,
-						$data->[ $field_order->{'allele_id'} ],
-						$data->[ $field_order->{$_} ],
-						'now', $curator
-					]
+					arguments => [ $locus, $field, $record->{'allele_id'}, $record->{$field}, 'now', $curator ]
 				  };
 			}
 		}
 	}
-	if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
-		&& defined $field_order->{'flags'}
-		&& defined $data->[ $field_order->{'flags'} ] )
+	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+		&& defined $record->{'flags'} )
 	{
-		my @flags = split /;/x, $data->[ $field_order->{'flags'} ];
+		my @flags = split /;/x, $record->{'flags'};
 		my $qry = 'INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (?,?,?,?,?)';
-		foreach (@flags) {
+		foreach my $flag (@flags) {
 			push @inserts,
 			  {
 				statement => $qry,
-				arguments => [ $locus, $data->[ $field_order->{'allele_id'} ], $_, 'now', $curator ]
+				arguments => [ $record->{'locus'}, $record->{'allele_id'}, $flag, 'now', $curator ]
 			  };
 		}
 	}
