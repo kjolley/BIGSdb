@@ -270,13 +270,23 @@ sub _get_polling_javascript {
 	my $status_file   = "/tmp/${results_prefix}_status.json";
 	my $results_file  = "/tmp/${results_prefix}.json";
 	my $max_poll_time = 10_000;
-	my $buffer        = << "END";
+	my $error         = $self->print_bad_status(
+		{
+			message  => 'Could not find results file',
+			detail   => 'Please try re-uploading sequences.',
+			get_only => 1
+		}
+	);
+	my $buffer = << "END";
 <script>//<![CDATA[
+
+var error_seen = 0;
 \$(function () {	
 	getResults(500);
 });
 
 function getResults(poll_time) {
+	
 	\$.ajax({
 		url: "$status_file",
 		dataType: 'json',
@@ -302,9 +312,15 @@ function getResults(poll_time) {
 			}
 		},
 		error: function (){
+			if (error_seen > 10){
+				\$("div#results").html('$error');
+				return;
+			}
+			error_seen++;
 			setTimeout(function() { 
             	getResults(poll_time); 
             }, poll_time);
+            
 		}
 	});
 }
@@ -327,7 +343,7 @@ sub _upload_data {
 			$self->print_bad_status(
 				{
 					message => q(Could not find validated sequences to upload),
-					navbar => 1
+					navbar  => 1
 				}
 			);
 			$continue = 0;
