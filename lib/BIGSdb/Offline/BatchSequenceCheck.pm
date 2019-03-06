@@ -30,6 +30,7 @@ my $logger;
 sub run {
 	my ( $self, $prefix ) = @_;
 	$logger = $self->{'logger'};
+	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
 	my $status_file = qq($self->{'config'}->{'tmp_dir'}/${prefix}_status.json);
 	my $data_file   = qq($prefix.json);
 	my $full_path   = qq($self->{'config'}->{'tmp_dir'}/$data_file);
@@ -49,12 +50,13 @@ sub run {
 	my $td           = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $primary_keys = [qw(locus allele_id)];
-	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
+	my $record_count;
 	my $i = 0;
 
 	foreach my $record (@records) {
 		my $progress = int( 100 * $i / @records );
 		$self->_update_status_file( $status_file, 'running', $progress );
+		$i++;
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
 		my $checked_record = {};
@@ -127,7 +129,6 @@ sub run {
 				file_header_pos => $file_header_pos,
 				data            => \@data,
 			};
-			$header_complete = 1;
 			$table_buffer .= qq(</tr>\n);
 			$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 		}
@@ -135,12 +136,21 @@ sub run {
 		push @$checked_buffer, $checked_record;
 	}
 	$table_buffer .= q(</table></div>);
-	$self->_update_status_file( $status_file, 'finished', 100 );
+	my $html = $self->_report_check(
+		$data_file,
+		{
+			table_buffer => $table_buffer,
+			checked      => $checked_buffer,
+			problems     => $problems,
+			record_count => $record_count
+		}
+	);
+	$self->_update_status_file( $status_file, 'complete', 100 );
 	$self->_write_results_file(
 		$full_path,
 		encode_json(
 			{
-				html         => $table_buffer,
+				html         => $html,
 				checked      => $checked_buffer,
 				problems     => $problems,
 				record_count => $record_count
@@ -597,5 +607,64 @@ sub _update_status_file {
 	say $fh qq({"status":"$status","progress":$progress});
 	close $fh;
 	return;
+}
+
+sub _report_check {
+	my ( $self, $results_file, $results ) = @_;
+	my ( $table_buffer, $checked, $problems, $record_count ) =
+	  @{$results}{qw (table_buffer checked problems record_count)};
+	my $sender_message = $self->get_sender_message( { has_sender_field => 1 } );
+	my $buffer = q();
+	if ( !$record_count ) {
+		return $self->print_bad_status(
+			{
+				message  => q(No valid data entered. Make sure you've included the header line.),
+				navbar   => 1,
+				get_only => 1
+			}
+		);
+	}
+	if ( !@$checked ) {
+		return $self->print_bad_status(
+			{
+				message  => q(No valid records to upload after filtering.),
+				navbar   => 1,
+				get_only => 1
+			}
+		);
+	}
+	my $q = $self->{'cgi'};
+	if (%$problems) {
+		$buffer .= q(<div class="box" id="statusbad"><h2>Import status</h2>);
+		$buffer .= q(<table class="resultstable">);
+		$buffer .= q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
+		my $td = 1;
+		foreach my $id ( sort keys %$problems ) {
+			$buffer .= qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
+			$td = $td == 1 ? 2 : 1;    #row stripes
+		}
+		$buffer .= q(</table></div>);
+	} else {
+		$buffer .= qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message);
+		$buffer .= q(<p>No obvious problems identified so far.</p>);
+		$buffer .= $q->start_form;
+		$buffer .= $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
+		  complete_CDS ignore_similarity);
+		$buffer .= $q->hidden( checked_file => $results_file );
+		$buffer .= $self->print_action_fieldset(
+			{ submit_label => 'Import data', no_reset => 1, get_only => 1, page => 'batchAddSequences' } );
+		$buffer .= $q->end_form;
+		$buffer .= q(</div>);
+	}
+	$buffer .= q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	my $caveat =
+	  ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
+	  : q();
+	$buffer .= q(<p>The following table shows your data.  Any field with red text has a )
+	  . qq(problem and needs to be checked. $caveat</p>);
+	$buffer .= $table_buffer;
+	$buffer .= q(</div>);
+	return $buffer;
 }
 1;

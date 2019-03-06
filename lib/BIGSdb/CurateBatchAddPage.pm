@@ -843,12 +843,8 @@ sub report_check {
 		say q(</div>);
 	}
 	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-#	my $caveat =
-#	  ( $table eq 'sequences' && ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' )
-#	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
-#	  : q();
 	say q(<p>The following table shows your data.  Any field with red text has a )
-	  . qq(problem and needs to be checked.</p>);
+	  . q(problem and needs to be checked.</p>);
 	say $$buffer;
 	say q(</div>);
 	return;
@@ -1574,9 +1570,9 @@ sub report_upload_error {
 	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 		$detail =
 		    q(Data entry would have resulted in records with either duplicate ids or another )
-		  . q(unique field with duplicate values. This can result from another curator adding )
-		  . q(data at the same time.  Try pressing the browser back button twice and then re-submit )
-		  . q(the records.);
+		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
+		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
+		  . q(and then re-submit the records.);
 	} else {
 		$detail = q(An error has occurred - more details will be available in the server log.);
 		$logger->error($err);

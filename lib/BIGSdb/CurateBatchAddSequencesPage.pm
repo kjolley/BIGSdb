@@ -24,6 +24,7 @@ use parent qw(BIGSdb::CurateBatchAddPage);
 use BIGSdb::Offline::BatchSequenceCheck;
 use BIGSdb::Constants qw(:interface SEQ_STATUS );
 use JSON;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -203,7 +204,7 @@ sub _print_interface_sequence_switches {
 }
 
 sub _run_helper {
-	my ( $self, $locus ) = @_;
+	my ( $self, $locus, $prefix ) = @_;
 	my $q         = $self->{'cgi'};
 	my $set_id    = $self->get_set_id;
 	my $check_obj = BIGSdb::Offline::BatchSequenceCheck->new(
@@ -231,89 +232,113 @@ sub _run_helper {
 			logger   => $logger
 		}
 	);
-	my $prefix = BIGSdb::Utils::get_random();
 	return $check_obj->run($prefix);
 }
 
 sub _check_data {
 	my ( $self, $locus ) = @_;
 	return if $self->sender_needed( { has_sender_field => 1 } );
-	my $results_file = $self->_run_helper($locus);
-	my $full_path    = qq($self->{'config'}->{'tmp_dir'}/$results_file);
-	my $json_ref     = BIGSdb::Utils::slurp($full_path);
-	my $results      = decode_json($$json_ref);
+	say q(<div id="results"><div class="box" id="resultspanel">)
+	  . q(<div><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="wait_message">Checking sequences - Please wait.</span></div>)
+	  . q(<div id="progress"></div></div>)
+	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
+	my $prefix = BIGSdb::Utils::get_random();
+	say $self->_get_polling_javascript($prefix);
 
-	#	use Data::Dumper;
-	#	$logger->error( Dumper $results);
-	#	my $sender_message   = $self->get_sender_message( { has_sender_field => 1 } );
-	my $table_buffer   = $results->{'html'};
-	my $record_count   = $results->{'record_count'};
-	my $problems       = $results->{'problems'};
-	my $checked_buffer = $results->{'checked'};
-	if ( !$record_count ) {
-		$self->print_bad_status(
-			{
-				message => q(No valid data entered. Make sure you've included the header line.),
-				navbar  => 1
-			}
-		);
-		return;
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) || $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
+			$self->_run_helper( $locus, $prefix );
+		}
+		CORE::exit(0);
 	}
-	$self->_report_check( $results_file, $results );
 	return;
 }
 
-sub _report_check {
-	my ( $self, $results_file, $results ) = @_;
-	my ( $html, $checked, $record_count, $problems ) =
-	  @{$results}{qw (html checked record_count problems)};
-	my $sender_message = $self->get_sender_message( { has_sender_field => 1 } );
-	if ( !@$checked ) {
-		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say q(<p>No valid records to upload after filtering.</p></div>);
-		return;
-	}
-	my $q = $self->{'cgi'};
-	if (%$problems) {
-		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say q(<table class="resultstable">);
-		say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
-		my $td = 1;
-		foreach my $id ( sort keys %$problems ) {
-			say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
-			$td = $td == 1 ? 2 : 1;    #row stripes
+sub _get_polling_javascript {
+	my ( $self, $results_prefix ) = @_;
+	my $status_file   = "/tmp/${results_prefix}_status.json";
+	my $results_file  = "/tmp/${results_prefix}.json";
+	my $max_poll_time = 10_000;
+	my $buffer        = << "END";
+<script>//<![CDATA[
+\$(function () {	
+	getResults(500);
+});
+
+function getResults(poll_time) {
+	\$.ajax({
+		url: "$status_file",
+		dataType: 'json',
+		cache: false,
+		error: function(data){
+			\$("div#results").html('<div class="box" id="statusbad"><p>Something went wrong!</p></div>');
+		},		
+		success: function(data){
+			if (data.status == 'complete'){	
+				\$.getJSON("$results_file", function(data){
+					\$("div#results").html(data.html);
+				});		
+			} else if (data.status == 'running'){
+				\$("div#progress").html('<p style="font-size:5em;color:#888;margin-left:1.5em;margin-top:1em">' 
+				+ data.progress + '%</p>');
+				// Wait and poll again - increase poll time by 0.5s each time.
+				poll_time += 500;
+				if (poll_time > $max_poll_time){
+					poll_time = $max_poll_time;
+				}
+				setTimeout(function() { 
+           	        getResults(poll_time); 
+                }, poll_time);
+ 			} else {
+				\$("div#results").html();
+			}
+		},
+		error: function (){
+			setTimeout(function() { 
+            	getResults(poll_time); 
+            }, poll_time);
 		}
-		say q(</table></div>);
-	} else {
-		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message);
-		say q(<p>No obvious problems identified so far.</p>);
-		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity);
-		say $q->hidden( checked_file => $results_file );
-		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
-		say $q->end_form;
-		say q(</div>);
-	}
-	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	my $caveat =
-	  ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
-	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
-	  : q();
-	say q(<p>The following table shows your data.  Any field with red text has a )
-	  . qq(problem and needs to be checked. $caveat</p>);
-	say $html;
-	say q(</div>);
-	return;
+	});
+}
+//]]></script>
+END
+	return $buffer;
 }
 
 sub _upload_data {
 	my ( $self, $locus, $results_file ) = @_;
 	my $q         = $self->{'cgi'};
 	my $full_path = qq($self->{'config'}->{'tmp_dir'}/$results_file);
-	my $json_ref  = BIGSdb::Utils::slurp($full_path);
-	my $results   = decode_json($$json_ref);
-	my $records   = $results->{'checked'};
+	my $json_ref;
+	my $continue = 1;
+	try {
+		$json_ref = BIGSdb::Utils::slurp($full_path);
+	}
+	catch {
+		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
+			$self->print_bad_status(
+				{
+					message => q(Could not find validated sequences to upload),
+					navbar => 1
+				}
+			);
+			$continue = 0;
+		}
+	};
+	return if !$continue;
+	my $results = decode_json($$json_ref);
+	my $records = $results->{'checked'};
 	return if !@$records;
 	my ( $fields_to_include, $extended_attributes ) = $self->_get_fields_to_include($locus);
 	my @history;
@@ -409,8 +434,6 @@ sub _prepare_extra_inserts {
 	my ( $locus, $extended_attributes, $record, $curator ) =
 	  @{$args}{qw(locus extended_attributes record curator)};
 	my @inserts;
-
-	#	$locus //= $data->[ $field_order->{'locus'} ];
 	if ( $locus && ref $extended_attributes eq 'ARRAY' ) {
 		my @values;
 		my $qry = 'INSERT INTO sequence_extended_attributes (locus,field,allele_id,value,datestamp,'
@@ -445,14 +468,12 @@ sub _report_successful_upload {
 	my ( $self, $project_id ) = @_;
 	my $q        = $self->{'cgi'};
 	my $nav_data = $self->_get_nav_data;
-	my $more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences);
 	$self->print_good_status(
 		{
 			message => q(Database updated.),
 			navbar  => 1,
 			%$nav_data,
 			more_text => q(Add more),
-			more_url  => $nav_data->{'more_url'} // $more_url,
 		}
 	);
 	return;
@@ -472,10 +493,15 @@ sub _get_nav_data {
 	my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
 	my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
 	$more_url =
-	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;)
-	  . qq(table=sequences&amp;sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
+	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences&amp;)
+	  . qq(sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 	  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
 	  . qq(ignore_similarity=$ignore_similarity);
+
+	if ( $q->param('locus') ) {
+		my $locus = $q->param('locus');
+		$more_url .= qq(&amp;locus=$locus);
+	}
 	return { submission_id => $submission_id, more_url => $more_url };
 }
 1;
