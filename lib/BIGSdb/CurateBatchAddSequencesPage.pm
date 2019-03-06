@@ -281,9 +281,6 @@ function getResults(poll_time) {
 		url: "$status_file",
 		dataType: 'json',
 		cache: false,
-		error: function(data){
-			\$("div#results").html('<div class="box" id="statusbad"><p>Something went wrong!</p></div>');
-		},		
 		success: function(data){
 			if (data.status == 'complete'){	
 				\$.getJSON("$results_file", function(data){
