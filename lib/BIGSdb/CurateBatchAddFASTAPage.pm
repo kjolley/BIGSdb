@@ -179,13 +179,93 @@ sub _check {
 		$continue = 0;    #Can't return from inside catch block
 	};
 	return FAILURE if !$continue;
+	say q(<div id="results"><div class="box" id="resultspanel">)
+	  . q(<div><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="wait_message">Checking sequences - Please wait.</span></div>)
+	  . q(<div id="progress"></div></div>)
+	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
 	my $prefix = BIGSdb::Utils::get_random();
-	 $self->_run_helper( $prefix, \@seq_data );
-	 
-	 my $full_path = "$self->{'config'}->{'tmp_dir'}/$prefix.html";
-	 my $html_ref = BIGSdb::Utils::slurp($full_path);
-	 say $$html_ref;
+	say $self->_get_polling_javascript($prefix);
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) || $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Cannot detach STDERR: $!");
+			$self->_run_helper( $prefix, \@seq_data );
+		}
+		CORE::exit(0);
+	}
 	return SUCCESS;
+}
+
+sub _get_polling_javascript {
+	my ( $self, $results_prefix ) = @_;
+	my $status_file   = "/tmp/${results_prefix}_status.json";
+	my $html_file     = "/tmp/${results_prefix}.html";
+	my $max_poll_time = 10_000;
+	my $error         = $self->print_bad_status(
+		{
+			message  => 'Could not find results file',
+			detail   => 'Please try re-uploading sequences.',
+			get_only => 1
+		}
+	);
+	my $buffer = << "END";
+<script>//<![CDATA[
+
+var error_seen = 0;
+\$(function () {	
+	getResults(500);
+});
+
+function getResults(poll_time) {	
+	\$.ajax({
+		url: "$status_file",
+		dataType: 'json',
+		cache: false,
+		success: function(data){
+			if (data.status == 'complete'){	
+				\$.get("$html_file", function(html){
+					\$("div#results").html(html);
+				});		
+			} else if (data.status == 'running'){
+				\$("div#progress").html('<p style="font-size:5em;color:#888;margin-left:1.5em;margin-top:1em">' 
+				+ data.progress + '%</p>');
+				// Wait and poll again - increase poll time by 0.5s each time.
+				poll_time += 500;
+				if (poll_time > $max_poll_time){
+					poll_time = $max_poll_time;
+				}
+				setTimeout(function() { 
+           	        getResults(poll_time); 
+                }, poll_time);
+ 			} else {
+				\$("div#results").html();
+			}
+		},
+		error: function (){
+			if (error_seen > 10){
+				\$("div#results").html('$error');
+				return;
+			}
+			error_seen++;
+			setTimeout(function() { 
+            	getResults(poll_time); 
+            }, poll_time);           
+		}
+	});
+}
+//]]></script>
+END
+	return $buffer;
 }
 
 sub _run_helper {
