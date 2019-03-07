@@ -404,7 +404,7 @@ sub _blast_fork {
 					$self->_update_status_file( $status_file, 'failed' );
 					$logger->error($_);
 				}
-			}
+			};
 		}
 		CORE::exit(0);
 	}

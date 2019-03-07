@@ -500,7 +500,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190215';
+	my $version = '20190306';
 	my @filenames;
 	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
 	push @filenames, q(c3.css)        if $self->{'c3'};
@@ -1500,7 +1500,6 @@ sub clean_locus {
 			$locus              = $locus_info->{'formatted_name'};
 			$formatting_defined = 1;
 		}
-
 		if ( !$options->{'no_common_name'} ) {
 			my $common_name = '';
 			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
@@ -2957,17 +2956,19 @@ sub print_navigation_bar {
 sub print_bad_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Failed!';
-	say q(<div class="box statusbad" style="min-height:5em">);
-	say q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
-	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	my $buffer = q();
+	$buffer .= q(<div class="box statusbad" style="min-height:5em">);
+	$buffer .= q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
+	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
-		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+		$buffer .= qq(<p class="outcome_detail">$options->{'detail'}</p>);
 	}
 	if ( $options->{'navbar'} ) {
-		$self->print_navigation_bar($options);
+		$buffer .= $self->print_navigation_bar( { get_only => 1, %$options } );
 	}
-	say q(</div>);
-	return;
+	$buffer .= q(</div>);
+	say $buffer if !$options->{'get_only'};
+	return $buffer;
 }
 
 sub print_good_status {
@@ -2987,7 +2988,7 @@ sub print_good_status {
 }
 
 sub print_loading_message {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	my $top_margin = $options->{'top_margin'} // 5;
 	say qq(<p style="margin-top:${top_margin}em;text-align:center;line-height:3em">)
 	  . q(<span class="wait_message">Loading ... Please wait.</span></p>)

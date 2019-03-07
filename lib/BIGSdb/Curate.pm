@@ -29,6 +29,7 @@ use BIGSdb::CurateAlleleUpdatePage;
 use BIGSdb::CurateBatchAddFASTAPage;
 use BIGSdb::CurateBatchAddPage;
 use BIGSdb::CurateBatchAddSeqbinPage;
+use BIGSdb::CurateBatchAddSequencesPage;
 use BIGSdb::CurateBatchIsolateUpdatePage;
 use BIGSdb::CurateBatchProfileUpdatePage;
 use BIGSdb::CurateBatchAddRemoteContigsPage;
@@ -84,6 +85,7 @@ sub print_page {
 		batchIsolateUpdate    => 'CurateBatchIsolateUpdatePage',
 		batchProfileUpdate    => 'CurateBatchProfileUpdatePage',
 		batchAddSeqbin        => 'CurateBatchAddSeqbinPage',
+		batchAddSequences     => 'CurateBatchAddSequencesPage',
 		browse                => $query_page,
 		changePassword        => 'ChangePasswordPage',
 		compositeQuery        => 'CurateCompositeQueryPage',

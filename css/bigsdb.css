@@ -875,6 +875,7 @@ span.config_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.warning_icon {color:#a66;text-shadow: 3px 3px 3px #999}
 span.wait_message {
 	color:#66a;
+	line-height:1.2em;
 	font-size:3em;
 	background: -webkit-linear-gradient(#aaa, #66a); 
 	-webkit-background-clip: text; 
