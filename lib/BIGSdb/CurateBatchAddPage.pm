@@ -575,7 +575,7 @@ sub _check_data {
 		return;
 	}
 	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
-	$self->report_check(
+	$self->_report_check(
 		{
 			table          => $table,
 			buffer         => \$tablebuffer,
@@ -650,7 +650,7 @@ sub format_display_value {
 		$display_value = BIGSdb::Utils::escape_html($display_value);
 	}
 	my $buffer;
-	my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
+	my $problem = $self->_check_field_bad( $table, $field, $value, $problems, $pk_combination );
 	if ( !( $problem || $special_problem ) ) {
 		if ( $table eq 'sequences' && $field eq 'flags' ) {
 			my @flags = split /;/x, ( $display_value // q() );
@@ -670,7 +670,7 @@ sub format_display_value {
 	return $buffer;
 }
 
-sub check_field_bad {
+sub _check_field_bad {
 	my ( $self, $table, $field, $value, $problems, $pk_combination ) = @_;
 	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
 	my $set_id = $self->get_set_id;
@@ -798,7 +798,7 @@ sub _get_existing_label_field_values {
 	return \%hash;
 }
 
-sub report_check {
+sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
@@ -1377,9 +1377,9 @@ sub _upload_data {
 	my $table   = $arg_ref->{'table'};
 	my $locus   = $arg_ref->{'locus'};
 	my $q       = $self->{'cgi'};
-	my $records = $self->extract_checked_records;
+	my $records = $self->_extract_checked_records;
 	return if !@$records;
-	my $field_order = $self->get_field_order($records);
+	my $field_order = $self->_get_field_order($records);
 	my ( $fields_to_include, $meta_fields ) = $self->_get_fields_to_include( $table, $locus );
 	my @history;
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -1393,15 +1393,15 @@ sub _upload_data {
 		$record =~ s/\r//gx;
 		if ($record) {
 			my @data = split /\t/x, $record;
-			@data = $self->process_fields( \@data );
+			@data = $self->_process_fields( \@data );
 			my @value_list;
 			my ( @extras, @ref_extras );
 			my $id;
-			my $sender = $self->get_sender( $field_order, \@data, $user_info->{'status'} );
+			my $sender = $self->_get_sender( $field_order, \@data, $user_info->{'status'} );
 			foreach my $field (@$fields_to_include) {
 				$id = $data[ $field_order->{$field} ] if $field eq 'id';
 				push @value_list,
-				  $self->read_value(
+				  $self->_read_value(
 					{
 						table       => $table,
 						field       => $field,
@@ -1778,7 +1778,7 @@ sub _prepare_projects_extra_inserts {
 	return \@inserts;
 }
 
-sub extract_checked_records {
+sub _extract_checked_records {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @records;
@@ -1810,7 +1810,7 @@ sub extract_checked_records {
 	return \@records;
 }
 
-sub get_sender {
+sub _get_sender {
 	my ( $self, $field_order, $data, $user_status ) = @_;
 	if ( $user_status eq 'submitter' ) {
 		return $self->get_curator_id;
@@ -1826,7 +1826,7 @@ sub get_sender {
 	return;
 }
 
-sub read_value {
+sub _read_value {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $field_order, $data, $locus, $user_status ) =
 	  @{$args}{qw(table field field_order data locus user_status)};
@@ -1852,7 +1852,7 @@ sub read_value {
 	return;
 }
 
-sub get_field_order {
+sub _get_field_order {
 	my ( $self, $records ) = @_;
 	my $header_line = shift @$records;
 	my @fields;
@@ -2049,7 +2049,7 @@ sub _is_id_used {
 	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
 
-sub process_fields {
+sub _process_fields {
 	my ( $self, $data ) = @_;
 	my @return_data;
 	foreach my $value (@$data) {
