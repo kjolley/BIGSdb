@@ -45,7 +45,6 @@ sub run {
 	$buffer.=  q(<table class="resultstable" style="float:left;margin-right:1em">)
 	  . q(<tr><th>Original designation</th><th>Allele id</th><th>Status</th></tr>);
 	my $td      = 1;
-#	my $temp    = BIGSdb::Utils::get_random();
 	my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.fas";
 	local $| = 1;
 	my $i = 0;
