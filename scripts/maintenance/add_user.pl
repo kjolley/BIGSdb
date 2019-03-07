@@ -118,7 +118,8 @@ ${bold}-a, --add$norm
     of an existing user.
     
 ${bold}-d, --database ${under}DATABASE$norm  
-    Database name. If site-wide databases are being used, this may be the name of the users database.
+    Database name. If site-wide databases are being used, this may be the name
+    of the users database.
     
 ${bold}-h, --help$norm
     This help page.
