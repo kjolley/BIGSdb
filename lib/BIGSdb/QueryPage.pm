@@ -51,7 +51,7 @@ sub get_javascript_panel {
 	my $new_url    = 'this.href';
 	my %clear_form = (
 		list    => q[$("#list").val('')],
-		filters => qq[if (! Modernizr.touch){\n            \$('.multiselect').multiselect("uncheckAll")\n          }\n]
+		filters => qq[\$('.multiselect').multiselect("uncheckAll")\n]
 		  . q[          $('[id$="_list"]').val('')],
 		provenance          => q[$('[id^="prov_value"]').val('')],
 		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],

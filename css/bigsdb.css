@@ -1013,8 +1013,6 @@ a.slide_trigger {
 }
 .feint{color:#aaa}
 
-.plot-container.plotly{background-image: linear-gradient(#f0f0f0, #f8f8f8)}
-
 .coolfieldset, .coolfieldset.expanded{min-width:15em}
 .coolfieldset.collapsed{}
 .coolfieldset legend{padding-left:13px;cursor:pointer}
@@ -1109,30 +1107,11 @@ a.slide_trigger {
 #lbCaption, #lbNumber {margin-right: 71px}
 #lbCaption {font-weight: bold}
 
-.ui-multiselect { text-align:left; margin:0 }
-.ui-multiselect span.ui-icon { float:right }
-.ui-multiselect-single .ui-multiselect-checkboxes input { position:absolute !important; top: auto !important; left:-9999px; }
-.ui-multiselect-single .ui-multiselect-checkboxes label { padding:0px !important }
-
-.ui-multiselect-header { margin-bottom:3px; padding:3px 0 3px 4px;  }
-.ui-multiselect-header ul { font-size:0.9em }
-.ui-multiselect-header ul li { float:left; padding:0 10px 0 0 }
-.ui-multiselect-header a { text-decoration:none }
-.ui-multiselect-header a:hover { text-decoration:underline }
-.ui-multiselect-header span.ui-icon { float:left }
-.ui-multiselect-header li.ui-multiselect-close { float:right; text-align:right; padding-right:0 }
-
-.ui-multiselect-menu { display:none; position:absolute; z-index:10000; text-align: left; white-space:nowrap }
-.ui-multiselect-checkboxes { position:relative /* fixes bug in IE6/7 */; overflow-y:scroll }
-.ui-multiselect-checkboxes label { cursor:default; display:block; border:1px solid transparent; padding:0 1px }
-.ui-multiselect-checkboxes label input { position:relative; top:1px }
-.ui-multiselect-checkboxes li { clear:both; font-size:0.9em; padding-right:3px }
-.ui-multiselect-checkboxes li.ui-multiselect-optgroup-label { text-align:center; font-weight:bold; border-bottom:1px solid }
-.ui-multiselect-checkboxes li.ui-multiselect-optgroup-label a { display:block; padding:3px; margin:1px 0; text-decoration:none }
-
-/* remove label borders in IE6 because IE6 does not support transparency */
-* html .ui-multiselect-checkboxes label { border:none }
-
-.ui-multiselect.ui-state-default {background:white; border: 1px solid #999; border-radius:0 }
+.ui-multiselect-menu { z-index:10}
+.ui-multiselect {max-width:20em}
+.ui-multiselect-all {font-size:0.8em}
+.ui-multiselect-none {font-size:0.8em}
+.ui-multiselect-filter {float:none}
+.ui-helper-reset {margin-top:0.5em}
 
 

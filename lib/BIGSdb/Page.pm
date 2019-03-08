@@ -143,7 +143,7 @@ sub _get_javascript_paths {
 			'jQuery.coolfieldset' => [qw(jquery.coolfieldset.js)],
 			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
 			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
-			'jQuery.multiselect'  => [qw(modernizr.js jquery.multiselect.js)],
+			'jQuery.multiselect'  => [qw(jquery.multiselect.min.js jquery.multiselect.filter.min.js)],
 			'CryptoJS.MD5'        => [qw(md5.js)],
 			'packery'             => [qw(packery.js)],
 			'dropzone'            => [qw(dropzone.js)],
@@ -151,7 +151,8 @@ sub _get_javascript_paths {
 			'pivot'               => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
 			'papaparse'           => [qw(papaparse.min.js)],
 			'heatmap'             => [qw(heatmap.min.js)],
-			'filesaver'           => [qw(FileSaver.min.js)]
+			'filesaver'           => [qw(FileSaver.min.js)],
+			'modernizr'           => [qw(modernizr-custom.js)]
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -500,11 +501,12 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190306';
+	my $version = '20190308';
 	my @filenames;
 	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
 	push @filenames, q(c3.css)        if $self->{'c3'};
 	push @filenames, q(pivot.min.css) if $self->{'pivot'};
+	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
 	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.css);
 	my @paths;
 

@@ -1019,17 +1019,6 @@ sub _prepare_extra_inserts_for_seqbin {
 	return;
 }
 
-sub get_javascript {
-	my $buffer = << "END";
-\$(function () {
-  	if (Modernizr.touch){
-  	 	\$(".no_touch").css("display","none");
-  	}
-});
-END
-	return $buffer;
-}
-
 sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';

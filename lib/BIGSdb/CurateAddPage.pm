@@ -31,7 +31,7 @@ use constant SUCCESS => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
 	return;
 }
 
@@ -949,12 +949,6 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
   });
- \$(function () {
-  	if (Modernizr.touch){
-  	 	\$(".no_touch").css("display","none");
-  	}
- });
-
 });
 END
 	return $buffer;

@@ -2575,9 +2575,7 @@ sub get_javascript {
    	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
    	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
  	setTooltips();
-  	if (! Modernizr.touch){
-  	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
-  	}
+ 	\$('.multiselect').multiselect().multiselectfilter();
 $panel_js
 	$ajax_load
 	\$(document).ajaxComplete(function() {

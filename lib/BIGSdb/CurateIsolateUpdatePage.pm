@@ -51,7 +51,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer jQuery.multiselect tooltips);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect tooltips);
 	return;
 }
 

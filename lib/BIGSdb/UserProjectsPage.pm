@@ -76,7 +76,7 @@ sub print_content {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
 	return;
 }
 
@@ -940,9 +940,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-	if (! Modernizr.touch){
-  	 	\$('.multiselect').multiselect({noneSelectedText:'&nbsp;'});
-  	}
+  	\$('.multiselect').multiselect();
 });	
 END
 	return $buffer;

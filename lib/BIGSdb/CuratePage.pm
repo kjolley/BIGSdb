@@ -574,7 +574,6 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-multiple => 'true',
 			-default  => $list
 		);
-		$buffer .= q( <span class="comment no_touch">Use Ctrl click to select/deselect multiple choices</span>);
 		$buffer .= qq(</li>\n);
 	}
 	my @databanks = DATABANKS;

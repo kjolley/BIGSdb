@@ -1,3 +1,5 @@
+v1.22.2: *Update of jquery-ui-multiselect. Make sure the full contents of the
+          javascript and css directories are updated.
 v1.22.1: *Improved new allele sequence upload checking. 
 v1.22.0: *Option to restrict schemes and loci to subsets of isolate records
           defined by database views.
