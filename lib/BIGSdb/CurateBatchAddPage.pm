@@ -835,8 +835,8 @@ sub _report_check {
 		}
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing 
-		    submission_id project_id private user_header);
+		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing
+		  submission_id project_id private user_header);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->end_form;
@@ -1043,12 +1043,20 @@ sub _check_data_refs {
 		if ( defined $value ) {
 			$value =~ s/\s//gx;
 			my @refs = split /;/x, $value;
+			my %used;
 			foreach my $ref (@refs) {
+				if ( $used{$ref} ) {
+					my $problem_text = 'Duplicate PubMed id used.<br />';
+					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					${ $arg_ref->{'special_problem'} } = 1;
+					last;
+				}
 				if ( !BIGSdb::Utils::is_int($ref) ) {
 					my $problem_text = "References are PubMed ids - $ref is not an integer.<br />";
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
 				}
+				$used{$ref} = 1;
 			}
 		}
 	}
@@ -1067,16 +1075,24 @@ sub _check_data_aliases {
 		if ( defined $value && defined $isolate_name ) {
 			$value =~ s/\s//gx;
 			my @aliases = split /;/x, $value;
+			my %used;
 			foreach my $alias (@aliases) {
 				$alias =~ s/\s+$//x;
 				$alias =~ s/^\s+//x;
 				next if $alias eq '';
+				if ( $used{$alias} ) {
+					my $problem_text = 'Duplicate alias used.<br />';
+					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					${ $arg_ref->{'special_problem'} } = 1;
+					last;
+				}
 				if ( $alias eq $isolate_name ) {
 					my $problem_text = 'Aliases are ALTERNATIVE names for the isolate name.<br />';
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
+				$used{$alias} = 1;
 			}
 		}
 	}
