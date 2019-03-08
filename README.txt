@@ -1,3 +1,4 @@
+v1.22.1: *Improved new allele sequence upload checking. 
 v1.22.0: *Option to restrict schemes and loci to subsets of isolate records
           defined by database views.
          *Option to track maintenance tasks in jobs database and include in
