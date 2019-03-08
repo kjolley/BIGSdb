@@ -126,8 +126,8 @@ sub _get_javascript_paths {
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
 		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
-			push @javascript, ( { src => "/javascript/jquery.js?v=$date",    @language } );
-			push @javascript, ( { src => "/javascript/jquery-ui.js?v=$date", @language } );
+			push @javascript, ( { src => "/javascript/jquery.min.js?v=$date",    @language } );
+			push @javascript, ( { src => "/javascript/jquery-ui.min.js?v=$date", @language } );
 		} else {
 
 			#Load jQuery library from Google CDN
@@ -505,7 +505,7 @@ sub get_stylesheets {
 	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
 	push @filenames, q(c3.css)        if $self->{'c3'};
 	push @filenames, q(pivot.min.css) if $self->{'pivot'};
-	push @filenames, qw(jquery-ui.css fontawesome-all.css bigsdb.css);
+	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.css);
 	my @paths;
 
 	foreach my $filename (@filenames) {
