@@ -47,7 +47,7 @@ sub print_about_bigsdb {
 	my ($self) = @_;
 	( my $version = $self->{'config'}->{'version'} ) =~ s/^v//x;
 	say <<"HTML";
-<div class="box resultspanel">
+<div class="box resultspanel"><div class="scrollable">
 <h2>BIGSdb Version $version</h2>
 <span class="main_icon far fa-copyright fa-3x fa-pull-left"></span>
 <ul style="margin-left:2em">
@@ -110,7 +110,7 @@ HTML
 		say qq(<li><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;page=cookies">Cookie policy</a></li>);
 		say q(</ul>);
 	}
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 

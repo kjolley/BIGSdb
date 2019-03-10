@@ -72,6 +72,7 @@ sub _get_cookie_js {
 	return q() if $self->{'config'}->{'no_cookie_consent'} || $self->{'curate'};
 	return <<"JS";
 window.addEventListener("load", function(){
+window.cookieconsent.utils.isMobile = () => false; //Don't float on mobile devices.
 window.cookieconsent.initialise({
   "palette": {
     "popup": {
