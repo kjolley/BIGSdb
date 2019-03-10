@@ -36,6 +36,7 @@ use BIGSdb::ChangePasswordPage;
 use BIGSdb::CGI::as_utf8;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::Constants qw(:login_requirements);
+use BIGSdb::CookiesPage;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
 use BIGSdb::DownloadAllelesPage;
@@ -143,7 +144,7 @@ sub new {
 	} elsif ( !$self->{'instance'} ) {
 		if ( $self->{'page'} eq 'ajaxJobs' ) {
 			$self->initiate_jobmanager( $config_dir, $dbase_config_dir );
-		} elsif ( $self->{'page'} eq 'ajaxRest' && $self->{'config'}->{'rest_db'}) {
+		} elsif ( $self->{'page'} eq 'ajaxRest' && $self->{'config'}->{'rest_db'} ) {
 			$self->{'system'}->{'db'} = $self->{'config'}->{'rest_db'};
 			$self->db_connect;
 			if ( $self->{'db'} ) {
@@ -381,6 +382,7 @@ sub print_page {
 		batchSequenceQuery => 'SequenceQueryPage',
 		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
+		cookies            => 'CookiesPage',
 		customize          => 'CustomizePage',
 		downloadAlleles    => 'DownloadAllelesPage',
 		downloadFiles      => 'DownloadFilePage',
@@ -447,7 +449,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};

@@ -67,6 +67,30 @@ sub get_javascript {
 	return q();    #Empty string
 }
 
+sub _get_cookie_js {
+	my ($self) = @_;
+	return q() if $self->{'config'}->{'no_cookie_consent'} || $self->{'curate'};
+	return <<"JS";
+window.addEventListener("load", function(){
+window.cookieconsent.initialise({
+  "palette": {
+    "popup": {
+      "background": "#237afc"
+    },
+    "button": {
+      "background": "#fff",
+      "text": "#237afc"
+    }
+  },
+  "theme": "classic",
+  "content": {
+    "message": "This website requires the use of cookies for authentication and storing user preferences.",
+    "href": "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=cookies"
+   }
+})});	
+JS
+}
+
 sub get_list_javascript {
 	my ($self)   = @_;
 	my $list_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList";
@@ -121,6 +145,7 @@ JS
 sub _get_javascript_paths {
 	my ($self)  = @_;
 	my $page_js = $self->get_javascript;
+	$page_js .= $self->_get_cookie_js;
 	my $date    = '20180608';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
@@ -137,6 +162,7 @@ sub _get_javascript_paths {
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js', @language } );
 		}
 		push @javascript, ( { src => "/javascript/bigsdb.js?v=$date", @language } );
+		push @javascript, ( { src => "/javascript/cookieconsent.min.js", @language } );
 		my %js = (
 			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
 			'jQuery.jstree'       => [qw(jquery.jstree.js)],
@@ -152,7 +178,7 @@ sub _get_javascript_paths {
 			'papaparse'           => [qw(papaparse.min.js)],
 			'heatmap'             => [qw(heatmap.min.js)],
 			'filesaver'           => [qw(FileSaver.min.js)],
-			'modernizr'           => [qw(modernizr-custom.js)]
+			'modernizr'           => [qw(modernizr-custom.js)],
 		);
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -167,6 +193,7 @@ sub _get_javascript_paths {
 		}
 		push @javascript, { code => $page_js, @language } if $page_js;
 	}
+
 	return \@javascript;
 }
 
@@ -507,7 +534,7 @@ sub get_stylesheets {
 	push @filenames, q(c3.css)        if $self->{'c3'};
 	push @filenames, q(pivot.min.css) if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
-	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.css);
+	push @filenames, qw(jquery-ui.min.css fontawesome-all.css cookieconsent.min.css bigsdb.css);
 	my @paths;
 
 	foreach my $filename (@filenames) {

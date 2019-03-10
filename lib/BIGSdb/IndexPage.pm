@@ -36,7 +36,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{$_} = 1 foreach qw(jQuery packery noCache);
+	$self->{$_} = 1 foreach qw(jQuery packery cookieconsent noCache);
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
@@ -95,6 +95,8 @@ sub _print_jobs {
 }
 
 sub get_javascript {
+	my ($self) = @_;
+	
 	return <<"JS";
 \$(document).ready(function() 
     { 
@@ -118,6 +120,7 @@ var delay = (function(){
   };
 })();
 JS
+
 }
 
 sub _print_main_section {
