@@ -144,10 +144,10 @@ JS
 }
 
 sub _get_javascript_paths {
-	my ($self)  = @_;
+	my ($self) = @_;
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
-	my $date    = '20180608';
+	my $date = '20180608';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
@@ -163,7 +163,9 @@ sub _get_javascript_paths {
 			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js', @language } );
 		}
 		push @javascript, ( { src => "/javascript/bigsdb.js?v=$date", @language } );
-		push @javascript, ( { src => "/javascript/cookieconsent.min.js", @language } );
+		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
+			push @javascript, ( { src => '/javascript/cookieconsent.min.js', @language } );
+		}
 		my %js = (
 			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
 			'jQuery.jstree'       => [qw(jquery.jstree.js)],
@@ -194,7 +196,6 @@ sub _get_javascript_paths {
 		}
 		push @javascript, { code => $page_js, @language } if $page_js;
 	}
-
 	return \@javascript;
 }
 
@@ -531,13 +532,15 @@ sub get_stylesheets {
 	my $system  = $self->{'system'};
 	my $version = '20190308';
 	my @filenames;
-	push @filenames, q(dropzone.css)  if $self->{'dropzone'};
-	push @filenames, q(c3.css)        if $self->{'c3'};
-	push @filenames, q(pivot.min.css) if $self->{'pivot'};
+	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
+	push @filenames, q(c3.css)                                                if $self->{'c3'};
+	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
-	push @filenames, qw(jquery-ui.min.css fontawesome-all.css cookieconsent.min.css bigsdb.css);
+	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
+		push @filenames, q(cookieconsent.min.css);
+	}
+	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.css);
 	my @paths;
-
 	foreach my $filename (@filenames) {
 		my $stylesheet;
 		my $vfilename = "$filename?v=$version";
