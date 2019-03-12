@@ -673,6 +673,7 @@ sub _create_blast_database {
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
+	make_path($path);      #In case directory has since been deleted.
 	my $fasta_fh;
 
 	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
@@ -749,6 +750,12 @@ sub _delete_cache {
 	$self->{'logger'}->info("Deleting cache $cache_name");
 	my $path       = $self->_get_cache_dir($cache_name);
 	my $fasta_file = "$path/sequences.fas";
+	my $lock_file = "$path/LOCK";
+	
+	if (-e $lock_file){
+		$self->{'logger'}->error("Cannot delete cache as lock file exists - $lock_file.");
+		return;
+	}
 	my $fasta_fh;
 	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
 		$self->{'logger'}->error("Cannot open $fasta_file for writing");
