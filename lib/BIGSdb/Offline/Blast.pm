@@ -26,7 +26,6 @@ use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
 use Digest::MD5;
 use File::Path qw(make_path remove_tree);
 use Fcntl qw(:flock);
-use Time::HiRes qw(usleep);
 use constant INF => 9**99;
 
 sub blast {
@@ -253,32 +252,10 @@ sub _run_blast {
 		my $format = $args->{'alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
-		my $fasta_fh;
-		my $valid_fh;
+		open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
 
-		for my $i ( 1 .. 1200 ) {
-			if ( open( $fasta_fh, '<', $fasta_file ) ) {
-
-				#Open shared lock on FASTA file to prevent cache being deleted while being used.
-				if ( flock( $fasta_fh, LOCK_SH ) ) {
-					$valid_fh = 1;
-					if ( $i > 1 ) {
-						$self->{'logger'}->error("It took $i attempts to open and flock $fasta_file.")
-						  ;
-					}
-					last;
-				} else {
-					close $fasta_fh;
-					usleep(100_000);    #100ms.
-				}
-			} else {
-				usleep(100_000);        #100ms.
-			}
-		}
-		if ( !$valid_fh ) {
-			$self->{'logger'}->error("Could not open and flock $fasta_file. Tried for 120s before giving up.");
-			next;
-		}
+		#Open shared lock on FASTA file to prevent cache being deleted while being used.
+		flock( $fasta_fh, LOCK_SH ) || $self->{'logger'}->error("Cannot flock $fasta_file");
 		my %params = (
 			-num_threads => $blast_threads,
 			-word_size   => $word_size,
@@ -699,7 +676,7 @@ sub _create_blast_database {
 	my $fasta_fh;
 
 	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
-		$self->{'logger'}->error("Cannot open $fasta_file for writing - cache is being renewed already.");
+		$self->{'logger'}->error("Cannot open $fasta_file for writing");
 		return;
 	}
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
