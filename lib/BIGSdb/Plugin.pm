@@ -420,6 +420,27 @@ sub print_isolate_fields_fieldset {
 		-values   => $display_fields,
 		-labels   => $labels,
 		-multiple => 'true',
+		-class    => 'multiselect',
+		-default  => $options->{'default'}
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub print_eav_fields_fieldset {
+	my ( $self, $options ) = @_;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	return if !@$eav_fields;
+	my $labels = {};
+	( $labels->{$_} = $_ ) =~ tr/_/ / foreach @$eav_fields;
+	my $legend = $self->{'system'}->{'eav_fields'} // 'Phenotypic fields';
+	say qq(<fieldset style="float:left"><legend>$legend</legend>);
+	say $self->popup_menu(
+		-name     => 'eav_fields',
+		-id       => 'eav_fields',
+		-values   => $eav_fields,
+		-labels   => $labels,
+		-multiple => 'true',
 		-class    => 'multiselect'
 	);
 	say q(</fieldset>);
@@ -510,16 +531,22 @@ sub get_selected_fields2 {
 	my $fields     = [];
 	my @provenance = $q->param('fields');
 	push @$fields, qq(f_$_) foreach @provenance;
+	if ( $q->param('eav_fields') ) {
+		my @eav_fields = $q->param('eav_fields');
+		foreach my $eav_field (@eav_fields) {
+			push @$fields, "eav_$eav_field";
+		}
+	}
 	my @composite = $q->param('composite_fields');
 	push @$fields, qq(c_$_) foreach @composite;
-	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $set_id        = $self->get_set_id;
+	my $loci          = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $selected_loci = $self->get_selected_loci;
 	foreach my $locus (@$loci) {
 		push @$fields, "l_$locus" if any { $locus eq $_ } @$selected_loci;
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-		foreach (@$schemes) {
+	foreach (@$schemes) {
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
 		foreach my $member (@$scheme_members) {
 			push @$fields, "s_$_\_l_$member"
@@ -531,7 +558,7 @@ sub get_selected_fields2 {
 			  if $q->param("s_$_") && $q->param('scheme_fields');
 		}
 	}
-		if ( $q->param('classification_schemes') ) {
+	if ( $q->param('classification_schemes') ) {
 		my @cschemes = $q->param('classification_schemes');
 		foreach my $cs (@cschemes) {
 			push @$fields, "cs_$cs";

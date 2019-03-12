@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use BIGSdb::Constants qw(:interface);
 use Try::Tiny;
 use List::MoreUtils qw(uniq);
 use Bio::Tools::SeqStats;
@@ -42,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.6.5',
+		version     => '1.7.0',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -152,8 +153,7 @@ sub _print_classification_scheme_fields {
 		-labels   => $labels,
 		-multiple => 'true',
 		-style    => 'width:100%',
-		-class=>'multiselect'
-		
+		-class    => 'multiselect'
 	);
 	say q(</fieldset>);
 	return;
@@ -174,8 +174,6 @@ sub _print_molwt_options {
 	say q(</li></ul></fieldset>);
 	return;
 }
-
-
 
 sub run {
 	my ($self) = @_;
@@ -253,7 +251,8 @@ sub run {
 			}
 		);
 		say q( done</p>);
-		say qq(<p>Download: <a href="/tmp/$filename" target="_blank">Text file</a>);
+		my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
+		say qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
 		my $excel = BIGSdb::Utils::text2excel(
 			$full_path,
 			{
@@ -262,8 +261,9 @@ sub run {
 				text_fields => $self->{'system'}->{'labelfield'}
 			}
 		);
-		say qq( | <a href="/tmp/$prefix.xlsx" target="_blank">Excel file</a>) if -e $excel;
-		say q( (right-click to save)</p>);
+		say qq(<a href="/tmp/$prefix.xlsx" target="_blank" title="Excel file">$excel_file</a>)
+		  if -e $excel;
+		say q(</p>);
 		say q(</div>);
 		return;
 	}
@@ -300,10 +300,10 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolate_fields_fieldset({extended_attributes => 1 });
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1, default => ['id'] } );
+	$self->print_eav_fields_fieldset;
 	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
-	
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->print_isolates_locus_fieldset2;
 	$self->_print_classification_scheme_fields;
@@ -428,6 +428,7 @@ sub _write_tab_text {
 		foreach my $field (@$fields) {
 			my $regex = {
 				field                 => qr/^f_(.*)/x,
+				eav_field             => qr/^eav_(.*)/x,
 				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
 				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
 				composite_field       => qr/^c_(.*)/x,
@@ -435,8 +436,9 @@ sub _write_tab_text {
 				reference             => qr/^m_references/x
 			};
 			my $methods = {
-				field => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
-				locus => sub {
+				field     => sub { $self->_write_field( $fh,     $1, \%data, $first, $params ) },
+				eav_field => sub { $self->_write_eav_field( $fh, $1, \%data, $first, $params ) },
+				locus     => sub {
 					$self->_write_allele(
 						{
 							fh             => $fh,
@@ -463,7 +465,9 @@ sub _write_tab_text {
 					$self->_write_ref( $fh, \%data, $first, $params );
 				}
 			};
-			foreach my $field_type (qw(field locus scheme_field composite_field classification_scheme reference)) {
+			foreach
+			  my $field_type (qw(field eav_field locus scheme_field composite_field classification_scheme reference))
+			{
 				if ( $field =~ $regex->{$field_type} ) {
 					$methods->{$field_type}->();
 					last;
@@ -520,7 +524,7 @@ sub _get_header {
 				$is_cscheme = 1;
 				$cscheme    = $1;
 			}
-			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs)_//x;    #strip off prefix for header row
+			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs|eav)_//x;    #strip off prefix for header row
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$field =~ s/^.*___//x;
 			if ($is_locus) {
@@ -587,14 +591,12 @@ sub _write_field {
 		}
 	} elsif ( $field =~ /(.*)___(.*)/x ) {
 		my ( $isolate_field, $attribute ) = ( $1, $2 );
-		if ( !$self->{'sql'}->{'attribute'} ) {
-			$self->{'sql'}->{'attribute'} =
-			  $self->{'db'}->prepare( 'SELECT value FROM isolate_value_extended_attributes WHERE '
-				  . '(isolate_field,attribute,field_value)=(?,?,?)' );
-		}
-		eval { $self->{'sql'}->{'attribute'}->execute( $isolate_field, $attribute, $data->{$isolate_field} ) };
-		$logger->error($@) if $@;
-		my ($value) = $self->{'sql'}->{'attribute'}->fetchrow_array;
+		my $value = $self->{'datastore'}->run_query(
+			'SELECT value FROM isolate_value_extended_attributes WHERE '
+			  . '(isolate_field,attribute,field_value)=(?,?,?)',
+			[ $isolate_field, $attribute, $data->{$isolate_field} ],
+			{ cache => 'Export::extended_attributes' }
+		);
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$attribute\t";
@@ -614,6 +616,21 @@ sub _write_field {
 			print $fh "\t" if !$first;
 			print $fh $data->{$field} if defined $data->{$field};
 		}
+	}
+	return;
+}
+
+sub _write_eav_field {
+	my ( $self, $fh, $field, $data, $first, $params ) = @_;
+	my $value = $self->{'datastore'}->get_eav_field_value( $data->{'id'}, $field );
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "$field\t";
+		print $fh $value if defined $value;
+		print $fh "\n";
+	} else {
+		print $fh "\t"   if !$first;
+		print $fh $value if defined $value;
 	}
 	return;
 }
