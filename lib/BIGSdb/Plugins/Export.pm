@@ -55,7 +55,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -70,6 +70,7 @@ function enable_controls(){
 
 \$(document).ready(function(){ 
 	enable_controls();
+	\$('.multiselect').multiselect();
 }); 
 END
 	return $js;
@@ -149,15 +150,11 @@ sub _print_classification_scheme_fields {
 		-id       => 'classification_schemes',
 		-values   => $ids,
 		-labels   => $labels,
-		-size     => 8,
 		-multiple => 'true',
-		-style    => 'width:100%'
+		-style    => 'width:100%',
+		-class=>'multiselect'
+		
 	);
-	say
-	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("classification_schemes",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin-top:1em" )
-	  . q(class="smallbutton" /></div>);
 	say q(</fieldset>);
 	return;
 }
@@ -178,13 +175,15 @@ sub _print_molwt_options {
 	return;
 }
 
+
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
-		my $selected_fields = $self->get_selected_fields;
+		my $selected_fields = $self->get_selected_fields2;
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
@@ -287,7 +286,7 @@ sub _print_interface {
 	} else {
 		$selected_ids = [];
 	}
-	say q(<div class="box" id="queryform">);
+	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<p>This script will export the dataset in tab-delimited text and Excel formats. )
 	  . q(Select which fields you would like included. Select loci either from the locus list or by selecting one or )
 	  . q(more schemes to include all loci (and/or fields) from a scheme.</p>);
@@ -301,10 +300,12 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolates_fieldset( 1, { include_composites => 1, extended_attributes => 1 } );
+	$self->print_isolate_fields_fieldset({extended_attributes => 1 });
+	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
-	$self->print_isolates_locus_fieldset;
+	
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
+	$self->print_isolates_locus_fieldset2;
 	$self->_print_classification_scheme_fields;
 	$self->_print_options;
 	$self->_print_molwt_options;
@@ -313,7 +314,7 @@ sub _print_interface {
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 

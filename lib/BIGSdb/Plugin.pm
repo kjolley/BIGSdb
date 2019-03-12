@@ -318,15 +318,15 @@ sub _print_fields {
 
 sub print_isolates_fieldset {
 	my ( $self, $default_select, $options ) = @_;
-	my $set_id        = $self->get_set_id;
-	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	my $set_id = $self->get_set_id;
+
+	#	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	#	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
-
 	foreach my $field (@$fields) {
 		push @display_fields, $field;
 		push @display_fields, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
@@ -334,7 +334,7 @@ sub print_isolates_fieldset {
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					push @display_fields, "$field\_\_\_$extended_attribute";
+					push @display_fields, "${field}___$extended_attribute";
 				}
 			}
 		}
@@ -382,6 +382,74 @@ sub print_isolates_fieldset {
 			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
 			say q(</fieldset>);
 		}
+	}
+	return;
+}
+
+sub print_isolate_fields_fieldset {
+	my ( $self, $options ) = @_;
+	my $set_id         = $self->get_set_id;
+	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
+	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $display_fields = [];
+	my $labels         = {};
+	foreach my $field (@$fields) {
+		push @$display_fields, $field;
+		my $label = $field;
+		$label =~ s/^meta_.+://x;
+		$label =~ tr/_/ /;
+		$labels->{$field} = $label;
+		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+			push @$display_fields, 'aliases';
+		}
+		if ( $options->{'extended_attributes'} ) {
+			my $extended = $self->get_extended_attributes;
+			my $extatt   = $extended->{$field};
+			if ( ref $extatt eq 'ARRAY' ) {
+				foreach my $extended_attribute (@$extatt) {
+					push @$display_fields, "${field}___$extended_attribute";
+					( $labels->{"${field}___$extended_attribute"} = $extended_attribute ) =~ tr/_/ /;
+				}
+			}
+		}
+	}
+	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
+	say $self->popup_menu(
+		-name     => 'fields',
+		-id       => 'fields',
+		-values   => $display_fields,
+		-labels   => $labels,
+		-multiple => 'true',
+		-class    => 'multiselect'
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub print_composite_fields_fieldset {
+	my ($self) = @_;
+	my $composites =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM composite_fields ORDER BY id', undef, { fetch => 'col_arrayref' } );
+	if (@$composites) {
+		my $labels = {};
+		foreach my $field (@$composites) {
+			( $labels->{$field} = $field ) =~ tr/_/ /;
+		}
+		say q(<fieldset style="float:left"><legend>Composite fields);
+		say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+			  . q(other fields (some of which may come from external databases). Including composite fields )
+			  . q(will slow down the processing.) );
+		say q(</legend>);
+		say $self->popup_menu(
+			-name     => 'composite_fields',
+			-id       => 'composite_fields',
+			-values   => $composites,
+			-labels   => $labels,
+			-multiple => 'true',
+			-class    => 'multiselect'
+		);
+		say q(</fieldset>);
 	}
 	return;
 }
@@ -436,6 +504,43 @@ sub get_allele_id_list {
 	return \@;;
 }
 
+sub get_selected_fields2 {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $fields     = [];
+	my @provenance = $q->param('fields');
+	push @$fields, qq(f_$_) foreach @provenance;
+	my @composite = $q->param('composite_fields');
+	push @$fields, qq(c_$_) foreach @composite;
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $selected_loci = $self->get_selected_loci;
+	foreach my $locus (@$loci) {
+		push @$fields, "l_$locus" if any { $locus eq $_ } @$selected_loci;
+	}
+	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+		foreach (@$schemes) {
+		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
+		foreach my $member (@$scheme_members) {
+			push @$fields, "s_$_\_l_$member"
+			  if $q->param("s_$_") && $q->param('scheme_members');
+		}
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
+		foreach my $scheme_field (@$scheme_fields) {
+			push @$fields, "s_$_\_f_$scheme_field"
+			  if $q->param("s_$_") && $q->param('scheme_fields');
+		}
+	}
+		if ( $q->param('classification_schemes') ) {
+		my @cschemes = $q->param('classification_schemes');
+		foreach my $cs (@cschemes) {
+			push @$fields, "cs_$cs";
+		}
+	}
+	return $fields;
+}
+
+#TODO Remove this when no longer used.
 sub get_selected_fields {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
