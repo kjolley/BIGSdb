@@ -369,6 +369,7 @@ sub _print_publish_function {
 	return if !$self->{'username'};
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'tableQuery';
+	return if $q->param('page') eq 'plugin';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
 		my $matched = $self->_get_query_private_records;
