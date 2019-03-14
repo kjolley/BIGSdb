@@ -2692,35 +2692,6 @@ sub get_ids_from_pasted_list {
 	return ( \@cleaned_ids, \@invalid_ids );
 }
 
-sub print_isolates_locus_fieldset2 {
-	my ( $self, $options ) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
-	my $analysis_pref = $options->{'analysis_pref'} // 1;
-	my ( $loci, $labels ) =
-	  $self->get_field_selection_list(
-		{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
-	if (@$loci) {
-		say q(<div style="float:left">);
-
-		
-		
-		say $self->popup_menu(
-			-name     => 'locus',
-			-id       => 'locus',
-			-values   => $loci,
-			-labels   => $labels,
-			-multiple => 'true',
-			-default  => $options->{'selected_loci'},
-			-class    => 'multiselect'
-		);
-	} else {
-		say q(No loci available<br />for analysis);
-	}
-	say q(</fieldset>);
-	return;
-}
-
 sub print_isolates_locus_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';

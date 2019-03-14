@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.0',
+		version     => '1.7.1',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -56,7 +56,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -71,7 +71,6 @@ function enable_controls(){
 
 \$(document).ready(function(){ 
 	enable_controls();
-	\$('.multiselect').multiselect();
 }); 
 END
 	return $js;
@@ -151,12 +150,17 @@ sub _print_classification_scheme_fields {
 		-id       => 'classification_schemes',
 		-values   => $ids,
 		-labels   => $labels,
+		-size     => 8,
 		-multiple => 'true',
-		-style    => 'width:100%',
-		-class    => 'multiselect'
+		-style    => 'width:100%'
 	);
+	say
+	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("classification_schemes",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin-top:1em" )
+	  . q(class="smallbutton" /></div>);
 	say q(</fieldset>);
-	return;
+return;
 }
 
 sub _print_molwt_options {
@@ -304,8 +308,9 @@ sub _print_interface {
 	$self->print_eav_fields_fieldset;
 	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
+	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_isolates_locus_fieldset2;
+	
 	$self->_print_classification_scheme_fields;
 	$self->_print_options;
 	$self->_print_molwt_options;

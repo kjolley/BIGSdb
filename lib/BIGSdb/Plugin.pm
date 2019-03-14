@@ -420,9 +420,13 @@ sub print_isolate_fields_fieldset {
 		-values   => $display_fields,
 		-labels   => $labels,
 		-multiple => 'true',
-		-class    => 'multiselect',
+		-size     => $options->{'size'} // 8,
 		-default  => $options->{'default'}
 	);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("fields",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+	  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin-top:1em" class="smallbutton" />)
+	  . q(</div>);
 	say q(</fieldset>);
 	return;
 }
@@ -441,8 +445,12 @@ sub print_eav_fields_fieldset {
 		-values   => $eav_fields,
 		-labels   => $labels,
 		-multiple => 'true',
-		-class    => 'multiselect'
+		-size     => $options->{'size'} // 8,
 	);
+	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("eav_fields",true)' )
+	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+	  . q(onclick='listbox_selectall("eav_fields",false)' value="None" style="margin-top:1em" class="smallbutton" />)
+	  . q(</div>);
 	say q(</fieldset>);
 	return;
 }
