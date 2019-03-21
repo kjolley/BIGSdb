@@ -105,7 +105,7 @@ sub print_content {
 		}
 	);
 	say q(</span>);
-	say q(</div></div>);
+	say q(</div></div></div>);
 	return;
 }
 
