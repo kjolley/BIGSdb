@@ -50,9 +50,10 @@ use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
 use constant SESSION_EXPIRES => 3600 * 12;
 use constant PAGE_SIZE       => 100;
-hook before      => sub { _before() };
-hook after       => sub { _after() };
-hook after_error => sub { _after_error() };
+hook before       => sub { _before() };
+hook after        => sub { _after() };
+hook before_error => sub { _before_error() };
+hook after_error  => sub { _after_error() };
 
 sub new {
 	my ( $class, $options ) = @_;
@@ -161,6 +162,12 @@ sub _before {
 	_check_authorization();
 	$self->_initiate_view;
 	$self->_set_page_options;
+	return;
+}
+
+sub _before_error {
+	my $self = setting('self');
+	$self->{'start_time'} = [gettimeofday];
 	return;
 }
 
