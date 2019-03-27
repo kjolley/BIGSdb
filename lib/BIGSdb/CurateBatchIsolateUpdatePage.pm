@@ -670,7 +670,6 @@ sub _prepare_eav_update {
 		$qry = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
 		@$args = ( $isolate_id, $field, $value );
 	}
-	$logger->error( $qry . " " . "@$args" );
 	$old_value =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT value FROM $eav_table WHERE (isolate_id,field)=(?,?)", [ $isolate_id, $field ] );
