@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -248,7 +248,7 @@ sub _get_primary_key_field {
 	} elsif ( $att->{'user_field'} ) {
 		$desc = $self->{'datastore'}->get_user_string( $newdata->{ $att->{'name'} } );
 	} else {
-		( $desc = $newdata->{ $att->{'name'} } ) =~ tr/_/ /;
+		$desc = $newdata->{ $att->{'name'} };
 	}
 	my $buffer = "<b>$desc";
 	if ( $table eq 'samples' && $att->{'name'} eq 'isolate_id' ) {
