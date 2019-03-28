@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -486,6 +486,14 @@ sub _lookup_partial_matches {
 		}
 		my $allele_id = $self->{'datastore'}
 		  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $seq ] );
+
+		#Check for RNA/DNA versions
+		if ( !defined $allele_id && $qry_type eq 'DNA' ) {
+			( my $new_seq = $seq ) =~ tr/UT/TU/;
+			$allele_id =
+			  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+				[ $locus, $new_seq ] );
+		}
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
 			$match->{'partial_match_allele'} = $match->{'allele'};
@@ -750,9 +758,8 @@ sub _delete_cache {
 	$self->{'logger'}->info("Deleting cache $cache_name");
 	my $path       = $self->_get_cache_dir($cache_name);
 	my $fasta_file = "$path/sequences.fas";
-	my $lock_file = "$path/LOCK";
-	
-	if (-e $lock_file){
+	my $lock_file  = "$path/LOCK";
+	if ( -e $lock_file ) {
 		$self->{'logger'}->error("Cannot delete cache as lock file exists - $lock_file.");
 		return;
 	}
