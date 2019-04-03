@@ -56,13 +56,6 @@ sub print_content {
 		$logger->error('Invalid width passed - should be an integer (minutes)');
 		$width = DEFAULT_INTERVAL;
 	}
-	my $buckets = $self->{'datastore'}->run_query(
-		q[SET timezone TO 'UTC';]
-		  . qq[SELECT * FROM generate_series(CAST(date_trunc('minute',now()-interval '$time minutes') AS timestamp),]
-		  . qq[CAST(date_trunc('minute',now()) AS timestamp), '$width minutes') t],
-		undef,
-		{ fetch => 'col_arrayref' }
-	);
 	my $data = $self->{'datastore'}->run_query(
 		q[SELECT width_bucket(timestamp,(select array_agg(t) AS result FROM ]
 		  . qq[generate_series(CAST(date_trunc('minute',now()-interval '$time minutes') AS timestamp),]
@@ -72,6 +65,13 @@ sub print_content {
 		  . q[GROUP BY bucket ORDER BY bucket],
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $buckets = $self->{'datastore'}->run_query(
+		q[SET timezone TO 'UTC';]
+		  . qq[SELECT * FROM generate_series(CAST(date_trunc('minute',now()-interval '$time minutes') AS timestamp),]
+		  . qq[CAST(date_trunc('minute',now()) AS timestamp), '$width minutes') t],
+		undef,
+		{ fetch => 'col_arrayref' }
 	);
 	my %bucket_count = map { $buckets->[ $_->{'bucket'} - 1 ] => $_->{'count'} } @$data;
 	my $return_data = [];
