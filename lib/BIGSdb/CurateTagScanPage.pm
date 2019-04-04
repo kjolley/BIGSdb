@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -412,8 +412,7 @@ sub _print_parameter_fieldset {
 		);
 		say $self->get_tooltip( q[Override view restriction - Some loci are restricted by an isolate view so that ]
 			  . q[only isolates that belong to a view will be scanned against them (this is used, for example, to restrict ]
-			  . q[some loci to only particular species or types). Select to override this restriction.] )
-		  ;
+			  . q[some loci to only particular species or types). Select to override this restriction.] );
 		say q(</li><li>);
 	}
 	say $q->checkbox(
@@ -512,7 +511,7 @@ sub _scan {
 	$self->_save_parameters($scan_job);
 	my $project_id   = $q->param('project_list');
 	my $curator_name = $self->get_curator_name;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($self->{'username'});
+	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( undef, $labels ) = $self->get_isolates_with_seqbin;
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
@@ -540,9 +539,10 @@ sub _scan {
 			};
 			my $params = $q->Vars;
 			$params->{'ip_address'} = $ENV{'REMOTE_ADDR'};
-			$params->{'username'} = $self->{'username'};
-			$params->{'email'} = $user_info->{'email'};
-			$params->{'scannew'} = 1;
+			$params->{'username'}   = $self->{'username'};
+			$params->{'email'}      = $user_info->{'email'};
+			$params->{'scannew'}    = 1;
+
 			if ( $params->{'loci_together'} ) {
 				$params->{'exemplar'}             = 1;
 				$params->{'scan_partial_matches'} = 100;
@@ -790,13 +790,6 @@ sub _show_results {
 		say q(</table></div>);
 		say q(<p>* Allele continues beyond end of contig</p>) if $status->{'allele_off_contig'};
 	}
-	if ( $status->{'new_seqs_found'} ) {
-		say qq(<p><a href="/tmp/${scan_job}_unique_sequences.txt" target="_blank">New unique sequences</a>);
-		say $self->get_tooltip( q(Unique sequence - This is a list of new unique sequences found in )
-			  . q(this search (tab-delimited with locus name). This can be used to facilitate rapid upload of )
-			  . q(new sequences to a sequence definition database for allele assignment.) );
-		say q(</p>);
-	}
 	if ( -s $filename && $status->{'stop_time'} ) {
 		if ( $status->{'tag_isolates'} ) {
 			my @isolates_to_tag = split /,/x, $status->{'tag_isolates'};
@@ -815,11 +808,22 @@ sub _show_results {
 		say q(</fieldset><div style="clear:both"></div>);
 	}
 	say $q->end_form;
+	if ( $status->{'new_seqs_found'} ) {
+		my ( $text_file, $fasta_file ) = ( TEXT_FILE, FASTA_FILE );
+		say q(<h2>New unique sequences</h2>);
+		say q(<p>Sequences in tabular text or FASTA format can be used to facilitate rapid upload of )
+		  . q(new sequences to a sequence definition database for allele assignment.</p>);
+		say qq(<p><a href="/tmp/${scan_job}_unique_sequences.txt" title="Tab-delimited text format" )
+		  . qq(target="_blank">$text_file</a>);
+		say qq(<a href="/tmp/${scan_job}_unique_sequences.fasta" title="FASTA format" )
+		  . qq(target="_blank">$fasta_file</a>);
+		say q(</p>);
+	}
 	say q(</div>);
 	say q(<div class="box" id="resultsfooter">);
 	my $elapsed = $status->{'start_time'} ? $status->{'start_time'} - ( $status->{'stop_time'} // time ) : undef;
 	my ( $refresh_time, $elapsed_time );
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
+	eval 'use Time::Duration';                      ## no critic (ProhibitStringyEval)
 	if ($@) {
 		$refresh_time = $self->{'refresh'} . ' seconds';
 		$elapsed_time = $elapsed ? "$elapsed seconds" : undef;

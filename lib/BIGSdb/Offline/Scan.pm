@@ -767,13 +767,14 @@ sub _scan_locus_by_locus {
 sub _analyse_blast_results {
 	my ( $self, $args ) = @_;
 	my (
-		$isolate_id, $locus,           $td_ref,     $exact_matches, $partial_matches, $params,
-		$options,    $labels,          $js,         $js2,           $js3,             $js4,
-		$show_key,   $isolates_to_tag, $table_file, $new_alleles,   $new_seqs_found,  $seq_filename
+		$isolate_id,  $locus,          $td_ref,       $exact_matches,   $partial_matches,
+		$params,      $options,        $labels,       $js,              $js2,
+		$js3,         $js4,            $show_key,     $isolates_to_tag, $table_file,
+		$new_alleles, $new_seqs_found, $seq_filename, $fasta_filename
 	  )
 	  = @{$args}{
 		qw(isolate_id locus td_ref exact_matches partial_matches params options labels js js2 js3 js4
-		  show_key isolates_to_tag table_file new_alleles new_seqs_found seq_filename)
+		  show_key isolates_to_tag table_file new_alleles new_seqs_found seq_filename fasta_filename)
 	  };
 	$exact_matches   //= [];
 	$partial_matches //= [];
@@ -838,7 +839,16 @@ sub _analyse_blast_results {
 			if ($off_end) {
 				$$show_key = 1;
 			} else {
-				$self->_check_if_new( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename );
+				$self->_check_if_new(
+					{
+						match          => $match,
+						new_seqs_found => $new_seqs_found,
+						new_alleles    => $new_alleles,
+						locus          => $locus,
+						seq_filename   => $seq_filename,
+						fasta_filename => $fasta_filename
+					}
+				);
 			}
 			$$td_ref = $$td_ref == 1 ? 2 : 1;
 			$self->_write_match( $options->{'scan_job'}, "$isolate_id:$locus:$i" );
@@ -919,7 +929,9 @@ sub _scan_loci_together {
 }
 
 sub _check_if_new {
-	my ( $self, $match, $new_seqs_found, $new_alleles, $locus, $seq_filename ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename, $fasta_filename ) =
+	  @{$args}{qw(match new_seqs_found new_alleles locus seq_filename fasta_filename)};
 	my $seq        = $self->extract_seq_from_match($match);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'data_type'} eq 'peptide' ) {
@@ -934,6 +946,11 @@ sub _check_if_new {
 		open( my $seqs_fh, '>>', $seq_filename )
 		  or $logger->error("Can't open $seq_filename for appending");
 		say $seqs_fh "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
+		close $seqs_fh;
+		open( $seqs_fh, '>>', $fasta_filename )
+		  or $logger->error("Can't open $seq_filename for appending");
+		say $seqs_fh qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'});
+		say $seqs_fh qq($seq);
 		close $seqs_fh;
 	}
 	return;
