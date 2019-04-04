@@ -617,7 +617,9 @@ div.dashboard_number {
 p.dashboard_number {
 	font-size:3em;
 	text-align:center;
-	color:#444
+	color:#444;
+	padding-right:0.5em;
+	padding-left:0.5em
 }
 p.dashboard_number_detail {
 	font-size:1.5em;
