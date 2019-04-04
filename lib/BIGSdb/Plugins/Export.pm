@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.1',
+		version     => '1.7.2',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -860,7 +860,9 @@ sub _get_molwt {
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		my $seq_ref;
 		try {
-			$seq_ref = $locus->get_allele_sequence($allele);
+			if ($allele ne '0'){
+				$seq_ref = $locus->get_allele_sequence($allele);
+			}
 		}
 		catch {    #do nothing
 		};
