@@ -164,7 +164,7 @@ function refresh_summary (url){
 		var hits_per_second = jsonData.hits / (jsonData.period * 60);
 		var rate_colour =  get_colour_function(max_rest_hits_per_second_warn);
 		var colour_number = hits_per_second > max_rest_hits_per_second_warn ? max_rest_hits_per_second_warn : parseInt(hits_per_second);
-		\$("#hits").html('<p class="dashboard_number_detail">Hits</p><p class="dashboard_number">' + jsonData.hits + '</p>');
+		\$("#hits").html('<p class="dashboard_number_detail">Hits</p><p class="dashboard_number">' + commify(jsonData.hits) + '</p>');
 		\$("#rate").html('<p class="dashboard_number_detail">Rate</p><p class="dashboard_number" style="color:' 
 		+ rate_colour(colour_number) + '">' + parseInt(hits_per_second * 60) + '/min</p>');
 		
@@ -251,6 +251,10 @@ function load_chart(url){
 		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
+}
+
+function commify(x){
+	return x.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");
 }
 END
 	return $buffer;
