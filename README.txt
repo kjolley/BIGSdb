@@ -1,3 +1,6 @@
+v1.22.3: *Fix for daylight-saving in job and API monitors.
+         *Include EAV fields in data exports.
+         *Added cookie notification.
 v1.22.2: *Update of jquery-ui-multiselect. Make sure the full contents of the
           javascript and css directories are updated.
 v1.22.1: *Improved new allele sequence upload checking. 
