@@ -506,11 +506,14 @@ sub _run_query {
 
 sub get_job_temporal_data {
 	my ( $self, $past_mins ) = @_;
+	my $local_tz = $self->_run_query(q(SELECT current_setting('TIMEZONE')));
 	return $self->_run_query(
-		q[SET timezone TO 'UTC';]
-		  . q[SELECT submit_time,start_time,stop_time,status FROM jobs where ((submit_time > now()-interval ]
-		  . qq['$past_mins min' OR start_time > now()-interval '$past_mins min' OR ]
-		  . qq[stop_time > now()-interval '$past_mins min') AND ]
+		    qq[SELECT submit_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS submit_time,]
+		  . qq[start_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS start_time,]
+		  . qq[stop_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS stop_time,]
+		  . qq[status FROM jobs where ((submit_time AT TIME ZONE '$local_tz' > now()-interval ]
+		  . qq['$past_mins min' OR start_time AT TIME ZONE '$local_tz' > now()-interval '$past_mins min' OR ]
+		  . qq[stop_time  AT TIME ZONE '$local_tz'> now()-interval '$past_mins min') AND ]
 		  . q[(status NOT LIKE '%rejected%' AND status != 'cancelled')) OR status='started' ORDER BY submit_time],
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
@@ -540,12 +543,11 @@ sub purge_old_jobs {
 	my ($self) = @_;
 	my $days = $self->{'config'}->{'results_deleted_days'} // RESULTS_DELETED_DAYS;
 	eval {
-		$self->{'db'}->do(
-			    qq[DELETE FROM jobs where (stop_time IS NOT NULL AND stop_time < now()-interval '$days days') ]
+		$self->{'db'}
+		  ->do( qq[DELETE FROM jobs where (stop_time IS NOT NULL AND stop_time < now()-interval '$days days') ]
 			  . qq[OR (status LIKE 'rejected%' AND submit_time < now()-interval '$days days') OR ]
 			  . q[(status IN ('failed','cancelled','terminated','finished') ]
-			  . qq[AND stop_time IS NULL AND submit_time <now()-interval '$days days')]
-		);
+			  . qq[AND stop_time IS NULL AND submit_time <now()-interval '$days days')] );
 	};
 	if ($@) {
 		$logger->logcarp($@);
