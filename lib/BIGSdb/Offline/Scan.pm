@@ -597,8 +597,8 @@ sub skip_for_locus_view {
 }
 
 sub run_script {
-	my ($self) = @_;
-	my $params = $self->{'params'};
+	my ($self)  = @_;
+	my $params  = $self->{'params'};
 	my $options = $self->{'options'};
 	my @isolate_list = split( "\0", $params->{'isolate_id'} );
 	BIGSdb::Exception::Data->throw('Invalid isolate_ids passed') if !@isolate_list;
@@ -613,9 +613,10 @@ sub run_script {
 	my $locus_prefix = BIGSdb::Utils::get_random();
 	my $file_prefix  = BIGSdb::Utils::get_random();
 	$self->initiate_job_manager if $self->{'config'}->{'record_scans'};
-	my $job_id       = $self->_add_job;
-	my $start_time   = time;
-	my $seq_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
+	my $job_id         = $self->_add_job;
+	my $start_time     = time;
+	my $seq_filename   = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
+	my $fasta_filename = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.fasta";
 	open( my $seqs_fh, '>', $seq_filename ) or $logger->error("Can't open $seq_filename for writing");
 	say $seqs_fh "locus\tallele_id\tstatus\tsequence";
 	close $seqs_fh;
@@ -637,6 +638,7 @@ sub run_script {
 		show_key        => \$show_key,
 		new_seqs_found  => \$new_seqs_found,
 		seq_filename    => $seq_filename,
+		fasta_filename  => $fasta_filename,
 		table_file      => $table_file
 	};
 	my $match = $params->{'loci_together'} ? $self->_scan_loci_together($args) : $self->_scan_locus_by_locus($args);
@@ -671,7 +673,7 @@ sub run_script {
 }
 
 sub _add_job {
-	my ( $self ) = @_;
+	my ($self) = @_;
 	my $params = $self->{'params'};
 	return
 	  if !$self->{'config'}->{'jobs_db'}
@@ -682,9 +684,9 @@ sub _add_job {
 			{
 				dbase_config => $self->{'instance'},
 				module       => 'ManualScan',
-				ip_address => $params->{'ip_address'},
-				username => $params->{'username'},
-				email => $params->{'email'},
+				ip_address   => $params->{'ip_address'},
+				username     => $params->{'username'},
+				email        => $params->{'email'},
 				parameters   => {},
 				mark_started => 1,
 				no_progress  => 1
@@ -716,15 +718,8 @@ sub _stop_job {
 
 sub _scan_locus_by_locus {
 	my ( $self, $args ) = @_;
-	my (
-		$isolates,       $loci,         $file_prefix, $locus_prefix, $isolates_to_tag,
-		$js,             $js2,          $js3,         $js4,          $show_key,
-		$new_seqs_found, $seq_filename, $table_file
-	  )
-	  = @{$args}{
-		qw(isolates loci file_prefix locus_prefix isolates_to_tag js js2 js3 js4
-		  show_key new_seqs_found seq_filename table_file)
-	  };
+	my ( $isolates, $loci, $file_prefix, $locus_prefix ) =
+	  @{$args}{qw(isolates loci file_prefix locus_prefix  )};
 	my $match       = 0;
 	my $start_time  = time;
 	my $options     = $self->{'options'};
@@ -870,15 +865,8 @@ sub _analyse_blast_results {
 
 sub _scan_loci_together {
 	my ( $self, $args ) = @_;
-	my (
-		$isolates,       $loci,         $file_prefix, $locus_prefix, $isolates_to_tag,
-		$js,             $js2,          $js3,         $js4,          $show_key,
-		$new_seqs_found, $seq_filename, $table_file
-	  )
-	  = @{$args}{
-		qw(isolates loci file_prefix locus_prefix isolates_to_tag js js2 js3 js4
-		  show_key new_seqs_found seq_filename table_file)
-	  };
+	my ( $isolates, $loci, $file_prefix, $locus_prefix ) =
+	  @{$args}{qw(isolates loci file_prefix locus_prefix )};
 	my $match       = 0;
 	my $start_time  = time;
 	my $options     = $self->{'options'};
