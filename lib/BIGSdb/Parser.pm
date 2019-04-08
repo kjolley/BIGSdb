@@ -31,7 +31,9 @@ use strict;
 use warnings;
 use 5.010;
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(COUNTRIES);
 use XML::Parser::PerlSAX;
+use Unicode::Collate;
 use List::MoreUtils qw(any);
 
 sub get_system_hash {
@@ -41,7 +43,7 @@ sub get_system_hash {
 
 sub get_field_list {
 	my ( $self, $metadata_arrayref, $options ) = @_;
-	$options           = {} if ref $options           ne 'HASH';
+	$options           = {} if ref $options ne 'HASH';
 	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
 	my @fields;
 	foreach my $field ( @{ $self->{'fields'} } ) {
@@ -118,6 +120,9 @@ sub characters {
 		push @{ $self->{'fields'} }, $self->{'field_name'};
 		$self->_process_special_values( $self->{'these'} );
 		$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
+		if ( ( $self->{'these'}->{'optlist'} // q() ) eq 'yes' && $self->{'these'}->{'values'} ) {
+			$self->_add_special_optlist_values( $self->{'field_name'}, $self->{'these'}->{'values'} );
+		}
 		$self->{'_in_field'} = 0;
 	} elsif ( $self->{'_in_optlist'} ) {
 		push @{ $self->{'options'}->{ $self->{'field_name'} } }, $element->{'Data'} if $element->{'Data'} ne '';
@@ -134,21 +139,58 @@ sub start_element {
 	my ( $self, $element ) = @_;
 	my %methods = (
 		system => sub { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} },
-		field  => sub { $self->{'_in_field'}  = 1; $self->{'these'}  = $element->{'Attributes'} },
-		optlist => sub { $self->{'_in_optlist'} = 1 },
-		sample => sub { $self->{'_in_sample'} = 1; $self->{'these'} = $element->{'Attributes'} }
+		field => sub {
+			$self->{'_in_field'} = 1;
+			$self->{'these'}     = $element->{'Attributes'};
+		},
+		optlist => sub {
+			$self->{'_in_optlist'} = 1;
+		},
+		sample => sub {
+			$self->{'_in_sample'} = 1;
+			$self->{'these'}      = $element->{'Attributes'};
+		}
 	);
 	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
 	return;
 }
 
+sub _add_special_optlist_values {
+	my ( $self, $field_name, $value_name ) = @_;
+	if ( $value_name eq 'COUNTRIES' ) {
+		my $countries = COUNTRIES;
+		my $values    = [ keys %$countries ];
+		$self->{'options'}->{$field_name} = $self->_dictionary_sort($values);
+	}
+	return;
+}
+
+sub _dictionary_sort {
+	my ( $self, $values ) = @_;
+	my $collator = Unicode::Collate->new;
+	my $sort_key = {};
+	for my $value (@$values) {
+		$sort_key->{$value} = $collator->getSortKey($value);
+	}
+	my @sorted = sort { $sort_key->{$a} cmp $sort_key->{$b} } @$values;
+	return \@sorted;
+}
+
 sub end_element {
 	my ( $self, $element ) = @_;
 	my %methods = (
-		system  => sub { $self->{'_in_system'}  = 0 },
-		field   => sub { $self->{'_in_field'}   = 0 },
-		optlist => sub { $self->{'_in_optlist'} = 0 },
-		sample  => sub { $self->{'_in_sample'}  = 0 }
+		system => sub { $self->{'_in_system'} = 0 },
+		field  => sub { $self->{'_in_field'}  = 0 },
+		optlist => sub {
+			$self->{'_in_optlist'} = 0;
+			if ( ( $self->{'attributes'}->{ $self->{'field_name'} }->{'sort'} // q() ) eq 'yes' ) {
+				$self->{'options'}->{ $self->{'field_name'} } =
+				  $self->_dictionary_sort( $self->{'options'}->{ $self->{'field_name'} } );
+			}
+		},
+		sample => sub {
+			$self->{'_in_sample'} = 0;
+		}
 	);
 	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
 	return;
@@ -160,7 +202,7 @@ sub _process_special_values {
 		if ( $value eq 'CURRENT_YEAR' ) {
 			$value = (localtime)[5] + 1900;
 		}
-		if ($value eq 'CURRENT_DATE'){
+		if ( $value eq 'CURRENT_DATE' ) {
 			$value = BIGSdb::Utils::get_datestamp();
 		}
 	}
