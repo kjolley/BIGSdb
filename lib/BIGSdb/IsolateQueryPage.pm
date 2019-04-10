@@ -138,7 +138,7 @@ sub print_content {
 		$self->confirm_publication;
 		return;
 	}
-	if ($q->param('confirm_publish')){
+	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
 	my $desc = $self->get_db_description;
@@ -212,7 +212,7 @@ sub _print_phenotypic_fields_fieldset {
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
 	say q(<fieldset id="phenotypic_fieldset" style="float:left;display:none">);
-	my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
+	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 	say qq(<legend>$field_name</legend><div>);
 	if ( $self->_highest_entered_fields('phenotypic') ) {
 		$self->_print_phenotypic_fieldset_contents;
@@ -227,7 +227,8 @@ sub _print_display_fieldset {
 	my $prefs  = $self->{'prefs'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+	  $self->get_field_selection_list(
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $self->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
@@ -621,7 +622,7 @@ sub _print_modify_search_fieldset {
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
 		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
-		my $field_name = ucfirst($self->{'system'}->{'eav_fields'} // 'phenotypic fields');
+		my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 		say qq(<li><a href="" class="button" id="show_phenotypic">$phenotypic_fieldset_display</a>);
 		say qq($field_name</li>);
 	}
@@ -2625,11 +2626,14 @@ END
 			if (@$options) {
 				$autocomplete_js .= ",\n" if !$first;
 				$autocomplete_js .= "       f_$field: [\n";
+				my %used;
 				foreach my $value (@$options) {
+					next if $used{$value};
 					$value =~ s/"/\\"/gx;
 					$autocomplete_js .= qq(       "$value");
 					$autocomplete_js .= ',' if $value ne $options->[-1];
 					$autocomplete_js .= "\n";
+					$used{$value} = 1;
 				}
 				$autocomplete_js .= '       ]';
 				$first = 0;
@@ -2657,11 +2661,11 @@ END
 			}
 		}
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
-		foreach my $eav_field (@$eav_fields){
-			if ($eav_field->{'option_list'}) {
+		foreach my $eav_field (@$eav_fields) {
+			if ( $eav_field->{'option_list'} ) {
 				$autocomplete_js .= ",\n" if !$first;
 				$autocomplete_js .= "       eav_$eav_field->{'field'}: [\n";
-				my @options = split/\s*;\s*/x, $eav_field->{'option_list'};
+				my @options = split /\s*;\s*/x, $eav_field->{'option_list'};
 				foreach my $value (@options) {
 					$value =~ s/"/\\"/gx;
 					$autocomplete_js .= qq(       "$value");

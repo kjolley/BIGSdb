@@ -530,7 +530,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190308';
+	my $version = '20190409';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
@@ -3008,7 +3008,7 @@ sub print_good_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Success!';
 	say q(<div class="box resultsheader" style="min-height:5em");
-	say q(<p><a><span class="success fas fa-check fa-5x fa-pull-left"></span></a></p>);
+	say q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
 	say qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
 		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
