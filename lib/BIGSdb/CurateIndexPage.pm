@@ -265,6 +265,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_cache_refresh;
 	$buffer .= $self->_get_user_dbases;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$buffer .= $self->_get_geocoding;
 		$buffer .= $self->_get_eav_fields;
 		$buffer .= $self->_get_isolate_field_extended_attributes;
 		$buffer .= $self->_get_composite_fields;
@@ -290,6 +291,25 @@ sub _get_admin_links {
 		$buffer .= $self->_get_scheme_curators;
 	}
 	$buffer .= $self->_get_sets;
+	return $buffer;
+}
+
+sub _get_geocoding {
+	my ($self) = @_;
+	return if !$self->is_admin;
+	my $buffer =
+	  q(<div class="curategroup curategroup_geocoding grid-item default_show_admin"><h2>Geocoding setup</h2>);
+	$buffer .= $self->_get_icon_group(
+		undef,
+		'globe-africa',
+		{
+			action       => 1,
+			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=geocoding),
+			action_label => 'Setup',
+			info => 'Geocoding - Set up standard country names and continent links.'
+		}
+	);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -401,20 +421,21 @@ sub _get_sequence_fields {
 	return $buffer if !$self->can_modify_table('sequences');
 	return $buffer if !$self->_loci_exist;
 	my $set_string = $self->_get_set_string;
-	my $batch_add_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences$set_string);
-	my $fasta_url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
+	my $batch_add_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences$set_string);
+	my $fasta_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
 	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_show_curator"><h2>Sequences</h2>);
 	$buffer .= $self->_get_icon_group(
 		'sequences',
 		'dna',
 		{
-			add         => 1,
-			batch_add   => 1,
+			add           => 1,
+			batch_add     => 1,
 			batch_add_url => $batch_add_url,
-			query       => 1,
-			fasta       => 1,
-			fasta_url   => $fasta_url,
-			fasta_label => 'Upload new sequences using a FASTA file containing new variants of a single locus.'
+			query         => 1,
+			fasta         => 1,
+			fasta_url     => $fasta_url,
+			fasta_label   => 'Upload new sequences using a FASTA file containing new variants of a single locus.'
 		}
 	);
 	$buffer .= qq(</div>\n);

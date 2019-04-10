@@ -464,6 +464,7 @@ div.curategroup_maintenance {background-image: linear-gradient(#fff,#eed)}
 div.curategroup_loci {background-image: linear-gradient(#fff,#ecc)}
 div.curategroup_schemes {background-image: linear-gradient(#fff,#cbe)}
 div.curategroup_sets {background-image: linear-gradient(#fff,#bce)}
+div.curategroup_geocoding {background-image: linear-gradient(#fff,#cce)}
 
 div.queryform, div#queryform {background-image: linear-gradient(#e0e0e0, #e8e8e8);z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
