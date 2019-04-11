@@ -182,16 +182,20 @@ sub _get_javascript_paths {
 			'heatmap'             => [qw(heatmap.min.js)],
 			'filesaver'           => [qw(FileSaver.min.js)],
 			'modernizr'           => [qw(modernizr-custom.js)],
+			'geomap'              => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)]
 		);
+		my %used;
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
 			my $libs = $js{$feature};
 			foreach my $lib (@$libs) {
+				next if $used{$lib};
 				if ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
 					push @javascript, ( { src => "/javascript/$lib?v=$date", @language } );
 				} else {
 					$logger->error("/javascript/$lib file not installed.");
 				}
+				$used{$lib} = 1;
 			}
 		}
 		push @javascript, { code => $page_js, @language } if $page_js;
@@ -536,6 +540,7 @@ sub get_stylesheets {
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
 	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
+	push @filenames, qw(d3.geomap.css) if $self->{'geomap'};
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}

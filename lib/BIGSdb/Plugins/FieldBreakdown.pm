@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(COUNTRIES);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use JSON;
@@ -39,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.1.1',
+		version     => '2.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -52,7 +53,10 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { c3 => 1, filesaver => 1, noCache => 1, 'jQuery.tablesort' => 1 };
+	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1 };
+	if ($self->_has_country_optlist){
+		$values->{'geomap'} = 1; 
+	}
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
@@ -75,6 +79,13 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub _has_country_optlist {
+	my ($self) = @_;
+	return if !$self->{'xmlHandler'}->is_field('country');
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
+	return $thisfield->{'optlist'} ? 1 : 0;
 }
 
 sub _export {
@@ -297,8 +308,11 @@ sub run {
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
 	say q(<div id="c3_chart" style="min-height:400px">);
+	
 	$self->print_loading_message;
 	say q(</div>);
+	say q(<div id="map"></div>);
+	$self->_print_map_controls;
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
@@ -313,6 +327,17 @@ sub _print_export_buttons {
 	say $self->get_export_buttons(
 		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } )
 	  ;
+	return;
+}
+
+sub _print_map_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="map_controls" class="c3_controls" )
+	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
+	$self->_print_chart_types;
+	say q(</ul></fieldset>);
 	return;
 }
 
@@ -338,6 +363,8 @@ sub _print_chart_types {
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
+	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);  
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
@@ -445,6 +472,16 @@ sub _get_fields_js {
 	my ($fields) = $self->_get_fields;
 	my $buffer = q(var fields=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
+	if ($self->_has_country_optlist){
+		my @map_fields;
+		foreach my $field (qw(country)){
+			push @map_fields,$field if $self->{'xmlHandler'}->is_field($field);
+		}
+		if (@map_fields){
+			local $" = q(',');
+			$buffer.=qq(var map_fields = ['@map_fields'];\n);
+		}
+	}
 	return $buffer;
 }
 
@@ -483,6 +520,7 @@ sub _get_schemes_js {
 
 sub get_plugin_javascript {
 	my ($self) = @_;
+	my $has_valid_countries = $self->_has_country_optlist;
 	my $query_params = $self->_get_query_params;
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
@@ -526,8 +564,9 @@ $schemes_js
 	
 
 	get_ajax_prefs();
-
-	if (field_types[field] == 'integer'){
+ 	if (map_fields.includes(field)){
+ 		load_map(initial_url,field);
+ 	} else if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
 		load_line(initial_url,field,line);
@@ -536,13 +575,16 @@ $schemes_js
 	}	
 	
 	\$("#field").on("change",function(){
+		\$("#c3_chart").css("min-height", "400px");
+		d3.selectAll('svg').remove();
 		\$("div#waiting").css("display","block");
 		\$(".c3_controls").css("display", "none");			
 		var rotate = is_vertical();
 		var field = \$('#field').val();
 		var url = "$url" + "&field=" + field;
-		
-		if (field_types[field] == 'integer'){
+		if (map_fields.includes(field)){
+ 			load_map(url,field);
+		} else if (field_types[field] == 'integer'){
 			load_bar(url,field,rotate);
 		} else if (field_types[field] == 'date'){
 			load_line(url,field,line);
@@ -587,7 +629,7 @@ $schemes_js
 	
 	\$("#export_image").off("click").click(function(){
 		//fix back fill
-		d3.select("#c3_chart").selectAll("path").attr("fill","none");
+		d3.select("#c3_chart").selectAll("path").attr("fill","none");	
 		//fix no axes
 		d3.select("#c3_chart").selectAll("path.domain").attr("stroke","black");
 		//fix no tick
@@ -597,6 +639,11 @@ $schemes_js
 		//Hide both, then selectively show the first one.
 		d3.select("#c3_chart").selectAll(".c3-axis-x").attr("display","none");
 		d3.select("#c3_chart").select(".c3-axis-x").attr("display","inline");
+		
+		//map
+		d3.select("#map").selectAll("path").attr("fill","none");	
+		d3.select("#map").selectAll("path").attr("stroke","#444");
+		d3.select("#map").selectAll(".background").attr("fill","none");
 		var svg = d3.select("svg")
 			.attr("xmlns","http://www.w3.org/2000/svg")
 			.node().parentNode.innerHTML;
@@ -652,8 +699,64 @@ function get_field_type() {
 	return field_type;
 }
 
+function load_map(url,field){
+	\$("#c3_chart").html("");	
+	var colours = colorbrewer.Greens[5];
+	var max=1000;
+	d3.json(url).then(function(data) {
+		var	map = d3.geomap.choropleth()
+			.geofile('/javascript/topojson/countries.json')
+			.colors(colours)
+			.column('value')
+			.format(d3.format(",d"))
+			.legend({
+				width : 50,
+				height : 120
+			})
+			.projection(d3.geoNaturalEarth).duration(1000).domain([ 0, max ])
+			.valueScale(d3.scaleQuantize).unitId('iso3')
+			.postUpdate(function(){finished_map(url,field)	
+		});
+		var selection = d3.select('#map').datum(data);
+		map.draw(selection);
+	});
+
+}
+
+function finished_map(url,field){
+	\$("div#waiting").css("display","block");
+	\$("#bar_controls").css("display","none");
+	\$("#line_controls").css("display","none");
+	\$("#pie_controls").css("display","none");
+	\$(".transform_to_pie").css("display","inline");
+	\$(".transform_to_donut").css("display","inline");
+	\$(".transform_to_bar").css("display","none");
+	\$(".transform_to_line").css("display","none");
+	\$("#map_controls").css("display","block");
+	\$(".transform_to_donut").off("click").click(function(){
+		\$("div#waiting").css("display","block");
+		d3.selectAll("svg").remove();
+		load_pie(url,field,segments);		
+		pie = 0;
+		\$("#c3_chart").css("min-height", "400px");
+	});
+	\$(".transform_to_pie").off("click").click(function(){
+		\$("div#waiting").css("display","block");
+		d3.selectAll("svg").remove();
+		load_pie(url,field,segments);
+		pie = 1;
+		\$("#c3_chart").css("min-height", "400px");
+	});
+	show_export_options();
+	\$("div#waiting").css("display","none");
+	\$("#c3_chart").css("min-height", 0);
+	\$(".legend-bg").css("fill","none");	
+}
+
 function load_pie(url,field,max_segments) {
 	\$("#bar_controls").css("display", "none");
+	\$("#line_controls").css("display", "none");
+	\$("#map_controls").css("display","none");
 	var title = field.replace(/^.+\\.\\./, "");
 	title = title.replace(/^s_\\d+_/,"");
 	var f = d3.format(".1f");
@@ -744,8 +847,19 @@ function load_pie(url,field,max_segments) {
 			pie = 1;
 			set_prefs('pie',1);
 		});
+		\$(".transform_to_map").off("click").click(function(){
+			\$(".transform_to_map").css("display","none");
+			
+			load_map(url,field);
+			\$(".transform_to_pie").css("display","inline");
+			\$(".transform_to_donut").css("display","inline");
+			pie = 1;
+			set_prefs('pie',1);
+		});
+		\$("#segment_control").css("display","block");
 		\$("#segments").slider({min:5,max:50,value:segments});
 		\$("#segments_display").text(segments);
+		\$(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
 		\$(".transform_to_pie").css("display",pie ? "none" : "inline");
 		\$(".transform_to_donut").css("display",pie ? "inline": "none");
 		\$(".transform_to_bar").css("display","none");
@@ -788,6 +902,9 @@ function pie_json_to_cols(jsonData,segments){
 }
 
 function load_line(url,field,cumulative) {
+	\$("#bar_controls").css("display", "none");
+	\$("#pie_controls").css("display", "none");
+	\$("#map_controls").css("display","none");
 	//Prevent multiple event firing after reloading
 	\$("#line_height").off("slidechange");
 	var data = [];
@@ -888,6 +1005,9 @@ function load_line(url,field,cumulative) {
 }
 
 function load_bar_json(jsonData,field,rotate){
+	\$("#line_controls").css("display", "none");
+	\$("#pie_controls").css("display", "none");
+	\$("#map_controls").css("display","none");
 	\$("#bar_height").off("slidechange");
 	var title = field.replace(/^.+\\.\\./, "");
 	var count = Object.keys(jsonData).length;
@@ -911,7 +1031,7 @@ function load_bar_json(jsonData,field,rotate){
 			width: {
 				ratio: 0.7
 			}
-		},	
+		},
 		axis: {
 			rotated: rotate,
 			x: {
@@ -1006,6 +1126,12 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	if ($field eq 'country'){
+		my $countries = COUNTRIES;
+		foreach my $value (@$values){
+			$value->{'iso3'} = $countries->{$value->{'label'}}->{'iso3'} // q(XXX);
+		}
+	}
 	return $values;
 }
 
