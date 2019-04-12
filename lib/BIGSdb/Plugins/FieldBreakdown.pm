@@ -702,8 +702,11 @@ function get_field_type() {
 function load_map(url,field){
 	\$("#c3_chart").html("");	
 	var colours = colorbrewer.Greens[5];
-	var max=1000;
+	
+	
 	d3.json(url).then(function(data) {
+		var max = get_range_max(data);
+		console.log(max);
 		var	map = d3.geomap.choropleth()
 			.geofile('/javascript/topojson/countries.json')
 			.colors(colours)
@@ -713,15 +716,46 @@ function load_map(url,field){
 				width : 50,
 				height : 120
 			})
-			.projection(d3.geoNaturalEarth).duration(1000).domain([ 0, max ])
-			.valueScale(d3.scaleQuantize).unitId('iso3')
-			.postUpdate(function(){finished_map(url,field)	
-		});
+			.projection(d3.geoNaturalEarth)
+			.duration(1000)
+			.domain([ 0, max ])
+			.valueScale(d3.scaleQuantize)
+			.unitId('iso3')
+			.postUpdate(function(){finished_map(url,field)});
 		var selection = d3.select('#map').datum(data);
 		map.draw(selection);
 	});
-
 }
+
+//Choose max value so that ~5% of records are in top fifth.
+function get_range_max(data) {
+	var records = data.length;
+	var target = parseInt(0.05 * records);
+	var multiplier = 10;
+	var max;
+	
+	while (true){
+		var test = [1,2,5,10];
+		for (var i = 0; i < test.length; i++) { 
+			max = test[i] * multiplier;
+			var top_division_start = max * 4 / 5;
+			var in_top_fifth = 0;
+			for (var j = 0; j < data.length; j++) { 
+				if (data[j].value >= top_division_start){
+					in_top_fifth++;
+				}
+			}
+			if (in_top_fifth <= target){
+				return max;
+			}
+		}
+		multiplier = multiplier * 10;
+		if (max > 10000000){
+			return max;
+		}
+	}
+}
+
 
 function finished_map(url,field){
 	\$("div#waiting").css("display","block");
