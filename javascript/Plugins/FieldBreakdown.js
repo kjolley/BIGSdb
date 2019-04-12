@@ -176,12 +176,16 @@ function get_field_type() {
 
 function load_map(url,field){
 	var div_width = $("#map").width();
-	$("#c3_chart").html("");	
+	$("#c3_chart").html("");
+	var unit_id = field == 'country' ? 'iso3' : 'continent';
+	var units = field == 'country' ? 'units' : 'continents';
+	var geo_file = field == 'country' ? '/javascript/topojson/countries.json' : '/javascript/topojson/continents.json';
 	var colours = colorbrewer.Greens[5];
 	d3.json(url).then(function(data) {
 		var max = get_range_max(data);
+		console.log(max);
 		var	map = d3.geomap.choropleth()
-			.geofile('/javascript/topojson/countries.json')
+			.geofile(geo_file)
 			.colors(colours)
 			.column('value')
 			.format(d3.format(",d"))
@@ -193,7 +197,8 @@ function load_map(url,field){
 			.duration(1000)
 			.domain([ 0, max ])
 			.valueScale(d3.scaleQuantize)
-			.unitId('iso3')
+			.unitId(unit_id)
+			.units(units)
 			.postUpdate(function(){finished_map(url,field)});
 		var selection = d3.select('#map').datum(data);
 		map.draw(selection);
@@ -217,10 +222,11 @@ var delay = (function() {
 	};
 })();
 
-// Choose max value so that ~5% of records are in top fifth.
+// Choose max value so that ~5% of records are in top fifth (40% if <= 10 records).
 function get_range_max(data) {
 	var records = data.length;
-	var target = parseInt(0.05 * records);
+	var percent_in_top_fifth = records > 10 ? 0.05 : 0.4;
+	var target = parseInt(percent_in_top_fifth * records);
 	var multiplier = 10;
 	var max;
 	

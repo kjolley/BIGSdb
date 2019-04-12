@@ -473,14 +473,9 @@ sub _get_fields_js {
 	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
 	if ($self->_has_country_optlist){
-		my @map_fields;
-		foreach my $field (qw(country)){
-			push @map_fields,$field if $self->{'xmlHandler'}->is_field($field);
-		}
-		if (@map_fields){
-			local $" = q(',');
-			$buffer.=qq(var map_fields = ['@map_fields'];\n);
-		}
+		my @map_fields = qw(country country..continent);
+		local $" = q(',');
+		$buffer.=qq(var map_fields = ['@map_fields'];\n);
 	}
 	return $buffer;
 }
@@ -605,6 +600,13 @@ sub _get_extended_field_freqs {
 	$qry .= " ORDER BY $order";
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $extended ], { fetch => 'all_arrayref', slice => {} } );
+	if ($extended eq 'continent'){
+		foreach my $value (@$values){
+			my $label = $value->{'label'} // 'XXX';
+			$label =~ tr/ /_/;
+			$value->{'continent'} = $label;
+		}
+	}
 	return $values;
 }
 
