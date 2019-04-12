@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.7',
+		version     => '1.4.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -830,10 +830,14 @@ sub _blast {
 sub _parse_blast {
 	my ( $self, $blast_file, $hits ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	if (!-e $full_path){
+		$logger->error("BLAST file $full_path does not exist.");
+		return [];
+	}
 	my @matches;
 	my $rows;
 	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
+	  || ( $logger->error("Cannot open BLAST output file $full_path. $!"));
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^\#/x;
 		my $match = $self->_extract_match_from_blast_result_line($line);
