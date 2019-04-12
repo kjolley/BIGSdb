@@ -182,8 +182,11 @@ sub _get_javascript_paths {
 			'heatmap'             => [qw(heatmap.min.js)],
 			'filesaver'           => [qw(FileSaver.min.js)],
 			'modernizr'           => [qw(modernizr-custom.js)],
-			'geomap'              => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)]
+			'geomap'              => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
 		);
+		if ( $self->{'pluginJS'} ) {
+			$js{'pluginJS'} = ["Plugins/$self->{'pluginJS'}"];
+		}
 		my %used;
 		foreach my $feature ( keys %js ) {
 			next if !$self->{$feature};
@@ -540,7 +543,7 @@ sub get_stylesheets {
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
 	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
-	push @filenames, qw(d3.geomap.css) if $self->{'geomap'};
+	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}

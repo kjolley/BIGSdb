@@ -53,7 +53,7 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1 };
+	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
 	if ($self->_has_country_optlist){
 		$values->{'geomap'} = 1; 
 	}
@@ -539,13 +539,16 @@ var rotate = 0;
 var pie = 1;
 var line = 1;
 var fasta = 0;
+var url = "$url";
+var prefs_ajax_url = "$plugin_prefs_ajax_url";
+
 $types_js	
 $loci_js
 $schemes_js
 
 \$(function () {
 	\$.ajax({
-		url: "$plugin_prefs_ajax_url"
+		url: prefs_ajax_url
 	})
 	.done(function(data) {
 		var prefObj = JSON.parse(data);
@@ -559,7 +562,7 @@ $schemes_js
 
   	\$('input[name="field_type"][value="fields"]').prop("checked", true);
   	var field = \$("#field").val();
-	var initial_url = "$url" + "&field=" + field;
+	var initial_url = url + "&field=" + field;
 	var rotate = is_vertical();
 	
 
@@ -581,15 +584,15 @@ $schemes_js
 		\$(".c3_controls").css("display", "none");			
 		var rotate = is_vertical();
 		var field = \$('#field').val();
-		var url = "$url" + "&field=" + field;
+		var new_url = url + "&field=" + field;
 		if (map_fields.includes(field)){
- 			load_map(url,field);
+ 			load_map(new_url,field);
 		} else if (field_types[field] == 'integer'){
-			load_bar(url,field,rotate);
+			load_bar(new_url,field,rotate);
 		} else if (field_types[field] == 'date'){
-			load_line(url,field,line);
+			load_line(new_url,field,line);
 		} else {
-			load_pie(url,field,segments);
+			load_pie(new_url,field,segments);
 		}	
     }); 
     
@@ -656,14 +659,14 @@ $schemes_js
 
 function get_ajax_prefs(){
 	\$.ajax({
-  	url: "$prefs_ajax_url" + "&loci=1"
+  	url: prefs_ajax_url + "&loci=1"
   	}).done(function(data){
  		loci = JSON.parse(data);
    	}).fail(function(response){
   		console.log(response);
   	});
   	\$.ajax({
-  		url: "$prefs_ajax_url" + "&scheme_fields=1"
+  		url: prefs_ajax_url + "&scheme_fields=1"
   	}).done(function(data){
  		schemes = JSON.parse(data);
    	}).fail(function(response){
@@ -1121,16 +1124,16 @@ function load_bar(url,field,rotate) {
 
 function show_export_options () {
 	var field = \$('#field').val();
-	\$("a#export_table").attr("href", "$url&export=" + field + "&format=table");
-	\$("a#export_excel").attr("href", "$url&export=" + field + "&format=xlsx");
-	\$("a#export_text").attr("href", "$url&export=" + field + "&format=text");
-	\$("a#export_fasta").attr("href", "$url&export=" + field + "&format=fasta");
+	\$("a#export_table").attr("href", url + "&export=" + field + "&format=table");
+	\$("a#export_excel").attr("href", url + "&export=" + field + "&format=xlsx");
+	\$("a#export_text").attr("href", url + "&export=" + field + "&format=text");
+	\$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
 	\$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	\$("#export").css("display", "block");
 }
 
 function set_prefs(attribute, value){
-	\$.ajax("$plugin_prefs_ajax_url" + "&update=1&attribute=" + attribute + "&value=" + value);
+	\$.ajax(prefs_ajax_url + "&update=1&attribute=" + attribute + "&value=" + value);
 }
 
 JS
