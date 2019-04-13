@@ -337,6 +337,8 @@ sub _print_map_controls {
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	$self->_print_chart_types;
+	say q(<li><label for="height">Range:</label>);
+	say q(<div id="colour_range" style="display:inline-block;width:8em;margin-left:0.5em"></div><span id="range_max"></span></li>);
 	say q(</ul></fieldset>);
 	return;
 }

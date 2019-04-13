@@ -175,6 +175,7 @@ function get_field_type() {
 }
 
 function load_map(url,field){
+	$("#bar_height").off("slidechange");
 	var div_width = $("#map").width();
 	$("#c3_chart").html("");
 	var unit_id = field == 'country' ? 'iso3' : 'continent';
@@ -182,8 +183,9 @@ function load_map(url,field){
 	var geo_file = field == 'country' ? '/javascript/topojson/countries.json' : '/javascript/topojson/continents.json';
 	var colours = colorbrewer.Greens[5];
 	d3.json(url).then(function(data) {
-		var max = get_range_max(data);
-		console.log(max);
+		var range = get_range(data);
+		console.log(range);
+		
 		var	map = d3.geomap.choropleth()
 			.geofile(geo_file)
 			.colors(colours)
@@ -195,7 +197,7 @@ function load_map(url,field){
 			})
 			.projection(d3.geoNaturalEarth)
 			.duration(1000)
-			.domain([ 0, max ])
+			.domain([ 0, range.recommended ])
 			.valueScale(d3.scaleQuantize)
 			.unitId(unit_id)
 			.units(units)
@@ -211,6 +213,21 @@ function load_map(url,field){
 				}
 			}, 500);		
 		});	
+	    $("#colour_range").slider({
+	        min: 0,
+	        max: 4,
+	        value: range.options.indexOf(range.recommended),
+	        slide: function(event, ui) {                        
+	        	map.domain([0, range.options[ui.value]]).duration(0).update();
+	        }       
+	    });
+		
+		
+//		delay(function(){
+//			console.log('set colours');
+//			map.colors(colorbrewer.Oranges[5]).update();
+//		}, 2000);
+		
 	});
 }
 
@@ -222,18 +239,25 @@ var delay = (function() {
 	};
 })();
 
-// Choose max value so that ~5% of records are in top fifth (40% if <= 10 records).
-function get_range_max(data) {
+// Choose recommended value so that ~5% of records are in top fifth (25% if <= 10 records).
+function get_range(data) {
 	var records = data.length;
-	var percent_in_top_fifth = records > 10 ? 0.05 : 0.4;
+	var percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
 	var target = parseInt(percent_in_top_fifth * records);
 	var multiplier = 10;
 	var max;
-	
+	var recommended;
+	var options = [];
+	var finish;	
 	while (true){
-		var test = [1,2,5,10];
+		var test = [1,2,5];
 		for (var i = 0; i < test.length; i++) { 
 			max = test[i] * multiplier;
+			options.push(max);
+			if (recommended && options.length >= 5){
+				finish = 1;
+				break;
+			}
 			var top_division_start = max * 4 / 5;
 			var in_top_fifth = 0;
 			for (var j = 0; j < data.length; j++) { 
@@ -241,14 +265,24 @@ function get_range_max(data) {
 					in_top_fifth++;
 				}
 			}
-			if (in_top_fifth <= target){
-				return max;
+			if (in_top_fifth <= target && !recommended){
+				recommended = max;
 			}
+		}
+		if (finish){
+			break;
 		}
 		multiplier = multiplier * 10;
 		if (max > 10000000){
-			return max;
+			if (!recommended){
+				recommended = max;
+			}
+			break;
 		}
+	}
+	return {
+		recommended : recommended,
+		options: options.slice(-5)
 	}
 }
 
