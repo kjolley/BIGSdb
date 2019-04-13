@@ -17,6 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.*/
+var prefs_loaded;
+var prefs_load_attempts = 0;
 
 $(function () {
 	$.ajax({
@@ -26,7 +28,11 @@ $(function () {
 		var prefObj = JSON.parse(data);
 		if (prefObj.height){height=prefObj.height}; 
 		if (prefObj.segments){segments=prefObj.segments};
-		if (prefObj.pie == 0){pie=0} 	
+		if (prefObj.pie == 0){pie=0} 
+		theme = prefObj.theme ? prefObj.theme : 'theme_green';
+		projection = prefObj.projection ? prefObj.projection : 'Natural Earth';
+		$("#projection").val(projection);
+		prefs_loaded = 1;		
   	})
   	.fail(function(response){
   		console.log(response);
@@ -36,11 +42,10 @@ $(function () {
   	var field = $("#field").val();
 	var initial_url = url + "&field=" + field;
 	var rotate = is_vertical();
-	
 
 	get_ajax_prefs();
- 	if (map_fields.includes(field)){
- 		load_map(initial_url,field);
+ 	if (map_fields.includes(field)){ 		
+ 		load_map_after_prefs_loaded(initial_url,field);
  	} else if (field_types[field] == 'integer'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
@@ -58,7 +63,7 @@ $(function () {
 		var field = $('#field').val();
 		var new_url = url + "&field=" + field;
 		if (map_fields.includes(field)){
- 			load_map(new_url,field);
+			load_map(new_url,field);
 		} else if (field_types[field] == 'integer'){
 			load_bar(new_url,field,rotate);
 		} else if (field_types[field] == 'date'){
@@ -129,6 +134,18 @@ $(function () {
 	});
 });
 
+function load_map_after_prefs_loaded(initial_url, field) {
+	prefs_load_attempts++;
+	// Wait 50ms and check again.
+	// Give up waiting after 10s.
+	if (!prefs_loaded && prefs_load_attempts < 200) {
+		return setTimeout(function() {
+			load_map_after_prefs_loaded(initial_url, field)
+		}, 50);
+	}
+	load_map(initial_url, field);
+}
+
 function get_ajax_prefs(){
 	$.ajax({
   	url: prefs_ajax_url + "&loci=1"
@@ -181,11 +198,28 @@ function load_map(url,field){
 	var unit_id = field == 'country' ? 'iso3' : 'continent';
 	var units = field == 'country' ? 'units' : 'continents';
 	var geo_file = field == 'country' ? '/javascript/topojson/countries.json' : '/javascript/topojson/continents.json';
-	var colours = colorbrewer.Greens[5];
+	var theme_colours = {
+		theme_grey : colorbrewer.Greys[5],
+		theme_blue : colorbrewer.Blues[5],
+		theme_green : colorbrewer.Greens[5],
+		theme_purple : colorbrewer.Purples[5],
+		theme_orange : colorbrewer.Oranges[5],
+		theme_red : colorbrewer.Reds[5]
+	};
+	var projections = {
+		'Azimuthal Equal Area' : d3.geoAzimuthalEqualArea,
+		'Conic Equal Area' : d3.geoConicEqualArea,
+		'Equirectangular' : d3.geoEquirectangular,
+		'Natural Earth' : d3.geoNaturalEarth,
+		'Mercator' : d3.geoMercator,
+		'Robinson' : d3.geoRobinson,
+		'Stereographic' : d3.geoStereographic,
+		'Times' : d3.geoTimes
+	};
+    var colours = theme_colours[theme];
+    
 	d3.json(url).then(function(data) {
 		var range = get_range(data);
-		console.log(range);
-		
 		var	map = d3.geomap.choropleth()
 			.geofile(geo_file)
 			.colors(colours)
@@ -195,7 +229,7 @@ function load_map(url,field){
 				width : 50,
 				height : 120
 			})
-			.projection(d3.geoNaturalEarth)
+			.projection(projections[projection])
 			.duration(1000)
 			.domain([ 0, range.recommended ])
 			.valueScale(d3.scaleQuantize)
@@ -221,13 +255,19 @@ function load_map(url,field){
 	        	map.domain([0, range.options[ui.value]]).duration(0).update();
 	        }       
 	    });
-		
-		
-//		delay(function(){
-//			console.log('set colours');
-//			map.colors(colorbrewer.Oranges[5]).update();
-//		}, 2000);
-		
+
+	    $(".theme").off("click").click(function(){
+	    	map.colors(theme_colours[this.id]).duration(0).update();
+	    	set_prefs('theme',this.id);
+	    	theme = this.id;
+	    });
+
+	    $("#projection").off("change").change(function(){
+	    	d3.selectAll('svg').remove();
+	    	projection = $("#projection").val()
+	    	map.projection(projections[projection]).draw(selection);
+	    	set_prefs('projection',projection);
+	    });	
 	});
 }
 

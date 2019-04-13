@@ -54,8 +54,8 @@ sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
-	if ($self->_has_country_optlist){
-		$values->{'geomap'} = 1; 
+	if ( $self->_has_country_optlist ) {
+		$values->{'geomap'} = 1;
 	}
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
@@ -308,7 +308,6 @@ sub run {
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
 	say q(<div id="c3_chart" style="min-height:400px">);
-	
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
@@ -325,8 +324,7 @@ sub run {
 sub _print_export_buttons {
 	my ($self) = @_;
 	say $self->get_export_buttons(
-		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } )
-	  ;
+		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } );
 	return;
 }
 
@@ -337,8 +335,27 @@ sub _print_map_controls {
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	$self->_print_chart_types;
+	say q(<style>.theme.fa-square {text-shadow: 1px 1px 1px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
+	  . q(</style>);
+	say q(<li>Theme: <span id="theme_grey" style="color:#636363" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_blue" style="color:#3182bd" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_green" style="color:#31a354" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_purple" style="color:#756bb1" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_orange" style="color:#e6550d" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_red" style="color:#de2d26" class="theme fas fa-square"></span>)
+	  . q(</li>);
 	say q(<li><label for="height">Range:</label>);
-	say q(<div id="colour_range" style="display:inline-block;width:8em;margin-left:0.5em"></div><span id="range_max"></span></li>);
+	say q(<div id="colour_range" style="display:inline-block;width:12em;margin-left:0.5em"></div></li>);
+	say q(<li><label for="projection">Projection:</label>);
+	say $q->popup_menu(
+		-id     => 'projection',
+		-values => [
+			'Azimuthal Equal Area', 'Conic Equal Area', 'Equirectangular', 'Mercator',
+			'Natural Earth',        'Robinson',         'Stereographic',   'Times'
+		],
+		-default => 'Natural Earth'
+	);
+	say q(</li>);
 	say q(</ul></fieldset>);
 	return;
 }
@@ -366,7 +383,7 @@ sub _print_chart_types {
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
 	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
-	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);  
+	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
@@ -474,10 +491,10 @@ sub _get_fields_js {
 	my ($fields) = $self->_get_fields;
 	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
-	if ($self->_has_country_optlist){
+	if ( $self->_has_country_optlist ) {
 		my @map_fields = qw(country country..continent);
 		local $" = q(',');
-		$buffer.=qq(var map_fields = ['@map_fields'];\n);
+		$buffer .= qq(var map_fields = ['@map_fields'];\n);
 	}
 	return $buffer;
 }
@@ -516,9 +533,18 @@ sub _get_schemes_js {
 }
 
 sub get_plugin_javascript {
-	my ($self) = @_;
+	my ($self)              = @_;
 	my $has_valid_countries = $self->_has_country_optlist;
-	my $query_params = $self->_get_query_params;
+	my $query_params        = $self->_get_query_params;
+	my $guid                = $self->get_guid;
+	my ($theme, $projection);
+	eval {
+		$theme =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'theme' );
+		$projection = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'projection' );
+	};
+	$theme //= 'theme_green';
+	$projection //= 'Natural Earth';
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
@@ -536,6 +562,8 @@ var rotate = 0;
 var pie = 1;
 var line = 1;
 var fasta = 0;
+var theme = "$theme";
+var projection = "$projection";
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
 
@@ -570,10 +598,10 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	if ($field eq 'country'){
+	if ( $field eq 'country' ) {
 		my $countries = COUNTRIES;
-		foreach my $value (@$values){
-			$value->{'iso3'} = $countries->{$value->{'label'}}->{'iso3'} // q(XXX);
+		foreach my $value (@$values) {
+			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
 		}
 	}
 	return $values;
@@ -602,8 +630,8 @@ sub _get_extended_field_freqs {
 	$qry .= " ORDER BY $order";
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $extended ], { fetch => 'all_arrayref', slice => {} } );
-	if ($extended eq 'continent'){
-		foreach my $value (@$values){
+	if ( $extended eq 'continent' ) {
+		foreach my $value (@$values) {
 			my $label = $value->{'label'} // 'XXX';
 			$label =~ tr/ /_/;
 			$value->{'continent'} = $label;
