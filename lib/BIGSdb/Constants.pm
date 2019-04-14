@@ -453,7 +453,7 @@ use constant COUNTRIES => {
 	q(Togo)                                         => { iso3 => q(TGO), continent => q(Africa) },
 	q(Tokelau)                                      => { iso3 => q(TKL), continent => q(Oceania) },
 	q(Tonga)                                        => { iso3 => q(TON), continent => q(Oceania) },
-	q(Trinidad & Tobago)         => { iso3 => q(TTO), continent => q(North America) },
+	q(Trinidad and Tobago)         => { iso3 => q(TTO), continent => q(North America) },
 	q(Tunisia)                   => { iso3 => q(TUN), continent => q(Africa) },
 	q(Turkey)                    => { iso3 => q(TUR), continent => q(Asia) },
 	q(Turkmenistan)              => { iso3 => q(TKM), continent => q(Asia) },
