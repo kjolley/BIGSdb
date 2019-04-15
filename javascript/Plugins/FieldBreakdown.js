@@ -1,4 +1,4 @@
-/*FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
+/*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
 Copyright (c) 2018-2019, University of Oxford
 E-mail: keith.jolley@zoo.ox.ac.uk
@@ -16,7 +16,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.*/
+along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+
+Version 2.2.0.
+*/
+
 var prefs_loaded;
 var prefs_load_attempts = 0;
 
