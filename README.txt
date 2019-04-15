@@ -1,3 +1,8 @@
+v1.22.3: *Use standard list of country names linked to ISO 3 letter codes and
+          continents. This can be set up using the 'Geocoding' link in the
+          admin interface.
+         *Incorporate D3 maps in to field breakdown plugin for country and
+          continent.
 v1.22.2: *Update of jquery-ui-multiselect. Make sure the full contents of the
           javascript and css directories are updated.
          *Fix for daylight-saving in job and API monitors.

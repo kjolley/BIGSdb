@@ -234,7 +234,7 @@ sub get_composite_value {
 			my @allele_values;
 			foreach my $designation (@$designations) {
 				my $allele_id = $designation->{'allele_id'};
-				$allele_id = '&Delta;' if $allele_id =~ /^del/ix;
+				$allele_id = '&Delta;' if $allele_id =~ /^del/ix || $allele_id eq '0';
 				if ($regex) {
 					my $expression = "\$allele_id =~ $regex";
 					eval "$expression";    ## no critic (ProhibitStringyEval)
@@ -244,7 +244,7 @@ sub get_composite_value {
 				push @allele_values, $allele_id;
 			}
 			local $" = ',';
-			$value .= "@allele_values" || $empty_value;
+			$value .= @allele_values ? "@allele_values" : $empty_value;
 			next;
 		}
 		if ( $field =~ /^s_(\d+)_(.+)/x ) {
