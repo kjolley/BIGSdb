@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(COUNTRIES);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use JSON;
@@ -39,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.1.1',
+		version     => '2.2.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -52,7 +53,10 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { c3 => 1, filesaver => 1, noCache => 1, 'jQuery.tablesort' => 1 };
+	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
+	if ( $self->_has_country_optlist ) {
+		$values->{'geomap'} = 1;
+	}
 	if ( $q->param('field') ) {
 		$values->{'type'} = 'json';
 	}
@@ -75,6 +79,13 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub _has_country_optlist {
+	my ($self) = @_;
+	return if !$self->{'xmlHandler'}->is_field('country');
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
+	return $thisfield->{'optlist'} ? 1 : 0;
 }
 
 sub _export {
@@ -299,6 +310,8 @@ sub run {
 	say q(<div id="c3_chart" style="min-height:400px">);
 	$self->print_loading_message;
 	say q(</div>);
+	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
+	$self->_print_map_controls;
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
@@ -311,8 +324,40 @@ sub run {
 sub _print_export_buttons {
 	my ($self) = @_;
 	say $self->get_export_buttons(
-		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } )
-	  ;
+		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } );
+	return;
+}
+
+sub _print_map_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="map_controls" class="c3_controls" )
+	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
+	$self->_print_chart_types;
+	say q(<style>.theme.fa-square {text-shadow: 1px 1px 1px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
+	  . q(</style>);
+	say q(<li>Theme: <span id="theme_grey" style="color:#636363" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_blue" style="color:#3182bd" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_green" style="color:#31a354" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_purple" style="color:#756bb1" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_orange" style="color:#e6550d" class="theme fas fa-square"></span>)
+	  . q(<span id="theme_red" style="color:#de2d26" class="theme fas fa-square"></span>)
+	  . q(</li>);
+	say q(<li><label for="height">Range:</label>);
+	say q(<div id="colour_range" style="display:inline-block;width:12em;margin-left:0.5em"></div></li>);
+	say q(<li><label for="projection">Projection:</label>);
+	say $q->popup_menu(
+		-id     => 'projection',
+		-values => [
+			'Azimuthal Equal Area', 'Conic Equal Area', 'Equirectangular', 'Mercator',
+			'Natural Earth',        'Robinson',         'Stereographic',   'Times',
+			'Transverse Mercator',  'Winkel tripel'
+		],
+		-default => 'Natural Earth'
+	);
+	say q(</li>);
+	say q(</ul></fieldset>);
 	return;
 }
 
@@ -338,6 +383,8 @@ sub _print_chart_types {
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
+	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
+	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
@@ -443,8 +490,15 @@ sub _get_fields_js {
 	}
 	local $" = qq(,\n\t);
 	my ($fields) = $self->_get_fields;
-	my $buffer = q(var fields=) . encode_json($fields) . qq(;\n);
+	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
+	if ( $self->_has_country_optlist ) {
+		my @map_fields = qw(country country..continent);
+		local $" = q(',');
+		$buffer .= qq(var map_fields = ['@map_fields'];\n);
+	} else {
+		$buffer .= qq(var map_fields = [];\n);
+	}
 	return $buffer;
 }
 
@@ -455,7 +509,7 @@ sub _get_loci_js {
 	#when the Javascript is being prepared as this goes in the header.
 	my ($self) = @_;
 	my $loci = $self->{'datastore'}->get_loci;
-	return q(var loci=) . encode_json($loci);
+	return q(var locus_list=) . encode_json($loci);
 }
 
 sub _get_schemes_js {
@@ -478,12 +532,23 @@ sub _get_schemes_js {
 		}
 	}
 	@$fields = sort { lc( $a->{'label'} ) cmp lc( $b->{'label'} ) } @$fields;
-	return q(var schemes=) . encode_json($fields);
+	return q(var scheme_list=) . encode_json($fields);
 }
 
 sub get_plugin_javascript {
-	my ($self) = @_;
-	my $query_params = $self->_get_query_params;
+	my ($self)              = @_;
+	my $has_valid_countries = $self->_has_country_optlist;
+	my $query_params        = $self->_get_query_params;
+	my $guid                = $self->get_guid;
+	my ( $theme, $projection );
+	eval {
+		$theme =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'theme' );
+		$projection = $self->{'prefstore'}
+		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'projection' );
+	};
+	$theme      //= 'theme_green';
+	$projection //= 'Natural Earth';
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
@@ -501,483 +566,14 @@ var rotate = 0;
 var pie = 1;
 var line = 1;
 var fasta = 0;
+var theme = "$theme";
+var projection = "$projection";
+var url = "$url";
+var prefs_ajax_url = "$plugin_prefs_ajax_url";
+
 $types_js	
 $loci_js
 $schemes_js
-
-\$(function () {
-	\$.ajax({
-		url: "$plugin_prefs_ajax_url"
-	})
-	.done(function(data) {
-		var prefObj = JSON.parse(data);
-		if (prefObj.height){height=prefObj.height}; 
-		if (prefObj.segments){segments=prefObj.segments};
-		if (prefObj.pie == 0){pie=0} 	
-  	})
-  	.fail(function(response){
-  		console.log(response);
-  	});
-
-  	\$('input[name="field_type"][value="fields"]').prop("checked", true);
-  	var field = \$("#field").val();
-	var initial_url = "$url" + "&field=" + field;
-	var rotate = is_vertical();
-	
-
-	get_ajax_prefs();
-
-	if (field_types[field] == 'integer'){
-		load_bar(initial_url,field,rotate);
-	} else if (field_types[field] == 'date'){
-		load_line(initial_url,field,line);
-	} else {
-		load_pie(initial_url,field,segments);
-	}	
-	
-	\$("#field").on("change",function(){
-		\$("div#waiting").css("display","block");
-		\$(".c3_controls").css("display", "none");			
-		var rotate = is_vertical();
-		var field = \$('#field').val();
-		var url = "$url" + "&field=" + field;
-		
-		if (field_types[field] == 'integer'){
-			load_bar(url,field,rotate);
-		} else if (field_types[field] == 'date'){
-			load_line(url,field,line);
-		} else {
-			load_pie(url,field,segments);
-		}	
-    }); 
-    
-   	var field_type_radio = \$('input[name="field_type"]');
-	field_type_radio.on("change",function(){
-		var field_type = get_field_type();
-		\$("#field").empty();
-		var list = {
-			fields: fields,
-			loci: loci,
-			schemes: schemes
-		};
-		
-		\$.each(list[field_type], function(index, item){
-			var value;
-			var label;
-			if (field_type == 'schemes'){
-				label = item.label;
-				value = item.field;
-			} else {
-				label = item.replace(/^.+\\.\\./, "");
-				value = item;
-			}
-			jQuery('<option/>', {
-       			value: value,
-       			html: label
-       		}).appendTo("#field"); 
-		});
-		\$("#field").change();
-		fasta = field_type == 'loci' ? 1 : 0;
-	});  
-
-	position_controls();
-	\$(window).resize(function() {
-		position_controls();
-	});
-	
-	\$("#export_image").off("click").click(function(){
-		//fix back fill
-		d3.select("#c3_chart").selectAll("path").attr("fill","none");
-		//fix no axes
-		d3.select("#c3_chart").selectAll("path.domain").attr("stroke","black");
-		//fix no tick
-		d3.select("#c3_chart").selectAll(".tick line").attr("stroke","black");
-		d3.select("#c3_chart").selectAll(".c3-axis-y2").attr("display","none");
-		//Annoying 2nd x-axis
-		//Hide both, then selectively show the first one.
-		d3.select("#c3_chart").selectAll(".c3-axis-x").attr("display","none");
-		d3.select("#c3_chart").select(".c3-axis-x").attr("display","inline");
-		var svg = d3.select("svg")
-			.attr("xmlns","http://www.w3.org/2000/svg")
-			.node().parentNode.innerHTML;
-		svg = svg.replace(/<\\/svg>.*\$/,"</svg>");
-		var blob = new Blob([svg],{type: "image/svg+xml"});		
-		var filename = \$("#field").val().replace(/^.+\\.\\./, "") + ".svg";
-		saveAs(blob, filename);
-	});
-});
-
-function get_ajax_prefs(){
-	\$.ajax({
-  	url: "$prefs_ajax_url" + "&loci=1"
-  	}).done(function(data){
- 		loci = JSON.parse(data);
-   	}).fail(function(response){
-  		console.log(response);
-  	});
-  	\$.ajax({
-  		url: "$prefs_ajax_url" + "&scheme_fields=1"
-  	}).done(function(data){
- 		schemes = JSON.parse(data);
-   	}).fail(function(response){
-  		console.log(response);
-  	});
-}
-
-function position_controls(){
-	if (\$(window).width() < 800){
-		\$(".c3_controls").css("position", "static");
-		\$(".c3_controls").css("float", "left");
-	} else {
-		\$(".c3_controls").css("position", "absolute");
-		\$(".c3_controls").css("clear", "both");
-	}
-}
-
-function is_vertical() {
-	var orientation_radio = \$('input[name="orientation"]');
-	var checked = orientation_radio.filter(function() {
-	    	return \$(this).prop('checked');
-	  	});
-	var orientation = checked.val();
-	return orientation == 'vertical' ? 1 : 0;
-}
-
-function get_field_type() {
-	var field_type_radio = \$('input[name="field_type"]');
-	var checked = field_type_radio.filter(function() {
-		return \$(this).prop('checked');
-	});
-	var field_type = checked.val();
-	return field_type;
-}
-
-function load_pie(url,field,max_segments) {
-	\$("#bar_controls").css("display", "none");
-	var title = field.replace(/^.+\\.\\./, "");
-	title = title.replace(/^s_\\d+_/,"");
-	var f = d3.format(".1f");
-	d3.json(url).then (function(jsonData) {			
-		var data = pie_json_to_cols(jsonData,max_segments);
-		
-		//Load all data first otherwise a glitch causes one segment to be missing
-		//when increasing number of segments.
-		var all_data = pie_json_to_cols(jsonData,50);
-		
-		//Need to create 'Others' segment otherwise it won't display properly
-		//if needed when reducing segment count.
-		all_data.columns.push(['Others',0]);
-		
-		var plural = data.count == 1 ? "" : "s";
-		title += " (" + data.count + " value" + plural + ")";
-		var chart = c3.generate({
-			bindto: '#c3_chart',
-			title: {
-				text: title
-			},
-			data: {
-				columns: all_data.columns,
-				type: pie ? 'pie' : 'donut',
-				order: null,
-				colors: {
-					'Others': '#aaa'
-				}
-			},
-			pie: {
-				label: {
-					show: true					
-				},
-				expand: false,
-			},
-			legend: {
-				show: true,
-				position: 'bottom'
-			},
-			size: {
-				height: 500
-			},
-			tooltip: {
-				format: {
-					value: function (value, ratio, id){
-						return value + " (" + f(ratio * 100) + "%)";
-					}
-				}
-			}
-		});
-		chart.unload();
-		chart.load({
-			columns: data.columns,
-		});	
-		
-		\$("#segments").on("slidechange",function(){
-			var new_segments = \$("#segments").slider('value');
-			\$("#segments_display").text(new_segments);
-			if (segments != new_segments){
-				set_prefs('segments',new_segments);
-			}
-			segments = new_segments;
-			var data = pie_json_to_cols(jsonData,segments);
-			chart.unload();
-			chart.load({
-				columns: data.columns,
-			});	
-
-		});
-		if (max_segments != segments){
-			var data = pie_json_to_cols(jsonData,segments);
-			chart.unload();
-			chart.load({
-				columns: data.columns,
-			});
-		}
-		\$(".transform_to_donut").off("click").click(function(){
-			chart.transform('donut');
-			\$(".transform_to_donut").css("display","none");
-			\$(".transform_to_pie").css("display","inline");
-			pie = 0;
-			set_prefs('pie',0);
-		});
-		\$(".transform_to_pie").off("click").click(function(){
-			chart.transform('pie');
-			\$(".transform_to_pie").css("display","none");
-			\$(".transform_to_donut").css("display","inline");
-			pie = 1;
-			set_prefs('pie',1);
-		});
-		\$("#segments").slider({min:5,max:50,value:segments});
-		\$("#segments_display").text(segments);
-		\$(".transform_to_pie").css("display",pie ? "none" : "inline");
-		\$(".transform_to_donut").css("display",pie ? "inline": "none");
-		\$(".transform_to_bar").css("display","none");
-		\$(".transform_to_line").css("display","none");
-		\$("#pie_controls").css("display","block");
-		show_export_options();
-		\$("div#waiting").css("display","none");
-	},function(error) {
-		console.log(error);
-		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
-		 + '<span class="error_message">Error accessing data.</span></p>');
-	});
-}
-
-function pie_json_to_cols(jsonData,segments){
-	var columns = [];
-	var first_other = [];
-	var count = 0;
-	var others = 0;
-	var other_fields = 0;
-	jsonData.forEach(function(e) {
-		e.label = e.label.toString(); 
-		count++;
-		if (count >= segments){
-			others += e.value;
-			other_fields++;
-			if (count == segments){
-				first_other = [e.label, e.value];
-			}
-		} else {
-			columns.push([e.label, e.value]);
-		}
-	}) 
-	if (other_fields == 1){
-		columns.push(first_other);
-	} else if (other_fields > 1){
-		columns.push(['Others',others]);
-	}
-	return {columns: columns, count: count};  
-}
-
-function load_line(url,field,cumulative) {
-	//Prevent multiple event firing after reloading
-	\$("#line_height").off("slidechange");
-	var data = [];
-	var title = field.replace(/^.+\\.\\./, "");
-
-	d3.json(url).then (function(jsonData) {
-		var values = ['value'];
-		var fields = ['date'];
-		var count = 0;
-		var total = 0;
-		jsonData.forEach(function(e) {
-			count++;
-			
-			fields.push(e.label);
-			if (cumulative){
-				total += e.value;
-				values.push(total);
-			} else {
-				values.push(e.value);
-			}
-		});
-		var plural = count == 1 ? "" : "s";
-		title += " (" + count + " value" + plural + ")";
-		
-		var chart = c3.generate({
-			bindto: '#c3_chart',
-			title: {
-				text: title
-			},
-			data: {
-				x: 'date',
-				columns: [
-					fields,
-					values
-				],
-				type: line ? 'line' : 'bar',
-				order: 'asc',
-			},			
-
-			axis: {
-				x: {
-					type: 'timeseries',
-					tick: {
-                		format: '%Y-%m-%d',
-                		count: 100,
-                		rotate: 90,
-                		fit: true
-           			},
-					height: 100
-				}
-			},
-			legend: {
-				show: false
-			}
-		});
-
-		chart.resize({				
-			height: height
-		});
-		
-		\$(".transform_to_bar").off("click").click(function(){
-			chart.unload();
-			load_line(url,field,0);
-			\$(".transform_to_bar").css("display","none");
-			\$(".transform_to_line").css("display","inline");
-			line = 0;
-		});
-		\$(".transform_to_line").off("click").click(function(){
-			chart.unload();
-			load_line(url,field,1);
-			\$(".transform_to_line").css("display","none");
-			\$(".transform_to_bar").css("display","inline");
-			line = 1;
-		});
-		
-		\$(".transform_to_line").css("display",line ? "none" : "inline");
-		\$(".transform_to_bar").css("display",line ? "inline": "none");
-		\$(".transform_to_pie").css("display","none");
-		\$(".transform_to_donut").css("display","none");
-		
-		\$("#line_controls").css("display", "block");
-		\$("#line_height").slider({min:300,max:800,value:height});
-		\$("#line_height").on("slidechange",function(){
-			var new_height = \$("#line_height").slider('value');
-			height = new_height;
-			chart.resize({				
-				height: height
-			});
-			set_prefs('height',height);
-		});
-		show_export_options();
-		\$("div#waiting").css("display","none");
-	},function(error) {
-		console.log(error);
-		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
-		 + '<span class="error_message">Error accessing data.</span></p>');
-	});	
-}
-
-function load_bar_json(jsonData,field,rotate){
-	\$("#bar_height").off("slidechange");
-	var title = field.replace(/^.+\\.\\./, "");
-	var count = Object.keys(jsonData).length;
-	var plural = count == 1 ? "" : "s";
-	title += " (" + count + " value" + plural + ")";
-	
-	var chart = c3.generate({
-		bindto: '#c3_chart',
-		title: {
-			text: title
-		},
-		data: {
-			json: jsonData,
-			keys: {
-				x: 'label',
-				value: ['value']
-			},
-			type: 'bar',
-		},	
-		bar: {
-			width: {
-				ratio: 0.7
-			}
-		},	
-		axis: {
-			rotated: rotate,
-			x: {
-				type: 'category',
-				tick: {
-					culling: true,
-				},
-				height: 100
-			}
-		},
-		legend: {
-			show: false
-		},
-		padding: {
-			right: 20
-		}
-	});
-	chart.resize({				
-		height: height
-	});
-		
-	\$("#bar_height").slider({min:300,max:800,value:height});
-	\$("#bar_controls").css("display", "block");
-	\$("#bar_height").on("slidechange",function(){
-		var new_height = \$("#bar_height").slider('value');
-		height = new_height;
-		chart.resize({				
-			height: height
-		});
-		set_prefs('height',height);
-	});
-	show_export_options();		
-}
-
-function load_bar(url,field,rotate) {
-	d3.json(url).then (function(jsonData) {
-		load_bar_json(jsonData,field,rotate);
-		\$("div#waiting").css("display","none");
-	},function(error) {
-		console.log(error);
-		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
-		 + '<span class="error_message">Error accessing data.</span></p>');
-	});
-	var orientation_radio = \$('input[name="orientation"]');
-	orientation_radio.on("change",function(){
-		var field = \$('#field').val();
-		rotate = is_vertical();
-		//Reload by URL rather than from already downloaded JSON data
-		//as it seems that the required unload() function currently has a memory leak.
-		load_bar(url,field,rotate);
-	});
-}
-
-function show_export_options () {
-	var field = \$('#field').val();
-	\$("a#export_table").attr("href", "$url&export=" + field + "&format=table");
-	\$("a#export_excel").attr("href", "$url&export=" + field + "&format=xlsx");
-	\$("a#export_text").attr("href", "$url&export=" + field + "&format=text");
-	\$("a#export_fasta").attr("href", "$url&export=" + field + "&format=fasta");
-	\$("a#export_fasta").css("display", fasta ? "inline" : "none");
-	\$("#export").css("display", "block");
-}
-
-function set_prefs(attribute, value){
-	\$.ajax("$plugin_prefs_ajax_url" + "&update=1&attribute=" + attribute + "&value=" + value);
-}
 
 JS
 	return $buffer;
@@ -1006,6 +602,12 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	if ( $field eq 'country' ) {
+		my $countries = COUNTRIES;
+		foreach my $value (@$values) {
+			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
+		}
+	}
 	return $values;
 }
 
@@ -1032,6 +634,13 @@ sub _get_extended_field_freqs {
 	$qry .= " ORDER BY $order";
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $extended ], { fetch => 'all_arrayref', slice => {} } );
+	if ( $extended eq 'continent' ) {
+		foreach my $value (@$values) {
+			my $label = $value->{'label'} // 'XXX';
+			$label =~ tr/ /_/;
+			$value->{'continent'} = $label;
+		}
+	}
 	return $values;
 }
 
