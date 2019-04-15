@@ -351,7 +351,8 @@ sub _print_map_controls {
 		-id     => 'projection',
 		-values => [
 			'Azimuthal Equal Area', 'Conic Equal Area', 'Equirectangular', 'Mercator',
-			'Natural Earth',        'Robinson',         'Stereographic',   'Times'
+			'Natural Earth',        'Robinson',         'Stereographic',   'Times',
+			'Transverse Mercator',  'Winkel tripel'
 		],
 		-default => 'Natural Earth'
 	);
@@ -537,13 +538,14 @@ sub get_plugin_javascript {
 	my $has_valid_countries = $self->_has_country_optlist;
 	my $query_params        = $self->_get_query_params;
 	my $guid                = $self->get_guid;
-	my ($theme, $projection);
+	my ( $theme, $projection );
 	eval {
 		$theme =
 		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'theme' );
-		$projection = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'projection' );
+		$projection = $self->{'prefstore'}
+		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'projection' );
 	};
-	$theme //= 'theme_green';
+	$theme      //= 'theme_green';
 	$projection //= 'Natural Earth';
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);

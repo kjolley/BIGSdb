@@ -214,7 +214,9 @@ function load_map(url,field){
 		'Mercator' : d3.geoMercator,
 		'Robinson' : d3.geoRobinson,
 		'Stereographic' : d3.geoStereographic,
-		'Times' : d3.geoTimes
+		'Times' : d3.geoTimes,
+		'Transverse Mercator' : d3.geoTransverseMercator,
+		'Winkel tripel' : d3.geoWinkel3
 	};
     var colours = theme_colours[theme];
     
