@@ -496,6 +496,8 @@ sub _get_fields_js {
 		my @map_fields = qw(country country..continent);
 		local $" = q(',');
 		$buffer .= qq(var map_fields = ['@map_fields'];\n);
+	} else {
+		$buffer .= qq(var map_fields = [];\n);
 	}
 	return $buffer;
 }
