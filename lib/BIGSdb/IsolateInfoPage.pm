@@ -884,7 +884,8 @@ sub _get_provenance_fields {
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator    = $self->is_curator;
+	my $field_list    = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my ( %composites, %composite_display_pos );
 	my $composite_data =
 	  $self->{'datastore'}
@@ -906,7 +907,6 @@ sub _get_provenance_fields {
 		$displayfield .= qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		next if ( $thisfield->{'curate_only'} // '' ) eq 'yes' && !$self->{'curate'};
 		my $web;
 		my $value = $data->{ lc($field) };
 		$value = BIGSdb::Utils::escape_html($value);
@@ -1646,8 +1646,7 @@ sub get_refs {
 	my $buffer = q();
 	if (@$pmids) {
 		$buffer .=
-		  q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" style="margin-top:-0.2em"></span>)
-		  ;
+		  q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" style="margin-top:-0.2em"></span>);
 		my $count = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
