@@ -87,6 +87,14 @@ sub print_content {
 	say q(<h2>Extended attribute for continent</h2>);
 	say q(<p>Extended attributes allow you to define additional properties for provenance metadata fields that can be )
 	  . q(searched and displayed independently. A good example of this is linking country to continent.</p>);
+	if ( $self->{'xmlHandler'}->is_field('continent') ) {
+		say q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span>)
+		  . q(A standard field called 'continent' already exists. An extended attribute, linked to country, with the )
+		  . q(same name cannot be created. You need to remove or rename the existing continent field to set up a )
+		  . q(continent extended attribute.</p>);
+		say q(<div style="clear:both">);
+		return;
+	}
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (attribute,isolate_field)=(?,?))',
