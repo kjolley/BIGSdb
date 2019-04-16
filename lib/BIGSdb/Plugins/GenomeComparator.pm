@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.17',
+		version     => '2.3.18',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -491,7 +491,12 @@ sub run_job {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
 				}
 				catch {
-					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
+					$logger->debug($_);
+					my $error = q();
+					if ($_ =~ /(MSG.+)\n/x){
+						$error = $1;
+					}
+					BIGSdb::Exception::Plugin->throw("Invalid data in uploaded reference FASTA file. $error");
 				};
 				$ref_upload =~ s/\.(fas|fasta)$/\.gb/x;
 			}
