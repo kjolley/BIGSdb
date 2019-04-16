@@ -526,8 +526,8 @@ sub _print_plugin_section {
 					  && @$scheme_data == 1 )
 				  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
 				  : q();
-				say qq(<li><a href="$self->{'system'}->{'script_name'}?page=plugin&amp;name=$att->{'module'}&amp;)
-				  . qq(db=$self->{'instance'}$scheme_arg$cache_string">$menuitem</a>);
+				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=plugin&amp;name=$att->{'module'}$scheme_arg$cache_string">$menuitem</a>);
 				say qq( - $att->{'menu_description'}) if $att->{'menu_description'};
 				say q(</li>);
 			}
