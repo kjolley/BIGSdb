@@ -556,6 +556,9 @@ sub _check_data {
 				},
 				classification_group_field_values => sub {
 					$self->_check_classification_field_values( $new_args, \%problems, $pk_combination );
+				},
+				isolate_field_extended_attributes => sub {
+					$self->_check_isolate_field_extended_attributes( $new_args, \%problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -745,6 +748,15 @@ sub _check_corresponding_sequence_exists {
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
 		$problems->{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist. ";
+	}
+	return;
+}
+
+sub _check_isolate_field_extended_attributes {
+	my ( $self, $args, $problems, $pk_combination ) = @_;
+	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
+	if ( $self->{'xmlHandler'}->is_field( $data->[ $file_header_pos->{'attribute'} ] ) ) {
+		$problems->{$pk_combination} .= 'A standard field already exists with this name.';
 	}
 	return;
 }

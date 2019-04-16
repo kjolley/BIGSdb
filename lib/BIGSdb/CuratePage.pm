@@ -1210,6 +1210,9 @@ sub _check_isolate_field_extended_attributes {
 	if ( $newdata->{ $att->{'name'} } =~ /'/x ) {
 		return 'Attribute contains invalid characters.';
 	}
+	if ($self->{'xmlHandler'}->is_field($newdata->{$att->{'name'}})){
+		return 'A standard field already exists with this name.';
+	}
 	return;
 }
 
