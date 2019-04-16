@@ -318,15 +318,14 @@ sub _print_fields {
 
 sub print_isolates_fieldset {
 	my ( $self, $default_select, $options ) = @_;
-	my $set_id = $self->get_set_id;
-
-	#	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	#	my $loci          = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator    = $self->is_curator;
+	my $fields        = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my @display_fields;
 	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	my ( @js, @js2, @isolate_js, @isolate_js2 );
+
 	foreach my $field (@$fields) {
 		push @display_fields, $field;
 		push @display_fields, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
@@ -390,7 +389,8 @@ sub print_isolate_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $set_id         = $self->get_set_id;
 	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields         = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator     = $self->is_curator;
+	my $fields         = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my $display_fields = [];
 	my $labels         = {};
 	foreach my $field (@$fields) {
@@ -797,7 +797,8 @@ sub print_includes_fieldset {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		my $is_curator    = $self->is_curator;
+		my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 		foreach my $field (@$field_list) {
 			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);

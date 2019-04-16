@@ -52,7 +52,11 @@ sub get_field_list {
 				push @fields, $field if $metadata eq $1;
 			}
 		} else {
-			push @fields, $field if !$options->{'meta_fields_only'};
+			next if $options->{'meta_fields_only'};
+			next
+			  if $options->{'no_curate_only'}
+			  && ( $self->{'attributes'}->{$field}->{'curate_only'} // q() ) eq 'yes';
+			push @fields, $field;
 		}
 	}
 	return \@fields;

@@ -320,8 +320,7 @@ sub _run_now {
 		  BIGSdb::Utils::text2excel( $out_file_table_full_path,
 			{ worksheet => 'BLAST', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel ) {
-			say qq(<a href="/tmp/${prefix}_table.xlsx" title="Export table in Excel format">$excel_file</a>)
-			  ;
+			say qq(<a href="/tmp/${prefix}_table.xlsx" title="Export table in Excel format">$excel_file</a>);
 		}
 		say q(</p>);
 	} else {
@@ -636,8 +635,9 @@ sub _print_interface {
 	my @fields;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $labels        = {};
+	my $is_curator    = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $labels     = {};
 
 	foreach my $field (@$field_list) {
 		next if $field eq $self->{'system'}->{'labelfield'};
@@ -830,14 +830,14 @@ sub _blast {
 sub _parse_blast {
 	my ( $self, $blast_file, $hits ) = @_;
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-	if (!-e $full_path){
+	if ( !-e $full_path ) {
 		$logger->error("BLAST file $full_path does not exist.");
 		return [];
 	}
 	my @matches;
 	my $rows;
 	open( my $blast_fh, '<', $full_path )
-	  || ( $logger->error("Cannot open BLAST output file $full_path. $!"));
+	  || ( $logger->error("Cannot open BLAST output file $full_path. $!") );
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^\#/x;
 		my $match = $self->_extract_match_from_blast_result_line($line);

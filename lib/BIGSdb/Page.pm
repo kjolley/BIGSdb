@@ -1066,11 +1066,11 @@ sub _get_provenance_fields {
 	my @isolate_list;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
-	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator    = $self->is_curator;
+	my $fields        = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
-
 		if (   ( $options->{'sender_attributes'} )
 			&& ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
@@ -3092,5 +3092,13 @@ sub is_page_allowed {
 	}
 	return 1 if $allowed_pages{$page};
 	return;
+}
+
+sub is_curator {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info || ( $user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin' );
+	return 1;
 }
 1;

@@ -547,11 +547,12 @@ sub _get_composite_positions {
 
 sub _print_isolate_table {
 	my ( $self, $qryref, $page, $records ) = @_;
-	my $pagesize  = $self->{'prefs'}->{'displayrecs'};
-	my $q         = $self->{'cgi'};
-	my $qry       = $$qryref;
-	my $qry_limit = $qry;
-	my $fields    = $self->{'xmlHandler'}->get_field_list;
+	my $pagesize   = $self->{'prefs'}->{'displayrecs'};
+	my $q          = $self->{'cgi'};
+	my $qry        = $$qryref;
+	my $qry_limit  = $qry;
+	my $is_curator = $self->is_curator;
+	my $fields     = $self->{'xmlHandler'}->get_field_list( undef, { no_curate_only => !$is_curator } );
 	push @$fields, 'new_version';
 	my $view = $self->{'system'}->{'view'};
 	local $" = ",$view.";
@@ -585,7 +586,8 @@ sub _print_isolate_table {
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	local $| = 1;
 	my %id_used;
 
@@ -821,7 +823,9 @@ sub _print_isolate_table_header {
 	my ( $self, $schemes, $limit_qry ) = @_;
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $select_items  = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator    = $self->is_curator;
+	my $select_items =
+	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my $header_buffer = q(<tr>);
 	my $col_count;
 	my $extended = $self->get_extended_attributes;

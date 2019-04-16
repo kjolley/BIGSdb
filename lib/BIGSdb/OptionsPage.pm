@@ -396,7 +396,9 @@ sub _print_main_results_field_options {
 	say q(<div class="scrollable">);
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator    = $self->is_curator;
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my ( @js, @js2, @js3, %composites, %composite_display_pos, %composite_main_display );
 	my $comp_data = $self->{'datastore'}->run_query( 'SELECT id,position_after,main_display FROM composite_fields',
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -547,8 +549,9 @@ sub _print_isolate_query_fields_options {
 	say q(<div id="dropdown_query_filters">);
 	my $set_id        = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my @checkfields   = @$field_list;
+	my $is_curator    = $self->is_curator;
+	my $field_list  = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my @checkfields = @$field_list;
 	my %labels;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {

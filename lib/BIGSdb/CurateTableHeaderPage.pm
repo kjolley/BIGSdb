@@ -57,7 +57,8 @@ sub _get_isolate_table_headers {
 	my $headers = [];
 	my $set_id  = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
-	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $is_curator = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if ( $att->{'no_curate'} // '' ) eq 'yes';

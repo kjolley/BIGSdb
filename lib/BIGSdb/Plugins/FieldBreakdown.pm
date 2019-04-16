@@ -422,10 +422,12 @@ sub _print_line_controls {
 }
 
 sub _get_fields {
-	my ($self)         = @_;
-	my $set_id         = $self->get_set_id;
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list     = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my ($self)        = @_;
+	my $set_id        = $self->get_set_id;
+	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
+	my $is_curator    = $self->is_curator;
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
 	my $expanded_list  = [];
 	my $labels         = {};
