@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.18',
+		version     => '2.3.19',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -425,7 +425,7 @@ sub run_job {
 	  : 2;
 
 	#Allow temp files to be cleaned on kill signals
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->signal_kill_job($job_id) } ) x 3;
 	$self->{'params'} = $params;
 	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -531,7 +531,7 @@ sub run_job {
 	return;
 }
 
-sub _signal_kill_job {
+sub signal_kill_job {
 	my ( $self, $job_id ) = @_;
 	my $touch_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.CANCEL";
 	open( my $fh, '>', $touch_file ) || $logger->error("Cannot touch $touch_file");

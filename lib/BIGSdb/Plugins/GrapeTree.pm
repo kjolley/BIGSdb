@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.2.1',
+		version             => '1.2.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -270,6 +270,7 @@ sub run_job {
 			params   => $params,
 		}
 	);
+	return if $self->{'exit'};
 	$self->_generate_mstree(
 		{
 			job_id   => $job_id,
@@ -309,12 +310,14 @@ sub _generate_profile_file {
 	  : 2;
 	$self->{'params'}->{'finish_progress'} = 60;
 	$self->{'exit'} = 0;
-	local @SIG{qw (INT TERM HUP)} =
-	  ( sub { $self->{'exit'} = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+
+	#Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->signal_kill_job($job_id) } ) x 3;
 	my %profile_hash;
 	my $empty_profiles = 0;
 	my $scan_data;
 	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
+	return if $self->{'exit'};
 	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', $filename )
 	  or $logger->error("Cannot open temp file $filename for writing");
@@ -341,8 +344,7 @@ sub _generate_profile_file {
 	}
 	if ( ( keys %profile_hash ) - $empty_profiles <= 1 ) {
 		BIGSdb::Exception::Plugin->throw(
-			'All isolates are either identical or missing at selected loci. Cannot generate tree.')
-		  ;
+			'All isolates are either identical or missing at selected loci. Cannot generate tree.');
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 60 } );
 	if ( -e $filename ) {

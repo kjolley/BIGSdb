@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
-		version     => '2.0.2',
+		version     => '2.0.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -355,14 +355,6 @@ sub _upload_user_file {
 	return $file;
 }
 
-sub _signal_kill_job {
-	my ( $self, $job_id ) = @_;
-	my $touch_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.CANCEL";
-	open( my $fh, '>', $touch_file ) || $logger->error("Cannot touch $touch_file");
-	close $fh;
-	return;
-}
-
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
@@ -372,7 +364,7 @@ sub run_job {
 	  : 2;
 
 	#Allow temp files to be cleaned on kill signals
-	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->_signal_kill_job($job_id) } ) x 3;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1; $self->signal_kill_job($job_id) } ) x 3;
 	$self->{'params'}                         = $params;
 	$self->{'params'}->{'designation_status'} = 1;
 	$self->{'params'}->{'tag_status'}         = 1;
