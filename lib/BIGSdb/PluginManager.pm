@@ -198,7 +198,7 @@ sub _matches_required_fields {
 			return if !$fields{'year'};
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes('year');
 			return $thisfield->{'type'} =~ /int/x ? 1 : 0;
-		  }
+		}
 	};
 	foreach my $check (qw (field_country_optlist field_year_int)) {
 		return if $require_items{$check} && !$checks->{$check}->();
@@ -252,6 +252,7 @@ sub _has_required_item {
 		mogrify_path           => 'mogrify',
 		grapetree_path         => 'GrapeTree',
 		MSTree_holder_rel_path => 'GrapeTree',
+		ipcress_path           => 'ipcress',
 		jobs_db                => 'offline_jobs'
 	);
 	return 1 if !$required_attr;

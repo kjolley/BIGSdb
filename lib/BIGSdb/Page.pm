@@ -95,6 +95,7 @@ JS
 sub get_list_javascript {
 	my ($self)   = @_;
 	my $list_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList";
+	my $list_genome_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList&genomes=1";
 	my $js       = <<"JS";
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
@@ -113,6 +114,16 @@ function listbox_listall(listID) {
 		}
 	});
 }
+
+function listbox_listgenomes(listID) {
+	\$.ajax({
+    	url : "$list_genome_url",
+		dataType: "text",
+		success : function (data) {
+			\$("#" + listID).val(data);
+		}
+	});
+}	
 
 function isolate_list_show() {
 	\$("#isolate_paste_list_div").show(500);
@@ -2667,9 +2678,14 @@ sub print_seqbin_isolate_fieldset {
 				-required    => 'required'
 			);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
-			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />)
-			  . q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
+			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />);
+			  if ($options->{'only_genomes'}){
+			  	say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
 			  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+			  } else {
+			say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
+			  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+			  }
 		}
 	} else {
 		say q(No isolates available<br />for analysis);

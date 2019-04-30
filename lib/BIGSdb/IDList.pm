@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018, University of Oxford
+#Copyright (c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,15 +24,18 @@ use parent qw(BIGSdb::Page);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'type'} = 'no_header';
+	$self->{'type'}    = 'no_header';
 	$self->{'noCache'} = 1;
 	return;
 }
 
 sub print_content {
 	my ($self) = @_;
-	return if ($self->{'system'}->{'dbtype'} // q()) ne 'isolates';
-	my $ids = $self->{'datastore'}->run_query("SELECT id FROM $self->{'system'}->{'view'} ORDER BY id",undef,{fetch=>'col_arrayref'});
+	my $q = $self->{'cgi'};
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	my $genome_filter = $q->param('genomes') ? 'JOIN seqbin_stats ON id=isolate_id ' : '';
+	my $ids = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} $genome_filter ORDER BY id",
+		undef, { fetch => 'col_arrayref' } );
 	say $_ foreach @$ids;
 	return;
 }

@@ -1,6 +1,6 @@
-#Export.pm - rMLST species identification plugin for BIGSdb
+#RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018, University of Oxford
+#Copyright (c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -191,7 +191,7 @@ sub _format_row_html {
 
 	foreach my $row ( 0 .. $rows - 1 ) {
 		my $no_matches;
-		my $class = $row == $rows-1 ? q( last_row) : q();
+		my $class = $row == $rows - 1 ? q( last_row) : q();
 		$buffer .= qq(<tr class="td$td$class">);
 		if ( $row == 0 ) {
 			$buffer .= qq(<td rowspan="$rows">$values->[$_]</td>) foreach ( 0, 1 );
@@ -230,7 +230,8 @@ sub _format_row_html {
 				if ( $col == 6 ) {
 					if ( !$no_matches ) {
 						my $filename = $values->[$col];
-						$buffer .= qq(<a class="ajax_link" id="row_$row_no" href="$params->{'script_name'}?)
+						$buffer .=
+						    qq(<a class="ajax_link" id="row_$row_no" href="$params->{'script_name'}?)
 						  . qq(db=$self->{'instance'}&amp;)
 						  . qq(page=plugin&amp;name=RMLSTSpecies&amp;filename=$filename&amp;no_header=1">$show</a>);
 						$buffer .=
@@ -245,7 +246,6 @@ sub _format_row_html {
 		}
 		$buffer .= qq(</tr>\n);
 	}
-	
 	return $buffer;
 }
 
@@ -406,7 +406,8 @@ sub _print_interface {
 			{ width => 6 } );
 		say $q->hidden( isolate_id => $isolate_id );
 	} else {
-		$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+		$self->print_seqbin_isolate_fieldset(
+			{ selected_ids => $selected_ids, isolate_paste_list => 1, only_genomes => 1 } );
 	}
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
