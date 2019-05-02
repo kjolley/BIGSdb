@@ -516,8 +516,11 @@ sub _count_mismatches {
 	$seq1 = uc($seq1);
 	$seq2 = uc($seq2);
 	my $iupac = {
-		T => [qw(U)],
-		U => [qw(T)],
+		A => [qw(A)],
+		C => [qw(C)],
+		G => [qw(G)],
+		T => [qw(U T)],
+		U => [qw(U T)],
 		R => [qw(A G)],
 		Y => [qw(C T)],
 		S => [qw(G C)],
