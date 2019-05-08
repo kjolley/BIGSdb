@@ -203,7 +203,8 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, size => 11, isolate_paste_list => 1 } );
+	$self->print_seqbin_isolate_fieldset(
+		{ selected_ids => $selected_ids, size => 11, isolate_paste_list => 1, only_genomes => 1 } );
 	my @selected_loci = $q->param('locus');
 	$self->print_isolates_locus_fieldset(
 		{ selected_loci => \@selected_loci, locus_paste_list => 1, size => 11, analysis_pref => 0 } );
@@ -823,7 +824,7 @@ sub _show_results {
 	say q(<div class="box" id="resultsfooter">);
 	my $elapsed = $status->{'start_time'} ? $status->{'start_time'} - ( $status->{'stop_time'} // time ) : undef;
 	my ( $refresh_time, $elapsed_time );
-	eval 'use Time::Duration';                      ## no critic (ProhibitStringyEval)
+	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
 	if ($@) {
 		$refresh_time = $self->{'refresh'} . ' seconds';
 		$elapsed_time = $elapsed ? "$elapsed seconds" : undef;
