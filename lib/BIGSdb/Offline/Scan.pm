@@ -469,6 +469,9 @@ sub _create_query_fasta_file {
 	  $self->{'datastore'}->run_query( $remote_qry, \@criteria,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'Scan::blast_create_fasta::remote' } );
 	flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
+	if (!@$contigs){
+		$logger->error("No contigs for id-$isolate_id");
+	}
 	foreach my $contig (@$contigs) {
 		say $infile_fh ">$contig->[0]\n$contig->[1]";
 	}
