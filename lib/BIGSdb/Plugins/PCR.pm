@@ -475,6 +475,7 @@ sub _parse_results {
 		};
 		$product->{'seqbin_id'} =~ s/:.*//x;
 		$product->{'end'} += ( $values[7] eq 'A' ) ? length( $params->{'primer1'} ) : length( $params->{'primer2'} );
+		next if $product->{'length'} < length( $params->{'primer1'}) + length( $params->{'primer2'});
 		next if $self->_too_many_mismatches( $params, \@values, $product );
 		push @$results, $product;
 	}
@@ -501,6 +502,9 @@ sub _too_many_mismatches {
 	#If there are wobble bases then we need to check the primer region in returned sequences
 	#and count the mismatches.
 	my $seqs = $self->_extract_seqs( $params, $product );
+	if (length $params->{'primer1'} != length $seqs->{'primer1'}){
+		$logger->error("Extract seq: ". $seqs->{'primer1'});
+	}
 	return 1 if $self->_count_mismatches( $params->{'primer1'}, $seqs->{'primer1'} ) > $params->{'mismatch1'};
 	return 1 if $self->_count_mismatches( $params->{'primer2'}, $seqs->{'primer2'} ) > $params->{'mismatch2'};
 	return;
