@@ -1574,9 +1574,14 @@ sub _report_successful_upload {
 		}
 		$upload_contigs_url = qq($self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAddSeqbin);
 	}
+	my $detail;
+	if ( $q->param('submission_id') ) {
+		$detail = q(Don't forget to close the submission!);
+	}
 	$self->print_good_status(
 		{
 			message => q(Database updated.),
+			detail  => $detail,
 			navbar  => 1,
 			script  => $script,
 			%$nav_data,

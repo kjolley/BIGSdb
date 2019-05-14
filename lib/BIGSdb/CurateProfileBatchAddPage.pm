@@ -600,9 +600,14 @@ sub _upload {
 	}
 	$self->{'db'}->commit;
 	my $submission_id = $q->param('submission_id');
+	my $detail;
+	if ($submission_id) {
+		$detail = q(Don't forget to close the submission!);
+	}
 	$self->print_good_status(
 		{
 			message       => q(Profiles added.),
+			detail        => $detail,
 			navbar        => 1,
 			submission_id => $submission_id,
 			more_text     => q(Add more),
@@ -637,7 +642,7 @@ sub _print_interface {
 	  . qq(table=profiles&amp;scheme_id=$scheme_id" title="Tab-delimited text header">$text</a>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;)
 	  . qq(table=profiles&amp;scheme_id=$scheme_id" title="Excel format">$excel</a></p>);
-	 say q(<h2>Upload</h2>);
+	say q(<h2>Upload</h2>);
 	say $q->start_form;
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	$user_names->{-1} = 'Override with sender field';

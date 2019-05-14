@@ -314,10 +314,15 @@ sub _upload {
 				$self->{'db'}->rollback;
 			} else {
 				$self->{'db'}->commit;
+				my $detail;
 				my $submission_id = $q->param('submission_id');
+				if ($submission_id) {
+					$detail = q(Don't forget to close the submission!);
+				}
 				$self->print_good_status(
 					{
 						message       => qq($primary_key-$newdata->{"field:$primary_key"} added.),
+						detail        => $detail,
 						navbar        => 1,
 						submission_id => $submission_id,
 						more_url =>

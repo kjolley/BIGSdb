@@ -297,11 +297,19 @@ sub _insert {
 				  . q(Add values and fully customize this composite field</a>.);
 			}
 			my $message;
+			if ( $q->param('submission_id') ) {
+				$detail = q(Don't forget to close the submission!);
+			}
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
 				$cleaned_locus =~ s/\\'/'/gx;
 				$self->print_good_status(
-					{ message => qq(Sequence $cleaned_locus: $newdata->{'allele_id'} added.), navbar => 1, %$navlinks }
+					{
+						message => qq(Sequence $cleaned_locus: $newdata->{'allele_id'} added.),
+						detail  => $detail,
+						navbar  => 1,
+						%$navlinks
+					}
 				);
 				$self->update_blast_caches;
 			} else {
