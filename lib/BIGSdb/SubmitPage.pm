@@ -926,7 +926,11 @@ sub _submit_isolates {
 	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
 	say q(<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids.</li>);
 	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
-	  . q(new column with the locus name.</li>);
+	  . q(new column with the locus name. );
+	say q(By default, loci are not included with genome submissions since these can be extracted )
+	  . q(directly from the genome.)
+	  if $options->{'genomes'};
+	say q(</li>);
 
 	if ( $options->{'genomes'} ) {
 		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
