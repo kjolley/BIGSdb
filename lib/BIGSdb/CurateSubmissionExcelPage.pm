@@ -46,7 +46,7 @@ sub print_content {
 	my $table     = $q->param('table') || '';
 	my $scheme_id = $q->param('scheme_id');
 
-	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		$worksheet->write( 'A1', "Table $table does not exist!" );
 		return;
 	}
@@ -227,6 +227,7 @@ sub _print_isolate_eav_fields {
 	my $worksheet = $workbook->add_worksheet($field_name);
 	$worksheet->write( 0, 0, 'field', $self->{'header_format'} );
 	my $row = 1;
+
 	foreach my $field (@$eav_fields) {
 		$worksheet->write( $row, 0, $field );
 		$row++;

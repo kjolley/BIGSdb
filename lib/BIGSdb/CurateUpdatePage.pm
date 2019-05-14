@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,9 +38,7 @@ sub initiate {
 sub _pre_check_failed {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return 1;
 	}

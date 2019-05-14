@@ -400,16 +400,6 @@ sub get_scheme_field_values_by_isolate_id {
 	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations );
 }
 
-#Return all sample fields except isolate_id
-sub get_samples {
-	my ( $self, $id ) = @_;
-	my $fields = $self->{'xmlHandler'}->get_sample_field_list;
-	return [] if !@$fields;
-	local $" = ',';
-	return $self->run_query( "SELECT @$fields FROM samples WHERE isolate_id=? ORDER BY sample_id",
-		$id, { fetch => 'all_arrayref', slice => {} } );
-}
-
 #Used for profile/sequence definitions databases
 sub profile_exists {
 	my ( $self, $scheme_id, $profile_id ) = @_;
@@ -2298,7 +2288,7 @@ sub get_tables {
 		  isolate_aliases permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
-		  samples isolates history sequence_attributes classification_schemes classification_group_fields
+		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
@@ -2438,7 +2428,7 @@ sub get_metadata_value {
 
 sub get_login_requirement {
 	my ($self) = @_;
-	if ( $self->{'system'}->{'dbtype'} eq 'job' || $self->{'system'}->{'dbtype'} eq 'rest') {
+	if ( $self->{'system'}->{'dbtype'} eq 'job' || $self->{'system'}->{'dbtype'} eq 'rest' ) {
 		return NOT_ALLOWED;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'user' && $self->{'config'}->{'site_user_dbs'} ) {

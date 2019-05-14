@@ -252,7 +252,6 @@ sub _get_isolate_links {
 	$buffer .= $self->_get_sequence_bin;
 	$buffer .= $self->_get_allele_sequences;
 	$buffer .= $self->_get_experiments;
-	$buffer .= $self->_get_samples;
 	return $buffer;
 }
 
@@ -306,7 +305,7 @@ sub _get_geocoding {
 			action       => 1,
 			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=geocoding),
 			action_label => 'Setup',
-			info => 'Geocoding - Set up standard country names and continent links.'
+			info         => 'Geocoding - Set up standard country names and continent links.'
 		}
 	);
 	$buffer .= qq(</div>\n);
@@ -819,27 +818,6 @@ sub _get_experiments {
 			batch_add => 1,
 			query     => 1,
 			info      => 'Experiment contigs - Group contigs by experiment.'
-		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
-}
-
-sub _get_samples {
-	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('samples');
-	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-	return $buffer if !@$sample_fields;
-	return $buffer if !$self->_isolates_exist;
-	$buffer .= q(<div class="curategroup curategroup_samples grid-item default_show_curator"><h2>Samples</h2>);
-	$buffer .= $self->_get_icon_group(
-		'samples',
-		'vial',
-		{
-			batch_add => 1,
-			query     => 1,
-			info      => 'Sample storage records - These can also be added and updated from the isolate update page.'
 		}
 	);
 	$buffer .= qq(</div>\n);

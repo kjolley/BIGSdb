@@ -457,7 +457,6 @@ div.curategroup_isolates {background-image: linear-gradient(#fff,#dde)}
 div.curategroup_projects {background-image: linear-gradient(#fff,#cce)}
 div.curategroup_designations {background-image: linear-gradient(#fff,#edd)}
 div.curategroup_experiments {background-image: linear-gradient(#fff,#dee)}
-div.curategroup_samples {background-image: linear-gradient(#fff,#ecc)}
 div.curategroup_permissions {background-image: linear-gradient(#fff,#eee)}
 div.curategroup_remote_dbases {background-image: linear-gradient(#fff,#dde)}
 div.curategroup_maintenance {background-image: linear-gradient(#fff,#eed)}
@@ -492,8 +491,6 @@ div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
 div#resultspanel, div.resultspanel {background-image: linear-gradient(#f8f8f8,#f0f0f0)}
 div#resultspanel li,p,dd {position:relative;z-index:3}
-div#samples table {border-spacing:1px}
-div#samples {background:#f0e0e0}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
 div.scrollable {overflow-x:auto;padding-top:0.2em}
@@ -984,7 +981,6 @@ button.plugin:hover {color:#c8c}
 @media (max-width: 800px) {
 	div#scheme_loci_add {float:left}
 	div#alleles {float:left; width:95%}
-	div#samples {float:left; width:95%}
 	div#isolate_update {width:95%}
 }
 

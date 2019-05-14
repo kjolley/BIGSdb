@@ -93,10 +93,10 @@ JS
 }
 
 sub get_list_javascript {
-	my ($self)   = @_;
-	my $list_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList";
+	my ($self)          = @_;
+	my $list_url        = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList";
 	my $list_genome_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=idList&genomes=1";
-	my $js       = <<"JS";
+	my $js              = <<"JS";
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }
@@ -1082,6 +1082,7 @@ sub _get_provenance_fields {
 	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
+
 		if (   ( $options->{'sender_attributes'} )
 			&& ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
@@ -1715,7 +1716,6 @@ sub get_record_name {
 		projects                          => 'project description',
 		project_members                   => 'project member',
 		profile_refs                      => 'Pubmed link',
-		samples                           => 'sample storage record',
 		scheme_curators                   => 'scheme curator access record',
 		locus_curators                    => 'locus curator access record',
 		experiments                       => 'experiment',
@@ -2063,12 +2063,6 @@ sub can_modify_table {
 		if ( $isolate_permissions{$table} ) {
 			return $isolate_permissions{$table};
 		}
-
-		#Samples
-		return 1
-		  if $table eq 'samples'
-		  && $self->{'permissions'}->{'sample_management'}
-		  && @{ $self->{'xmlHandler'}->get_sample_field_list };
 	} else {    #Sequence definition database only tables
 
 		#Locus descriptions/links. Checks for specific loci are in next section
@@ -2302,7 +2296,7 @@ sub _set_isolatedb_options {
 	foreach my $option (
 		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
 		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
-		sample_details display_publications)
+		display_publications)
 	  )
 	{
 		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
@@ -2354,7 +2348,7 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#default on
-	foreach my $option (qw (sequence_details sample_details mark_provisional mark_provisional_main)) {
+	foreach my $option (qw (sequence_details mark_provisional mark_provisional_main)) {
 		$general_prefs->{$option} //= 'on';
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
 	}
@@ -2679,13 +2673,13 @@ sub print_seqbin_isolate_fieldset {
 			);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
 			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />);
-			  if ($options->{'only_genomes'}){
-			  	say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
-			  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
-			  } else {
-			say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
-			  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
-			  }
+			if ( $options->{'only_genomes'} ) {
+				say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
+				  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+			} else {
+				say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
+				  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+			}
 		}
 	} else {
 		say q(No isolates available<br />for analysis);

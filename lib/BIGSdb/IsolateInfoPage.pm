@@ -856,7 +856,6 @@ sub get_isolate_record {
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
-			$buffer .= $self->get_sample_summary( $id, { hide => 1 } );
 		}
 	}
 	$buffer .= qq(</div>\n);
@@ -1160,94 +1159,6 @@ sub _get_tree {
 	  . q(Navigate and select schemes within tree to display allele )
 	  . qq(designations</div><div style="clear:both"></div></div>\n)
 	  if $buffer !~ /No loci available/;
-	return $buffer;
-}
-
-sub get_sample_summary {
-	my ( $self, $id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my ($sample_buffer) = $self->_get_samples($id);
-	my $buffer = '';
-	if ($sample_buffer) {
-		$buffer .= q(<div>);
-		if ( $options->{'hide'} ) {
-			$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-vial fa-pull-left" style="margin-top:0.2em"></span>);
-			$buffer .= q(<h2 style="display:inline-block">Samples</h2>);
-		}
-		$buffer .= qq(<table class="resultstable" id="sample_table">\n);
-		$buffer .= $sample_buffer;
-		$buffer .= qq(</table></div>\n);
-	}
-	return $buffer;
-}
-
-sub _get_samples {
-	my ( $self, $id ) = @_;
-	my $td            = 1;
-	my $buffer        = q();
-	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-	my ( @selected_fields, @clean_fields );
-	foreach my $field (@$sample_fields) {
-		next if $field eq 'isolate_id';
-		my $attributes = $self->{'xmlHandler'}->get_sample_field_attributes($field);
-		next if ( $attributes->{'maindisplay'} // '' ) eq 'no';
-		push @selected_fields, $field;
-		( my $clean = $field ) =~ tr/_/ /;
-		push @clean_fields, $clean;
-	}
-	if (@selected_fields) {
-		my $samples = $self->{'datastore'}->get_samples($id);
-		my @sample_rows;
-		foreach my $sample (@$samples) {
-			foreach my $field (@$sample_fields) {
-				if ( $field eq 'sender' || $field eq 'curator' ) {
-					my $user_info = $self->{'datastore'}->get_user_info( $sample->{$field} );
-					$sample->{$field} = qq($user_info->{'first_name'} $user_info->{'surname'});
-				}
-			}
-			my $row = qq(<tr class="td$td">);
-			if ( $self->{'curate'} ) {
-				$row .=
-				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=delete&amp;table=samples&amp;isolate_id=$id&amp;sample_id=$sample->{'sample_id'}">)
-				  . qq(Delete</a></td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=update&amp;table=samples&amp;isolate_id=$id&amp;sample_id=$sample->{'sample_id'}">)
-				  . q(Update</a></td>);
-			}
-			foreach my $field (@selected_fields) {
-				$sample->{$field} = defined $sample->{$field} ? $sample->{$field} : '';
-				if ( $field eq 'sample_id' && $self->{'prefs'}->{'sample_details'} ) {
-					my $info = qq(Sample $sample->{$field} - );
-					foreach my $field (@$sample_fields) {
-						next if $field eq 'sample_id' || $field eq 'isolate_id';
-						( my $clean = $field ) =~ tr/_/ /;
-						$info .= qq($clean: $sample->{$field}&nbsp;<br />)
-						  if defined $sample->{$field};    #nbsp added to stop Firefox truncating text
-					}
-					$row .= qq(<td>$sample->{$field}<span style=\"font-size:0.5em\"> </span>)
-					  . qq(<a class="update_tooltip" title="$info">&nbsp;...&nbsp;</a></td>);
-				} else {
-					$row .= qq(<td>$sample->{$field}</td>);
-				}
-			}
-			$row .= q(</tr>);
-			push @sample_rows, $row;
-			$td = $td == 1 ? 2 : 1;
-		}
-		if (@sample_rows) {
-			my $rows = scalar @sample_rows + 1;
-			local $" = q(</th><th>);
-			$buffer .= q(<tr>);
-			$buffer .= q(<td><table style="width:100%"><tr>);
-			if ( $self->{'curate'} ) {
-				$buffer .= q(<th>Delete</th><th>Update</th>);
-			}
-			$buffer .= qq(<th>@clean_fields</th></tr>);
-			local $" = qq(\n);
-			$buffer .= qq(@sample_rows);
-			$buffer .= qq(</table></td></tr>\n);
-		}
-	}
 	return $buffer;
 }
 

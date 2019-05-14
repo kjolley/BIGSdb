@@ -35,13 +35,13 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $table = $self->{'cgi'}->param('table') || '';
-	if ( !$self->{'datastore'}->is_table($table) && !@{ $self->{'xmlHandler'}->get_sample_field_list } ) {
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		say "Table $table does not exist!";
 		return;
 	}
 	my $q         = $self->{'cgi'};
-	my $no_fields = $q->param('no_fields') ? 1 : 0;    #For profile submissions
-	my $id_field  = $q->param('id_field') ? 1 : 0;     #Ditto
+	my $no_fields = $q->param('no_fields') ? 1 : 0;     #For profile submissions
+	my $id_field  = $q->param('id_field') ? 1 : 0;      #Ditto
 	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
 	if ( $table eq 'isolates' && $q->param('addCols') ) {
 		my @cols = split /,/x, $q->param('addCols');
@@ -57,8 +57,8 @@ sub _get_isolate_table_headers {
 	my $headers = [];
 	my $set_id  = $self->get_set_id;
 	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
-	my $is_curator = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $is_curator    = $self->is_curator;
+	my $field_list    = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if ( $att->{'no_curate'} // '' ) eq 'yes';

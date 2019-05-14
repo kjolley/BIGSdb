@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -202,7 +202,7 @@ sub get_permissions_table_attributes {
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
-	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all sample_management
+	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all
 	  import_site_users modify_site_users only_private disable_access)
 	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes
 	  delete_all import_site_users modify_site_users disable_access );
@@ -501,15 +501,15 @@ sub get_loci_table_attributes {
 		if ( $self->{'system'}->{'views'} ) {
 			my @views = split /,/x, $self->{'system'}->{'views'};
 			local $" = q(;);
-			push @$attributes, (
+			push @$attributes,
+			  (
 				{
 					name    => 'view',
 					type    => 'text',
 					optlist => qq(@views),
-					tooltip =>
-					  'view - restrict locus to only isolates belonging to specified database view.'
+					tooltip => 'view - restrict locus to only isolates belonging to specified database view.'
 				}
-			);
+			  );
 		}
 	} else {    #Seqdef database
 		my $id_threshold = IDENTITY_THRESHOLD;
@@ -2304,35 +2304,6 @@ sub get_set_view_table_attributes {
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
-	return $attributes;
-}
-
-sub get_samples_table_attributes {
-	my ($self) = @_;
-	my $fields = $self->{'xmlHandler'}->get_sample_field_list;
-	if ( !@$fields ) {
-		return \%;;
-	}
-	my $attributes;
-	foreach (@$fields) {
-		my $field_attributes = $self->{'xmlHandler'}->get_sample_field_attributes($_);
-		my $optlist =
-		  ( $field_attributes->{'optlist'} // '' ) eq 'yes' ? $self->{'xmlHandler'}->get_field_option_list($_) : [];
-		local $" = ';';
-		push @$attributes,
-		  (
-			{
-				name        => $_,
-				type        => $field_attributes->{'type'},
-				required    => $field_attributes->{'required'},
-				primary_key => ( $_ eq 'isolate_id' || $_ eq 'sample_id' ) ? 'yes' : '',
-				foreign_key => $_ eq 'isolate_id' ? 'isolates' : '',
-				optlist => "@$optlist",
-				main_display => $field_attributes->{'maindisplay'},
-				length       => $field_attributes->{'length'} || ( $field_attributes->{'type'} eq 'int' ? 6 : 12 )
-			}
-		  );
-	}
 	return $attributes;
 }
 

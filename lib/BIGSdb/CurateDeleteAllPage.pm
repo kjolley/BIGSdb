@@ -54,9 +54,7 @@ sub print_content {
 			$query = "SELECT \* FROM profiles WHERE scheme_id=$scheme_id AND profile_id IN ($query)";
 		}
 	}
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}

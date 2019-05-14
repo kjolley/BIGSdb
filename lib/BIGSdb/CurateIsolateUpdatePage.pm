@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,7 +37,6 @@ sub get_javascript {
 	if (!Modernizr.inputtypes.date){
  	   \$(".no_date_picker").css("display","inline");
     }
-	\$("#sample").columnize({width:300});
 });
 END
 	$buffer .= $self->get_tree_javascript;
@@ -69,8 +68,7 @@ sub print_content {
 		$self->print_bad_status( { message => q(Invalid id passed.), navbar => 1 } );
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
-		&& !$self->can_modify_table('allele_designations')
-		&& !$self->can_modify_table('samples') )
+		&& !$self->can_modify_table('allele_designations') )
 	{
 		$self->print_bad_status(
 			{
@@ -191,7 +189,7 @@ sub _update {
 			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
-		if ( ($data->{ lc($field) } // q()) ne $newdata->{$field} ) {
+		if ( ( $data->{ lc($field) } // q() ) ne $newdata->{$field} ) {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
@@ -436,7 +434,6 @@ sub _print_interface {
 		say $q->end_form;
 		say q(</div></div>);
 	}
-	$self->_print_samples($data)             if $self->can_modify_table('samples');
 	$self->_print_allele_designations($data) if $self->can_modify_table('allele_designations');
 	say q(</div><div style="clear:both"></div>);
 	return;
@@ -476,36 +473,6 @@ sub _print_allele_designations {
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
 	say q(</fieldset></div></div>);
-	return;
-}
-
-sub _print_samples {
-	my ( $self, $data ) = @_;
-	my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-	if (@$sample_fields) {
-		say q(<div class="box" id="samples" style="overflow:auto">);
-		say q(<fieldset style="float:left"><legend>Samples</legend>);
-		my $isolate_record = BIGSdb::IsolateInfoPage->new(
-			(
-				system        => $self->{'system'},
-				cgi           => $self->{'cgi'},
-				instance      => $self->{'instance'},
-				prefs         => $self->{'prefs'},
-				prefstore     => $self->{'prefstore'},
-				config        => $self->{'config'},
-				datastore     => $self->{'datastore'},
-				db            => $self->{'db'},
-				xmlHandler    => $self->{'xmlHandler'},
-				dataConnector => $self->{'dataConnector'},
-				contigManager => $self->{'contigManager'},
-				curate        => 1
-			)
-		);
-		say $isolate_record->get_sample_summary( $data->{'id'} );
-		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-		  . qq(table=samples&amp;isolate_id=$data->{'id'}" class="button">&nbsp;Add new sample&nbsp;</a></p>);
-		say q(</fieldset></div>);
-	}
 	return;
 }
 

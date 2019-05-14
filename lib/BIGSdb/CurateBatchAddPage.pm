@@ -36,8 +36,7 @@ sub print_content {
 	my $cleaned_table = $table;
 	my $locus         = $q->param('locus');
 	$cleaned_table =~ tr/_/ /;
-	my $sample_field_list = $self->{'xmlHandler'}->get_sample_field_list;
-	if ( !$self->{'datastore'}->is_table($table) && !( $table eq 'samples' && @$sample_field_list ) ) {
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Batch insert records</h1>);
 		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;

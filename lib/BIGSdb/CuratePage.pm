@@ -250,11 +250,7 @@ sub _get_primary_key_field {
 	} else {
 		$desc = $newdata->{ $att->{'name'} };
 	}
-	my $buffer = "<b>$desc";
-	if ( $table eq 'samples' && $att->{'name'} eq 'isolate_id' ) {
-		$buffer .= ') ' . $self->get_isolate_name_from_id( $newdata->{ $att->{'name'} } );
-	}
-	$buffer .= '</b>';
+	my $buffer = "<b>$desc</b>";
 	$buffer .= $q->hidden( $name, $newdata->{ $att->{'name'} } );
 	return $buffer;
 }

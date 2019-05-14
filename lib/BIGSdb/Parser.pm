@@ -62,10 +62,7 @@ sub get_field_list {
 	return \@fields;
 }
 
-sub get_sample_field_list {
-	my ($self) = @_;
-	return $self->{'sample_fields'};
-}
+
 
 sub get_all_field_attributes {
 	my ($self) = @_;
@@ -77,10 +74,7 @@ sub get_field_attributes {
 	return $self->{'attributes'}->{$name} // { type => q(), required => q() };
 }
 
-sub get_sample_field_attributes {
-	my ( $self, $name ) = @_;
-	return $self->{'sample_attributes'}->{$name} // {};
-}
+
 
 sub is_field {
 	my ( $self, $field ) = @_;
@@ -111,7 +105,6 @@ sub new {    ## no critic (RequireArgUnpacking)
 	bless( $self, $class );
 	$self->{'fields'}        = [];
 	$self->{'system'}        = {};
-	$self->{'sample_fields'} = [];
 	return $self;
 }
 
@@ -130,11 +123,6 @@ sub characters {
 		$self->{'_in_field'} = 0;
 	} elsif ( $self->{'_in_optlist'} ) {
 		push @{ $self->{'options'}->{ $self->{'field_name'} } }, $element->{'Data'} if $element->{'Data'} ne '';
-	} elsif ( $self->{'_in_sample'} ) {
-		$self->{'field_name'} = $element->{'Data'};
-		push @{ $self->{'sample_fields'} }, $self->{'field_name'};
-		$self->{'sample_attributes'}->{ $self->{'field_name'} } = $self->{'these'};
-		$self->{'_in_sample'} = 0;
 	}
 	return;
 }
@@ -149,10 +137,6 @@ sub start_element {
 		},
 		optlist => sub {
 			$self->{'_in_optlist'} = 1;
-		},
-		sample => sub {
-			$self->{'_in_sample'} = 1;
-			$self->{'these'}      = $element->{'Attributes'};
 		}
 	);
 	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
@@ -191,9 +175,6 @@ sub end_element {
 				$self->{'options'}->{ $self->{'field_name'} } =
 				  $self->_dictionary_sort( $self->{'options'}->{ $self->{'field_name'} } );
 			}
-		},
-		sample => sub {
-			$self->{'_in_sample'} = 0;
 		}
 	);
 	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };

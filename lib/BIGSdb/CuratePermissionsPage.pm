@@ -99,10 +99,8 @@ sub print_content {
 		}
 		say q(</tr>);
 		my $td            = 1;
-		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		my %prohibit      = map { $_ => 1 } qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
-			next if $permission eq 'sample_management' && !@$sample_fields;
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
 			say $prohibit{$permission} ? q(<tr class="warning">) : qq(<tr class="td$td">);
 			say qq(<th>$cleaned_permission</th>);

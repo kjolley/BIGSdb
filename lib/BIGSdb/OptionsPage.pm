@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -143,7 +143,7 @@ sub _set_isolate_options {
 	foreach my $action (
 		qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
 		display_contig_count locus_alias update_details sequence_details allele_flags
-		sample_details display_publications)
+		display_publications)
 	  )
 	{
 		$prefstore->set_general( $guid, $dbname, $action, $prefs->{$action} ? 'on' : 'off' );
@@ -367,12 +367,6 @@ sub _print_isolate_record_options {
 		-checked => $prefs->{'allele_flags'},
 		-label   => 'Display information about whether alleles have flags defined in sequence '
 		  . 'definition database (shown in sequence detail tooltip).'
-	);
-	say q(</li><li>);
-	say $q->checkbox(
-		-name    => 'sample_details',
-		-checked => $prefs->{'sample_details'},
-		-label   => 'Display full information about sample records (tooltip).'
 	);
 	say q(</li></ul>);
 	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );

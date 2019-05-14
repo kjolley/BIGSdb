@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,9 +32,7 @@ sub print_content {
 	my $table = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table) // q();
 	say qq(<h1>Delete $record_name</h1>);
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
 	}
@@ -386,9 +384,7 @@ sub _delete_user {
 		$$proceed_ref = 0;
 	}
 	if ($$proceed_ref) {
-		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
 		foreach my $table ( $self->{'datastore'}->get_tables_with_curator ) {
-			next if !@$sample_fields && $table eq 'samples';
 			my $num = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE curator=?", $data->{'id'} );
 			my $num_senders;
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {

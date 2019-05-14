@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,9 +64,7 @@ sub _warn_about_scheme_modification {
 
 sub _table_exists {
 	my ( $self, $table ) = @_;
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Add new record</h1>);
 		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
 		return;
@@ -164,12 +162,6 @@ sub _populate_newdata {
 			&& $att->{'type'} eq 'int' )
 		{
 			$new_data->{'id'} = $self->next_id($table);
-		} elsif ( $table eq 'samples'
-			&& $att->{'name'} eq 'sample_id'
-			&& !$new_data->{'sample_id'}
-			&& $new_data->{'isolate_id'} )
-		{
-			$new_data->{'sample_id'} = $self->_next_sample_id( $new_data->{'isolate_id'} );
 		}
 		if ( !$new_data->{ $att->{'name'} } && $att->{'default'} ) {
 			$new_data->{ $att->{'name'} } = $att->{'default'};
@@ -327,12 +319,6 @@ sub _get_navlinks {
 	my ( $self, $table, $newdata ) = @_;
 	my $q             = $self->{'cgi'};
 	my $submission_id = $q->param('submission_id');
-	my $back_url;
-	if ( $table eq 'samples' ) {
-		$back_url =
-		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=isolateUpdate&amp;id=$newdata->{'isolate_id'});
-	}
 	my $change_password;
 	if ( $table eq 'users' ) {
 		if ( $self->{'system'}->{'authentication'} eq 'builtin'
@@ -345,21 +331,15 @@ sub _get_navlinks {
 		}
 	}
 	my $more_url;
-	if ( $table eq 'samples' ) {
-		$more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=samples&amp;)
-		  . qq(isolate_id=$newdata->{'isolate_id'});
-	} else {
-		my $locus_clause = '';
-		if ( $table eq 'sequences' ) {
-			$newdata->{'locus'} =~ s/\\//gx;
-			$locus_clause =
-			  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'});
-		}
-		$more_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;)
-		  . qq(table=$table$locus_clause);
+	my $locus_clause = '';
+	if ( $table eq 'sequences' ) {
+		$newdata->{'locus'} =~ s/\\//gx;
+		$locus_clause =
+		  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'});
 	}
+	$more_url =
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;) . qq(table=$table$locus_clause);
 	return {
-		back_url        => $back_url,
 		submission_id   => $submission_id,
 		change_password => $change_password,
 		more_url        => $more_url
@@ -697,18 +677,17 @@ sub _check_classification_group_field_values { ## no critic (ProhibitUnusedPriva
 	my ( $self, $newdata, $problems ) = @_;
 	if (
 		!$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))'
-			,
+			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))',
 			[ $newdata->{'cg_scheme_id'}, $newdata->{'field'} ]
 		)
 	  )
 	{
 		push @$problems, q(Selected field has not been defined for the selected classification scheme.);
-	} 
+	}
 	return;
 }
 
-sub _check_locus_aliases {                     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @$problems, 'Locus alias can not be set the same as the locus name.';
@@ -960,36 +939,6 @@ sub get_title {
 	my $table = $self->{'cgi'}->param('table');
 	my $type  = $self->get_record_name($table);
 	return $type ? "Add new $type - $desc" : "Add new record - $desc";
-}
-
-sub _next_sample_id {
-	my ( $self, $isolate_id ) = @_;
-	my $qry = 'SELECT sample_id FROM samples WHERE isolate_id=? ORDER BY sample_id';
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute($isolate_id) };
-	$logger->error($@) if $@;
-	my $test = 0;
-	my $next = 0;
-	my $id   = 0;
-	while ( my ($sample_id) = $sql->fetchrow_array ) {
-
-		if ( $sample_id != 0 ) {
-			$test++;
-			$id = $sample_id;
-			if ( $test != $id ) {
-				$next = $test;
-				$sql->finish;
-				$logger->debug("Next id: $next");
-				return $next;
-			}
-		}
-	}
-	if ( $next == 0 ) {
-		$next = $id + 1;
-	}
-	$sql->finish;
-	$logger->debug("Next id: $next");
-	return $next;
 }
 
 sub next_id {

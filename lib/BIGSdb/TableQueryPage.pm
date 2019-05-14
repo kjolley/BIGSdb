@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,9 +81,7 @@ sub print_content {
 			{ message => q(You cannot use this function to query the isolate table.), navbar => 1 } );
 		return;
 	}
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Table query</h1>);
 		$self->print_bad_status( { message => q(Invalid table.), navbar => 1 } );
 		return;
@@ -146,9 +144,7 @@ END
 sub _get_select_items {
 	my ( $self, $table ) = @_;
 	return if !$table;
-	if (   !$self->{'datastore'}->is_table($table)
-		&& !( $table eq 'samples' && @{ $self->{'xmlHandler'}->get_sample_field_list } ) )
-	{
+	if ( !$self->{'datastore'}->is_table($table) ) {
 		return;
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -256,7 +252,7 @@ sub _print_interface {
 		}
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).);
-	if ( !$self->{'curate'} && $table ne 'samples' ) {
+	if ( !$self->{'curate'} ) {
 		say qq( Matching $cleaned will be returned and you will then be )
 		  . q(able to update their display and query settings.);
 	}
@@ -998,7 +994,7 @@ sub _modify_query_search_by_isolate {
 	  @{$args}{qw(table field text modifier operator qry_ref)};
 	my %table_linked_to_isolate = map { $_ => 1 }
 	  qw (allele_sequences allele_designations experiment_sequences sequence_bin
-	  project_members isolate_aliases samples history refs);
+	  project_members isolate_aliases history refs);
 	return if !$table_linked_to_isolate{$table};
 	return if $field ne $self->{'system'}->{'labelfield'};
 	$$qry_ref .= $modifier;

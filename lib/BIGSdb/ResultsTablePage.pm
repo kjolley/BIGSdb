@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -458,7 +458,7 @@ sub _print_export_configuration_function {
 	if (
 		any { $table eq $_ }
 		qw (schemes users user_groups user_group_members permissions projects project_members
-		isolate_aliases accession experiments experiment_sequences allele_sequences samples loci locus_aliases
+		isolate_aliases accession experiments experiment_sequences allele_sequences loci locus_aliases
 		pcr probes isolate_field_extended_attributes isolate_value_extended_attributes scheme_fields
 		scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members locus_descriptions
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
@@ -1205,7 +1205,7 @@ sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
-	my %no_show = map { $_ => 1 } qw(sequences samples history profile_history);
+	my %no_show = map { $_ => 1 } qw(sequences history profile_history);
 	return if $q->param('page') eq 'tableQuery' && $no_show{ $q->param('table') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories =

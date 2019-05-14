@@ -96,7 +96,6 @@ sub _print_jobs {
 
 sub get_javascript {
 	my ($self) = @_;
-	
 	return <<"JS";
 \$(document).ready(function() 
     { 
@@ -120,7 +119,6 @@ var delay = (function(){
   };
 })();
 JS
-
 }
 
 sub _print_main_section {
@@ -179,13 +177,6 @@ sub _print_query_section {
 	if ( $self->{'config'}->{'jobs_db'} ) {
 		my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/job_query.html";
 		$self->print_file($query_html_file) if -e $query_html_file;
-	}
-	if ( $system->{'dbtype'} eq 'isolates' ) {
-		my $sample_fields = $self->{'xmlHandler'}->get_sample_field_list;
-		if (@$sample_fields) {
-			say qq(<li><a href="${url_root}page=tableQuery&amp;table=samples">Sample management</a> - )
-			  . q(culture/DNA storage tracking</li>);
-		}
 	}
 	say q(</ul></div>);
 	return;
