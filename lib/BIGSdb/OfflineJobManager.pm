@@ -508,7 +508,7 @@ sub get_job_temporal_data {
 	my ( $self, $past_mins ) = @_;
 	my $local_tz = $self->_run_query(q(SELECT current_setting('TIMEZONE')));
 	return $self->_run_query(
-		    qq[SELECT submit_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS submit_time,]
+		qq[SELECT submit_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS submit_time,]
 		  . qq[start_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS start_time,]
 		  . qq[stop_time AT TIME ZONE '$local_tz' AT TIME ZONE 'UTC' AS stop_time,]
 		  . qq[status FROM jobs where ((submit_time AT TIME ZONE '$local_tz' > now()-interval ]
@@ -531,7 +531,7 @@ sub get_summary_stats {
 	  $self->_run_query( q(SELECT SUM(CASE WHEN status='started' THEN 1 ELSE 0 END) AS running, )
 		  . q(SUM(CASE WHEN status='submitted' THEN 1 ELSE 0 END) AS queued, )
 		  . q(SUM(CASE WHEN stop_time > now()-interval '1 day' THEN 1 ELSE 0 END) AS day FROM jobs) );
-	my $results = { running => $running, queued => $queued, day => $day };
+	my $results = { running => $running // 0, queued => $queued // 0, day => $day // 0 };
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
 		my $week = $self->_run_query(q(SELECT COUNT(*) FROM jobs WHERE stop_time > now()-interval '7 days'));
 		$results->{'week'} = $week;
