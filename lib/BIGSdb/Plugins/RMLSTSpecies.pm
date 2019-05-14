@@ -201,6 +201,7 @@ sub _format_row_html {
 			if ( $response_code == 413 ) {
 				$message = q(Genome size is too large for analysis);
 			} else {
+				$logger->error("No matching alleles - response code was $response_code");
 				$message = q(No exact matching alleles linked to genome found);
 			}
 			$no_matches = 1;
