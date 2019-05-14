@@ -431,7 +431,7 @@ sub _parse_blast_partial {
 					{ cache => 'Blast::get_seq_length' }
 				);
 			}
-			my $length = $length_cache->{$locus}->{$allele_id};
+			my $length = $length_cache->{$locus}->{$allele_id} // 0;
 			if ( $record->[3] >= $alignment * 0.01 * $length || ( !@$locus_match && $return_best_poor_alignment ) ) {
 				my $match;
 				$match->{'query'}      = $record->[0];
