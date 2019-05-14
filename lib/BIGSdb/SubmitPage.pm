@@ -937,7 +937,7 @@ sub _submit_isolates {
 		  . qq((allowed values: @methods)</li>);
 	}
 	say q(</ul>);
-	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method' : q();
+	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method&noLoci=1' : q();
 	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download tab-delimited )
 	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' )

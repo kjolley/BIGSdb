@@ -155,6 +155,7 @@ sub get_isolate_loci {
 	my $set_id = $self->get_set_id;
 	my @headers;
 	my $q = $self->{'cgi'};
+	return [] if $q->param('noLoci');
 	my $order = $q->param('order') // 'alphabetical';
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } );
 	my $loci_with_flag =
