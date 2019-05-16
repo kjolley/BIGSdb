@@ -1576,7 +1576,10 @@ sub _report_successful_upload {
 	}
 	my $detail;
 	if ( $q->param('submission_id') ) {
-		$detail = q(Don't forget to close the submission!);
+		my $submission_id = $q->param('submission_id');
+		my $url           = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1);
+		$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 	}
 	$self->print_good_status(
 		{

@@ -298,7 +298,10 @@ sub _insert {
 			}
 			my $message;
 			if ( $q->param('submission_id') ) {
-				$detail = q(Don't forget to close the submission!);
+				my $submission_id = $q->param('submission_id');
+				my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+				  . qq(submission_id=$submission_id&amp;curate=1);
+				$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 			}
 			if ( $table eq 'sequences' ) {
 				my $cleaned_locus = $self->clean_locus( $newdata->{'locus'} );
@@ -346,7 +349,7 @@ sub _get_navlinks {
 		  qq(&amp;locus=$newdata->{'locus'}&amp;status=$newdata->{'status'}&amp;sender=$newdata->{'sender'});
 	}
 	$more_url =
-	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;) . qq(table=$table$locus_clause);
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table$locus_clause);
 	return {
 		submission_id   => $submission_id,
 		change_password => $change_password,
