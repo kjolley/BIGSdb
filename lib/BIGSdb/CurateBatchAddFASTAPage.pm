@@ -339,12 +339,20 @@ sub _upload {
 		$self->{'db'}->rollback;
 		return;
 	}
+	my $detail;
+	if ($submission_id) {
+		my $url =
+		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1);
+		$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
+	}
 	$self->print_good_status(
 		{
 			message       => q(Sequences added.),
+			detail        => $detail,
 			navbar        => 1,
 			submission_id => $submission_id,
-			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
+			more_url => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
 		}
 	);
 	$self->{'db'}->commit;
