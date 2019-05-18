@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.2.0.
+Version 2.2.1.
 */
 
 var prefs_loaded;
@@ -136,6 +136,16 @@ $(function () {
 		var filename = $("#field").val().replace(/^.+\.\./, "") + ".svg";
 		saveAs(blob, filename);
 	});
+	
+	$("#expand_themes").click(function(){
+		$("#themes_shown").toggle();
+		$("#themes_hidden").toggle();
+		if ($("#themes_hidden").is(":visible")){
+			$("#expanded_themes").hide(500);
+		} else {
+			$("#expanded_themes").show(500);
+		}
+	});
 });
 
 function load_map_after_prefs_loaded(initial_url, field) {
@@ -208,7 +218,19 @@ function load_map(url,field){
 		theme_green : colorbrewer.Greens[5],
 		theme_purple : colorbrewer.Purples[5],
 		theme_orange : colorbrewer.Oranges[5],
-		theme_red : colorbrewer.Reds[5]
+		theme_red : colorbrewer.Reds[5],
+		theme_blue_green: colorbrewer.BuGn[5],
+		theme_blue_purple: colorbrewer.BuPu[5],
+		theme_green_blue: colorbrewer.GnBu[5],
+		theme_orange_red: colorbrewer.OrRd[5],
+		theme_purple_blue: colorbrewer.PuBu[5],
+		theme_purple_blue_green: colorbrewer.PuBuGn[5],
+		theme_purple_red: colorbrewer.PuRd[5],
+		theme_red_purple: colorbrewer.RdPu[5],
+		theme_yellow_green: colorbrewer.YlGn[5],
+		theme_yellow_green_blue: colorbrewer.YlGnBu[5],
+		theme_yellow_orange_brown: colorbrewer.YlOrBr[5],
+		theme_yellow_orange_red: colorbrewer.YlOrRd[5],
 	};
 	var projections = {
 		'Azimuthal Equal Area' : d3.geoAzimuthalEqualArea,

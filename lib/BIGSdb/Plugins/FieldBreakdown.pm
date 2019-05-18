@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.0',
+		version     => '2.2.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
@@ -335,15 +335,46 @@ sub _print_map_controls {
 	  . q(style="position:absolute;top:6em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	$self->_print_chart_types;
-	say q(<style>.theme.fa-square {text-shadow: 1px 1px 1px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
+	say q(<style>.theme.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
 	  . q(</style>);
-	say q(<li>Theme: <span id="theme_grey" style="color:#636363" class="theme fas fa-square"></span>)
+	say q(<li><span style="float:left;margin-right:0.5em">Theme:</span>)
+	  . q(<div style="display:inline-block">)
+	  . q(<span id="theme_grey" style="color:#636363" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_blue" style="color:#3182bd" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_green" style="color:#31a354" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_purple" style="color:#756bb1" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_orange" style="color:#e6550d" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_red" style="color:#de2d26" class="theme fas fa-square"></span>)
-	  . q(</li>);
+	  . q(<span id="expand_themes" style="cursor:pointer"><span id="themes_hidden" class="fas fa-chevron-right"></span>)
+	  . q(<span id="themes_shown" class="fas fa-chevron-down" style="display:none"></span></span>)
+	  . q(<br />)
+	  . q(<span id="expanded_themes" style="display:none">)
+	  . q(<span id="theme_blue_green" style="color:#b2e2e2;text-shadow:2px 2px 2px #006d2c" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_blue_purple" style="color:#b3cde3;text-shadow:2px 2px 2px #810f7c" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_green_blue" style="color:#bae4bc;text-shadow:2px 2px 2px #0868ac" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_orange_red" style="color:#fdcc8a;text-shadow:2px 2px 2px #b30000" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_purple_blue" style="color:#bdc9e1;text-shadow:2px 2px 2px #045a8d" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_purple_blue_green" style="color:#bdc9e1;text-shadow:2px 2px 2px #016c59" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<br />)
+	  . q(<span id="theme_purple_red" style="color:#d7b5d8;text-shadow:2px 2px 2px #980043" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_red_purple" style="color:#fbb4b9;text-shadow:2px 2px 2px #7a0177" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_yellow_green" style="color:#c2e699;text-shadow:2px 2px 2px #006837" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_yellow_green_blue" style="color:#a1dab4;text-shadow:2px 2px 2px #253494" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_yellow_orange_brown" style="color:#fed98e;text-shadow:2px 2px 2px #993404" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(<span id="theme_yellow_orange_red" style="color:#fecc5c;text-shadow:2px 2px 2px #bd0026" )
+	  . q(class="theme fas fa-square"></span>)
+	  . q(</span></div></li>);
 	say q(<li><label for="height">Range:</label>);
 	say q(<div id="colour_range" style="display:inline-block;width:12em;margin-left:0.5em"></div></li>);
 	say q(<li><label for="projection">Projection:</label>);
