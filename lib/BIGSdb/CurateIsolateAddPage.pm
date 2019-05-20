@@ -661,7 +661,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-id      => "field_$field",
 			-values  => [ '', @$optlist ],
 			-labels  => { '' => ' ' },
-			-default => ( $newdata->{$field} // $thisfield->{'default'} ),
+			-default => ( $newdata->{lc $field} // $thisfield->{'default'} ),
 			%$html5_args
 		);
 		return 1;
