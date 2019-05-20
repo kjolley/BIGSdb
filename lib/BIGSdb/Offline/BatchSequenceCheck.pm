@@ -413,16 +413,16 @@ sub _check_sequence_length {
 				$buffer .= 'Sequence appears more than once in this submission.<br />';
 			}
 		}
-		my $exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,md5(sequence))=(?,md5(?)))',
+		my $existing_allele = $self->{'datastore'}->run_query(
+			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
 			[ $locus, ${ $args->{'value'} } ],
 			{ cache => 'CurateBatchAddPage::sequence_exists' }
 		);
-		if ($exists) {
+		if (defined $existing_allele) {
 			if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
 				${ $args->{'continue'} } = 0;
 			} else {
-				$buffer .= "Sequence already exists in the database ($locus: $exists).<br />";
+				$buffer .= "Sequence already exists in the database ($locus: $existing_allele).<br />";
 			}
 		}
 		if ( $self->{'options'}->{'complete_CDS'} ) {
