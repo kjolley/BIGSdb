@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.0',
+		version     => '1.0.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -225,11 +225,12 @@ sub _validate {
 			  'Primer 1 has more than the allowed proportion (' . MAX_WOBBLE_PERCENT . '%) of wobble bases.';
 		}
 		my $mismatch1 = BIGSdb::Utils::is_int( $q->param('mismatch1') ) ? $q->param('mismatch1') : 0;
-		if ( 100 * $mismatch1 / length($primer1) > MAX_MISMATCH_PERCENT ) {
+		if ( 100 * ( $mismatch1 + $primer1_wobble ) / length($primer1) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
-			    'The mismatch setting for primer 1 is too high. This can be no more than '
+			    'The mismatch setting for primer 1 is too high. This, combined with the number of wobble bases, '
+			  . 'can be no more than '
 			  . MAX_MISMATCH_PERCENT
-			  . '% of the length.';
+			  . '% of the length of the primer.';
 		}
 	}
 	if ( length($primer1) < MIN_PRIMER_LENGTH ) {
@@ -246,11 +247,11 @@ sub _validate {
 			  'Primer 2 has more than the allowed proportion (' . MAX_WOBBLE_PERCENT . '%) of wobble bases.';
 		}
 		my $mismatch2 = BIGSdb::Utils::is_int( $q->param('mismatch2') ) ? $q->param('mismatch2') : 0;
-		if ( 100 * $mismatch2 / length($primer2) > MAX_MISMATCH_PERCENT ) {
+		if ( 100 * ( $mismatch2 + $primer2_wobble ) / length($primer2) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
-			    'The mismatch setting for primer 2 is too high. This can be no more than '
-			  . MAX_MISMATCH_PERCENT
-			  . '% of the length.';
+			  'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '
+			  . 'can be no more than '
+			  . MAX_MISMATCH_PERCENT . '% of the length of the primer.';
 		}
 	}
 	if ( length($primer2) < MIN_PRIMER_LENGTH ) {
@@ -395,12 +396,12 @@ sub run_job {
 			my $j = 1;
 			foreach my $product (@$results) {
 				my $seqs = $self->_extract_seqs( $params, $product );
-				push @$export_seqs, {
+				push @$export_seqs,
+				  {
 					id => qq(id:${id}_$j|$product->{'seqbin_id'}|)
-					  . qq($product->{'start'}-$product->{'end'}|$product->{'description'})
-					,
+					  . qq($product->{'start'}-$product->{'end'}|$product->{'description'}),
 					seq => $seqs->{'seq'}
-				};
+				  };
 				$j++;
 			}
 		}
@@ -411,8 +412,8 @@ sub run_job {
 	unlink $reaction_file;
 	unlink $fasta_file;
 	unlink $results_file;
-	if ($params->{'export'}){
-		$self->_export_fasta($job_id,$export_seqs);
+	if ( $params->{'export'} ) {
+		$self->_export_fasta( $job_id, $export_seqs );
 	}
 	return;
 }
@@ -438,10 +439,10 @@ sub _export_summary_tables {
 }
 
 sub _export_fasta {
-	my ($self, $job_id, $seqs) = @_;
+	my ( $self, $job_id, $seqs ) = @_;
 	my $fasta_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.fas";
 	open( my $fh, '>:encoding(utf8)', $fasta_file ) || $logger->error("Cannot open $fasta_file for writing");
-	foreach my $seq (@$seqs){
+	foreach my $seq (@$seqs) {
 		say $fh qq(>$seq->{'id'});
 		say $fh $seq->{'seq'};
 	}
@@ -475,7 +476,7 @@ sub _parse_results {
 		};
 		$product->{'seqbin_id'} =~ s/:.*//x;
 		$product->{'end'} += ( $values[7] eq 'A' ) ? length( $params->{'primer1'} ) : length( $params->{'primer2'} );
-		next if $product->{'length'} < length( $params->{'primer1'}) + length( $params->{'primer2'});
+		next if $product->{'length'} < length( $params->{'primer1'} ) + length( $params->{'primer2'} );
 		next if $self->_too_many_mismatches( $params, \@values, $product );
 		push @$results, $product;
 	}
@@ -502,8 +503,8 @@ sub _too_many_mismatches {
 	#If there are wobble bases then we need to check the primer region in returned sequences
 	#and count the mismatches.
 	my $seqs = $self->_extract_seqs( $params, $product );
-	if (length $params->{'primer1'} != length $seqs->{'primer1'}){
-		$logger->error("Extract seq: ". $seqs->{'primer1'});
+	if ( length $params->{'primer1'} != length $seqs->{'primer1'} ) {
+		$logger->error("Extract seq: $seqs->{'primer1'}");
 	}
 	return 1 if $self->_count_mismatches( $params->{'primer1'}, $seqs->{'primer1'} ) > $params->{'mismatch1'};
 	return 1 if $self->_count_mismatches( $params->{'primer2'}, $seqs->{'primer2'} ) > $params->{'mismatch2'};
