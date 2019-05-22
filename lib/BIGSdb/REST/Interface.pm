@@ -85,6 +85,8 @@ sub _initiate {
 	my ($self) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
+	$self->{'config'}->{'rest_relative_dir'} //= q();
+	$self->{'config'}->{'rest_relative_dir'} =~ s/\/$//x; #Remove trailing / if present
 	$self->{'logger'} = $logger;
 	return;
 }
@@ -363,7 +365,7 @@ sub _is_authorized {
 		Net::OAuth->request('protected resource')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => request->uri_base . request->path,
+			request_url     => request->uri_base . $self->{'config'}->{'rest_relative_dir'} .request->path,
 			consumer_secret => $client->{'client_secret'},
 			token_secret    => $session_token->{'secret'},
 			extra_params    => $extra_params
