@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20190522
 use strict;
 use warnings;
 use 5.010;
@@ -213,7 +213,7 @@ ${bold}-s, --submit$norm
     Set to allow submission by default. The default condition is to not allow.
     
 ${bold}-u, --update$norm
-    Update exisitng credentials in the authentication database.
+    Update existing credentials in the authentication database.
     
 ${bold}-v, --version ${under}VERSION$norm  
     Version of application (optional).
