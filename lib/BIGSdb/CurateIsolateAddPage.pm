@@ -501,7 +501,6 @@ sub _get_html5_args {
 	if ( $thisfield->{'type'} =~ /^int/x || $thisfield->{'type'} eq 'float' ) {
 		if ( $field ne 'sender' && !$thisfield->{'optlist'} ) {
 			$html5_args->{'type'} = 'number';
-			$html5_args->{'min'}  = '0';
 		}
 		$html5_args->{'step'} = $thisfield->{'type'} =~ /^int/x ? 1 : 'any';
 		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};

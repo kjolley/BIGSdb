@@ -222,7 +222,7 @@ sub _get_html5_args {
 			@html5_args{qw(type min step)} = qw(number 0 1);
 		}
 		if ( $att->{'type'} eq 'float' ) {
-			@html5_args{qw(type min step)} = qw(number 0 any);
+			@html5_args{qw(type step)} = qw(number any);
 		}
 	}
 	return \%html5_args;
