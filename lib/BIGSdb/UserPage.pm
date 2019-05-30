@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -438,7 +438,7 @@ sub _request {
 			$self->{'db'}->do( 'INSERT INTO pending_requests (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 				undef, $config, $self->{'username'}, 'now' );
 			$self->_notify_db_admin($config);
-			$logger->error("$self->{'username'} requests registration for $config.");
+			$logger->info("$self->{'username'} requests registration for $config.");
 		}
 	};
 	if ($@) {
