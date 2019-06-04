@@ -329,19 +329,29 @@ sub _print_login_form {
 sub _print_registration_links {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'auto_registration'} || $self->{'system'}->{'dbtype'} ne 'user' || $self->{'curate'};
+	my $q = $self->{'cgi'};
 	say q(<div class="box queryform">);
 	say q(<h2>Not registered?</h2>);
 	say q(<span class="main_icon far fa-address-card fa-2x fa-pull-left"></span>);
-	say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
+	say qq(<ul class="toplevel" style="list-style:none"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
 	  . q(Register for a site-wide account</a>.</li></ul>);
 	if ( $self->{'config'}->{'site_admin_email'} ) {
 		say q(<h2>Forgotten username or password</h2>);
 		say q(<span class="main_icon fas fa-envelope fa-2x fa-pull-left"></span>);
-		say qq(<ul class="toplevel"><li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
+		say q(<ul class="toplevel" style="list-style:none">)
+		. q(<li>Enter E-mail to get a username reminder: );
+		say $q->start_form;
+		say $q->textfield(-name => 'email',-id=>'email');
+		$q->param(page => 'usernameRemind');
+		say $q->hidden('page');
+		say $q->submit(-name =>'submit',-class=>'button',-label=>'Send reminder');
+		say $q->end_form;
+		say q(</li>);
+		say qq(<li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
 		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
 		say q(<h2>Multiple accounts?</h2>);
 		say q(<span class="main_icon fas fa-users fa-2x fa-pull-left"></span>);
-		say q(<ul class="toplevel"><li>If you are registered for different databases with separate accounts, )
+		say q(<ul class="toplevel" style="list-style:none"><li>If you are registered for different databases with separate accounts, )
 		  . q(these can be merged so that you only need to log in with this one site account. )
 		  . q(Please first register for a site-wide account (see link above) and then )
 		  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">E-mail the site administrator</a> )

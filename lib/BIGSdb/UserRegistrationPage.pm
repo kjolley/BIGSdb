@@ -71,7 +71,14 @@ sub username_reminder {
 	my ( $self, $email_address ) = @_;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
-		$self->print_bad_status( { message => q(The passed E-mail address is not valid) } );
+		$self->print_bad_status(
+			{
+				message  => q(The passed E-mail address is not valid),
+				navbar   => 1,
+				no_home  => 1,
+				back_url => $self->{'system'}->{'script_name'}
+			}
+		);
 		return;
 	}
 
@@ -81,7 +88,8 @@ sub username_reminder {
 		$email_address, { fetch => 'col_arrayref' } );
 	$self->print_good_status(
 		{
-			message  => qq(A user name reminder has been sent to $email_address.),
+			message => qq(A user name reminder has been sent to $email_address if )
+			  . q(it has a user name associated with it.),
 			navbar   => 1,
 			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'})
@@ -96,7 +104,6 @@ sub username_reminder {
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
 	my $plural = @$usernames == 1 ? q() : q(s);
 	$message .= qq(This address is associated with the following user name$plural:\n\n);
-
 	foreach my $username (@$usernames) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
 		if ( $status eq 'validated' ) {
