@@ -449,7 +449,7 @@ sub get_user_jobs {
 	    q[SELECT *,extract(epoch FROM now() - start_time) AS elapsed,extract(epoch FROM stop_time - ]
 	  . q[start_time) AS total_time FROM jobs WHERE (dbase_config,username)=(?,?) AND (submit_time > ]
 	  . qq[now()-interval '$days days' OR stop_time > now()-interval '$days days' OR status='started' OR ]
-	  . q[status='submitted') ORDER BY submit_time];
+	  . q[status='submitted') AND module != 'ManualScan' ORDER BY submit_time];
 	my $jobs = $self->_run_query( $qry, [ $instance, $username ], { fetch => 'all_arrayref', slice => {} } );
 	return $jobs;
 }
