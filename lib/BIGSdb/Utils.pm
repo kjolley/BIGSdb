@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -343,6 +343,11 @@ sub xmfa2fasta {
 				}
 			} else {
 				$current_id = $1;
+				if ( $options->{'strip_pos'} ) {
+
+					#Remove contig position from id since this will be different for every locus.
+					$current_id =~ s/\|(?:\d+_\d+|defined_allele|no_seq)$//x;
+				}
 			}
 			if ( !$seq{$current_id} ) {
 				push @ids, $current_id;

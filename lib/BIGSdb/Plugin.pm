@@ -678,7 +678,12 @@ sub print_sequence_export_form {
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	if ( !$options->{'no_includes'} ) {
 		$self->print_includes_fieldset(
-			{ scheme_id => $scheme_id, include_seqbin_id => $options->{'include_seqbin_id'} } );
+			{
+				scheme_id             => $scheme_id,
+				include_seqbin_id     => $options->{'include_seqbin_id'},
+				include_scheme_fields => $options->{'include_scheme_fields'}
+			}
+		);
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
@@ -798,7 +803,7 @@ sub print_includes_fieldset {
 		my $set_id        = $self->get_set_id;
 		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $is_curator    = $self->is_curator;
-		my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
 		foreach my $field (@$field_list) {
 			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);

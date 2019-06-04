@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.5.17',
+		version          => '1.6.0',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -69,7 +69,7 @@ sub set_pref_requirements {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	return { 'jQuery.jstree' => ($self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0) };
+	return { 'jQuery.jstree' => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0 ) };
 }
 
 sub run {
@@ -212,14 +212,15 @@ sub run {
 		$pk, $list,
 		$scheme_id,
 		{
-			default_select    => 0,
-			translate         => 1,
-			flanking          => 1,
-			ignore_seqflags   => 1,
-			ignore_incomplete => 1,
-			align             => $allow_alignment,
-			in_frame          => 1,
-			include_seqbin_id => 1
+			default_select        => 0,
+			translate             => 1,
+			flanking              => 1,
+			ignore_seqflags       => 1,
+			ignore_incomplete     => 1,
+			align                 => $allow_alignment,
+			in_frame              => 1,
+			include_seqbin_id     => 1,
+			include_scheme_fields => 1
 		}
 	);
 	say q(</div>);
@@ -386,8 +387,7 @@ sub make_isolate_seq_file {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $params, $ids, $loci, $filename, $max_progress ) =
 	  @$args{qw(job_id params ids loci filename max_progress)};
-	my @problem_ids;
-	my %problem_id_checked;
+	my $problem_ids    = {};
 	my $includes       = $self->_get_includes($params);
 	my %field_included = map { $_ => 1 } @$includes;
 	my $seqbin_qry     = $self->_get_seqbin_query($params);
@@ -425,21 +425,17 @@ sub make_isolate_seq_file {
 		my $temp         = BIGSdb::Utils::get_random();
 		my $temp_file    = "$self->{'config'}->{secure_tmp_dir}/$temp.txt";
 		my $aligned_file = "$self->{'config'}->{secure_tmp_dir}/$temp.aligned";
-		open( my $fh_unaligned, '>:encoding(utf8)', "$temp_file" ) or $logger->error("could not open temp file $temp_file");
-		foreach my $id (@$ids) {
-			my @include_values;
-			my $isolate_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
-				$id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
-			foreach my $field (@$includes) {
-				next if $field eq SEQ_SOURCE;
-				my $value = $self->get_field_value( $isolate_data, $field );
-				push @include_values, $value;
+		open( my $fh_unaligned, '>:encoding(utf8)', $temp_file )
+		  or $logger->error("could not open temp file $temp_file");
+	  ISOLATE: foreach my $id (@$ids) {
+			my $include_values = [];
+			try {
+				$include_values = $self->_get_included_values( $includes, $id, $problem_ids );
 			}
-			if ( !$isolate_data->{'id'} ) {
-				push @problem_ids, $id if !$problem_id_checked{$id};
-				$problem_id_checked{$id} = 1;
-				next;
-			}
+			catch {
+				no warnings 'exiting';
+				next ISOLATE;
+			};
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
 			my $allele_seq;
 			if ( $locus_info->{'data_type'} eq 'DNA' ) {
@@ -450,12 +446,11 @@ sub make_isolate_seq_file {
 						if ($seq) {
 							$allele_seq .= $seq;
 						} else {
-							$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.")
-							  ;
+							$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.");
 						}
 					}
 				}
-				catch { };         #do nothing
+				catch { };    #do nothing
 			}
 			my $seqbin_seq;
 			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
@@ -500,10 +495,13 @@ sub make_isolate_seq_file {
 				$no_seq{$id}       = 1;
 				$pos_include_value = 'no_seq';
 			}
-			push @include_values, $pos_include_value if $field_included{&SEQ_SOURCE};
+			if ( $field_included{&SEQ_SOURCE} ) {
+				push @$include_values, $pos_include_value;
+				$self->{'seq_source'} = 1;
+			}
 			print $fh_unaligned ">$id";
 			local $" = '|';
-			print $fh_unaligned "|@include_values" if @$includes;
+			print $fh_unaligned "|@$include_values" if @$includes;
 			print $fh_unaligned "\n";
 			$seq = $self->_translate_seq_if_required( $params, $locus_info, $seq );
 			say $fh_unaligned $seq;
@@ -528,7 +526,34 @@ sub make_isolate_seq_file {
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;
-	return { problem_ids => \@problem_ids, no_output => $no_output };
+	return { problem_ids => [ sort { $a <=> $b } keys %$problem_ids ], no_output => $no_output };
+}
+
+sub _get_included_values {
+	my ( $self, $includes, $isolate_id, $problem_ids ) = @_;
+	my $include_values = [];
+	my $isolate_data   = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+		$isolate_id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
+	foreach my $field (@$includes) {
+		next if $field eq SEQ_SOURCE;
+		if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+			my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+			my $scheme_field_values =
+			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+			my @values = sort ( keys %{ $scheme_field_values->{ lc($scheme_field) } } );
+			local $" = q(;);
+			( my $string = qq(@values) ) =~ tr/ /_/;
+			push @$include_values, $string;
+		} else {
+			my $value = $self->get_field_value( $isolate_data, $field );
+			push @$include_values, $value;
+		}
+	}
+	if ( !$isolate_data->{'id'} ) {
+		$problem_ids->{$isolate_id} = 1;
+		BIGSdb::Exception::Database::NoRecord->throw;
+	}
+	return $include_values;
 }
 
 sub _translate_seq_if_required {
@@ -580,7 +605,7 @@ sub _output {
 		);
 		try {
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA' } );
-			my $fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
+			my $fasta_file = BIGSdb::Utils::xmfa2fasta( $filename, { strip_pos => $self->{'seq_source'} } );
 			if ( -e $fasta_file ) {
 				$self->{'jobManager'}->update_job_output(
 					$job_id,
