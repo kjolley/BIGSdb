@@ -1584,6 +1584,7 @@ sub get_set_id {
 		my $set_id = $self->{'system'}->{'set_id'} // $q->param('set_id') // $self->{'prefs'}->{'set_id'};
 		return $set_id if $set_id && BIGSdb::Utils::is_int($set_id);
 	}
+	return if !$self->{'datastore'};
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) eq 'yes' && !$self->{'curate'} ) {
 		if ( !$self->{'cache'}->{'set_list'} ) {
 			$self->{'cache'}->{'set_list'} =
