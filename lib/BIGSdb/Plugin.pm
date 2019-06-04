@@ -810,9 +810,6 @@ sub print_includes_fieldset {
 			push @fields, $field;
 			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
 		}
-		if ( $options->{'include_seqbin_id'} ) {
-			push @fields, SEQ_SOURCE;
-		}
 		if ( $options->{'include_scheme_fields'} ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
@@ -823,6 +820,9 @@ sub print_includes_fieldset {
 					$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
 				}
 			}
+		}
+		if ( $options->{'include_seqbin_id'} ) {
+			push @fields, SEQ_SOURCE;
 		}
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $options->{'scheme_id'} );
