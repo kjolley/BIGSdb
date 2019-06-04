@@ -1989,8 +1989,8 @@ sub _get_allele_designations {
 					'=' => sub {
 						if ( lc($text) eq 'null' ) {
 							push @lqry_blank,
-							  "($view.id NOT IN (SELECT isolate_id FROM allele_designations "
-							  . "WHERE locus=E'$locus'))";
+							  '(NOT EXISTS (SELECT 1 FROM allele_designations WHERE allele_designations.isolate_id='
+							  . "$view.id AND locus=E'$locus'))";
 						} else {
 							$lqry{$locus} .= $andor if $lqry{$locus};
 							$lqry{$locus} .=
