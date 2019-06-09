@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
-		version     => '2.0.3',
+		version     => '2.0.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -161,14 +161,14 @@ sub _get_heatmap_size {
 	my $largest_axes = @$loci;
 	$largest_axes = @$isolates if @$isolates > @$loci;
 	my $radius;
-	for my $r ( 1 .. 10 ) {
+	for my $r ( 1 .. 7 ) {
 		my $test_radius = 11 - $r;
 		if ( $largest_axes * $test_radius < HEATMAP_MIN_WIDTH || $largest_axes * $test_radius < HEATMAP_MIN_HEIGHT ) {
 			$radius = $test_radius;
 			last;
 		}
 	}
-	$radius //= 1;
+	$radius //= 4;
 	my $blur   = $radius == 1 ? 0 : 0.2;
 	my $width  = @$loci * $radius * 2 + 20;
 	my $height = @$isolates * $radius * 2 + 20;
