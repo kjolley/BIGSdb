@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,6 +104,7 @@ sub username_reminder {
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
 	my $plural = @$usernames == 1 ? q() : q(s);
 	$message .= qq(This address is associated with the following user name$plural:\n\n);
+
 	foreach my $username (@$usernames) {
 		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $username );
 		if ( $status eq 'validated' ) {
@@ -116,6 +117,30 @@ sub username_reminder {
 		$message .= qq(\nPlease contact $self->{'config'}->{'site_admin_email'} if you need to reset your password.\n);
 	}
 	$message .= qq(\n);
+	my $registrations = $self->{'datastore'}->run_query(
+		'SELECT ar.dbase_config,ar.description,u.user_name FROM registered_users ru JOIN '
+		  . 'available_resources ar ON ru.dbase_config=ar.dbase_config JOIN users u ON u.user_name=ru.user_name WHERE '
+		  . 'email=? ORDER BY ar.dbase_config,u.user_name',
+		$email_address,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $is_are = @$usernames > 1 ? 'are' : 'is';
+	if (@$registrations) {
+		$message .= qq(Your account$plural $is_are registered for the following databases:\n\n);
+	} else {
+		$message .= qq(Your account$plural $is_are not yet registered for any databases. )
+		  . qq(You need to register for a specific database before you can log in.\n\n);
+	}
+	foreach my $reg (@$registrations) {
+		my $value = qq($reg->{'dbase_config'} ($reg->{'description'}));
+		$value .= qq( - Username: $reg->{'user_name'}) if @$usernames > 1;
+		$message .= qq($value\n);
+	}
+	if ( $self->{'config'}->{'registration_address'} ) {
+		my $additional = @$registrations ? q(additional ) : q();
+		$message .= qq(\nYou can update your profile or register for ${additional}databases at )
+		  . qq($self->{'config'}->{'registration_address'}.);
+	}
 	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
@@ -313,7 +338,10 @@ sub _bad_email {
 				message => q(An account has already been registered with this E-mail address. )
 				  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
 				  . q(for a reminder of your user name to be sent to this address.),
-				detail => $detail
+				detail => $detail,
+				navbar => 1,
+				no_home => 1,
+				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
 		return 1;
