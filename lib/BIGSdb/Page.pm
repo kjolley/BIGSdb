@@ -2943,8 +2943,8 @@ sub get_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit ) =
-	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE );
+	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate ) =
+	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE, CURATE);
 	my $buffer = q(<div class="navigation">);
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
@@ -2959,6 +2959,10 @@ sub print_navigation_bar {
 	if ( !$options->{'no_home'} ) {
 		$buffer .=
 		  qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
+	}
+	if ( $options->{'curator_interface'} && $self->{'config'}->{'curate_script'} ) {
+		$buffer .= qq(<a href="$self->{'config'}->{'curate_script'}?db=$self->{'instance'}" )
+		  . qq(title="Curators' interface" style="margin-right:1em">$curate</a>);
 	}
 	if ( $options->{'change_password'} ) {
 		$buffer .= qq(<a href="$options->{'change_password'}" title="Set password" style="margin-right:1em">$key</a>);

@@ -152,11 +152,14 @@ sub print_content {
 	$self->_delete_old_submissions;
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
+	my $show_curator_link = $self->can_modify_table('isolates');
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
 		if ( !$submissions_to_show ) {
-			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+			$self->print_navigation_bar(
+				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } )
+			  ;
 		}
 		say q(</div></div>);
 	}
@@ -166,7 +169,8 @@ sub print_content {
 		$self->print_submissions_for_curation;
 		$self->_print_closed_submissions;
 		say q(<p style="margin-top:1em">);
-		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+		$self->print_navigation_bar(
+			{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } );
 		say q(</p></div></div>);
 	}
 	if ($closed_buffer) {
@@ -321,14 +325,15 @@ sub _print_new_submission_links {
 		if ( $self->{'system'}->{'isolate_database'} && ( $self->{'system'}->{'isolate_submissions'} // q() ) eq 'yes' )
 		{
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
-			  . q(page=submit&amp;isolates=1">isolates</a> <span class="link">Link to isolate database</span></li>);
+			  . q(page=submit&amp;isolates=1">isolates</a> (without associated assembly files) )
+			  . q(<span class="link">Link to isolate database</span></li>);
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
 			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with associated assembly files) )
 			  . q(<span class="link">Link to isolate database</span></li>);
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(isolates=1">isolates</a></li>)
+		  . q(isolates=1">isolates</a> (without associated assembly files)</li>)
 		  . qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(genomes=1">genomes</a> (isolate records with associated assembly files)</li>);
 	}
