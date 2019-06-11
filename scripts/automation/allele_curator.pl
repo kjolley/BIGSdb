@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20190611
 use strict;
 use warnings;
 use 5.010;
@@ -117,7 +117,6 @@ sub main {
 				[ $allele_submission->{'locus'}, $seq->{'sequence'} ]
 			);
 			if ($seq_exists) {
-				say "$seq->{'seq_id'}: Rejected - sequence already exists - allele $seq_exists.";
 				next SEQS;
 			}
 			my $ref_seqs = $script->{'datastore'}->run_query(
