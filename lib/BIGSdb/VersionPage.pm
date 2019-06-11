@@ -103,7 +103,7 @@ HTML
 		say $buffer;
 		say q(</ul>);
 	}
-	if (!$self->{'config'}->{'no_cookie_consent'}){
+	if (!$self->{'config'}->{'no_cookie_consent'} && $self->{'instance'}){
 		say q(<h2>Cookies</h2>);
 		say q(<span class="main_icon fas fa-cookie-bite fa-3x fa-pull-left"></span>);
 		say q(<ul style="margin-left:2em;margin-top:1.5em">);

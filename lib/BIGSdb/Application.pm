@@ -356,7 +356,7 @@ sub _is_user_page {
 		$self->{'system'}->{'dbtype'}      = 'user';
 		$self->{'system'}->{'script_name'} =
 		  $q->script_name || ( $self->{'curate'} ? 'bigscurate.pl' : 'bigsdb.pl' );
-		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind);
+		my %non_user_page = map { $_ => 1 } qw(logout changePassword registration usernameRemind resetPassword);
 		$self->{'page'} = 'user' if !$non_user_page{ $self->{'page'} };
 		$q->param( page => 'user' ) if !$non_user_page{ $q->param('page') };
 		return 1;
@@ -403,6 +403,7 @@ sub print_page {
 		options            => 'OptionsPage',
 		pubquery           => 'PubQueryPage',
 		query              => $query_page,
+		resetPassword      => 'UserRegistrationPage',
 		plugin             => 'Plugin',
 		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
@@ -460,7 +461,11 @@ sub print_page {
 		}
 		return;
 	}
-	if ( $self->{'db'} && $self->{'page'} ne 'registration' && $self->{'page'} ne 'usernameRemind' ) {
+	if (   $self->{'db'}
+		&& $self->{'page'} ne 'registration'
+		&& $self->{'page'} ne 'usernameRemind'
+		&& $self->{'page'} ne 'resetPassword' )
+	{
 		my $login_requirement = $self->{'datastore'}->get_login_requirement;
 		if (   $login_requirement != NOT_ALLOWED
 			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )

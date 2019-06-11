@@ -70,6 +70,7 @@ sub get_javascript {
 sub _get_cookie_js {
 	my ($self) = @_;
 	return q() if $self->{'config'}->{'no_cookie_consent'} || $self->{'curate'} || !$self->{'instance'};
+	return q() if !$self->{'instance'};
 	return <<"JS";
 window.addEventListener("load", function(){
 window.cookieconsent.utils.isMobile = () => false; //Don't float on mobile devices.

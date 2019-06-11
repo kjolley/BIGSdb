@@ -259,7 +259,7 @@ sub _print_login_form {
 	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
 		$self->_create_session( $session_id, 'login', undef );
 	}
-	say q(<div class="box queryform">);
+	say q(<div class="box queryform"><div class="scrollable">);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
 	say q(<span class="main_icon fas fa-sign-in-alt fa-3x fa-pull-left"></span>);
@@ -270,39 +270,17 @@ sub _print_login_form {
 		  . q(password.value=CryptoJS.MD5(password.value+user.value); return true) );
 	say q(<fieldset style="float:left"><legend>Account</legend>);
 	say q(<ul>);
+
 	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
-		my $user_dbs = $self->{'config'}->{'site_user_dbs'};
-		my $values   = [];
-		my $labels   = {};
-		foreach my $user_db (@$user_dbs) {
-			push @$values, $user_db->{'dbase'};
-			$labels->{ $user_db->{'dbase'} } = $user_db->{'name'};
-		}
 		say q(<li><label for="db" class="display">Domain: </label>);
-		if ( @$values == 1 ) {
-			say $q->popup_menu(
-				-name     => 'db',
-				-id       => 'db',
-				-values   => $values,
-				-labels   => $labels,
-				-disabled => 'disabled'
-			);
-			say $q->hidden( db => $values->[0] );
-		} else {
-			unshift @$values, q();
-			say $q->popup_menu(
-				-name     => 'db',
-				-id       => 'db',
-				-values   => $values,
-				-labels   => $labels,
-				-required => 'required'
-			);
-		}
+		say $self->_get_domain_dropdown;
+		say q(</li>);
 		$q->param( page => 'user' );
 	}
 	say q(<li><label for="user" class="display">Username: </label>);
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
-	say q(</li><li><label for="password_field" class="display">Password: </label>);
+	say q(</li><li>)
+	. q(<label for="password_field" class="display">Password: </label>);
 	say $q->password_field(
 		-name  => 'password_field',
 		-id    => 'password_field',
@@ -322,8 +300,48 @@ sub _print_login_form {
 		say $q->hidden($param);
 	}
 	say $q->end_form;
-	say q(</div>);
+	say q(</div></div>);
 	return;
+}
+
+sub _get_domain_dropdown {
+	my ( $self, $options ) = @_;
+	$options->{'field_name'} //= 'db';
+	$options->{'field_id'} //= 'db';
+ 	my $buffer   = q();
+	my $q        = $self->{'cgi'};
+	my $user_dbs = $self->{'config'}->{'site_user_dbs'};
+	my $values   = [];
+	my $labels   = {};
+	foreach my $user_db (@$user_dbs) {
+		push @$values, $user_db->{'dbase'};
+		$labels->{ $user_db->{'dbase'} } = $user_db->{'name'};
+	}
+	if ( @$values == 1 ) {
+		if ( !$options->{'hide_if_only_one'} ) {
+			$buffer .= qq(<label for="$options->{'field_id'}">$options->{'label'}</label>) if $options->{'label'};
+			$buffer .= $q->popup_menu(
+				-name     => $options->{'field_name'},
+				-id => $options->{'field_id'},
+				-values   => $values,
+				-labels   => $labels,
+				-disabled => 'disabled'
+			);
+		}
+		$buffer .= $q->hidden( $options->{'field_name'} => $values->[0] );
+	} else {
+		$buffer .= qq(<label for="$options->{'field_id'}">$options->{'label'}</label>)
+		  if $options->{'label'};
+		unshift @$values, q();
+		$buffer .= $q->popup_menu(
+			-name     => $options->{'field_name'},
+			-id => $options->{'field_id'},
+			-values   => $values,
+			-labels   => $labels,
+			-required => 'required'
+		);
+	}
+	return $buffer;
 }
 
 sub _print_registration_links {
@@ -333,30 +351,64 @@ sub _print_registration_links {
 	say q(<div class="box queryform">);
 	say q(<h2>Not registered?</h2>);
 	say q(<span class="main_icon far fa-address-card fa-2x fa-pull-left"></span>);
-	say qq(<ul class="toplevel" style="list-style:none"><li><a href="$self->{'system'}->{'script_name'}?page=registration">)
-	  . q(Register for a site-wide account</a>.</li></ul>);
-	if ( $self->{'config'}->{'site_admin_email'} ) {
-		say q(<h2>Forgotten username or password</h2>);
-		say q(<span class="main_icon fas fa-envelope fa-2x fa-pull-left"></span>);
-		say q(<ul class="toplevel" style="list-style:none">)
-		. q(<li>Enter E-mail to get a username reminder: );
-		say $q->start_form;
-		say $q->textfield(-name => 'email',-id=>'email');
-		$q->param(page => 'usernameRemind');
-		say $q->hidden('page');
-		say $q->submit(-name =>'submit',-class=>'button',-label=>'Send reminder');
-		say $q->end_form;
-		say q(</li>);
-		say qq(<li><a href="mailto:$self->{'config'}->{'site_admin_email'}">)
-		  . q(E-mail site administrator</a> - They should be able to reset your account.</li></ul>);
-		say q(<h2>Multiple accounts?</h2>);
-		say q(<span class="main_icon fas fa-users fa-2x fa-pull-left"></span>);
-		say q(<ul class="toplevel" style="list-style:none"><li>If you are registered for different databases with separate accounts, )
-		  . q(these can be merged so that you only need to log in with this one site account. )
-		  . q(Please first register for a site-wide account (see link above) and then )
-		  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">E-mail the site administrator</a> )
-		  . q(with a list of databases you are registered for and your respective usernames.</li></ul>);
+	say qq(<p style="margin-left:4em"><a href="$self->{'system'}->{'script_name'}?page=registration">)
+	  . q(Register for a site-wide account</a>.</p>);
+	say q(<h2>Forgotten username?</h2>);
+	say q(<span class="main_icon fas fa-envelope fa-2x fa-pull-left"></span>);
+	say q(<p style="margin-left:4em">Enter E-mail to get a username reminder:</p>);
+	say $q->start_form;
+	say q(<div class="scrollable" style="margin-left:4em">);
+
+	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
+		say q(<span style="white-space:nowrap">);
+		say $self->_get_domain_dropdown( { field_name => 'domain', field_id => 'remind_domain', hide_if_only_one => 1, label => 'Domain: ' } );
+		say q(</span>);
 	}
+	say q(<span style="white-space:nowrap"><label for="remind_email">E-mail: </label>);
+	say $q->textfield( -name => 'email', -id => 'remind_email' );
+	say q(</span>);
+	$q->param( page => 'usernameRemind' );
+	say $q->hidden('page');
+	say $q->submit( -name => 'submit', -class => 'button', -label => 'Send reminder' );
+	say q(</div>);
+	say $q->end_form;
+	say q(<h2>Forgotten password?</h2>);
+	say q(<span class="main_icon fas fa-key fa-2x fa-pull-left"></span>);
+
+	if (1) {    #TODO Remove
+		say q(<p style="margin-left:4em">Reset password by entering your username )
+		  . q(and its registered E-mail address. A temporary )
+		  . q(password which can be used to log in and reset your account will be sent to the registered address )
+		  . q(if it is associated with a valid username.);
+		say $q->start_form;
+		say q(<div class="scrollable" style="margin-left:4em">);
+		if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
+			say $self->_get_domain_dropdown( { field_name => 'domain', hide_if_only_one => 1, label => 'Domain: ' } );
+		}
+		say q(<span style="white-space:nowrap"><label for="reset_username">Username: </label>);
+		say $q->textfield( -name => 'username', -id => 'reset_username', -required => 'required' );
+		say q(</span>);
+		say q(<span style="white-space:nowrap"><label for="reset_email">E-mail: </label>);
+		say $q->textfield( -name => 'email', -id=>'reset_email',-required => 'required' );
+		say q(</span>);
+		$q->param( page => 'resetPassword' );
+		say $q->hidden('page');
+		say $q->submit( -name => 'submit', -class => 'button', -label => 'Reset password' );
+		say q(</div>);
+		say $q->end_form;
+	}
+	if ( $self->{'config'}->{'site_admin_email'} ) {
+		say q(<p style="margin-left:4em;margin-top:1em">If all else fails, please )
+		  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">)
+		  . q(E-mail the site administrator</a> - they should be able to reset your account.</p>);
+	}
+	say q(<h2>Multiple accounts?</h2>);
+	say q(<span class="main_icon fas fa-users fa-2x fa-pull-left"></span>);
+	say q(<p style="margin-left:4em">If you are registered for different databases with separate accounts, )
+	  . q(these can be merged so that you only need to log in with this one site account. )
+	  . q(Please first register for a site-wide account (see link above) and then )
+	  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">E-mail the site administrator</a> )
+	  . q(with a list of databases you are registered for and your respective usernames.</p>);
 	say q(</div>);
 	return;
 }

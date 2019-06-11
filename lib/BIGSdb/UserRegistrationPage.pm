@@ -60,14 +60,18 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('page') eq 'usernameRemind' && $q->param('email') ) {
-		$self->username_reminder( $q->param('email') );
+		$self->_username_reminder( $q->param('email') );
+		return;
+	}
+	if ( $q->param('page') eq 'resetPassword' && $q->param('username') && $q->param('email') ) {
+		$self->_reset_password( $q->param('username'), $q->param('email') );
 		return;
 	}
 	$self->_print_registration_form;
 	return;
 }
 
-sub username_reminder {
+sub _username_reminder {
 	my ( $self, $email_address ) = @_;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
@@ -100,7 +104,8 @@ sub username_reminder {
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $message = qq(A user name reminder has been requested for the address $email_address.\n);
+	my $user_domain = $self->_get_user_domain;
+	my $message = qq(A user name reminder has been requested for the address $email_address (domain: $user_domain).\n);
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
 	my $plural = @$usernames == 1 ? q() : q(s);
 	$message .= qq(This address is associated with the following user name$plural:\n\n);
@@ -134,7 +139,7 @@ sub username_reminder {
 	foreach my $reg (@$registrations) {
 		my $value = qq($reg->{'dbase_config'} ($reg->{'description'}));
 		$value .= qq( - Username: $reg->{'user_name'}) if @$usernames > 1;
-		$message .= qq($value\n);
+		$message .= qq($value\t\n);    #Terminal tab prevents Outlook removing newlines.
 	}
 	if ( $self->{'config'}->{'registration_address'} ) {
 		my $additional = @$registrations ? q(additional ) : q();
@@ -158,7 +163,92 @@ sub username_reminder {
 		  || $logger->error("Cannot send E-mail to $email_address.");
 	};
 	$logger->error($@) if $@;
-	$logger->info("Username reminder requested for $email_address.");
+	$logger->info("Username reminder requested for $email_address ($user_domain).");
+	return;
+}
+
+sub _get_user_domain {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $user_db ( @{ $self->{'config'}->{'site_user_dbs'} } ) {
+		if ( $user_db->{'dbase'} eq $q->param('domain') ) {
+			return $user_db->{'name'};
+		}
+	}
+	return 'default domain';
+}
+
+sub _reset_password {
+	my ( $self, $username, $email_address ) = @_;
+	my $address = Email::Valid->address($email_address);
+	if ( !$address ) {
+		$self->print_bad_status(
+			{
+				message  => q(The passed E-mail address is not valid),
+				navbar   => 1,
+				no_home  => 1,
+				back_url => $self->{'system'}->{'script_name'}
+			}
+		);
+		return;
+	}
+	my $user_domain = $self->_get_user_domain;
+	$self->print_good_status(
+		{
+			message => qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
+			  . q(if an account with these details exists.),
+			navbar   => 1,
+			no_home  => 1,
+			back_url => qq($self->{'system'}->{'script_name'})
+		}
+	);
+	my $password = $self->_create_password;
+	my $message  = qq(A password reset has been requested for user '$username' with E-mail address '$email_address' )
+	  . qq((domain: $user_domain).\n);
+	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
+	if (
+		$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM users WHERE (user_name,email)=(?,?))', [ $username, $email_address ]
+		)
+	  )
+	{
+		$self->set_password_hash( $username, Digest::MD5::md5_hex( $password . $username ), { reset_password => 1 } );
+			$logger->info("Password reset request for $email_address ($user_domain).");
+		
+		if ( $self->{'config'}->{'registration_address'} ) {
+			$message .=
+			  qq(Please log on at $self->{'config'}->{'registration_address'} with the following details:\n\n);
+		} else {
+			$message .= qq(Please log on with the following details:\n\n);
+		}
+		$message .= qq(Username: $username\n);
+		$message .= qq(Password: $password\n\n);
+		$message .= qq(You will be required to then change your password.\n\n);
+	} else {
+		$logger->error("Password reset request for $username ($email_address). Address does not match user.");
+		$message .= q(There is no account with that username registered to this address.);
+	}
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
+	);
+	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $email = Email::MIME->create(
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		header_str => [
+			To      => $email_address,
+			From    => "no_reply\@$domain",
+			Subject => "$domain password reset",
+		],
+		body_str => $message
+	);
+	eval {
+		try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to  $email_address");
+	};
+	$logger->error($@) if $@;
 	return;
 }
 
@@ -338,9 +428,9 @@ sub _bad_email {
 				message => q(An account has already been registered with this E-mail address. )
 				  . qq(<a href="$self->{'system'}->{'script_name'}?page=usernameRemind&amp;email=$email">Click here</a> )
 				  . q(for a reminder of your user name to be sent to this address.),
-				detail => $detail,
-				navbar => 1,
-				no_home => 1,
+				detail   => $detail,
+				navbar   => 1,
+				no_home  => 1,
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
