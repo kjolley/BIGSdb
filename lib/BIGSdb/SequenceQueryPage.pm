@@ -314,12 +314,32 @@ sub _run_query {
 	my $loci                   = $self->_get_selected_loci;
 	my $q                      = $self->{'cgi'};
 	my $always_run_immediately = $q->param('no_ajax') ? 1 : 0;
+	return if $self->_invalid_query($seq_ref);
 	if ( ( length $$seq_ref > RUN_OFFLINE_LENGTH || $q->param('page') eq 'batchSequenceQuery' )
 		&& !$always_run_immediately )
 	{
 		$self->_blast_fork( $seq_ref, $loci );
 	} else {
 		$self->_blast_now( $seq_ref, $loci );
+	}
+	return;
+}
+
+sub _invalid_query {
+	my ( $self, $seq_ref ) = @_;
+	my $type = BIGSdb::Utils::sequence_type($seq_ref);
+	my $size = length $$seq_ref;
+	if ( $type eq 'peptide' && $size > 10_000 ) {
+		$self->print_bad_status(
+			{
+				message => q(Invalid query sequence),
+				detail  => q(Based on the character composition, your query appears to be a protein sequence. )
+				  . q(It is also longer than 10,000 residues, which is the limit for querying protein sequences. )
+				  . q(Please note that your query should be either in valid FASTA format or raw sequence without )
+				  . q(headers.)
+			}
+		);
+		return 1;
 	}
 	return;
 }
