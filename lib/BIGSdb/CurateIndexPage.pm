@@ -295,7 +295,7 @@ sub _get_admin_links {
 
 sub _get_geocoding {
 	my ($self) = @_;
-	return if !$self->is_admin;
+	return q() if !$self->is_admin;
 	my $buffer =
 	  q(<div class="curategroup curategroup_geocoding grid-item default_show_admin"><h2>Geocoding setup</h2>);
 	$buffer .= $self->_get_icon_group(
