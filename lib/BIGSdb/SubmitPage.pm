@@ -53,7 +53,7 @@ sub get_javascript {
 	my $max       = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
 	my $max_files = LIMIT;
 	my $tree_js   = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
-	my $submit_type;
+	my $submit_type = q();
 	foreach my $type (qw(isolates genomes alleles profiles)) {
 		if ( $q->param($type) ) {
 			$submit_type = $type;
