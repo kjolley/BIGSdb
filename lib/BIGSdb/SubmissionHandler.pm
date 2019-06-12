@@ -97,6 +97,69 @@ sub set_allele_status {
 	return;
 }
 
+sub clear_assigned_seq_id {
+	my ( $self, $submission_id, $seq_id ) = @_;
+	eval {
+		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET assigned_id=NULL WHERE (submission_id,seq_id)=(?,?)',
+			undef, $submission_id, $seq_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub clear_assigned_profile_id {
+	my ( $self, $submission_id, $profile_id ) = @_;
+	eval {
+		$self->{'db'}
+		  ->do( 'UPDATE profile_submission_profiles SET assigned_id=NULL WHERE (submission_id,profile_id)=(?,?)',
+			undef, $submission_id, $profile_id );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub set_profile_status {
+	my ( $self, $submission_id, $profile_id, $status, $assigned_id ) = @_;
+	eval {
+		$self->{'db'}->do(
+			'UPDATE profile_submission_profiles SET (status,assigned_id)=(?,?) WHERE (submission_id,profile_id)=(?,?)',
+			undef, $status, $assigned_id, $submission_id, $profile_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->update_submission_datestamp($submission_id);
+	}
+	return;
+}
+
+sub update_submission_outcome {
+	my ( $self, $submission_id, $outcome ) = @_;
+	eval { $self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, $outcome, $submission_id ) };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub update_submission_datestamp {
 	my ( $self, $submission_id ) = @_;
 	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };

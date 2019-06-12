@@ -50,9 +50,9 @@ sub get_submission_days {
 sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
+	my $max       = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
 	my $max_files = LIMIT;
-	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
+	my $tree_js   = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $submit_type;
 	foreach my $type (qw(isolates genomes alleles profiles)) {
 		if ( $q->param($type) ) {
@@ -1352,7 +1352,7 @@ sub _print_file_upload_fieldset {
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
 	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $submission     = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( $options->{'genomes'} ) {
 		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
 	} elsif ( $submission->{'type'} eq 'isolates' ) {
@@ -1548,7 +1548,7 @@ sub _update_isolate_submission_isolate_status {
 	return if !$submission;
 	my $q = $self->{'cgi'};
 	my %outcome = ( accepted => 'good', rejected => 'bad' );
-	$self->_update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
+	$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
 	if ( $q->param('record_status') eq 'accepted' ) {
 		say q[<script>$(function(){]
 		  . q[$("#dialog").html("<p>Please note that changing the status of an isolate submission to ]
@@ -1595,7 +1595,7 @@ sub _print_sequence_table {
 		);
 		if ( !defined $assigned ) {
 			if ( defined $seq->{'assigned_id'} ) {
-				$self->_clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
+				$self->{'submissionHandler'}->clear_assigned_seq_id( $submission_id, $seq->{'seq_id'} );
 			}
 			if ( $seq->{'status'} eq 'assigned' ) {
 				$self->{'submissionHandler'}->set_allele_status( $submission_id, $seq->{'seq_id'}, 'pending', undef );
@@ -1656,7 +1656,7 @@ sub _print_sequence_table {
 		} else {
 			undef $outcome;
 		}
-		$self->_update_submission_outcome( $submission_id, $outcome );
+		$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome );
 	}
 	return {
 		all_assigned_or_rejected => $all_assigned_or_rejected,
@@ -1707,18 +1707,20 @@ sub _print_profile_table {
 		my $assigned;
 		if ( !$profile_status->{'exists'} ) {
 			if ( defined $profile->{'assigned_id'} ) {
-				$self->_clear_assigned_profile_id( $submission_id, $profile->{'profile_id'} );
+				$self->{'submissionHandler'}->clear_assigned_profile_id( $submission_id, $profile->{'profile_id'} );
 				$profile->{'assigned_id'} = undef;
 			}
 			if ( $profile->{'status'} eq 'assigned' ) {
-				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending', undef );
+				$self->{'submissionHandler'}
+				  ->set_profile_status( $submission_id, $profile->{'profile_id'}, 'pending', undef );
 				$profile->{'status'} = 'pending';
 			}
 			push @$pending_profiles, $profile->{'index'} if $profile->{'status'} ne 'rejected';
 		} else {
 			$assigned = $profile_status->{'assigned'}->[0];
 			if ( $profile->{'status'} ne 'assigned' || ( $profile->{'assigned_id'} // '' ) ne $assigned ) {
-				$self->_set_profile_status( $submission_id, $profile->{'profile_id'}, 'assigned', $assigned );
+				$self->{'submissionHandler'}
+				  ->set_profile_status( $submission_id, $profile->{'profile_id'}, 'assigned', $assigned );
 				$profile->{'status'}      = 'assigned';
 				$profile->{'assigned_id'} = $assigned;
 			}
@@ -1769,7 +1771,7 @@ sub _print_profile_table {
 		} else {
 			undef $outcome;
 		}
-		$self->_update_submission_outcome( $submission_id, $outcome );
+		$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome );
 	}
 	say q(</table>);
 	return {
@@ -1908,87 +1910,6 @@ sub _print_update_button {
 	return;
 }
 
-#TODO Move to SubmissionHandler.pm.
-sub _clear_assigned_seq_id {
-	my ( $self, $submission_id, $seq_id ) = @_;
-	eval {
-		$self->{'db'}->do( 'UPDATE allele_submission_sequences SET assigned_id=NULL WHERE (submission_id,seq_id)=(?,?)',
-			undef, $submission_id, $seq_id );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_update_submission_datestamp($submission_id);
-	}
-	return;
-}
-
-#TODO Move to SubmissionHandler.pm.
-sub _clear_assigned_profile_id {
-	my ( $self, $submission_id, $profile_id ) = @_;
-	eval {
-		$self->{'db'}
-		  ->do( 'UPDATE profile_submission_profiles SET assigned_id=NULL WHERE (submission_id,profile_id)=(?,?)',
-			undef, $submission_id, $profile_id );
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_update_submission_datestamp($submission_id);
-	}
-	return;
-}
-
-#TODO Move to SubmissionHandler.pm.
-sub _set_profile_status {
-	my ( $self, $submission_id, $profile_id, $status, $assigned_id ) = @_;
-	eval {
-		$self->{'db'}->do(
-			'UPDATE profile_submission_profiles SET (status,assigned_id)=(?,?) WHERE (submission_id,profile_id)=(?,?)',
-			undef, $status, $assigned_id, $submission_id, $profile_id
-		);
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-		$self->_update_submission_datestamp($submission_id);
-	}
-	return;
-}
-
-#TODO Use SubmissionHandler::update_submission_datestamp.
-#Then remove this.
-sub _update_submission_datestamp {
-	my ( $self, $submission_id ) = @_;
-	eval { $self->{'db'}->do( 'UPDATE submissions SET datestamp=? WHERE id=?', undef, 'now', $submission_id ) };
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-	}
-	return;
-}
-
-#TODO Move to SubmissionHandler.pm.
-sub _update_submission_outcome {
-	my ( $self, $submission_id, $outcome ) = @_;
-	eval { $self->{'db'}->do( 'UPDATE submissions SET outcome=? WHERE id=?', undef, $outcome, $submission_id ) };
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
-	}
-	return;
-}
-
 sub _print_message_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
@@ -2011,7 +1932,7 @@ sub _print_message_fieldset {
 			$self->{'db'}->commit;
 			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, $q->param('message') );
 			$q->delete('message');
-			$self->_update_submission_datestamp($submission_id);
+			$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 		}
 		if ( $q->param('append_and_send') ) {
 			my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
