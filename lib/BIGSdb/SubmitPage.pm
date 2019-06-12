@@ -27,6 +27,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
+use constant LIMIT => 100;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -48,7 +49,17 @@ sub get_submission_days {
 
 sub get_javascript {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
+	my $max_files = LIMIT * 2;    #Allow more in case some wrong files are selected
 	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
+	my $submit_type;
+	foreach my $type (qw(isolates genomes alleles profiles)) {
+		if ( $q->param($type) ) {
+			$submit_type = $type;
+			last;
+		}
+	}
 	my $buffer = << "END";
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
@@ -74,7 +85,23 @@ sub get_javascript {
 		\$( "#closed" ).toggle( 'blind', {} , 500 );
 		return false;
 	});
-	
+	\$("form#file_upload_form").dropzone({ 
+		paramName: function() { return 'file_upload'; },
+		parallelUploads: 6,
+		maxFiles: $max_files,
+		uploadMultiple: true,
+		maxFilesize: $max,
+		init: function () {
+        	this.on('queuecomplete', function () {
+         		if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
+	         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+	         		+"page=submit&amp;$submit_type=1" 
+	             	location.href = url;
+         		}
+        	});
+    	}
+	});
+	\$("form#file_upload_form").addClass("dropzone");
 });
 
 function status_markall(status){
@@ -108,7 +135,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone);
 	return;
 }
 
@@ -158,8 +185,7 @@ sub print_content {
 		$self->_print_new_submission_links;
 		if ( !$submissions_to_show ) {
 			$self->print_navigation_bar(
-				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } )
-			  ;
+				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } );
 		}
 		say q(</div></div>);
 	}
@@ -1324,17 +1350,25 @@ sub _print_file_upload_fieldset {
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
 	my $nice_file_size = BIGSdb::Utils::get_nice_size( $self->{'config'}->{'max_upload_size'} );
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( $options->{'genomes'} ) {
 		say q(<p>Please upload contig assemblies with the filenames as specified in the assembly_filename field. );
+	} elsif ( $submission->{'type'} eq 'isolates' ) {
+		say q(<p>Please upload any supporting files required for curation although it's usually not )
+		  . q(necessary for isolate submissions. );
 	} else {
 		say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously )
 		  . q(or add an explanatory note so that they can be linked to the appropriate submission item. );
 	}
-	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go, )
+	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go )
+	  . q((the upload may fail if you try to do more than this - just try again with fewer files at a time if it does), )
 	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
-	say $q->start_form;
+	say $q->start_form( -id => 'file_upload_form' );
+	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
 	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
+	say q(</div>);
+	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	$q->param( no_check => 1 );
 	say $q->hidden($_) foreach qw(db page alleles profiles isolates genomes locus submit submission_id no_check view);
 	say $q->end_form;
@@ -1342,6 +1376,7 @@ sub _print_file_upload_fieldset {
 
 	if (@$files) {
 		say $q->start_form;
+		say q(<h2>Uploaded files</h2>);
 		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
 		$q->param( delete => 1 );
 		say $q->hidden($_)
