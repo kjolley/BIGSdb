@@ -339,6 +339,8 @@ sub write_isolate_csv {
 sub write_db_file {
 	my ( $self, $submission_id ) = @_;
 	my $dir      = $self->get_submission_dir($submission_id);
+	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
+	$self->mkpath($dir);
 	my $filename = 'dbase_config.txt';
 	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Cannot open $dir/$filename for writing");
 	say $fh $self->{'instance'};
