@@ -271,6 +271,18 @@ sub write_isolate_csv {
 	return $filename;
 }
 
+#Adds a file to the submission directory to ease tracking of which database submission is for.
+#Useful if we ever need to manually delete these directories.
+sub write_db_file {
+	my ( $self, $submission_id ) = @_;
+	my $dir      = $self->get_submission_dir($submission_id);
+	my $filename = 'dbase_config.txt';
+	open( my $fh, '>:encoding(utf8)', "$dir/$filename" ) || $logger->error("Cannot open $dir/$filename for writing");
+	say $fh $self->{'instance'};
+	close $fh;
+	return;
+}
+
 sub get_populated_fields {
 	my ( $self, $isolates, $positions ) = @_;
 	my @fields;
@@ -751,6 +763,7 @@ sub _is_field_bad_isolates {
 	}
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$fieldname};
 	$thisfield->{'type'} ||= 'text';
+
 	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
 	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
 	$thisfield->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($fieldname);

@@ -766,6 +766,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 			undef, 'pending', 'now', $q->param('email') // undef,
 			$submission_id, $user_info->{'id'}
 		);
+		$self->{'submissionHandler'}->write_db_file($submission_id);
 	};
 	if ($@) {
 		$logger->error($@);
