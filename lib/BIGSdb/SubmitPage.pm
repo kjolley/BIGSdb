@@ -27,7 +27,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
-use constant LIMIT => 100;
+use constant LIMIT => 500;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -51,7 +51,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
-	my $max_files = LIMIT * 2;    #Allow more in case some wrong files are selected
+	my $max_files = LIMIT;
 	my $tree_js = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $submit_type;
 	foreach my $type (qw(isolates genomes alleles profiles)) {
@@ -964,8 +964,9 @@ sub _submit_isolates {
 	say q(</li>);
 
 	if ( $options->{'genomes'} ) {
+		my $limit = LIMIT;
 		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
-		  . q(this file as supporting data.</li>);
+		  . qq(this file as supporting data. <strong>Upload is limited to $limit files.</strong></li>);
 		my @methods = SEQ_METHODS;
 		local $" = q(, );
 		say q(<li>Enter the name of the sequence method used in the sequence_method field )
