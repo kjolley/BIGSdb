@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -162,24 +162,11 @@ sub _delete {
 	}
 	eval {
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
-			foreach my $isolate_id (@$ids_affected) {
-				my $old_version =
-				  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
-					$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
-				my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
-				my $new_version  = $field_values->{'new_version'};
-
-				#Deleting intermediate version - update old version to point to newer version
-				if ( $new_version && $old_version ) {
-					$self->{'db'}
-					  ->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
-
-					#Deleting latest version - remove link to this version in old version
-				} elsif ($old_version) {
-					$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
-				}
-				$self->{'db'}->do( 'DELETE FROM isolates WHERE id=?', undef, $isolate_id );
-			}
+			$self->_delete_isolate_list($ids_affected);
+		} elsif ( $table eq 'profiles' ) {
+			$self->_delete_profiles($delete_qry);
+		} elsif ($table eq 'sequences'){
+			$self->_delete_alleles($delete_qry);
 		} else {
 			$self->{'db'}->do($delete_qry);
 		}
@@ -238,6 +225,72 @@ sub _delete {
 	if ( $table eq 'sequences' ) {
 		$self->mark_locus_caches_stale($loci);
 		$self->update_blast_caches;
+	}
+	return;
+}
+
+sub _delete_isolate_list {
+	my ( $self, $ids ) = @_;
+	my $q          = $self->{'cgi'};
+	my $curator_id = $self->get_curator_id;
+	foreach my $isolate_id (@$ids) {
+		my $old_version =
+		  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
+			$isolate_id, { cache => 'CurateIsolateDeletePage::get_old_version' } );
+		my $field_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+		my $new_version  = $field_values->{'new_version'};
+
+		#Deleting intermediate version - update old version to point to newer version
+		if ( $new_version && $old_version ) {
+			$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_version, $old_version );
+
+			#Deleting latest version - remove link to this version in old version
+		} elsif ($old_version) {
+			$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
+		}
+		$self->{'db'}->do( 'DELETE FROM isolates WHERE id=?', undef, $isolate_id );
+		if ( $q->param('retire') ) {
+			$self->{'db'}->do( 'INSERT INTO retired_isolates (isolate_id,curator,datestamp) VALUES (?,?,?)',
+				undef, $isolate_id, $curator_id, 'now' );
+		}
+	}
+	return;
+}
+
+sub _delete_profiles {
+	my ( $self, $delete_qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $curator_id = $self->get_curator_id;
+	if ( $q->param('retire') ) {
+		my $qry = $delete_qry;
+		$qry =~ s/DELETE/SELECT\ scheme_id,profile_id/x;
+		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+		$self->{'db'}->do($delete_qry);
+		foreach my $profile (@$to_retire){
+			$self->{'db'}->do('INSERT INTO retired_profiles (scheme_id,profile_id,curator,datestamp) VALUES (?,?,?,?)',undef,
+			$profile->{'scheme_id'},$profile->{'profile_id'},$curator_id,'now');
+		}
+	} else {
+		$self->{'db'}->do($delete_qry);
+	}
+	return;
+}
+
+sub _delete_alleles {
+	my ( $self, $delete_qry ) = @_;
+	my $q = $self->{'cgi'};
+	my $curator_id = $self->get_curator_id;
+	if ( $q->param('retire') ) {
+		my $qry = $delete_qry;
+		$qry =~ s/DELETE/SELECT\ locus,allele_id/x;
+		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+		$self->{'db'}->do($delete_qry);
+		foreach my $profile (@$to_retire){
+			$self->{'db'}->do('INSERT INTO retired_allele_ids (locus,allele_id,curator,datestamp) VALUES (?,?,?,?)',undef,
+			$profile->{'locus'},$profile->{'allele_id'},$curator_id,'now');
+		}
+	} else {
+		$self->{'db'}->do($delete_qry);
 	}
 	return;
 }
@@ -338,7 +391,20 @@ sub _print_interface {
 	  . q(Please confirm that this is your intention.</p>);
 	say q(</fieldset>);
 	say $q->start_form;
-	$self->print_action_fieldset( { submit_label => 'Confirm deletion!', no_reset => 1 } );
+
+	if ( $table eq 'isolates' || $table eq 'profiles' || $table eq 'sequences' ) {
+		$self->print_action_fieldset(
+			{
+				legend        => 'Confirm action',
+				submit_label  => 'Delete',
+				submit2       => 'retire',
+				submit2_label => 'Delete and retire',
+				no_reset      => 1
+			}
+		);
+	} else {
+		$self->print_action_fieldset( { legend => 'Confirm action', submit_label => 'Delete', no_reset => 1 } );
+	}
 	$q->param( deleteAll => 1 );
 	say $q->hidden($_) foreach qw (page db query_file deleteAll table delete_tags scheme_id list_file datatype);
 	say $q->end_form;
