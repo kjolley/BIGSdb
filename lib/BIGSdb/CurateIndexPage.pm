@@ -40,24 +40,49 @@ sub initiate {
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	my $guid = $self->get_guid;
-	try {
-		$self->{'prefs'}->{'all_curator_methods'} =
-		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_curator_methods' ) // '' )
-		  eq 'on' ? 1 : 0;
-		$self->{'prefs'}->{'all_admin_methods'} =
-		  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'all_admin_methods' ) // '' ) eq
-		  'on' ? 1 : 0;
-	}
-	catch {
-		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-			$self->{'prefs'}->{'all_curator_methods'} = 0;
-			$self->{'prefs'}->{'all_admin_methods'}   = 0;
-		} else {
-			$logger->logdie($_);
+	foreach my $method (
+		qw(all_curator_methods misc_admin_methods locus_admin_methods scheme_admin_methods
+		set_admin_methods client_admin_methods field_admin_methods)
+	  )
+	{
+		try {
+			$self->{'prefs'}->{$method} =
+			  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, $method ) // '' ) eq 'on'
+			  ? 1
+			  : 0;
 		}
-	};
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+				$self->{'prefs'}->{$method} = 0;
+			} else {
+				$logger->logdie($_);
+			}
+		};
+	}
 	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
-	$self->{'optional_admin_display'}   = $self->{'prefs'}->{'all_admin_methods'}   ? 'inline' : 'none';
+
+	#Check admin links to see what potentially can be displayed.
+	my @methods = qw(misc_admin locus_admin scheme_admin set_admin client_admin field_admin);
+	foreach my $method (@methods) {
+		$self->{"optional_${method}_display"} = 'inline';
+	}
+	my $admin_links = $self->_get_admin_links;
+	my $categories  = 0;
+	foreach my $method (@methods) {
+		if ( $admin_links =~ /$method/x ) {
+			$categories++;
+		}
+	}
+	if ( $categories == 1 && $admin_links !~ /default_show_admin/x ) {
+		foreach my $method (@methods) {
+			$self->{"optional_${method}_display"} = 'inline';
+		}
+		return;
+	}
+	foreach my $method (@methods) {
+		$self->{"optional_${method}_display"} =
+		  $self->{'prefs'}->{"${method}_methods"} ? 'inline' : 'none';
+	}
 	return;
 }
 
@@ -106,20 +131,32 @@ sub get_javascript {
 	  		});
 	   	});
 	});
-	\$('a#toggle_all_admin_methods').click(function(event){		
+	\$('a#toggle_all_admin_methods').click(function(event){
 		event.preventDefault();
-  		\$(this).attr('href', function(){  
+		\$(this).attr('href', function(){  
   			\$('#all_admin_methods_off').toggle();	
 	  		\$('#all_admin_methods_on').toggle();
-	  		\$('.default_hide_admin').fadeToggle(200,'',function(){
-	  			\$('#admin_grid').packery();
-	  		});	
-	  		\$.ajax({
-	  			url: this.href,
-	  			cache: false,
-	  		});
-	   	});
+		});
+		var categories = ["locus","scheme","set","client","field","misc"];
+		if (\$('#all_admin_methods_on').is(':visible')){
+			for (var i=0; i<categories.length; i++){
+				if (\$('#' + categories[i] + '_admin_methods_off').is(':visible')){
+					\$('#toggle_' + categories[i] + '_admin_methods').click();	
+				}
+			}
+		} else {
+			for (var i=0; i<categories.length; i++){
+				if (\$('#' + categories[i] + '_admin_methods_on').is(':visible')){
+					\$('#toggle_' + categories[i] + '_admin_methods').click();	
+				}
+			}
+		}
 	});
+	var categories = ["misc_admin","locus_admin","scheme_admin","set_admin","client_admin","field_admin"];
+	for (var i=0; i<categories.length; i++){
+		var cat = categories[i]
+		bind_toggle(cat);
+	}
 	var \$grid = \$(".grid").packery({
        	itemSelector: '.grid-item',
   		gutter: 5,
@@ -130,6 +167,49 @@ sub get_javascript {
     	}, 1000);
  	});
 });
+
+function bind_toggle (cat){
+	\$('a#toggle_' + cat + '_methods').click(function(event){	
+		event.preventDefault();
+ 		\$(this).attr('href', function(){  
+  			\$('#' + cat + '_methods_off').toggle();	
+	  		\$('#' + cat + '_methods_on').toggle();
+	  		\$('.' + cat).fadeToggle(200,'',function(){
+	  			\$('#admin_grid').packery();
+	  		});	
+	  		\$.ajax({
+	  			url: this.href,
+	  			cache: false,
+	  		});
+	   	});
+	   	var categories = ["locus","scheme","set","client","field","misc"];
+	   	var all_hidden = 1;
+	   	var all_shown = 1;
+	   	for (var i=0; i<categories.length; i++){	
+		  	if (\$('#' + categories[i] + '_admin_methods_on').is(':visible')){
+				all_hidden = 0;
+			}
+			if (\$('#' + categories[i] + '_admin_methods_off').is(':visible')){
+				all_shown = 0;
+			}
+		}
+		if (all_hidden){
+			\$('#all_admin_methods_off').css('display','inline');	
+	  		\$('#all_admin_methods_on').css('display','none');
+		} else {
+			\$('#all_admin_methods_on').css('display','inline');	
+	  		\$('#all_admin_methods_off').css('display','none');
+		}
+		if (all_shown){
+			\$('#all_admin_methods_on').css('display','inline');	
+	  		\$('#all_admin_methods_off').css('display','none');
+		} else {
+			\$('#all_admin_methods_off').css('display','inline');	
+	  		\$('#all_admin_methods_on').css('display','none');
+		}
+	});
+}
+
 var delay = (function(){
   var timer = 0;
   return function(callback, ms){
@@ -159,33 +239,16 @@ sub _toggle_notifications {
 	return;
 }
 
-sub _toggle_all_curator_methods {
-	my ($self) = @_;
-	my $new_value = $self->{'prefs'}->{'all_curator_methods'} ? 'off' : 'on';
+sub _toggle_methods {
+	my ( $self, $category ) = @_;
+	my $new_value = $self->{'prefs'}->{"${category}_methods"} ? 'off' : 'on';
 	my $guid = $self->get_guid;
 	try {
-		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_curator_methods', $new_value );
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${category}_methods", $new_value );
 	}
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-			$logger->error('Cannot toggle show all curator methods');
-		} else {
-			$logger->logdie($_);
-		}
-	};
-	return;
-}
-
-sub _toggle_all_admin_methods {
-	my ($self) = @_;
-	my $new_value = $self->{'prefs'}->{'all_admin_methods'} ? 'off' : 'on';
-	my $guid = $self->get_guid;
-	try {
-		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'all_admin_methods', $new_value );
-	}
-	catch {
-		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-			$logger->error('Cannot toggle show all admin methods');
+			$logger->error("Cannot toggle show $category methods");
 		} else {
 			$logger->logdie($_);
 		}
@@ -200,13 +263,11 @@ sub _ajax_call {
 		$self->_toggle_notifications;
 		return 1;
 	}
-	if ( $q->param('toggle_all_curator_methods') ) {
-		$self->_toggle_all_curator_methods;
-		return 1;
-	}
-	if ( $q->param('toggle_all_admin_methods') ) {
-		$self->_toggle_all_admin_methods;
-		return 1;
+	foreach my $cat (qw(all_curator misc_admin locus_admin scheme_admin set_admin client_admin field_admin)) {
+		if ( $q->param("toggle_${cat}_methods") ) {
+			$self->_toggle_methods($cat);
+			return 1;
+		}
 	}
 	return;
 }
@@ -297,7 +358,8 @@ sub _get_geocoding {
 	my ($self) = @_;
 	return q() if !$self->is_admin;
 	my $buffer =
-	  q(<div class="curategroup curategroup_geocoding grid-item default_show_admin"><h2>Geocoding setup</h2>);
+	    q(<div class="curategroup curategroup_geocoding grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Geocoding setup</h2>);
 	$buffer .= $self->_get_icon_group(
 		undef,
 		'globe-africa',
@@ -848,8 +910,8 @@ sub _get_user_dbases {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('user_dbases');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>User databases</h2>);
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
+	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>User databases</h2>);
 	$buffer .= $self->_get_icon_group(
 		'user_dbases',
 		'database',
@@ -870,8 +932,8 @@ sub _get_oauth_credentials {
 	my $buffer = q();
 	return $buffer if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
 	return $buffer if !$self->can_modify_table('oauth_credentials');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>OAuth credentials</h2>);
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
+	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>OAuth credentials</h2>);
 	$buffer .= $self->_get_icon_group(
 		'oauth_credentials',
 		'unlock-alt',
@@ -890,8 +952,8 @@ sub _get_genome_filtering {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->{'permissions'}->{'modify_probes'} && !$self->is_admin;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>PCR reactions</h2>);
+	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>PCR reactions</h2>);
 	$buffer .= $self->_get_icon_group(
 		'pcr', 'vial',
 		{
@@ -904,8 +966,8 @@ sub _get_genome_filtering {
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM pcr)') && $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>PCR locus links</h2>);
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>PCR locus links</h2>);
 		$buffer .= $self->_get_icon_group(
 			'pcr_locus',
 			'stream',
@@ -920,8 +982,8 @@ sub _get_genome_filtering {
 		);
 		$buffer .= qq(</div>\n);
 	}
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Nucleotide probes</h2>);
+	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Nucleotide probes</h2>);
 	$buffer .= $self->_get_icon_group(
 		'probes', 'vial',
 		{
@@ -934,8 +996,8 @@ sub _get_genome_filtering {
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM probes)') && $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Probe locus links</h2>);
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Probe locus links</h2>);
 		$buffer .= $self->_get_icon_group(
 			'probe_locus',
 			'stream',
@@ -957,8 +1019,8 @@ sub _get_sequence_attributes {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('sequence_attributes');
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sequence attributes</h2>);
+	$buffer .= q(<div class="curategroup curategroup_designations grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Sequence attributes</h2>);
 	$buffer .= $self->_get_icon_group(
 		'sequence_attributes',
 		'code',
@@ -977,8 +1039,8 @@ sub _get_locus_extended_attributes {
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('locus_extended_attributes');
 	return $buffer if !$self->_loci_exist;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus extended attributes</h2>);
+	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Locus extended attributes</h2>);
 	$buffer .= $self->_get_icon_group(
 		'locus_extended_attributes',
 		'expand-arrows-alt',
@@ -996,8 +1058,8 @@ sub _get_client_dbases {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('client_dbases');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client databases</h2>);
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
+	  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client databases</h2>);
 	$buffer .= $self->_get_icon_group(
 		'client_dbases',
 		'coins',
@@ -1013,8 +1075,8 @@ sub _get_client_dbases {
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM client_dbases)');
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database loci</h2>);
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
+		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database loci</h2>);
 		$buffer .= $self->_get_icon_group(
 			'client_dbase_loci',
 			'sliders-h',
@@ -1026,8 +1088,8 @@ sub _get_client_dbases {
 			}
 		);
 		$buffer .= qq(</div>\n);
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database fields</h2>);
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
+		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database fields</h2>);
 		$buffer .= $self->_get_icon_group(
 			'client_dbase_loci_fields',
 			'th-list',
@@ -1042,8 +1104,8 @@ sub _get_client_dbases {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database schemes</h2>);
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
+		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database schemes</h2>);
 		$buffer .= $self->_get_icon_group(
 			'client_dbase_schemes',
 			'table',
@@ -1058,8 +1120,8 @@ sub _get_client_dbases {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->_classification_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Client database classification schemes</h2>);
+		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
+		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database classification schemes</h2>);
 		$buffer .= $self->_get_icon_group(
 			'client_dbase_cschemes',
 			'object-group',
@@ -1146,7 +1208,9 @@ sub _get_config_check {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer
-	  if !$self->{'permissions'}->{'modify_loci'} && !$self->{'permissions'}->{'modify_schemes'} && !$self->is_admin;
+	  if !$self->{'permissions'}->{'modify_loci'}
+	  && !$self->{'permissions'}->{'modify_schemes'}
+	  && !$self->is_admin;
 	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">)
 	  . q(<h2>Configuration check</h2>);
 	$buffer .= $self->_get_icon_group(
@@ -1182,7 +1246,8 @@ sub _get_config_check {
 sub _get_cache_refresh {
 	my ($self) = @_;
 	my $buffer = q();
-	return $buffer if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'isolates' || !$self->_cache_tables_exists;
+	return $buffer
+	  if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'isolates' || !$self->_cache_tables_exists;
 	$buffer .=
 	  q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">) . q(<h2>Cache refresh</h2>);
 	$buffer .= $self->_get_icon_group(
@@ -1203,8 +1268,8 @@ sub _get_loci {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('loci');
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Loci</h2>);
+	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Loci</h2>);
 	$buffer .= $self->_get_icon_group(
 		'loci',
 		'sliders-h',
@@ -1219,8 +1284,8 @@ sub _get_loci {
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_loci_exist;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Locus aliases</h2>);
+	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Locus aliases</h2>);
 	$buffer .= $self->_get_icon_group(
 		'locus_aliases',
 		'list-ul',
@@ -1239,8 +1304,8 @@ sub _get_isolate_field_extended_attributes {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('isolate_field_extended_attributes');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Extended attribute fields</h2>);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Extended attribute fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'isolate_field_extended_attributes',
 		'expand-arrows-alt',
@@ -1262,8 +1327,8 @@ sub _get_eav_fields {
 	return $buffer if !$self->can_modify_table('eav_fields');
 	my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
 	my $uc_field_name = ucfirst($field_name);
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>$uc_field_name</h2>);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>$uc_field_name</h2>);
 	$buffer .= $self->_get_icon_group(
 		'eav_fields',
 		'microscope',
@@ -1285,8 +1350,8 @@ sub _get_composite_fields {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('composite_fields');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Composite fields</h2>);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Composite fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'composite_fields',
 		'cubes',
@@ -1305,8 +1370,8 @@ sub _get_schemes {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('schemes');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Schemes</h2>);
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Schemes</h2>);
 	$buffer .= $self->_get_icon_group(
 		'schemes',
 		'table',
@@ -1320,8 +1385,8 @@ sub _get_schemes {
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme fields</h2>);
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'scheme_fields',
 		'th-list',
@@ -1335,8 +1400,8 @@ sub _get_schemes {
 	$buffer .= qq(</div>\n);
 
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme members</h2>);
+		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme members</h2>);
 		$buffer .= $self->_get_icon_group(
 			'scheme_members',
 			'object-group',
@@ -1358,8 +1423,8 @@ sub _get_scheme_groups {
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('scheme_groups');
 	return $buffer if !$self->_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Scheme groups</h2>);
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme groups</h2>);
 	$buffer .= $self->_get_icon_group(
 		'scheme_groups',
 		'sitemap',
@@ -1373,8 +1438,8 @@ sub _get_scheme_groups {
 	);
 	$buffer .= qq(</div>\n);
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Group members (schemes)</h2>);
+		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Group members (schemes)</h2>);
 		$buffer .= $self->_get_icon_group(
 			'scheme_group_scheme_members',
 			'object-group',
@@ -1389,8 +1454,8 @@ sub _get_scheme_groups {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->_scheme_groups_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Group members (groups)</h2>);
+		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Group members (groups)</h2>);
 		$buffer .= $self->_get_icon_group(
 			'scheme_group_group_members',
 			'object-group',
@@ -1413,8 +1478,8 @@ sub _get_classification_schemes {
 	my $buffer = q();
 	return $buffer if !$self->_schemes_exist;
 	return $buffer if !$self->can_modify_table('classification_schemes');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification schemes</h2>);
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Classification schemes</h2>);
 	$buffer .= $self->_get_icon_group(
 		'classification_schemes',
 		'object-group',
@@ -1428,8 +1493,8 @@ sub _get_classification_schemes {
 	);
 	$buffer .= qq(</div>\n);
 	return $buffer if !$self->_classification_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Classification group fields</h2>);
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Classification group fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'classification_group_fields',
 		'object-group',
@@ -1470,8 +1535,8 @@ sub _get_sets {
 	my $buffer = q();
 	return $buffer if !$self->can_modify_table('sets');
 	return $buffer if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
-	$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
-	  . qq(style="display:$self->{'optional_admin_display'}"><h2>Sets</h2>);
+	$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
+	  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Sets</h2>);
 	$buffer .= $self->_get_icon_group(
 		'sets', 'hands',
 		{
@@ -1485,8 +1550,8 @@ sub _get_sets {
 	$buffer .= qq(</div>\n);
 
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set loci</h2>);
+		$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
+		  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set loci</h2>);
 		$buffer .= $self->_get_icon_group(
 			'set_loci',
 			'object-group',
@@ -1501,8 +1566,8 @@ sub _get_sets {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
-		  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set schemes</h2>);
+		$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
+		  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set schemes</h2>);
 		$buffer .= $self->_get_icon_group(
 			'set_schemes',
 			'object-group',
@@ -1519,8 +1584,8 @@ sub _get_sets {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
 		if (@$metadata_list) {
-			$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
-			  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set metadata</h2>);
+			$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
+			  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set metadata</h2>);
 			$buffer .= $self->_get_icon_group(
 				'set_metadata',
 				'object-group',
@@ -1535,8 +1600,8 @@ sub _get_sets {
 			$buffer .= qq(</div>\n);
 		}
 		if ( $self->{'system'}->{'views'} ) {
-			$buffer .= q(<div class="curategroup curategroup_sets grid-item default_hide_admin" )
-			  . qq(style="display:$self->{'optional_admin_display'}"><h2>Set views</h2>);
+			$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
+			  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set views</h2>);
 			$buffer .= $self->_get_icon_group(
 				'set_view',
 				'glasses',
@@ -1730,32 +1795,14 @@ sub print_content {
 	if ($buffer) {
 		$can_do_something = 1;
 		say q(<div class="box" id="admin">);
-		my $toggle_status = $self->_get_admin_toggle_status( \$buffer );
-		if ( $toggle_status->{'show_toggle'} ) {
-			say q(<div style="float:right">);
-			say q(<a id="toggle_all_admin_methods" style="text-decoration:none" )
-			  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_admin_methods=1">);
-			my $off = $self->{'prefs'}->{'all_admin_methods'} ? 'none'   : 'inline';
-			my $on  = $self->{'prefs'}->{'all_admin_methods'} ? 'inline' : 'none';
-			say q(<span id="all_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
-			  . qq(style="display:$off" title="Showing common admin functions"></span>);
-			say q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
-			  . qq(style="display:$on" title="Showing all admin and configuration functions"></span>);
-			say q(Show all</a>);
-			say q(</div>);
-		}
+		$self->_print_admin_toggles( \$buffer );
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
 		say q(<h2>Admin functions</h2>);
-		say q(<div class="grid" id="admin_grid">);
+		say q(<div class="grid" id="admin_grid" style="margin-right:100px">);
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
-
-		if ( $toggle_status->{'always_show_hidden'} ) {
-			say q[<script>$(function() {$(".default_hide_admin").css("display","inline");]
-			  . q[$("#admin_grid").packery()});</script>];
-		}
 	}
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' ) {
 		$self->_print_submission_section;
@@ -1775,22 +1822,62 @@ sub print_content {
 	return;
 }
 
+sub _print_admin_toggles {
+	my ( $self, $buffer ) = @_;
+	say q(<div style="float:right">);
+	say q(<ul style="list-style:none">);
+	my %label = (
+		locus  => 'Loci',
+		scheme => 'Schemes',
+		set    => 'Sets',
+		client => 'Clients',
+		field  => 'Fields',
+		misc   => 'Misc'
+	);
+	my %expanded = ( misc => 'miscellaenous' );
+	my $count    = 0;
+	my $all_on   = 1;
+	my $toggle_buffer;
+
+	foreach my $category (qw(locus scheme set client field misc)) {
+		next if !ref $buffer || $$buffer !~ /${category}_admin/x;
+		$count++;
+		my $off = $self->{'prefs'}->{"${category}_admin_methods"} ? 'none'   : 'inline';
+		my $on  = $self->{'prefs'}->{"${category}_admin_methods"} ? 'inline' : 'none';
+		my $expanded = $expanded{$category} // $category;
+		$toggle_buffer .=
+		    qq(<li><a id="toggle_${category}_admin_methods" style="text-decoration:none" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_${category}_admin_methods=1">)
+		  . qq(<span id="${category}_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+		  . qq(style="display:$off" title="Not showing $expanded admin functions"></span>)
+		  . qq(<span id="${category}_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+		  . qq(style="display:$on" title="Showing $expanded admin and configuration functions"></span> )
+		  . qq($label{$category}</a></li>);
+		$all_on = 0 if !$self->{'prefs'}->{"${category}_admin_methods"};
+	}
+	if ( $count > 1 || ( $count == 1 && $$buffer =~ /default_show_admin/x ) ) {
+		say $toggle_buffer;
+	}
+	if ( $count > 1 ) {
+		my $off = $all_on ? 'none'   : 'inline';
+		my $on  = $all_on ? 'inline' : 'none';
+		say q(<li><a id="toggle_all_admin_methods" style="text-decoration:none" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_admin_methods=1">)
+		  . q(<span id="all_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+		  . qq(style="display:$off" title="Not showing all admin functions"></span>)
+		  . q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span> )
+		  . q(Show all</a></li>);
+	}
+	say q(</ul>);
+	say q(</div>);
+	return;
+}
+
 sub _get_curator_toggle_status {
 	my ( $self, $buffer_ref ) = @_;
 	my $hidden  = $$buffer_ref =~ /default_hide_curator/x ? 1 : 0;
 	my $default = $$buffer_ref =~ /default_show_curator/x ? 1 : 0;
-	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
-	my $always_show_hidden;
-	if ( $hidden && !$default ) {
-		$always_show_hidden = 1;
-	}
-	return { show_toggle => $show_toggle, always_show_hidden => $always_show_hidden };
-}
-
-sub _get_admin_toggle_status {
-	my ( $self, $buffer_ref ) = @_;
-	my $hidden  = $$buffer_ref =~ /default_hide_admin/x ? 1 : 0;
-	my $default = $$buffer_ref =~ /default_show_admin/x ? 1 : 0;
 	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
 	my $always_show_hidden;
 	if ( $hidden && !$default ) {
