@@ -133,8 +133,8 @@ sub _print_interface {
 			query_pref          => 0,
 			analysis_pref       => 1,
 			scheme_fields       => 1,
-			sort_labels =>1,
-			eav_fields=>1,
+			sort_labels         => 1,
+			eav_fields          => 1,
 			set_id              => $set_id
 		}
 	);
@@ -399,7 +399,7 @@ sub _generate_tsv_file {
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;
 	my $extended    = $self->get_extended_attributes;
 	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
-	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $eav_fields  = $self->{'datastore'}->get_eav_fieldnames;
 	my @header_fields;
 
 	foreach my $field (@$prov_fields) {
@@ -416,7 +416,7 @@ sub _generate_tsv_file {
 			}
 		}
 	}
-	foreach my $field (@$eav_fields){
+	foreach my $field (@$eav_fields) {
 		( my $cleaned_field = $field ) =~ tr/_/ /;
 		push @header_fields, $cleaned_field if $include_fields{"eav_$field"};
 	}
@@ -447,9 +447,9 @@ sub _generate_tsv_file {
 				}
 			}
 		}
-		foreach my $field (@$eav_fields){
-			if ($include_fields{"eav_$field"}){
-				my $value = $self->{'datastore'}->get_eav_field_value($record->{'id'},$field) // q();
+		foreach my $field (@$eav_fields) {
+			if ( $include_fields{"eav_$field"} ) {
+				my $value = $self->{'datastore'}->get_eav_field_value( $record->{'id'}, $field ) // q();
 				push @record_values, $value;
 			}
 		}
