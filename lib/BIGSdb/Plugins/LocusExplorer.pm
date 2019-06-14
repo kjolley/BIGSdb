@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis.html#locus-explorer",
-		version          => '1.3.9',
+		version          => '1.3.10',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -459,15 +459,19 @@ sub get_snp_schematic {
 	}
 	my $pluralps = $ps != 1        ? 's' : '';
 	my $plural   = $seq_count != 1 ? 's' : '';
+	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
+	my $nuc_or_pep        = $locus_info->{'data_type'} eq 'peptide' ? 'amino acid' : 'nucleotide';
+	my $allele_or_variant = $locus_info->{'data_type'} eq 'peptide' ? 'variant' : 'allele';
 	my $buffer =
 	    q(<div class="results">)
-	  . q(<p>The colour codes represent the percentage of alleles that have )
-	  . q(a particular nucleotide at each position. Click anywhere within )
+	  . qq(<p>The colour codes represent the percentage of ${allele_or_variant}s that have )
+	  . qq(a particular $nuc_or_pep at each position. Click anywhere within )
 	  . q(the sequence to drill down to allele and profile information. )
 	  . q(The width of the display can be altered by going to the options )
 	  . q(page - change this if the display goes off the page.</p>)
-	  . qq(<p>$seq_count allele$plural included in analysis. )
+	  . qq(<p>$seq_count $allele_or_variant$plural included in analysis. )
 	  . qq($ps polymorphic site$pluralps found.</p><p><b>Key: </b>);
+
 	foreach my $low (qw (0 10 20 30 40 50 60 70 80 90)) {
 		my $high = $low + 10;
 		$buffer .= q( | )  if $low;
