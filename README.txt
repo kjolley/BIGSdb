@@ -2,6 +2,7 @@ v1.22.5: *Allow users to reset site passwords if they know username and E-mail.
          *Faster search for null allele designations.
          *Drag-and-drop file upload for submissions.
          *Option to retire when batch deleting isolates, profiles or alleles.
+         *EAV fields now included in GrapeTree metadata output.
 v1.22.4: *In silico PCR plugin.
 v1.22.3: *Use standard list of country names linked to ISO 3 letter codes and
           continents. This can be set up using the 'Geocoding' link in the
