@@ -964,7 +964,6 @@ sub get_field_selection_list {
 	#classification_groups: include classification group ids and field, prefix with cg_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
-	$logger->logdie('Invalid option hashref') if ref $options ne 'HASH';
 	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
 	my $values = [];
