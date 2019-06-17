@@ -23,7 +23,11 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
 use Try::Tiny;
 use List::MoreUtils qw(uniq none);
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::MIME;
+use Email::Valid;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -2014,7 +2018,7 @@ sub _print_account_requests_section {
 	say q(<div class="box" id="account_requests">);
 	say q(<span class="main_icon fas fa-user fa-3x fa-pull-left"></span>);
 	say q(<h2>Account requests</h2>);
-	say q(<p>Please note that accepting or rejecting these requests does not currently notify the user.</p>);
+	say q(<p>Users will automatically be notified when you accept these requests.</p>);
 	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
 	say q(<tr><th>Accept</th><th>Reject</th><th>First name</th><th>Surname</th>)
@@ -2089,7 +2093,48 @@ sub _import_user {
 	} else {
 		$db->commit;
 		$self->{'db'}->commit;
+		$self->_notify_succesful_registration($user_name);
 	}
+	return;
+}
+
+sub _notify_succesful_registration {
+	my ( $self, $user_name ) = @_;
+	my $subject = qq(Account registration request for $self->{'system'}->{'description'} database approved);
+	my $message;
+	if ( -e "$self->{'dbase_config_dir'}/$self->{'instance'}/registration_success.txt" ) {
+		my $message_ref =
+		  BIGSdb::Utils::slurp("$self->{'dbase_config_dir'}/$self->{'instance'}/registration_success.txt");
+		$message = $$message_ref;
+	} else {
+		$message = qq(Your request to access the $self->{'system'}->{'description'} database has been approved. )
+		  . q(You will now be able to log in.);
+	}
+	my $user_info = $self->{'datastore'}->get_user_info_from_username($user_name);
+	my $address   = Email::Valid->address( $user_info->{'email'} );
+	my $domain    = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	return if !$address;
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{
+			host => $self->{'config'}->{'smtp_server'} // 'localhost',
+			port => $self->{'config'}->{'smtp_port'}   // 25,
+		}
+	);
+	my $email = Email::MIME->create(
+		header_str => [
+			To      => $address,
+			From    => "no_reply\@$domain",
+			Subject => $subject
+		],
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		body_str => $message
+	);
+	eval { try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $address"); };
+	$logger->error($@) if $@;
 	return;
 }
 

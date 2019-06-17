@@ -29,7 +29,7 @@ use Email::MIME;
 use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
 my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
@@ -447,7 +447,7 @@ sub _request {
 		$self->print_bad_status( { message => q(User request failed.) } );
 	} else {
 		$self->{'db'}->commit;
-		$self->print_bad_status( { message => q(User request is now pending.) } );
+		$self->print_good_status( { message => q(User request is now pending.) } );
 	}
 	return;
 }
@@ -886,9 +886,11 @@ sub _notify_db_admin {
 	  . qq(Username: $self->{'username'}\n)
 	  . qq(First name: $sender->{'first_name'}\n)
 	  . qq(Surname: $sender->{'surname'}\n)
-	  . qq(Affiliation: $sender->{'affiliation'}\n\n);
-	$message .= qq(This user already has a site-wide account. Please log in to the $system->{'description'} )
-	  . q(database curation system to import this user (please DO NOT create a new user account).);
+	  . qq(Affiliation: $sender->{'affiliation'}\n)
+	  . qq(E-mail: $sender->{'email'}\n\n);
+	$message .= qq(Please log in to the $system->{'description'} )
+	  . q(database curation system to accept or reject this user.);
+	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};
 		my $transport = Email::Sender::Transport::SMTP->new(
@@ -903,8 +905,8 @@ sub _notify_db_admin {
 				charset  => 'UTF-8',
 			},
 			header_str => [
-				To      => $recipient->{'email'},
-				From    => $sender->{'email'},
+				To => $recipient->{'email'},
+				From    => "no_reply\@$domain",
 				Subject => $subject
 			],
 			body_str => $message
