@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 no warnings 'io';    #Prevent false warning message about STDOUT being reopened.
 use parent qw(BIGSdb::Offline::Script BIGSdb::CuratePage);
+use Data::Dumper;
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(any);
 use Try::Tiny;
@@ -469,7 +470,7 @@ sub _create_query_fasta_file {
 	  $self->{'datastore'}->run_query( $remote_qry, \@criteria,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'Scan::blast_create_fasta::remote' } );
 	flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
-	if (!@$contigs && !@$remote_contigs){
+	if ( !@$contigs && !@$remote_contigs ) {
 		$logger->error("No contigs for id-$isolate_id");
 	}
 	foreach my $contig (@$contigs) {
@@ -961,6 +962,10 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
+	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
+		$logger->logcarp( Dumper $match);
+		$match->{'predicted_start'} =~ s/\*//x;
+	}
 	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 		{
 			seqbin_id => $match->{'seqbin_id'},

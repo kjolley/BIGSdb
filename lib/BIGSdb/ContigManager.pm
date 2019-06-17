@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use BIGSdb::Exceptions;
+use Data::Dumper;
 use LWP::UserAgent;
 use HTTP::Request::Common;
 use Net::OAuth 0.20;
@@ -313,7 +314,7 @@ sub _get_session_token {
 		$oauth_credentials->{'session_secret'} = $session_response->token_secret;
 		return $session_response;
 	} else {
-		$logger->error($res->as_string);
+		$logger->error( $res->as_string );
 		BIGSdb::Exception::Authentication->throw("Invalid access token for $base_uri");
 	}
 	return;
@@ -363,19 +364,19 @@ sub _get_remote_contig_fragment {
 	if ( $args->{'start'} < 1 ) {
 		$logger->error('Seq start is <1!');
 	}
-	my $flanking       = $args->{'flanking'};
-	my $upstream_flanking=$flanking;
-	my $extract_length = $args->{'end'} - $args->{'start'} + 1;
-	my $upstream_start = $args->{'start'} - 1 - $flanking;
-	if ($upstream_start < 0){
+	my $flanking          = $args->{'flanking'};
+	my $upstream_flanking = $flanking;
+	my $extract_length    = $args->{'end'} - $args->{'start'} + 1;
+	my $upstream_start    = $args->{'start'} - 1 - $flanking;
+	if ( $upstream_start < 0 ) {
 		$upstream_flanking += $upstream_start;
-		$upstream_start=0;
-		$upstream_flanking = 0 if $upstream_flanking<0;
+		$upstream_start = 0;
+		$upstream_flanking = 0 if $upstream_flanking < 0;
 	}
 	return {
-		seq => substr( $contig->{'sequence'}, $args->{'start'} - 1, $extract_length ),
-		upstream => substr( $contig->{'sequence'}, $upstream_start, $upstream_flanking ),
-		downstream => substr( $contig->{'sequence'}, $args->{'end'}, $flanking )
+		seq        => substr( $contig->{'sequence'}, $args->{'start'} - 1, $extract_length ),
+		upstream   => substr( $contig->{'sequence'}, $upstream_start,      $upstream_flanking ),
+		downstream => substr( $contig->{'sequence'}, $args->{'end'},       $flanking )
 	};
 }
 
@@ -384,6 +385,10 @@ sub _get_local_contig_fragment {
 	my $flanking = $args->{'flanking'};
 	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
 	my $seqbin   = $self->{'seqbin_table'} // 'sequence_bin';
+	if ( $args->{'start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
+		$logger->logcarp( Dumper $args);
+		$args->{'start'} =~ s/\*//x;
+	}
 	my $qry =
 	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
 	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
