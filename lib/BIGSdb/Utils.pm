@@ -324,7 +324,7 @@ sub xmfa2fasta {
 	my @ids;
 	my $temp_seq   = '';
 	my $current_id = '';
-	open( my $xmfa_fh, '<', $xmfa_file )
+	open( my $xmfa_fh, '<:encoding(utf8)', $xmfa_file )
 	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $xmfa_file for reading");
 	my %labels;
 
@@ -361,7 +361,7 @@ sub xmfa2fasta {
 	$seq{$current_id} .= $temp_seq;
 	close $xmfa_fh;
 	( my $fasta_file = $xmfa_file ) =~ s/xmfa$/fas/x;
-	open( my $fasta_fh, '>', $fasta_file )
+	open( my $fasta_fh, '>:encoding(utf8)', $fasta_file )
 	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $fasta_file for writing");
 	foreach my $id (@ids) {
 		my $label = $labels{$id} // $id;

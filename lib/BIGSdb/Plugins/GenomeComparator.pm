@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.19',
+		version     => '2.3.20',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -1541,17 +1541,17 @@ sub _run_alignment {
 			$xmfa_buffer .= ">$names->{$identifier}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
 		}
 		$xmfa_buffer .= '=';
-		open( my $fh_xmfa, '>>', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		open( my $fh_xmfa, '>>:encoding(utf8)', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
 		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
 		close $fh_xmfa;
 		if ($core_locus) {
-			open( my $fh_core_xmfa, '>>', $core_xmfa_out )
+			open( my $fh_core_xmfa, '>>:encoding(utf8)', $core_xmfa_out )
 			  or $logger->error("Can't open output file $core_xmfa_out for appending");
 			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
 			close $fh_core_xmfa;
 		}
 		$$xmfa_start_ref = $$xmfa_end_ref + 1;
-		open( my $align_fh, '>>', $align_file ) || $logger->error("Can't open $align_file for appending");
+		open( my $align_fh, '>>:encoding(utf8)', $align_file ) || $logger->error("Can't open $align_file for appending");
 		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
 		say $align_fh "$heading_locus";
 		say $align_fh '-' x ( length $heading_locus ) . "\n";
