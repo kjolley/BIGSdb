@@ -182,14 +182,13 @@ sub _update {
 	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
 
 	foreach my $field (@$field_list) {
-		$data->{ lc($field) } //= '';
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if ( $att->{'no_curate'} // q() ) eq 'yes';
 		if ( $att->{'type'} eq 'bool' ) {
-			if    ( $data->{ lc($field) } eq '1' ) { $data->{ lc($field) } = 'true' }
-			elsif ( $data->{ lc($field) } eq '0' ) { $data->{ lc($field) } = 'false' }
+			if    ( ( $data->{ lc($field) } // q() ) eq '1' ) { $data->{ lc($field) } = 'true' }
+			elsif ( ( $data->{ lc($field) } // q() ) eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
-		if ( ( $data->{ lc($field) } // q() ) ne $newdata->{$field} ) {
+		if ( ( $data->{ lc($field) } // q() ) ne ( $newdata->{$field} // q() ) ) {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			if ( defined $metaset ) {
