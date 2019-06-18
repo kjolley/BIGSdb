@@ -26,6 +26,7 @@ use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS        => 500_000;
+use constant MAX_TAXA           => 10_000;
 use constant HEATMAP_MIN_WIDTH  => 600;
 use constant HEATMAP_MIN_HEIGHT => 200;
 use constant HEATMAP_MAX_WIDTH  => 10_000;
@@ -44,7 +45,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#gene-presence",
-		version     => '2.0.4',
+		version     => '2.0.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -172,7 +173,7 @@ sub _get_heatmap_size {
 	my $blur   = $radius == 1 ? 0 : 0.2;
 	my $width  = @$loci * $radius * 2 + 20;
 	my $height = @$isolates * $radius * 2 + 20;
-	$width = HEATMAP_MAX_WIDTH if $width > HEATMAP_MAX_WIDTH;
+	$width  = HEATMAP_MAX_WIDTH  if $width > HEATMAP_MAX_WIDTH;
 	$height = HEATMAP_MAX_HEIGHT if $height > HEATMAP_MAX_HEIGHT;
 	return { height => $height, width => $width, radius => $radius, blur => $blur };
 }
@@ -285,10 +286,11 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
-		if ( !@$filtered_ids && !$q->param('user_upload') ) {
-			push @errors, q(You must include one or more isolates. Make sure your selected isolates )
-			  . q(haven't been filtered to none by selecting a project.);
+		if ( @$ids > MAX_TAXA ) {
+			my $selected = BIGSdb::Utils::commify( scalar @$ids );
+			my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
+			$self->print_bad_status(
+				{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.) } );
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -337,7 +339,7 @@ sub run {
 					parameters   => $params,
 					username     => $self->{'username'},
 					email        => $user_info->{'email'},
-					isolates     => $filtered_ids,
+					isolates     => $ids,
 					loci         => $loci_selected
 				}
 			);
