@@ -36,7 +36,7 @@ sub set_pref_requirements {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1 };
+	return { 'jQuery.jstree' => 1 };
 }
 
 sub get_attributes {
@@ -144,11 +144,11 @@ sub run_job {
 			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
-		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c)_//gx;    #strip off prefix for header row
+		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;    #strip off prefix for header row
 		$field =~ s/^meta_.+?://x;
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
-		next if $field_seen{$field};                  #Loci can be specified explicitly or as part of a scheme
+		next if $field_seen{$field};                      #Loci can be specified explicitly or as part of a scheme
 		push @$header, $field;
 		$field_seen{$field} = 1;
 	}
@@ -175,6 +175,11 @@ sub run_job {
 				my $prov_field = $1;
 				$values->{ $data->{'id'} }->{$field} = $self->_get_field_value( $prov_field, $data );
 				next;
+			}
+			if ( $field =~ /^eav_(.*)/x ) {
+				my $eav_field = $1;
+				$values->{ $data->{'id'} }->{$field} =
+				  [ $self->{'datastore'}->get_eav_field_value( $data->{'id'}, $eav_field ) // q(-) ];
 			}
 			if ( $field =~ /^(s_\d+_l_|l_)(.*)/x ) {
 				my $locus = $2;
@@ -242,13 +247,19 @@ sub _output_results {
 		$td = $td == 1 ? 2 : 1;
 	}
 	close $fh;
+	my $msg =
+	    q(<p>Number of unique combinations: )
+	  . ( keys %$combs ) . q(</p>)
+	  . q(<p>The percentages may add up to more than 100% if you have selected loci or scheme )
+	  . q(fields with multiple values for an isolate.</p>);
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $msg } );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
 		{
 			filename      => $filename,
-			description   => '01_Export table (text)',
+			description   => '01_Combinations table (text)',
 			compress      => 1,
-			keep_original => 1                           #Original needed to generate Excel file
+			keep_original => 1                                 #Original needed to generate Excel file
 		}
 	);
 	my $excel_file = BIGSdb::Utils::text2excel(
@@ -261,7 +272,7 @@ sub _output_results {
 	);
 	if ( -e $excel_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "$job_id.xlsx", description => '02_Export table (Excel)', compress => 1 } );
+			{ filename => "$job_id.xlsx", description => '02_Combinations table (Excel)', compress => 1 } );
 	}
 	unlink $filename if -e "$filename.gz";
 	return;
@@ -301,7 +312,7 @@ sub _print_interface {
 	  . q(combinations in the dataset. Please select your combination of fields. Select loci either )
 	  . q(from the locus list or by selecting one or more schemes to include all loci (and/or fields) )
 	  . q(from a scheme.</p>);
-	  say q(<div class="scrollable">);
+	say q(<div class="scrollable">);
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $selected_ids;
@@ -318,6 +329,7 @@ sub _print_interface {
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset( { extended_attributes => 1 } );
+	$self->print_eav_fields_fieldset;
 	$self->print_composite_fields_fieldset;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
