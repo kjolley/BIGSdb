@@ -57,7 +57,7 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		help        => 'tooltips',
-		requires    => 'js_tree',
+		requires    => 'js_tree,offline_jobs',
 		order       => 15
 	);
 	return \%att;
@@ -101,11 +101,42 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
+	my $params = {};
+	local $" = '||';
+	$params->{'selected_fields'} = "@$selected_fields";
+	delete $params->{'isolate_paste_list'};
+	my $att       = $self->get_attributes;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $job_id    = $self->{'jobManager'}->add_job(
+		{
+			dbase_config => $self->{'instance'},
+			ip_address   => $q->remote_host,
+			module       => $att->{'module'},
+			priority     => $att->{'priority'},
+			parameters   => $params,
+			username     => $self->{'username'},
+			email        => $user_info->{'email'},
+			isolates     => $ids
+		}
+	);
+	say $self->get_job_redirect($job_id);
+	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	$self->{'exit'} = 0;
+
+	#Terminate cleanly on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
+	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	$self->{'datastore'}->create_temp_list_table_from_array( 'integer', $ids, { table => 'temp_list' } );
-	local $| = 1;
-	my @header;
+	my @fields = split /\|\|/x, $params->{'selected_fields'};
+	my $header = [];
 	my %schemes;
-	foreach (@$selected_fields) {
+	my %field_seen;
+
+	foreach (@fields) {
 		my $field = $_;
 		if ( $field =~ /^s_(\d+)_f/x ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
@@ -117,9 +148,10 @@ sub run {
 		$field =~ s/^meta_.+?://x;
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
-		push @header, $field;
+		next if $field_seen{$field};                  #Loci can be specified explicitly or as part of a scheme
+		push @$header, $field;
+		$field_seen{$field} = 1;
 	}
-	print "\n";
 	my $scheme_field_pos;
 	foreach my $scheme_id ( keys %schemes ) {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -129,26 +161,16 @@ sub run {
 			$i++;
 		}
 	}
-	my $qry     = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list)";
+	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list)";
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	my $i       = 1;
-	my $j       = 0;
-	my %combs;
-	say q(<div class="box" id="resultstable">);
-	print q(<p class="comment" id="calculating">Calculating... );
 	my $total;
-	my $values = {};
-
+	my $values   = {};
+	my $progress = 0;
 	foreach my $data (@$dataset) {
 		$total++;
-		print q(.) if !$i;
-		print q( ) if !$j;
-		if ( !$i && $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
-			return if $self->{'mod_perl_request'}->connection->aborted;
-		}
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data->{'id'} );
-		foreach my $field (@$selected_fields) {
+		undef %field_seen;
+		foreach my $field (@fields) {
 			if ( $field =~ /^f_(.*)/x ) {
 				my $prov_field = $1;
 				$values->{ $data->{'id'} }->{$field} = $self->_get_field_value( $prov_field, $data );
@@ -156,6 +178,8 @@ sub run {
 			}
 			if ( $field =~ /^(s_\d+_l_|l_)(.*)/x ) {
 				my $locus = $2;
+				next if $field_seen{$locus};
+				$field_seen{$locus} = 1;
 				$values->{ $data->{'id'} }->{$field} =
 				  ( defined $allele_ids->{$locus} && $allele_ids->{$locus} ne '' )
 				  ? $allele_ids->{$locus}
@@ -179,63 +203,67 @@ sub run {
 				$values->{ $data->{'id'} }->{$field} = [$value];
 			}
 		}
-		$i++;
-		if ( $i == 200 ) {
-			$i = 0;
-			$j++;
+		my $new_progress = int( $total / @$ids * 100 );
+
+		#Only update when progress percentage changes when rounded to nearest 1 percent
+		if ( $new_progress > $progress ) {
+			$progress = $new_progress;
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
+			$self->{'db'}->commit;    #prevent idle in transaction table locks
 		}
-		$j = 0 if $j == 10;
+		last if $self->{'exit'};
 	}
-	$self->_update_combinations( \%combs, $selected_fields, $values );
-	say q(</p>);
-	$self->_print_results( \@header, \%combs, $total );
+	my $combs = $self->_calculate_combinations( \@fields, $values );
+	$self->_output_results( $job_id, $header, $combs, $total );
 	return;
 }
 
-sub _print_results {
-	my ( $self, $header, $combs, $total ) = @_;
-	say q(<p>Number of unique combinations: ) . ( keys %$combs ) . q(</p>);
-	say q(<p>The percentages may add up to more than 100% if you have selected loci or scheme )
-	  . q(fields with multiple values for an isolate.</p>);
-	my $prefix    = BIGSdb::Utils::get_random();
-	my $filename  = "$prefix.txt";
+sub _output_results {
+	my ( $self, $job_id, $header, $combs, $total ) = @_;
+	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $full_path )
 	  or $logger->error("Can't open temp file $filename for writing");
-	say q(<div class="scrollable"><table class="tablesorter" id="sortTable"><thead>);
-	say q(<tr>);
-
 	foreach my $heading (@$header) {
-		my ( $cleaned_html, $cleaned_text ) = ( $heading, $heading );
+		my $cleaned_text = $heading;
 		if ( $self->{'datastore'}->is_locus($heading) ) {
-			$cleaned_html = $self->clean_locus($heading);
 			$cleaned_text = $self->clean_locus( $heading, { text_output => 1, no_common_name => 1 } );
 		}
-		say qq(<th>$cleaned_html</th>);
 		print $fh qq($cleaned_text\t);
 	}
-	say q(<th>Frequency</th><th>Percentage</th></tr></thead><tbody>);
 	say $fh qq(Frequency\tPercentage);
 	my $td = 1;
 	foreach ( sort { $combs->{$b} <=> $combs->{$a} } keys %$combs ) {
 		my @values = split /_\|_/x, $_;
 		my $pc = BIGSdb::Utils::decimal_place( 100 * $combs->{$_} / $total, 2 );
 		local $" = q(</td><td>);
-		say qq(<tr class="td$td"><td>@values</td><td>$combs->{$_}</td><td>$pc</td></tr>);
 		local $" = "\t";
 		say $fh qq(@values\t$combs->{$_}\t$pc);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say q(</tbody></table></div>);
 	close $fh;
-	my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
-	print q(<p style="margin-top:1em">)
-	  . qq(<a href="/tmp/$filename" title="Download as tab-delimited text">$text_file</a>);
-	my $excel =
-	  BIGSdb::Utils::text2excel( $full_path,
-		{ worksheet => 'Unique combinations', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-	say qq(<a href="/tmp/$prefix.xlsx" title="Download in Excel format">$excel_file</a>) if -e $excel;
-	say q(</p></div>);
+	$self->{'jobManager'}->update_job_output(
+		$job_id,
+		{
+			filename      => $filename,
+			description   => '01_Export table (text)',
+			compress      => 1,
+			keep_original => 1                           #Original needed to generate Excel file
+		}
+	);
+	my $excel_file = BIGSdb::Utils::text2excel(
+		$full_path,
+		{
+			worksheet   => 'Combinations',
+			tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
+			text_fields => $self->{'system'}->{'labelfield'}
+		}
+	);
+	if ( -e $excel_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "$job_id.xlsx", description => '02_Export table (Excel)', compress => 1 } );
+	}
+	unlink $filename if -e "$filename.gz";
 	return;
 }
 
@@ -273,6 +301,7 @@ sub _print_interface {
 	  . q(combinations in the dataset. Please select your combination of fields. Select loci either )
 	  . q(from the locus list or by selecting one or more schemes to include all loci (and/or fields) )
 	  . q(from a scheme.</p>);
+	  say q(<div class="scrollable">);
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $selected_ids;
@@ -297,12 +326,13 @@ sub _print_interface {
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
-sub _update_combinations {
-	my ( $self, $combs, $fields, $values ) = @_;
+sub _calculate_combinations {
+	my ( $self, $fields, $values ) = @_;
+	my $combs = {};
 	foreach my $isolate_id ( keys %$values ) {
 		my @keys;
 		my @fields_to_check = @$fields;
@@ -310,7 +340,7 @@ sub _update_combinations {
 		$self->_append_keys( \@keys, \@fields_to_check, $current_field, $values->{$isolate_id} );
 		$combs->{$_}++ foreach @keys;
 	}
-	return;
+	return $combs;
 }
 
 sub _append_keys {
@@ -341,15 +371,5 @@ sub _append_keys {
 	$current_field = shift @$fields_to_check;
 	$self->_append_keys( $keys, $fields_to_check, $current_field, $values );
 	return;
-}
-
-sub get_plugin_javascript {
-	my ($self) = @_;
-	my $js = << "END";
-\$(function () {
-	\$("#calculating").css('display','none');
-});
-END
-	return $js;
 }
 1;
