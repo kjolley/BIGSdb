@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -35,7 +36,7 @@ sub set_pref_requirements {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1};
+	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1 };
 }
 
 sub get_attributes {
@@ -51,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#unique-combinations",
-		version     => '1.2.1',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -71,7 +72,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $selected_fields = $self->get_selected_fields;
+	my $selected_fields = $self->get_selected_fields2;
 	if ( !@$selected_fields ) {
 		$self->print_bad_status( { message => q(No fields have been selected!) } );
 		$self->_print_interface;
@@ -227,12 +228,14 @@ sub _print_results {
 	}
 	say q(</tbody></table></div>);
 	close $fh;
-	say qq(<ul><li><a href="/tmp/$filename">Download as tab-delimited text</a></li>);
+	my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
+	print q(<p style="margin-top:1em">)
+	  . qq(<a href="/tmp/$filename" title="Download as tab-delimited text">$text_file</a>);
 	my $excel =
 	  BIGSdb::Utils::text2excel( $full_path,
 		{ worksheet => 'Unique combinations', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
-	say qq(<li><a href="/tmp/$prefix.xlsx">Download in Excel format</a></li>) if -e $excel;
-	say q(</ul></div>);
+	say qq(<a href="/tmp/$prefix.xlsx" title="Download in Excel format">$excel_file</a>) if -e $excel;
+	say q(</p></div>);
 	return;
 }
 
@@ -285,7 +288,8 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolates_fieldset( 0, { include_composites => 1, extended_attributes => 1 } );
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1 } );
+	$self->print_composite_fields_fieldset;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->print_action_fieldset( { no_reset => 1 } );

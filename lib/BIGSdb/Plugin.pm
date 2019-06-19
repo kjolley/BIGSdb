@@ -316,6 +316,7 @@ sub _print_fields {
 	return;
 }
 
+#TODO Remove when no longer used. Only used by PhyloViz plugin now.
 sub print_isolates_fieldset {
 	my ( $self, $default_select, $options ) = @_;
 	my $set_id        = $self->get_set_id;
@@ -530,7 +531,7 @@ sub get_allele_id_list {
 		my $ids = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
 		return $ids;
 	}
-	return \@;;
+	return [];
 }
 
 sub get_selected_fields2 {
