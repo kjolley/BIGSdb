@@ -1347,6 +1347,7 @@ sub _get_eav_fields {
 		}
 	);
 	$buffer .= qq(</div>\n);
+
 	return $buffer;
 }
 

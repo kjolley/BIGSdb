@@ -1551,6 +1551,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON classification_group_fields TO apache;
 CREATE TABLE eav_fields (
 field text NOT NULL,
 value_format text NOT NULL,
+category text,
 description text,
 length int,
 option_list text,
@@ -1651,5 +1652,4 @@ ON UPDATE CASCADE
 
 CREATE INDEX i_eavb1 ON eav_boolean(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_boolean TO apache;
-
 

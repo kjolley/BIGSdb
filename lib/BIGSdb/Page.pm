@@ -549,7 +549,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20190409';
+	my $version = '20190620';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
@@ -1749,7 +1749,8 @@ sub get_record_name {
 		user_dbases                       => 'user database',
 		locus_links                       => 'locus link',
 		oauth_credentials                 => 'OAuth credentials',
-		eav_fields                        => 'phenotypic field',
+		eav_fields                        => 'sparse field',
+		eav_field_groups                  => 'sparse field group member',
 		client_dbase_cschemes             => 'classification scheme to client database definition '
 	);
 	return $names{$table};
@@ -2943,8 +2944,9 @@ sub get_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate ) =
-	  ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE, CURATE);
+	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate )
+	  = ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE,
+		CURATE );
 	my $buffer = q(<div class="navigation">);
 	if ( $options->{'submission_id'} ) {
 		$buffer .=

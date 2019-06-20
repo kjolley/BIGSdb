@@ -118,7 +118,7 @@ sub get_javascript {
 		return false;
 	});
 	\$("#provenance").columnize({width:450});
-	\$("#sparse").columnize({width:450,doneFunc:function(){enable_slide_triggers();}});
+	\$(".sparse").columnize({width:450,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
 	if (!(\$("span").hasClass('aliases'))){
@@ -130,7 +130,7 @@ sub get_javascript {
 });
 
 function enable_slide_triggers(){
-	\$(".slide_trigger").click(function() {
+	\$(".slide_trigger").off('click').click(function() {
 		var id = \$(this).attr('id');
 		var panel = id.replace('expand','slide');
 		\$(".slide_panel:not(#" + panel +")").hide("slide",{direction:"right"},"fast");
@@ -981,44 +981,59 @@ sub _get_phenotypic_fields {
 	my $uc_field_name = ucfirst($field_name);
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-microscope fa-pull-left" )
 	  . qq(style="margin-top:-0.2em"></span><h2 style="display:inline">$uc_field_name</h2>\n);
-	my $hide  = keys %$data > MAX_EAV_FIELD_LIST ? 1                       : 0;
-	my $class = $hide                            ? q(expandable_retracted) : q();
-	my $list  = [];
+	my $hide = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
+	my $class = $hide ? q(expandable_retracted) : q();
+	my $categories =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT category FROM eav_fields ORDER BY category NULLS LAST',
+		undef, { fetch => 'col_arrayref' } );
+	$buffer .= qq(<div id="sparse" style="overflow:hidden" class="$class">);
 
-	foreach my $field (@$eav_fields) {
-		my $fieldname = $field->{'field'};
-		( my $cleaned = $fieldname ) =~ tr/_/ /;
-		next if !defined $data->{$fieldname};
-		my $value = $data->{$fieldname};
-		if ( $field->{'conditional_formatting'} ) {
-			$field->{'conditional_formatting'} =~ s/;;/__SEMICOLON__/gx;
-			my @terms = split /\s*;\s*/x, $field->{'conditional_formatting'};
-			foreach my $term (@terms) {
-				my ( $check_value, $format ) = split /\s*\|\s*/x, $term;
-				$format =~ s/__SEMICOLON__/;/gx;
-				if ( $value eq $check_value ) {
-					$value = $format;
+	foreach my $cat (@$categories) {
+		my $list = [];
+		foreach my $field (@$eav_fields) {
+			if ( $field->{'category'} ) {
+				next if !$cat || $cat ne $field->{'category'};
+			} else {
+				next if $cat;
+			}
+			my $fieldname = $field->{'field'};
+			( my $cleaned = $fieldname ) =~ tr/_/ /;
+			next if !defined $data->{$fieldname};
+			my $value = $data->{$fieldname};
+			if ( $field->{'conditional_formatting'} ) {
+				$field->{'conditional_formatting'} =~ s/;;/__SEMICOLON__/gx;
+				my @terms = split /\s*;\s*/x, $field->{'conditional_formatting'};
+				foreach my $term (@terms) {
+					my ( $check_value, $format ) = split /\s*\|\s*/x, $term;
+					$format =~ s/__SEMICOLON__/;/gx;
+					if ( $value eq $check_value ) {
+						$value = $format;
+					}
 				}
 			}
-		}
-		if ( $field->{'html_message'} ) {
-			my $link_text = $field->{'html_link_text'} // 'info';
-			$value .= qq(&nbsp;<a id="expand_$field->{'field'}" class="slide_trigger">)
-			  . qq(<span class="fas fa-caret-left"></span> $link_text</a>);
-			push @slide_panel,
+			if ( $field->{'html_message'} ) {
+				my $link_text = $field->{'html_link_text'} // 'info';
+				$value .= qq(&nbsp;<a id="expand_$field->{'field'}" class="slide_trigger">)
+				  . qq(<span class="fas fa-caret-left"></span> $link_text</a>);
+				push @slide_panel,
+				  {
+					field => $field,
+					data  => $field->{'html_message'}
+				  };
+			}
+			push @$list,
 			  {
-				field => $field,
-				data  => $field->{'html_message'}
+				title => $cleaned,
+				data  => $value
 			  };
 		}
-		push @$list,
-		  {
-			title => $cleaned,
-			data  => $value
-		  };
+		if ( @$categories > 1 && $categories->[0] ) {
+			$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
+		}
+		$buffer .= q(<div class="sparse">);
+		$buffer .= $self->get_list_block( $list, { columnize => 1 } );
+		$buffer .= q(</div>);
 	}
-	$buffer .= qq(<div id="sparse" style="overflow:hidden" class="$class"><ul>);
-	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
 	foreach my $spanel (@slide_panel) {
 		$buffer .= qq(<div class="slide_panel" id="slide_$spanel->{'field'}->{'field'}">$spanel->{'data'});
@@ -1171,8 +1186,7 @@ sub _get_loci_not_in_schemes {
 	  $self->{'datastore'}->run_query( 'SELECT locus FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
 	my %designations = map { $_ => 1 } @$loci_with_designations;
-	my $loci_with_tags =
-	  $self->{'datastore'}
+	my $loci_with_tags = $self->{'datastore'}
 	  ->run_query( 'SELECT locus FROM allele_sequences WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
 	my %tags = map { $_ => 1 } @$loci_with_tags;
 
@@ -1340,7 +1354,8 @@ sub _get_scheme_values {
 
 sub _get_locus_value {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $locus, $designations, $summary_view ) = @{$args}{qw(isolate_id locus designations summary_view)};
+	my ( $isolate_id, $locus, $designations, $summary_view ) =
+	  @{$args}{qw(isolate_id locus designations summary_view)};
 	my $cleaned       = $self->clean_locus($locus);
 	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);

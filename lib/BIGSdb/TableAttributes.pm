@@ -2288,7 +2288,8 @@ sub get_classification_group_field_values_table_attributes {
 
 sub get_set_view_table_attributes {
 	my ($self) = @_;
-	my @views = $self->{'system'}->{'views'} ? ( split /,/x, $self->{'system'}->{'views'} ) : ();
+	my $divider = q(,);
+	my @views = $self->{'system'}->{'views'} ? ( split /$divider/x, $self->{'system'}->{'views'} ) : ();
 	local $" = ';';
 	my $attributes = [
 		{
@@ -2308,11 +2309,21 @@ sub get_set_view_table_attributes {
 }
 
 sub get_eav_fields_table_attributes {
+	my ($self) = @_;
+	my $divider = q(,);
+	my @groups = $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
 	my $attributes = [
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' },
-		{ name => 'value_format', type => 'text', required => 1, optlist => 'integer;float;text;date;boolean' },
-		{ name => 'description',  type => 'text', length   => 128 },
-		{ name => 'length', type => 'int', tooltip => 'length - Valid for text fields only' },
+		{ name => 'value_format', type => 'text', required => 1, optlist => 'integer;float;text;date;boolean' }
+	];
+	if (@groups) {
+		local $" = q(;);
+		push @$attributes, { name => 'category', type => 'text', optlist => "@groups", dropdown_query => 1 };
+	}
+	push @$attributes,
+	  (
+		{ name => 'description', type => 'text', length  => 128 },
+		{ name => 'length',      type => 'int',  tooltip => 'length - Valid for text fields only' },
 		{
 			name    => 'option_list',
 			type    => 'text',
@@ -2360,7 +2371,7 @@ sub get_eav_fields_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	];
+	  );
 	return $attributes;
 }
 1;

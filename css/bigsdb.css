@@ -1,4 +1,4 @@
-/*Version: 20190514*/
+/*Version: 20190620*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -29,8 +29,8 @@ h2 a {text-decoration:none;border-bottom:1px #606060 dotted}
 h2 a:hover {text-decoration:none;border-bottom:1px black solid}
 
 h3 {
-	font: 600 1.1em Arial,Helvetica,sans-serif;
-	color: #000080;
+	font: 600 1.15em Arial,Helvetica,sans-serif;
+	color: #8080a0;
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
 ul {list-style:disc}
