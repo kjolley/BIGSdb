@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.2',
+		version     => '1.7.3',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export.html#isolate-record-export",
@@ -256,7 +256,7 @@ sub run {
 		);
 		say q( done</p>);
 		my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
-		say qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
+		print qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
 		my $excel = BIGSdb::Utils::text2excel(
 			$full_path,
 			{

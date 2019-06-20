@@ -134,8 +134,6 @@ sub run_job {
 	my @fields = split /\|\|/x, $params->{'selected_fields'};
 	my $header = [];
 	my %schemes;
-	my %field_seen;
-
 	foreach (@fields) {
 		my $field = $_;
 		if ( $field =~ /^s_(\d+)_f/x ) {
@@ -148,9 +146,7 @@ sub run_job {
 		$field =~ s/^meta_.+?://x;
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
-		next if $field_seen{$field};                      #Loci can be specified explicitly or as part of a scheme
 		push @$header, $field;
-		$field_seen{$field} = 1;
 	}
 	my $scheme_field_pos;
 	foreach my $scheme_id ( keys %schemes ) {
@@ -169,7 +165,6 @@ sub run_job {
 	foreach my $data (@$dataset) {
 		$total++;
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data->{'id'} );
-		undef %field_seen;
 		foreach my $field (@fields) {
 			if ( $field =~ /^f_(.*)/x ) {
 				my $prov_field = $1;
@@ -183,8 +178,6 @@ sub run_job {
 			}
 			if ( $field =~ /^(s_\d+_l_|l_)(.*)/x ) {
 				my $locus = $2;
-				next if $field_seen{$locus};
-				$field_seen{$locus} = 1;
 				$values->{ $data->{'id'} }->{$field} =
 				  ( defined $allele_ids->{$locus} && $allele_ids->{$locus} ne '' )
 				  ? $allele_ids->{$locus}

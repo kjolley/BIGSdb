@@ -551,20 +551,29 @@ sub get_selected_fields2 {
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $selected_loci = $self->get_selected_loci;
+	my %selected_loci = map { $_ => 1 } @$selected_loci;
+	my %locus_seen;
+
 	foreach my $locus (@$loci) {
-		push @$fields, "l_$locus" if any { $locus eq $_ } @$selected_loci;
+		if ( $selected_loci{$locus} ) {
+			push @$fields, "l_$locus";
+			$locus_seen{$locus} = 1;
+		}
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	foreach (@$schemes) {
-		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
+	foreach my $scheme_id (@$schemes) {
+		my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $member (@$scheme_members) {
-			push @$fields, "s_$_\_l_$member"
-			  if $q->param("s_$_") && $q->param('scheme_members');
+			if ( $q->param("s_$scheme_id") && $q->param('scheme_members') ) {
+				next if $locus_seen{$member};
+				push @$fields, "s_$scheme_id\_l_$member";
+				$locus_seen{$member} = 1;
+			}
 		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $scheme_field (@$scheme_fields) {
-			push @$fields, "s_$_\_f_$scheme_field"
-			  if $q->param("s_$_") && $q->param('scheme_fields');
+			push @$fields, "s_$scheme_id\_f_$scheme_field"
+			  if $q->param("s_$scheme_id") && $q->param('scheme_fields');
 		}
 	}
 	if ( $q->param('classification_schemes') ) {
