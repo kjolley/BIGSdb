@@ -979,7 +979,8 @@ sub _get_phenotypic_fields {
 	return $buffer if !keys %$data;
 	my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
 	my $uc_field_name = ucfirst($field_name);
-	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-microscope fa-pull-left" )
+	my $icon = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
+	$buffer .= qq(<div><span class="info_icon fas fa-2x fa-fw $icon fa-pull-left" )
 	  . qq(style="margin-top:-0.2em"></span><h2 style="display:inline">$uc_field_name</h2>\n);
 	my $hide = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
 	my $class = $hide ? q(expandable_retracted) : q();
