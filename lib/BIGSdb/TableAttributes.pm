@@ -2369,6 +2369,13 @@ sub get_eav_fields_table_attributes {
 			default  => 'false',
 			tooltip  => 'no_curate - Set to true if field should not be directly modified'
 		},
+		{
+			name     => 'no_submissions',
+			type     => 'bool',
+			required => 1,
+			default  => 'false',
+			tooltip  => 'no_submissions - Set to true to prevent field appearing in submission template table.'
+		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	  );

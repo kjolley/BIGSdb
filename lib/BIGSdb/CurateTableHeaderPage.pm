@@ -70,7 +70,7 @@ sub _get_isolate_table_headers {
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	if ( @$eav_fields && @$eav_fields <= MAX_EAV_FIELD_LIST ) {
 		foreach my $eav_field (@$eav_fields) {
-			push @$headers, $eav_field->{'field'} if !$eav_field->{'no_curate'};
+			push @$headers, $eav_field->{'field'} if !$eav_field->{'no_curate'} && !$eav_field->{'no_submissions'};
 		}
 	}
 	my $isolate_loci = $self->get_isolate_loci;
