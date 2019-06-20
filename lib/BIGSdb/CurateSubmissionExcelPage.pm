@@ -220,7 +220,7 @@ sub _print_isolate_allowed_loci {
 
 sub _print_isolate_eav_fields {
 	my ( $self, $workbook ) = @_;
-	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames( { curate => 1 } );
 	return if @$eav_fields <= MAX_EAV_FIELD_LIST;
 	my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic_fields';
 	$field_name =~ s/\s/_/gx;

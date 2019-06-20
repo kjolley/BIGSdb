@@ -2373,8 +2373,9 @@ sub get_eav_table {
 }
 
 sub get_eav_fieldnames {
-	my ($self) = @_;
-	return $self->run_query( 'SELECT field FROM eav_fields ORDER BY field_order,field', undef,
+	my ($self, $options) = @_;
+	my $no_curate = $options->{'curate'} ? q( WHERE NOT no_curate) : q();
+	return $self->run_query( "SELECT field FROM eav_fields$no_curate ORDER BY field_order,field", undef,
 		{ fetch => 'col_arrayref' } );
 }
 
