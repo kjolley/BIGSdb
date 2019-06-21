@@ -660,7 +660,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-id      => "field_$field",
 			-values  => [ '', @$optlist ],
 			-labels  => { '' => ' ' },
-			-default => ( $newdata->{lc $field} // $thisfield->{'default'} ),
+			-default => ( $newdata->{ lc $field } // $thisfield->{'default'} ),
 			%$html5_args
 		);
 		return 1;
@@ -817,62 +817,75 @@ sub print_sparse_field_form_elements {
 	my $width      = $self->_get_field_width( \@fieldnames );
 	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 	say qq(<fieldset style="float:left"><legend>$field_name</legend>);
+	my $categories = $self->{'datastore'}->run_query(
+		'SELECT DISTINCT category FROM eav_fields WHERE NOT no_curate ORDER BY category NULLS LAST',
+		undef, { fetch => 'col_arrayref' }
+	);
 	say q(<div style="white-space:nowrap">);
 	say q(<p class="comment">These fields are listed and stored separately<br />)
 	  . q(as they may be infrequently populated.</p>);
-	say q(<ul>);
-
-	foreach my $field (@$fields) {
-		my $thisfield = {
-			type   => $field->{'value_format'},
-			length => $field->{'length'},
-			min    => $field->{'min_value'},
-			max    => $field->{'max_value'},
-			regex  => $field->{'value_regex'}
-		};
-		if ( defined $field->{'option_list'} ) {
-			$thisfield->{'optlist'} = 1;
-			$thisfield->{'option_list_values'} = [ split /;/x, $field->{'option_list'} ];
+	foreach my $cat (@$categories) {
+		if ( @$categories > 1 && $categories->[0] ) {
+			say $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 		}
-		my $html5_args = $self->_get_html5_args(
-			{
-				field     => $field->{'field'},
-				thisfield => $thisfield
+		say q(<ul>);
+		foreach my $field (@$fields) {
+			if ( $field->{'category'} ) {
+				next if !$cat || $cat ne $field->{'category'};
+			} else {
+				next if $cat;
 			}
-		);
-		$field->{'length'} = $field->{'length'} // ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
-		( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
-		my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-		my $title_attribute = $title ? qq( title="$title") : q();
-		my $for = qq( for="field_$field->{'field'}");
-		print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
-		print $label;
-		print ':';
-		say q(</label>);
-		my $methods = {
-			optlist         => '_print_optlist',
-			bool            => '_print_bool',
-			long_text_field => '_print_long_text_field',
-			default_field   => '_print_default_field'
-		};
-
-		foreach my $condition (qw( optlist bool long_text_field default_field)) {
-			my $method = $methods->{$condition};
-			my $args   = {
-				newdata    => $newdata,
-				field      => $field->{'field'},
-				thisfield  => $thisfield,
-				html5_args => $html5_args,
+			my $thisfield = {
+				type   => $field->{'value_format'},
+				length => $field->{'length'},
+				min    => $field->{'min_value'},
+				max    => $field->{'max_value'},
+				regex  => $field->{'value_regex'}
 			};
-			if ( $self->$method($args) ) {
-				last;
+			if ( defined $field->{'option_list'} ) {
+				$thisfield->{'optlist'} = 1;
+				$thisfield->{'option_list_values'} = [ split /;/x, $field->{'option_list'} ];
 			}
+			my $html5_args = $self->_get_html5_args(
+				{
+					field     => $field->{'field'},
+					thisfield => $thisfield
+				}
+			);
+			$field->{'length'} = $field->{'length'} // ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
+			( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
+			my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
+			my $title_attribute = $title ? qq( title="$title") : q();
+			my $for = qq( for="field_$field->{'field'}");
+			print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
+			print $label;
+			print ':';
+			say q(</label>);
+			my $methods = {
+				optlist         => '_print_optlist',
+				bool            => '_print_bool',
+				long_text_field => '_print_long_text_field',
+				default_field   => '_print_default_field'
+			};
+
+			foreach my $condition (qw( optlist bool long_text_field default_field)) {
+				my $method = $methods->{$condition};
+				my $args   = {
+					newdata    => $newdata,
+					field      => $field->{'field'},
+					thisfield  => $thisfield,
+					html5_args => $html5_args,
+				};
+				if ( $self->$method($args) ) {
+					last;
+				}
+			}
+			say $self->get_tooltip( $field->{'description'} ) if $field->{'description'};
+			say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>)
+			  if $field->{'value_format'} eq 'date';
 		}
-		say $self->get_tooltip( $field->{'description'} ) if $field->{'description'};
-		say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>)
-		  if $field->{'value_format'} eq 'date';
+		say q(</ul>);
 	}
-	say q(</ul>);
 	say q(</div></fieldset>);
 	return;
 }

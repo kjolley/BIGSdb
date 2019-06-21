@@ -1028,7 +1028,7 @@ sub _get_phenotypic_fields {
 				data  => $value
 			  };
 		}
-		if ( @$categories > 1 && $categories->[0] ) {
+		if ( @$categories > 1 && $categories->[0] && @$list) {
 			$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 		}
 		$buffer .= q(<div class="sparse">);
