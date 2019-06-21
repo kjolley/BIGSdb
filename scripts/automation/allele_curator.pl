@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190611
+#Version: 20190621
 use strict;
 use warnings;
 use 5.010;
@@ -50,7 +50,8 @@ GetOptions(
 	'loci=s'         => \$opts{'l'},
 	'locus_regex=s'  => \$opts{'R'},
 	'schemes=s'      => \$opts{'s'},
-	'submission=s'   => \$opts{'submission'}
+	'submission=s'   => \$opts{'submission'},
+	'type_alleles'   => \$opts{'type_alleles'},
 ) or die("Error in command line arguments\n");
 
 if ( $opts{'h'} ) {
@@ -112,15 +113,16 @@ sub main {
 					next SEQS;
 				}
 			}
-			my $seq_exists = $script->{'datastore'}->run_query(
-				'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
-				[ $allele_submission->{'locus'}, $seq->{'sequence'} ]
-			);
+			my $seq_exists =
+			  $script->{'datastore'}
+			  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
+				[ $allele_submission->{'locus'}, $seq->{'sequence'} ] );
 			if ($seq_exists) {
 				next SEQS;
 			}
+			my $type_allele_clause = $opts{'type_alleles'} ? q( AND type_allele) : q();
 			my $ref_seqs = $script->{'datastore'}->run_query(
-				'SELECT sequence FROM sequences WHERE (locus,length(sequence))=(?,?)',
+				"SELECT sequence FROM sequences WHERE (locus,length(sequence))=(?,?)$type_allele_clause",
 				[ $allele_submission->{'locus'}, length $seq->{'sequence'} ],
 				{ fetch => 'col_arrayref' }
 			);
@@ -287,6 +289,13 @@ ${bold}--schemes$norm ${under}LIST$norm
    
 ${bold}--submission$norm ${under}SUBMISSION ID$norm
     Submission id.
+    
+${bold}--type_alleles$norm
+    Only use alleles with the 'type_allele' flag set to compare against.
+    Using this option will constrain the search space so that allele 
+    definitions don't become more variable over time. Note that you must have 
+    at least one allele defined as a type allele for a locus if you use this 
+    option otherwise you will not find any matches!
     
 HELP
 	return;
