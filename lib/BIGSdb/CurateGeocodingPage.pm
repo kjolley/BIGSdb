@@ -77,6 +77,8 @@ sub print_content {
 		say q(<p>This is set as a compulsory field with an additional option 'Unknown'. Add any additional values )
 		  . q(as options in the same way. Setting the sort option to 'no' will add these options to the end of the )
 		  . q(list - set it to 'yes' to sort your additonal options in with the standard country codes.</p>);
+		say q(<p>Make sure that you also have a 'country' field defined in the isolates table in the database.</p>)
+		  ;
 		say q(<div style="clear:both">);
 		return;
 	}
