@@ -333,6 +333,7 @@ sub _get_admin_links {
 		$buffer .= $self->_get_eav_fields;
 		$buffer .= $self->_get_isolate_field_extended_attributes;
 		$buffer .= $self->_get_composite_fields;
+		$buffer .= $self->_get_validation_rules;
 		$buffer .= $self->_get_oauth_credentials;
 	}
 
@@ -1338,7 +1339,7 @@ sub _get_eav_fields {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'Sparse fields - Define fields that are likely to contain sparsely populated '
+			info      => 'Sparse fields - Define fields that are likely to contain sparsely populated '
 			  . 'values, i.e. fields that only a minority of records will have values for. It is '
 			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
 			  . 'appropriate if you have 10s-100s of such fields to define.'
@@ -1362,6 +1363,58 @@ sub _get_composite_fields {
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
 			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_validation_rules {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('validation_rules');
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation conditions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'validation_conditions',
+		'check-circle',
+		{
+			add       => 1,
+			query     => 1,
+			batch_add => 1,
+			info      => 'Validation conditions - Conditions that must be matched for a validation to fail. '
+			  . 'Multiple conditions can be combined to create a rule.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation rules</h2>);
+	$buffer .= $self->_get_icon_group(
+		'validation_rules',
+		'ban',
+		{
+			add       => 1,
+			query     => 1,
+			batch_add => 1,
+			info      => 'Validation rules - Advanced rules restricting values in provenance '
+			  . 'metadata fields depending on values in other fields.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer
+	  if !$self->{'datastore'}
+	  ->run_query('SELECT EXISTS(SELECT * FROM validation_rules) AND EXISTS(SELECT * FROM validation_conditions)')
+	  ;
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Rule conditions</h2>);
+	$buffer .= $self->_get_icon_group(
+		'validation_rule_conditions',
+		'tasks',
+		{
+			add       => 1,
+			query     => 1,
+			batch_add => 1,
+			info      => 'Rule conditions - Conditions that must be fulfilled to fail a validation rule.'
 		}
 	);
 	$buffer .= qq(</div>\n);

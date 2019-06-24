@@ -1751,7 +1751,10 @@ sub get_record_name {
 		oauth_credentials                 => 'OAuth credentials',
 		eav_fields                        => 'sparse field',
 		eav_field_groups                  => 'sparse field group member',
-		client_dbase_cschemes             => 'classification scheme to client database definition '
+		client_dbase_cschemes             => 'classification scheme to client database definition',
+		validation_conditions             => 'validation condition',
+		validation_rules                  => 'validation rule',
+		validation_rule_conditions        => 'rule condition'
 	);
 	return $names{$table};
 }
