@@ -543,7 +543,7 @@ sub _update {
 		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
 
 		if ($is_locus) {
-			my $data = $self->prepare_allele_designation_update( $isolate_id, $field, $value, $deleted_designations );
+			my $data = $self->_prepare_allele_designation_update( $isolate_id, $field, $value, $deleted_designations );
 			( $args, $qry, $delete_qry, $delete_args ) = @{$data}{qw(args qry delete_qry delete_args)};
 		} elsif ($is_eav_field) {
 			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
@@ -626,7 +626,7 @@ sub _update {
 	return;
 }
 
-sub prepare_allele_designation_update {
+sub _prepare_allele_designation_update {
 	my ( $self, $isolate_id, $field, $value, $deleted_designations ) = @_;
 	my $view       = $self->{'system'}->{'view'};
 	my $q          = $self->{'cgi'};
