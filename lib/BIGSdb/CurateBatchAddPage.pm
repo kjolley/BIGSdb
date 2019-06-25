@@ -505,6 +505,15 @@ sub _check_data {
 				table              => $table
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				my %newdata = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+				my $validation_failures =
+				  $self->{'submissionHandler'}->run_validation_checks( \%newdata );
+				if (@$validation_failures) {
+					foreach my $failure (@$validation_failures) {
+						$failure =~ s/\.?\s*$/. /x;
+						$problems{$pk_combination} .= $failure;
+					}
+				}
 				$tablebuffer .=
 				  $self->_isolate_record_further_checks( $table, $new_args, \%advisories, $pk_combination );
 			}

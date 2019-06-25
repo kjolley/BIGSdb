@@ -960,6 +960,7 @@ sub _eq_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) eq lc( $condition->{'value'} );
 		} else {
@@ -973,6 +974,7 @@ sub _contains_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		return $value =~ /$condition->{'value'}/xi;
 	};
 }
@@ -982,6 +984,7 @@ sub _starts_with_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		return $value =~ /^$condition->{'value'}/xi;
 	};
 }
@@ -991,6 +994,7 @@ sub _ends_with_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		return $value =~ /$condition->{'value'}$/xi;
 	};
 }
@@ -1000,6 +1004,7 @@ sub _gt_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) gt lc( $condition->{'value'} );
 		} else {
@@ -1013,6 +1018,7 @@ sub _ge_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) ge lc( $condition->{'value'} );
 		} else {
@@ -1026,6 +1032,7 @@ sub _lt_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) lt lc( $condition->{'value'} );
 		} else {
@@ -1039,6 +1046,7 @@ sub _le_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) le lc( $condition->{'value'} );
 		} else {
@@ -1052,6 +1060,7 @@ sub _ne_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		if ( $type eq 'text' ) {
 			return lc($value) ne lc( $condition->{'value'} );
 		} else {
@@ -1065,6 +1074,7 @@ sub _not_contain_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
+		return if !defined $value;
 		return $value !~ /$condition->{'value'}/xi;
 	};
 }
