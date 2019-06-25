@@ -2391,7 +2391,6 @@ sub get_validation_rules_table_attributes {
 			required    => 1,
 			primary_key => 1,
 		},
-		{name => 'name',type=>'text',required=>1},
 		{
 			name     => 'message',
 			type     => 'text',
@@ -2450,22 +2449,22 @@ sub get_validation_rule_conditions_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
 		{
-			name        => 'rule_id',
-			type        => 'int',
-			required    => 1,
-			foreign_key => 'validation_rules',
-			labels         => '|$id|) |$name|',
-			primary_key => 1,
-			dropdown_query=>1
+			name           => 'rule_id',
+			type           => 'int',
+			required       => 1,
+			foreign_key    => 'validation_rules',
+			labels         => '|$id|) |$message|',
+			primary_key    => 1,
+			dropdown_query => 1
 		},
 		{
-			name        => 'condition_id',
-			type        => 'int',
-			required    => 1,
-			foreign_key => 'validation_conditions',
+			name           => 'condition_id',
+			type           => 'int',
+			required       => 1,
+			foreign_key    => 'validation_conditions',
 			labels         => '|$id|) |$field| |$operator| |$value|',
-			primary_key => 1,
-			dropdown_query=>1
+			primary_key    => 1,
+			dropdown_query => 1
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

@@ -338,7 +338,7 @@ sub write_isolate_csv {
 #Useful if we ever need to manually delete these directories.
 sub write_db_file {
 	my ( $self, $submission_id ) = @_;
-	my $dir      = $self->get_submission_dir($submission_id);
+	my $dir = $self->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
 	$self->mkpath($dir);
 	my $filename = 'dbase_config.txt';
@@ -854,6 +854,219 @@ sub _is_field_bad_isolates {
 		return $message if $message;
 	}
 	return;
+}
+
+sub run_validation_checks {
+	my ( $self, $values ) = @_;
+	if ( !$self->{'validation_checks_prepared'} ) {
+		$self->_prepare_validation_checks;
+	}
+	my $failures = [];
+	foreach my $rule ( @{ $self->{'validation_rules'} } ) {
+		if ( $rule->{'sub'}->($values) ) {
+			push @$failures, $rule->{'failure_message'};
+		}
+	}
+	return $failures;
+}
+
+sub _prepare_validation_checks {
+	my ($self) = @_;
+	$self->{'validation_rules'} //= [];
+	my $rules = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM validation_rules', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $rule (@$rules) {
+		my $conditions = $self->{'datastore'}->run_query(
+			'SELECT vc.field,vc.operator,vc.value FROM validation_rule_conditions rc JOIN '
+			  . 'validation_conditions vc ON rc.condition_id=vc.id WHERE rule_id=? ORDER BY condition_id',
+			$rule->{'id'},
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+		my $rule = {
+			id              => $rule->{'id'},
+			conditions      => $conditions,
+			failure_message => $rule->{'message'}
+		};
+		my $sub = $self->_setup_validation_rule($rule);
+		$rule->{'sub'} = $sub;
+		push @{ $self->{'validation_rules'} }, $rule;
+	}
+	$self->{'validation_checks_prepared'} = 1;
+	return;
+}
+
+sub _setup_validation_rule {
+	my ( $self, $rule ) = @_;
+	my @condition_subs;
+	foreach my $con ( @{ $rule->{'conditions'} } ) {
+		if ( lc( $con->{'value'} eq 'null' ) ) {
+			push @condition_subs, $self->_null_condition_sub($con);
+			next;
+		}
+		my $type;
+		if ( $self->{'xmlHandler'}->is_field( $con->{'field'} ) ) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes( $con->{'field'} );
+			$type = lc( $att->{'type'} ) // 'text';
+		} elsif ( $self->{'datastore'}->is_eav_field( $con->{'field'} ) ) {
+			my $att = $self->{'datastore'}->get_eav_field( $con->{'field'} );
+			$type = $att->{'value_format'};
+		} else {
+			$logger->error("Field $con->{'field'} is not recognized.");
+			return;
+		}
+		my $method = {
+			'='           => $self->_eq_condition_sub( $type, $con ),
+			'contains'    => $self->_contains_condition_sub($con),
+			'starts with' => $self->_starts_with_condition_sub($con),
+			'ends with'   => $self->_ends_with_condition_sub($con),
+			'>'           => $self->_gt_condition_sub( $type, $con ),
+			'>='          => $self->_ge_condition_sub( $type, $con ),
+			'<'           => $self->_lt_condition_sub( $type, $con ),
+			'<='          => $self->_le_condition_sub( $type, $con ),
+			'NOT'         => $self->_ne_condition_sub( $type, $con ),
+			'NOT contain' => $self->_not_contain_condition_sub($con),
+		};
+		if ( $method->{ $con->{'operator'} } ) {
+			push @condition_subs, $method->{ $con->{'operator'} };
+		}
+	}
+	my $full_check = sub {
+		return if !@condition_subs;
+		foreach my $sub (@condition_subs) {
+			if ( !$sub->( $_[0] ) ) {
+				return;
+			}
+		}
+		return 1;
+	};
+	return $full_check;
+}
+
+sub _null_condition_sub {
+	my ( $self, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} } //= q();
+		if ( $condition->{'operator'} eq '=' ) {
+			return $value ne q() ? 0 : 1;
+		} elsif ( $condition->{'operator'} eq 'NOT' ) {
+			return $value ne q() ? 1 : 0;
+		}
+	};
+}
+
+sub _eq_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) eq lc( $condition->{'value'} );
+		} else {
+			return $value == $condition->{'value'};
+		}
+	};
+}
+
+sub _contains_condition_sub {
+	my ( $self, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		return $value =~ /$condition->{'value'}/xi;
+	};
+}
+
+sub _starts_with_condition_sub {
+	my ( $self, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		return $value =~ /^$condition->{'value'}/xi;
+	};
+}
+
+sub _ends_with_condition_sub {
+	my ( $self, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		return $value =~ /$condition->{'value'}$/xi;
+	};
+}
+
+sub _gt_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) gt lc( $condition->{'value'} );
+		} else {
+			return $value > $condition->{'value'};
+		}
+	};
+}
+
+sub _ge_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) ge lc( $condition->{'value'} );
+		} else {
+			return $value >= $condition->{'value'};
+		}
+	};
+}
+
+sub _lt_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) lt lc( $condition->{'value'} );
+		} else {
+			return $value < $condition->{'value'};
+		}
+	};
+}
+
+sub _le_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) le lc( $condition->{'value'} );
+		} else {
+			return $value <= $condition->{'value'};
+		}
+	};
+}
+
+sub _ne_condition_sub {
+	my ( $self, $type, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		if ( $type eq 'text' ) {
+			return lc($value) ne lc( $condition->{'value'} );
+		} else {
+			return $value != $condition->{'value'};
+		}
+	};
+}
+
+sub _not_contain_condition_sub {
+	my ( $self, $condition ) = @_;
+	return sub {
+		my ($values) = @_;
+		my $value = $values->{ $condition->{'field'} };
+		return $value !~ /$condition->{'value'}/xi;
+	};
 }
 
 #Make sure sender is in database

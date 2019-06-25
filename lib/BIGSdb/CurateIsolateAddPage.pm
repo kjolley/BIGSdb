@@ -147,6 +147,10 @@ sub _check {
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
+	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
+	if (@$validation_failures){
+		push @bad_field_buffer,@$validation_failures;
+	}
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
 			$newdata->{"locus:$locus"}         = $q->param("locus:$locus");
@@ -168,7 +172,7 @@ sub _check {
 		local $" = '<br />';
 		$self->print_bad_status(
 			{
-				message => q(There are problems with your record submission. ) . q(Please address the following:),
+				message => q(There are problems with your record submission. Please address the following:),
 				detail  => qq(@bad_field_buffer)
 			}
 		);

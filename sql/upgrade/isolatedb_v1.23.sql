@@ -20,7 +20,6 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON validation_conditions TO apache;
 
 CREATE TABLE validation_rules (
 id int NOT NULL,
-name text NOT NULL,
 message text NOT NULL,
 datestamp date NOT NULL,
 curator int NOT NULL,
@@ -45,7 +44,7 @@ CONSTRAINT vrc_rule_id FOREIGN KEY (rule_id) REFERENCES validation_rules
 ON DELETE CASCADE
 ON UPDATE CASCADE,
 CONSTRAINT vrc_condition_id FOREIGN KEY (condition_id) REFERENCES validation_conditions
-ON DELETE NO ACTION
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
