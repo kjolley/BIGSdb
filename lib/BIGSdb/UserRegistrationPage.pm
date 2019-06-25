@@ -88,7 +88,8 @@ sub _username_reminder {
 
 	#Only send E-mail if we find an account but don't tell user if we don't (to stop this being used
 	#to check if specific addresses have registered accounts).
-	my $usernames = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE email=? ORDER BY user_name',
+	my $usernames =
+	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE LOWER(email)=LOWER(?) ORDER BY user_name',
 		$email_address, { fetch => 'col_arrayref' } );
 	$self->print_good_status(
 		{
@@ -125,7 +126,7 @@ sub _username_reminder {
 	my $registrations = $self->{'datastore'}->run_query(
 		'SELECT ar.dbase_config,ar.description,u.user_name FROM registered_users ru JOIN '
 		  . 'available_resources ar ON ru.dbase_config=ar.dbase_config JOIN users u ON u.user_name=ru.user_name WHERE '
-		  . 'email=? ORDER BY ar.dbase_config,u.user_name',
+		  . 'LOWER(email)=LOWER(?) ORDER BY ar.dbase_config,u.user_name',
 		$email_address,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -208,13 +209,13 @@ sub _reset_password {
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
 	if (
 		$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM users WHERE (user_name,email)=(?,?))', [ $username, $email_address ]
+			'SELECT EXISTS(SELECT * FROM users WHERE (user_name,LOWER(email))=(?,LOWER(?)))',
+			[ $username, $email_address ]
 		)
 	  )
 	{
 		$self->set_password_hash( $username, Digest::MD5::md5_hex( $password . $username ), { reset_password => 1 } );
-			$logger->info("Password reset request for $email_address ($user_domain).");
-		
+		$logger->info("Password reset request for $email_address ($user_domain).");
 		if ( $self->{'config'}->{'registration_address'} ) {
 			$message .=
 			  qq(Please log on at $self->{'config'}->{'registration_address'} with the following details:\n\n);
