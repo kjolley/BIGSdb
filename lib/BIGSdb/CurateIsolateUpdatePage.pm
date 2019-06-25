@@ -158,6 +158,7 @@ sub _check {
 	if (@$validation_failures){
 		push @bad_field_buffer,@$validation_failures;
 	}
+	$self->{'submissionHandler'}->cleanup_validation_rules;
 	if (@bad_field_buffer) {
 		local $" = '<br />';
 		$self->print_bad_status(

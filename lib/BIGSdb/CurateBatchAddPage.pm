@@ -586,6 +586,7 @@ sub _check_data {
 		return;
 	}
 	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
+	$self->{'submissionHandler'}->cleanup_validation_rules;
 	$self->_report_check(
 		{
 			table          => $table,

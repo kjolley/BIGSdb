@@ -661,6 +661,7 @@ sub check_new_isolates {
 	}
 	my $ret = { isolates => \@isolates, positions => $positions };
 	$ret->{'err'} = \@err if @err;
+	$self->cleanup_validation_rules;
 	return $ret;
 }
 
@@ -779,6 +780,14 @@ sub _check_isolate_record {
 			push @error, "locus $heading: doesn't match the required format";
 		}
 	}
+	my %newdata = map { $_ => $values->[ $positions->{$_} ] } keys %$positions;
+	my $validation_failures = $self->run_validation_checks( \%newdata );
+	if (@$validation_failures) {
+		foreach my $failure (@$validation_failures) {
+			push @error, $failure;
+		}
+	}
+	
 	$self->_check_pubmed_ids( $positions, $values, \@error );
 	$self->_check_aliases( $positions, $values, \@error );
 	my $ret = { isolate => $isolate };
@@ -960,11 +969,12 @@ sub _eq_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
-			return lc($value) eq lc( $condition->{'value'} );
+			return lc($value) eq lc($cvalue);
 		} else {
-			return $value == $condition->{'value'};
+			return $value == $cvalue;
 		}
 	};
 }
@@ -974,8 +984,9 @@ sub _contains_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
-		return $value =~ /$condition->{'value'}/xi;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
+		return $value =~ /$cvalue/xi;
 	};
 }
 
@@ -984,8 +995,9 @@ sub _starts_with_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
-		return $value =~ /^$condition->{'value'}/xi;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
+		return $value =~ /^$cvalue/xi;
 	};
 }
 
@@ -994,8 +1006,9 @@ sub _ends_with_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
-		return $value =~ /$condition->{'value'}$/xi;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
+		return $value =~ /$cvalue$/xi;
 	};
 }
 
@@ -1004,11 +1017,12 @@ sub _gt_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
-			return lc($value) gt lc( $condition->{'value'} );
+			return lc($value) gt lc($cvalue);
 		} else {
-			return $value > $condition->{'value'};
+			return $value > $cvalue;
 		}
 	};
 }
@@ -1018,11 +1032,12 @@ sub _ge_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
-			return lc($value) ge lc( $condition->{'value'} );
+			return lc($value) ge lc($cvalue);
 		} else {
-			return $value >= $condition->{'value'};
+			return $value >= $cvalue;
 		}
 	};
 }
@@ -1032,11 +1047,12 @@ sub _lt_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
-		if ( $type eq 'text' ) {
-			return lc($value) lt lc( $condition->{'value'} );
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( $type eq 'text' || $type eq 'date' ) {
+			return lc($value) lt lc($cvalue);
 		} else {
-			return $value < $condition->{'value'};
+			return $value < $cvalue;
 		}
 	};
 }
@@ -1046,11 +1062,12 @@ sub _le_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
-			return lc($value) le lc( $condition->{'value'} );
+			return lc($value) le lc($cvalue);
 		} else {
-			return $value <= $condition->{'value'};
+			return $value <= $cvalue;
 		}
 	};
 }
@@ -1060,11 +1077,12 @@ sub _ne_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
-			return lc($value) ne lc( $condition->{'value'} );
+			return lc($value) ne lc($cvalue);
 		} else {
-			return $value != $condition->{'value'};
+			return $value != $cvalue;
 		}
 	};
 }
@@ -1074,9 +1092,19 @@ sub _not_contain_condition_sub {
 	return sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} };
-		return if !defined $value;
-		return $value !~ /$condition->{'value'}/xi;
+		return if !defined $value || $value eq q();
+		my $cvalue = $self->_get_comp_value( $values, $condition );
+		return $value !~ /$cvalue/xi;
 	};
+}
+
+sub _get_comp_value {
+	my ( $self, $values, $condition ) = @_;
+	my $value = $condition->{'value'};
+	if ( $condition->{'value'} =~ /^\[(.+)\]$/x ) {
+		$value = $values->{$1};
+	}
+	return $value;
 }
 
 #Make sure sender is in database
@@ -1723,4 +1751,12 @@ sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 	$return_buffer .= 'Isolate count: ' . scalar @{ $isolate_submission->{'isolates'} } . "\n";
 	return $return_buffer;
 }
+
+#Can cause error during global cleanup if not called when finished.
+sub cleanup_validation_rules {
+	my ($self) = @_;
+	undef $self->{'validation_rules'};
+	return;
+}
+
 1;

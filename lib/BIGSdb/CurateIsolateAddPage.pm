@@ -151,6 +151,7 @@ sub _check {
 	if (@$validation_failures){
 		push @bad_field_buffer,@$validation_failures;
 	}
+	$self->{'submissionHandler'}->cleanup_validation_rules;
 	foreach my $locus (@$loci) {
 		if ( $q->param("locus:$locus") ) {
 			$newdata->{"locus:$locus"}         = $q->param("locus:$locus");
