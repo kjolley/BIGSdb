@@ -299,7 +299,7 @@ sub _insert {
 			my $message;
 			if ( $q->param('submission_id') ) {
 				my $submission_id = $q->param('submission_id');
-				my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+				my $url           = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 				  . qq(submission_id=$submission_id&amp;curate=1);
 				$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 			}
@@ -419,7 +419,6 @@ sub _check_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSu
 	}
 	return;
 }
-
 #Check for sequence length in sequences table, that sequence doesn't already
 #exist and is similar to existing etc. Prepare extra inserts for PubMed/Genbank
 #records and sequence flags.

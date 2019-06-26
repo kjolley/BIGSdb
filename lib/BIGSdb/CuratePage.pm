@@ -1076,7 +1076,14 @@ sub check_record {
 				method => sub {
 					$self->_check_classification_group_field_value( $att, $newdata );
 				}
-			}
+			},
+			{
+				table => 'validation_conditions',
+				field => 'value',
+				method => sub {
+					$self->_check_validation_conditions_field_value( $att, $newdata );
+				}
+			},
 		);
 		foreach my $check (@table_field_checks) {
 			if ( $table eq $check->{'table'} && $att->{'name'} eq $check->{'field'} ) {
@@ -1251,6 +1258,57 @@ sub _check_classification_group_field_value {
 		return "$att->{'name'} value is invalid - it must match the regular expression /$format->{'value_regex'}/.";
 	} 
 	return;
+}
+
+sub _check_validation_conditions_field_value {   
+	my ( $self, $att, $newdata ) = @_;
+	if ( $newdata->{'value'} eq 'null' ) {
+		if ( $newdata->{'operator'} ne '=' && $newdata->{'operator'} ne 'NOT' ) {
+			return qq(The operator '$newdata->{'operator'}' cannot be used for null values.);
+		}
+		return;
+	}
+	my $field_type = $self->_get_field_type( $newdata->{'field'} );
+	if ( $newdata->{'value'} =~ /^\[(.+)\]$/x ) {
+		my $comp_field      = $1;
+		my $comp_field_type = $self->_get_field_type($comp_field);
+		if ( !$comp_field_type ) {
+			return qq(Comparison field '$comp_field' is not recognized.);
+		} else {
+			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
+				return
+				  qq(Comparison field '$comp_field' has a different data type )
+				  . qq(from '$newdata->{'field'}' so cannot be compared.);
+			}
+		}
+		return;
+	}
+	if (lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int($newdata->{'value'})){
+		return qq('$newdata->{'field'}' is an integer field.);
+	}
+	if (lc($field_type) eq 'date' && !BIGSdb::Utils::is_date($newdata->{'value'})){
+		return qq('$newdata->{'field'}' is a date field.);
+	}
+	if (lc($field_type) eq 'float' && !BIGSdb::Utils::is_float($newdata->{'value'})){
+		return qq('$newdata->{'field'}' is a float field.);
+	}
+	if (lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($newdata->{'value'})){
+		return qq('$newdata->{'field'}' is a boolean field.);
+	}
+	return;
+}
+
+sub _get_field_type {
+	my ( $self, $field ) = @_;
+	my $type;
+	if ( $self->{'xmlHandler'}->is_field($field) ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		$type = $att->{'type'};
+	} elsif ( $self->{'datastore'}->is_eav_field($field) ) {
+		my $att = $self->{'datastore'}->get_eav_field($field);
+		$type = $att->{'value_format'};
+	}
+	return $type;
 }
 
 #Check that changing user status is allowed
