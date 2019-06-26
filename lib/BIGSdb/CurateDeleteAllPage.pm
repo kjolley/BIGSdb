@@ -165,7 +165,7 @@ sub _delete {
 			$self->_delete_isolate_list($ids_affected);
 		} elsif ( $table eq 'profiles' ) {
 			$self->_delete_profiles($delete_qry);
-		} elsif ($table eq 'sequences'){
+		} elsif ( $table eq 'sequences' ) {
 			$self->_delete_alleles($delete_qry);
 		} else {
 			$self->{'db'}->do($delete_qry);
@@ -259,16 +259,21 @@ sub _delete_isolate_list {
 
 sub _delete_profiles {
 	my ( $self, $delete_qry ) = @_;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	my $curator_id = $self->get_curator_id;
 	if ( $q->param('retire') ) {
 		my $qry = $delete_qry;
 		$qry =~ s/DELETE/SELECT\ scheme_id,profile_id/x;
 		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 		$self->{'db'}->do($delete_qry);
-		foreach my $profile (@$to_retire){
-			$self->{'db'}->do('INSERT INTO retired_profiles (scheme_id,profile_id,curator,datestamp) VALUES (?,?,?,?)',undef,
-			$profile->{'scheme_id'},$profile->{'profile_id'},$curator_id,'now');
+		foreach my $profile (@$to_retire) {
+			$self->{'db'}->do(
+				'INSERT INTO retired_profiles (scheme_id,profile_id,curator,datestamp) VALUES (?,?,?,?)',
+				undef,
+				$profile->{'scheme_id'},
+				$profile->{'profile_id'},
+				$curator_id, 'now'
+			);
 		}
 	} else {
 		$self->{'db'}->do($delete_qry);
@@ -278,16 +283,19 @@ sub _delete_profiles {
 
 sub _delete_alleles {
 	my ( $self, $delete_qry ) = @_;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	my $curator_id = $self->get_curator_id;
 	if ( $q->param('retire') ) {
 		my $qry = $delete_qry;
 		$qry =~ s/DELETE/SELECT\ locus,allele_id/x;
 		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 		$self->{'db'}->do($delete_qry);
-		foreach my $profile (@$to_retire){
-			$self->{'db'}->do('INSERT INTO retired_allele_ids (locus,allele_id,curator,datestamp) VALUES (?,?,?,?)',undef,
-			$profile->{'locus'},$profile->{'allele_id'},$curator_id,'now');
+		foreach my $profile (@$to_retire) {
+			$self->{'db'}->do(
+				'INSERT INTO retired_allele_ids (locus,allele_id,curator,datestamp) VALUES (?,?,?,?)',
+				undef, $profile->{'locus'}, $profile->{'allele_id'},
+				$curator_id, 'now'
+			);
 		}
 	} else {
 		$self->{'db'}->do($delete_qry);
@@ -380,8 +388,9 @@ sub _print_interface {
 		$count_qry =~ s/SELECT\ \*/SELECT COUNT\(\*\)/x;
 	}
 	$count_qry =~ s/ORDER\ BY.*//x;
-	my $count = $self->{'datastore'}->run_query($count_qry);
+	my $count  = $self->{'datastore'}->run_query($count_qry);
 	my $plural = $count == 1 ? '' : 's';
+	my %retire = map { $_ => 1 } qw(isolates profiles sequences);
 	say q(<div class="box" id="statusbad">);
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
 	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
@@ -389,10 +398,13 @@ sub _print_interface {
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say qq(<p>If you proceed, you will delete $count $record_name record$plural.  )
 	  . q(Please confirm that this is your intention.</p>);
+
+	if ( $retire{$table} ) {
+		say q(<p>The identifiers will not be re-assigned if you 'delete and retire'.</p>);
+	}
 	say q(</fieldset>);
 	say $q->start_form;
-
-	if ( $table eq 'isolates' || $table eq 'profiles' || $table eq 'sequences' ) {
+	if ( $retire{$table} ) {
 		$self->print_action_fieldset(
 			{
 				legend        => 'Confirm action',
