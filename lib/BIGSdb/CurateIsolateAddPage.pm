@@ -900,11 +900,10 @@ sub _print_allele_designation_form_elements {
 	my $locus_buffer;
 	my $set_id = $self->get_set_id;
 	my $q      = $self->{'cgi'};
-	my $loci   = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	@$loci = uniq @$loci;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
-
 	if ( @$loci <= 100 ) {
 		foreach my $scheme (@$schemes) {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );
