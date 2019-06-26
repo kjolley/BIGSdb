@@ -54,7 +54,11 @@ sub print_content {
 		return;
 	}
 	$self->_print_table_data( $table, $qry );
-	if ( any { $table eq $_ } qw (user_groups projects experiments pcr probes schemes scheme_groups client_dbases) ) {
+	if (
+		any { $table eq $_ }
+		qw (user_groups projects experiments pcr probes schemes scheme_groups client_dbases validation_rules)
+	  )
+	{
 		my $parent_query = $qry;
 		$parent_query =~ s/\*/id/x;
 		$parent_query =~ s/ORDER\ BY.*//x;
@@ -110,6 +114,17 @@ sub print_content {
 				  . "($parent_query) ORDER BY client_dbase_id,scheme_id";
 				print "\n";
 				$self->_print_table_data( 'client_dbase_schemes', $qry );
+			},
+			validation_rules => sub {
+				$qry =
+				    'SELECT * FROM validation_conditions WHERE id IN (SELECT condition_id FROM '
+				  . 'validation_rule_conditions WHERE rule_id IN '
+				  . "($parent_query)) ORDER BY id";
+				$self->_print_table_data( 'validation_conditions', $qry );
+				$qry = 'SELECT * FROM validation_rule_conditions WHERE rule_id IN '
+				  . "($parent_query) ORDER BY rule_id,condition_id";
+				print "\n";
+				$self->_print_table_data( 'validation_rule_conditions', $qry );
 			}
 		);
 		if ( $methods{$table} ) {
