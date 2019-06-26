@@ -505,6 +505,14 @@ sub _check_data {
 				table              => $table
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+				my %newdata = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
+				if (@$validation_failures) {
+					foreach my $failure (@$validation_failures) {
+						$failure =~ s/\.?\s*$/. /x;
+						$problems{$pk_combination} .= $failure;
+					}
+				}
 				$tablebuffer .=
 				  $self->_isolate_record_further_checks( $table, $new_args, \%advisories, $pk_combination );
 			}
@@ -556,6 +564,9 @@ sub _check_data {
 				classification_group_field_values => sub {
 					$self->_check_classification_field_values( $new_args, \%problems, $pk_combination );
 				},
+				validation_conditions => sub {
+					$self->_check_validation_conditions( $new_args, \%problems, $pk_combination );
+				},
 				isolate_field_extended_attributes => sub {
 					$self->_check_isolate_field_extended_attributes( $new_args, \%problems, $pk_combination );
 				}
@@ -577,6 +588,7 @@ sub _check_data {
 		return;
 	}
 	return if $self->_is_over_quota( $table, scalar @checked_buffer - 1 );
+	$self->{'submissionHandler'}->cleanup_validation_rules;
 	$self->_report_check(
 		{
 			table          => $table,
@@ -719,6 +731,48 @@ sub _check_classification_field_values {
 		$problems->{$pk_combination} .=
 		    "$data->[$file_header_pos->{'field'}] value is invalid - "
 		  . "it must match the regular expression /$format->{'value_regex'}/.";
+	}
+	return;
+}
+
+sub _check_validation_conditions {
+	my ( $self, $args, $problems, $pk_combination ) = @_;
+	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
+	my %newdata = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	if ( $newdata{'value'} eq 'null' ) {
+		if ( $newdata{'operator'} ne '=' && $newdata{'operator'} ne 'NOT' ) {
+			$problems->{$pk_combination} .= qq(The operator '$newdata{'operator'}' cannot be used for null values.);
+		}
+		return;
+	}
+	my $field_type = $self->_get_field_type( $newdata{'field'} );
+	if ( $newdata{'value'} =~ /^\[(.+)\]$/x ) {
+		my $comp_field      = $1;
+		my $comp_field_type = $self->_get_field_type($comp_field);
+		if ( !$comp_field_type ) {
+			$problems->{$pk_combination} .= qq(Comparison field '$comp_field' is not recognized.);
+			return;
+		} else {
+			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
+				$problems->{$pk_combination} .=
+				    qq(Comparison field '$comp_field' has a different data type )
+				  . qq(from '$newdata{'field'}' so cannot be compared.);
+				return;
+			}
+		}
+		return;
+	}
+	if ( lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int( $newdata{'value'} ) ) {
+		$problems->{$pk_combination} .= qq('$newdata{'field'}' is an integer field.);
+	}
+	if ( lc($field_type) eq 'date' && !BIGSdb::Utils::is_date( $newdata{'value'} ) ) {
+		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a date field.);
+	}
+	if ( lc($field_type) eq 'float' && !BIGSdb::Utils::is_float( $newdata{'value'} ) ) {
+		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a float field.);
+	}
+	if ( lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool( $newdata{'value'} ) ) {
+		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a boolean field.);
 	}
 	return;
 }

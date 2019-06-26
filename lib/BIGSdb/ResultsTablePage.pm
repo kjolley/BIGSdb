@@ -462,7 +462,8 @@ sub _print_export_configuration_function {
 		pcr probes isolate_field_extended_attributes isolate_value_extended_attributes scheme_fields
 		scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members locus_descriptions
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
-		client_dbases client_dbase_loci client_dbase_schemes classification_schemes classification_group_fields)
+		client_dbases client_dbase_loci client_dbase_schemes classification_schemes classification_group_fields
+		validation_rules validation_conditions validation_rule_conditions)
 	  )
 	{
 		say q(<fieldset><legend>Database configuration</legend>);
@@ -1583,6 +1584,8 @@ sub _print_record_field {
 			$value = $self->clean_locus($value);
 		} else {
 			$value =~ s/&/&amp;/gx;
+			$value =~ s/>/&gt;/gx;
+			$value =~ s/</&lt;/gx;
 		}
 		print $field eq 'action' ? qq(<td style="text-align:left">$value</td>) : qq(<td>$value</td>);
 	}

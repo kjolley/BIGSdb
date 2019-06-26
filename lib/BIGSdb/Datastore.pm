@@ -2289,7 +2289,8 @@ sub get_tables {
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
-		  retired_isolates user_dbases oauth_credentials eav_fields);
+		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
+		  validation_rule_conditions);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2315,7 +2316,7 @@ sub get_tables_with_curator {
 		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
-		  isolates eav_fields);
+		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions);
 		push @tables, $self->{'system'}->{'view'}
 		  if $self->{'system'}->{'view'} && $self->{'system'}->{'view'} ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {

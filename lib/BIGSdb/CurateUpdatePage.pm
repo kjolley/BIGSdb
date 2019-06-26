@@ -133,7 +133,6 @@ sub print_content {
 	say $buffer;
 	return;
 }
-
 sub _get_disabled_fields {
 	my ( $self, $table, $data ) = @_;
 	my $fields = ['user_db'];

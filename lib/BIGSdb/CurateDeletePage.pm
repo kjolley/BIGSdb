@@ -320,6 +320,9 @@ sub _delete {
 
 			#cascade deletion of sequence bin records
 			next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences';
+			
+			#cascade deletion of validation rules
+			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
 
 			#cascade deletion of scheme group
 			next
