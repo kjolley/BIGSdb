@@ -2395,6 +2395,7 @@ sub get_validation_rules_table_attributes {
 			name     => 'message',
 			type     => 'text',
 			required => 1,
+			length   => 100,
 			tooltip  => 'message - Message to display when validation fails.'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
