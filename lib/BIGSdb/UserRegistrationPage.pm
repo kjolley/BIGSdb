@@ -478,6 +478,9 @@ sub _send_email {
 	  . qq(Password: $data->{'password'}\n\n)
 	  . q(PLEASE NOTE: Once you have validated your account, you then need to register this with individual )
 	  . qq(databases before you are able to log in to them.\n);
+	if ( $self->{'config'}->{'registration_address'} ) {
+		$message .= qq(\nYou can do this at $self->{'config'}->{'registration_address'}.);
+	}
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
