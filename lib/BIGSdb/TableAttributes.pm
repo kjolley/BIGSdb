@@ -2438,7 +2438,8 @@ sub get_validation_conditions_table_attributes {
 		{
 			name     => 'value',
 			type     => 'text',
-			required => 1
+			required => 1,
+			tooltip  => 'Enter either absolute value or [fieldname]'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
