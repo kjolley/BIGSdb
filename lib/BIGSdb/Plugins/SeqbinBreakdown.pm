@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
 my $logger = get_logger('BIGSdb.Plugins');
-use BIGSdb::Constants qw(SEQ_METHODS);
+use BIGSdb::Constants qw(SEQ_METHODS :interface);
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN => 100;
 use constant MAX_HTML_OUTPUT => 2000;
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#sequence-bin-breakdown",
-		version     => '1.4.3',
+		version     => '1.4.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -335,14 +335,15 @@ sub _print_table {
 	close $fh;
 	if ($header_displayed) {
 		say q(</tbody></table>);
-		say qq(<ul><li><a href="/tmp/$temp.txt">Download in tab-delimited text format</a></li>);
+		my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
+		print qq(<p><li><a href="/tmp/$temp.txt" title="Download in tab-delimited text format">$text_icon</a>);
 		my $excel_file =
 		  BIGSdb::Utils::text2excel( $text_file,
 			{ worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
 		if ( -e $excel_file ) {
-			say qq(<li><a href="/tmp/$temp.xlsx">Download in Excel format</a></li>);
+			say qq(<a href="/tmp/$temp.xlsx" title="Download in Excel format">$excel_icon</a>);
 		}
-		say q(</ul>);
+		say q(</p>);
 	} else {
 		say q(<p>There are no records with contigs matching your criteria.</p>);
 	}
