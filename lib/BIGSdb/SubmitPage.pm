@@ -50,9 +50,9 @@ sub get_submission_days {
 sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $max       = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
-	my $max_files = LIMIT;
-	my $tree_js   = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
+	my $max         = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
+	my $max_files   = LIMIT;
+	my $tree_js     = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $submit_type = q();
 	foreach my $type (qw(isolates genomes alleles profiles)) {
 		if ( $q->param($type) ) {
@@ -179,7 +179,7 @@ sub print_content {
 	$self->_delete_old_submissions;
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
-	my $show_curator_link = $self->can_modify_table('isolates');
+	my $show_curator_link = $user_info->{'status'} eq 'user' ? 0 : 1;
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
@@ -1991,7 +1991,9 @@ sub _print_message_fieldset {
 		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
 		$buffer .= q(</div><div style="float:right">Message: );
 		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => BUTTON_CLASS );
-		$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
+		if ( $submission->{'status'} ne 'started' ) {
+			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
+		}
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes locus submit view curate abort submission_id no_check );
