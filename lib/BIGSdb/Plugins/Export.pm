@@ -185,7 +185,7 @@ sub run {
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
-		my $selected_fields = $self->get_selected_fields2;
+		my $selected_fields = $self->get_selected_fields;
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {

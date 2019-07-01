@@ -101,7 +101,7 @@ sub run {
 		####################################
 		my $selected_isolates_fields = [];
 		my $selected_extended_fields = {};
-		my $selected_fields          = $self->get_selected_fields2;
+		my $selected_fields          = $self->get_selected_fields;
 		if ( !@$selected_fields ) {
 			push @error, q(You must at least select <strong>one isolate field!</strong>);
 		}

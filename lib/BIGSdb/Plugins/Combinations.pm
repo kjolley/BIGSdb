@@ -72,7 +72,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $selected_fields = $self->get_selected_fields2;
+	my $selected_fields = $self->get_selected_fields;
 	if ( !@$selected_fields ) {
 		$self->print_bad_status( { message => q(No fields have been selected!) } );
 		$self->_print_interface;

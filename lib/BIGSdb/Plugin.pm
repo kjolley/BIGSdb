@@ -464,7 +464,7 @@ sub get_allele_id_list {
 	return [];
 }
 
-sub get_selected_fields2 {
+sub get_selected_fields {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $fields     = [];
