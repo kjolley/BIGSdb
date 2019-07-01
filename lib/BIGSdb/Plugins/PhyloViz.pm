@@ -58,6 +58,7 @@ sub get_attributes {
 		order               => 36,
 		min                 => 2,
 		max                 => 10000,
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis.html#phyloviz",
 		always_show_in_menu => 1
 	);
 	return \%att;
