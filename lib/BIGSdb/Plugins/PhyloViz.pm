@@ -48,7 +48,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version             => '1.1.4',
+		version             => '1.2.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -99,24 +99,20 @@ sub run {
 
 		# Get the selected isolates field(s)
 		####################################
-		my $isolates_fields          = $self->{'xmlHandler'}->get_field_list;
 		my $selected_isolates_fields = [];
 		my $selected_extended_fields = {};
-		foreach my $field (@$isolates_fields) {
-			if ( $q->param("f_$field") ) {
-				push @$selected_isolates_fields, $field;
-			}
-		}
-		my $ext_att = $self->get_extended_attributes;
-		foreach my $field ( keys %$ext_att ) {
-			foreach my $ext_field ( @{ $ext_att->{$field} } ) {
-				if ( $q->param("f_${field}___$ext_field") ) {
-					push @{ $selected_extended_fields->{$field} }, $ext_field;
-				}
-			}
-		}
-		if ( !@$selected_isolates_fields ) {
+		my $selected_fields          = $self->get_selected_fields2;
+		if ( !@$selected_fields ) {
 			push @error, q(You must at least select <strong>one isolate field!</strong>);
+		}
+		foreach my $field (@$selected_fields) {
+			if ( $field =~ /^f_(.+)__(.+)$/x ) {
+				push @{ $selected_extended_fields->{$1} }, $2;
+				next;
+			}
+			if ( $field =~ /^f_(.+)$/x ) {
+				push @$selected_isolates_fields, $1;
+			}
 		}
 		my $selected_loci = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
@@ -225,10 +221,11 @@ sub _print_interface {
 	$self->_print_info_panel;
 	say q(<div class="box" id="queryform">);
 	my $max_isolates = BIGSdb::Utils::commify( $self->get_attributes->{'max'} );
-	say qq(<p>Analysis is limited to $max_isolates isolates.</p>);
+	say q(<p>Optionally select provenance fields to include in the dataset. This allows you to colour )
+	  . qq(nodes based on field values. Analysis is limited to $max_isolates isolates.</p>);
 	say $q->start_form;
 	$self->print_id_fieldset( { list => $isolate_ids } );
-	$self->print_isolates_fieldset( 1, { extended_attributes => 1 } );
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_aliases => 1, default => ['id'] } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_action_fieldset( { no_reset => 1 } );

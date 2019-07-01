@@ -316,76 +316,6 @@ sub _print_fields {
 	return;
 }
 
-#TODO Remove when no longer used. Only used by PhyloViz plugin now.
-sub print_isolates_fieldset {
-	my ( $self, $default_select, $options ) = @_;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $is_curator    = $self->is_curator;
-	my $fields        = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
-	my @display_fields;
-	my $extended = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
-	my ( @js, @js2, @isolate_js, @isolate_js2 );
-
-	foreach my $field (@$fields) {
-		push @display_fields, $field;
-		push @display_fields, 'aliases' if $field eq $self->{'system'}->{'labelfield'};
-		if ( $options->{'extended_attributes'} ) {
-			my $extatt = $extended->{$field};
-			if ( ref $extatt eq 'ARRAY' ) {
-				foreach my $extended_attribute (@$extatt) {
-					push @display_fields, "${field}___$extended_attribute";
-				}
-			}
-		}
-	}
-	push @isolate_js,  @js;
-	push @isolate_js2, @js2;
-	foreach my $field (@display_fields) {
-		( my $id = "f_$field" ) =~ tr/:/_/;
-		push @js,          qq(\$("#$id").prop("checked",true));
-		push @js2,         qq(\$("#$id").prop("checked",false));
-		push @isolate_js,  qq(\$("#$id").prop("checked",true));
-		push @isolate_js2, qq(\$("#$id").prop("checked",false));
-	}
-	say q(<fieldset style="float:left"><legend>Isolate fields</legend>);
-	$self->_print_fields(
-		{
-			fields         => \@display_fields,
-			prefix         => 'f',
-			num_columns    => 3,
-			labels         => {},
-			default_select => $default_select
-		}
-	);
-	$self->_print_all_none_buttons( \@isolate_js, \@isolate_js2, 'smallbutton' );
-	say q(</fieldset>);
-	if ( $options->{'include_composites'} ) {
-		my $composites =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT id FROM composite_fields ORDER BY id', undef, { fetch => 'col_arrayref' } );
-		if (@$composites) {
-			my ( @com_js, @com_js2 );
-			foreach (@$composites) {
-				push @js,      qq(\$("#c_$_").prop("checked",true));
-				push @js2,     qq(\$("#c_$_").prop("checked",false));
-				push @com_js,  qq(\$("#c_$_").prop("checked",true));
-				push @com_js2, qq(\$("#c_$_").prop("checked",false));
-			}
-			say q(<fieldset style="float:left"><legend>Composite fields);
-			say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
-				  . q(other fields (some of which may come from external databases). Including composite fields )
-				  . q(will slow down the processing.) );
-			say q(</legend>);
-			$self->_print_fields(
-				{ fields => $composites, prefix => 'c', num_columns => 1, labels => {}, default_select => 0 } );
-			$self->_print_all_none_buttons( \@com_js, \@com_js2, 'smallbutton' );
-			say q(</fieldset>);
-		}
-	}
-	return;
-}
-
 sub print_isolate_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $set_id         = $self->get_set_id;
@@ -400,7 +330,7 @@ sub print_isolate_fields_fieldset {
 		$label =~ s/^meta_.+://x;
 		$label =~ tr/_/ /;
 		$labels->{$field} = $label;
-		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+		if ( $field eq $self->{'system'}->{'labelfield'} && !$options->{'no_aliases'} ) {
 			push @$display_fields, 'aliases';
 		}
 		if ( $options->{'extended_attributes'} ) {
@@ -583,63 +513,6 @@ sub get_selected_fields2 {
 		}
 	}
 	return $fields;
-}
-
-#TODO Remove this when no longer used.
-sub get_selected_fields {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
-	my $extended      = $self->get_extended_attributes;
-	my @display_fields;
-	$self->escape_params;
-
-	foreach (@$fields) {
-		push @display_fields, $_;
-		push @display_fields, 'aliases' if $_ eq $self->{'system'}->{'labelfield'};
-		my $extatt = $extended->{$_};
-		if ( ref $extatt eq 'ARRAY' ) {
-			foreach my $extended_attribute (@$extatt) {
-				push @display_fields, "$_\_\_\_$extended_attribute";
-			}
-		}
-	}
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $composites =
-	  $self->{'datastore'}->run_query( 'SELECT id FROM composite_fields', undef, { fetch => 'col_arrayref' } );
-	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my @fields_selected;
-	foreach (@display_fields) {
-		push @fields_selected, "f_$_" if $q->param("f_$_");
-	}
-	foreach (@$composites) {
-		push @fields_selected, "c_$_" if $q->param("c_$_");
-	}
-	foreach (@$schemes) {
-		my $scheme_members = $self->{'datastore'}->get_scheme_loci($_);
-		foreach my $member (@$scheme_members) {
-			push @fields_selected, "s_$_\_l_$member"
-			  if $q->param("s_$_") && $q->param('scheme_members');
-		}
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($_);
-		foreach my $scheme_field (@$scheme_fields) {
-			push @fields_selected, "s_$_\_f_$scheme_field"
-			  if $q->param("s_$_") && $q->param('scheme_fields');
-		}
-	}
-	my $selected_loci = $self->get_selected_loci;
-	foreach my $locus (@$loci) {
-		push @fields_selected, "l_$locus" if any { $locus eq $_ } @$selected_loci;
-	}
-	if ( $q->param('classification_schemes') ) {
-		my @cschemes = $q->param('classification_schemes');
-		foreach my $cs (@cschemes) {
-			push @fields_selected, "cs_$cs";
-		}
-	}
-	return \@fields_selected;
 }
 
 sub check_id_list {
