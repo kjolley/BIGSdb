@@ -40,10 +40,10 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.1',
+		version     => '2.2.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#field-breakdown",
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
 		input       => 'query',
 		order       => 10
 	);

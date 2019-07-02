@@ -43,10 +43,10 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.8',
+		version     => '1.4.9',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#two-field-breakdown",
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
 		input       => 'query',
 		requires    => 'chartdirector',
 		order       => 12

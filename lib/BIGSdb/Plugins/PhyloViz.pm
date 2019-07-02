@@ -1,4 +1,5 @@
-#PhyloViz.pm - phylogenetic inference and data visualization for sequence based typing methods for BIGSdb
+#PhyloViz.pm - phylogenetic inference and data visualization for sequence 
+#based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
 #Copyright (c) 2016-2019, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr
@@ -48,7 +49,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version             => '1.2.0',
+		version             => '1.2.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -58,7 +59,7 @@ sub get_attributes {
 		order               => 36,
 		min                 => 2,
 		max                 => 10000,
-		url                 => "$self->{'config'}->{'doclink'}/data_analysis.html#phyloviz",
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
 		always_show_in_menu => 1
 	);
 	return \%att;
