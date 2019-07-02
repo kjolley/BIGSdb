@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.20',
+		version     => '2.3.21',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis.html#genome-comparator",
@@ -493,7 +493,7 @@ sub run_job {
 				catch {
 					$logger->debug($_);
 					my $error = q();
-					if ($_ =~ /(MSG.+)\n/x){
+					if ( $_ =~ /(MSG.+)\n/x ) {
 						$error = $1;
 					}
 					BIGSdb::Exception::Plugin->throw("Invalid data in uploaded reference FASTA file. $error");
@@ -1541,7 +1541,8 @@ sub _run_alignment {
 			$xmfa_buffer .= ">$names->{$identifier}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
 		}
 		$xmfa_buffer .= '=';
-		open( my $fh_xmfa, '>>:encoding(utf8)', $xmfa_out ) or $logger->error("Can't open output file $xmfa_out for appending");
+		open( my $fh_xmfa, '>>:encoding(utf8)', $xmfa_out )
+		  or $logger->error("Can't open output file $xmfa_out for appending");
 		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
 		close $fh_xmfa;
 		if ($core_locus) {
@@ -1551,7 +1552,8 @@ sub _run_alignment {
 			close $fh_core_xmfa;
 		}
 		$$xmfa_start_ref = $$xmfa_end_ref + 1;
-		open( my $align_fh, '>>:encoding(utf8)', $align_file ) || $logger->error("Can't open $align_file for appending");
+		open( my $align_fh, '>>:encoding(utf8)', $align_file )
+		  || $logger->error("Can't open $align_file for appending");
 		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
 		say $align_fh "$heading_locus";
 		say $align_fh '-' x ( length $heading_locus ) . "\n";
@@ -2163,6 +2165,7 @@ sub _assemble_data_for_reference_genome {
 	foreach my $cds_record (@$cds) {
 		my ( $locus_name, $full_name, $seq_ref, $start, $desc ) =
 		  $self->_extract_cds_details( $cds_record, $locus_num );
+		next if !defined $locus_name;
 		$locus_num++;
 		$locus_data->{$locus_name} =
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
