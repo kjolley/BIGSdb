@@ -349,7 +349,6 @@ sub update_job_status {
 	if ($@) {
 		$logger->logcarp($@);
 		local $" = q(;);
-		$logger->error("Values were: @values");
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,24 +23,45 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Constants qw(:interface BUTTON_CLASS RESET_BUTTON_CLASS);
 use List::MoreUtils qw(any);
+use Time::Duration;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
-sub _get_refresh_time {
-	my ( $self, $job ) = @_;
-	my $complete = $job->{'percent_complete'};
-	my $elapsed = $job->{'elapsed'} // 0;
-	return ( int( $elapsed / $complete ) || 1 ) * 5 if $complete > 0;
-	return 60 if $elapsed > 300;
-	return 20 if $elapsed > 120;
-	return 10 if $elapsed > 60;
-	return 5;    #update page frequently for the first minute
+sub _ajax {
+	my ( $self, $function, $job_id ) = @_;
+	my $job = $self->{'jobManager'}->get_job($job_id);
+	if ( $function eq 'status' ) {
+		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue( $job->{'id'} );
+		say encode_json(
+			{
+				status       => $job->{'status'},
+				progress     => $job->{'percent_complete'},
+				stage        => $job->{'stage'},
+				elapsed      => $job->{'elapsed'} // 0,
+				nice_elapsed => duration( $job->{'elapsed'} // 0 ),
+				jobs_ahead   => $jobs_in_queue
+			}
+		);
+		return;
+	}
+	if ( $function eq 'html' ) {
+		print $job->{'message_html'} // q();
+		return;
+	}
+	say 'Invalid function';
+	return;
 }
 
 sub initiate {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
+	if ( $q->param('ajax') ) {
+		$self->{'noCache'} = 1;
+		$self->{'type'}    = 'no_header';
+		return;
+	}
 	if ( ( $q->param('output') // '' ) eq 'archive' ) {
 		$self->{'type'}       = 'tar';
 		$self->{'attachment'} = "$id.tar";
@@ -53,14 +74,6 @@ sub initiate {
 	my $job = $self->{'jobManager'}->get_job($id);
 	return if !$job->{'status'};
 	return if any { $job->{'status'} =~ /^$_/x } qw (finished failed terminated cancelled rejected);
-	if ( $job->{'status'} eq 'started' ) {
-		$self->{'refresh'} = $self->_get_refresh_time($job);
-	} else {
-		$self->{'refresh'} = 5;    #not started
-	}
-	if ( $q->param('cancel') ) {
-		$self->{'refresh'} = 1;
-	}
 	return;
 }
 
@@ -69,8 +82,9 @@ sub get_javascript {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	$id //= 'null';
-	my $job = $self->{'jobManager'}->get_job($id);
-	my $percent = $job->{'percent_complete'} // 0;
+	my $job        = $self->{'jobManager'}->get_job($id);
+	my $percent    = $job->{'percent_complete'} // 0;
+	my $reload_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=$id";
 	if ( $percent == -1 ) {
 		my $buffer = << "END";
 \$(function () {
@@ -88,18 +102,104 @@ END
 		.children('.ui-progressbar-value')
     	.html($percent + '%')
     	.css("display", "block");
-    \$("#sortTable").tablesorter({widgets:['zebra']}); 
-    \$("#email").change(function(){
+    \$("#sortTable").tablesorter({widgets:['zebra']});
+    \$("#email").on('input',function(){
     	\$("#enable_notifications").prop('checked',true);
     });
-    \$("#title").change(function(){
+    \$("#title").on('input',function(){
     	\$("#enable_notifications").prop('checked',true);
     });
-    \$("#description").change(function(){
+    \$("#description").on('input',function(){
     	\$("#enable_notifications").prop('checked',true);
     });
     \$(".grid").packery();
+    
+    var complete = 0;
+    get_status(5000);
 });
+
+function get_status(poll_time){
+	var status_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=$id&ajax=status";
+	var html_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=$id&ajax=html";
+	var complete = 0;
+	if (\$("#status").html() == 'finished'){
+		\$(".elapsed").css('display','block');
+		return;
+	}
+	\$.ajax({
+		url: status_url,
+		dataType: 'json',
+		cache: false,
+		success: function (json) {
+			var status = json.status;
+			if (status == 'submitted'){
+				if (json.jobs_ahead) {
+					var plural = json.jobs_ahead == 1 ? '' : 's';
+					status += ' (' + json.jobs_ahead + ' unstarted job' + plural + ' ahead in queue)';
+				} else {
+					status += ' (first in queue)';
+				}
+			} else if (status == 'started') {
+				var nice_elapsed = json.nice_elapsed;
+	 			if (nice_elapsed == 'just now'){
+	 				nice_elapsed = '< 1 second';
+	 			}
+	 			\$("#elapsed").html(nice_elapsed);
+	 			\$(".elapsed").css('display','block');
+			}
+			if (json.status == 'finished'){				 
+				window.location.href = "$reload_url";							
+			}
+			\$("dd#status").html(status);
+			\$("#progressbar")
+				.progressbar({value: json.progress})
+				.children('.ui-progressbar-value')
+  			  	.html(json.progress + '%')
+  			  	.css("display", "block");
+  			\$("#footer_progress").html(json.progress);
+  			var stage = json.stage == null ? '': json.stage;
+  			\$(".stage").css('display',json.stage == null ? 'none' : 'block');
+ 			\$("dd#stage").html(stage);
+ 			\$("#footer_stage").html(stage);
+ 			
+
+			if (json.status != 'started' && json.status != 'submitted'){
+				complete = 1;
+			} else {
+				setTimeout(function() { 
+					poll_time = get_poll_time(json.elapsed)
+		        	get_status(poll_time);
+		        }, poll_time);	
+			}
+			if (json.status == 'started'){
+				\$("#footer_values").css('display','block');
+			} 
+			if (json.status != 'submitted'){
+				\$.ajax({
+					url: html_url,
+					cache: false,
+					success: function (html) {
+						if (html !== ''){
+							\$("div#resultstable").addClass('box');
+							\$("div#resultstable").html('<h2>Output</h2>' + html);
+							var focused = document.activeElement.id;
+							if (focused != 'email' && focused != 'title' && focused != 'description'){
+								\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });
+							}	
+						}
+					}
+				});
+			}
+		}
+	});   	
+}
+
+function get_poll_time (elapsed){
+	if (elapsed > 300) {return 60000}
+	if (elapsed > 120) {return 20000};
+	if (elapsed > 60) {return 10000};
+	return 5000;	
+}
 END
 	return $buffer;
 }
@@ -129,31 +229,27 @@ sub _print_status {
 	say q(<dl class="data">);
 	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
 	say qq(<dt>Submit time</dt><dd>$submit_time</dd>);
-	say qq(<dt>Status</dt><dd>$job->{'status'}</dd>);
+	say qq(<dt>Status</dt><dd id="status">$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
-	say qq(<dt>Progress</dt><dd><noscript>$job->{'percent_complete'}%</noscript>)
+	say qq(<dt>Progress</dt><dd id="progress"><noscript>$job->{'percent_complete'}%</noscript>)
 	  . q(<div id="progressbar" style="width:18em;height:1.2em"></div></dd>);
-	say qq(<dt>Stage</dt><dd>$job->{'stage'}</dd>) if $job->{'stage'};
-	say qq(<dt>Stop time</dt><dd>$stop_time</dd>)  if $stop_time;
+	my $stage_display = $job->{'stage'} ? 'block' : 'none';
+	$job->{'stage'} //= q();
+	say q(<dt style="display:none" class="stage">Stage</dt>)
+	  . qq(<dd style="display:none" id="stage" class="stage">$job->{'stage'}</dd>);
+	say qq(<dt>Stop time</dt><dd>$stop_time</dd>) if $stop_time;
 	my ( $field, $value );
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
 
-	if ($@) {
-		if ( $job->{'total_time'} ) {
-			( $field, $value ) = ( 'Total time', int( $job->{'total_time'} ) . q( s) );
-		} elsif ( $job->{'elapsed'} ) {
-			( $field, $value ) = ( 'Elapsed time', int( $job->{'elapsed'} ) . q( s) );
-		}
+	if ( $job->{'total_time'} ) {
+		( $field, $value ) = ( 'Total time', duration( $job->{'total_time'} ) );
+		$value = '<1 second' if $value eq 'just now';
 	} else {
-		if ( $job->{'total_time'} ) {
-			( $field, $value ) = ( 'Total time', duration( $job->{'total_time'} ) );
-			$value = '<1 second' if $value eq 'just now';
-		} elsif ( $job->{'elapsed'} ) {
-			( $field, $value ) = ( 'Elapsed time', duration( $job->{'elapsed'} ) );
-			$value = '<1 second' if $value eq 'just now';
-		}
+		( $field, $value ) = ( 'Elapsed time', duration( $job->{'elapsed'} ) );
+		$value = '<1 second' if $value eq 'just now';
 	}
-	say qq(<dt>$field</dt><dd>$value</dd>) if $value;
+	say qq(<dt class="elapsed" style="display:none">$field</dt>)
+	  . qq(<dd class="elapsed" style="display:none" id="elapsed">$value</dd>);
+	;
 	say q(</dl>);
 	say q(</div>);
 	$self->_print_notification_form($job);
@@ -239,6 +335,10 @@ sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
+	if ( $q->param('ajax') ) {
+		$self->_ajax( $q->param('ajax'), $id );
+		return;
+	}
 	if ( ( $q->param('output') // '' ) eq 'archive' ) {
 		$self->_tar_archive($id);
 		return;
@@ -261,12 +361,14 @@ sub print_content {
 	$self->_print_status($job);
 	$self->_print_output($job);
 	say q(<div class="box" id="resultsfooter">);
-	if ( $job->{'status'} eq 'started' ) {
-		say qq(<p>Progress: $job->{'percent_complete'}%);
-		say qq(<br />Stage: $job->{'stage'}) if $job->{'stage'};
-		say q(</p>);
-	}
-	$self->_print_cancel_button($job) if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
+	say q(<p id="footer_values" style="display:none">)
+	  . qq(Progress: <span id="footer_progress">$job->{'percent_complete'}</span>%);
+	say q(<br />)
+	  . qq(<span class="stage" style="display:none">Stage: <span id="footer_stage">$job->{'stage'}</span></span>);
+	say q(</p>);
+	$self->_print_cancel_button($job)
+	  if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
+
 	if ( $self->{'refresh'} ) {
 		my $refresh = $self->_get_nice_refresh_time($job);
 		say qq(<p>This page will reload in $refresh. You can refresh it any time, )
@@ -284,13 +386,15 @@ sub print_content {
 sub _print_output {
 	my ( $self, $job ) = @_;
 	my $output = $self->{'jobManager'}->get_job_output( $job->{'id'} );
-	return if !( $job->{'message_html'} || ref $output eq 'HASH' );
+	if ( !( $job->{'message_html'} || ref $output eq 'HASH' ) ) {
+		say q(<div id="resultstable"></div>);
+		return;
+	}
 	say q(<div class="box" id="resultstable">);
 	say q(<h2>Output</h2>);
 	say $job->{'message_html'} if $job->{'message_html'};
 	my @buffer;
 	my $include_in_tar = 0;
-
 	foreach my $description ( sort keys(%$output) ) {
 		my ( $link_text, $comments ) = split /\|/x, $description;
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
