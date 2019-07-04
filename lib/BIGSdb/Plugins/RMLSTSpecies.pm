@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.3',
+		version     => '1.2.4',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -74,9 +74,15 @@ sub run {
 		my $message_html;
 		if (@$invalid_ids) {
 			local $" = ', ';
-			my $error =
-			    q(<p>The following isolates in your pasted list are invalid - they either do not exist or )
+			my $error = q(<p>);
+			if (@$invalid_ids <= 10){
+			$error .=
+			    q(The following isolates in your pasted list are invalid - they either do not exist or )
 			  . qq(do not have sequence data available: @$invalid_ids.);
+			} else {
+				$error .=  @$invalid_ids . q( isolates are invalid - they either do not exist or )
+				. q(do not have sequence data available.);
+			}
 			if (@ids) {
 				$error .= q( These have been removed from the analysis.</p>);
 				$message_html = $error;
