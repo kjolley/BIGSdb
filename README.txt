@@ -2,6 +2,9 @@ v1.23.0: *Automated password reset for site-wide accounts.
          *Support for grouping sparse fields by different category.
          *Validation rules to constrain field values based on value of other
           fields.
+         *Asynchronous update of job viewer page.
+         *Please note that the, previously optional, Perl module Time::Duration
+          is now required.
 v1.22.5: *Allow users to reset site passwords if they know username and E-mail.
          *Faster search for null allele designations.
          *Drag-and-drop file upload for submissions.
