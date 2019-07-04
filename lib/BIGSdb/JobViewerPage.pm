@@ -146,6 +146,8 @@ function get_status(poll_time){
 	 			}
 	 			\$("#elapsed").html(nice_elapsed);
 	 			\$(".elapsed").css('display','block');
+			} else if (status == 'cancelled'){
+				\$("div#cancel_refresh").css('display','none');
 			}
 			if (json.status == 'finished'){				 
 				window.location.href = "$reload_url";							
@@ -353,11 +355,13 @@ sub print_content {
 	say q(<br />)
 	  . qq(<span class="stage" style="display:none">Stage: <span id="footer_stage">$job->{'stage'}</span></span>);
 	say q(</p>);
-	$self->_print_cancel_button($job)
-	  if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
-	say q(<p>This page will periodically refresh. You can manually refresh it any time, )
-	  . q(or bookmark it and close your browser if you wish.</p>);
-
+	if ( $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x ) {
+		say q(<div id="cancel_refresh">);
+		$self->_print_cancel_button($job);
+		say q(<p>This page will periodically refresh. You can manually refresh it any time, )
+		  . q(or bookmark it and close your browser if you wish.</p>);
+		say q(</div>);
+	}
 	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		say q(<p>Please note that job results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
@@ -450,8 +454,7 @@ sub _print_cancel_button {
 	my $button_class = RESET_BUTTON_CLASS;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
 	  . qq(id=$job->{'id'}&amp;cancel=1" class="$button_class ui-button-text-only ">)
-	  . q(<span class="ui-button-text">Cancel job!</span></a> Clicking this will request that the )
-	  . q(job is cancelled.</p>);
+	  . q(<span class="ui-button-text">Cancel job!</span></a></p>);
 	return;
 }
 
