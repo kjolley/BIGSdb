@@ -249,7 +249,6 @@ sub _print_status {
 	}
 	say qq(<dt class="elapsed" style="display:none">$field</dt>)
 	  . qq(<dd class="elapsed" style="display:none" id="elapsed">$value</dd>);
-	;
 	say q(</dl>);
 	say q(</div>);
 	$self->_print_notification_form($job);
@@ -319,18 +318,6 @@ sub _update_notifications {
 	return;
 }
 
-sub _get_nice_refresh_time {
-	my ( $self, $job ) = @_;
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
-	my $refresh;
-	if ($@) {
-		$refresh = $self->{'refresh'} . ' seconds';
-	} else {
-		$refresh = duration( $self->{'refresh'} );
-	}
-	return $refresh;
-}
-
 sub print_content {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -368,12 +355,9 @@ sub print_content {
 	say q(</p>);
 	$self->_print_cancel_button($job)
 	  if $job->{'status'} eq 'started' || $job->{'status'} =~ /^submitted/x;
+	say q(<p>This page will periodically refresh. You can manually refresh it any time, )
+	  . q(or bookmark it and close your browser if you wish.</p>);
 
-	if ( $self->{'refresh'} ) {
-		my $refresh = $self->_get_nice_refresh_time($job);
-		say qq(<p>This page will reload in $refresh. You can refresh it any time, )
-		  . q(or bookmark it and close your browser if you wish.</p>);
-	}
 	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'results_deleted_days'} ) ) {
 		say q(<p>Please note that job results will remain on the server for )
 		  . qq($self->{'config'}->{'results_deleted_days'} days.</p></div>);
