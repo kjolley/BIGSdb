@@ -95,6 +95,7 @@ END
 		return $buffer;
 	}
 	my $buffer = << "END";
+var last_html = '';
 \$(function () {
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
 	\$("#progressbar")
@@ -163,8 +164,7 @@ function get_status(poll_time){
   			\$(".stage").css('display',json.stage == null ? 'none' : 'block');
  			\$("dd#stage").html(stage);
  			\$("#footer_stage").html(stage);
- 			
-
+ 
 			if (json.status != 'started' && json.status != 'submitted'){
 				complete = 1;
 			} else {
@@ -183,11 +183,14 @@ function get_status(poll_time){
 					success: function (html) {
 						if (html !== ''){
 							\$("div#resultstable").addClass('box');
-							\$("div#resultstable").html('<h2>Output</h2>' + html);
-							var focused = document.activeElement.id;
-							if (focused != 'email' && focused != 'title' && focused != 'description'){
-								\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });
-							}	
+							if (last_html != html){
+								\$("div#resultstable").html('<h2>Output</h2>' + html);
+								var focused = document.activeElement.id;
+								if (focused != 'email' && focused != 'title' && focused != 'description'){
+									\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });
+								}	
+							}
+							last_html = html;
 						}
 					}
 				});
