@@ -219,7 +219,8 @@ sub _populate_kiosk_params {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	foreach my $param (qw(locus simple no_upload no_genbank)) {
-		$q->param( $param => $self->{'system'}->{"kiosk_$param"} ) if $self->{'system'}->{"kiosk_$param"};
+		$q->param( $param => $self->{'system'}->{"kiosk_$param"} eq 'yes' ? 1 : 0 )
+		  if $self->{'system'}->{"kiosk_$param"};
 	}
 	return;
 }
