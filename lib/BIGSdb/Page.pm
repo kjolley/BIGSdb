@@ -456,7 +456,9 @@ sub print_page_content {
 			html      => 'text/html',
 			png       => 'image/png',
 			jpg       => 'image/jpeg',
-			gif       => 'image/gif'
+			gif       => 'image/gif',
+			pdf       => 'application/pdf',
+			docx      => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 		);
 		my %attachment =
 		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
