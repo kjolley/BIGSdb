@@ -45,13 +45,14 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.1',
+		version     => '1.0.2',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'PCR',
 		requires    => 'seqbin,ipcress',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/pcr.html",
 		order       => 45,
 		priority    => 0
 	);
@@ -249,9 +250,10 @@ sub _validate {
 		my $mismatch2 = BIGSdb::Utils::is_int( $q->param('mismatch2') ) ? $q->param('mismatch2') : 0;
 		if ( 100 * ( $mismatch2 + $primer2_wobble ) / length($primer2) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
-			  'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '
+			    'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '
 			  . 'can be no more than '
-			  . MAX_MISMATCH_PERCENT . '% of the length of the primer.';
+			  . MAX_MISMATCH_PERCENT
+			  . '% of the length of the primer.';
 		}
 	}
 	if ( length($primer2) < MIN_PRIMER_LENGTH ) {
