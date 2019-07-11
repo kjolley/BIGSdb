@@ -1584,8 +1584,10 @@ sub _print_record_field {
 			$value = $self->clean_locus($value);
 		} else {
 			$value =~ s/&/&amp;/gx;
-			$value =~ s/>/&gt;/gx;
-			$value =~ s/</&lt;/gx;
+			if ( $table !~ /history/x ) {
+				$value =~ s/>/&gt;/gx;
+				$value =~ s/</&lt;/gx;
+			}
 		}
 		print $field eq 'action' ? qq(<td style="text-align:left">$value</td>) : qq(<td>$value</td>);
 	}
